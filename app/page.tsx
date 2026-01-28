@@ -204,10 +204,10 @@ export default function Home() {
         href="https://www.crafterstation.com"
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-8 left-8 flex items-center gap-2 text-white/20 hover:text-white/40 transition-colors"
+        className="absolute bottom-6 left-6 flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all z-20"
       >
-        <CrafterStationLogo className="size-4 text-[#FFD500]" />
-        <span className="font-mono text-[10px] tracking-widest">CRAFTER STATION</span>
+        <CrafterStationLogo className="size-5 text-[#FFD500]" />
+        <span className="font-mono text-xs tracking-wide text-white/70">Crafter Station</span>
       </a>
       <div className="absolute bottom-8 right-8 font-mono text-[10px] tracking-widest text-white/20">
         AI-POWERED
