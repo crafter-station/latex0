@@ -413,36 +413,37 @@
 
 /* Remote Cursor Styles */
 .remote-cursor-line-highlight {
-  background-color: rgba(255, 255, 255, 0.02) !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.remote-cursor-container {
+  position: relative;
+  pointer-events: none;
+  z-index: 1000;
 }
 
 .remote-cursor-bar {
-  position: absolute;
   width: 2px;
-  height: 19px;
-  min-height: 19px;
-  margin-left: 0;
-  pointer-events: none;
-  z-index: 1000;
-  animation: cursor-blink 1.2s ease-in-out infinite;
+  height: 20px;
+  border-radius: 1px;
+  animation: cursor-pulse 1s ease-in-out infinite;
 }
 
-@keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes cursor-pulse {
+  0%, 100% { opacity: 1; transform: scaleY(1); }
+  50% { opacity: 0.7; transform: scaleY(0.95); }
 }
 
 .remote-cursor-label {
   position: absolute;
-  z-index: 1001;
+  top: -18px;
+  left: 0;
   padding: 2px 6px;
   font-size: 10px;
   font-weight: 600;
   font-family: var(--font-sans);
-  border-radius: 3px;
+  border-radius: 3px 3px 3px 0;
   white-space: nowrap;
-  pointer-events: none;
-  margin-top: -18px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   letter-spacing: 0.02em;
 }

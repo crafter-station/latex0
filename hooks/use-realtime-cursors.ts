@@ -88,8 +88,13 @@ export function useRealtimeCursors(
 
     channel
       .on("broadcast", { event: "cursor" }, ({ payload }: { payload: CursorBroadcastPayload }) => {
-        if (payload.odId === localUser.odId) return
+        console.log("[Realtime] Received cursor event:", payload)
+        if (payload.odId === localUser.odId) {
+          console.log("[Realtime] Ignoring own cursor")
+          return
+        }
 
+        console.log("[Realtime] Adding cursor for", payload.odName, "fileId:", payload.fileId)
         setCursors((prev) => {
           const next = new Map(prev)
           next.set(payload.odId, {
@@ -228,9 +233,15 @@ export function useRealtimeCursors(
   )
 
   // Filter cursors to only show those in the current file
-  const fileCursors = Array.from(cursors.values()).filter(
+  const allCursorsArray = Array.from(cursors.values())
+  const fileCursors = allCursorsArray.filter(
     (cursor) => cursor.fileId === fileId
   )
+
+  // Debug logging
+  if (allCursorsArray.length > 0) {
+    console.log("[Realtime] All cursors:", allCursorsArray.length, "Filtered for fileId", fileId, ":", fileCursors.length)
+  }
 
   // Cleanup throttle timeouts on unmount
   useEffect(() => {
