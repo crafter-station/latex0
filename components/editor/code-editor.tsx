@@ -317,25 +317,21 @@ export function CodeEditor() {
       document.head.appendChild(cursorStylesRef.current)
     }
 
-    // Generate CSS for each cursor
+    // Generate CSS for each cursor using beforeContentClassName
     const cssRules = cursors.map((cursor) => {
       const safeId = cursor.odId.replace(/[^a-zA-Z0-9]/g, "")
       return `
-        .cursor-${safeId}::before {
-          content: "";
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 2px;
-          height: 100%;
-          background-color: ${cursor.odColor};
-          box-shadow: 0 0 4px ${cursor.odColor};
-          animation: cursor-pulse 1s ease-in-out infinite;
+        .remote-cursor-${safeId} {
+          position: relative;
+          border-left: 2px solid ${cursor.odColor};
+          margin-left: -1px;
+          box-shadow: 0 0 6px ${cursor.odColor};
+          animation: cursor-blink 1s ease-in-out infinite;
         }
-        .cursor-${safeId}::after {
+        .remote-cursor-${safeId}::after {
           content: "${cursor.odName}";
           position: absolute;
-          left: 0;
+          left: -1px;
           top: -18px;
           padding: 2px 6px;
           font-size: 10px;
@@ -347,9 +343,14 @@ export function CodeEditor() {
           white-space: nowrap;
           box-shadow: 0 2px 4px rgba(0,0,0,0.4);
           z-index: 1000;
+          pointer-events: none;
         }
         .cursor-line-${safeId} {
           background-color: ${cursor.odColor}15 !important;
+        }
+        @keyframes cursor-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
         }
       `
     }).join("\n")
@@ -381,11 +382,11 @@ export function CodeEditor() {
 
       console.log("[Cursor] Rendering cursor for", cursor.odName, "at line", position.line, "col", position.column)
 
-      // Cursor decoration with ::before and ::after pseudo-elements
+      // Use beforeContentClassName to insert a visible caret element
       decorations.push({
-        range: new monaco.Range(position.line, position.column, position.line, position.column),
+        range: new monaco.Range(position.line, position.column, position.line, position.column + 1),
         options: {
-          className: `cursor-${safeId}`,
+          beforeContentClassName: `remote-cursor-${safeId}`,
           stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
           overviewRuler: {
             color: odColor,
