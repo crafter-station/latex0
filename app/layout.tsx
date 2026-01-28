@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://latex0.com"),
+  metadataBase: new URL("https://latex0.crafter.run"),
   title: "LATEX0 - The Future of Typesetting",
   description: "An AI-powered LaTeX editor for the modern era. Researchers deserve open source tools.",
   keywords: ["LaTeX", "editor", "AI", "typesetting", "research", "academic", "open source"],
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "LATEX0",
     description: "An AI-powered LaTeX editor for the modern era. Write. Compile. Ship.",
-    url: "https://latex0.com",
+    url: "https://latex0.crafter.run",
     siteName: "LATEX0",
     images: [
       {
