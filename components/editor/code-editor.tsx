@@ -340,8 +340,8 @@ export function CodeEditor() {
       // Create cursor bar widget (colored vertical line)
       const cursorBarNode = document.createElement("div")
       cursorBarNode.className = "remote-cursor-bar"
-      cursorBarNode.style.borderLeftColor = odColor
       cursorBarNode.style.backgroundColor = odColor
+      cursorBarNode.style.boxShadow = `0 0 4px ${odColor}, 0 0 8px ${odColor}`
 
       const cursorBarId = `remote-cursor-bar-${odId}`
       const cursorBarWidget: editor.IContentWidget = {
@@ -351,7 +351,7 @@ export function CodeEditor() {
           position: { lineNumber: position.line, column: position.column },
           preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
         }),
-        allowEditorOverflow: false,
+        allowEditorOverflow: true,
       }
 
       editor.addContentWidget(cursorBarWidget)

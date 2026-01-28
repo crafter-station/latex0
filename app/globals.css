@@ -417,21 +417,24 @@
 }
 
 .remote-cursor-bar {
+  position: absolute;
   width: 2px;
-  height: 18px;
-  margin-left: -1px;
+  height: 19px;
+  min-height: 19px;
+  margin-left: 0;
   pointer-events: none;
-  animation: cursor-blink 1s ease-in-out infinite;
+  z-index: 1000;
+  animation: cursor-blink 1.2s ease-in-out infinite;
 }
 
 @keyframes cursor-blink {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.5; }
 }
 
 .remote-cursor-label {
-  position: relative;
-  z-index: 100;
+  position: absolute;
+  z-index: 1001;
   padding: 2px 6px;
   font-size: 10px;
   font-weight: 600;
@@ -439,7 +442,7 @@
   border-radius: 3px;
   white-space: nowrap;
   pointer-events: none;
-  transform: translateY(-100%);
+  margin-top: -18px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
   letter-spacing: 0.02em;
 }
