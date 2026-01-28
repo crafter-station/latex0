@@ -130,8 +130,8 @@ export const latexTokensProvider: languages.IMonarchLanguage = {
 
       // Commands with arguments
       [
-        /\\(documentclass|usepackage|begin|end|input|include|bibliographystyle|bibliography)(\s*\[)?/,
-        ["keyword", "delimiter.square"],
+        /\\(documentclass|usepackage|begin|end|input|include|bibliographystyle|bibliography)\b/,
+        "keyword",
       ],
 
       // Section commands
