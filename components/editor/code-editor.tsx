@@ -9,6 +9,7 @@ import { useRealtimeCursors } from "@/hooks/use-realtime-cursors"
 import { latexLanguageConfig, latexTokensProvider } from "./latex-language"
 import { latexDarkTheme } from "./latex-theme"
 import { PresenceIndicator } from "./presence-indicator"
+import { CursorOverlay } from "./cursor-overlay"
 
 interface DiffHunk {
   oldLines: string[]
@@ -437,6 +438,11 @@ export function CodeEditor() {
           localUser={localUser}
         />
       </div>
+      {/* Remote cursors overlay */}
+      <CursorOverlay
+        cursors={cursors}
+        editor={editorRef.current}
+      />
       <Editor
       height="100%"
       language="latex"
