@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { GithubBadge } from "@/components/github-badge"
+import { CrafterStationLogo } from "@/components/logos/crafter-station"
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -195,12 +197,18 @@ export default function Home() {
       <div className="absolute left-8 top-8 font-mono text-[10px] tracking-widest text-white/20">
         v0.1.0
       </div>
-      <div className="absolute right-8 top-8 font-mono text-[10px] tracking-widest text-white/20">
-        2026
+      <div className="absolute right-8 top-8 z-20">
+        <GithubBadge />
       </div>
-      <div className="absolute bottom-8 left-8 font-mono text-[10px] tracking-widest text-white/20">
-        CRAFTER STATION
-      </div>
+      <a
+        href="https://www.crafterstation.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-8 left-8 flex items-center gap-2 text-white/20 hover:text-white/40 transition-colors"
+      >
+        <CrafterStationLogo className="size-4 text-[#FFD500]" />
+        <span className="font-mono text-[10px] tracking-widest">CRAFTER STATION</span>
+      </a>
       <div className="absolute bottom-8 right-8 font-mono text-[10px] tracking-widest text-white/20">
         AI-POWERED
       </div>
