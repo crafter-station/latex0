@@ -83,7 +83,7 @@ export function CodeEditor() {
   )
 
   // Realtime cursors and content sync
-  const { cursors, broadcastPosition, broadcastContent, isApplyingRemote, localUser } = useRealtimeCursors(
+  const { cursors, onlineUsers, broadcastPosition, broadcastContent, isApplyingRemote, localUser } = useRealtimeCursors(
     "latex0-playground",
     activeTabId || "default",
     handleRemoteContentChange
@@ -434,7 +434,7 @@ export function CodeEditor() {
       {/* Presence indicator */}
       <div className="absolute top-2 right-2 z-50">
         <PresenceIndicator
-          users={cursors}
+          users={onlineUsers}
           localUser={localUser}
         />
       </div>

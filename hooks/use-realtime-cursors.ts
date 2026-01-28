@@ -18,6 +18,12 @@ export interface CursorState {
   fileId: string
 }
 
+export interface OnlineUser {
+  odId: string
+  odName: string
+  odColor: string
+}
+
 interface CursorBroadcastPayload {
   odId: string
   odName: string
@@ -33,6 +39,13 @@ interface ContentBroadcastPayload {
   timestamp: number
 }
 
+interface PresenceState {
+  odId: string
+  odName: string
+  odColor: string
+  online_at: string
+}
+
 const CURSOR_THROTTLE_MS = 50
 const CONTENT_THROTTLE_MS = 150
 
@@ -42,6 +55,7 @@ export function useRealtimeCursors(
   onRemoteContentChange?: (fileId: string, content: string) => void
 ) {
   const [cursors, setCursors] = useState<Map<string, CursorState>>(new Map())
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
   const [localUser, setLocalUser] = useState<{
     odId: string
     odName: string
@@ -74,7 +88,7 @@ export function useRealtimeCursors(
     initUser()
   }, [])
 
-  // Subscribe to realtime channel
+  // Subscribe to realtime channel with Presence
   useEffect(() => {
     if (!localUser) return
 
@@ -83,62 +97,96 @@ export function useRealtimeCursors(
         broadcast: {
           self: false,
         },
+        presence: {
+          key: localUser.odId,
+        },
       },
     })
 
-    channel
-      .on("broadcast", { event: "cursor" }, ({ payload }: { payload: CursorBroadcastPayload }) => {
-        console.log("[Realtime] Received cursor event:", payload)
-        if (payload.odId === localUser.odId) {
-          console.log("[Realtime] Ignoring own cursor")
-          return
-        }
+    // Handle presence sync - when we first connect, get all online users
+    channel.on("presence", { event: "sync" }, () => {
+      const state = channel.presenceState()
+      console.log("[Presence] Sync - current state:", state)
 
-        console.log("[Realtime] Adding cursor for", payload.odName, "fileId:", payload.fileId)
-        setCursors((prev) => {
-          const next = new Map(prev)
-          next.set(payload.odId, {
-            odId: payload.odId,
-            odName: payload.odName,
-            odColor: payload.odColor,
-            position: payload.position,
-            fileId: payload.fileId,
+      const users: OnlineUser[] = []
+      for (const [, presences] of Object.entries(state)) {
+        const presence = (presences as unknown as PresenceState[])[0]
+        if (presence?.odId && presence.odId !== localUser.odId) {
+          users.push({
+            odId: presence.odId,
+            odName: presence.odName,
+            odColor: presence.odColor,
           })
-          return next
-        })
-      })
-      .on("broadcast", { event: "content" }, ({ payload }: { payload: ContentBroadcastPayload }) => {
-        if (payload.odId === localUser.odId) return
-
-        // Apply remote content change
-        if (onRemoteContentChange) {
-          isApplyingRemoteRef.current = true
-          onRemoteContentChange(payload.fileId, payload.content)
-          // Reset flag after a short delay to allow state to settle
-          setTimeout(() => {
-            isApplyingRemoteRef.current = false
-          }, 50)
         }
+      }
+      console.log("[Presence] Online users (excluding self):", users.length)
+      setOnlineUsers(users)
+    })
+
+    // Handle presence join
+    channel.on("presence", { event: "join" }, ({ key, newPresences }) => {
+      console.log("[Presence] User joined:", key, newPresences)
+    })
+
+    // Handle presence leave
+    channel.on("presence", { event: "leave" }, ({ key, leftPresences }) => {
+      console.log("[Presence] User left:", key, leftPresences)
+      // Also remove their cursor
+      setCursors((prev) => {
+        const next = new Map(prev)
+        next.delete(key)
+        return next
       })
-      .on("broadcast", { event: "leave" }, ({ payload }: { payload: { odId: string } }) => {
-        setCursors((prev) => {
-          const next = new Map(prev)
-          next.delete(payload.odId)
-          return next
+    })
+
+    // Handle cursor broadcasts
+    channel.on("broadcast", { event: "cursor" }, ({ payload }: { payload: CursorBroadcastPayload }) => {
+      console.log("[Broadcast] Received cursor:", payload.odName, "at line", payload.position.line)
+      if (payload.odId === localUser.odId) return
+
+      setCursors((prev) => {
+        const next = new Map(prev)
+        next.set(payload.odId, {
+          odId: payload.odId,
+          odName: payload.odName,
+          odColor: payload.odColor,
+          position: payload.position,
+          fileId: payload.fileId,
         })
+        return next
       })
-      .subscribe()
+    })
+
+    // Handle content broadcasts
+    channel.on("broadcast", { event: "content" }, ({ payload }: { payload: ContentBroadcastPayload }) => {
+      if (payload.odId === localUser.odId) return
+
+      if (onRemoteContentChange) {
+        isApplyingRemoteRef.current = true
+        onRemoteContentChange(payload.fileId, payload.content)
+        setTimeout(() => {
+          isApplyingRemoteRef.current = false
+        }, 50)
+      }
+    })
+
+    // Subscribe and track presence
+    channel.subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        console.log("[Channel] Subscribed, tracking presence...")
+        await channel.track({
+          odId: localUser.odId,
+          odName: localUser.odName,
+          odColor: localUser.odColor,
+          online_at: new Date().toISOString(),
+        })
+      }
+    })
 
     channelRef.current = channel
 
     return () => {
-      if (channelRef.current && localUser) {
-        channelRef.current.send({
-          type: "broadcast",
-          event: "leave",
-          payload: { odId: localUser.odId },
-        })
-      }
+      console.log("[Channel] Unsubscribing...")
       channel.unsubscribe()
       channelRef.current = null
     }
@@ -238,11 +286,6 @@ export function useRealtimeCursors(
     (cursor) => cursor.fileId === fileId
   )
 
-  // Debug logging
-  if (allCursorsArray.length > 0) {
-    console.log("[Realtime] All cursors:", allCursorsArray.length, "Filtered for fileId", fileId, ":", fileCursors.length)
-  }
-
   // Cleanup throttle timeouts on unmount
   useEffect(() => {
     return () => {
@@ -257,6 +300,7 @@ export function useRealtimeCursors(
 
   return {
     cursors: fileCursors,
+    onlineUsers,
     broadcastPosition,
     broadcastContent,
     localUser,
