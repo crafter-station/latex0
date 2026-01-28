@@ -412,36 +412,34 @@
 }
 
 /* Remote Cursor Styles */
-.remote-cursor {
-  border-left: 2px solid currentColor;
-}
-
-.remote-cursor-line {
-  position: relative;
-}
-
-.remote-cursor-line::before {
-  content: "";
-  position: absolute;
-  width: 2px;
-  height: 100%;
-  background: currentColor;
-}
-
 .remote-cursor-line-highlight {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+  background-color: rgba(255, 255, 255, 0.02) !important;
+}
+
+.remote-cursor-bar {
+  width: 2px;
+  height: 18px;
+  margin-left: -1px;
+  pointer-events: none;
+  animation: cursor-blink 1s ease-in-out infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
 }
 
 .remote-cursor-label {
   position: relative;
   z-index: 100;
-  padding: 1px 6px;
+  padding: 2px 6px;
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: var(--font-sans);
-  border-radius: 2px;
+  border-radius: 3px;
   white-space: nowrap;
   pointer-events: none;
   transform: translateY(-100%);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.02em;
 }

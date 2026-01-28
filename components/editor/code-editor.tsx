@@ -324,27 +324,12 @@ export function CodeEditor() {
     for (const cursor of cursors) {
       const { position, odColor, odName, odId } = cursor
 
-      // Add cursor line decoration
-      decorations.push({
-        range: new monaco.Range(
-          position.line,
-          position.column,
-          position.line,
-          position.column + 1
-        ),
-        options: {
-          className: "remote-cursor",
-          beforeContentClassName: "remote-cursor-line",
-          stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-        },
-      })
-
-      // Add whole line highlight with user's color
+      // Add whole line highlight with user's color (subtle tint)
       decorations.push({
         range: new monaco.Range(position.line, 1, position.line, 1),
         options: {
           isWholeLine: true,
-          className: `remote-cursor-line-highlight`,
+          className: "remote-cursor-line-highlight",
           overviewRuler: {
             color: odColor,
             position: monaco.editor.OverviewRulerLane.Right,
@@ -352,17 +337,37 @@ export function CodeEditor() {
         },
       })
 
-      // Create cursor label widget
-      const widgetDomNode = document.createElement("div")
-      widgetDomNode.className = "remote-cursor-label"
-      widgetDomNode.style.backgroundColor = odColor
-      widgetDomNode.style.color = "#000"
-      widgetDomNode.textContent = odName
+      // Create cursor bar widget (colored vertical line)
+      const cursorBarNode = document.createElement("div")
+      cursorBarNode.className = "remote-cursor-bar"
+      cursorBarNode.style.borderLeftColor = odColor
+      cursorBarNode.style.backgroundColor = odColor
 
-      const widgetId = `remote-cursor-${odId}`
-      const widget: editor.IContentWidget = {
-        getId: () => widgetId,
-        getDomNode: () => widgetDomNode,
+      const cursorBarId = `remote-cursor-bar-${odId}`
+      const cursorBarWidget: editor.IContentWidget = {
+        getId: () => cursorBarId,
+        getDomNode: () => cursorBarNode,
+        getPosition: () => ({
+          position: { lineNumber: position.line, column: position.column },
+          preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+        }),
+        allowEditorOverflow: false,
+      }
+
+      editor.addContentWidget(cursorBarWidget)
+      widgets.push(cursorBarWidget)
+
+      // Create cursor label widget (user name tag)
+      const labelNode = document.createElement("div")
+      labelNode.className = "remote-cursor-label"
+      labelNode.style.backgroundColor = odColor
+      labelNode.style.color = "#000"
+      labelNode.textContent = odName
+
+      const labelId = `remote-cursor-label-${odId}`
+      const labelWidget: editor.IContentWidget = {
+        getId: () => labelId,
+        getDomNode: () => labelNode,
         getPosition: () => ({
           position: { lineNumber: position.line, column: position.column },
           preference: [monaco.editor.ContentWidgetPositionPreference.ABOVE],
@@ -370,8 +375,8 @@ export function CodeEditor() {
         allowEditorOverflow: true,
       }
 
-      editor.addContentWidget(widget)
-      widgets.push(widget)
+      editor.addContentWidget(labelWidget)
+      widgets.push(labelWidget)
     }
 
     // Apply decorations
