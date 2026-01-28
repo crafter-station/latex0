@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<p align="center">
+  <img src="public/og.png" alt="LATEX0" width="100%" />
+</p>
 
-## Getting Started
+<h1 align="center">
+  LATEX0
+</h1>
 
-First, run the development server:
+<p align="center">
+  The Future of Typesetting
+  <br />
+  <br />
+  <a href="https://latex0.crafter.run">Website</a>
+  ·
+  <a href="https://github.com/crafter-station/latex0/issues">Issues</a>
+</p>
+
+<p align="center">
+  <a href="https://nextjs.org">
+    <img src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js" />
+  </a>
+  <a href="https://supabase.com">
+    <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase" />
+  </a>
+  <a href="https://www.typescriptlang.org">
+    <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  </a>
+  <a href="https://monaco-editor.github.io">
+    <img src="https://img.shields.io/badge/Monaco-68217A?style=for-the-badge&logo=visual-studio-code&logoColor=white" alt="Monaco Editor" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>
+    Built by
+    <a href="https://crafterstation.com">
+      Crafter Station
+    </a>
+  </sub>
+</p>
+
+## About
+
+LATEX0 is an AI-powered LaTeX editor for the modern era. Write, compile, and collaborate in real-time.
+
+**Researchers deserve open source tools.**
+
+## Features
+
+- **AI Assistant** — Chat with AI to generate and edit LaTeX code
+- **Real-time Collaboration** — See other users' cursors live with unique colors
+- **Monaco Editor** — VS Code-quality editing with LaTeX syntax highlighting
+- **Live Preview** — Instant PDF rendering as you type
+
+## Quick Start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+# Clone
+git clone https://github.com/crafter-station/latex0.git
+cd latex0
+
+# Install
+bun install
+
+# Configure
+cp .env.example .env.local
+# Add your Supabase keys
+
+# Run
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_key
+```
 
-## Learn More
+## License
 
-To learn more about Next.js, take a look at the following resources:
+MIT
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+<p align="center">
+  Built with care by <a href="https://crafterstation.com">Crafter Station</a>
+</p>
