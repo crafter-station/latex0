@@ -14,8 +14,41 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LaTeX0",
-  description: "AI-powered LaTeX editor",
+  metadataBase: new URL("https://latex0.com"),
+  title: "LATEX0 - The Future of Typesetting",
+  description: "An AI-powered LaTeX editor for the modern era. Researchers deserve open source tools.",
+  keywords: ["LaTeX", "editor", "AI", "typesetting", "research", "academic", "open source"],
+  authors: [{ name: "Crafter Station" }],
+  openGraph: {
+    title: "LATEX0",
+    description: "An AI-powered LaTeX editor for the modern era. Write. Compile. Ship.",
+    url: "https://latex0.com",
+    siteName: "LATEX0",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "LATEX0 - The Future of Typesetting",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LATEX0 - The Future of Typesetting",
+    description: "An AI-powered LaTeX editor for the modern era. Write. Compile. Ship.",
+    images: ["/og-twitter.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
