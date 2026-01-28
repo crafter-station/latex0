@@ -33,7 +33,7 @@
 <p align="center">
   <sub>
     Built by
-    <a href="https://crafterstation.com">
+    <a href="https://www.crafterstation.com">
       Crafter Station
     </a>
   </sub>
@@ -86,5 +86,5 @@ MIT
 ---
 
 <p align="center">
-  Built with care by <a href="https://crafterstation.com">Crafter Station</a>
+  Built with care by <a href="https://www.crafterstation.com">Crafter Station</a>
 </p>
