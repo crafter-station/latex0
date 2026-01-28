@@ -8,6 +8,7 @@ import { useFiles } from "@/hooks/use-files"
 import { useRealtimeCursors } from "@/hooks/use-realtime-cursors"
 import { latexLanguageConfig, latexTokensProvider } from "./latex-language"
 import { latexDarkTheme } from "./latex-theme"
+import { PresenceIndicator } from "./presence-indicator"
 
 interface DiffHunk {
   oldLines: string[]
@@ -69,7 +70,6 @@ export function CodeEditor() {
   const viewZoneIdsRef = useRef<string[]>([])
   const widgetsRef = useRef<editor.IContentWidget[]>([])
   const cursorDecorationsRef = useRef<string[]>([])
-  const cursorWidgetsRef = useRef<editor.IContentWidget[]>([])
 
   // Handle remote content changes
   const handleRemoteContentChange = useCallback(
@@ -82,11 +82,14 @@ export function CodeEditor() {
   )
 
   // Realtime cursors and content sync
-  const { cursors, broadcastPosition, broadcastContent, isApplyingRemote } = useRealtimeCursors(
+  const { cursors, broadcastPosition, broadcastContent, isApplyingRemote, localUser } = useRealtimeCursors(
     "latex0-playground",
     activeTabId || "default",
     handleRemoteContentChange
   )
+
+  // Ref for injected cursor styles
+  const cursorStylesRef = useRef<HTMLStyleElement | null>(null)
 
   const clearDiffVisualization = useCallback(() => {
     if (!editorRef.current) return
@@ -304,7 +307,62 @@ export function CodeEditor() {
     }
   }, [pendingChange, activeTabId, applyDiffVisualization, clearDiffVisualization])
 
-  // Render remote cursors as decorations and widgets
+  // Inject dynamic CSS for cursor colors
+  useEffect(() => {
+    // Create style element if it doesn't exist
+    if (!cursorStylesRef.current) {
+      cursorStylesRef.current = document.createElement("style")
+      cursorStylesRef.current.id = "remote-cursor-styles"
+      document.head.appendChild(cursorStylesRef.current)
+    }
+
+    // Generate CSS for each cursor
+    const cssRules = cursors.map((cursor) => {
+      const safeId = cursor.odId.replace(/[^a-zA-Z0-9]/g, "")
+      return `
+        .cursor-${safeId}::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 2px;
+          height: 100%;
+          background-color: ${cursor.odColor};
+          box-shadow: 0 0 4px ${cursor.odColor};
+          animation: cursor-pulse 1s ease-in-out infinite;
+        }
+        .cursor-${safeId}::after {
+          content: "${cursor.odName}";
+          position: absolute;
+          left: 0;
+          top: -18px;
+          padding: 2px 6px;
+          font-size: 10px;
+          font-weight: 600;
+          font-family: system-ui, sans-serif;
+          background-color: ${cursor.odColor};
+          color: #000;
+          border-radius: 3px 3px 3px 0;
+          white-space: nowrap;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+          z-index: 1000;
+        }
+        .cursor-line-${safeId} {
+          background-color: ${cursor.odColor}15 !important;
+        }
+      `
+    }).join("\n")
+
+    cursorStylesRef.current.textContent = cssRules
+
+    return () => {
+      if (cursorStylesRef.current) {
+        cursorStylesRef.current.textContent = ""
+      }
+    }
+  }, [cursors])
+
+  // Render remote cursors as decorations
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return
 
@@ -314,67 +372,35 @@ export function CodeEditor() {
     // Debug: log cursor count
     console.log("[Cursors] Rendering", cursors.length, "remote cursors:", cursors)
 
-    // Clear previous cursor widgets
-    for (const widget of cursorWidgetsRef.current) {
-      editor.removeContentWidget(widget)
-    }
-    cursorWidgetsRef.current = []
-
-    // Create decorations and widgets for each remote cursor
     const decorations: editor.IModelDeltaDecoration[] = []
-    const widgets: editor.IContentWidget[] = []
 
     for (const cursor of cursors) {
-      const { position, odColor, odName, odId } = cursor
+      const { position, odColor, odId } = cursor
+      const safeId = odId.replace(/[^a-zA-Z0-9]/g, "")
 
-      console.log("[Cursor] Rendering cursor for", odName, "at", position, "color:", odColor)
+      console.log("[Cursor] Rendering cursor for", cursor.odName, "at line", position.line, "col", position.column)
 
-      // Add whole line highlight with user's color (subtle tint)
+      // Cursor decoration with ::before and ::after pseudo-elements
       decorations.push({
-        range: new monaco.Range(position.line, 1, position.line, 1),
+        range: new monaco.Range(position.line, position.column, position.line, position.column),
         options: {
-          isWholeLine: true,
-          className: "remote-cursor-line-highlight",
+          className: `cursor-${safeId}`,
+          stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
           overviewRuler: {
             color: odColor,
-            position: monaco.editor.OverviewRulerLane.Right,
+            position: monaco.editor.OverviewRulerLane.Full,
           },
         },
       })
 
-      // Create a container for both cursor bar and label
-      const cursorContainer = document.createElement("div")
-      cursorContainer.className = "remote-cursor-container"
-      cursorContainer.style.position = "relative"
-
-      // Create cursor bar (colored vertical line)
-      const cursorBar = document.createElement("div")
-      cursorBar.className = "remote-cursor-bar"
-      cursorBar.style.backgroundColor = odColor
-      cursorBar.style.boxShadow = `0 0 4px ${odColor}, 0 0 8px ${odColor}`
-      cursorContainer.appendChild(cursorBar)
-
-      // Create cursor label
-      const cursorLabel = document.createElement("div")
-      cursorLabel.className = "remote-cursor-label"
-      cursorLabel.style.backgroundColor = odColor
-      cursorLabel.style.color = "#000"
-      cursorLabel.textContent = odName
-      cursorContainer.appendChild(cursorLabel)
-
-      const widgetId = `remote-cursor-${odId}`
-      const cursorWidget: editor.IContentWidget = {
-        getId: () => widgetId,
-        getDomNode: () => cursorContainer,
-        getPosition: () => ({
-          position: { lineNumber: position.line, column: position.column },
-          preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
-        }),
-        allowEditorOverflow: true,
-      }
-
-      editor.addContentWidget(cursorWidget)
-      widgets.push(cursorWidget)
+      // Whole line highlight
+      decorations.push({
+        range: new monaco.Range(position.line, 1, position.line, 1),
+        options: {
+          isWholeLine: true,
+          className: `cursor-line-${safeId}`,
+        },
+      })
     }
 
     // Apply decorations
@@ -382,12 +408,14 @@ export function CodeEditor() {
       cursorDecorationsRef.current,
       decorations
     )
-    cursorWidgetsRef.current = widgets
 
     return () => {
-      // Cleanup widgets on unmount or cursor change
-      for (const widget of cursorWidgetsRef.current) {
-        editor.removeContentWidget(widget)
+      // Cleanup decorations on unmount
+      if (editorRef.current) {
+        cursorDecorationsRef.current = editorRef.current.deltaDecorations(
+          cursorDecorationsRef.current,
+          []
+        )
       }
     }
   }, [cursors])
@@ -401,7 +429,15 @@ export function CodeEditor() {
   }
 
   return (
-    <Editor
+    <div className="relative h-full">
+      {/* Presence indicator */}
+      <div className="absolute top-2 right-2 z-50">
+        <PresenceIndicator
+          users={cursors}
+          localUser={localUser}
+        />
+      </div>
+      <Editor
       height="100%"
       language="latex"
       theme="latex-dark"
@@ -440,5 +476,6 @@ export function CodeEditor() {
         </div>
       }
     />
+    </div>
   )
 }
