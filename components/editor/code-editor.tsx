@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useEffect, useRef, useCallback, useState } from "react"
 import Editor, { type OnMount, type Monaco } from "@monaco-editor/react"
 import type { editor } from "monaco-editor"
 import { diffLines } from "diff"
@@ -67,6 +67,8 @@ export function CodeEditor() {
   const { activeTabId, activeContent, updateFileContent, pendingChange, acceptChange, rejectChange } = useFiles()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
+  // State to trigger re-render when editor is ready (refs don't trigger re-renders)
+  const [editorReady, setEditorReady] = useState<editor.IStandaloneCodeEditor | null>(null)
   const decorationsRef = useRef<string[]>([])
   const viewZoneIdsRef = useRef<string[]>([])
   const widgetsRef = useRef<editor.IContentWidget[]>([])
@@ -257,6 +259,7 @@ export function CodeEditor() {
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
+    setEditorReady(editor) // Trigger re-render so CursorOverlay gets the editor
 
     // Register LaTeX language
     monaco.languages.register({ id: "latex" })
@@ -308,7 +311,7 @@ export function CodeEditor() {
     }
   }, [pendingChange, activeTabId, applyDiffVisualization, clearDiffVisualization])
 
-  // Inject dynamic CSS for cursor colors
+  // Inject dynamic CSS for cursor line highlights
   useEffect(() => {
     // Create style element if it doesn't exist
     if (!cursorStylesRef.current) {
@@ -317,40 +320,12 @@ export function CodeEditor() {
       document.head.appendChild(cursorStylesRef.current)
     }
 
-    // Generate CSS for each cursor using beforeContentClassName
+    // Generate CSS for line highlights only (cursor widgets handle the rest)
     const cssRules = cursors.map((cursor) => {
       const safeId = cursor.odId.replace(/[^a-zA-Z0-9]/g, "")
       return `
-        .remote-cursor-${safeId} {
-          position: relative;
-          border-left: 2px solid ${cursor.odColor};
-          margin-left: -1px;
-          box-shadow: 0 0 6px ${cursor.odColor};
-          animation: cursor-blink 1s ease-in-out infinite;
-        }
-        .remote-cursor-${safeId}::after {
-          content: "${cursor.odName}";
-          position: absolute;
-          left: -1px;
-          top: -18px;
-          padding: 2px 6px;
-          font-size: 10px;
-          font-weight: 600;
-          font-family: system-ui, sans-serif;
-          background-color: ${cursor.odColor};
-          color: #000;
-          border-radius: 3px 3px 3px 0;
-          white-space: nowrap;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-          z-index: 1000;
-          pointer-events: none;
-        }
         .cursor-line-${safeId} {
           background-color: ${cursor.odColor}15 !important;
-        }
-        @keyframes cursor-blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
         }
       `
     }).join("\n")
@@ -364,38 +339,22 @@ export function CodeEditor() {
     }
   }, [cursors])
 
-  // Render remote cursors as decorations
+  // Render line highlight decorations for remote cursors
   useEffect(() => {
     if (!editorRef.current || !monacoRef.current) return
 
-    const editor = editorRef.current
+    const ed = editorRef.current
     const monaco = monacoRef.current
 
-    // Debug: log cursor count
-    console.log("[Cursors] Rendering", cursors.length, "remote cursors:", cursors)
+    console.log("[Cursors] Rendering line highlights for", cursors.length, "remote cursors")
 
     const decorations: editor.IModelDeltaDecoration[] = []
 
     for (const cursor of cursors) {
-      const { position, odColor, odId } = cursor
+      const { position, odId } = cursor
       const safeId = odId.replace(/[^a-zA-Z0-9]/g, "")
 
-      console.log("[Cursor] Rendering cursor for", cursor.odName, "at line", position.line, "col", position.column)
-
-      // Use beforeContentClassName to insert a visible caret element
-      decorations.push({
-        range: new monaco.Range(position.line, position.column, position.line, position.column + 1),
-        options: {
-          beforeContentClassName: `remote-cursor-${safeId}`,
-          stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-          overviewRuler: {
-            color: odColor,
-            position: monaco.editor.OverviewRulerLane.Full,
-          },
-        },
-      })
-
-      // Whole line highlight
+      // Line highlight decoration
       decorations.push({
         range: new monaco.Range(position.line, 1, position.line, 1),
         options: {
@@ -405,19 +364,12 @@ export function CodeEditor() {
       })
     }
 
-    // Apply decorations
-    cursorDecorationsRef.current = editor.deltaDecorations(
-      cursorDecorationsRef.current,
-      decorations
-    )
+    // Apply line highlight decorations
+    cursorDecorationsRef.current = ed.deltaDecorations(cursorDecorationsRef.current, decorations)
 
     return () => {
-      // Cleanup decorations on unmount
       if (editorRef.current) {
-        cursorDecorationsRef.current = editorRef.current.deltaDecorations(
-          cursorDecorationsRef.current,
-          []
-        )
+        cursorDecorationsRef.current = editorRef.current.deltaDecorations(cursorDecorationsRef.current, [])
       }
     }
   }, [cursors])
@@ -442,7 +394,7 @@ export function CodeEditor() {
       {/* Remote cursors overlay */}
       <CursorOverlay
         cursors={cursors}
-        editor={editorRef.current}
+        editor={editorReady}
       />
       <Editor
       height="100%"

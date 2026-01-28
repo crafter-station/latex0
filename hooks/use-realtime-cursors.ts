@@ -63,6 +63,8 @@ export function useRealtimeCursors(
   } | null>(null)
 
   const channelRef = useRef<RealtimeChannel | null>(null)
+  // Ref to always have current localUser value in callbacks
+  const localUserRef = useRef<typeof localUser>(null)
 
   // Cursor throttling refs
   const lastCursorBroadcastRef = useRef<number>(0)
@@ -83,7 +85,9 @@ export function useRealtimeCursors(
       const odId = await getFingerprint()
       const odName = generateUserName(odId)
       const odColor = generateColor(odId)
-      setLocalUser({ odId, odName, odColor })
+      const user = { odId, odName, odColor }
+      setLocalUser(user)
+      localUserRef.current = user
     }
     initUser()
   }, [])
@@ -195,21 +199,29 @@ export function useRealtimeCursors(
   // Broadcast cursor position with throttling
   const broadcastPosition = useCallback(
     (position: CursorPosition) => {
-      if (!channelRef.current || !localUser) return
+      const user = localUserRef.current
+      if (!channelRef.current || !user) {
+        console.log("[Broadcast] Cannot send - channel:", !!channelRef.current, "localUser:", !!user)
+        return
+      }
+
+      console.log("[Broadcast] Sending cursor position:", position)
 
       const now = Date.now()
       const timeSinceLastBroadcast = now - lastCursorBroadcastRef.current
 
       const sendBroadcast = (pos: CursorPosition) => {
-        if (!channelRef.current || !localUser) return
+        const currentUser = localUserRef.current
+        if (!channelRef.current || !currentUser) return
 
+        console.log("[Broadcast] Actually sending cursor:", currentUser.odName, "at", pos, "fileId:", fileId)
         channelRef.current.send({
           type: "broadcast",
           event: "cursor",
           payload: {
-            odId: localUser.odId,
-            odName: localUser.odName,
-            odColor: localUser.odColor,
+            odId: currentUser.odId,
+            odName: currentUser.odName,
+            odColor: currentUser.odColor,
             position: pos,
             fileId,
           } satisfies CursorBroadcastPayload,
@@ -233,26 +245,28 @@ export function useRealtimeCursors(
         }
       }
     },
-    [localUser, fileId]
+    [fileId]
   )
 
   // Broadcast content with throttling
   const broadcastContent = useCallback(
     (contentFileId: string, content: string) => {
+      const user = localUserRef.current
       // Don't broadcast if we're applying remote changes
-      if (!channelRef.current || !localUser || isApplyingRemoteRef.current) return
+      if (!channelRef.current || !user || isApplyingRemoteRef.current) return
 
       const now = Date.now()
       const timeSinceLastBroadcast = now - lastContentBroadcastRef.current
 
       const sendBroadcast = (fId: string, c: string) => {
-        if (!channelRef.current || !localUser) return
+        const currentUser = localUserRef.current
+        if (!channelRef.current || !currentUser) return
 
         channelRef.current.send({
           type: "broadcast",
           event: "content",
           payload: {
-            odId: localUser.odId,
+            odId: currentUser.odId,
             fileId: fId,
             content: c,
             timestamp: Date.now(),
@@ -277,7 +291,7 @@ export function useRealtimeCursors(
         }
       }
     },
-    [localUser]
+    []
   )
 
   // Filter cursors to only show those in the current file

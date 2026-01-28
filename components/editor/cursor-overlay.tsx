@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { motion } from "motion/react"
 import type { editor } from "monaco-editor"
 
@@ -19,16 +19,14 @@ interface CursorOverlayProps {
 interface PixelPosition {
   top: number
   left: number
+  visible: boolean
   odId: string
   odName: string
   odColor: string
-  line: number
 }
 
 function getContrastColor(hexColor: string): string {
-  // Handle hsl colors
   if (hexColor.startsWith("hsl")) {
-    // Extract lightness from hsl(h, s%, l%)
     const match = hexColor.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/)
     if (match) {
       const lightness = parseInt(match[3], 10)
@@ -37,7 +35,6 @@ function getContrastColor(hexColor: string): string {
     return "#1a1a1a"
   }
 
-  // Handle hex colors
   const hex = hexColor.replace("#", "")
   if (hex.length !== 6) return "#1a1a1a"
 
@@ -50,6 +47,7 @@ function getContrastColor(hexColor: string): string {
 
 export function CursorOverlay({ cursors, editor }: CursorOverlayProps) {
   const [positions, setPositions] = useState<PixelPosition[]>([])
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const updatePositions = useCallback(() => {
     if (!editor || cursors.length === 0) {
@@ -61,30 +59,40 @@ export function CursorOverlay({ cursors, editor }: CursorOverlayProps) {
 
     for (const cursor of cursors) {
       try {
-        // Get the pixel position for the cursor
-        const pixelPos = editor.getScrolledVisiblePosition({
+        // getScrolledVisiblePosition returns position relative to editor's content area
+        const scrollPos = editor.getScrolledVisiblePosition({
           lineNumber: cursor.position.line,
           column: cursor.position.column,
         })
 
-        if (pixelPos) {
-          // Add editor's dom node offset
-          const editorDom = editor.getDomNode()
-          const editorRect = editorDom?.getBoundingClientRect()
-
+        if (scrollPos) {
           newPositions.push({
-            top: pixelPos.top + (editorRect?.top || 0),
-            left: pixelPos.left + (editorRect?.left || 0) + 60, // Account for line numbers
+            // scrollPos is relative to the editor's visible content area
+            top: scrollPos.top,
+            left: scrollPos.left,
+            visible: true,
             odId: cursor.odId,
             odName: cursor.odName,
             odColor: cursor.odColor,
-            line: cursor.position.line,
           })
 
-          console.log("[CursorOverlay] Position for", cursor.odName, ":", pixelPos, "->", { top: pixelPos.top, left: pixelPos.left + 60 })
+          console.log(
+            "[CursorOverlay]",
+            cursor.odName,
+            "line:",
+            cursor.position.line,
+            "col:",
+            cursor.position.column,
+            "-> top:",
+            scrollPos.top,
+            "left:",
+            scrollPos.left
+          )
+        } else {
+          console.log("[CursorOverlay]", cursor.odName, "position not visible")
         }
       } catch (e) {
-        console.error("[CursorOverlay] Error getting position:", e)
+        console.error("[CursorOverlay] Error:", e)
       }
     }
 
@@ -92,20 +100,27 @@ export function CursorOverlay({ cursors, editor }: CursorOverlayProps) {
   }, [editor, cursors])
 
   useEffect(() => {
-    if (!editor) return
+    if (!editor) {
+      console.log("[CursorOverlay] No editor instance")
+      return
+    }
 
-    // Update positions initially
+    console.log("[CursorOverlay] Setting up with", cursors.length, "cursors")
+
+    // Initial update
     updatePositions()
+    const initialTimer = setTimeout(updatePositions, 100)
 
-    // Update positions on scroll and layout changes
+    // Subscribe to editor events
     const scrollDisposable = editor.onDidScrollChange(updatePositions)
     const layoutDisposable = editor.onDidLayoutChange(updatePositions)
     const contentDisposable = editor.onDidChangeModelContent(updatePositions)
 
-    // Update on cursor changes
-    const interval = setInterval(updatePositions, 50)
+    // Periodic update
+    const interval = setInterval(updatePositions, 100)
 
     return () => {
+      clearTimeout(initialTimer)
       scrollDisposable.dispose()
       layoutDisposable.dispose()
       contentDisposable.dispose()
@@ -113,23 +128,47 @@ export function CursorOverlay({ cursors, editor }: CursorOverlayProps) {
     }
   }, [editor, updatePositions])
 
-  // Also update when cursors change
   useEffect(() => {
     updatePositions()
   }, [cursors, updatePositions])
 
-  console.log("[CursorOverlay] Rendering", positions.length, "cursor positions")
+  console.log("[CursorOverlay] Render - positions:", positions.length, "cursors:", cursors.length, "editor:", !!editor)
 
-  if (positions.length === 0) return null
+  if (!editor || positions.length === 0) return null
+
+  // Get the editor's DOM node to find the content area
+  const editorDom = editor.getDomNode()
+  if (!editorDom) return null
+
+  // Find the editor's lines content container for positioning reference
+  const linesContent = editorDom.querySelector(".view-lines") as HTMLElement
+  if (!linesContent) {
+    console.log("[CursorOverlay] Could not find .view-lines")
+    return null
+  }
+
+  const linesRect = linesContent.getBoundingClientRect()
+  const editorRect = editorDom.getBoundingClientRect()
+
+  // Calculate offset from editor container to lines content
+  const offsetLeft = linesRect.left - editorRect.left
+  const offsetTop = linesRect.top - editorRect.top
 
   return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 9999 }}>
+    <div
+      ref={containerRef}
+      className="absolute inset-0 pointer-events-none overflow-hidden"
+      style={{ zIndex: 10 }}
+    >
       {positions.map((pos) => (
         <motion.div
           key={pos.odId}
           className="absolute pointer-events-none"
-          initial={{ x: pos.left, y: pos.top }}
-          animate={{ x: pos.left, y: pos.top }}
+          initial={false}
+          animate={{
+            x: pos.left + offsetLeft,
+            y: pos.top + offsetTop,
+          }}
           transition={{
             type: "spring",
             damping: 30,
@@ -139,15 +178,16 @@ export function CursorOverlay({ cursors, editor }: CursorOverlayProps) {
         >
           {/* Cursor caret */}
           <div
-            className="w-0.5 h-[18px] rounded-sm"
+            className="w-0.5 rounded-sm"
             style={{
+              height: "18px",
               backgroundColor: pos.odColor,
-              boxShadow: `0 0 8px ${pos.odColor}, 0 0 16px ${pos.odColor}`,
+              boxShadow: `0 0 8px ${pos.odColor}, 0 0 4px ${pos.odColor}`,
             }}
           />
           {/* User label */}
           <div
-            className="absolute -top-5 left-0 px-1.5 py-0.5 text-[10px] font-semibold rounded whitespace-nowrap shadow-lg border border-black/20"
+            className="absolute -top-5 left-0 px-1.5 py-0.5 text-[10px] font-semibold rounded-sm whitespace-nowrap shadow-lg"
             style={{
               backgroundColor: pos.odColor,
               color: getContrastColor(pos.odColor),
