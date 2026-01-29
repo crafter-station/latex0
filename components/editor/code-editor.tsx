@@ -74,12 +74,47 @@ export function CodeEditor() {
   const widgetsRef = useRef<editor.IContentWidget[]>([])
   const cursorDecorationsRef = useRef<string[]>([])
 
-  // Handle remote content changes
+  // Handle remote content changes - apply directly to editor model to preserve cursor
   const handleRemoteContentChange = useCallback(
     (fileId: string, content: string) => {
-      if (fileId === activeTabId) {
-        updateFileContent(fileId, content)
+      if (fileId !== activeTabId) return
+
+      const ed = editorRef.current
+      const model = ed?.getModel()
+
+      if (ed && model) {
+        // Get current content to avoid unnecessary updates
+        const currentContent = model.getValue()
+        if (currentContent === content) return
+
+        // Save cursor position
+        const position = ed.getPosition()
+        const selections = ed.getSelections()
+
+        // Apply edit directly to model (preserves undo stack and cursor better)
+        model.pushEditOperations(
+          selections,
+          [
+            {
+              range: model.getFullModelRange(),
+              text: content,
+            },
+          ],
+          () => selections
+        )
+
+        // Restore cursor position (clamped to valid range)
+        if (position) {
+          const maxLine = model.getLineCount()
+          const safeLine = Math.min(position.lineNumber, maxLine)
+          const maxCol = model.getLineMaxColumn(safeLine)
+          const safeCol = Math.min(position.column, maxCol)
+          ed.setPosition({ lineNumber: safeLine, column: safeCol })
+        }
       }
+
+      // Also update React state to keep it in sync
+      updateFileContent(fileId, content)
     },
     [activeTabId, updateFileContent]
   )
