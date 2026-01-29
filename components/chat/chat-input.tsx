@@ -90,68 +90,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
     return text.slice(0, maxLength) + "..."
   }
 
-  // Context preview component
-  const ContextPreview = () => {
-    if (!attachedContext) return null
-
-    const lineRange = attachedContext.startLine === attachedContext.endLine
+  // Get line range string
+  const lineRange = attachedContext
+    ? attachedContext.startLine === attachedContext.endLine
       ? `Line ${attachedContext.startLine}`
       : `Lines ${attachedContext.startLine}-${attachedContext.endLine}`
-
-    return (
-      <motion.div
-        initial={{ opacity: 0, height: 0 }}
-        animate={{ opacity: 1, height: "auto" }}
-        exit={{ opacity: 0, height: 0 }}
-        className="mx-1 mb-1"
-      >
-        <div className="rounded-xl bg-neutral-800/50 border border-neutral-700/50 overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-700/30">
-            <div className="flex items-center gap-2 text-xs text-neutral-400">
-              <IconCode className="size-3.5" />
-              <span className="font-medium">{lineRange}</span>
-              <span className="text-neutral-500">from {attachedContext.fileName}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 text-neutral-400 hover:text-white hover:bg-neutral-600"
-                onClick={() => setIsContextExpanded(!isContextExpanded)}
-              >
-                {isContextExpanded ? (
-                  <IconChevronUp className="size-3" />
-                ) : (
-                  <IconChevronDown className="size-3" />
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-5 w-5 text-neutral-400 hover:text-red-400 hover:bg-neutral-600"
-                onClick={handleDismissContext}
-              >
-                <IconX className="size-3" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="px-3 py-2">
-            <pre className={cn(
-              "text-xs text-neutral-300 font-mono whitespace-pre-wrap break-all",
-              !isContextExpanded && "line-clamp-2"
-            )}>
-              {isContextExpanded ? attachedContext.text : truncateText(attachedContext.text, 150)}
-            </pre>
-          </div>
-        </div>
-      </motion.div>
-    )
-  }
+    : ""
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -181,8 +125,55 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
   if (isExpanded) {
     return (
       <form onSubmit={handleSubmit} className="flex flex-col">
-        <AnimatePresence>
-          <ContextPreview />
+        <AnimatePresence mode="wait">
+          {attachedContext && (
+            <motion.div
+              key="context-preview"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="mx-1 mb-1"
+            >
+              <div className="rounded-xl bg-neutral-800/50 border border-neutral-700/50 overflow-hidden">
+                <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-700/30">
+                  <div className="flex items-center gap-2 text-xs text-neutral-400">
+                    <IconCode className="size-3.5" />
+                    <span className="font-medium">{lineRange}</span>
+                    <span className="text-neutral-500">from {attachedContext.fileName}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-neutral-400 hover:text-white hover:bg-neutral-600"
+                      onClick={() => setIsContextExpanded(!isContextExpanded)}
+                    >
+                      {isContextExpanded ? <IconChevronUp className="size-3" /> : <IconChevronDown className="size-3" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 text-neutral-400 hover:text-red-400 hover:bg-neutral-600"
+                      onClick={handleDismissContext}
+                    >
+                      <IconX className="size-3" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="px-3 py-2">
+                  <pre className={cn(
+                    "text-xs text-neutral-300 font-mono whitespace-pre-wrap break-all",
+                    !isContextExpanded && "line-clamp-2"
+                  )}>
+                    {isContextExpanded ? attachedContext.text : truncateText(attachedContext.text, 150)}
+                  </pre>
+                </div>
+              </div>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <input
@@ -282,8 +273,55 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
     <div className="p-3 pb-4">
       <div className="rounded-[24px] border border-neutral-700 bg-neutral-900 shadow-lg shadow-black/20">
         <form onSubmit={handleSubmit} className="flex flex-col p-1">
-          <AnimatePresence>
-            <ContextPreview />
+          <AnimatePresence mode="wait">
+            {attachedContext && (
+              <motion.div
+                key="context-preview-collapsed"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="mx-1 mb-1"
+              >
+                <div className="rounded-xl bg-neutral-800/50 border border-neutral-700/50 overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-700/30">
+                    <div className="flex items-center gap-2 text-xs text-neutral-400">
+                      <IconCode className="size-3.5" />
+                      <span className="font-medium">{lineRange}</span>
+                      <span className="text-neutral-500">from {attachedContext.fileName}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-neutral-400 hover:text-white hover:bg-neutral-600"
+                        onClick={() => setIsContextExpanded(!isContextExpanded)}
+                      >
+                        {isContextExpanded ? <IconChevronUp className="size-3" /> : <IconChevronDown className="size-3" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 text-neutral-400 hover:text-red-400 hover:bg-neutral-600"
+                        onClick={handleDismissContext}
+                      >
+                        <IconX className="size-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="px-3 py-2">
+                    <pre className={cn(
+                      "text-xs text-neutral-300 font-mono whitespace-pre-wrap break-all",
+                      !isContextExpanded && "line-clamp-2"
+                    )}>
+                      {isContextExpanded ? attachedContext.text : truncateText(attachedContext.text, 150)}
+                    </pre>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
           <input
