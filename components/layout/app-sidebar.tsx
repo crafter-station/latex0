@@ -27,6 +27,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { ThemeSwitcherButton } from "@/components/theme-switcher-button"
 
 const data = {
   user: {
@@ -113,22 +114,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
-              asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
-            >
-              <a href="/" className="flex items-center gap-2">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-black">
-                  <span className="font-mono text-xs font-bold text-white">0</span>
-                </div>
-                <span className="font-mono text-sm font-semibold tracking-wider">
-                  LATEX<span className="text-muted-foreground">0</span>
-                </span>
-                <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-white/40">
-                  Beta
-                </span>
-              </a>
-            </SidebarMenuButton>
+            <div className="flex items-center justify-between w-full">
+              <SidebarMenuButton
+                asChild
+                className="data-[slot=sidebar-menu-button]:!p-1.5 flex-1"
+              >
+                <a href="/" className="flex items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full border border-foreground/20 bg-background">
+                    <span className="font-mono text-xs font-bold">0</span>
+                  </div>
+                  <span className="font-mono text-sm font-semibold tracking-wider">
+                    LATEX<span className="text-muted-foreground">0</span>
+                  </span>
+                  <span className="rounded border border-foreground/10 bg-foreground/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-foreground/40">
+                    Beta
+                  </span>
+                </a>
+              </SidebarMenuButton>
+              <ThemeSwitcherButton />
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

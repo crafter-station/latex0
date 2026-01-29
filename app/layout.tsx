@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ThemeTransitionOverlay } from "@/components/theme-switcher-button";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -58,14 +60,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark h-svh overflow-hidden" suppressHydrationWarning>
+    <html lang="en" className="h-svh overflow-hidden" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-svh overflow-hidden`}
         suppressHydrationWarning
       >
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange={false}
+        >
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+          <ThemeTransitionOverlay />
+        </ThemeProvider>
         <Analytics />
       </body>
     </html>

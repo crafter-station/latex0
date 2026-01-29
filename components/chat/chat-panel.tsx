@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai"
 import { useRef, useEffect, useState, useMemo, useCallback } from "react"
 import { useFiles } from "@/hooks/use-files"
 import { ChatInput, type ChatInputRef } from "./chat-input"
+import type { SelectionContext } from "@/stores/selection-context-store"
 import { ChatMessages } from "./chat-messages"
 import { cn } from "@/lib/utils"
 import { IconMessageX, IconChevronDown } from "@tabler/icons-react"
@@ -539,10 +540,20 @@ Value 4 \\quad Value 5 \\quad Value 6
     }
   }, [pendingAIRequest, sendMessage, clearAIRequest])
 
-  const handleSend = useCallback((text: string) => {
+  const handleSend = useCallback((text: string, context?: SelectionContext) => {
     if (text.trim()) {
       setIsExpanded(true)
-      sendMessage({ text })
+
+      // Format message with context if provided
+      let messageText = text
+      if (context) {
+        const lineInfo = context.startLine === context.endLine
+          ? `Line ${context.startLine}`
+          : `Lines ${context.startLine}-${context.endLine}`
+        messageText = `[Context from ${context.fileName}, ${lineInfo}]:\n\`\`\`\n${context.text}\n\`\`\`\n\n${text}`
+      }
+
+      sendMessage({ text: messageText })
       setInput("")
       // Focus the expanded input after sending
       setTimeout(() => {

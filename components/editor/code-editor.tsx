@@ -10,6 +10,7 @@ import { latexLanguageConfig, latexTokensProvider } from "./latex-language"
 import { latexDarkTheme } from "./latex-theme"
 import { PresenceIndicator } from "./presence-indicator"
 import { CursorOverlay } from "./cursor-overlay"
+import { useSelectionContext } from "@/stores/selection-context-store"
 
 interface DiffHunk {
   oldLines: string[]
@@ -291,6 +292,9 @@ export function CodeEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [pendingChange, acceptChange, rejectChange])
 
+  // Selection context store
+  const setSelectionContext = useSelectionContext((state) => state.setContext)
+
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
@@ -311,6 +315,28 @@ export function CodeEditor() {
         line: e.position.lineNumber,
         column: e.position.column,
       })
+    })
+
+    // Capture text selection for AI context
+    editor.onDidChangeCursorSelection((e) => {
+      const selection = e.selection
+      if (selection.isEmpty()) {
+        // Don't clear immediately - let the chat input decide when to use it
+        return
+      }
+
+      const model = editor.getModel()
+      if (!model) return
+
+      const selectedText = model.getValueInRange(selection)
+      if (selectedText.trim()) {
+        setSelectionContext({
+          text: selectedText,
+          startLine: selection.startLineNumber,
+          endLine: selection.endLineNumber,
+          fileName: activeTabId || "document",
+        })
+      }
     })
 
     // Focus the editor
