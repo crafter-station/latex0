@@ -140,19 +140,10 @@ export function CursorOverlay({ cursors, editor }: CursorOverlayProps) {
   const editorDom = editor.getDomNode()
   if (!editorDom) return null
 
-  // Find the editor's lines content container for positioning reference
-  const linesContent = editorDom.querySelector(".view-lines") as HTMLElement
-  if (!linesContent) {
-    console.log("[CursorOverlay] Could not find .view-lines")
-    return null
-  }
-
-  const linesRect = linesContent.getBoundingClientRect()
-  const editorRect = editorDom.getBoundingClientRect()
-
-  // Calculate offset from editor container to lines content
-  const offsetLeft = linesRect.left - editorRect.left
-  const offsetTop = linesRect.top - editorRect.top
+  // getScrolledVisiblePosition already returns correct coordinates
+  // relative to the editor's visible viewport
+  const offsetLeft = 0
+  const offsetTop = 0
 
   return (
     <div
