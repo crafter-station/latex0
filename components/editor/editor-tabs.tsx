@@ -9,14 +9,14 @@ export function EditorTabs() {
 
   if (openTabs.length === 0) {
     return (
-      <div className="flex h-9 items-center border-b border-neutral-800 bg-black px-4 text-sm text-neutral-500">
+      <div className="flex h-10 items-center border-b border-neutral-200 bg-white px-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-black">
         No files open
       </div>
     )
   }
 
   return (
-    <div className="flex h-9 items-center gap-0.5 overflow-x-auto border-b border-neutral-800 bg-black">
+    <div className="flex h-10 items-center gap-0.5 overflow-x-auto border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black">
       {openTabs.map((tabId) => {
         const file = getFileById(tabId)
         if (!file) return null
@@ -29,8 +29,8 @@ export function EditorTabs() {
             className={cn(
               "group flex h-full items-center gap-2 border-b-2 px-3 text-sm transition-colors",
               isActive
-                ? "border-white bg-neutral-900 text-white"
-                : "border-transparent text-neutral-500 hover:bg-neutral-900 hover:text-neutral-300"
+                ? "border-neutral-900 bg-neutral-100 text-neutral-900 dark:border-white dark:bg-neutral-900 dark:text-white"
+                : "border-transparent text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-900 dark:hover:text-neutral-300"
             )}
           >
             <button
@@ -45,7 +45,7 @@ export function EditorTabs() {
                 e.stopPropagation()
                 closeTab(tabId)
               }}
-              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-neutral-700 group-hover:opacity-100"
+              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-neutral-300 group-hover:opacity-100 dark:hover:bg-neutral-700"
             >
               <IconX className="size-3" />
             </button>

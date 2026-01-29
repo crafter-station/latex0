@@ -7,7 +7,8 @@ import { diffLines } from "diff"
 import { useFiles } from "@/hooks/use-files"
 import { useRealtimeCursors } from "@/hooks/use-realtime-cursors"
 import { latexLanguageConfig, latexTokensProvider } from "./latex-language"
-import { latexDarkTheme } from "./latex-theme"
+import { latexDarkTheme, latexLightTheme } from "./latex-theme"
+import { useTheme } from "next-themes"
 import { PresenceIndicator } from "./presence-indicator"
 import { CursorOverlay } from "./cursor-overlay"
 import { useSelectionContext } from "@/stores/selection-context-store"
@@ -66,6 +67,7 @@ function computeDiffHunks(oldContent: string, newContent: string): DiffHunk[] {
 
 export function CodeEditor() {
   const { activeTabId, activeContent, updateFileContent, pendingChange, acceptChange, rejectChange } = useFiles()
+  const { resolvedTheme } = useTheme()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
   // State to trigger re-render when editor is ready (refs don't trigger re-renders)
@@ -305,9 +307,11 @@ export function CodeEditor() {
     monaco.languages.setLanguageConfiguration("latex", latexLanguageConfig)
     monaco.languages.setMonarchTokensProvider("latex", latexTokensProvider)
 
-    // Register custom theme
+    // Register custom themes
     monaco.editor.defineTheme("latex-dark", latexDarkTheme)
-    monaco.editor.setTheme("latex-dark")
+    monaco.editor.defineTheme("latex-light", latexLightTheme)
+    // Set initial theme based on current resolved theme
+    monaco.editor.setTheme(resolvedTheme === "light" ? "latex-light" : "latex-dark")
 
     // Broadcast cursor position on change
     editor.onDidChangeCursorPosition((e) => {
@@ -353,11 +357,12 @@ export function CodeEditor() {
     }
   }
 
+  // Update editor theme when system theme changes
   useEffect(() => {
     if (editorRef.current && monacoRef.current) {
-      monacoRef.current.editor.setTheme("latex-dark")
+      monacoRef.current.editor.setTheme(resolvedTheme === "light" ? "latex-light" : "latex-dark")
     }
-  }, [activeTabId])
+  }, [resolvedTheme])
 
   // Apply diff visualization when pendingChange changes
   useEffect(() => {
@@ -437,7 +442,7 @@ export function CodeEditor() {
 
   if (!activeTabId) {
     return (
-      <div className="flex h-full items-center justify-center bg-black text-neutral-500">
+      <div className="flex h-full items-center justify-center bg-white text-neutral-500 dark:bg-black">
         <p>Select a file to start editing</p>
       </div>
     )
@@ -491,7 +496,7 @@ export function CodeEditor() {
         glyphMargin: true,
       }}
       loading={
-        <div className="flex h-full items-center justify-center bg-black text-neutral-500">
+        <div className="flex h-full items-center justify-center bg-white text-neutral-500 dark:bg-black">
           Loading editor...
         </div>
       }

@@ -28,7 +28,7 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   if (messages.length === 0) {
     return (
       <ConversationEmptyState
-        icon={<IconRobot className="size-8 text-neutral-600" />}
+        icon={<IconRobot className="size-8 text-neutral-400 dark:text-neutral-600" />}
         title="LaTeX0"
         description="Ask me to help with your LaTeX document."
         className="py-4 text-xs"

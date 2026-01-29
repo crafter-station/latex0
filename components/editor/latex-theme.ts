@@ -1,5 +1,92 @@
 import type { editor } from "monaco-editor"
 
+// Light theme for the editor
+export const latexLightTheme: editor.IStandaloneThemeData = {
+  base: "vs",
+  inherit: true,
+  rules: [
+    // Comments - subtle gray
+    { token: "comment", foreground: "6a737d", fontStyle: "italic" },
+
+    // Keywords/Commands - warm brown/orange
+    { token: "keyword", foreground: "b35900" },
+    { token: "keyword.math", foreground: "b35900" },
+
+    // Strings and math content - green
+    { token: "string.math", foreground: "22863a" },
+    { token: "string.escape", foreground: "0550ae" },
+
+    // Delimiters/Brackets
+    { token: "delimiter.curly", foreground: "cf222e" }, // Red
+    { token: "delimiter.square", foreground: "8250df" }, // Purple
+    { token: "delimiter.parenthesis", foreground: "0550ae" }, // Blue
+
+    // Variables in math mode
+    { token: "variable", foreground: "24292f" },
+
+    // Numbers
+    { token: "number", foreground: "953800" },
+
+    // Operators
+    { token: "operator", foreground: "0550ae" },
+
+    // Default text
+    { token: "", foreground: "24292f" },
+  ],
+  colors: {
+    // Light background
+    "editor.background": "#ffffff",
+    // Dark text for contrast
+    "editor.foreground": "#24292f",
+    // Subtle line highlight
+    "editor.lineHighlightBackground": "#f6f8fa",
+    "editor.lineHighlightBorder": "#e8e8e8",
+    // Selection
+    "editor.selectionBackground": "#add6ff",
+    "editor.inactiveSelectionBackground": "#add6ff80",
+    // Line numbers
+    "editorLineNumber.foreground": "#8c959f",
+    "editorLineNumber.activeForeground": "#24292f",
+    // Cursor
+    "editorCursor.foreground": "#24292f",
+    // Find matches
+    "editor.findMatchBackground": "#ffdf5d",
+    "editor.findMatchHighlightBackground": "#ffdf5d66",
+    // Bracket matching
+    "editorBracketMatch.background": "#c8e1ff",
+    "editorBracketMatch.border": "#0969da",
+    // Indent guides
+    "editorIndentGuide.background": "#e8e8e8",
+    "editorIndentGuide.activeBackground": "#d0d0d0",
+    // Gutter
+    "editorGutter.background": "#ffffff",
+    // Widgets
+    "editorWidget.background": "#f6f8fa",
+    "editorWidget.border": "#d0d7de",
+    // Input
+    "input.background": "#ffffff",
+    "input.border": "#d0d7de",
+    "input.foreground": "#24292f",
+    // Dropdown
+    "dropdown.background": "#ffffff",
+    "dropdown.border": "#d0d7de",
+    "dropdown.foreground": "#24292f",
+    // List
+    "list.activeSelectionBackground": "#e8e8e8",
+    "list.activeSelectionForeground": "#24292f",
+    "list.hoverBackground": "#f3f4f6",
+    // Scrollbar
+    "scrollbar.shadow": "#00000010",
+    "scrollbarSlider.background": "#8c959f40",
+    "scrollbarSlider.hoverBackground": "#8c959f80",
+    "scrollbarSlider.activeBackground": "#8c959f",
+    // Minimap
+    "minimap.background": "#ffffff",
+    // Ruler
+    "editorRuler.foreground": "#e8e8e8",
+  },
+}
+
 // Super black editor theme
 export const latexDarkTheme: editor.IStandaloneThemeData = {
   base: "vs-dark",

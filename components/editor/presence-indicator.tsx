@@ -20,7 +20,7 @@ export function PresenceIndicator({ users, localUser }: PresenceIndicatorProps) 
 
   return (
     <div className="flex items-center gap-1">
-      <span className="text-xs text-white/40 mr-1">
+      <span className="text-xs text-black/40 dark:text-white/40 mr-1">
         {allUsers.length} online
       </span>
       <div className="flex -space-x-1.5">
@@ -28,7 +28,7 @@ export function PresenceIndicator({ users, localUser }: PresenceIndicatorProps) 
           <Tooltip key={user.odId}>
             <TooltipTrigger asChild>
               <div
-                className="w-6 h-6 rounded-full border-2 border-[#0A0A0A] flex items-center justify-center text-[10px] font-bold cursor-default"
+                className="w-6 h-6 rounded-full border-2 border-white dark:border-[#0A0A0A] flex items-center justify-center text-[10px] font-bold cursor-default"
                 style={{
                   backgroundColor: user.odColor,
                   color: '#000',
@@ -44,7 +44,7 @@ export function PresenceIndicator({ users, localUser }: PresenceIndicatorProps) 
           </Tooltip>
         ))}
         {allUsers.length > 5 && (
-          <div className="w-6 h-6 rounded-full border-2 border-[#0A0A0A] bg-white/10 flex items-center justify-center text-[10px] text-white/60">
+          <div className="w-6 h-6 rounded-full border-2 border-white dark:border-[#0A0A0A] bg-black/10 dark:bg-white/10 flex items-center justify-center text-[10px] text-black/60 dark:text-white/60">
             +{allUsers.length - 5}
           </div>
         )}
