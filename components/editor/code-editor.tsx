@@ -74,12 +74,46 @@ export function CodeEditor() {
   const widgetsRef = useRef<editor.IContentWidget[]>([])
   const cursorDecorationsRef = useRef<string[]>([])
 
-  // Handle remote content changes
+  // Handle remote content changes - apply directly to editor model to preserve cursor
   const handleRemoteContentChange = useCallback(
     (fileId: string, content: string) => {
-      if (fileId === activeTabId) {
-        updateFileContent(fileId, content)
+      if (fileId !== activeTabId) return
+
+      const editor = editorRef.current
+      const model = editor?.getModel()
+
+      if (editor && model) {
+        // Save current cursor position and selection
+        const position = editor.getPosition()
+        const selection = editor.getSelection()
+
+        // Apply change directly to model (bypasses React state, preserves cursor better)
+        const fullRange = model.getFullModelRange()
+        editor.executeEdits("remote-update", [
+          {
+            range: fullRange,
+            text: content,
+            forceMoveMarkers: false,
+          },
+        ])
+
+        // Restore cursor position if it's still valid
+        if (position) {
+          const maxLine = model.getLineCount()
+          const safeLineNumber = Math.min(position.lineNumber, maxLine)
+          const maxColumn = model.getLineMaxColumn(safeLineNumber)
+          const safeColumn = Math.min(position.column, maxColumn)
+          editor.setPosition({ lineNumber: safeLineNumber, column: safeColumn })
+        }
+
+        // Restore selection if it was set
+        if (selection && !selection.isEmpty()) {
+          editor.setSelection(selection)
+        }
       }
+
+      // Also update state to keep it in sync (but editor already has the content)
+      updateFileContent(fileId, content)
     },
     [activeTabId, updateFileContent]
   )
