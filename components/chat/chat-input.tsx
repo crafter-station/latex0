@@ -268,152 +268,148 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(function ChatI
     )
   }
 
-  // Collapsed style - floating rounded bar
+  // Collapsed style - now rendered inside chat panel container
   return (
-    <div className="p-3 pb-4">
-      <div className="rounded-[24px] border border-neutral-300 bg-white shadow-lg shadow-black/10 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-black/20">
-        <form onSubmit={handleSubmit} className="flex flex-col p-1">
-          <AnimatePresence mode="wait">
-            {attachedContext && (
-              <motion.div
-                key="context-preview-collapsed"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.2 }}
-                className="mx-1 mb-1"
-              >
-                <div className="rounded-xl bg-neutral-200/50 border border-neutral-300/50 overflow-hidden dark:bg-neutral-800/50 dark:border-neutral-700/50">
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-300/30 dark:bg-neutral-700/30">
-                    <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
-                      <IconCode className="size-3.5" />
-                      <span className="font-medium">{lineRange}</span>
-                      <span className="text-neutral-500">from {attachedContext.fileName}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-300 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-600"
-                        onClick={() => setIsContextExpanded(!isContextExpanded)}
-                      >
-                        {isContextExpanded ? <IconChevronUp className="size-3" /> : <IconChevronDown className="size-3" />}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-5 w-5 text-neutral-600 hover:text-red-500 hover:bg-neutral-300 dark:text-neutral-400 dark:hover:text-red-400 dark:hover:bg-neutral-600"
-                        onClick={handleDismissContext}
-                      >
-                        <IconX className="size-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="px-3 py-2">
-                    <pre className={cn(
-                      "text-xs text-neutral-700 font-mono whitespace-pre-wrap break-all dark:text-neutral-300",
-                      !isContextExpanded && "line-clamp-2"
-                    )}>
-                      {isContextExpanded ? attachedContext.text : truncateText(attachedContext.text, 150)}
-                    </pre>
-                  </div>
+    <form onSubmit={handleSubmit} className="flex flex-col">
+      <AnimatePresence mode="wait">
+        {attachedContext && (
+          <motion.div
+            key="context-preview-collapsed"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mx-1 mb-1"
+          >
+            <div className="rounded-xl bg-neutral-200/50 border border-neutral-300/50 overflow-hidden dark:bg-neutral-800/50 dark:border-neutral-700/50">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-300/30 dark:bg-neutral-700/30">
+                <div className="flex items-center gap-2 text-xs text-neutral-600 dark:text-neutral-400">
+                  <IconCode className="size-3.5" />
+                  <span className="font-medium">{lineRange}</span>
+                  <span className="text-neutral-500">from {attachedContext.fileName}</span>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFileChange}
-          />
-
-          <div className="flex items-end">
-            <div className="flex flex-1 items-center py-1.5">
-              <textarea
-                ref={textareaRef}
-                value={value}
-                onChange={handleTextareaChange}
-                onKeyDown={handleKeyDown}
-                onFocus={handleInputFocus}
-                placeholder={attachedContext ? "Ask about the selected code..." : "Ask anything..."}
-                rows={1}
-                className="flex-1 resize-none overflow-hidden bg-transparent pl-3 text-base leading-7 text-neutral-900 placeholder:text-neutral-500 focus:placeholder:text-transparent focus:outline-none dark:text-white"
-                style={{ height: "28px" }}
-                disabled={disabled}
-              />
-            </div>
-
-          <div className="flex shrink-0 items-center gap-0.5 pb-1 pr-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={disabled}
-                >
-                  <IconPhoto className="size-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Upload Image</TooltipContent>
-            </Tooltip>
-
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
-                  onClick={onVoiceStart}
-                  disabled={disabled}
-                >
-                  <IconWaveSine className="size-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Voice Input</TooltipContent>
-            </Tooltip>
-
-            {isLoading ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
+                <div className="flex items-center gap-1">
                   <Button
                     type="button"
+                    variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-full bg-red-500 text-white hover:bg-red-600"
-                    onClick={onStop}
+                    className="h-5 w-5 text-neutral-600 hover:text-neutral-900 hover:bg-neutral-300 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-600"
+                    onClick={() => setIsContextExpanded(!isContextExpanded)}
                   >
-                    <IconPlayerStop className="size-4" />
+                    {isContextExpanded ? <IconChevronUp className="size-3" /> : <IconChevronDown className="size-3" />}
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>Stop</TooltipContent>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger asChild>
                   <Button
-                    type="submit"
+                    type="button"
+                    variant="ghost"
                     size="icon"
-                    className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 disabled:text-neutral-400 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white dark:disabled:text-neutral-600"
-                    disabled={disabled || !value?.trim()}
+                    className="h-5 w-5 text-neutral-600 hover:text-red-500 hover:bg-neutral-300 dark:text-neutral-400 dark:hover:text-red-400 dark:hover:bg-neutral-600"
+                    onClick={handleDismissContext}
                   >
-                    <IconSend className="size-5" />
+                    <IconX className="size-3" />
                   </Button>
-                </TooltipTrigger>
-                <TooltipContent>Send Message</TooltipContent>
-              </Tooltip>
-            )}
+                </div>
+              </div>
+              <div className="px-3 py-2">
+                <pre className={cn(
+                  "text-xs text-neutral-700 font-mono whitespace-pre-wrap break-all dark:text-neutral-300",
+                  !isContextExpanded && "line-clamp-2"
+                )}>
+                  {isContextExpanded ? attachedContext.text : truncateText(attachedContext.text, 150)}
+                </pre>
+              </div>
             </div>
-          </div>
-        </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      <div className="flex items-end">
+        <div className="flex flex-1 items-center py-1.5">
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={handleTextareaChange}
+            onKeyDown={handleKeyDown}
+            onFocus={handleInputFocus}
+            placeholder={attachedContext ? "Ask about the selected code..." : "Ask anything..."}
+            rows={1}
+            className="flex-1 resize-none overflow-hidden bg-transparent pl-3 text-base leading-7 text-neutral-900 placeholder:text-neutral-500 focus:placeholder:text-transparent focus:outline-none dark:text-white"
+            style={{ height: "28px" }}
+            disabled={disabled}
+          />
+        </div>
+
+        <div className="flex shrink-0 items-center gap-0.5 pb-1 pr-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled}
+              >
+                <IconPhoto className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Upload Image</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                onClick={onVoiceStart}
+                disabled={disabled}
+              >
+                <IconWaveSine className="size-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Voice Input</TooltipContent>
+          </Tooltip>
+
+          {isLoading ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  className="h-9 w-9 rounded-full bg-red-500 text-white hover:bg-red-600"
+                  onClick={onStop}
+                >
+                  <IconPlayerStop className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Stop</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 disabled:text-neutral-400 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white dark:disabled:text-neutral-600"
+                  disabled={disabled || !value?.trim()}
+                >
+                  <IconSend className="size-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Send Message</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
-    </div>
+    </form>
   )
 })

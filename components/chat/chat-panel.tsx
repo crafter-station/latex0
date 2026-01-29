@@ -583,112 +583,97 @@ Value 4 \\quad Value 5 \\quad Value 6
 
   return (
     <div className="absolute bottom-0 left-0 right-0 z-10 pointer-events-none">
-      <AnimatePresence mode="wait">
-        {!isExpanded ? (
-          <motion.div
-            key="collapsed"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
-            className="pointer-events-auto"
-          >
-            <ChatInput
-              ref={collapsedInputRef}
-              onSend={handleSend}
-              disabled={isLoading}
-              onStop={stop}
-              isLoading={isLoading}
-              value={input}
-              onChange={setInput}
-              onFocus={handleFocus}
-            />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0, y: 100, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 100, scale: 0.95 }}
-            transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
-            className="pointer-events-auto flex flex-col"
-          >
-            <div
-              className={cn(
-                "flex flex-col overflow-hidden rounded-t-3xl rounded-b-[32px] border border-neutral-300 bg-white shadow-lg shadow-black/10 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-black/30",
-                "mx-3 mb-3"
-              )}
-              style={{ height: "300px" }}
-            >
-              {/* Header with drag handle and actions */}
-              <div className="flex flex-col">
-                {/* Drag handle */}
-                <div className="flex w-full items-center justify-center p-1">
-                  <div className="h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-600" />
-                </div>
+      <div className="pointer-events-auto mx-3 mb-3">
+        <div
+          className={cn(
+            "flex flex-col overflow-hidden rounded-[24px] border shadow-lg",
+            "border-neutral-300 bg-white shadow-black/10 dark:border-neutral-700 dark:bg-neutral-900 dark:shadow-black/30"
+          )}
+        >
+          {/* Expandable content area */}
+          <AnimatePresence initial={false}>
+            {isExpanded && (
+              <motion.div
+                key="expanded-content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 220, opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.25, ease: [0.32, 0.72, 0, 1] }}
+                className="overflow-hidden"
+              >
+                {/* Header with drag handle and actions */}
+                <div className="flex flex-col">
+                  {/* Drag handle */}
+                  <div className="flex w-full items-center justify-center p-1">
+                    <div className="h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+                  </div>
 
-                {/* Action buttons */}
-                <div className="flex items-center justify-between px-2 py-1">
-                  <div className="flex-1" />
-                  <div className="flex shrink-0 items-center">
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
-                          onClick={handleClearChat}
-                        >
-                          <IconMessageX className="size-5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Clear Chat</TooltipContent>
-                    </Tooltip>
+                  {/* Action buttons */}
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <div className="flex-1" />
+                    <div className="flex shrink-0 items-center">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                            onClick={handleClearChat}
+                          >
+                            <IconMessageX className="size-5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Clear Chat</TooltipContent>
+                      </Tooltip>
 
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
-                          onClick={handleCollapse}
-                        >
-                          <IconChevronDown className="size-5" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Collapse</TooltipContent>
-                    </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 rounded-full text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+                            onClick={handleCollapse}
+                          >
+                            <IconChevronDown className="size-5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Collapse</TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Messages area */}
-              <div className="flex min-h-0 flex-1 flex-col">
-                <ScrollArea className="h-full" ref={scrollRef}>
-                  <ChatMessages messages={messages} isLoading={isLoading} />
-                </ScrollArea>
-              </div>
-
-              {/* Input area with highlighted background */}
-              <div className="relative">
-                <div className="m-1.5 rounded-3xl bg-neutral-100 p-1 pt-1 pl-1 dark:bg-neutral-800">
-                  <ChatInput
-                    ref={expandedInputRef}
-                    onSend={handleSend}
-                    disabled={isLoading}
-                    onStop={stop}
-                    isLoading={isLoading}
-                    value={input}
-                    onChange={setInput}
-                    onFocus={handleFocus}
-                    isExpanded
-                  />
+                {/* Messages area */}
+                <div className="flex flex-col" style={{ height: 165 }}>
+                  <ScrollArea className="h-full" ref={scrollRef}>
+                    <ChatMessages messages={messages} isLoading={isLoading} />
+                  </ScrollArea>
                 </div>
-              </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Input area - always visible, no animation */}
+          <div className="relative p-1">
+            <div className={cn(
+              "rounded-[20px] p-1",
+              isExpanded && "bg-neutral-100 dark:bg-neutral-800"
+            )}>
+              <ChatInput
+                ref={isExpanded ? expandedInputRef : collapsedInputRef}
+                onSend={handleSend}
+                disabled={isLoading}
+                onStop={stop}
+                isLoading={isLoading}
+                value={input}
+                onChange={setInput}
+                onFocus={handleFocus}
+                isExpanded={isExpanded}
+              />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
