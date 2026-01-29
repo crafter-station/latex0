@@ -9,14 +9,14 @@ export function EditorTabs() {
 
   if (openTabs.length === 0) {
     return (
-      <div className="flex h-10 items-center border-b border-neutral-200 bg-white px-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-black">
+      <div className="flex h-[33px] items-center border-b border-neutral-200 bg-white px-4 text-sm text-neutral-500 dark:border-neutral-800 dark:bg-black">
         No files open
       </div>
     )
   }
 
   return (
-    <div className="flex h-10 items-center gap-0.5 overflow-x-auto border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black">
+    <div className="flex h-[33px] items-center gap-0.5 overflow-x-auto border-b border-neutral-200 bg-white dark:border-neutral-800 dark:bg-black">
       {openTabs.map((tabId) => {
         const file = getFileById(tabId)
         if (!file) return null
