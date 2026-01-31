@@ -7,6 +7,7 @@ import {
   IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react"
+import { useClerk } from "@clerk/nextjs"
 
 import {
   Avatar,
@@ -28,17 +29,23 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import type { UserIdentity } from "@/types/user"
 
 export function NavUser({
   user,
 }: {
-  user: {
-    name: string
-    email: string
-    avatar: string
-  }
+  user: UserIdentity
 }) {
   const { isMobile } = useSidebar()
+  const { signOut, openUserProfile } = useClerk()
+
+  const handleSignOut = () => {
+    signOut({ redirectUrl: "/" })
+  }
+
+  const handleOpenAccount = () => {
+    openUserProfile()
+  }
 
   return (
     <SidebarMenu>
@@ -52,13 +59,13 @@ export function NavUser({
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={user.avatar} alt={user.name} />
                 <AvatarFallback className="rounded-lg">
-                  {user.name.slice(0, 2).toUpperCase()}
+                  {user.initials || user.name.slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
+                  {user.email || "Guest User"}
                 </span>
               </div>
               <IconDotsVertical className="ml-auto size-4" />
@@ -75,37 +82,49 @@ export function NavUser({
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
                   <AvatarFallback className="rounded-lg">
-                    {user.name.slice(0, 2).toUpperCase()}
+                    {user.initials || user.name.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
                   <span className="text-muted-foreground truncate text-xs">
-                    {user.email}
+                    {user.email || "Guest User"}
                   </span>
                 </div>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
+
+            {/* Only show these options for authenticated users */}
+            {user.isAuthenticated && (
+              <>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={handleOpenAccount}>
+                    <IconUserCircle />
+                    Account
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+              </>
+            )}
+
+            {/* Sign out button - only for authenticated users */}
+            {user.isAuthenticated && (
+              <DropdownMenuItem onClick={handleSignOut}>
+                <IconLogout />
+                Log out
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
+            )}
+
+            {/* For guest users, show a sign-in prompt */}
+            {!user.isAuthenticated && (
+              <DropdownMenuItem asChild>
+                <a href="/" className="cursor-pointer">
+                  <IconUserCircle />
+                  Sign in to save work
+                </a>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <IconLogout />
-              Log out
-            </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

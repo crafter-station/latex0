@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase } from "@/lib/supabase"
-import { getFingerprint, generateColor, generateUserName } from "@/lib/fingerprint"
+import { useUserIdentity } from "@/hooks/use-user-identity"
 import type { RealtimeChannel } from "@supabase/supabase-js"
+import type { UserIdentity } from "@/types/user"
 
 export interface CursorPosition {
   line: number
@@ -14,6 +15,7 @@ export interface CursorState {
   odId: string
   odName: string
   odColor: string
+  odAvatar?: string
   position: CursorPosition
   fileId: string
 }
@@ -22,12 +24,14 @@ export interface OnlineUser {
   odId: string
   odName: string
   odColor: string
+  odAvatar?: string
 }
 
 interface CursorBroadcastPayload {
   odId: string
   odName: string
   odColor: string
+  odAvatar?: string
   position: CursorPosition
   fileId: string
 }
@@ -43,6 +47,7 @@ interface PresenceState {
   odId: string
   odName: string
   odColor: string
+  odAvatar?: string // NEW
   online_at: string
 }
 
@@ -56,15 +61,12 @@ export function useRealtimeCursors(
 ) {
   const [cursors, setCursors] = useState<Map<string, CursorState>>(new Map())
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([])
-  const [localUser, setLocalUser] = useState<{
-    odId: string
-    odName: string
-    odColor: string
-  } | null>(null)
+
+  // Use hybrid identity hook instead of fingerprint directly
+  const { user: localUser, isLoading } = useUserIdentity()
 
   const channelRef = useRef<RealtimeChannel | null>(null)
-  // Ref to always have current localUser value in callbacks
-  const localUserRef = useRef<typeof localUser>(null)
+  const localUserRef = useRef<UserIdentity | null>(null)
 
   // Cursor throttling refs
   const lastCursorBroadcastRef = useRef<number>(0)
@@ -79,22 +81,15 @@ export function useRealtimeCursors(
   // Track if we're applying remote changes to avoid echo
   const isApplyingRemoteRef = useRef<boolean>(false)
 
-  // Initialize fingerprint and user info
+  // Update local user ref whenever it changes
   useEffect(() => {
-    async function initUser() {
-      const odId = await getFingerprint()
-      const odName = generateUserName(odId)
-      const odColor = generateColor(odId)
-      const user = { odId, odName, odColor }
-      setLocalUser(user)
-      localUserRef.current = user
-    }
-    initUser()
-  }, [])
+    localUserRef.current = localUser
+  }, [localUser])
 
   // Subscribe to realtime channel with Presence
   useEffect(() => {
-    if (!localUser) return
+    // Wait for user identity to load
+    if (isLoading || !localUser) return
 
     const channel = supabase.channel(roomName, {
       config: {
@@ -102,7 +97,7 @@ export function useRealtimeCursors(
           self: false,
         },
         presence: {
-          key: localUser.odId,
+          key: localUser.id, // Use unified ID
         },
       },
     })
@@ -115,11 +110,12 @@ export function useRealtimeCursors(
       const users: OnlineUser[] = []
       for (const [, presences] of Object.entries(state)) {
         const presence = (presences as unknown as PresenceState[])[0]
-        if (presence?.odId && presence.odId !== localUser.odId) {
+        if (presence?.odId && presence.odId !== localUser.id) {
           users.push({
             odId: presence.odId,
             odName: presence.odName,
             odColor: presence.odColor,
+            odAvatar: presence.odAvatar,
           })
         }
       }
@@ -146,7 +142,7 @@ export function useRealtimeCursors(
     // Handle cursor broadcasts
     channel.on("broadcast", { event: "cursor" }, ({ payload }: { payload: CursorBroadcastPayload }) => {
       console.log("[Broadcast] Received cursor:", payload.odName, "at line", payload.position.line)
-      if (payload.odId === localUser.odId) return
+      if (payload.odId === localUser.id) return
 
       setCursors((prev) => {
         const next = new Map(prev)
@@ -154,6 +150,7 @@ export function useRealtimeCursors(
           odId: payload.odId,
           odName: payload.odName,
           odColor: payload.odColor,
+          odAvatar: payload.odAvatar,
           position: payload.position,
           fileId: payload.fileId,
         })
@@ -163,7 +160,7 @@ export function useRealtimeCursors(
 
     // Handle content broadcasts
     channel.on("broadcast", { event: "content" }, ({ payload }: { payload: ContentBroadcastPayload }) => {
-      if (payload.odId === localUser.odId) return
+      if (payload.odId === localUser.id) return
 
       if (onRemoteContentChange) {
         isApplyingRemoteRef.current = true
@@ -179,9 +176,10 @@ export function useRealtimeCursors(
       if (status === "SUBSCRIBED") {
         console.log("[Channel] Subscribed, tracking presence...")
         await channel.track({
-          odId: localUser.odId,
-          odName: localUser.odName,
-          odColor: localUser.odColor,
+          odId: localUser.id, // Use unified ID
+          odName: localUser.name, // Use unified name
+          odColor: localUser.color, // Use unified color
+          odAvatar: localUser.avatar, // Include avatar for Clerk users
           online_at: new Date().toISOString(),
         })
       }
@@ -194,7 +192,7 @@ export function useRealtimeCursors(
       channel.unsubscribe()
       channelRef.current = null
     }
-  }, [roomName, localUser, onRemoteContentChange])
+  }, [roomName, localUser, isLoading, onRemoteContentChange])
 
   // Broadcast cursor position with throttling
   const broadcastPosition = useCallback(
@@ -214,14 +212,15 @@ export function useRealtimeCursors(
         const currentUser = localUserRef.current
         if (!channelRef.current || !currentUser) return
 
-        console.log("[Broadcast] Actually sending cursor:", currentUser.odName, "at", pos, "fileId:", fileId)
+        console.log("[Broadcast] Actually sending cursor:", currentUser.name, "at", pos, "fileId:", fileId)
         channelRef.current.send({
           type: "broadcast",
           event: "cursor",
           payload: {
-            odId: currentUser.odId,
-            odName: currentUser.odName,
-            odColor: currentUser.odColor,
+            odId: currentUser.id,
+            odName: currentUser.name,
+            odColor: currentUser.color,
+            odAvatar: currentUser.avatar,
             position: pos,
             fileId,
           } satisfies CursorBroadcastPayload,
@@ -266,7 +265,7 @@ export function useRealtimeCursors(
           type: "broadcast",
           event: "content",
           payload: {
-            odId: currentUser.odId,
+            odId: currentUser.id,
             fileId: fId,
             content: c,
             timestamp: Date.now(),
@@ -312,12 +311,20 @@ export function useRealtimeCursors(
     }
   }, [])
 
+  // Convert localUser to OnlineUser format for consistency
+  const localUserAsOnlineUser: OnlineUser | null = localUser ? {
+    odId: localUser.id,
+    odName: localUser.name,
+    odColor: localUser.color,
+    odAvatar: localUser.avatar,
+  } : null
+
   return {
     cursors: fileCursors,
     onlineUsers,
     broadcastPosition,
     broadcastContent,
-    localUser,
+    localUser: localUserAsOnlineUser,
     allCursors: Array.from(cursors.values()),
     isApplyingRemote: isApplyingRemoteRef,
   }

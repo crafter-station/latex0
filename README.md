@@ -77,6 +77,8 @@ Open [http://localhost:3000](http://localhost:3000)
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_supabase_key
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_key
+NEXT_PUBLIC_CLERK_SECRET_KEY=your_clerk_secret
 ```
 
 ## License
