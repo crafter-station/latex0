@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
+import { ClerkProvider } from "@clerk/nextjs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeTransitionOverlay } from "@/components/theme-switcher-button";
@@ -65,17 +66,27 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased h-svh overflow-hidden`}
         suppressHydrationWarning
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          disableTransitionOnChange={false}
+        <ClerkProvider
+          appearance={{
+            variables: {
+              colorPrimary: "#ffffff",
+              colorBackground: "#0A0A0A",
+              colorText: "#ffffff",
+            },
+          }}
         >
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
-          <ThemeTransitionOverlay />
-        </ThemeProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange={false}
+          >
+            <TooltipProvider>
+              {children}
+            </TooltipProvider>
+            <ThemeTransitionOverlay />
+          </ThemeProvider>
+        </ClerkProvider>
         <Analytics />
       </body>
     </html>

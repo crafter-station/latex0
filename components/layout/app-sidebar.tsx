@@ -28,13 +28,9 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { ThemeSwitcherButton } from "@/components/theme-switcher-button"
+import { useUserIdentity } from "@/hooks/use-user-identity"
 
 const data = {
-  user: {
-    name: "Guest User",
-    email: "guest@example.com",
-    avatar: "/avatars/guest.jpg",
-  },
   navMain: [
     {
       title: "Dashboard",
@@ -109,6 +105,8 @@ const data = {
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { user, isLoading } = useUserIdentity()
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -142,7 +140,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        {!isLoading && user && <NavUser user={user} />}
       </SidebarFooter>
     </Sidebar>
   )

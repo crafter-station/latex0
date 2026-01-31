@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { GithubBadge } from "@/components/github-badge"
+import { UserBadge } from "@/components/user-badge"
+import { AuthButtons } from "@/components/auth-buttons"
 import { CrafterStationLogo } from "@/components/logos/crafter-station"
+import { useUser } from "@clerk/nextjs"
 
 export default function Home() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const router = useRouter()
+  const { isSignedIn } = useUser()
 
   // Handle Enter key to navigate
   useEffect(() => {
@@ -173,16 +177,23 @@ export default function Home() {
           tools.
         </p>
 
-        {/* CTA Button */}
-        <Link href="/playground">
-          <Button
-            variant="outline"
-            className="group relative overflow-hidden border-white/20 bg-transparent px-8 py-6 font-mono text-sm tracking-[0.15em] text-white/80 transition-all duration-500 hover:border-white/40 hover:bg-white/5 hover:text-white"
-          >
-            <span className="relative z-10">ENTER THE VOID</span>
-            <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-          </Button>
-        </Link>
+        {/* CTA Buttons */}
+        <div className="flex flex-col gap-4 items-center">
+          {/* Primary CTA - Always visible */}
+          <Link href="/playground">
+            <Button
+              variant="outline"
+              className="group relative overflow-hidden border-white/20 bg-transparent px-8 py-6 font-mono text-sm tracking-[0.15em] text-white/80 transition-all duration-500 hover:border-white/40 hover:bg-white/5 hover:text-white"
+            >
+              <span className="relative z-10">
+                {isSignedIn ? "OPEN EDITOR" : "ENTER THE VOID"}
+              </span>
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+            </Button>
+          </Link>
+
+          <AuthButtons />
+        </div>
 
         {/* Keyboard shortcut hint */}
         <p className="mt-8 font-mono text-[10px] tracking-widest text-white/20">
@@ -197,8 +208,9 @@ export default function Home() {
       <div className="absolute left-8 top-8 font-mono text-[10px] tracking-widest text-white/20">
         v0.1.0
       </div>
-      <div className="absolute right-8 top-8 z-20">
+      <div className="absolute right-8 top-8 z-20 flex items-center gap-3">
         <GithubBadge />
+        <UserBadge />
       </div>
       <a
         href="https://www.crafterstation.com"

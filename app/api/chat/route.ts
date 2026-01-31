@@ -3,14 +3,22 @@ import { streamText, tool, zodSchema, convertToModelMessages, UIMessage, stepCou
 import { z } from "zod"
 import { getChatRatelimit, isRateLimitConfigured } from "@/lib/ratelimit"
 import { NextRequest, NextResponse } from "next/server"
+import { auth } from "@clerk/nextjs/server"
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
-  // Rate limiting (skip if not configured)
   if (isRateLimitConfigured()) {
-    const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "anonymous"
-    const { success, limit, remaining, reset } = await getChatRatelimit().limit(ip)
+    // Try to get authenticated user ID first
+    const { userId } = await auth()
+
+    // Use Clerk user ID if authenticated, otherwise fall back to IP
+    const identifier = userId ||
+      req.headers.get("x-forwarded-for") ||
+      req.headers.get("x-real-ip") ||
+      "anonymous"
+
+    const { success, limit, remaining, reset } = await getChatRatelimit().limit(identifier)
 
     if (!success) {
       return NextResponse.json(
