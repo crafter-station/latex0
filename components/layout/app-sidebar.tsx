@@ -4,11 +4,9 @@ import * as React from "react"
 import {
   IconChartBar,
   IconDashboard,
-  IconDatabase,
   IconFileDescription,
   IconFolder,
   IconHelp,
-  IconReport,
   IconSearch,
   IconSettings,
   IconUsers,
@@ -83,25 +81,6 @@ const data = {
       soon: true,
     },
   ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-      soon: true,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
-      soon: true,
-    },
-    {
-      name: "main.tex",
-      url: "#",
-      icon: IconFileDescription,
-    },
-  ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -136,7 +115,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
+        <NavDocuments />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
