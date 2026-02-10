@@ -12,6 +12,7 @@ import { useTheme } from "next-themes"
 import { PresenceIndicator } from "./presence-indicator"
 import { CursorOverlay } from "./cursor-overlay"
 import { useSelectionContext } from "@/stores/selection-context-store"
+import { useDocumentStore } from "@/lib/document-store"
 
 interface DiffHunk {
   oldLines: string[]
@@ -122,9 +123,15 @@ export function CodeEditor() {
     [activeTabId, updateFileContent]
   )
 
+  // Scope realtime room by active document ID
+  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
+  const roomName = activeDocumentId
+    ? `latex0-doc-${activeDocumentId}`
+    : "latex0-playground"
+
   // Realtime cursors and content sync
   const { cursors, onlineUsers, broadcastPosition, broadcastContent, isApplyingRemote, localUser } = useRealtimeCursors(
-    "latex0-playground",
+    roomName,
     activeTabId || "default",
     handleRemoteContentChange
   )
