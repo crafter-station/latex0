@@ -10,8 +10,11 @@ import { EditorTabs } from "@/components/editor/editor-tabs"
 import { CodeEditor } from "@/components/editor/code-editor"
 import { PdfViewer } from "@/components/preview/pdf-viewer"
 import { ChatPanel } from "@/components/chat/chat-panel"
+import { useAutoSave } from "@/hooks/use-auto-save"
 
 export function IdeLayout() {
+  useAutoSave()
+
   return (
     <div className="flex h-full flex-col">
       <SiteHeader />
