@@ -42,6 +42,7 @@ interface FileStore {
   rejectChange: () => void
   requestAIFix: (prompt: string, context?: string) => void
   clearAIRequest: () => void
+  resetToDefaults: () => void
 }
 
 const defaultFiles: FileNode[] = [
@@ -285,5 +286,16 @@ export const useFileStore = create<FileStore>((set, get) => ({
 
   clearAIRequest: () => {
     set({ pendingAIRequest: null })
+  },
+
+  resetToDefaults: () => {
+    set({
+      files: defaultFiles,
+      openTabs: ['1'],
+      activeTabId: '1',
+      compiledHtml: null,
+      pendingChange: null,
+      pendingAIRequest: null,
+    })
   },
 }))

@@ -1,0 +1,172 @@
+"use client"
+
+import { useCallback } from "react"
+import { useDocumentStore } from "@/lib/document-store"
+import { useFileStore } from "@/lib/file-store"
+import { useUserIdentity } from "@/hooks/use-user-identity"
+
+export function useDocuments() {
+  const {
+    documents,
+    activeDocumentId,
+    isLoading,
+    setDocuments,
+    setActiveDocumentId,
+    setLoading,
+    addDocument,
+    removeDocument,
+    updateDocumentMeta,
+  } = useDocumentStore()
+
+  const { user } = useUserIdentity()
+  const setFiles = useFileStore((s) => s.setFiles)
+  const openFile = useFileStore((s) => s.openFile)
+
+  const isAuthenticated = user?.isAuthenticated ?? false
+
+  const fetchDocuments = useCallback(async () => {
+    if (!isAuthenticated) return
+    setLoading(true)
+    try {
+      const res = await fetch("/api/documents")
+      if (res.ok) {
+        const data = await res.json()
+        setDocuments(
+          data.map((d: Record<string, string>) => ({
+            id: d.id,
+            title: d.title,
+            folder: d.folder,
+            createdAt: d.createdAt,
+            updatedAt: d.updatedAt,
+          }))
+        )
+      }
+    } catch (err) {
+      console.error("[useDocuments] Failed to fetch documents:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated, setDocuments, setLoading])
+
+  const createDocument = useCallback(
+    async (title?: string) => {
+      if (!isAuthenticated) return null
+      try {
+        const res = await fetch("/api/documents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: title || "Untitled Document" }),
+        })
+        if (res.ok) {
+          const doc = await res.json()
+          addDocument({
+            id: doc.id,
+            title: doc.title,
+            folder: doc.folder,
+            createdAt: doc.createdAt,
+            updatedAt: doc.updatedAt,
+          })
+          return doc
+        }
+      } catch (err) {
+        console.error("[useDocuments] Failed to create document:", err)
+      }
+      return null
+    },
+    [isAuthenticated, addDocument]
+  )
+
+  const loadDocument = useCallback(
+    async (docId: string) => {
+      if (!isAuthenticated) return
+      try {
+        const res = await fetch(`/api/documents/${docId}`)
+        if (res.ok) {
+          const doc = await res.json()
+          const fileNode = {
+            id: "main",
+            name: doc.title.endsWith(".tex")
+              ? doc.title
+              : `${doc.title}.tex`,
+            type: "file" as const,
+            content: doc.content,
+          }
+          setFiles([fileNode])
+          openFile("main")
+          setActiveDocumentId(docId)
+        }
+      } catch (err) {
+        console.error("[useDocuments] Failed to load document:", err)
+      }
+    },
+    [isAuthenticated, setFiles, openFile, setActiveDocumentId]
+  )
+
+  const saveDocument = useCallback(
+    async (content: string) => {
+      if (!isAuthenticated || !activeDocumentId) return
+      try {
+        await fetch(`/api/documents/${activeDocumentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content }),
+        })
+        updateDocumentMeta(activeDocumentId, {
+          updatedAt: new Date().toISOString(),
+        })
+      } catch (err) {
+        console.error("[useDocuments] Failed to save document:", err)
+      }
+    },
+    [isAuthenticated, activeDocumentId, updateDocumentMeta]
+  )
+
+  const deleteDocument = useCallback(
+    async (docId: string) => {
+      if (!isAuthenticated) return
+      try {
+        const res = await fetch(`/api/documents/${docId}`, {
+          method: "DELETE",
+        })
+        if (res.ok) {
+          removeDocument(docId)
+        }
+      } catch (err) {
+        console.error("[useDocuments] Failed to delete document:", err)
+      }
+    },
+    [isAuthenticated, removeDocument]
+  )
+
+  const renameDocument = useCallback(
+    async (docId: string, title: string) => {
+      if (!isAuthenticated) return
+      try {
+        const res = await fetch(`/api/documents/${docId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title }),
+        })
+        if (res.ok) {
+          updateDocumentMeta(docId, { title })
+        }
+      } catch (err) {
+        console.error("[useDocuments] Failed to rename document:", err)
+      }
+    },
+    [isAuthenticated, updateDocumentMeta]
+  )
+
+  return {
+    documents,
+    activeDocumentId,
+    isLoading,
+    isAuthenticated,
+    fetchDocuments,
+    createDocument,
+    loadDocument,
+    saveDocument,
+    deleteDocument,
+    renameDocument,
+  }
+}

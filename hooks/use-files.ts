@@ -20,6 +20,7 @@ export function useFiles() {
   const rejectChange = useFileStore((state) => state.rejectChange)
   const requestAIFix = useFileStore((state) => state.requestAIFix)
   const clearAIRequest = useFileStore((state) => state.clearAIRequest)
+  const resetToDefaults = useFileStore((state) => state.resetToDefaults)
 
   const activeFile = activeTabId ? getFileById(activeTabId) : null
   const activeContent = activeTabId ? getFileContent(activeTabId) : ''
@@ -46,5 +47,6 @@ export function useFiles() {
     rejectChange,
     requestAIFix,
     clearAIRequest,
+    resetToDefaults,
   }
 }
