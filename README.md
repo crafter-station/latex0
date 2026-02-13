@@ -91,6 +91,10 @@ DATABASE_URL=your_postgresql_connection_string
 
 # AI Gateway (for chat functionality)
 AI_GATEWAY_API_KEY=your_ai_gateway_key
+
+# Latex Renderer
+NEXT_PUBLIC_LATEX_API_KEY=
+NEXT_PUBLIC_LATEX_API_URL=
 ```
 
 ### Optional
