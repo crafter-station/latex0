@@ -52,6 +52,9 @@ const defaultFiles: FileNode[] = [
     type: 'file',
     content: `\\documentclass[12pt]{article}
 
+\\usepackage[T1]{fontenc}
+\\usepackage{lmodern}
+
 \\title{The Shipping Bible}
 \\author{Crafter Station}
 \\date{A Playbook for Building in Public}

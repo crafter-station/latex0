@@ -52,6 +52,7 @@
     "diff": "^8.0.3",
     "drizzle-orm": "^0.45.1",
     "embla-carousel-react": "^8.6.0",
+    "latex-renderer-sdk": "^1.0.0",
     "latex.js": "^0.12.6",
     "lucide-react": "^0.563.0",
     "media-chrome": "^4.17.2",
