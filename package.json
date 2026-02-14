@@ -51,6 +51,7 @@
     "cmdk": "^1.1.1",
     "diff": "^8.0.3",
     "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
     "embla-carousel-react": "^8.6.0",
     "latex-renderer-sdk": "^1.0.0",
     "latex.js": "^0.12.6",
