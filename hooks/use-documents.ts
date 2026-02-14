@@ -1,9 +1,11 @@
 "use client"
 
 import { useCallback } from "react"
-import { useDocumentStore } from "@/lib/document-store"
+import { useDocumentStore, type DocumentMeta } from "@/lib/document-store"
 import { useFileStore } from "@/lib/file-store"
+import { useShareStore } from "@/lib/share-store"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import type { UserPermission } from "@/lib/db/schema"
 
 export function useDocuments() {
   const {
@@ -21,6 +23,7 @@ export function useDocuments() {
   const { user } = useUserIdentity()
   const setFiles = useFileStore((s) => s.setFiles)
   const openFile = useFileStore((s) => s.openFile)
+  const setCurrentPermission = useShareStore((s) => s.setCurrentPermission)
 
   const isAuthenticated = user?.isAuthenticated ?? false
 
@@ -30,16 +33,8 @@ export function useDocuments() {
     try {
       const res = await fetch("/api/documents")
       if (res.ok) {
-        const data = await res.json()
-        setDocuments(
-          data.map((d: Record<string, string>) => ({
-            id: d.id,
-            title: d.title,
-            folder: d.folder,
-            createdAt: d.createdAt,
-            updatedAt: d.updatedAt,
-          }))
-        )
+        const data: DocumentMeta[] = await res.json()
+        setDocuments(data)
       }
     } catch (err) {
       console.error("[useDocuments] Failed to fetch documents:", err)
@@ -58,14 +53,8 @@ export function useDocuments() {
           body: JSON.stringify({ title: title || "Untitled Document" }),
         })
         if (res.ok) {
-          const doc = await res.json()
-          addDocument({
-            id: doc.id,
-            title: doc.title,
-            folder: doc.folder,
-            createdAt: doc.createdAt,
-            updatedAt: doc.updatedAt,
-          })
+          const doc: DocumentMeta = await res.json()
+          addDocument(doc)
           return doc
         }
       } catch (err) {
@@ -94,12 +83,15 @@ export function useDocuments() {
           setFiles([fileNode])
           openFile("main")
           setActiveDocumentId(docId)
+          if (doc.permission) {
+            setCurrentPermission(doc.permission as UserPermission)
+          }
         }
       } catch (err) {
         console.error("[useDocuments] Failed to load document:", err)
       }
     },
-    [isAuthenticated, setFiles, openFile, setActiveDocumentId]
+    [isAuthenticated, setFiles, openFile, setActiveDocumentId, setCurrentPermission]
   )
 
   const saveDocument = useCallback(
@@ -112,7 +104,7 @@ export function useDocuments() {
           body: JSON.stringify({ content }),
         })
         updateDocumentMeta(activeDocumentId, {
-          updatedAt: new Date().toISOString(),
+          updatedAt: new Date(),
         })
       } catch (err) {
         console.error("[useDocuments] Failed to save document:", err)
