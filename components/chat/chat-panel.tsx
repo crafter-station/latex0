@@ -54,6 +54,18 @@ export function ChatPanel() {
     addToolResult,
   } = useChat({
     transport,
+    sendAutomaticallyWhen({ messages: msgs }) {
+      const lastMessage = msgs[msgs.length - 1]
+      if (!lastMessage || lastMessage.role !== "assistant") return false
+      // Re-send when all tool calls in the last message have outputs
+      const toolParts = lastMessage.parts.filter(
+        (p) => p.type.startsWith("tool-") || p.type === "dynamic-tool"
+      ) as Array<{ type: string; state?: string }>
+      if (toolParts.length === 0) return false
+      return toolParts.every(
+        (p) => p.state === "output-available" || p.state === "output-error"
+      )
+    },
     onToolCall: async ({ toolCall }) => {
       // Get current values from refs to avoid stale closures
       const currentContent = activeContentRef.current
@@ -433,23 +445,25 @@ Your letter content here.
 \\end{letter}
 
 \\end{document}`,
-          figure: `\\begin{center}
-  % Image placeholder - use \\includegraphics with graphicx package for real images
-  \\textit{[Figure: Your caption here]}
-\\end{center}`,
-          table: `\\begin{center}
-\\textbf{Table: Your Title}
-
-\\begin{quote}
-\\textbf{Column 1} \\quad \\textbf{Column 2} \\quad \\textbf{Column 3}
-
-Value 1 \\quad Value 2 \\quad Value 3
-
-Value 4 \\quad Value 5 \\quad Value 6
-\\end{quote}
-
-\\textit{Note: Tables with borders are not supported in browser preview.}
-\\end{center}`,
+          figure: `\\begin{figure}[htbp]
+  \\centering
+  % \\includegraphics[width=0.8\\textwidth]{filename}
+  \\caption{Your caption here}
+  \\label{fig:label}
+\\end{figure}`,
+          table: `\\begin{table}[htbp]
+  \\centering
+  \\caption{Your Title}
+  \\label{tab:label}
+  \\begin{tabular}{lcc}
+    \\hline
+    \\textbf{Column 1} & \\textbf{Column 2} & \\textbf{Column 3} \\\\
+    \\hline
+    Value 1 & Value 2 & Value 3 \\\\
+    Value 4 & Value 5 & Value 6 \\\\
+    \\hline
+  \\end{tabular}
+\\end{table}`,
           equation: `\\begin{equation}
   f(x) = ax^2 + bx + c
   \\label{eq:label}
@@ -646,7 +660,7 @@ Value 4 \\quad Value 5 \\quad Value 6
                 {/* Messages area */}
                 <div className="flex flex-col" style={{ height: 165 }}>
                   <ScrollArea className="h-full" ref={scrollRef}>
-                    <ChatMessages messages={messages} isLoading={isLoading} />
+                    <ChatMessages messages={messages} isLoading={isLoading} status={status} />
                   </ScrollArea>
                 </div>
               </motion.div>
