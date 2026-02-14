@@ -1,10 +1,21 @@
 import { create } from 'zustand'
+import { nanoid } from 'nanoid'
+
+export interface BlobMetadata {
+  size: number
+  width?: number
+  height?: number
+  uploadedAt: string
+  contentType: string
+}
 
 export interface FileNode {
   id: string
   name: string
   type: 'file' | 'folder'
   content?: string
+  blobUrl?: string
+  blobMetadata?: BlobMetadata
   children?: FileNode[]
   parentId?: string
 }
@@ -47,6 +58,11 @@ interface FileStore {
   setGoToLine: (line: number | null) => void
   requestCompile: () => void
   resetToDefaults: () => void
+  createFile: (name: string, parentId?: string) => void
+  createFolder: (name: string, parentId?: string) => void
+  renameFile: (id: string, newName: string) => void
+  deleteFile: (id: string) => void
+  addImageFile: (file: FileNode, parentId?: string) => void
 }
 
 const defaultFiles: FileNode[] = [
@@ -188,6 +204,55 @@ function updateFile(files: FileNode[], id: string, content: string): FileNode[] 
   })
 }
 
+function insertFileInTree(
+  files: FileNode[],
+  newFile: FileNode,
+  parentId?: string
+): FileNode[] {
+  if (!parentId) return [...files, newFile]
+
+  return files.map((file) => {
+    if (file.id === parentId && file.type === 'folder') {
+      return {
+        ...file,
+        children: [...(file.children || []), newFile],
+      }
+    }
+    if (file.children) {
+      return {
+        ...file,
+        children: insertFileInTree(file.children, newFile, parentId),
+      }
+    }
+    return file
+  })
+}
+
+function updateFileInTree(
+  files: FileNode[],
+  id: string,
+  updates: Partial<FileNode>
+): FileNode[] {
+  return files.map((file) => {
+    if (file.id === id) return { ...file, ...updates }
+    if (file.children) {
+      return { ...file, children: updateFileInTree(file.children, id, updates) }
+    }
+    return file
+  })
+}
+
+function removeFileFromTree(files: FileNode[], id: string): FileNode[] {
+  return files
+    .filter((file) => file.id !== id)
+    .map((file) => {
+      if (file.children) {
+        return { ...file, children: removeFileFromTree(file.children, id) }
+      }
+      return file
+    })
+}
+
 export const useFileStore = create<FileStore>((set, get) => ({
   files: defaultFiles,
   openTabs: ['1'],
@@ -300,6 +365,60 @@ export const useFileStore = create<FileStore>((set, get) => ({
   setGoToLine: (line) => set({ goToLine: line }),
 
   requestCompile: () => set((state) => ({ triggerCompile: state.triggerCompile + 1 })),
+
+  createFile: (name, parentId) => {
+    const newFile: FileNode = {
+      id: nanoid(),
+      name,
+      type: 'file',
+      content: '',
+    }
+    set((state) => ({
+      files: insertFileInTree(state.files, newFile, parentId),
+    }))
+    // Auto-open the new file
+    get().openFile(newFile.id)
+  },
+
+  createFolder: (name, parentId) => {
+    const newFolder: FileNode = {
+      id: nanoid(),
+      name,
+      type: 'folder',
+      children: [],
+    }
+    set((state) => ({
+      files: insertFileInTree(state.files, newFolder, parentId),
+    }))
+  },
+
+  renameFile: (id, newName) => {
+    set((state) => ({
+      files: updateFileInTree(state.files, id, { name: newName }),
+    }))
+  },
+
+  deleteFile: (id) => {
+    const { openTabs, activeTabId } = get()
+    // Close tab if open
+    const newTabs = openTabs.filter((tabId) => tabId !== id)
+    let newActiveTab = activeTabId
+    if (activeTabId === id) {
+      const closedIndex = openTabs.indexOf(id)
+      newActiveTab = newTabs[Math.min(closedIndex, newTabs.length - 1)] || null
+    }
+    set((state) => ({
+      files: removeFileFromTree(state.files, id),
+      openTabs: newTabs,
+      activeTabId: newActiveTab,
+    }))
+  },
+
+  addImageFile: (file, parentId) => {
+    set((state) => ({
+      files: insertFileInTree(state.files, file, parentId),
+    }))
+  },
 
   resetToDefaults: () => {
     set({
