@@ -3,7 +3,7 @@ import type { Document } from "@/lib/db/schema"
 
 export type SaveStatus = "saved" | "saving" | "unsaved" | "error"
 
-export type DocumentMeta = Pick<Document, "id" | "title" | "folder" | "folderId" | "createdAt" | "updatedAt">
+export type DocumentMeta = Pick<Document, "id" | "title" | "folder" | "folderId" | "projectId" | "createdAt" | "updatedAt">
 
 interface DocumentStore {
   documents: DocumentMeta[]
