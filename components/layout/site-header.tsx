@@ -6,8 +6,9 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDocumentStore, type SaveStatus } from "@/lib/document-store"
 import { useVersionStore } from "@/lib/version-store"
+import { useProjectStore } from "@/lib/project-store"
 import { ShareDialog } from "@/components/share/share-dialog"
-import { IconCheck, IconLoader2, IconPointFilled, IconAlertTriangle, IconHistory } from "@tabler/icons-react"
+import { IconCheck, IconLoader2, IconPointFilled, IconAlertTriangle, IconHistory, IconChevronRight } from "@tabler/icons-react"
 
 function SaveStatusIndicator() {
   const saveStatus = useDocumentStore((s) => s.saveStatus)
@@ -68,8 +69,13 @@ function SaveStatusIndicator() {
 
 export function SiteHeader() {
   const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
+  const documents = useDocumentStore((s) => s.documents)
   const openHistory = useVersionStore((s) => s.openHistory)
   const isHistoryOpen = useVersionStore((s) => s.isHistoryOpen)
+  const { projects, activeProjectId } = useProjectStore()
+
+  const activeDoc = documents.find((d) => d.id === activeDocumentId)
+  const activeProject = projects.find((p) => p.id === activeProjectId)
 
   return (
     <header className="flex h-[--header-height] shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-[--header-height]">
@@ -79,7 +85,21 @@ export function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">Documents</h1>
+        <div className="flex items-center gap-1 text-sm min-w-0">
+          {activeProject ? (
+            <>
+              <span className="text-muted-foreground truncate max-w-[120px]">{activeProject.name}</span>
+              {activeDoc && (
+                <>
+                  <IconChevronRight className="size-3 text-muted-foreground/50 shrink-0" />
+                  <span className="font-medium truncate">{activeDoc.title}</span>
+                </>
+              )}
+            </>
+          ) : (
+            <span className="font-medium">{activeDoc?.title ?? "Documents"}</span>
+          )}
+        </div>
         <SaveStatusIndicator />
         <div className="ml-auto flex items-center gap-2">
           {activeDocumentId && (
