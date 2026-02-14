@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { useDocumentStore, type SaveStatus } from "@/lib/document-store"
-import { IconCheck, IconLoader2, IconPointFilled, IconAlertTriangle } from "@tabler/icons-react"
+import { useVersionStore } from "@/lib/version-store"
+import { ShareDialog } from "@/components/share/share-dialog"
+import { IconCheck, IconLoader2, IconPointFilled, IconAlertTriangle, IconHistory } from "@tabler/icons-react"
 
 function SaveStatusIndicator() {
   const saveStatus = useDocumentStore((s) => s.saveStatus)
@@ -46,6 +48,10 @@ function SaveStatusIndicator() {
 }
 
 export function SiteHeader() {
+  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
+  const openHistory = useVersionStore((s) => s.openHistory)
+  const isHistoryOpen = useVersionStore((s) => s.isHistoryOpen)
+
   return (
     <header className="flex h-[--header-height] shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-[--header-height]">
       <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
@@ -57,6 +63,20 @@ export function SiteHeader() {
         <h1 className="text-base font-medium">Documents</h1>
         <SaveStatusIndicator />
         <div className="ml-auto flex items-center gap-2">
+          {activeDocumentId && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`gap-1.5 ${isHistoryOpen ? "bg-accent" : ""}`}
+                onClick={openHistory}
+              >
+                <IconHistory className="size-4" />
+                <span className="hidden sm:inline">History</span>
+              </Button>
+              <ShareDialog />
+            </>
+          )}
           <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
             <a
               href="https://github.com"

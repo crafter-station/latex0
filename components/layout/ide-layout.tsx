@@ -11,6 +11,7 @@ import { CodeEditor } from "@/components/editor/code-editor"
 import { PdfViewer } from "@/components/preview/pdf-viewer"
 import { ChatPanel } from "@/components/chat/chat-panel"
 import { CommandPalette } from "@/components/editor/command-palette"
+import { VersionHistoryPanel } from "@/components/versions/version-history-panel"
 import { useAutoSave } from "@/hooks/use-auto-save"
 
 export function IdeLayout() {
@@ -19,29 +20,34 @@ export function IdeLayout() {
   return (
     <div className="flex h-full flex-col">
       <SiteHeader />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <ResizablePanelGroup orientation="horizontal" className="flex-1">
-          {/* Editor Panel */}
-          <ResizablePanel defaultSize={40} minSize={25}>
-            <div className="relative flex h-full flex-col bg-black">
-              <EditorTabs />
-              <div className="flex-1 overflow-hidden bg-black">
-                <CodeEditor />
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <ResizablePanelGroup orientation="horizontal" className="flex-1">
+            {/* Editor Panel */}
+            <ResizablePanel defaultSize={40} minSize={25}>
+              <div className="relative flex h-full flex-col bg-black">
+                <EditorTabs />
+                <div className="flex-1 overflow-hidden bg-black">
+                  <CodeEditor />
+                </div>
+                {/* Chat overlay at bottom */}
+                <ChatPanel />
               </div>
-              {/* Chat overlay at bottom */}
-              <ChatPanel />
-            </div>
-          </ResizablePanel>
+            </ResizablePanel>
 
-          <ResizableHandle withHandle />
+            <ResizableHandle withHandle />
 
-          {/* Preview Panel */}
-          <ResizablePanel defaultSize={60} minSize={30}>
-            <div className="h-full overflow-hidden bg-muted/30">
-              <PdfViewer />
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            {/* Preview Panel */}
+            <ResizablePanel defaultSize={60} minSize={30}>
+              <div className="h-full overflow-hidden bg-muted/30">
+                <PdfViewer />
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
+
+        {/* Version History Panel (slides in from right) */}
+        <VersionHistoryPanel />
       </div>
 
       {/* Global command palette */}
