@@ -81,11 +81,18 @@ export function TemplateGallery({
         <ScrollArea className="flex-1 -mx-6 px-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-2">
             {templates.map((template) => (
-              <button
+              <div
                 key={template.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 className="border rounded-lg p-4 hover:border-primary/50 hover:bg-accent/50 cursor-pointer transition-colors text-left flex flex-col gap-2"
                 onClick={() => handleSelect(template.content, template.name)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    handleSelect(template.content, template.name)
+                  }
+                }}
               >
                 <span className="font-semibold text-sm">{template.name}</span>
                 <span className="text-xs text-muted-foreground">
@@ -102,7 +109,7 @@ export function TemplateGallery({
                 >
                   Use Template
                 </Button>
-              </button>
+              </div>
             ))}
           </div>
         </ScrollArea>
