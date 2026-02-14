@@ -65,7 +65,7 @@ interface FileStore {
   addImageFile: (file: FileNode, parentId?: string) => void
 }
 
-const defaultFiles: FileNode[] = [
+export const defaultFiles: FileNode[] = [
   {
     id: '1',
     name: 'main.tex',
