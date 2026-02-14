@@ -79,10 +79,7 @@ export function FileTree() {
 
   return (
     <div className="space-y-0.5">
-      <div className="flex items-center justify-between px-2 mb-1">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Files
-        </span>
+      <div className="flex items-center justify-end px-2 mb-1">
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => fileInputRef.current?.click()}

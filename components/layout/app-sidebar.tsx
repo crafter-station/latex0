@@ -2,19 +2,15 @@
 
 import * as React from "react"
 import {
-  IconChartBar,
-  IconDashboard,
   IconFileDescription,
   IconFolder,
-  IconHelp,
   IconSearch,
   IconSettings,
-  IconUsers,
   IconList,
-  IconPhoto,
 } from "@tabler/icons-react"
 
-import { FolderTree } from "@/components/sidebar/folder-tree"
+import { ProjectSwitcher } from "@/components/sidebar/project-selector"
+import { NavProjectDocs } from "@/components/sidebar/nav-project-docs"
 import { FileTree } from "@/components/sidebar/file-tree"
 import { NavMain } from "@/components/sidebar/nav-main"
 import { NavSecondary } from "@/components/sidebar/nav-secondary"
@@ -34,61 +30,32 @@ import {
 import { ThemeSwitcherButton } from "@/components/theme-switcher-button"
 import { useUserIdentity } from "@/hooks/use-user-identity"
 import { DocumentOutline } from "@/components/editor/document-outline"
-import { ImageGallery } from "@/components/sidebar/image-gallery"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { IconChevronRight } from "@tabler/icons-react"
 
 const data = {
   navMain: [
     {
-      title: "Dashboard",
-      url: "#",
-      icon: IconDashboard,
-      soon: true,
-    },
-    {
       title: "Projects",
-      url: "#",
+      url: "/projects",
       icon: IconFolder,
-      soon: true,
     },
     {
       title: "Templates",
       url: "#",
       icon: IconFileDescription,
-      soon: false,
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: IconChartBar,
-      soon: true,
-    },
-    {
-      title: "Team",
-      url: "#",
-      icon: IconUsers,
-      soon: true,
     },
   ],
   navSecondary: [
     {
-      title: "Settings",
-      url: "#",
-      icon: IconSettings,
-      soon: true,
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: IconHelp,
-      soon: true,
-    },
-    {
       title: "Search",
       url: "#",
       icon: IconSearch,
-      soon: false,
+    },
+    {
+      title: "Settings",
+      url: "#",
+      icon: IconSettings,
     },
   ],
 }
@@ -121,68 +88,47 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <ThemeSwitcherButton />
             </div>
           </SidebarMenuItem>
+          <SidebarMenuItem>
+            <ProjectSwitcher />
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <FolderTree />
 
-        {/* Scrollable middle area — sections share available space, never push settings off-screen */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto gap-2">
-          {/* Project Files */}
-          <Collapsible defaultOpen className="group/files shrink-0">
-            <SidebarGroup>
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
-                  <IconFolder className="size-3.5 mr-1.5" />
-                  Project Files
-                  <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/files:rotate-90" />
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <FileTree />
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
+        {/* Project Documents */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Documents</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <NavProjectDocs />
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-          {/* Document Outline */}
-          <Collapsible defaultOpen className="group/outline shrink-0">
-            <SidebarGroup>
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
-                  <IconList className="size-3.5 mr-1.5" />
-                  Outline
-                  <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/outline:rotate-90" />
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <DocumentOutline />
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
+        {/* Editor Files */}
+        <SidebarGroup className="flex-1 min-h-0">
+          <SidebarGroupLabel>Files</SidebarGroupLabel>
+          <SidebarGroupContent className="overflow-y-auto">
+            <FileTree />
+          </SidebarGroupContent>
+        </SidebarGroup>
 
-          {/* Image Gallery */}
-          <Collapsible className="group/images shrink-0">
-            <SidebarGroup>
-              <CollapsibleTrigger asChild>
-                <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
-                  <IconPhoto className="size-3.5 mr-1.5" />
-                  Images
-                  <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/images:rotate-90" />
-                </SidebarGroupLabel>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <SidebarGroupContent>
-                  <ImageGallery />
-                </SidebarGroupContent>
-              </CollapsibleContent>
-            </SidebarGroup>
-          </Collapsible>
-        </div>
+        {/* Outline */}
+        <Collapsible defaultOpen className="group/outline shrink-0">
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
+                <IconList className="size-3.5 mr-1.5" />
+                Outline
+                <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/outline:rotate-90" />
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <DocumentOutline />
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
 
         {/* Settings always pinned at bottom — never overlapped */}
         <NavSecondary items={data.navSecondary} className="shrink-0" />
