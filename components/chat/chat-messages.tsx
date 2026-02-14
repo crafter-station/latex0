@@ -18,13 +18,19 @@ import {
   ConversationEmptyState,
 } from "@/components/ai-elements/conversation"
 import { Loader } from "@/components/ai-elements/loader"
+import {
+  Reasoning,
+  ReasoningTrigger,
+  ReasoningContent,
+} from "@/components/ai-elements/reasoning"
 
 interface ChatMessagesProps {
   messages: UIMessage[]
   isLoading: boolean
+  status?: string
 }
 
-export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export function ChatMessages({ messages, isLoading, status }: ChatMessagesProps) {
   if (messages.length === 0) {
     return (
       <ConversationEmptyState
@@ -38,8 +44,8 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
 
   return (
     <div className="flex flex-col gap-2 px-3 py-2">
-      {messages.map((message) => (
-        <Message key={message.id} from={message.role} className="max-w-full">
+      {messages.map((message, index) => (
+        <Message key={`${message.id}-${index}`} from={message.role} className="max-w-full">
           <MessageContent className="text-xs">
             {message.parts.map((part, index) => {
               // Handle text parts with markdown rendering
@@ -52,6 +58,29 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
                   <span key={index} className="whitespace-pre-wrap text-xs">
                     {part.text}
                   </span>
+                )
+              }
+
+              // Handle reasoning parts
+              if (part.type === "reasoning") {
+                const reasoningPart = part as {
+                  type: "reasoning"
+                  text: string
+                  state?: "streaming" | "done"
+                }
+                const isStreamingReasoning = reasoningPart.state === "streaming"
+
+                return (
+                  <Reasoning
+                    key={index}
+                    isStreaming={isStreamingReasoning}
+                    className="mb-1 [&_*]:text-xs"
+                  >
+                    <ReasoningTrigger className="text-xs" />
+                    <ReasoningContent className="text-xs">
+                      {reasoningPart.text}
+                    </ReasoningContent>
+                  </Reasoning>
                 )
               }
 
