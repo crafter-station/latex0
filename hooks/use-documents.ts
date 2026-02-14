@@ -15,6 +15,8 @@ export function useDocuments() {
   const {
     activeDocumentId,
     setActiveDocumentId,
+    updateDocumentMeta,
+    documents: storedDocs,
   } = useDocumentStore()
 
   const { user } = useUserIdentity()
@@ -43,11 +45,14 @@ export function useDocuments() {
   // --- Mutations ---
 
   const createMutation = useMutation({
-    mutationFn: async (title?: string) => {
+    mutationFn: async ({ title, projectId }: { title?: string; projectId?: string | null }) => {
       const res = await fetch("/api/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title || "Untitled Document" }),
+        body: JSON.stringify({
+          title: title || "Untitled Document",
+          projectId: projectId || null,
+        }),
       })
       if (!res.ok) throw new Error("Failed to create document")
       return res.json() as Promise<DocumentMeta>
@@ -100,10 +105,10 @@ export function useDocuments() {
   }, [isAuthenticated, queryClient])
 
   const createDocument = useCallback(
-    async (title?: string) => {
+    async (title?: string, projectId?: string | null) => {
       if (!isAuthenticated) return null
       try {
-        return await createMutation.mutateAsync(title)
+        return await createMutation.mutateAsync({ title, projectId })
       } catch (err) {
         console.error("[useDocuments] Failed to create document:", err)
         return null
@@ -111,6 +116,8 @@ export function useDocuments() {
     },
     [isAuthenticated, createMutation]
   )
+
+  const addDocument = useDocumentStore((s) => s.addDocument)
 
   const loadDocument = useCallback(
     async (docId: string) => {
@@ -126,6 +133,21 @@ export function useDocuments() {
           openFile(mainFile.id)
 
           setActiveDocumentId(docId)
+
+          // Ensure document meta is in the store for header/sidebar display
+          const exists = storedDocs.some((d) => d.id === docId)
+          if (!exists) {
+            addDocument({
+              id: doc.id,
+              title: doc.title,
+              folder: doc.folder,
+              folderId: doc.folderId,
+              projectId: doc.projectId,
+              createdAt: doc.createdAt,
+              updatedAt: doc.updatedAt,
+            })
+          }
+
           if (doc.permission) {
             setCurrentPermission(doc.permission as UserPermission)
           }
@@ -134,7 +156,7 @@ export function useDocuments() {
         console.error("[useDocuments] Failed to load document:", err)
       }
     },
-    [isAuthenticated, setFiles, openFile, setActiveDocumentId, setCurrentPermission]
+    [isAuthenticated, setFiles, openFile, setActiveDocumentId, setCurrentPermission, storedDocs, addDocument]
   )
 
   const deleteDocument = useCallback(

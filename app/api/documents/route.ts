@@ -25,12 +25,13 @@ export const GET = withAuth(async (_req, { userId }) => {
 
 export const POST = withAuth(async (req, { userId }) => {
   const body = await req.json()
-  const { title, content, folder } = body
+  const { title, content, folder, projectId } = body
 
   const doc = await documentRepository.create({
     title: title || "Untitled Document",
     content: content || DEFAULT_CONTENT,
     folder: folder || "root",
+    projectId: projectId || null,
     userId,
   })
 
