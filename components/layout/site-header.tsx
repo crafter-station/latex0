@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useDocumentStore, type SaveStatus } from "@/lib/document-store"
 import { useVersionStore } from "@/lib/version-store"
 import { ShareDialog } from "@/components/share/share-dialog"
@@ -10,6 +11,7 @@ import { IconCheck, IconLoader2, IconPointFilled, IconAlertTriangle, IconHistory
 
 function SaveStatusIndicator() {
   const saveStatus = useDocumentStore((s) => s.saveStatus)
+  const saveError = useDocumentStore((s) => s.saveError)
   const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
 
   if (!activeDocumentId) return null
@@ -38,6 +40,23 @@ function SaveStatusIndicator() {
   }
 
   const { icon, label, className } = config[saveStatus]
+
+  if (saveStatus === "error") {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className={`flex items-center gap-1 text-xs ${className}`}>
+            {icon}
+            <span>{label}</span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p className="text-xs">{saveError || "Unknown error"}</p>
+          <p className="text-xs text-muted-foreground">Your work is safe locally</p>
+        </TooltipContent>
+      </Tooltip>
+    )
+  }
 
   return (
     <div className={`flex items-center gap-1 text-xs ${className}`}>

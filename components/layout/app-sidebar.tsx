@@ -11,9 +11,11 @@ import {
   IconSettings,
   IconUsers,
   IconList,
+  IconPhoto,
 } from "@tabler/icons-react"
 
 import { FolderTree } from "@/components/sidebar/folder-tree"
+import { FileTree } from "@/components/sidebar/file-tree"
 import { NavMain } from "@/components/sidebar/nav-main"
 import { NavSecondary } from "@/components/sidebar/nav-secondary"
 import { NavUser } from "@/components/sidebar/nav-user"
@@ -32,7 +34,7 @@ import {
 import { ThemeSwitcherButton } from "@/components/theme-switcher-button"
 import { useUserIdentity } from "@/hooks/use-user-identity"
 import { DocumentOutline } from "@/components/editor/document-outline"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ImageGallery } from "@/components/sidebar/image-gallery"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { IconChevronRight } from "@tabler/icons-react"
 
@@ -125,27 +127,65 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <NavMain items={data.navMain} />
         <FolderTree />
 
-        {/* Document Outline */}
-        <Collapsible defaultOpen className="group/outline">
-          <SidebarGroup>
-            <CollapsibleTrigger asChild>
-              <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
-                <IconList className="size-3.5 mr-1.5" />
-                Outline
-                <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/outline:rotate-90" />
-              </SidebarGroupLabel>
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <ScrollArea className="max-h-48">
-                  <DocumentOutline />
-                </ScrollArea>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
+        {/* Scrollable middle area — sections share available space, never push settings off-screen */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto gap-2">
+          {/* Project Files */}
+          <Collapsible defaultOpen className="group/files shrink-0">
+            <SidebarGroup>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
+                  <IconFolder className="size-3.5 mr-1.5" />
+                  Project Files
+                  <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/files:rotate-90" />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <FileTree />
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
 
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+          {/* Document Outline */}
+          <Collapsible defaultOpen className="group/outline shrink-0">
+            <SidebarGroup>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
+                  <IconList className="size-3.5 mr-1.5" />
+                  Outline
+                  <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/outline:rotate-90" />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <DocumentOutline />
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+
+          {/* Image Gallery */}
+          <Collapsible className="group/images shrink-0">
+            <SidebarGroup>
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
+                  <IconPhoto className="size-3.5 mr-1.5" />
+                  Images
+                  <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/images:rotate-90" />
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <ImageGallery />
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        </div>
+
+        {/* Settings always pinned at bottom — never overlapped */}
+        <NavSecondary items={data.navSecondary} className="shrink-0" />
       </SidebarContent>
       <SidebarFooter>
         {!isLoading && user && <NavUser user={user} />}

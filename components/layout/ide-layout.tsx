@@ -6,6 +6,7 @@ import {
   ResizablePanelGroup,
 } from "@/components/ui/resizable"
 import { SiteHeader } from "@/components/layout/site-header"
+import { PlaygroundBanner } from "@/components/layout/playground-banner"
 import { EditorTabs } from "@/components/editor/editor-tabs"
 import { CodeEditor } from "@/components/editor/code-editor"
 import { PdfViewer } from "@/components/preview/pdf-viewer"
@@ -13,12 +14,15 @@ import { ChatPanel } from "@/components/chat/chat-panel"
 import { CommandPalette } from "@/components/editor/command-palette"
 import { VersionHistoryPanel } from "@/components/versions/version-history-panel"
 import { useAutoSave } from "@/hooks/use-auto-save"
+import { usePlaygroundPersistence } from "@/hooks/use-playground-persistence"
 
 export function IdeLayout() {
   useAutoSave()
+  usePlaygroundPersistence()
 
   return (
     <div className="flex h-full flex-col">
+      <PlaygroundBanner />
       <SiteHeader />
       <div className="flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col overflow-hidden">
