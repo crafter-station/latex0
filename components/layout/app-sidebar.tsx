@@ -10,6 +10,7 @@ import {
   IconSearch,
   IconSettings,
   IconUsers,
+  IconList,
 } from "@tabler/icons-react"
 
 import { NavDocuments } from "@/components/sidebar/nav-documents"
@@ -24,9 +25,16 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
 } from "@/components/ui/sidebar"
 import { ThemeSwitcherButton } from "@/components/theme-switcher-button"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import { DocumentOutline } from "@/components/editor/document-outline"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { IconChevronRight } from "@tabler/icons-react"
 
 const data = {
   navMain: [
@@ -46,7 +54,7 @@ const data = {
       title: "Templates",
       url: "#",
       icon: IconFileDescription,
-      soon: true,
+      soon: false,
     },
     {
       title: "Analytics",
@@ -78,7 +86,7 @@ const data = {
       title: "Search",
       url: "#",
       icon: IconSearch,
-      soon: true,
+      soon: false,
     },
   ],
 }
@@ -116,6 +124,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={data.navMain} />
         <NavDocuments />
+
+        {/* Document Outline */}
+        <Collapsible defaultOpen className="group/outline">
+          <SidebarGroup>
+            <CollapsibleTrigger asChild>
+              <SidebarGroupLabel className="cursor-pointer hover:bg-accent/50 rounded-md transition-colors">
+                <IconList className="size-3.5 mr-1.5" />
+                Outline
+                <IconChevronRight className="ml-auto size-3.5 transition-transform group-data-[state=open]/outline:rotate-90" />
+              </SidebarGroupLabel>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <ScrollArea className="max-h-48">
+                  <DocumentOutline />
+                </ScrollArea>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
