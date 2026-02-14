@@ -1,14 +1,9 @@
 import { create } from "zustand"
+import type { Document } from "@/lib/db/schema"
 
 export type SaveStatus = "saved" | "saving" | "unsaved" | "error"
 
-export interface DocumentMeta {
-  id: string
-  title: string
-  folder: string
-  createdAt: string
-  updatedAt: string
-}
+export type DocumentMeta = Pick<Document, "id" | "title" | "folder" | "folderId" | "createdAt" | "updatedAt">
 
 interface DocumentStore {
   documents: DocumentMeta[]
