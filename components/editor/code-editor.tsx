@@ -8,11 +8,13 @@ import { useFiles } from "@/hooks/use-files"
 import { useRealtimeCursors } from "@/hooks/use-realtime-cursors"
 import { latexLanguageConfig, latexTokensProvider } from "./latex-language"
 import { latexDarkTheme, latexLightTheme } from "./latex-theme"
+import { registerLatexCompletions } from "./latex-completions"
 import { useTheme } from "next-themes"
 import { PresenceIndicator } from "./presence-indicator"
 import { CursorOverlay } from "./cursor-overlay"
 import { useSelectionContext } from "@/stores/selection-context-store"
 import { useDocumentStore } from "@/lib/document-store"
+import { useFileStore } from "@/lib/file-store"
 
 interface DiffHunk {
   oldLines: string[]
@@ -67,7 +69,8 @@ function computeDiffHunks(oldContent: string, newContent: string): DiffHunk[] {
 }
 
 export function CodeEditor() {
-  const { activeTabId, activeContent, updateFileContent, pendingChange, acceptChange, rejectChange } = useFiles()
+  const { activeTabId, activeContent, updateFileContent, pendingChange, acceptChange, rejectChange, goToLine, setGoToLine, requestCompile } = useFiles()
+  const requestAIFix = useFileStore((s) => s.requestAIFix)
   const { resolvedTheme } = useTheme()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
@@ -278,7 +281,7 @@ export function CodeEditor() {
     widgetsRef.current = widgets
   }, [pendingChange, activeTabId, acceptChange, rejectChange, clearDiffVisualization])
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts for diff accept/reject
   useEffect(() => {
     if (!pendingChange) return
 
@@ -304,6 +307,75 @@ export function CodeEditor() {
   // Selection context store
   const setSelectionContext = useSelectionContext((state) => state.setContext)
 
+  // Helper to wrap selected text or insert at cursor
+  const wrapSelection = useCallback((prefix: string, suffix: string) => {
+    const ed = editorRef.current
+    if (!ed) return
+    const selection = ed.getSelection()
+    if (!selection) return
+    const model = ed.getModel()
+    if (!model) return
+
+    const selectedText = model.getValueInRange(selection)
+    const newText = `${prefix}${selectedText || "text"}${suffix}`
+
+    ed.executeEdits("wrap-selection", [{
+      range: selection,
+      text: newText,
+    }])
+
+    // If no text was selected, select the placeholder "text"
+    if (!selectedText) {
+      const startCol = selection.startColumn + prefix.length
+      ed.setSelection({
+        startLineNumber: selection.startLineNumber,
+        startColumn: startCol,
+        endLineNumber: selection.startLineNumber,
+        endColumn: startCol + 4,
+      })
+    }
+  }, [])
+
+  // Listen for custom events from command palette
+  useEffect(() => {
+    const handleInsertSnippet = (e: Event) => {
+      const content = (e as CustomEvent<string>).detail
+      const ed = editorRef.current
+      if (!ed) return
+      const selection = ed.getSelection()
+      if (!selection) return
+      ed.executeEdits("insert-snippet", [{
+        range: selection,
+        text: content,
+      }])
+      ed.focus()
+    }
+
+    const handleWrapSelection = (e: Event) => {
+      const { prefix, suffix } = (e as CustomEvent<{ prefix: string; suffix: string }>).detail
+      wrapSelection(prefix, suffix)
+      editorRef.current?.focus()
+    }
+
+    window.addEventListener("latex0:insert-snippet", handleInsertSnippet)
+    window.addEventListener("latex0:wrap-selection", handleWrapSelection)
+    return () => {
+      window.removeEventListener("latex0:insert-snippet", handleInsertSnippet)
+      window.removeEventListener("latex0:wrap-selection", handleWrapSelection)
+    }
+  }, [wrapSelection])
+
+  // Handle goToLine from store (e.g., from error navigation)
+  useEffect(() => {
+    if (goToLine && editorRef.current) {
+      const ed = editorRef.current
+      ed.revealLineInCenter(goToLine)
+      ed.setPosition({ lineNumber: goToLine, column: 1 })
+      ed.focus()
+      setGoToLine(null)
+    }
+  }, [goToLine, setGoToLine])
+
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
@@ -314,11 +386,174 @@ export function CodeEditor() {
     monaco.languages.setLanguageConfiguration("latex", latexLanguageConfig)
     monaco.languages.setMonarchTokensProvider("latex", latexTokensProvider)
 
+    // Register LaTeX completions
+    registerLatexCompletions(monaco)
+
     // Register custom themes
     monaco.editor.defineTheme("latex-dark", latexDarkTheme)
     monaco.editor.defineTheme("latex-light", latexLightTheme)
     // Set initial theme based on current resolved theme
     monaco.editor.setTheme(resolvedTheme === "light" ? "latex-light" : "latex-dark")
+
+    // --- Keyboard Shortcuts ---
+
+    // Cmd+S: Manual save (trigger auto-save immediately)
+    editor.addAction({
+      id: "latex0-save",
+      label: "Save Document",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS],
+      run: () => {
+        // Dispatch event for manual save
+        window.dispatchEvent(new CustomEvent("latex0:manual-save"))
+      },
+    })
+
+    // Cmd+Enter: Compile PDF
+    editor.addAction({
+      id: "latex0-compile",
+      label: "Compile PDF",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
+      run: () => {
+        requestCompile()
+      },
+    })
+
+    // Cmd+B: Bold
+    editor.addAction({
+      id: "latex0-bold",
+      label: "Bold",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB],
+      run: () => {
+        wrapSelection("\\textbf{", "}")
+      },
+    })
+
+    // Cmd+I: Italic
+    editor.addAction({
+      id: "latex0-italic",
+      label: "Italic",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI],
+      run: () => {
+        wrapSelection("\\textit{", "}")
+      },
+    })
+
+    // Cmd+Shift+M: Math mode
+    editor.addAction({
+      id: "latex0-math",
+      label: "Math Mode",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyM],
+      run: () => {
+        wrapSelection("$", "$")
+      },
+    })
+
+    // Cmd+/: Toggle comment
+    editor.addAction({
+      id: "latex0-toggle-comment",
+      label: "Toggle Comment",
+      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash],
+      run: (ed) => {
+        const sel = ed.getSelection()
+        if (!sel) return
+        const model = ed.getModel()
+        if (!model) return
+
+        const edits: { range: typeof sel; text: string }[] = []
+        for (let line = sel.startLineNumber; line <= sel.endLineNumber; line++) {
+          const lineContent = model.getLineContent(line)
+          if (lineContent.trimStart().startsWith("%")) {
+            // Remove comment
+            const idx = lineContent.indexOf("%")
+            const removeExtra = lineContent[idx + 1] === " " ? 2 : 1
+            edits.push({
+              range: new monaco.Range(line, idx + 1, line, idx + 1 + removeExtra),
+              text: "",
+            })
+          } else {
+            // Add comment
+            edits.push({
+              range: new monaco.Range(line, 1, line, 1),
+              text: "% ",
+            })
+          }
+        }
+        ed.executeEdits("toggle-comment", edits)
+      },
+    })
+
+    // --- AI Context Menu ---
+    editor.addAction({
+      id: "latex0-ai-explain",
+      label: "AI: Explain Selection",
+      contextMenuGroupId: "latex0-ai",
+      contextMenuOrder: 1,
+      precondition: "editorHasSelection",
+      run: (ed) => {
+        const sel = ed.getSelection()
+        if (!sel) return
+        const model = ed.getModel()
+        if (!model) return
+        const text = model.getValueInRange(sel)
+        if (text.trim()) {
+          requestAIFix(`Explain this LaTeX code:\n\`\`\`\n${text}\n\`\`\``)
+        }
+      },
+    })
+
+    editor.addAction({
+      id: "latex0-ai-improve",
+      label: "AI: Improve Selection",
+      contextMenuGroupId: "latex0-ai",
+      contextMenuOrder: 2,
+      precondition: "editorHasSelection",
+      run: (ed) => {
+        const sel = ed.getSelection()
+        if (!sel) return
+        const model = ed.getModel()
+        if (!model) return
+        const text = model.getValueInRange(sel)
+        if (text.trim()) {
+          requestAIFix(`Improve this LaTeX code. Make it cleaner, more idiomatic, or better formatted:\n\`\`\`\n${text}\n\`\`\``)
+        }
+      },
+    })
+
+    editor.addAction({
+      id: "latex0-ai-simplify",
+      label: "AI: Simplify Selection",
+      contextMenuGroupId: "latex0-ai",
+      contextMenuOrder: 3,
+      precondition: "editorHasSelection",
+      run: (ed) => {
+        const sel = ed.getSelection()
+        if (!sel) return
+        const model = ed.getModel()
+        if (!model) return
+        const text = model.getValueInRange(sel)
+        if (text.trim()) {
+          requestAIFix(`Simplify this LaTeX code while preserving its meaning:\n\`\`\`\n${text}\n\`\`\``)
+        }
+      },
+    })
+
+    editor.addAction({
+      id: "latex0-ai-convert-table",
+      label: "AI: Convert to Table",
+      contextMenuGroupId: "latex0-ai",
+      contextMenuOrder: 4,
+      precondition: "editorHasSelection",
+      run: (ed) => {
+        const sel = ed.getSelection()
+        if (!sel) return
+        const model = ed.getModel()
+        if (!model) return
+        const text = model.getValueInRange(sel)
+        if (text.trim()) {
+          requestAIFix(`Convert this content into a LaTeX table:\n\`\`\`\n${text}\n\`\`\``)
+        }
+      },
+    })
 
     // Broadcast cursor position on change
     editor.onDidChangeCursorPosition((e) => {
