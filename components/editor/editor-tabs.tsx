@@ -3,9 +3,15 @@
 import { cn } from "@/lib/utils"
 import { useFiles } from "@/hooks/use-files"
 import { IconFileText, IconX } from "@tabler/icons-react"
+import { SnippetPanel } from "./snippet-panel"
+import { useCallback } from "react"
 
 export function EditorTabs() {
   const { openTabs, activeTabId, setActiveTab, closeTab, getFileById } = useFiles()
+
+  const handleSnippetInsert = useCallback((content: string) => {
+    window.dispatchEvent(new CustomEvent("latex0:insert-snippet", { detail: content }))
+  }, [])
 
   if (openTabs.length === 0) {
     return (
@@ -52,6 +58,10 @@ export function EditorTabs() {
           </div>
         )
       })}
+
+      <div className="ml-auto shrink-0">
+        <SnippetPanel onInsert={handleSnippetInsert} />
+      </div>
     </div>
   )
 }
