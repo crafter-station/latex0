@@ -5,6 +5,8 @@ import { useDocumentStore, type DocumentMeta } from "@/lib/document-store"
 import { useFileStore } from "@/lib/file-store"
 import { useShareStore } from "@/lib/share-store"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import { parseDocumentContent } from "@/lib/content-parser"
+import { findMainFile } from "@/lib/file-utils"
 import type { UserPermission } from "@/lib/db/schema"
 
 export function useDocuments() {
@@ -72,16 +74,12 @@ export function useDocuments() {
         const res = await fetch(`/api/documents/${docId}`)
         if (res.ok) {
           const doc = await res.json()
-          const fileNode = {
-            id: "main",
-            name: doc.title.endsWith(".tex")
-              ? doc.title
-              : `${doc.title}.tex`,
-            type: "file" as const,
-            content: doc.content,
-          }
-          setFiles([fileNode])
-          openFile("main")
+          const files = parseDocumentContent(doc.content)
+          setFiles(files)
+
+          const mainFile = findMainFile(files)
+          openFile(mainFile.id)
+
           setActiveDocumentId(docId)
           if (doc.permission) {
             setCurrentPermission(doc.permission as UserPermission)
