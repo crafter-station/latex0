@@ -22,6 +22,9 @@ export type VersionContentType = (typeof versionContentType)[number]
 export const folderVisibility = ["private", "shared"] as const
 export type FolderVisibility = (typeof folderVisibility)[number]
 
+export const projectVisibility = ["private", "shared"] as const
+export type ProjectVisibility = (typeof projectVisibility)[number]
+
 // ─── Documents ──────────────────────────────────────────────────────────────
 
 export const documents = pgTable("documents", {
@@ -32,6 +35,7 @@ export const documents = pgTable("documents", {
   content: text("content").notNull().default(""),
   folder: varchar("folder", { length: 255 }).notNull().default("root"),
   folderId: varchar("folder_id", { length: 21 }),
+  projectId: varchar("project_id", { length: 21 }),
   userId: text("user_id").notNull(),
   visibility: text("visibility", { enum: documentVisibility }).notNull().default("private"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -78,6 +82,7 @@ export const folders = pgTable("folders", {
     .$defaultFn(() => nanoid()),
   name: varchar("name", { length: 255 }).notNull(),
   parentId: varchar("parent_id", { length: 21 }),
+  projectId: varchar("project_id", { length: 21 }),
   userId: text("user_id").notNull(),
   path: text("path").notNull(),
   depth: integer("depth").notNull().default(0),
@@ -92,6 +97,56 @@ export const folders = pgTable("folders", {
 
 export type Folder = typeof folders.$inferSelect
 export type NewFolder = typeof folders.$inferInsert
+
+// ─── Projects ──────────────────────────────────────────────────────────────
+
+export const projects = pgTable("projects", {
+  id: varchar("id", { length: 21 })
+    .primaryKey()
+    .$defaultFn(() => nanoid()),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  parentId: varchar("parent_id", { length: 21 }),
+  userId: text("user_id").notNull(),
+  path: text("path").notNull(),
+  depth: integer("depth").notNull().default(0),
+  visibility: text("visibility", { enum: projectVisibility }).notNull().default("private"),
+  color: varchar("color", { length: 7 }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type Project = typeof projects.$inferSelect
+export type NewProject = typeof projects.$inferInsert
+
+// ─── Project Shares ────────────────────────────────────────────────────────
+
+export const projectShares = pgTable("project_shares", {
+  id: varchar("id", { length: 21 })
+    .primaryKey()
+    .$defaultFn(() => nanoid()),
+  projectId: varchar("project_id", { length: 21 }).notNull(),
+  sharedBy: text("shared_by").notNull(),
+  sharedWith: text("shared_with"),
+  permission: text("permission", { enum: sharePermission }).notNull(),
+  shareToken: text("share_token")
+    .unique()
+    .$defaultFn(() => nanoid(32)),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export type ProjectShare = typeof projectShares.$inferSelect
+export type NewProjectShare = typeof projectShares.$inferInsert
 
 // ─── Document Versions ──────────────────────────────────────────────────────
 
@@ -131,5 +186,12 @@ export const selectFolderSchema = createSelectSchema(folders)
 export const insertDocumentVersionSchema = createInsertSchema(documentVersions)
 export const selectDocumentVersionSchema = createSelectSchema(documentVersions)
 
+export const insertProjectSchema = createInsertSchema(projects)
+export const selectProjectSchema = createSelectSchema(projects)
+
+export const insertProjectShareSchema = createInsertSchema(projectShares)
+export const selectProjectShareSchema = createSelectSchema(projectShares)
+
 export const updateDocumentSchema = insertDocumentSchema.partial()
 export const updateFolderSchema = insertFolderSchema.partial()
+export const updateProjectSchema = insertProjectSchema.partial()

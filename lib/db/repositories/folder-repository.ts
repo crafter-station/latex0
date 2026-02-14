@@ -8,6 +8,7 @@ export const folderRepository = {
   async create(params: {
     name: string
     parentId?: string | null
+    projectId?: string | null
     userId: string
   }): Promise<Folder> {
     let path = `/${params.name}`
@@ -38,6 +39,7 @@ export const folderRepository = {
       .values({
         name: params.name,
         parentId: params.parentId || null,
+        projectId: params.projectId || null,
         userId: params.userId,
         path,
         depth,

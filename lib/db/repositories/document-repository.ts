@@ -37,7 +37,7 @@ export const documentRepository = {
   async update(
     id: string,
     userId: string,
-    data: Partial<Pick<Document, "title" | "content" | "folder" | "folderId">>
+    data: Partial<Pick<Document, "title" | "content" | "folder" | "folderId" | "projectId">>
   ): Promise<Document | undefined> {
     const result = await db
       .update(documents)

@@ -15,6 +15,13 @@
       "when": 1771045095189,
       "tag": "0001_typical_phil_sheldon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771092999456,
+      "tag": "0002_sturdy_stature",
+      "breakpoints": true
     }
   ]
 }
