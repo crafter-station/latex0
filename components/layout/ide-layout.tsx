@@ -10,6 +10,7 @@ import { EditorTabs } from "@/components/editor/editor-tabs"
 import { CodeEditor } from "@/components/editor/code-editor"
 import { PdfViewer } from "@/components/preview/pdf-viewer"
 import { ChatPanel } from "@/components/chat/chat-panel"
+import { CommandPalette } from "@/components/editor/command-palette"
 import { useAutoSave } from "@/hooks/use-auto-save"
 
 export function IdeLayout() {
@@ -42,6 +43,9 @@ export function IdeLayout() {
           </ResizablePanel>
         </ResizablePanelGroup>
       </div>
+
+      {/* Global command palette */}
+      <CommandPalette />
     </div>
   )
 }
