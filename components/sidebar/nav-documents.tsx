@@ -27,16 +27,17 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useDocuments } from "@/hooks/use-documents"
+import { useUserIdentity } from "@/hooks/use-user-identity"
 
 export function NavDocuments() {
   const router = useRouter()
   const { isMobile } = useSidebar()
+  const { isLoading: authLoading } = useUserIdentity()
   const {
     documents,
     activeDocumentId,
     isLoading,
     isAuthenticated,
-    fetchDocuments,
     createDocument,
     deleteDocument,
     renameDocument,
@@ -45,10 +46,6 @@ export function NavDocuments() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const renameInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    fetchDocuments()
-  }, [fetchDocuments])
 
   useEffect(() => {
     if (renamingId && renameInputRef.current) {
@@ -83,6 +80,21 @@ export function NavDocuments() {
 
   function handleCancelRename() {
     setRenamingId(null)
+  }
+
+  if (authLoading) {
+    return (
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Documents</SidebarGroupLabel>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton disabled>
+              <span className="text-sidebar-foreground/30 text-xs">Loading...</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
+    )
   }
 
   if (!isAuthenticated) {

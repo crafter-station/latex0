@@ -38,6 +38,7 @@ import {
 import { useFolderStore, type FolderNode } from "@/lib/folder-store"
 import { useDocumentStore, type DocumentMeta } from "@/lib/document-store"
 import { useDocuments } from "@/hooks/use-documents"
+import { useUserIdentity } from "@/hooks/use-user-identity"
 
 function FolderItem({
   node,
@@ -311,6 +312,7 @@ function DocumentItem({
 
 export function FolderTree() {
   const router = useRouter()
+  const { isLoading: authLoading } = useUserIdentity()
   const {
     tree,
     isLoading: foldersLoading,
@@ -323,7 +325,6 @@ export function FolderTree() {
     activeDocumentId,
     isLoading: docsLoading,
     isAuthenticated,
-    fetchDocuments,
     createDocument,
     deleteDocument,
     renameDocument,
@@ -332,9 +333,8 @@ export function FolderTree() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchFolders()
-      fetchDocuments()
     }
-  }, [isAuthenticated, fetchFolders, fetchDocuments])
+  }, [isAuthenticated, fetchFolders])
 
   function handleNavigate(docId: string) {
     router.push(`/playground/${docId}`)
@@ -352,6 +352,22 @@ export function FolderTree() {
     if (docId === activeDocumentId) {
       router.push("/playground")
     }
+  }
+
+  // Show loading skeleton while auth is resolving (prevents layout shift)
+  if (authLoading) {
+    return (
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Documents</SidebarGroupLabel>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton disabled>
+              <span className="text-sidebar-foreground/30 text-xs">Loading...</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
+    )
   }
 
   if (!isAuthenticated) {
