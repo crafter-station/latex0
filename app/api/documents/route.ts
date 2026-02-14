@@ -1,5 +1,5 @@
-import { auth } from "@clerk/nextjs/server"
-import { NextRequest, NextResponse } from "next/server"
+import { NextResponse } from "next/server"
+import { withAuth } from "@/lib/api/with-auth"
 import { documentRepository } from "@/lib/db/repositories/document-repository"
 
 const DEFAULT_CONTENT = `\\documentclass[12pt]{article}
@@ -18,22 +18,12 @@ Start writing here...
 \\end{document}
 `
 
-export async function GET() {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+export const GET = withAuth(async (_req, { userId }) => {
   const docs = await documentRepository.findAllByUser(userId)
   return NextResponse.json(docs)
-}
+})
 
-export async function POST(req: NextRequest) {
-  const { userId } = await auth()
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
+export const POST = withAuth(async (req, { userId }) => {
   const body = await req.json()
   const { title, content, folder } = body
 
@@ -45,4 +35,4 @@ export async function POST(req: NextRequest) {
   })
 
   return NextResponse.json(doc, { status: 201 })
-}
+})
