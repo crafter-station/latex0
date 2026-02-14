@@ -14,6 +14,8 @@ import { useVersionStore } from "@/lib/version-store"
 import { useDocumentStore } from "@/lib/document-store"
 import { useFileStore } from "@/lib/file-store"
 import { useShareStore } from "@/lib/share-store"
+import { parseDocumentContent } from "@/lib/content-parser"
+import { findMainFile } from "@/lib/file-utils"
 import type { DocumentVersion } from "@/lib/db/schema"
 
 function formatTimeAgo(dateStr: string): string {
@@ -161,21 +163,18 @@ export function VersionHistoryPanel() {
 
   const canRestore = currentPermission === "owner"
 
+  const openFile = useFileStore((s) => s.openFile)
+
   async function handleRestore(versionId: string) {
     if (!activeDocumentId) return
     const success = await restoreVersion(activeDocumentId, versionId)
     if (success) {
-      // Reload the document content
       const version = await getVersionContent(activeDocumentId, versionId)
       if (version) {
-        setFiles([
-          {
-            id: "main",
-            name: "main.tex",
-            type: "file",
-            content: version.content,
-          },
-        ])
+        const files = parseDocumentContent(version.content)
+        setFiles(files)
+        const mainFile = findMainFile(files)
+        openFile(mainFile.id)
       }
       selectVersion(null)
     }

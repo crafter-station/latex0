@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState, useRef } from "react"
 import { useFiles } from "@/hooks/use-files"
 import { useFileStore } from "@/lib/file-store"
+import { bundleLatexFiles } from "@/lib/latex-bundler"
+import { findMainFile } from "@/lib/file-utils"
 import { PreviewToolbar } from "./preview-toolbar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
@@ -65,7 +67,10 @@ export function PdfViewer() {
     setError(null)
 
     try {
-      const pdfBuffer = await client.renderPDF(activeContent)
+      const files = useFileStore.getState().files
+      const mainFile = findMainFile(files)
+      const bundledContent = await bundleLatexFiles(files, mainFile)
+      const pdfBuffer = await client.renderPDF(bundledContent)
 
       const arrayBuffer = new ArrayBuffer(pdfBuffer.byteLength)
       new Uint8Array(arrayBuffer).set(pdfBuffer)
