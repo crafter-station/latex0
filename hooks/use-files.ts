@@ -7,6 +7,8 @@ export function useFiles() {
   const compiledHtml = useFileStore((state) => state.compiledHtml)
   const pendingChange = useFileStore((state) => state.pendingChange)
   const pendingAIRequest = useFileStore((state) => state.pendingAIRequest)
+  const goToLine = useFileStore((state) => state.goToLine)
+  const triggerCompile = useFileStore((state) => state.triggerCompile)
   const openFile = useFileStore((state) => state.openFile)
   const closeTab = useFileStore((state) => state.closeTab)
   const setActiveTab = useFileStore((state) => state.setActiveTab)
@@ -20,6 +22,8 @@ export function useFiles() {
   const rejectChange = useFileStore((state) => state.rejectChange)
   const requestAIFix = useFileStore((state) => state.requestAIFix)
   const clearAIRequest = useFileStore((state) => state.clearAIRequest)
+  const setGoToLine = useFileStore((state) => state.setGoToLine)
+  const requestCompile = useFileStore((state) => state.requestCompile)
   const resetToDefaults = useFileStore((state) => state.resetToDefaults)
 
   const activeFile = activeTabId ? getFileById(activeTabId) : null
@@ -34,6 +38,8 @@ export function useFiles() {
     compiledHtml,
     pendingChange,
     pendingAIRequest,
+    goToLine,
+    triggerCompile,
     openFile,
     closeTab,
     setActiveTab,
@@ -47,6 +53,8 @@ export function useFiles() {
     rejectChange,
     requestAIFix,
     clearAIRequest,
+    setGoToLine,
+    requestCompile,
     resetToDefaults,
   }
 }

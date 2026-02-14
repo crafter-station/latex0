@@ -28,6 +28,8 @@ interface FileStore {
   compiledHtml: string | null
   pendingChange: PendingChange | null
   pendingAIRequest: PendingAIRequest | null
+  goToLine: number | null
+  triggerCompile: number
   setFiles: (files: FileNode[]) => void
   openFile: (id: string) => void
   closeTab: (id: string) => void
@@ -42,6 +44,8 @@ interface FileStore {
   rejectChange: () => void
   requestAIFix: (prompt: string, context?: string) => void
   clearAIRequest: () => void
+  setGoToLine: (line: number | null) => void
+  requestCompile: () => void
   resetToDefaults: () => void
 }
 
@@ -191,6 +195,8 @@ export const useFileStore = create<FileStore>((set, get) => ({
   compiledHtml: null,
   pendingChange: null,
   pendingAIRequest: null,
+  goToLine: null,
+  triggerCompile: 0,
 
   setFiles: (files) => set({ files }),
 
@@ -291,6 +297,10 @@ export const useFileStore = create<FileStore>((set, get) => ({
     set({ pendingAIRequest: null })
   },
 
+  setGoToLine: (line) => set({ goToLine: line }),
+
+  requestCompile: () => set((state) => ({ triggerCompile: state.triggerCompile + 1 })),
+
   resetToDefaults: () => {
     set({
       files: defaultFiles,
@@ -299,6 +309,8 @@ export const useFileStore = create<FileStore>((set, get) => ({
       compiledHtml: null,
       pendingChange: null,
       pendingAIRequest: null,
+      goToLine: null,
+      triggerCompile: 0,
     })
   },
 }))
