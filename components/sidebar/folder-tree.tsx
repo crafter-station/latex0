@@ -39,6 +39,7 @@ import { useFolderStore, type FolderNode } from "@/lib/folder-store"
 import { useDocumentStore, type DocumentMeta } from "@/lib/document-store"
 import { useDocuments } from "@/hooks/use-documents"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import { useProjectStore, docUrl } from "@/lib/project-store"
 
 function FolderItem({
   node,
@@ -319,6 +320,7 @@ export function FolderTree() {
     fetchFolders,
     createFolder,
   } = useFolderStore()
+  const { activeProjectId } = useProjectStore()
 
   const {
     documents,
@@ -337,20 +339,20 @@ export function FolderTree() {
   }, [isAuthenticated, fetchFolders])
 
   function handleNavigate(docId: string) {
-    router.push(`/playground/${docId}`)
+    router.push(docUrl(docId, activeProjectId))
   }
 
   async function handleCreate() {
     const doc = await createDocument()
     if (doc) {
-      router.push(`/playground/${doc.id}`)
+      router.push(docUrl(doc.id, activeProjectId))
     }
   }
 
   async function handleDelete(docId: string) {
     await deleteDocument(docId)
     if (docId === activeDocumentId) {
-      router.push("/playground")
+      router.push("/projects")
     }
   }
 
@@ -358,7 +360,7 @@ export function FolderTree() {
   if (authLoading) {
     return (
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Documents</SidebarGroupLabel>
+        <SidebarGroupLabel>Library</SidebarGroupLabel>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton disabled>
@@ -373,7 +375,7 @@ export function FolderTree() {
   if (!isAuthenticated) {
     return (
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Documents</SidebarGroupLabel>
+        <SidebarGroupLabel>Library</SidebarGroupLabel>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton>
@@ -388,13 +390,21 @@ export function FolderTree() {
 
   const isLoading = foldersLoading || docsLoading
 
-  // Documents not in any folder
-  const rootDocs = documents.filter((d) => !d.folderId)
+  // Filter tree and root docs by active project
+  const filteredTree = activeProjectId
+    ? tree.filter((node) => node.projectId === activeProjectId)
+    : tree
+
+  const rootDocs = documents.filter((d) => {
+    if (d.folderId) return false
+    if (activeProjectId) return d.projectId === activeProjectId
+    return true
+  })
 
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel className="flex items-center justify-between">
-        <span>Documents</span>
+        <span>Library</span>
         <div className="flex items-center gap-0.5">
           <button
             onClick={() => createFolder("New Folder")}
@@ -424,7 +434,7 @@ export function FolderTree() {
         {!isLoading && (
           <>
             {/* Folder tree */}
-            {tree.map((node) => (
+            {filteredTree.map((node) => (
               <FolderItem
                 key={node.id}
                 node={node}
@@ -448,7 +458,7 @@ export function FolderTree() {
               />
             ))}
 
-            {tree.length === 0 && rootDocs.length === 0 && (
+            {filteredTree.length === 0 && rootDocs.length === 0 && (
               <SidebarMenuItem>
                 <SidebarMenuButton
                   onClick={handleCreate}

@@ -19,12 +19,12 @@ export default function Home() {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Enter") {
-        router.push("/playground")
+        router.push(isSignedIn ? "/projects" : "/playground")
       }
     }
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [router])
+  }, [router, isSignedIn])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -180,7 +180,7 @@ export default function Home() {
         {/* CTA Buttons */}
         <div className="flex flex-col gap-4 items-center">
           {/* Primary CTA - Always visible */}
-          <Link href="/playground">
+          <Link href={isSignedIn ? "/projects" : "/playground"}>
             <Button
               variant="outline"
               className="group relative overflow-hidden border-white/20 bg-transparent px-8 py-6 font-mono text-sm tracking-[0.15em] text-white/80 transition-all duration-500 hover:border-white/40 hover:bg-white/5 hover:text-white"

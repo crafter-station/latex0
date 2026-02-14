@@ -7,6 +7,7 @@ interface SharedDocument {
   id: string
   title: string
   content: string
+  projectId: string | null
   createdAt: string
   updatedAt: string
 }
@@ -37,7 +38,11 @@ export default function SharedDocumentPage({
 
         // If user has edit access, redirect to the editor
         if (data.permission === "edit") {
-          router.push(`/playground/${data.document.id}`)
+          const doc = data.document
+          const target = doc.projectId
+            ? `/projects/${doc.projectId}/${doc.id}`
+            : `/playground/${doc.id}`
+          router.push(target)
           return
         }
       } catch {

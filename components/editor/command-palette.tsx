@@ -30,6 +30,7 @@ import {
 } from "@tabler/icons-react"
 import { useDocumentStore } from "@/lib/document-store"
 import { useFileStore } from "@/lib/file-store"
+import { useProjectStore, docUrl } from "@/lib/project-store"
 import { useTheme } from "next-themes"
 import { snippetTemplates } from "@/lib/templates"
 
@@ -39,6 +40,7 @@ export function CommandPalette() {
   const { resolvedTheme, setTheme } = useTheme()
   const documents = useDocumentStore((s) => s.documents)
   const requestCompile = useFileStore((s) => s.requestCompile)
+  const activeProjectId = useProjectStore((s) => s.activeProjectId)
 
   // Global Cmd+K shortcut
   useEffect(() => {
@@ -161,7 +163,7 @@ export function CommandPalette() {
               {documents.map((doc) => (
                 <CommandItem
                   key={doc.id}
-                  onSelect={() => runAndClose(() => router.push(`/playground/${doc.id}`))}
+                  onSelect={() => runAndClose(() => router.push(docUrl(doc.id, activeProjectId)))}
                 >
                   <IconFileDescription className="size-4" />
                   <span>{doc.title}</span>

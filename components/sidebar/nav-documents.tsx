@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/sidebar"
 import { useDocuments } from "@/hooks/use-documents"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import { useProjectStore, docUrl } from "@/lib/project-store"
 
 export function NavDocuments() {
   const router = useRouter()
@@ -43,6 +44,7 @@ export function NavDocuments() {
     renameDocument,
   } = useDocuments()
 
+  const activeProjectId = useProjectStore((s) => s.activeProjectId)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const renameInputRef = useRef<HTMLInputElement>(null)
@@ -55,13 +57,13 @@ export function NavDocuments() {
   }, [renamingId])
 
   function handleNavigate(docId: string) {
-    router.push(`/playground/${docId}`)
+    router.push(docUrl(docId, activeProjectId))
   }
 
   async function handleCreate() {
     const doc = await createDocument()
     if (doc) {
-      router.push(`/playground/${doc.id}`)
+      router.push(docUrl(doc.id, activeProjectId))
     }
   }
 
@@ -200,7 +202,7 @@ export function NavDocuments() {
                   onClick={async () => {
                     await deleteDocument(doc.id)
                     if (doc.id === activeDocumentId) {
-                      router.push("/playground")
+                      router.push("/projects")
                     }
                   }}
                 >
