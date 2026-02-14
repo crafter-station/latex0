@@ -15,6 +15,7 @@ import { CursorOverlay } from "./cursor-overlay"
 import { useSelectionContext } from "@/stores/selection-context-store"
 import { useDocumentStore } from "@/lib/document-store"
 import { useFileStore } from "@/lib/file-store"
+import { useShareStore } from "@/lib/share-store"
 
 interface DiffHunk {
   oldLines: string[]
@@ -71,6 +72,8 @@ function computeDiffHunks(oldContent: string, newContent: string): DiffHunk[] {
 export function CodeEditor() {
   const { activeTabId, activeContent, updateFileContent, pendingChange, acceptChange, rejectChange, goToLine, setGoToLine, requestCompile } = useFiles()
   const requestAIFix = useFileStore((s) => s.requestAIFix)
+  const currentPermission = useShareStore((s) => s.currentPermission)
+  const isReadOnly = currentPermission === "view"
   const { resolvedTheme } = useTheme()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
@@ -692,6 +695,12 @@ export function CodeEditor() {
 
   return (
     <div className="relative h-full">
+      {/* Read-only banner */}
+      {isReadOnly && (
+        <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-center bg-amber-500/10 px-3 py-1 text-xs text-amber-600 dark:text-amber-400">
+          Viewing shared document (read-only)
+        </div>
+      )}
       {/* Presence indicator */}
       <div className="absolute top-2 right-2 z-50">
         <PresenceIndicator
@@ -712,6 +721,7 @@ export function CodeEditor() {
       onChange={handleChange}
       onMount={handleEditorMount}
       options={{
+        readOnly: isReadOnly,
         fontSize: 14,
         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         lineNumbers: "on",
