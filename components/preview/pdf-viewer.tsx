@@ -9,6 +9,7 @@ import { IconSparkles } from "@tabler/icons-react"
 
 import {
   LatexRenderer,
+  RenderError,
 } from "latex-renderer-sdk"
 
 const client = new LatexRenderer({
@@ -65,7 +66,13 @@ export function PdfViewer() {
       }
   
     } catch (err) {
-      setError("Compilation failed")
+      if (err instanceof RenderError && err.detail) {
+        setError(err.detail)
+      } else if (err instanceof Error) {
+        setError(err.message)
+      } else {
+        setError("Compilation failed")
+      }
     } finally {
       setIsCompiling(false)
     }
