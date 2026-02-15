@@ -10,16 +10,20 @@ export interface ProjectNode extends Project {
   children: ProjectNode[]
 }
 
+export type DashboardView = "all" | "yours" | "shared"
+
 interface ProjectStore {
   projects: Project[]
   tree: ProjectNode[]
   expandedProjects: Set<string>
   activeProjectId: string | null
   isLoading: boolean
+  dashboardView: DashboardView
 
   setProjects: (projects: Project[]) => void
   setActiveProjectId: (id: string | null) => void
   setLoading: (loading: boolean) => void
+  setDashboardView: (view: DashboardView) => void
 
   fetchProjects: () => Promise<void>
   createProject: (
@@ -64,10 +68,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   expandedProjects: new Set<string>(),
   activeProjectId: null,
   isLoading: false,
+  dashboardView: "yours",
 
   setProjects: (projects) => set({ projects, tree: buildTree(projects) }),
   setActiveProjectId: (activeProjectId) => set({ activeProjectId }),
   setLoading: (isLoading) => set({ isLoading }),
+  setDashboardView: (dashboardView) => set({ dashboardView }),
 
   fetchProjects: async () => {
     set({ isLoading: true })
