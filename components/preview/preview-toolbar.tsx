@@ -27,73 +27,56 @@ export function PreviewToolbar({
   zoom = 100,
 }: PreviewToolbarProps) {
   return (
-    <div className="flex h-10 items-center justify-between border-b bg-background px-2">
-      <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onCompile}
-              disabled={isCompiling}
-              className="h-8 gap-2"
-            >
-              {isCompiling ? (
-                <IconRefresh className="size-4 animate-spin" />
-              ) : (
-                <IconPlayerPlay className="size-4" />
-              )}
-              Compile
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Compile LaTeX (Ctrl+Enter)</TooltipContent>
-        </Tooltip>
-      </div>
+    <div className="flex h-10 shrink-0 items-center justify-between px-3">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCompile}
+            disabled={isCompiling}
+            className="h-7 gap-1.5 text-xs"
+          >
+            {isCompiling ? (
+              <IconRefresh className="size-3.5 animate-spin" />
+            ) : (
+              <IconPlayerPlay className="size-3.5" />
+            )}
+            Compile
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Compile LaTeX (Ctrl+Enter)</TooltipContent>
+      </Tooltip>
 
-      <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onZoomOut}
-            >
-              <IconZoomOut className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Zoom Out</TooltipContent>
-        </Tooltip>
-
-        <span className="min-w-[3rem] text-center text-xs text-muted-foreground">
+      <div className="flex items-center gap-0.5">
+        <span className="text-xs text-muted-foreground tabular-nums min-w-[2.5rem] text-center">
           {zoom}%
         </span>
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onZoomIn}
-            >
-              <IconZoomIn className="size-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomOut}>
+              <IconZoomOut className="size-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Zoom Out</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onZoomIn}>
+              <IconZoomIn className="size-3.5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Zoom In</TooltipContent>
         </Tooltip>
 
-        <Separator orientation="vertical" className="mx-1 h-5" />
+        <Separator orientation="vertical" className="mx-1 h-4" />
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={onDownload}
-            >
-              <IconDownload className="size-4" />
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDownload}>
+              <IconDownload className="size-3.5" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Download PDF</TooltipContent>

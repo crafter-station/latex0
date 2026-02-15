@@ -29,10 +29,10 @@ export function SnippetPanel({ onInsert }: SnippetPanelProps) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-[33px] gap-1.5 rounded-none border-b-2 border-transparent px-3 text-xs text-muted-foreground hover:text-foreground"
+          className="h-7 gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:text-foreground"
         >
           <IconCode className="size-3.5" />
-          Snippets
+          Tools
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-72 p-0" align="start" side="bottom">
