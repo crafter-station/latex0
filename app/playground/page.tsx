@@ -18,10 +18,11 @@ export default function Playground() {
     }
   }, [isLoading, isAuthenticated, router])
 
-  // Auto-compile on mount with the default template
+  // Auto-compile on mount — small delay to let the compile service warm up
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      requestCompile()
+      const timeout = setTimeout(() => requestCompile(), 500)
+      return () => clearTimeout(timeout)
     }
   }, [isLoading, isAuthenticated, requestCompile])
 
