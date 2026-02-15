@@ -16,12 +16,11 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export function generateLatexInclude(filename: string, folderPath?: string): string {
-  const path = folderPath ? `${folderPath}/${filename}` : filename
+export function generateLatexInclude(filename: string): string {
   const label = filename.split(".")[0].replace(/[^a-zA-Z0-9]/g, "-")
   return `\\begin{figure}[htbp]
   \\centering
-  \\includegraphics[width=0.8\\textwidth]{${path}}
+  \\includegraphics[width=0.8\\textwidth]{${filename}}
   \\caption{Figure caption}
   \\label{fig:${label}}
 \\end{figure}`

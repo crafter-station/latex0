@@ -34,7 +34,7 @@ export function ImageGallery() {
   }
 
   function handleCopyLatex(file: FileNode) {
-    const latex = generateLatexInclude(file.name, "images")
+    const latex = generateLatexInclude(file.name)
     navigator.clipboard.writeText(latex)
   }
 

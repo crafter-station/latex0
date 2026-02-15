@@ -465,7 +465,7 @@ export function CodeEditor() {
         try {
           await uploadAndAddToTree(file)
           ensureGraphicxPackage()
-          const latexCode = generateLatexInclude(file.name, "images")
+          const latexCode = generateLatexInclude(file.name)
           insertTextAtCursor("\n" + latexCode + "\n")
         } catch {
           // Error handled by uploadAndAddToTree
@@ -508,7 +508,7 @@ export function CodeEditor() {
       try {
         await uploadAndAddToTree(file)
         ensureGraphicxPackage()
-        const latexCode = generateLatexInclude(file.name, "images")
+        const latexCode = generateLatexInclude(file.name)
         insertTextAtCursor("\n" + latexCode + "\n")
       } catch {
         // Error handled by uploadAndAddToTree

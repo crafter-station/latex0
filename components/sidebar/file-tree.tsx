@@ -187,7 +187,7 @@ function FileTreeNode({
   }, [isEditing])
 
   function handleCopyLatexCode() {
-    const latex = generateLatexInclude(file.name, "images")
+    const latex = generateLatexInclude(file.name)
     navigator.clipboard.writeText(latex)
   }
 
