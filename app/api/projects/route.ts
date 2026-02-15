@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import { eq, and, isNull, desc, sql } from "drizzle-orm"
+import { eq, and, isNull, desc, inArray } from "drizzle-orm"
 import { withAuth } from "@/lib/api/with-auth"
 import { validateRequest } from "@/lib/api/validate"
 import { projectRepository } from "@/lib/db/repositories/project-repository"
@@ -25,7 +25,7 @@ export const GET = withAuth(async (_req, { userId }) => {
         and(
           eq(documents.userId, userId),
           isNull(documents.folderId),
-          sql`${documents.projectId} = ANY(${projectIds})`
+          inArray(documents.projectId, projectIds)
         )
       )
       .orderBy(documents.projectId, desc(documents.updatedAt))
