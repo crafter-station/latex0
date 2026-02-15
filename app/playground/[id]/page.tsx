@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { IdeLayout } from "@/components/layout/ide-layout"
 import { useDocuments } from "@/hooks/use-documents"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import { useFileStore } from "@/lib/file-store"
 
 /**
  * Legacy route — kept for backward compatibility.
@@ -16,6 +17,7 @@ export default function LegacyDocumentPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useUserIdentity()
   const { loadDocument, isAuthenticated } = useDocuments()
+  const requestCompile = useFileStore((s) => s.requestCompile)
   const loadedRef = useRef<string | null>(null)
   const [isReady, setIsReady] = useState(false)
 
@@ -23,7 +25,10 @@ export default function LegacyDocumentPage() {
     if (authLoading || !id || loadedRef.current === id) return
     if (!isAuthenticated) {
       loadedRef.current = id
-      loadDocument(id).then(() => setIsReady(true))
+      loadDocument(id).then(() => {
+        setIsReady(true)
+        requestCompile()
+      })
       return
     }
 
@@ -42,10 +47,13 @@ export default function LegacyDocumentPage() {
 
       // No project — load here
       loadedRef.current = id
-      loadDocument(id).then(() => setIsReady(true))
+      loadDocument(id).then(() => {
+        setIsReady(true)
+        requestCompile()
+      })
     }
     checkAndRedirect()
-  }, [id, authLoading, isAuthenticated, loadDocument, router])
+  }, [id, authLoading, isAuthenticated, loadDocument, requestCompile, router])
 
   if (!isReady) {
     return (

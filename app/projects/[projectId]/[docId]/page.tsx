@@ -5,11 +5,13 @@ import { useParams } from "next/navigation"
 import { IdeLayout } from "@/components/layout/ide-layout"
 import { useDocuments } from "@/hooks/use-documents"
 import { useProjectStore } from "@/lib/project-store"
+import { useFileStore } from "@/lib/file-store"
 
 export default function EditorPage() {
   const { projectId, docId } = useParams<{ projectId: string; docId: string }>()
   const { loadDocument, isAuthenticated } = useDocuments()
   const setActiveProjectId = useProjectStore((s) => s.setActiveProjectId)
+  const requestCompile = useFileStore((s) => s.requestCompile)
   const loadedRef = useRef<string | null>(null)
   const [isReady, setIsReady] = useState(false)
 
@@ -22,8 +24,11 @@ export default function EditorPage() {
     if (!isAuthenticated || !docId || loadedRef.current === docId) return
     loadedRef.current = docId
     setIsReady(false)
-    loadDocument(docId).then(() => setIsReady(true))
-  }, [docId, isAuthenticated, loadDocument])
+    loadDocument(docId).then(() => {
+      setIsReady(true)
+      requestCompile()
+    })
+  }, [docId, isAuthenticated, loadDocument, requestCompile])
 
   if (!isReady) {
     return (
