@@ -8,7 +8,6 @@ import { FilesTab } from "@/components/sidebar/files-tab"
 import { ChatsTab } from "@/components/sidebar/chats-tab"
 import { useSidebarViewStore } from "@/lib/sidebar-view-store"
 import { useProjectStore } from "@/lib/project-store"
-import { useDocumentStore } from "@/lib/document-store"
 import {
   Sidebar,
   SidebarContent,
@@ -66,18 +65,21 @@ function SidebarResizeHandle() {
 function ProjectName() {
   const params = useParams<{ projectId?: string }>()
   const projects = useProjectStore((s) => s.projects)
-  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
-  const documents = useDocumentStore((s) => s.documents)
+  const fetchProjects = useProjectStore((s) => s.fetchProjects)
+  const { user } = useUserIdentity()
+  const isAuthenticated = user?.isAuthenticated ?? false
+
+  React.useEffect(() => {
+    if (isAuthenticated && projects.length === 0) {
+      fetchProjects()
+    }
+  }, [isAuthenticated, projects.length, fetchProjects])
 
   const project = params?.projectId
     ? projects.find((p) => p.id === params.projectId)
     : null
 
-  const doc = activeDocumentId
-    ? documents.find((d) => d.id === activeDocumentId)
-    : null
-
-  const name = project?.name || doc?.title || "Playground"
+  const name = project?.name || "Playground"
 
   return (
     <div className="px-2 py-3">
