@@ -5,24 +5,30 @@ import { useFiles } from "@/hooks/use-files"
 import { useFileStore } from "@/lib/file-store"
 import { bundleLatexFiles } from "@/lib/latex-bundler"
 import { findMainFile } from "@/lib/file-utils"
-import { PreviewToolbar } from "./preview-toolbar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from "@/components/ui/button"
 import { IconSparkles } from "@tabler/icons-react"
+import { LatexRenderer, RenderError } from "latex-renderer-sdk"
+import { useDocumentStore } from "@/lib/document-store"
+import { getCachedPdf, cachePdf } from "@/lib/pdf-cache"
+import type { PDFDocumentProxy } from "pdfjs-dist"
 
-import {
-  LatexRenderer,
-  RenderError,
-} from "latex-renderer-sdk"
+async function getPdfjs() {
+  const pdfjsLib = await import("pdfjs-dist")
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    "pdfjs-dist/build/pdf.worker.min.mjs",
+    import.meta.url
+  ).toString()
+  return pdfjsLib
+}
 
 const client = new LatexRenderer({
-  apiKey: process.env.NEXT_PUBLIC_LATEX_API_KEY!, // use env variable
-  baseUrl: process.env.NEXT_PUBLIC_LATEX_API_URL, // optional
+  apiKey: process.env.NEXT_PUBLIC_LATEX_API_KEY!,
+  baseUrl: process.env.NEXT_PUBLIC_LATEX_API_URL,
 })
 
 function parseErrorLines(errorText: string): number[] {
   const lines: number[] = []
-  // Match patterns like "l.42", "line 42", "Line 42"
   const patterns = [
     /l\.(\d+)/g,
     /[Ll]ine\s+(\d+)/g,
@@ -40,18 +46,27 @@ function parseErrorLines(errorText: string): number[] {
   return lines
 }
 
-export function PdfViewer() {
+interface PdfViewerProps {
+  zoom?: number
+}
+
+const PLAYGROUND_CACHE_KEY = "playground"
+
+export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
   const { activeContent, requestAIFix } = useFiles()
   const triggerCompile = useFileStore((s) => s.triggerCompile)
   const setGoToLine = useFileStore((s) => s.setGoToLine)
+  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
+
+  const cacheKey = activeDocumentId || PLAYGROUND_CACHE_KEY
 
   const [isCompiling, setIsCompiling] = useState(false)
-  const [zoom, setZoom] = useState(100)
   const [error, setError] = useState<string | null>(null)
-
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const currentUrlRef = useRef<string | null>(null)
   const [showSkeleton, setShowSkeleton] = useState(false)
+
+  const pdfDataRef = useRef<Uint8Array | null>(null)
+  const canvasContainerRef = useRef<HTMLDivElement>(null)
+  const cacheLoadedRef = useRef(false)
 
   const handleFixWithAI = useCallback(() => {
     if (error) {
@@ -59,6 +74,63 @@ export function PdfViewer() {
       requestAIFix(prompt, error)
     }
   }, [error, requestAIFix])
+
+  // Render PDF pages to canvases
+  const renderPages = useCallback(async (data: Uint8Array, scale: number) => {
+    const container = canvasContainerRef.current
+    if (!container) return
+
+    const pdfjsLib = await getPdfjs()
+    const pdf = await pdfjsLib.getDocument({ data }).promise
+
+    // Clear previous canvases
+    container.innerHTML = ""
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i)
+      const viewport = page.getViewport({ scale: scale * (window.devicePixelRatio || 1) })
+      const cssViewport = page.getViewport({ scale })
+
+      const canvas = document.createElement("canvas")
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      canvas.style.width = `${cssViewport.width}px`
+      canvas.style.height = `${cssViewport.height}px`
+      canvas.style.display = "block"
+
+      if (i > 1) {
+        const separator = document.createElement("div")
+        separator.style.height = "8px"
+        separator.style.flexShrink = "0"
+        container.appendChild(separator)
+      }
+
+      container.appendChild(canvas)
+
+      const ctx = canvas.getContext("2d")!
+      await page.render({ canvasContext: ctx, canvas, viewport }).promise
+    }
+  }, [])
+
+  // Load cached PDF on mount
+  useEffect(() => {
+    if (cacheLoadedRef.current) return
+    cacheLoadedRef.current = true
+
+    getCachedPdf(cacheKey).then((cached) => {
+      if (cached && !pdfDataRef.current) {
+        pdfDataRef.current = cached
+        renderPages(cached, zoom / 100)
+      }
+    })
+  }, [cacheKey, zoom, renderPages])
+
+  // Re-render when zoom changes
+  useEffect(() => {
+    if (pdfDataRef.current) {
+      renderPages(pdfDataRef.current, zoom / 100)
+    }
+  }, [zoom, renderPages])
 
   const compileLatex = useCallback(async () => {
     if (!activeContent) return
@@ -69,30 +141,15 @@ export function PdfViewer() {
     try {
       const files = useFileStore.getState().files
       const mainFile = findMainFile(files)
-      const bundledContent = await bundleLatexFiles(files, mainFile)
-      const pdfBuffer = await client.renderPDF(bundledContent)
+      const { source, images } = await bundleLatexFiles(files, mainFile)
 
-      const arrayBuffer = new ArrayBuffer(pdfBuffer.byteLength)
-      new Uint8Array(arrayBuffer).set(pdfBuffer)
-
-      const blob = new Blob([arrayBuffer], {
-        type: "application/pdf",
+      const pdfBuffer = await client.renderPDF(source, {
+        images: Object.keys(images).length > 0 ? images : undefined,
       })
 
-      const url = URL.createObjectURL(blob)
-
-      // Cleanup previous URL
-      if (currentUrlRef.current) {
-        URL.revokeObjectURL(currentUrlRef.current)
-      }
-
-      currentUrlRef.current = url
-
-      const iframe = iframeRef.current
-      if (iframe) {
-        iframe.src = `${url}#toolbar=0&navpanes=0&scrollbar=0`
-      }
-
+      pdfDataRef.current = pdfBuffer
+      await renderPages(pdfBuffer, zoom / 100)
+      cachePdf(cacheKey, pdfBuffer)
     } catch (err) {
       if (err instanceof RenderError && err.detail) {
         setError(err.detail)
@@ -104,34 +161,26 @@ export function PdfViewer() {
     } finally {
       setIsCompiling(false)
     }
-  }, [activeContent])
+  }, [activeContent, zoom, renderPages, cacheKey])
 
-  // Auto-compile on content change
-  useEffect(() => {
-    if (!activeContent) return
-
-    const timeout = setTimeout(() => {
-      compileLatex()
-    }, 800)
-
-    return () => clearTimeout(timeout)
-  }, [activeContent])
-
-  // Compile on triggerCompile from store (Cmd+Enter or command palette)
+  // Compile on triggerCompile from store (Cmd+Enter, command palette, or toolbar)
   useEffect(() => {
     if (triggerCompile > 0) {
       compileLatex()
     }
   }, [triggerCompile, compileLatex])
 
-  // Listen for download PDF event from command palette
+  // Listen for download PDF event
   useEffect(() => {
     const handleDownload = () => {
-      if (currentUrlRef.current) {
+      if (pdfDataRef.current) {
+        const blob = new Blob([pdfDataRef.current.buffer as ArrayBuffer], { type: "application/pdf" })
+        const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
-        a.href = currentUrlRef.current
+        a.href = url
         a.download = "document.pdf"
         a.click()
+        URL.revokeObjectURL(url)
       }
     }
     window.addEventListener("latex0:download-pdf", handleDownload)
@@ -140,48 +189,20 @@ export function PdfViewer() {
 
   useEffect(() => {
     let timeout: NodeJS.Timeout
-
     if (isCompiling) {
-      timeout = setTimeout(() => {
-        setShowSkeleton(true)
-      }, 300)
+      timeout = setTimeout(() => setShowSkeleton(true), 300)
     } else {
       setShowSkeleton(false)
     }
-
     return () => clearTimeout(timeout)
   }, [isCompiling])
-
-  const handleZoomIn = () => {
-    setZoom((prev) => Math.min(prev + 10, 200))
-  }
-
-  const handleZoomOut = () => {
-    setZoom((prev) => Math.max(prev - 10, 50))
-  }
-
-  const handleDownload = () => {
-    if (currentUrlRef.current) {
-      const a = document.createElement("a")
-      a.href = currentUrlRef.current
-      a.download = "document.pdf"
-      a.click()
-    }
-  }
 
   const handleErrorLineClick = useCallback((lineNumber: number) => {
     setGoToLine(lineNumber)
   }, [setGoToLine])
 
-  // Render error text with clickable line numbers
   const renderErrorText = useCallback((errorText: string) => {
-    const errorLines = parseErrorLines(errorText)
-    if (errorLines.length === 0) {
-      return <span>{errorText}</span>
-    }
-
-    // Replace line references with clickable spans
-    let result = errorText
+    const result = errorText
     const elements: React.ReactNode[] = []
     let lastIndex = 0
 
@@ -202,7 +223,6 @@ export function PdfViewer() {
       }
     }
 
-    // Sort by position and deduplicate overlapping
     allMatches.sort((a, b) => a.index - b.index)
 
     for (const match of allMatches) {
@@ -230,80 +250,52 @@ export function PdfViewer() {
   }, [handleErrorLineClick])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <PreviewToolbar
-        onCompile={compileLatex}
-        onZoomIn={handleZoomIn}
-        onZoomOut={handleZoomOut}
-        onDownload={handleDownload}
-        isCompiling={isCompiling}
-        zoom={zoom}
-      />
-
-      <ScrollArea className="h-full flex-1 bg-muted/50">
-        <div className="flex items-start justify-center p-4 min-h-full">
-
-          {error ? (
-            <div className="w-full max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold text-destructive">
-                  Compilation Error
-                </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5"
-                  onClick={handleFixWithAI}
-                >
-                  <IconSparkles className="size-3.5" />
-                  Fix with AI
-                </Button>
-              </div>
-              <pre className="whitespace-pre-wrap text-sm text-destructive/80">
-                {renderErrorText(error)}
-              </pre>
-              {parseErrorLines(error).length > 0 && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Click on line numbers to jump to the error location in the editor.
-                </p>
-              )}
+    <ScrollArea className="h-full flex-1 bg-muted/30">
+      <div className="flex items-start justify-center p-4 min-h-full">
+        {error ? (
+          <div className="w-full max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-semibold text-destructive">
+                Compilation Error
+              </h3>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={handleFixWithAI}
+              >
+                <IconSparkles className="size-3.5" />
+                Fix with AI
+              </Button>
             </div>
-          ) : iframeRef ? (
-            <div
-              className="w-full max-w-[210mm] bg-white shadow-lg rounded-lg overflow-hidden"
-              style={{
-                transform: `scale(${zoom / 100})`,
-                transformOrigin: "top center",
-              }}
-            >
-              <div className="relative w-full max-w-[210mm] bg-white shadow-lg rounded-lg overflow-hidden">
-
-              <iframe
-                ref={iframeRef}
-                className="w-full h-[1000px] border-0"
-                title="PDF Preview"
+            <pre className="whitespace-pre-wrap text-sm text-destructive/80">
+              {renderErrorText(error)}
+            </pre>
+            {parseErrorLines(error).length > 0 && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Click on line numbers to jump to the error location.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="w-full max-w-[210mm] bg-white shadow-lg rounded-lg overflow-hidden">
+            <div className="relative">
+              <div
+                ref={canvasContainerRef}
+                className="flex flex-col items-center bg-white"
               />
-
               {showSkeleton && (
                 <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center">
                   <PdfSkeleton />
                 </div>
               )}
-
             </div>
-            </div>
-          ) : (
-            <div className="flex h-64 items-center justify-center text-muted-foreground">
-              <p>Click "Compile" to preview your PDF</p>
-            </div>
-          )}
-
-        </div>
-      </ScrollArea>
-    </div>
+          </div>
+        )}
+      </div>
+    </ScrollArea>
   )
 }
-
 
 function PdfSkeleton() {
   return (
