@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { IconFolder, IconDots, IconPencil, IconShare, IconDownload, IconTrash } from "@tabler/icons-react"
 import {
   DropdownMenu,
@@ -14,23 +12,24 @@ import {
 import { Button } from "@/components/ui/button"
 import type { Project } from "@/lib/db/schema"
 
+interface ProjectWithDoc extends Project {
+  firstDocumentId?: string | null
+}
+
 interface ProjectCardProps {
-  project: Project
+  project: ProjectWithDoc
   onRename?: (id: string) => void
   onDelete?: (id: string) => void
 }
 
 export function ProjectCard({ project, onRename, onDelete }: ProjectCardProps) {
-  const router = useRouter()
-
-  // Prefetch the project route so navigation is instant
-  useEffect(() => {
-    router.prefetch(`/projects/${project.id}`)
-  }, [router, project.id])
+  const href = project.firstDocumentId
+    ? `/projects/${project.id}/${project.firstDocumentId}`
+    : `/projects/${project.id}`
 
   return (
     <Link
-      href={`/projects/${project.id}`}
+      href={href}
       prefetch={true}
       className="group block cursor-pointer rounded-lg border border-border/50 bg-card p-4 transition-all hover:border-border hover:shadow-md"
     >

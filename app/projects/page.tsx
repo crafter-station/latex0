@@ -13,6 +13,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import type { Project } from "@/lib/db/schema"
 
+type ProjectWithDoc = Project & { firstDocumentId: string | null }
+
 export default function ProjectsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useUserIdentity()
@@ -21,7 +23,7 @@ export default function ProjectsPage() {
   const activeView = useProjectStore((s) => s.dashboardView)
   const [search, setSearch] = useState("")
 
-  const { data: projects = [], isLoading } = useQuery<Project[]>({
+  const { data: projects = [], isLoading } = useQuery<ProjectWithDoc[]>({
     queryKey: ["projects"],
     queryFn: async () => {
       const res = await fetch("/api/projects")
