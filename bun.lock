@@ -47,7 +47,7 @@
         "drizzle-orm": "^0.45.1",
         "drizzle-zod": "^0.8.3",
         "embla-carousel-react": "^8.6.0",
-        "latex-renderer-sdk": "^1.0.0",
+        "latex-renderer-sdk": "^2.0.0",
         "latex.js": "^0.12.6",
         "lucide-react": "^0.563.0",
         "media-chrome": "^4.17.2",
@@ -1374,7 +1374,7 @@
 
     "language-tags": ["language-tags@1.0.9", "", { "dependencies": { "language-subtag-registry": "^0.3.20" } }, "sha512-MbjN408fEndfiQXbFQ1vnd+1NoLDsnQW41410oQBXiyXDMYH5z505juWa4KUE1LqxRC7DgOgZDbKLxHIwm27hA=="],
 
-    "latex-renderer-sdk": ["latex-renderer-sdk@1.0.0", "", {}, "sha512-KkBo8bn7XHh9R3hNrJejYaNayXRF343x3p+R+t/TShDuDgczjWMn8zFvj+6Htcosz4M2XlmhbGsqX2WNZhlx/g=="],
+    "latex-renderer-sdk": ["latex-renderer-sdk@2.0.0", "", {}, "sha512-gLfZvP9DfGelY4K40dWdu0g3I4vKpc8wULkXHmlz1NyHZyDzY2Vet+xhRRcvuIhNk4MHnb4SvRXA04XSaFlh4A=="],
 
     "latex.js": ["latex.js@0.12.6", "", { "dependencies": { "commander": "8.x", "fs-extra": "10.x", "hyphenation.de": "*", "hyphenation.en-us": "*", "js-beautify": "1.14.x", "stdin": "*", "svgdom": "^0.1.8" }, "bin": { "latex.js": "bin/latex.js" } }, "sha512-spMTeSq9cP4vidMQuPgoYGKmsQTMElZhDtNF3NyLIRc03XkuuPvMA0tzb0ShS/otaIJrB7DIHDk0GL3knCisEw=="],
 
