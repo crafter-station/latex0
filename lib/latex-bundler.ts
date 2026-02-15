@@ -1,11 +1,15 @@
 import type { FileNode } from "@/lib/file-store"
 import { findAllFiles } from "@/lib/file-utils"
-import { isImageFile, formatFileSize } from "@/lib/upload-helpers"
+import { isImageFile } from "@/lib/upload-helpers"
+
+export interface ImageMap {
+  [filename: string]: { url: string }
+}
 
 export async function bundleLatexFiles(
   files: FileNode[],
   mainFile: FileNode
-): Promise<string> {
+): Promise<{ source: string; images: ImageMap }> {
   if (!mainFile.content) {
     throw new Error("Main file has no content")
   }
@@ -38,9 +42,8 @@ export async function bundleLatexFiles(
     }
   }
 
-  // 2. Replace \includegraphics{} for images with blob URLs
-  // pdflatex can't fetch URLs or decode data URIs, so we generate a
-  // visual placeholder box that compiles cleanly and shows image metadata.
+  // 2. Collect images with blob URLs for the SDK
+  const images: ImageMap = {}
   const imageFiles = allFiles.filter(
     (f) => f.blobUrl && isImageFile(f.name)
   )
@@ -48,39 +51,11 @@ export async function bundleLatexFiles(
   for (const imageFile of imageFiles) {
     const basename = imageFile.name
     const parentPath = findParentPath(files, imageFile.id)
-    const pathVariants = [basename]
-    if (parentPath) pathVariants.push(`${parentPath}/${basename}`)
 
-    const noExt = basename.replace(/\.[^.]+$/, "")
-    pathVariants.push(noExt)
-    if (parentPath) pathVariants.push(`${parentPath}/${noExt}`)
-
-    const isReferenced = pathVariants.some((v) => bundled.includes(v))
-    if (!isReferenced) continue
-
-    // Build a placeholder that compiles: a framed box with image info
-    const meta = imageFile.blobMetadata
-    const dimStr = meta?.width && meta?.height
-      ? `${meta.width}\\times${meta.height}px`
-      : ""
-    const sizeStr = meta ? formatFileSize(meta.size) : ""
-    const infoLine = [dimStr, sizeStr].filter(Boolean).join(" -- ")
-
-    // The placeholder replaces the entire \includegraphics[...]{path} command
-    // with a visible gray box so the figure/caption/label still work
-    const placeholder =
-      `\\fbox{\\parbox{0.7\\textwidth}{\\centering\\vspace{12pt}{\\sffamily\\small\\textbf{${escapeLatex(basename)}}}` +
-      (infoLine ? `\\\\[4pt]{\\sffamily\\scriptsize ${escapeLatex(infoLine)}}` : "") +
-      `\\vspace{12pt}}}`
-
-    for (const variant of pathVariants) {
-      const escaped = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-      // Match \includegraphics[...]{path} or \includegraphics{path}
-      const pattern = new RegExp(
-        `\\\\includegraphics(?:\\[[^\\]]*\\])?\\{${escaped}\\}`,
-        "g"
-      )
-      bundled = bundled.replace(pattern, placeholder)
+    // Map all path variants the document might reference
+    images[basename] = { url: imageFile.blobUrl! }
+    if (parentPath) {
+      images[`${parentPath}/${basename}`] = { url: imageFile.blobUrl! }
     }
   }
 
@@ -91,14 +66,13 @@ export async function bundleLatexFiles(
     !bundled.includes("\\usepackage{graphicx}") &&
     !bundled.match(/\\usepackage\[.*\]\{graphicx\}/)
   ) {
-    // Insert after \documentclass line
     bundled = bundled.replace(
       /(\\documentclass(?:\[[^\]]*\])?\{[^}]+\})/,
       "$1\n\\usepackage{graphicx}"
     )
   }
 
-  return bundled
+  return { source: bundled, images }
 }
 
 function findParentPath(
@@ -117,11 +91,4 @@ function findParentPath(
     }
   }
   return null
-}
-
-/** Escape special LaTeX characters in user-provided text */
-function escapeLatex(text: string): string {
-  return text
-    .replace(/\\/g, "\\textbackslash{}")
-    .replace(/[&%$#_{}~^]/g, (ch) => `\\${ch}`)
 }
