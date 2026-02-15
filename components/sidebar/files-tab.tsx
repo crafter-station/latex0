@@ -19,10 +19,9 @@ export function FilesTab() {
   return (
     <>
       <SidebarGroup className="flex-1 min-h-0">
-        <SidebarGroupLabel className="flex items-center justify-between">
-          <span>Files</span>
+        <div className="flex items-center justify-end px-2 py-1">
           <FileActionsDropdown />
-        </SidebarGroupLabel>
+        </div>
         <SidebarGroupContent className="overflow-y-auto">
           <FileTree />
         </SidebarGroupContent>
