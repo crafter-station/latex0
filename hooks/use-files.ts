@@ -25,6 +25,10 @@ export function useFiles() {
   const setGoToLine = useFileStore((state) => state.setGoToLine)
   const requestCompile = useFileStore((state) => state.requestCompile)
   const resetToDefaults = useFileStore((state) => state.resetToDefaults)
+  const createFile = useFileStore((state) => state.createFile)
+  const createFolder = useFileStore((state) => state.createFolder)
+  const renameFile = useFileStore((state) => state.renameFile)
+  const deleteFile = useFileStore((state) => state.deleteFile)
 
   const activeFile = activeTabId ? getFileById(activeTabId) : null
   const activeContent = activeTabId ? getFileContent(activeTabId) : ''
@@ -56,5 +60,9 @@ export function useFiles() {
     setGoToLine,
     requestCompile,
     resetToDefaults,
+    createFile,
+    createFolder,
+    renameFile,
+    deleteFile,
   }
 }

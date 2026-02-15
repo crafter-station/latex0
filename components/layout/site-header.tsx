@@ -1,73 +1,52 @@
 "use client"
 
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import { useDocumentStore, type SaveStatus } from "@/lib/document-store"
-import { IconCheck, IconLoader2, IconPointFilled, IconAlertTriangle } from "@tabler/icons-react"
-
-function SaveStatusIndicator() {
-  const saveStatus = useDocumentStore((s) => s.saveStatus)
-  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
-
-  if (!activeDocumentId) return null
-
-  const config: Record<SaveStatus, { icon: React.ReactNode; label: string; className: string }> = {
-    saved: {
-      icon: <IconCheck className="size-3.5" />,
-      label: "Saved",
-      className: "text-emerald-600 dark:text-emerald-400",
-    },
-    saving: {
-      icon: <IconLoader2 className="size-3.5 animate-spin" />,
-      label: "Saving...",
-      className: "text-muted-foreground",
-    },
-    unsaved: {
-      icon: <IconPointFilled className="size-3.5" />,
-      label: "Unsaved",
-      className: "text-amber-500 dark:text-amber-400",
-    },
-    error: {
-      icon: <IconAlertTriangle className="size-3.5" />,
-      label: "Save failed",
-      className: "text-destructive",
-    },
-  }
-
-  const { icon, label, className } = config[saveStatus]
-
-  return (
-    <div className={`flex items-center gap-1 text-xs ${className}`}>
-      {icon}
-      <span>{label}</span>
-    </div>
-  )
-}
+import { useDocumentStore } from "@/lib/document-store"
+import { useVersionStore } from "@/lib/version-store"
+import { ShareDialog } from "@/components/share/share-dialog"
+import { IconHistory } from "@tabler/icons-react"
 
 export function SiteHeader() {
+  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
+  const openHistory = useVersionStore((s) => s.openHistory)
+  const isHistoryOpen = useVersionStore((s) => s.isHistoryOpen)
+
   return (
-    <header className="flex h-[--header-height] shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-[--header-height]">
-      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+    <header className="flex h-12 shrink-0 items-center justify-between border-b px-4">
+      <div className="flex items-center gap-2">
         <SidebarTrigger className="-ml-1" />
         <Separator
           orientation="vertical"
-          className="mx-2 data-[orientation=vertical]:h-4"
+          className="mx-1 data-[orientation=vertical]:h-4"
         />
-        <h1 className="text-base font-medium">Documents</h1>
-        <SaveStatusIndicator />
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
-            <a
-              href="https://github.com"
-              rel="noopener noreferrer"
-              target="_blank"
-              className="dark:text-foreground"
+        <Link
+          href="/projects"
+          className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+        >
+          <span className="font-mono text-sm font-bold">
+            LATEX<span className="text-muted-foreground">0</span>
+          </span>
+        </Link>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {activeDocumentId && (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`gap-1.5 ${isHistoryOpen ? "bg-accent" : ""}`}
+              onClick={openHistory}
             >
-              GitHub
-            </a>
-          </Button>
-        </div>
+              <IconHistory className="size-4" />
+              <span className="hidden sm:inline">History</span>
+            </Button>
+            <ShareDialog />
+          </>
+        )}
       </div>
     </header>
   )

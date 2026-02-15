@@ -27,28 +27,27 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useDocuments } from "@/hooks/use-documents"
+import { useUserIdentity } from "@/hooks/use-user-identity"
+import { useProjectStore, docUrl } from "@/lib/project-store"
 
 export function NavDocuments() {
   const router = useRouter()
   const { isMobile } = useSidebar()
+  const { isLoading: authLoading } = useUserIdentity()
   const {
     documents,
     activeDocumentId,
     isLoading,
     isAuthenticated,
-    fetchDocuments,
     createDocument,
     deleteDocument,
     renameDocument,
   } = useDocuments()
 
+  const activeProjectId = useProjectStore((s) => s.activeProjectId)
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState("")
   const renameInputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    fetchDocuments()
-  }, [fetchDocuments])
 
   useEffect(() => {
     if (renamingId && renameInputRef.current) {
@@ -58,13 +57,13 @@ export function NavDocuments() {
   }, [renamingId])
 
   function handleNavigate(docId: string) {
-    router.push(`/playground/${docId}`)
+    router.push(docUrl(docId, activeProjectId))
   }
 
   async function handleCreate() {
     const doc = await createDocument()
     if (doc) {
-      router.push(`/playground/${doc.id}`)
+      router.push(docUrl(doc.id, activeProjectId))
     }
   }
 
@@ -83,6 +82,21 @@ export function NavDocuments() {
 
   function handleCancelRename() {
     setRenamingId(null)
+  }
+
+  if (authLoading) {
+    return (
+      <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+        <SidebarGroupLabel>Documents</SidebarGroupLabel>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton disabled>
+              <span className="text-sidebar-foreground/30 text-xs">Loading...</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarGroup>
+    )
   }
 
   if (!isAuthenticated) {
@@ -188,7 +202,7 @@ export function NavDocuments() {
                   onClick={async () => {
                     await deleteDocument(doc.id)
                     if (doc.id === activeDocumentId) {
-                      router.push("/playground")
+                      router.push("/projects")
                     }
                   }}
                 >

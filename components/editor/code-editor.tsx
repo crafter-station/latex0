@@ -15,6 +15,13 @@ import { CursorOverlay } from "./cursor-overlay"
 import { useSelectionContext } from "@/stores/selection-context-store"
 import { useDocumentStore } from "@/lib/document-store"
 import { useFileStore } from "@/lib/file-store"
+import { useShareStore } from "@/lib/share-store"
+import {
+  isImageFile,
+  uploadAndAddToTree,
+  generateLatexInclude,
+} from "@/lib/upload-helpers"
+import { registerLatexImageHoverProvider } from "./latex-hover-provider"
 
 interface DiffHunk {
   oldLines: string[]
@@ -71,6 +78,8 @@ function computeDiffHunks(oldContent: string, newContent: string): DiffHunk[] {
 export function CodeEditor() {
   const { activeTabId, activeContent, updateFileContent, pendingChange, acceptChange, rejectChange, goToLine, setGoToLine, requestCompile } = useFiles()
   const requestAIFix = useFileStore((s) => s.requestAIFix)
+  const currentPermission = useShareStore((s) => s.currentPermission)
+  const isReadOnly = currentPermission === "view"
   const { resolvedTheme } = useTheme()
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
@@ -376,6 +385,142 @@ export function CodeEditor() {
     }
   }, [goToLine, setGoToLine])
 
+  // Ensure \usepackage{graphicx} is in the preamble
+  const ensureGraphicxPackage = useCallback(() => {
+    const ed = editorRef.current
+    const monaco = monacoRef.current
+    if (!ed || !monaco) return
+
+    const model = ed.getModel()
+    if (!model) return
+
+    const content = model.getValue()
+    if (
+      content.includes("\\usepackage{graphicx}") ||
+      /\\usepackage\[.*\]\{graphicx\}/.test(content)
+    ) return
+
+    // Find \documentclass line and insert after it
+    const lines = content.split("\n")
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].match(/\\documentclass/)) {
+        const lineNum = i + 1 // 1-indexed
+        const lineEnd = model.getLineMaxColumn(lineNum)
+        ed.executeEdits("add-graphicx", [
+          {
+            range: new monaco.Range(lineNum, lineEnd, lineNum, lineEnd),
+            text: "\n\\usepackage{graphicx}",
+          },
+        ])
+        return
+      }
+    }
+  }, [])
+
+  // Helper to insert LaTeX code at cursor position
+  const insertTextAtCursor = useCallback((text: string) => {
+    const ed = editorRef.current
+    const monaco = monacoRef.current
+    if (!ed || !monaco) return
+    const position = ed.getPosition()
+    if (!position) return
+
+    ed.executeEdits("insert-image", [
+      {
+        range: new monaco.Range(
+          position.lineNumber,
+          position.column,
+          position.lineNumber,
+          position.column
+        ),
+        text,
+      },
+    ])
+    ed.focus()
+  }, [])
+
+  // Drag & drop image upload
+  useEffect(() => {
+    const ed = editorRef.current
+    if (!ed) return
+    const editorDom = ed.getDomNode()
+    if (!editorDom) return
+
+    const handleDragOver = (e: DragEvent) => {
+      if (e.dataTransfer?.types.includes("Files")) {
+        e.preventDefault()
+        e.dataTransfer.dropEffect = "copy"
+      }
+    }
+
+    const handleDrop = async (e: DragEvent) => {
+      const files = Array.from(e.dataTransfer?.files || [])
+      const imageFiles = files.filter((f) => isImageFile(f.name))
+      if (imageFiles.length === 0) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      for (const file of imageFiles) {
+        try {
+          await uploadAndAddToTree(file)
+          ensureGraphicxPackage()
+          const latexCode = generateLatexInclude(file.name)
+          insertTextAtCursor("\n" + latexCode + "\n")
+        } catch {
+          // Error handled by uploadAndAddToTree
+        }
+      }
+    }
+
+    editorDom.addEventListener("dragover", handleDragOver)
+    editorDom.addEventListener("drop", handleDrop)
+    return () => {
+      editorDom.removeEventListener("dragover", handleDragOver)
+      editorDom.removeEventListener("drop", handleDrop)
+    }
+  }, [editorReady, insertTextAtCursor, ensureGraphicxPackage])
+
+  // Clipboard paste image upload
+  useEffect(() => {
+    const ed = editorRef.current
+    if (!ed) return
+    const editorDom = ed.getDomNode()
+    if (!editorDom) return
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = Array.from(e.clipboardData?.items || [])
+      const imageItem = items.find((item) => item.type.startsWith("image/"))
+      if (!imageItem) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const blob = imageItem.getAsFile()
+      if (!blob) return
+
+      const file = new File(
+        [blob],
+        `pasted-${Date.now()}.png`,
+        { type: imageItem.type }
+      )
+
+      try {
+        await uploadAndAddToTree(file)
+        ensureGraphicxPackage()
+        const latexCode = generateLatexInclude(file.name)
+        insertTextAtCursor("\n" + latexCode + "\n")
+      } catch {
+        // Error handled by uploadAndAddToTree
+      }
+    }
+
+    editorDom.addEventListener("paste", handlePaste)
+    return () => {
+      editorDom.removeEventListener("paste", handlePaste)
+    }
+  }, [editorReady, insertTextAtCursor, ensureGraphicxPackage])
+
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor
     monacoRef.current = monaco
@@ -388,6 +533,9 @@ export function CodeEditor() {
 
     // Register LaTeX completions
     registerLatexCompletions(monaco)
+
+    // Register image hover provider
+    registerLatexImageHoverProvider(monaco)
 
     // Register custom themes
     monaco.editor.defineTheme("latex-dark", latexDarkTheme)
@@ -692,6 +840,12 @@ export function CodeEditor() {
 
   return (
     <div className="relative h-full">
+      {/* Read-only banner */}
+      {isReadOnly && (
+        <div className="absolute top-0 left-0 right-0 z-40 flex items-center justify-center bg-amber-500/10 px-3 py-1 text-xs text-amber-600 dark:text-amber-400">
+          Viewing shared document (read-only)
+        </div>
+      )}
       {/* Presence indicator */}
       <div className="absolute top-2 right-2 z-50">
         <PresenceIndicator
@@ -712,6 +866,7 @@ export function CodeEditor() {
       onChange={handleChange}
       onMount={handleEditorMount}
       options={{
+        readOnly: isReadOnly,
         fontSize: 14,
         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         lineNumbers: "on",

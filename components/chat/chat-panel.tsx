@@ -8,6 +8,7 @@ import { ChatInput, type ChatInputRef } from "./chat-input"
 import type { SelectionContext } from "@/stores/selection-context-store"
 import { ChatMessages } from "./chat-messages"
 import { cn } from "@/lib/utils"
+import { uploadAndAddToTree } from "@/lib/upload-helpers"
 import { IconMessageX, IconChevronDown } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -587,6 +588,14 @@ Your letter content here.
     }
   }, [isExpanded])
 
+  const handleImageUpload = useCallback(async (file: File) => {
+    try {
+      await uploadAndAddToTree(file)
+    } catch {
+      // Error handled by uploadAndAddToTree
+    }
+  }, [])
+
   const handleCollapse = () => {
     setIsExpanded(false)
   }
@@ -676,6 +685,7 @@ Your letter content here.
               <ChatInput
                 ref={isExpanded ? expandedInputRef : collapsedInputRef}
                 onSend={handleSend}
+                onImageUpload={handleImageUpload}
                 disabled={isLoading}
                 onStop={stop}
                 isLoading={isLoading}

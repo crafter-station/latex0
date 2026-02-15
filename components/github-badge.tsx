@@ -28,12 +28,12 @@ export function GithubBadge() {
       href="https://github.com/crafter-station/latex0"
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 border border-white/20 rounded-md transition-colors"
+      className="flex items-center gap-1.5 sm:gap-2 px-3 py-1.5 bg-white/80 hover:bg-neutral-50 border border-neutral-200 rounded-md transition-colors"
     >
       <GithubLogo className="size-4" />
-      <span className="text-xs font-medium text-white/80">Star</span>
+      <span className="text-xs font-medium text-neutral-700">Star</span>
       {stars !== null && (
-        <span className="flex text-xs font-medium text-white/60 items-center gap-1">
+        <span className="flex text-xs font-medium text-neutral-500 items-center gap-1">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="12"
