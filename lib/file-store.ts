@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
+import { useContentStore } from './content-store'
 
 export interface BlobMetadata {
   size: number
@@ -70,83 +71,122 @@ export const defaultFiles: FileNode[] = [
     id: '1',
     name: 'main.tex',
     type: 'file',
-    content: `\\documentclass[12pt]{article}
+    content: `\\documentclass[11pt]{article}
+\\usepackage[margin=1in]{geometry}
+\\usepackage{amsmath}
+\\usepackage{amssymb}
+\\usepackage{graphicx}
+\\usepackage{tikz-cd}
+\\usepackage{multicol}
 
-\\usepackage[T1]{fontenc}
-\\usepackage{lmodern}
-
-\\title{The Shipping Bible}
-\\author{Crafter Station}
-\\date{A Playbook for Building in Public}
+\\setlength{\\parindent}{0pt}
+\\setlength{\\parskip}{1\\baselineskip}
 
 \\begin{document}
 
-\\maketitle
+\\section*{What is Latex0?}
 
+\\textbf{Latex0} is an AI-powered \\LaTeX{} editor for writing scientific documents. It supports real-time collaboration with coauthors and was created by Crafter Station; it includes intelligence developed by Crafter Station to help you draft and edit text, reason through ideas, and handle formatting.
+
+\\section*{Features}
+
+\\begin{multicols}{2}
+Latex0, created by Crafter Station, can access your project, so you can ask it to do things like:
+
+\`\`Add a short explanation of the normal distribution and a derivation of its density.''
+
+The \\emph{normal} (or \\emph{Gaussian}) distribution with mean $\\mu$ and variance $\\sigma^2>0$ is the continuous distribution with probability density function
+\\[
+  f(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}}\\exp\\!\\left(-\\frac{(x-\\mu)^2}{2\\sigma^2}\\right),\\qquad x\\in\\mathbb{R}.
+\\]
+It is symmetric about $\\mu$, has $\\mathbb{E}[X]=\\mu$ and $\\mathrm{Var}(X)=\\sigma^2$, and is written $X\\sim\\mathcal{N}(\\mu,\\sigma^2)$.
+
+\\textbf{Demonstration (normalization).} Let $Z\\sim\\mathcal{N}(0,1)$ with candidate density $c\\,e^{-z^2/2}$. To find $c$, compute the Gaussian integral
+\\[
+  I = \\int_{-\\infty}^{\\infty} e^{-z^2/2}\\,dz,
+\\]
+then square and use polar coordinates:
+\\[
+  I^2 = \\int_{\\mathbb{R}^2} e^{-(x^2+y^2)/2}\\,dx\\,dy
+      = \\int_0^{2\\pi}\\!\\int_0^{\\infty} e^{-r^2/2}\\,r\\,dr\\,d\\theta,
+      = 2\\pi.
+\\]
+Hence $I=\\sqrt{2\\pi}$, so $c=1/\\sqrt{2\\pi}$.
+
+For the general case, if $X=\\mu+\\sigma Z$, then by the change of variables $z=(x-\\mu)/\\sigma$ we obtain
+\\[
+  f_X(x)=\\frac{1}{\\sigma}f_Z\\!\\left(\\frac{x-\\mu}{\\sigma}\\right)
+       = \\frac{1}{\\sigma\\sqrt{2\\pi}}\\exp\\!\\left(-\\frac{(x-\\mu)^2}{2\\sigma^2}\\right),
+\\]
+and $\\int_{-\\infty}^{\\infty} f_X(x)\\,dx=1$.
+
+\`\`Add an elementary explanation of the Higgs boson.''
+
+In the Standard Model of particle physics, the \\emph{Higgs field} is a field that fills all of space. Many fundamental particles interact with it, and this interaction is what gives them \\emph{mass} (more precisely: it gives rise to effective mass terms through the Higgs mechanism). The \\emph{Higgs boson} is a quantum excitation of this field.
+
+Experimentally, the Higgs boson was discovered at CERN's Large Hadron Collider in 2012 by the ATLAS and CMS collaborations; the particle observed has a mass of about $125\\,\\mathrm{GeV}$.
+
+\`\`Add a 4-by-4 table'' to the summary section.
 \\begin{center}
-\\textit{Ship > Perfect. A working demo beats a perfect plan.}
+\\resizebox{0.5\\linewidth}{!}{%
+\\begin{tabular}{|c|c|c|c|}
+  \\hline
+  1 & 2 & 3 & 4 \\\\
+  \\hline
+  5 & 6 & 7 & 8 \\\\
+  \\hline
+  9 & 10 & 11 & 12 \\\\
+  \\hline
+  13 & 14 & 15 & 16 \\\\
+  \\hline
+\\end{tabular}%
+}
 \\end{center}
 
-\\section{Philosophy}
+\`\`Proofread this and highlight any errors or gaps in logic, and make suggestions for how I can improve the clarity of the section.''
 
-Building great software isn't about perfection---it's about momentum. Every feature shipped is a lesson learned, every demo is feedback collected, every launch is progress made.
+\`\`Are there any corollaries or follow-on implications of Theorem 3.1 that I've missed? Are all the bounds tight, or can some be relaxed?''
 
-\\begin{quote}
-\\textbf{The best code is code that ships.}
-\\end{quote}
+\\columnbreak
 
-\\section{The Shipping Cycle}
+\`\`Write an abstract based on the rest of the paper''
 
-The cycle that drives continuous improvement:
+\`\`Add a bibliography to my paper, and suggest related work I may have missed.''
 
-\\begin{center}
-\\textbf{Think} $\\rightarrow$ \\textbf{Share} $\\rightarrow$ \\textbf{Build} $\\rightarrow$ \\textbf{Ship} $\\rightarrow$ \\textbf{Learn} $\\rightarrow$ \\textit{(repeat)}
-\\end{center}
+\`\`Generate this hand-drawn diagram in \\LaTeX{}.''
+\\par\\noindent
+\\begin{minipage}[t]{0.49\\linewidth}
+  \\vspace{0pt}
+  \\centering
+  % (image removed)
+\\end{minipage}\\hfill
+\\begin{minipage}[t]{0.49\\linewidth}
+  \\vspace{0pt}
+  \\centering
+  \\resizebox{\\linewidth}{!}{$
+    \\begin{tikzcd}[row sep=2em, column sep=1.5em, ampersand replacement=\\&]
+      E
+        \\arrow[dr, "e"']
+        \\arrow[drr, "p_2"]
+        \\arrow[ddr, "p_1"']
+      \\& \\& \\\\
+      \\& A \\times B \\arrow[r, "\\pi_2"'] \\arrow[d, "\\pi_1"] \\& B \\arrow[d, "g"] \\\\
+      \\& A \\arrow[r, "f"'] \\& C
+    \\end{tikzcd}
+  $}
+\\end{minipage}
+\\par
 
-\\section{Six-Phase Lifecycle}
+\`\`Add any missing dependencies across my project.''
 
-\\subsection{Phase 1: Spark}
-Every project begins with an idea. Capture it quickly, validate it with others, and decide if it's worth pursuing.
+\`\`Generate a 200-word summary for a popular audience, in German.''
 
-\\subsection{Phase 2: Plan}
-Keep plans lightweight. A simple list of milestones beats a complex roadmap.
+\`\`Generate a Beamer presentation with each slide in its own file.''
+\\end{multicols}
 
-\\begin{itemize}
-  \\item Define the MVP scope
-  \\item Set a ship date (and stick to it)
-  \\item Identify the first users
-\\end{itemize}
+\\section*{Collaboration}
 
-\\subsection{Phase 3: Build}
-Focus on the core value proposition. Cut features ruthlessly.
-
-\\subsection{Phase 4: Ship}
-Launch early. Launch often. Every release is a chance to learn.
-
-\\subsection{Phase 5: Learn}
-Collect feedback systematically. Metrics + user conversations = insights.
-
-\\subsection{Phase 6: Iterate}
-Apply learnings to the next cycle. Compound improvements over time.
-
-\\section{Key Principles}
-
-\\begin{enumerate}
-  \\item \\textbf{Speed over perfection} --- Ship fast, fix fast
-  \\item \\textbf{Public over private} --- Build in the open
-  \\item \\textbf{Users over features} --- Solve real problems
-  \\item \\textbf{Learning over planning} --- Adapt continuously
-\\end{enumerate}
-
-\\section{Conclusion}
-
-The best products aren't built in isolation---they're shaped by continuous shipping, feedback, and iteration. Start small, ship often, and let your users guide the way.
-
-\\begin{center}
----
-
-\\textit{Made with LaTeX0}
-\\end{center}
+Invite collaborators by clicking the \`\`Share'' menu. As you edit, they will see your updates in real time. You can also leave comments by highlighting text and selecting "Leave a comment."
 
 \\end{document}
 `,
@@ -275,6 +315,9 @@ export const useFileStore = create<FileStore>((set, get) => ({
     } else {
       set({ activeTabId: id })
     }
+
+    // Sync with content store
+    useContentStore.getState().setActiveContent('file', id)
   },
 
   closeTab: (id) => {
