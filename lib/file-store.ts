@@ -84,6 +84,9 @@ export const defaultFiles: FileNode[] = [
 
 \\begin{document}
 
+\\noindent\\includegraphics[height=1.2cm]{logo-cs.png}
+\\vspace{0.5cm}
+
 \\section*{What is Latex0?}
 
 \\textbf{Latex0} is an AI-powered \\LaTeX{} editor for writing scientific documents. It supports real-time collaboration with coauthors and was created by Crafter Station; it includes intelligence developed by Crafter Station to help you draft and edit text, reason through ideas, and handle formatting.
@@ -213,8 +216,9 @@ Invite collaborators by clicking the \`\`Share'' menu. As you edit, they will se
     children: [
       {
         id: '4',
-        name: 'figure1.png',
+        name: 'logo-cs.png',
         type: 'file',
+        blobUrl: 'https://n06f4qnhjv1rkk2w.public.blob.vercel-storage.com/logo-cs.png',
         parentId: '3',
       },
     ],
