@@ -81,7 +81,8 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
     if (!container) return
 
     const pdfjsLib = await getPdfjs()
-    const pdf = await pdfjsLib.getDocument({ data }).promise
+    // Pass a copy — pdfjs detaches the buffer it receives
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(data) }).promise
 
     // Clear previous canvases
     container.innerHTML = ""
@@ -119,8 +120,8 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
 
     getCachedPdf(cacheKey).then((cached) => {
       if (cached && !pdfDataRef.current) {
-        pdfDataRef.current = cached
-        renderPages(cached, zoom / 100)
+        pdfDataRef.current = new Uint8Array(cached)
+        renderPages(pdfDataRef.current, zoom / 100)
       }
     })
   }, [cacheKey, zoom, renderPages])
@@ -138,7 +139,7 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
     setIsCompiling(true)
     setError(null)
 
-    try {
+    const attempt = async () => {
       const files = useFileStore.getState().files
       const mainFile = findMainFile(files)
       const { source, images } = await bundleLatexFiles(files, mainFile)
@@ -147,16 +148,27 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
         images: Object.keys(images).length > 0 ? images : undefined,
       })
 
-      pdfDataRef.current = pdfBuffer
-      await renderPages(pdfBuffer, zoom / 100)
-      cachePdf(cacheKey, pdfBuffer)
+      // Copy before pdfjs detaches the underlying ArrayBuffer
+      pdfDataRef.current = new Uint8Array(pdfBuffer)
+      await renderPages(pdfDataRef.current, zoom / 100)
+      cachePdf(cacheKey, pdfDataRef.current)
+    }
+
+    try {
+      await attempt()
     } catch (err) {
-      if (err instanceof RenderError && err.detail) {
-        setError(err.detail)
-      } else if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError("Compilation failed")
+      // Retry once after a delay — the compile service may need time to warm up for image downloads
+      await new Promise((r) => setTimeout(r, 1500))
+      try {
+        await attempt()
+      } catch (retryErr) {
+        if (retryErr instanceof RenderError && retryErr.detail) {
+          setError(retryErr.detail)
+        } else if (retryErr instanceof Error) {
+          setError(retryErr.message)
+        } else {
+          setError("Compilation failed")
+        }
       }
     } finally {
       setIsCompiling(false)
@@ -174,7 +186,7 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
   useEffect(() => {
     const handleDownload = () => {
       if (pdfDataRef.current) {
-        const blob = new Blob([pdfDataRef.current.buffer as ArrayBuffer], { type: "application/pdf" })
+        const blob = new Blob([pdfDataRef.current as BlobPart], { type: "application/pdf" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
         a.href = url
@@ -250,7 +262,7 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
   }, [handleErrorLineClick])
 
   return (
-    <ScrollArea className="h-full flex-1 bg-muted/30">
+    <ScrollArea className="relative h-full flex-1">
       <div className="flex items-start justify-center p-4 min-h-full">
         {error ? (
           <div className="w-full max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -278,7 +290,7 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
             )}
           </div>
         ) : (
-          <div className="w-full max-w-[210mm] bg-white shadow-lg rounded-lg overflow-hidden">
+          <div className="w-full max-w-[210mm] bg-white shadow-lg rounded-lg overflow-hidden dark:invert dark:hue-rotate-180">
             <div className="relative">
               <div
                 ref={canvasContainerRef}
