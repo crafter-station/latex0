@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { IconFolder, IconPlus, IconSearch } from "@tabler/icons-react"
 import { useUserIdentity } from "@/hooks/use-user-identity"
 import { useProjectStore } from "@/lib/project-store"
@@ -11,6 +11,12 @@ import { ProjectsSidebar } from "@/components/projects/projects-sidebar"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import type { Project } from "@/lib/db/schema"
 
 type ProjectWithDoc = Project & { firstDocumentId: string | null }
@@ -19,9 +25,13 @@ export default function ProjectsPage() {
   const router = useRouter()
   const { user, isLoading: authLoading } = useUserIdentity()
   const isAuthenticated = user?.isAuthenticated ?? false
-  const { createProject, deleteProject } = useProjectStore()
+  const { createProject, deleteProject, renameProject } = useProjectStore()
+  const queryClient = useQueryClient()
   const activeView = useProjectStore((s) => s.dashboardView)
   const [search, setSearch] = useState("")
+  const [renameId, setRenameId] = useState<string | null>(null)
+  const [renameName, setRenameName] = useState("")
+  const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data: projects = [], isLoading } = useQuery<ProjectWithDoc[]>({
     queryKey: ["projects"],
@@ -60,8 +70,25 @@ export default function ProjectsPage() {
     if (project) router.push(`/projects/${project.id}`)
   }
 
-  async function handleDelete(id: string) {
-    await deleteProject(id)
+  async function handleDeleteConfirm() {
+    if (!deleteId) return
+    await deleteProject(deleteId)
+    queryClient.invalidateQueries({ queryKey: ["projects"] })
+    setDeleteId(null)
+  }
+
+  function handleRenameOpen(id: string) {
+    const project = projects.find((p) => p.id === id)
+    if (!project) return
+    setRenameName(project.name)
+    setRenameId(id)
+  }
+
+  async function handleRenameSave() {
+    if (!renameId || !renameName.trim()) return
+    await renameProject(renameId, renameName.trim())
+    queryClient.invalidateQueries({ queryKey: ["projects"] })
+    setRenameId(null)
   }
 
   const viewLabels = {
@@ -125,7 +152,8 @@ export default function ProjectsPage() {
                   <ProjectCard
                     key={p.id}
                     project={p}
-                    onDelete={handleDelete}
+                    onRename={handleRenameOpen}
+                    onDelete={setDeleteId}
                   />
                 ))}
               </div>
@@ -133,6 +161,69 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <DialogContent
+          className="sm:max-w-sm"
+          showCloseButton={false}
+          overlayClassName="bg-black/20 backdrop-blur-sm"
+        >
+          <DialogHeader>
+            <DialogTitle>Delete project</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This will permanently delete{" "}
+            <span className="font-medium text-foreground">
+              {projects.find((p) => p.id === deleteId)?.name}
+            </span>{" "}
+            and all its documents. This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setDeleteId(null)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename */}
+      <Dialog open={!!renameId} onOpenChange={(open) => !open && setRenameId(null)}>
+        <DialogContent
+          className="sm:max-w-md"
+          showCloseButton={false}
+          overlayClassName="bg-black/20 backdrop-blur-sm"
+        >
+          <DialogHeader>
+            <DialogTitle>Rename project</DialogTitle>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleRenameSave()
+            }}
+            className="flex flex-col gap-4"
+          >
+            <Input
+              value={renameName}
+              onChange={(e) => setRenameName(e.target.value)}
+              placeholder="Project name"
+              autoFocus
+              onFocus={(e) => e.target.select()}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={() => setRenameId(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!renameName.trim()}>
+                Save
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   )
 }
