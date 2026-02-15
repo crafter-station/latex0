@@ -15,6 +15,12 @@ export default function Home() {
   const router = useRouter()
   const { isSignedIn } = useUser()
 
+  // Prefetch target routes immediately
+  useEffect(() => {
+    router.prefetch("/projects")
+    router.prefetch("/playground")
+  }, [router])
+
   // Handle Enter key to navigate
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

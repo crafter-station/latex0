@@ -1,5 +1,5 @@
 import { AppSidebar } from "@/components/layout/app-sidebar"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { QueryProvider } from "@/components/providers/query-provider"
 
 export default function PlaygroundLayout({
@@ -10,17 +10,16 @@ export default function PlaygroundLayout({
   return (
     <QueryProvider>
       <SidebarProvider
+        className="!min-h-0 h-svh overflow-hidden"
         style={
           {
-            "--sidebar-width": "calc(var(--spacing) * 56)",
+            "--sidebar-width": "320px",
             "--header-height": "calc(var(--spacing) * 12)",
           } as React.CSSProperties
         }
       >
         <AppSidebar variant="inset" />
-        <SidebarInset className="h-svh overflow-hidden pt-2">
-          {children}
-        </SidebarInset>
+        {children}
       </SidebarProvider>
     </QueryProvider>
   )
