@@ -69,16 +69,15 @@ export default function RootLayout({
         <ClerkProvider
           appearance={{
             variables: {
-              colorPrimary: "#ffffff",
-              colorBackground: "#0A0A0A",
-              colorText: "#ffffff",
+              colorPrimary: "#171717",
+              colorBackground: "#ffffff",
+              colorText: "#171717",
             },
           }}
         >
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
-            enableSystem
             disableTransitionOnChange={false}
           >
             <TooltipProvider>

@@ -12,7 +12,7 @@ export function AuthButtons() {
 
   return (
     <div className="flex flex-col gap-2 items-center">
-      <p className="font-mono text-[10px] tracking-widest text-white/30 mb-2">
+      <p className="font-mono text-[10px] tracking-widest text-neutral-400 mb-2">
         OR SIGN IN WITH
       </p>
       <div className="flex gap-3">
@@ -20,7 +20,7 @@ export function AuthButtons() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white font-mono text-xs"
+            className="border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 font-mono text-xs"
           >
             <IconBrandGoogle className="mr-2 h-4 w-4" />
             Google
@@ -30,14 +30,14 @@ export function AuthButtons() {
           <Button
             variant="outline"
             size="sm"
-            className="border-white/10 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white font-mono text-xs"
+            className="border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 font-mono text-xs"
           >
             <IconBrandGithub className="mr-2 h-4 w-4" />
             GitHub
           </Button>
         </SignInButton>
       </div>
-      <p className="font-mono text-[9px] tracking-wide text-white/20 mt-2">
+      <p className="font-mono text-[9px] tracking-wide text-neutral-300 mt-2">
         Continue as guest without signing in
       </p>
     </div>
