@@ -53,10 +53,13 @@ interface PdfViewerProps {
 const PLAYGROUND_CACHE_KEY = "playground"
 
 export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
-  const { activeContent, requestAIFix } = useFiles()
+  const { requestAIFix } = useFiles()
   const triggerCompile = useFileStore((s) => s.triggerCompile)
   const setGoToLine = useFileStore((s) => s.setGoToLine)
   const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
+  const activeTabId = useFileStore((s) => s.activeTabId)
+  const getFileContent = useFileStore((s) => s.getFileContent)
+  const activeContent = activeTabId ? getFileContent(activeTabId) : null
 
   const cacheKey = activeDocumentId || PLAYGROUND_CACHE_KEY
 
@@ -134,7 +137,8 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
   }, [zoom, renderPages])
 
   const compileLatex = useCallback(async () => {
-    if (!activeContent) return
+    const files = useFileStore.getState().files
+    if (!files.length) return
 
     setIsCompiling(true)
     setError(null)
@@ -173,7 +177,7 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
     } finally {
       setIsCompiling(false)
     }
-  }, [activeContent, zoom, renderPages, cacheKey])
+  }, [zoom, renderPages, cacheKey])
 
   // Compile on triggerCompile from store (Cmd+Enter, command palette, or toolbar)
   useEffect(() => {
@@ -181,6 +185,17 @@ export function PdfViewer({ zoom = 100 }: PdfViewerProps) {
       compileLatex()
     }
   }, [triggerCompile, compileLatex])
+
+  // Auto-compile after user stops typing (debounced)
+  useEffect(() => {
+    if (!activeContent) return
+
+    const timer = setTimeout(() => {
+      compileLatex()
+    }, 1500) // Wait 1.5s after last change
+
+    return () => clearTimeout(timer)
+  }, [activeContent, compileLatex])
 
   // Listen for download PDF event
   useEffect(() => {
