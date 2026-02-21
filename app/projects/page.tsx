@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { IconFolder, IconPlus, IconSearch } from "@tabler/icons-react"
@@ -8,6 +8,7 @@ import { useUserIdentity } from "@/hooks/use-user-identity"
 import { useProjectStore } from "@/lib/project-store"
 import { ProjectCard } from "@/components/projects/project-card"
 import { ProjectsSidebar } from "@/components/projects/projects-sidebar"
+import { ProjectsLoader } from "@/components/projects/projects-loader"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,11 +46,7 @@ export default function ProjectsPage() {
   })
 
   if (authLoading || isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <div className="text-sm text-muted-foreground animate-pulse">Loading projects...</div>
-      </div>
-    )
+    return <ProjectsLoader />
   }
 
   if (!isAuthenticated) {
