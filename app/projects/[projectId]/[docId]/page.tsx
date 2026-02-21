@@ -32,7 +32,7 @@ export default function EditorPage() {
 
   if (!isReady) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full w-full items-center justify-center">
         <div className="text-sm text-muted-foreground animate-pulse">
           Loading document...
         </div>

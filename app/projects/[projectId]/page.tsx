@@ -60,7 +60,7 @@ export default function ProjectRedirect() {
   }, [data, projectId, router])
 
   return (
-    <div className="flex h-svh items-center justify-center">
+    <div className="flex h-svh w-full items-center justify-center">
       <div className="text-sm text-muted-foreground animate-pulse">
         Opening project...
       </div>
