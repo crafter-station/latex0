@@ -307,7 +307,11 @@ export const useFileStore = create<FileStore>((set, get) => ({
   goToLine: null,
   triggerCompile: 0,
 
-  setFiles: (files) => set({ files }),
+  setFiles: (files) => {
+    console.log(`[FileStore.setFiles] Setting ${files.length} files: ${files.map(f => f.name).join(', ')}`)
+    console.trace('[FileStore.setFiles] Stack trace')
+    set({ files })
+  },
 
   openFile: (id) => {
     const { openTabs, files } = get()
