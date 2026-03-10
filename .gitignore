@@ -45,3 +45,4 @@ CLAUDE.md
 
 # clerk configuration (can include secrets)
 /.clerk/
+.env*.local
