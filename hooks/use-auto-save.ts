@@ -90,9 +90,6 @@ export function useAutoSave() {
       return
     }
 
-    console.log(`[useAutoSave] Files changed. count=${files.length}, size=${serialized.length}, docId=${activeDocumentId}`)
-    console.log(`[useAutoSave] File names: ${files.map((f) => f.name).join(', ')}`)
-
     // Track what's pending so beforeunload can flush it
     pendingContentRef.current = serialized
     setSaveStatus("unsaved")

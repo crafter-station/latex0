@@ -123,14 +123,10 @@ export function useDocuments() {
     async (docId: string) => {
       if (!isAuthenticated) return
       try {
-        console.log(`[loadDocument] Fetching /api/documents/${docId}`)
         const res = await fetch(`/api/documents/${docId}`)
-        console.log(`[loadDocument] Response status: ${res.status}`)
         if (res.ok) {
           const doc = await res.json()
-          console.log(`[loadDocument] Content length: ${doc.content?.length}, has content: ${!!doc.content}`)
           const files = parseDocumentContent(doc.content)
-          console.log(`[loadDocument] Parsed ${files.length} files: ${files.map((f: {name: string}) => f.name).join(', ')}`)
           setFiles(files)
 
           const mainFile = findMainFile(files)

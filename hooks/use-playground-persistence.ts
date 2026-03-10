@@ -3,6 +3,7 @@
 import { useEffect } from "react"
 import { useFileStore } from "@/lib/file-store"
 import { useUserIdentity } from "@/hooks/use-user-identity"
+import { useDocumentStore } from "@/lib/document-store"
 import { serializeFileTree, parseDocumentContent } from "@/lib/content-parser"
 
 const PLAYGROUND_STORAGE_KEY = "latex0-playground-state"
@@ -12,10 +13,11 @@ export function usePlaygroundPersistence() {
   const setFiles = useFileStore((s) => s.setFiles)
   const { user } = useUserIdentity()
   const isAuthenticated = user?.isAuthenticated ?? false
+  const activeDocumentId = useDocumentStore((s) => s.activeDocumentId)
 
-  // Load from localStorage on mount (playground only)
   useEffect(() => {
     if (isAuthenticated) return
+    if (activeDocumentId) return
 
     const saved = localStorage.getItem(PLAYGROUND_STORAGE_KEY)
     if (saved) {
@@ -26,13 +28,13 @@ export function usePlaygroundPersistence() {
         console.error("[Playground] Failed to restore state:", err)
       }
     }
-  }, [isAuthenticated, setFiles])
+  }, [isAuthenticated, setFiles, activeDocumentId])
 
-  // Save to localStorage on change (playground only)
   useEffect(() => {
     if (isAuthenticated) return
+    if (activeDocumentId) return
 
     const serialized = serializeFileTree(files)
     localStorage.setItem(PLAYGROUND_STORAGE_KEY, serialized)
-  }, [files, isAuthenticated])
+  }, [files, isAuthenticated, activeDocumentId])
 }

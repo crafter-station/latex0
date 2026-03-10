@@ -21,13 +21,10 @@ export default function EditorPage() {
   }, [projectId, setActiveProjectId])
 
   useEffect(() => {
-    console.log(`[EditorPage] Effect: isAuth=${isAuthenticated}, docId=${docId}, loaded=${loadedRef.current}`)
     if (!isAuthenticated || !docId || loadedRef.current === docId) return
     loadedRef.current = docId
     setIsReady(false)
-    console.log(`[EditorPage] Calling loadDocument(${docId})`)
     loadDocument(docId).then(() => {
-      console.log(`[EditorPage] loadDocument resolved, isReady=true`)
       setIsReady(true)
       requestCompile()
     })

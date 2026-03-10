@@ -308,8 +308,6 @@ export const useFileStore = create<FileStore>((set, get) => ({
   triggerCompile: 0,
 
   setFiles: (files) => {
-    console.log(`[FileStore.setFiles] Setting ${files.length} files: ${files.map(f => f.name).join(', ')}`)
-    console.trace('[FileStore.setFiles] Stack trace')
     set({ files })
   },
 
