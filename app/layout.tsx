@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/react";
+import Script from "next/script";
 import { ClerkProvider } from "@clerk/nextjs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -87,6 +88,7 @@ export default function RootLayout({
           </ThemeProvider>
         </ClerkProvider>
         <Analytics />
+        <Script defer src="https://counterscale.raillyhugo.workers.dev/tracker.js" data-site-id="latex0" />
       </body>
     </html>
   );
