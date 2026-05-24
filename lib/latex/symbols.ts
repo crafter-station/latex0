@@ -56,6 +56,8 @@ export const SYMBOLS: Record<string, string> = {
   // delimiters
   langle: "⟨", rangle: "⟩", lceil: "⌈", rceil: "⌉", lfloor: "⌊", rfloor: "⌋",
   lbrace: "{", rbrace: "}", vert: "|", Vert: "‖", lbrack: "[", rbrack: "]",
+  lvert: "|", rvert: "|", lVert: "‖", rVert: "‖", lgroup: "⟮", rgroup: "⟯",
+  lmoustache: "⎰", rmoustache: "⎱", ulcorner: "⌜", urcorner: "⌝",
 
   // text-mode accents & punctuation that appear as commands
   ldotp: "·", cdotp: "·", colon: ":", quad: " ", qquad: "  ",
@@ -64,6 +66,35 @@ export const SYMBOLS: Record<string, string> = {
   pounds: "£", textsterling: "£", texteuro: "€", copyright: "©",
   textcopyright: "©", textregistered: "®", texttrademark: "™", S: "§",
   P: "¶", dag: "†", ddag: "‡", LaTeX: "LaTeX", TeX: "TeX", ldotsc: "…",
+
+  // special letters (text mode): \ss \o \ae \oe \aa \l \i \j \th \dh \ng ...
+  ss: "ß", o: "ø", O: "Ø", l: "ł", L: "Ł", ae: "æ", AE: "Æ", oe: "œ",
+  OE: "Œ", aa: "å", AA: "Å", i: "ı", j: "ȷ", th: "þ", TH: "Þ", dh: "ð",
+  DH: "Ð", dj: "đ", DJ: "Đ", ng: "ŋ", NG: "Ŋ", guillemotleft: "«",
+  guillemotright: "»", textquotedblleft: "“", textquotedblright: "”",
+  textquoteleft: "‘", textquoteright: "’", textendash: "–", textemdash: "—",
+  textellipsis: "…", textbullet: "•", textdegree: "°", degree: "°",
+}
+
+// Text accents -> combining diacritic appended after the base character.
+// Covers both control-symbol forms (\'e \"o \^a \~n) and letter forms (\c \v).
+export const TEXT_ACCENTS: Record<string, string> = {
+  "'": "́", // acute
+  "`": "̀", // grave
+  "^": "̂", // circumflex
+  "~": "̃", // tilde
+  '"': "̈", // diaeresis / umlaut
+  "=": "̄", // macron
+  ".": "̇", // dot above
+  u: "̆", // breve
+  v: "̌", // caron / háček
+  H: "̋", // double acute
+  c: "̧", // cedilla
+  k: "̨", // ogonek
+  r: "̊", // ring above
+  b: "̱", // bar under
+  d: "̣", // dot below
+  t: "͡", // tie (double inverted breve)
 }
 
 // Escaped single characters: \{ \} \$ \% \& \_ \# \  etc.

@@ -3,7 +3,7 @@
 // figures, environments and display math. Math is delegated to math.ts.
 
 import { renderMathList, renderMathString } from "./math"
-import { SYMBOLS, ESCAPES, mapAlphabet } from "./symbols"
+import { SYMBOLS, ESCAPES, mapAlphabet, TEXT_ACCENTS } from "./symbols"
 import { renderTikzcd } from "./tikzcd"
 import type { CommandNode, EnvironmentNode, Node } from "./types"
 import { escapeHtml, GRAPHICS_ENVS, graphicsPlaceholder } from "./util"
@@ -305,6 +305,11 @@ class Renderer {
 
     // escaped single characters: \% \& \_ \$ \{ \} \# \, etc.
     if (n.length === 1 && n in ESCAPES) return escapeHtml(ESCAPES[n])
+
+    // text accents: base glyph + combining diacritic (\'e -> é, \c{c} -> ç)
+    if (n in TEXT_ACCENTS) {
+      return this.renderInlineList(node.args[0] ?? []) + TEXT_ACCENTS[n]
+    }
 
     // font / formatting wrappers
     const tag = FONT_TAG[n]

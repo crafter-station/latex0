@@ -1,7 +1,11 @@
 // Arity-aware, environment-aware recursive-descent parser.
 // Turns the flat token stream into a tree the renderer can walk in one pass.
 
+import { TEXT_ACCENTS } from "./symbols"
 import { Tok, type Node, type Token } from "./types"
+
+// Accent commands (\'e \"o \^a \c{c} ...) bind to a single following atom.
+const ACCENT_CMDS = new Set(Object.keys(TEXT_ACCENTS))
 
 // How many mandatory {..} arguments well-known commands consume. Anything not
 // listed takes 0 (it renders as a standalone symbol/command). This table is the
@@ -335,6 +339,11 @@ export function parse(tokens: Token[], src = ""): Node[] {
     if (name === "begin") return parseEnvironment()
     if (name === "[") return parseMathUntilClose(true, "]")
     if (name === "(") return parseMathUntilClose(false, ")")
+
+    // text accents bind to one atom: \'e, \"{o}, \c{c}
+    if (ACCENT_CMDS.has(name)) {
+      return { kind: "command", name, args: [[parseScriptArg()]] }
+    }
 
     // starred form: \section*{...}
     let star = false
