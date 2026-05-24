@@ -149,8 +149,9 @@ function clip(cx: number, cy: number, hw: number, hh: number, tx: number, ty: nu
 }
 
 export function renderTikzcd(rawBody: string, math: MathOf): string {
-  // strip leading whole-diagram options: \begin{tikzcd}[column sep=...]
+  // strip leading whole-diagram options: \begin{tikzcd}[column sep=..., ampersand replacement=\&]
   let body = rawBody.trim()
+  let cellSep = "&"
   if (body[0] === "[") {
     let depth = 0
     let k = 0
@@ -164,6 +165,10 @@ export function renderTikzcd(rawBody: string, math: MathOf): string {
         }
       }
     }
+    const options = body.slice(1, k - 1)
+    // `ampersand replacement=\&` switches the column separator off `&`
+    const amp = options.match(/ampersand\s+replacement\s*=\s*(\\?[^\s,\]]+)/)
+    if (amp) cellSep = amp[1]
     body = body.slice(k).trim()
   }
 
@@ -175,7 +180,7 @@ export function renderTikzcd(rawBody: string, math: MathOf): string {
     if (!rowStr && r === rowStrings.length - 1) continue // trailing \\
     // strip per-row spacing option \\[2mm]
     if (rowStr[0] === "[") rowStr = rowStr.replace(/^\[[^\]]*\]/, "").trim()
-    grid.push(splitTop(rowStr, "&").map((c) => parseCell(c)))
+    grid.push(splitTop(rowStr, cellSep).map((c) => parseCell(c)))
   }
   if (!grid.length) return ""
   const cols = Math.max(...grid.map((row) => row.length))
