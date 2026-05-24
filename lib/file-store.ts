@@ -91,6 +91,23 @@ export const defaultFiles: FileNode[] = [
 
 \\textbf{Latex0} is an AI-powered \\LaTeX{} editor for writing scientific documents. It supports real-time collaboration with coauthors and was created by Crafter Station; it includes intelligence developed by Crafter Station to help you draft and edit text, reason through ideas, and handle formatting.
 
+\\section*{The experimental rendering engine}
+
+The preview you are reading right now was \\emph{not} produced by a traditional \\TeX{} distribution or a remote PDF service. It is rendered by an \\textbf{experimental, zero-dependency \\LaTeX{} engine} written in pure TypeScript that runs entirely in your browser. There is no \\texttt{pdflatex} process, no WebAssembly toolchain, and no network round-trip: your source is converted straight to HTML and CSS as you type.
+
+The engine works in three single-pass stages:
+\\begin{enumerate}
+  \\item \\textbf{Tokenize.} The source is scanned character by character into a flat stream of tokens --- commands, braces, math shifts, comments --- with no regular-expression backtracking.
+  \\item \\textbf{Parse.} An arity- and environment-aware recursive-descent parser turns that stream into an abstract syntax tree, resolving how many arguments each command consumes and where every environment begins and ends.
+  \\item \\textbf{Render.} The tree is walked once, emitting HTML for text and a dedicated layout pass for mathematics. Every text boundary is escaped, so the generated markup is safe to inject.
+\\end{enumerate}
+
+Because the whole pipeline is pure and free of runtime dependencies, a typical document re-renders in well under a millisecond. That is why the preview updates on \\emph{every keystroke}, with no debounce, no compile button, and no spinner.
+
+\\textbf{What it understands.} Sectioning with automatic numbering, ordered and unordered lists, \\texttt{tabular} layout, figures and floats with cross-references, text accents, and roughly 250 symbols --- plus a full math mode covering fractions, roots, sub- and superscripts, matrices, cases, and aligned equations. Commutative diagrams written with \\texttt{tikzcd} are rendered to inline SVG, as you can see in the features below.
+
+\\textbf{What to expect.} This is an experimental engine that implements a deliberate, growing \\emph{subset} of \\LaTeX{}, not the entire language. Commands it does not yet recognize degrade gracefully instead of breaking the page, so you can keep writing while coverage expands. And \`\`Export to PDF'' is simply your browser printing this very preview --- truly what you see is what you get.
+
 \\section*{Features}
 
 \\begin{multicols}{2}
