@@ -21,6 +21,10 @@ export function HtmlPreview({ zoom = 100 }: HtmlPreviewProps) {
   const [html, setHtml] = useState("")
   const [error, setError] = useState<string | null>(null)
   const renderToken = useRef(0)
+  // The download handler is registered once; keep the latest rendered HTML in a
+  // ref so it always prints the current document, not a stale closure.
+  const htmlRef = useRef("")
+  htmlRef.current = html
 
   useEffect(() => {
     const token = ++renderToken.current
@@ -47,9 +51,15 @@ export function HtmlPreview({ zoom = 100 }: HtmlPreviewProps) {
       })
   }, [files])
 
-  // Browser print (Cmd/Ctrl+P) is the zero-dependency "export to PDF".
+  // "Export to PDF" = browser print, but of *only* the rendered document. We
+  // print a detached iframe containing just the document HTML + LaTeX CSS, so
+  // the editor/panels never leak into the output (true WYSIWYG of the preview).
   useEffect(() => {
-    const onDownload = () => window.print()
+    const onDownload = () => {
+      const main = findMainFile(useFileStore.getState().files)
+      const title = (main?.name ?? "document").replace(/\.tex$/i, "")
+      printDocument(htmlRef.current, title)
+    }
     window.addEventListener("latex0:download-pdf", onDownload)
     return () => window.removeEventListener("latex0:download-pdf", onDownload)
   }, [])
@@ -84,4 +94,78 @@ export function HtmlPreview({ zoom = 100 }: HtmlPreviewProps) {
       </div>
     </ScrollArea>
   )
+}
+
+// Print just the rendered document via a detached iframe. The iframe carries
+// only the LaTeX CSS + document HTML — none of the surrounding IDE chrome — so
+// the printout/PDF matches the preview exactly. `@page` supplies the LaTeX-like
+// margins (the on-screen 18mm/16mm padding lives on the React wrapper, not in
+// LATEX_CSS, so we restate it here).
+function printDocument(html: string, title: string): void {
+  if (typeof document === "undefined" || !html) return
+
+  const iframe = document.createElement("iframe")
+  iframe.setAttribute("aria-hidden", "true")
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden"
+  document.body.appendChild(iframe)
+
+  const doc = iframe.contentDocument
+  if (!doc) {
+    iframe.remove()
+    return
+  }
+
+  doc.open()
+  doc.write(
+    `<!doctype html><html><head><meta charset="utf-8"><title>${escapeForHtml(title)}</title>` +
+      `<style>${LATEX_CSS}` +
+      `@page{margin:16mm 18mm}` +
+      `html,body{margin:0;padding:0;background:#fff}` +
+      `.l0-root{color:#000}` +
+      `</style></head><body><div class="l0-root">${html}</div></body></html>`
+  )
+  doc.close()
+
+  const win = iframe.contentWindow
+  if (!win) {
+    iframe.remove()
+    return
+  }
+
+  let done = false
+  const cleanup = () => {
+    if (done) return
+    done = true
+    // Defer removal so the print dialog has fully grabbed the document.
+    setTimeout(() => iframe.remove(), 1000)
+  }
+
+  const triggerPrint = async () => {
+    // Wait for images (blob URLs) to settle so they aren't blank in the PDF.
+    const imgs = Array.from(doc.images)
+    await Promise.all(
+      imgs.map((img) =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>((res) => {
+              img.addEventListener("load", () => res(), { once: true })
+              img.addEventListener("error", () => res(), { once: true })
+            })
+      )
+    )
+    win.addEventListener("afterprint", cleanup, { once: true })
+    win.focus()
+    win.print()
+    // Safari/Firefox don't always fire afterprint — clean up defensively.
+    setTimeout(cleanup, 60000)
+  }
+
+  // The written document is usually ready synchronously after close(), but wait
+  // for load if it isn't.
+  if (doc.readyState === "complete") void triggerPrint()
+  else iframe.addEventListener("load", () => void triggerPrint(), { once: true })
+}
+
+function escapeForHtml(s: string): string {
+  return s.replace(/[&<>]/g, (c) => (c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"))
 }
