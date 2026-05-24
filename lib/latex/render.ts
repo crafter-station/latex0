@@ -419,8 +419,17 @@ class Renderer {
     // images
     if (n === "includegraphics") {
       const path = flattenRaw(node.args[0] ?? [])
-      const src = this.images[path] ?? this.images[path.replace(/^.*\//, "")] ?? path
-      return `<img class="l0-img" src="${escapeHtml(src)}" alt="${escapeHtml(path)}"/>`
+      const base = path.replace(/^.*\//, "")
+      const resolved = this.images[path] ?? this.images[base]
+      const style = imgStyle(flattenRaw(node.optional ?? []))
+      const styleAttr = style ? ` style="${escapeHtml(style)}"` : ""
+      // No resolvable URL: show a tidy placeholder rather than emitting an
+      // <img> whose broken `alt` would dump the raw filename into the page.
+      if (!resolved) return imgFallback(base, style)
+      // Resolvable but the load can still fail at runtime — swap the broken
+      // <img> for the same placeholder instead of leaking the path via `alt`.
+      const onerror = escapeHtml(`this.outerHTML=${JSON.stringify(imgFallback(base, style))}`)
+      return `<img class="l0-img"${styleAttr} src="${escapeHtml(resolved)}" alt="" onerror="${onerror}"/>`
     }
     if (n === "caption") {
       const kind = this.currentFloat === "table" ? "Table" : "Figure"
@@ -676,6 +685,53 @@ function applyLigatures(s: string): string {
     .replace(/''/g, "”") // ”
     .replace(/`/g, "‘") // ‘
     .replace(/'/g, "’") // ’
+}
+
+/**
+ * Translate an \includegraphics key-value option list into a CSS `style`.
+ * Handles the common sizing keys: `width`, `height`, `scale`. A length given
+ * as a fraction of \textwidth/\linewidth/\columnwidth becomes a percentage;
+ * CSS-native units (cm, mm, in, pt, pc, px, em, ex) pass through unchanged.
+ */
+function imgStyle(optional: string): string {
+  const out: string[] = []
+  for (const part of optional.split(",")) {
+    const eq = part.indexOf("=")
+    if (eq < 0) continue
+    const key = part.slice(0, eq).trim().toLowerCase()
+    const val = part.slice(eq + 1).trim()
+    if (key === "scale") {
+      const f = parseFloat(val)
+      if (Number.isFinite(f) && f > 0) out.push(`transform:scale(${f})`)
+      continue
+    }
+    if (key !== "width" && key !== "height") continue
+    const css = imgDim(val)
+    if (css) out.push(`${key}:${css}`)
+  }
+  return out.join(";")
+}
+
+/**
+ * One \includegraphics length to a CSS length, or "" if unrecognized. The
+ * lexer drops the backslash from control words, so a fraction of \textwidth
+ * arrives here as e.g. "0.8textwidth" — hence the optional backslash.
+ */
+function imgDim(v: string): string {
+  const frac = v.match(/^(\d*\.?\d+)\s*\\?(?:text|line|column)width$/i)
+  if (frac) {
+    const f = parseFloat(frac[1])
+    return Number.isFinite(f) ? `${(f * 100).toFixed(2).replace(/\.?0+$/, "")}%` : ""
+  }
+  if (/^\\?(?:text|line|column)width$/i.test(v)) return "100%"
+  if (/^\d*\.?\d+(cm|mm|in|pt|pc|px|em|ex)$/i.test(v)) return v
+  return ""
+}
+
+/** Neat, sized placeholder for a missing/broken image (no raw path leak). */
+function imgFallback(name: string, style: string): string {
+  const styleAttr = style ? ` style="${escapeHtml(style)}"` : ""
+  return `<span class="l0-img-missing"${styleAttr}><span class="l0-img-missing-icon">⬜</span><span class="l0-img-missing-name">${escapeHtml(name || "image")}</span></span>`
 }
 
 /** Width for a minipage: a leading fraction of \linewidth/\textwidth -> %. */

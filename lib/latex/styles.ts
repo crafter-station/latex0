@@ -50,6 +50,12 @@ export const LATEX_CSS = `
 
 .l0-figure { text-align: center; margin: 1.2em 0; }
 .l0-img { max-width: 100%; height: auto; }
+.l0-img-missing { display: inline-flex; align-items: center; gap: 0.4em;
+  min-width: 3em; min-height: 2.4em; padding: 0.5em 0.8em; vertical-align: middle;
+  border: 1px dashed #bbb; border-radius: 6px; color: #999;
+  font: 0.8em system-ui; font-style: normal; }
+.l0-img-missing-icon { font-size: 1.1em; opacity: 0.7; }
+.l0-img-missing-name { font-family: "SF Mono", Menlo, Consolas, monospace; }
 .l0-caption { font-size: 0.9em; color: #444; margin-top: 0.4em; text-align: center; }
 .l0-caption-label { font-weight: 700; }
 
