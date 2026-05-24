@@ -81,6 +81,9 @@ const ARITY: Record<string, number> = {
   end: 1,
   color: 1,
   textcolor: 2,
+  multicolumn: 3,
+  multirow: 3,
+  bibitem: 1,
   // spacing / boxes — listed so their dimension args are consumed, not leaked
   vspace: 1,
   hspace: 1,
@@ -125,6 +128,7 @@ const TAKES_OPTIONAL = new Set([
   "raisebox",
   "framebox",
   "makebox",
+  "bibitem",
 ])
 
 // Environments whose body we capture verbatim from source (the general tokens
@@ -260,6 +264,8 @@ export function parse(tokens: Token[], src = ""): Node[] {
       args.push(parseArg()) // column spec
     } else if (name === "minipage") {
       args.push(parseArg()) // {width} — discarded, used only for layout
+    } else if (name === "thebibliography") {
+      args.push(parseArg()) // {widest-label} — discarded
     }
 
     const body: Node[] = []

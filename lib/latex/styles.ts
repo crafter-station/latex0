@@ -50,10 +50,15 @@ export const LATEX_CSS = `
 
 .l0-figure { text-align: center; margin: 1.2em 0; }
 .l0-img { max-width: 100%; height: auto; }
-.l0-caption { font-size: 0.9em; color: #444; margin-top: 0.4em; }
+.l0-caption { font-size: 0.9em; color: #444; margin-top: 0.4em; text-align: center; }
+.l0-caption-label { font-weight: 700; }
+
+.l0-bibliography { margin-top: 2em; }
+.l0-biblist { padding-left: 2.2em; font-size: 0.95em; }
+.l0-bibitem { margin: 0.3em 0; }
 
 .l0-table { border-collapse: collapse; margin: 1em auto; text-align: left; }
-.l0-td { padding: 0.3em 0.7em; border-bottom: 1px solid #ddd; vertical-align: top; }
+.l0-td { padding: 0.3em 0.7em; vertical-align: top; }
 .l0-hrule { border: 0; border-top: 1px solid #999; margin: 1em 0; }
 .l0-pagebreak { height: 1px; margin: 2em 0; border-top: 1px dashed #ccc; }
 

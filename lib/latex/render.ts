@@ -43,14 +43,27 @@ class Renderer {
   private eqCounter = 0
   private figCounter = 0
   private tableCounter = 0
+  private bibCounter = 0
   private labels: Record<string, string> = {}
+  private cites: Record<string, string> = {}
   private lastNumber = ""
+  private currentFloat: "figure" | "table" | null = null
+  private currentFloatNum = ""
   private title = ""
   private author = ""
   private date = ""
 
-  constructor(opts: RenderOptions) {
+  constructor(opts: RenderOptions, seed?: { labels: Record<string, string>; cites: Record<string, string> }) {
     this.images = opts.images ?? {}
+    if (seed) {
+      this.labels = { ...seed.labels }
+      this.cites = { ...seed.cites }
+    }
+  }
+
+  /** Reference maps after a render pass — used to seed the resolving pass. */
+  getRefs() {
+    return { labels: this.labels, cites: this.cites }
   }
 
   render(ast: Node[]): string {
@@ -193,10 +206,12 @@ class Renderer {
         return `<div class="l0-abstract"><div class="l0-abstract-title">Abstract</div>${this.renderBlocks(env.body)}</div>`
       case "figure":
       case "figure*":
-        return this.renderFigure(env)
+        return this.renderFloat(env, "figure")
       case "table":
       case "table*":
-        return `<div class="l0-floatwrap">${this.renderBlocks(env.body)}</div>`
+        return this.renderFloat(env, "table")
+      case "thebibliography":
+        return this.renderBibliography(env)
       case "tabular":
       case "tabularx":
       case "array":
@@ -249,22 +264,71 @@ class Renderer {
       .join("")
   }
 
-  private renderFigure(env: EnvironmentNode): string {
+  private renderFloat(env: EnvironmentNode, type: "figure" | "table"): string {
+    // Set the float context so a nested \caption knows its kind and number.
+    const prevFloat = this.currentFloat
+    const prevNum = this.currentFloatNum
+    const num = type === "figure" ? ++this.figCounter : ++this.tableCounter
+    this.currentFloat = type
+    this.currentFloatNum = String(num)
+    this.lastNumber = String(num) // \label inside resolves to the float number
     const inner = this.renderBlocks(env.body)
-    return `<figure class="l0-figure">${inner}</figure>`
+    this.currentFloat = prevFloat
+    this.currentFloatNum = prevNum
+    const tag = type === "figure" ? "figure" : "div"
+    return `<${tag} class="l0-figure">${inner}</${tag}>`
+  }
+
+  private renderBibliography(env: EnvironmentNode): string {
+    const items: { num: number; nodes: Node[] }[] = []
+    for (const n of env.body) {
+      if (n.kind === "command" && n.name === "bibitem") {
+        const key = flattenRaw(n.args[0] ?? [])
+        const num = ++this.bibCounter
+        this.cites[key] = String(num)
+        items.push({ num, nodes: [] })
+      } else if (items.length) {
+        items[items.length - 1].nodes.push(n)
+      }
+    }
+    const body = items
+      .map((it) => `<li class="l0-bibitem" value="${it.num}">${stripParagraph(this.renderBlocks(it.nodes))}</li>`)
+      .join("")
+    return `<div class="l0-bibliography"><h2 class="l0-h l0-h1">References</h2><ol class="l0-biblist">${body}</ol></div>`
   }
 
   private renderTabular(env: EnvironmentNode): string {
-    const rows = splitTableRows(env.body)
-    const html = rows
-      .map((cells) => {
-        const tds = cells
-          .map((c) => `<td class="l0-td">${stripParagraph(this.renderBlocks(c))}</td>`)
+    const spec = parseColSpec(flattenSpec(env.args[0]))
+    const { rows, bottomRule } = splitTableRows(env.body)
+
+    const trs = rows
+      .map((row, ri) => {
+        const isLast = ri === rows.length - 1
+        let col = 0
+        const tds = row.cells
+          .map((cellNodes) => {
+            const mc = asMulticolumn(cellNodes)
+            const span = mc ? mc.span : 1
+            // borders from the column spec + horizontal rules
+            const borders: string[] = []
+            if (spec.rules[col]) borders.push("border-left:1px solid currentColor")
+            if (spec.rules[col + span]) borders.push("border-right:1px solid currentColor")
+            if (row.top) borders.push("border-top:1px solid currentColor")
+            if (isLast && bottomRule) borders.push("border-bottom:1px solid currentColor")
+            const align = mc ? mc.align : spec.aligns[col] ?? "l"
+            borders.push(`text-align:${ALIGN[align] ?? "left"}`)
+            const content = stripParagraph(
+              this.renderBlocks(mc ? mc.content : cellNodes)
+            )
+            col += span
+            const spanAttr = span > 1 ? ` colspan="${span}"` : ""
+            return `<td class="l0-td"${spanAttr} style="${borders.join(";")}">${content}</td>`
+          })
           .join("")
         return `<tr class="l0-tr">${tds}</tr>`
       })
       .join("")
-    return `<table class="l0-table"><tbody>${html}</tbody></table>`
+    return `<table class="l0-table"><tbody>${trs}</tbody></table>`
   }
 
   // ---- inline ----
@@ -343,8 +407,10 @@ class Renderer {
       this.labels[flattenRaw(node.args[0] ?? [])] = this.lastNumber
       return ""
     }
-    if (n === "cite") {
-      return `<span class="l0-cite">[${escapeHtml(flattenRaw(node.args[0] ?? []))}]</span>`
+    if (n === "cite" || n === "citep" || n === "citet") {
+      const keys = flattenRaw(node.args[0] ?? []).split(",").map((k) => k.trim()).filter(Boolean)
+      const nums = keys.map((k) => this.cites[k] ?? "?").join(", ")
+      return `<span class="l0-cite">[${nums}]</span>`
     }
     if (n === "footnote") {
       return `<span class="l0-footnote">(${this.renderInlineList(node.args[0] ?? [])})</span>`
@@ -357,9 +423,11 @@ class Renderer {
       return `<img class="l0-img" src="${escapeHtml(src)}" alt="${escapeHtml(path)}"/>`
     }
     if (n === "caption") {
-      const which = this.figCounter // best-effort; precise float numbering is out of MVP scope
-      void which
-      return `<figcaption class="l0-caption">${this.renderInlineList(node.args[0] ?? [])}</figcaption>`
+      const kind = this.currentFloat === "table" ? "Table" : "Figure"
+      const num = this.currentFloatNum || "?"
+      this.lastNumber = num // a \label after \caption resolves to the float number
+      const body = this.renderInlineList(node.args[0] ?? [])
+      return `<figcaption class="l0-caption"><span class="l0-caption-label">${kind}&nbsp;${num}:</span> ${body}</figcaption>`
     }
 
     // color
@@ -447,24 +515,43 @@ function splitItems(body: Node[]): Item[] {
   return items
 }
 
-/** Split a tabular body into rows (on \\) and cells (on &). */
-function splitTableRows(body: Node[]): Node[][][] {
-  const rows: Node[][][] = []
+const ALIGN: Record<string, string> = { l: "left", c: "center", r: "right" }
+const RULE_CMDS = new Set(["hline", "toprule", "midrule", "bottomrule", "cline"])
+
+interface TableRow {
+  cells: Node[][]
+  top: boolean // horizontal rule above this row
+}
+
+/**
+ * Split a tabular body into rows (on \\) and cells (on &), tracking horizontal
+ * rules (\hline, booktabs rules) as a "rule above" flag per row plus a trailing
+ * bottom-rule flag.
+ */
+function splitTableRows(body: Node[]): { rows: TableRow[]; bottomRule: boolean } {
+  const rows: TableRow[] = []
   let row: Node[][] = []
   let cell: Node[] = []
   let hasContent = false
+  let pendingRule = false
+
+  const flushRow = () => {
+    row.push(cell)
+    rows.push({ cells: row, top: pendingRule })
+    row = []
+    cell = []
+    hasContent = false
+    pendingRule = false
+  }
+
   for (const n of body) {
     if (n.kind === "linebreak") {
-      row.push(cell)
-      rows.push(row)
-      row = []
-      cell = []
-      hasContent = false
+      flushRow()
     } else if (n.kind === "align") {
       row.push(cell)
       cell = []
-    } else if (n.kind === "command" && (n.name === "hline" || n.name === "toprule" || n.name === "midrule" || n.name === "bottomrule")) {
-      // rule commands: skip (CSS borders handle separation)
+    } else if (n.kind === "command" && RULE_CMDS.has(n.name)) {
+      if (!hasContent && !row.length) pendingRule = true // rule before this row
     } else {
       cell.push(n)
       if (!(n.kind === "parbreak") && !(n.kind === "text" && n.value.trim() === "")) {
@@ -472,13 +559,88 @@ function splitTableRows(body: Node[]): Node[][][] {
       }
     }
   }
-  // Only emit a trailing row if it actually carries content (a final \\ leaves
-  // an empty cell/whitespace we don't want to render as a blank row).
-  if (hasContent || row.length) {
-    row.push(cell)
-    rows.push(row)
+  // Final row without a trailing \\; a trailing \hline becomes the bottom rule.
+  let bottomRule = false
+  if (hasContent || row.length || cell.length > 0) {
+    if (hasContent || cell.some((c) => !(c.kind === "text" && c.value.trim() === ""))) flushRow()
   }
-  return rows
+  if (pendingRule) bottomRule = true
+  return { rows, bottomRule }
+}
+
+/** Parse a tabular column spec like {|l|c|r|} or {*{4}{c}}. */
+function parseColSpec(s: string): { aligns: string[]; rules: boolean[] } {
+  const aligns: string[] = []
+  const rules: boolean[] = []
+  let pending = false
+  const skipBrace = (str: string, i: number): number => {
+    if (str[i] !== "{") return i
+    let d = 0
+    for (let j = i; j < str.length; j++) {
+      if (str[j] === "{") d++
+      else if (str[j] === "}" && --d === 0) return j
+    }
+    return str.length
+  }
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (ch === "|") pending = true
+    else if (ch === "l" || ch === "c" || ch === "r") {
+      rules.push(pending)
+      aligns.push(ch)
+      pending = false
+    } else if (ch === "p" || ch === "m" || ch === "b") {
+      rules.push(pending)
+      aligns.push("l")
+      pending = false
+      i = skipBrace(s, i + 1)
+    } else if (ch === "@" || ch === "!" || ch === ">" || ch === "<") {
+      i = skipBrace(s, i + 1)
+    } else if (ch === "*") {
+      // *{n}{cols}
+      const nEnd = skipBrace(s, i + 1)
+      const n = parseInt(s.slice(i + 2, nEnd), 10) || 0
+      const colsEnd = skipBrace(s, nEnd + 1)
+      const sub = parseColSpec(s.slice(nEnd + 2, colsEnd))
+      for (let k = 0; k < n; k++) {
+        for (let c = 0; c < sub.aligns.length; c++) {
+          rules.push(c === 0 ? pending || sub.rules[0] : sub.rules[c])
+          aligns.push(sub.aligns[c])
+        }
+        pending = sub.rules[sub.rules.length - 1] ?? false
+      }
+      i = colsEnd
+    }
+  }
+  rules.push(pending) // rule after the last column
+  return { aligns, rules }
+}
+
+/** If a cell is a single \multicolumn{n}{spec}{content}, describe it. */
+function asMulticolumn(
+  cellNodes: Node[]
+): { span: number; align: string; content: Node[] } | null {
+  const real = cellNodes.filter(
+    (n) => !(n.kind === "text" && n.value.trim() === "")
+  )
+  if (real.length !== 1) return null
+  const n = real[0]
+  if (n.kind !== "command" || n.name !== "multicolumn") return null
+  const span = parseInt(flattenRaw(n.args[0] ?? []), 10) || 1
+  const align = parseColSpec(flattenSpec(n.args[1] ?? [])).aligns[0] ?? "l"
+  return { span, align, content: n.args[2] ?? [] }
+}
+
+/** Flatten a column spec preserving brace structure (for *{n}{c}, p{w}). */
+function flattenSpec(nodes?: Node[]): string {
+  if (!nodes) return ""
+  let out = ""
+  for (const n of nodes) {
+    if (n.kind === "text") out += n.value
+    else if (n.kind === "group") out += "{" + flattenSpec(n.body) + "}"
+    else if (n.kind === "command") out += "\\" + n.name
+  }
+  return out
 }
 
 /** Render a paragraph-stripped fragment: unwrap a lone <p>..</p>. */
@@ -557,5 +719,10 @@ function todayString(): string {
 }
 
 export function renderAst(ast: Node[], opts: RenderOptions = {}): string {
-  return new Renderer(opts).render(ast)
+  // Two passes: the first assigns numbers to every \label/\bibitem; the second
+  // renders with those maps pre-seeded so forward \ref/\cite resolve. Rendering
+  // is sub-millisecond, so doing it twice is free.
+  const first = new Renderer(opts)
+  first.render(ast)
+  return new Renderer(opts, first.getRefs()).render(ast)
 }
