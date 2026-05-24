@@ -62,6 +62,9 @@ export function HtmlPreview({ zoom = 100 }: HtmlPreviewProps) {
   return (
     <ScrollArea className="relative h-full flex-1">
       <style>{LATEX_CSS}</style>
+      <div className="pointer-events-none sticky top-2 z-10 -mb-7 ml-auto mr-3 w-fit select-none rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
+        Rendered by latex0 · experimental zero-dependency parser
+      </div>
       <div className="flex items-start justify-center p-4 min-h-full">
         {error ? (
           <div className="w-full max-w-2xl rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -78,9 +81,6 @@ export function HtmlPreview({ zoom = 100 }: HtmlPreviewProps) {
             />
           </div>
         )}
-      </div>
-      <div className="pointer-events-none sticky bottom-2 ml-auto mr-3 w-fit select-none rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
-        Rendered by latex0 · experimental zero-dependency parser
       </div>
     </ScrollArea>
   )
