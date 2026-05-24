@@ -79,6 +79,9 @@ export function HtmlPreview({ zoom = 100 }: HtmlPreviewProps) {
           </div>
         )}
       </div>
+      <div className="pointer-events-none sticky bottom-2 ml-auto mr-3 w-fit select-none rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
+        Rendered by latex0 · experimental zero-dependency parser
+      </div>
     </ScrollArea>
   )
 }
