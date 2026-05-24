@@ -6,10 +6,12 @@
 // callers can cache or inspect intermediate results.
 
 import { tokenize } from "./lexer"
+import { expandMacros } from "./macros"
 import { parse } from "./parser"
 import { renderAst, type RenderOptions } from "./render"
 
 export { tokenize } from "./lexer"
+export { expandMacros } from "./macros"
 export { parse } from "./parser"
 export { renderAst, type RenderOptions } from "./render"
 export { LATEX_CSS } from "./styles"
@@ -17,7 +19,8 @@ export type { Node, Token } from "./types"
 
 /** Render LaTeX source to an HTML fragment string. */
 export function render(source: string, opts: RenderOptions = {}): string {
-  const tokens = tokenize(source)
-  const ast = parse(tokens, source)
+  const expanded = expandMacros(source)
+  const tokens = tokenize(expanded)
+  const ast = parse(tokens, expanded)
   return renderAst(ast, opts)
 }
