@@ -1,9 +1,17 @@
 // Math-mode renderer. Produces dependency-free HTML laid out with CSS
 // (see styles.ts): fractions, roots, scripts, accents, operators, delimiters.
 
+import { tokenize } from "./lexer"
+import { parse } from "./parser"
 import { SYMBOLS, OPERATORS, mapAlphabet } from "./symbols"
+import { renderTikzcd } from "./tikzcd"
 import type { Node } from "./types"
 import { escapeHtml, GRAPHICS_ENVS, graphicsPlaceholder } from "./util"
+
+/** Render a raw math fragment string to HTML (used by tikzcd labels/objects). */
+export function renderMathString(src: string): string {
+  return renderMathList(parse(tokenize(src), src))
+}
 
 const ACCENTS: Record<string, string> = {
   hat: "^",
@@ -164,6 +172,7 @@ function renderMathCommand(name: string, args: Node[][], optional?: Node[]): str
 // matrices / cases / aligned environments inside math
 function renderMathEnvironment(node: Node & { kind: "environment" }): string {
   const name = node.name
+  if (name === "tikzcd" && node.raw) return renderTikzcd(node.raw, renderMathString)
   if (GRAPHICS_ENVS.has(name)) return graphicsPlaceholder(name)
   const rows = splitRows(node.body)
 

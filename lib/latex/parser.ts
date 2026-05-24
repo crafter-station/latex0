@@ -116,7 +116,20 @@ const TAKES_OPTIONAL = new Set([
   "raisebox",
 ])
 
-export function parse(tokens: Token[]): Node[] {
+// Environments whose body we capture verbatim from source (the general tokens
+// would mangle their bespoke syntax: tikzcd arrows, verbatim code, ...).
+const RAW_ENVS = new Set([
+  "tikzcd",
+  "tikzpicture",
+  "circuitikz",
+  "pgfpicture",
+  "verbatim",
+  "verbatim*",
+  "lstlisting",
+  "minted",
+])
+
+export function parse(tokens: Token[], src = ""): Node[] {
   let pos = 0
 
   const peek = () => tokens[pos]
@@ -206,6 +219,28 @@ export function parse(tokens: Token[]): Node[] {
     // environment name lives in a {group} that is a single text token
     const nameGroup = parseGroup()
     const name = (nameGroup[0] as { value?: string } | undefined)?.value?.trim() ?? ""
+
+    // Raw environments: skip tokens to the matching \end{name} and slice the
+    // original source between, so bespoke syntax survives untouched.
+    if (RAW_ENVS.has(name) && src) {
+      const startPos = peek().pos
+      let endPos = src.length
+      while (peek().kind !== Tok.EOF) {
+        const t = peek()
+        if (t.kind === Tok.Command && t.value === "end") {
+          next() // consume \end
+          const ng = peek().kind === Tok.OpenBrace ? parseGroup() : []
+          const ename = (ng[0] as { value?: string } | undefined)?.value?.trim() ?? ""
+          if (ename === name) {
+            endPos = t.pos
+            break
+          }
+          continue // a nested \end{other}; keep scanning
+        }
+        next()
+      }
+      return { kind: "environment", name, args: [], body: [], raw: src.slice(startPos, endPos) }
+    }
 
     const optional = parseOptional()
     // tabular/array take a mandatory column-spec arg

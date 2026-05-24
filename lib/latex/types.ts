@@ -67,6 +67,8 @@ export interface EnvironmentNode {
   optional?: Node[]
   args: Node[][]
   body: Node[]
+  /** Verbatim source of the body, for "raw" environments (tikzcd, verbatim). */
+  raw?: string
 }
 
 export interface MathNode {

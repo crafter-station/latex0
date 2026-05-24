@@ -2,8 +2,9 @@
 // into paragraphs and emitting block elements for sections, lists, tables,
 // figures, environments and display math. Math is delegated to math.ts.
 
-import { renderMathList } from "./math"
+import { renderMathList, renderMathString } from "./math"
 import { SYMBOLS, ESCAPES, mapAlphabet } from "./symbols"
+import { renderTikzcd } from "./tikzcd"
 import type { CommandNode, EnvironmentNode, Node } from "./types"
 import { escapeHtml, GRAPHICS_ENVS, graphicsPlaceholder } from "./util"
 
@@ -158,6 +159,7 @@ class Renderer {
 
   private renderEnvironment(env: EnvironmentNode): string {
     const name = env.name
+    if (name === "tikzcd" && env.raw) return renderTikzcd(env.raw, renderMathString)
     if (GRAPHICS_ENVS.has(name)) return graphicsPlaceholder(name)
     switch (name) {
       case "document":
@@ -178,8 +180,9 @@ class Renderer {
       case "quotation":
         return `<blockquote class="l0-quote">${this.renderBlocks(env.body)}</blockquote>`
       case "verbatim":
+      case "verbatim*":
       case "lstlisting":
-        return `<pre class="l0-verbatim">${escapeHtml(flattenRaw(env.body))}</pre>`
+        return `<pre class="l0-verbatim">${escapeHtml((env.raw ?? flattenRaw(env.body)).replace(/^\n/, "").replace(/\n$/, ""))}</pre>`
       case "abstract":
         return `<div class="l0-abstract"><div class="l0-abstract-title">Abstract</div>${this.renderBlocks(env.body)}</div>`
       case "figure":

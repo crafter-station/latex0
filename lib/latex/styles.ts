@@ -109,6 +109,13 @@ export const LATEX_CSS = `
 .l0-cases-body { display: inline-flex; flex-direction: column; }
 .l0-row { display: flex; gap: 1.5em; }
 
+/* commutative diagrams (tikzcd -> svg) */
+.l0-cd { display: block; margin: 1em auto; color: inherit; overflow: visible; max-width: 100%; }
+.l0-cd-node { display: flex; align-items: center; justify-content: center; height: 100%;
+  white-space: nowrap; font-size: 15px; line-height: 1; }
+.l0-cd-label { display: flex; align-items: center; justify-content: center; height: 100%;
+  white-space: nowrap; font-size: 12px; line-height: 1; }
+
 .l0-graphics { display: flex; align-items: center; justify-content: center; gap: 0.5em;
   margin: 1em auto; padding: 1.2em; max-width: 60%; border: 1px dashed #bbb; border-radius: 8px;
   color: #888; font: 0.9em system-ui; font-style: normal; }

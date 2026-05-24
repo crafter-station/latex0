@@ -18,6 +18,6 @@ export type { Node, Token } from "./types"
 /** Render LaTeX source to an HTML fragment string. */
 export function render(source: string, opts: RenderOptions = {}): string {
   const tokens = tokenize(source)
-  const ast = parse(tokens)
+  const ast = parse(tokens, source)
   return renderAst(ast, opts)
 }
