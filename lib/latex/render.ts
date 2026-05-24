@@ -170,6 +170,12 @@ class Renderer {
         return `<ol class="l0-list">${this.renderItems(env.body, true)}</ol>`
       case "description":
         return `<dl class="l0-desc">${this.renderDescItems(env.body)}</dl>`
+      case "minipage": {
+        // {width} arg (e.g. 0.49\linewidth) -> a % so \hfill-separated boxes
+        // can sit side by side. Rendered as inline-block.
+        const w = minipageWidth(env.args[0])
+        return `<div class="l0-minipage"${w ? ` style="width:${w}"` : ""}>${this.renderBlocks(env.body)}</div>`
+      }
       case "center":
         return `<div class="l0-center">${this.renderBlocks(env.body)}</div>`
       case "flushleft":
@@ -361,8 +367,13 @@ class Renderer {
     if (n === "vspace" || n === "vskip") return ""
     if (n === "hspace" || n === "hskip" || n === "kern") return '<span class="l0-space"></span>'
     if (n === "rule") return "" // a typographic rule; not drawn in MVP
-    if (n === "raisebox" || n === "scalebox") return this.renderInlineList(node.args[node.args.length - 1] ?? [])
-    if (n === "parbox") return this.renderInlineList(node.args[1] ?? [])
+    // boxes: render only the content (last) argument
+    if (
+      n === "raisebox" || n === "scalebox" || n === "resizebox" || n === "parbox" ||
+      n === "fbox" || n === "mbox" || n === "framebox" || n === "makebox"
+    ) {
+      return this.renderInlineList(node.args[node.args.length - 1] ?? [])
+    }
 
     // logos / dates / spacing
     if (n === "LaTeX") return '<span class="l0-latex">L<sup>a</sup>T<sub>e</sub>X</span>'
@@ -498,6 +509,18 @@ function applyLigatures(s: string): string {
     .replace(/''/g, "”") // ”
     .replace(/`/g, "‘") // ‘
     .replace(/'/g, "’") // ’
+}
+
+/** Width for a minipage: a leading fraction of \linewidth/\textwidth -> %. */
+function minipageWidth(arg?: Node[]): string {
+  if (!arg) return ""
+  const raw = flattenRaw(arg)
+  const m = raw.match(/(\d*\.?\d+)/)
+  if (m) {
+    const f = parseFloat(m[1])
+    if (f > 0 && f <= 1) return `${(f * 100).toFixed(1)}%`
+  }
+  return ""
 }
 
 function cssColor(name: string): string {

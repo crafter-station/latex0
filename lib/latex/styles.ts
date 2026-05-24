@@ -37,6 +37,7 @@ export const LATEX_CSS = `
 .l0-dt { font-weight: 700; }
 .l0-dd { margin: 0 0 0.4em 1.6em; }
 
+.l0-minipage { display: inline-block; vertical-align: top; }
 .l0-center { text-align: center; }
 .l0-left { text-align: left; }
 .l0-right { text-align: right; }

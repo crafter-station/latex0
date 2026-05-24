@@ -146,8 +146,12 @@ function renderMathCommand(name: string, args: Node[][], optional?: Node[]): str
 
   // spacing / box commands: consume args, print nothing (or just the content)
   if (name === "vspace" || name === "hspace" || name === "vskip" || name === "hskip" || name === "kern" || name === "rule") return ""
-  if (name === "raisebox" || name === "scalebox") return renderMathList(args[args.length - 1] ?? [])
-  if (name === "parbox") return renderMathList(args[1] ?? [])
+  if (
+    name === "raisebox" || name === "scalebox" || name === "resizebox" || name === "parbox" ||
+    name === "fbox" || name === "mbox" || name === "framebox" || name === "makebox"
+  ) {
+    return renderMathList(args[args.length - 1] ?? [])
+  }
 
   // equation bookkeeping commands render nothing in the math body
   if (name === "label" || name === "nonumber" || name === "notag" || name === "tag" || name === "qedhere") return ""

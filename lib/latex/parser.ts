@@ -85,8 +85,13 @@ const ARITY: Record<string, number> = {
   hskip: 1,
   kern: 1,
   raisebox: 2,
-  scalebox: 1,
+  scalebox: 2,
+  resizebox: 3,
   parbox: 2,
+  fbox: 1,
+  mbox: 1,
+  framebox: 1,
+  makebox: 1,
 }
 
 // Commands that have a starred form (\section*, ...). The star suppresses
@@ -114,6 +119,8 @@ const TAKES_OPTIONAL = new Set([
   "bibliographystyle",
   "rule",
   "raisebox",
+  "framebox",
+  "makebox",
 ])
 
 // Environments whose body we capture verbatim from source (the general tokens
@@ -246,7 +253,9 @@ export function parse(tokens: Token[], src = ""): Node[] {
     // tabular/array take a mandatory column-spec arg
     const args: Node[][] = []
     if (name === "tabular" || name === "array" || name === "tabularx") {
-      args.push(parseArg())
+      args.push(parseArg()) // column spec
+    } else if (name === "minipage") {
+      args.push(parseArg()) // {width} — discarded, used only for layout
     }
 
     const body: Node[] = []
