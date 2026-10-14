@@ -1,0 +1,41 @@
+name: Engine conformance
+
+# Every change to the engine is checked against real TeX: committed data must
+# match TeX's files, the oracles must agree with pdflatex, every fixture must be
+# identical to TeX at 0 sp, and hyphenation must match \showhyphens.
+
+on:
+  pull_request:
+    paths: ["lib/latex/**", ".github/workflows/engine.yml", "package.json"]
+  push:
+    branches: [main]
+    paths: ["lib/latex/**", ".github/workflows/engine.yml", "package.json"]
+
+concurrency:
+  group: engine-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  conformance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.11
+      - name: Install TeX
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            texlive-latex-base texlive-latex-recommended texlive-fonts-recommended \
+            poppler-utils wamerican
+          latex --version | head -1
+      - name: Committed font and hyphenation data match TeX
+        run: bun engine codegen --check
+      - name: Oracles agree with pdflatex
+        run: bun engine oracle:check
+      - name: Fixtures identical to TeX at 0 sp
+        run: bun engine unit
+      - name: Hyphenation identical to TeX (20,000 words)
+        run: bun engine hyphen:check --words 20000

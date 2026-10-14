@@ -11,6 +11,7 @@ import { buildHyphenator, type HyphenationData, type Hyphenator } from "../../la
 import { hyphenateFollowingWord } from "../../layout/hyphenpass"
 import { glue, type Node } from "../../layout/nodes"
 import { dataFont } from "../fonts"
+import { texEnv } from "../tex"
 
 /** TeX's short_display (§§ 174–175) for character-level lists. */
 export function shortDisplay(list: Node[]): string {
@@ -39,7 +40,6 @@ export function engineShowHyphens(h: Hyphenator, word: string): string {
   return shortDisplay(list.slice(1, -1))
 }
 
-const TEXBIN = process.env.TEXBIN ?? "/Library/TeX/texbin"
 
 export function texShowHyphens(words: string[]): string[] {
   const dir = join(process.cwd(), ".cache/oracle/showhyphens")
@@ -48,7 +48,7 @@ export function texShowHyphens(words: string[]): string[] {
   for (let i = 0; i < words.length; i += 100) {
     const batch = words.slice(i, i + 100)
     writeFileSync(join(dir, "sh.tex"), `\\documentclass{article}\n\\begin{document}\n\\showhyphens{${batch.join(" ")}}\n\\end{document}\n`)
-    execFileSync(`${TEXBIN}/latex`, ["-interaction=nonstopmode", "sh.tex"], { cwd: dir, env: { ...process.env, max_print_line: "1000000" }, stdio: "pipe" })
+    execFileSync("latex", ["-interaction=nonstopmode", "sh.tex"], { cwd: dir, env: texEnv({ max_print_line: "1000000" }), stdio: "pipe" })
     const line = readFileSync(join(dir, "sh.log"), "latin1").split("\n").find((l) => l.startsWith("[] \\OT1/cmr/m/n/10 "))
     if (!line) throw new Error("no \\showhyphens output")
     const got = line.slice("[] \\OT1/cmr/m/n/10 ".length).trim().split(" ")
