@@ -58,6 +58,8 @@ jobs:
         run: bun engine dimen:check --n 20000
       - name: Glyph runs identical to TeX (10,000 words, 65 fonts + 40 synthetic lig/kern fonts)
         run: bun engine glyph:check --n 10000
+      - name: Macro expansion identical to TeX (3,000 random programs)
+        run: bun engine expand:check --n 3000
       - name: Line breaking identical to TeX (1,000 random paragraphs)
         run: bun engine fuzz:paragraphs --n 1000 --seed 1
       - name: Hyphenation identical to TeX (20,000 words)
