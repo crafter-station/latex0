@@ -1,0 +1,12 @@
+% fixture: math/no-hyphen-next-to-math
+% tier: T3
+% engine: paragraph
+% covers: a word touching a formula is not hyphenated (§ 899), the space factor is 1000 after a formula, and \mathoff is a breakpoint, at 12pt
+% issue: #86
+\documentclass[12pt]{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 1 0pt 120pt The characteristically$x$ incomprehensibilities$y$
+representation$z$. After $n$. the space is normal, and representation of
+internationalization$\alpha$ stays whole.
+\end{document}

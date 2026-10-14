@@ -1,0 +1,14 @@
+% fixture: math/inline-operators
+% tier: T3
+% engine: paragraph
+% covers: inline fractions and big operators in text style: \frac, \sum and \prod with scripts beside them, \int with \nolimits, \limits in text style
+% issue: #76
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+Half of it is $\frac{1}{2}$ and a third is $\frac{a+b}{c}$, while
+$\sum_{i=1}^n a_i$ and $\prod_{k=0}^{m} x_k$ keep their limits at the side in
+text style. The integral $\int_0^\infty f(x)$ never takes limits, but
+$\sum\limits_{i=1}^n i$ does. Nested fractions such as $\frac{\frac{1}{x}}{y}$
+shrink to script style.
+\end{document}

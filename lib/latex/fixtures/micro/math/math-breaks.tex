@@ -1,0 +1,13 @@
+% fixture: math/math-breaks
+% tier: T3
+% engine: paragraph
+% covers: line breaks inside formulas at \relpenalty and \binoppenalty, after \mathoff, and none at glue inside a formula, in a narrow \parshape
+% issue: #86
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 1 0pt 150pt We know that $a+b+c+d+e+f=g+h+i+j$ and also that
+$x\cdot y\cdot z\leq u\times v\times w$, so $\alpha\to\beta\to\gamma$
+follows for every $n\in N$ with $n>0$; long formulas like
+$f(x)=x^2+2x+1=(x+1)^2$ must break at their relations or operators.
+\end{document}

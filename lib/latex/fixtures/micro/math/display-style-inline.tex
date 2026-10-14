@@ -1,0 +1,13 @@
+% fixture: math/display-style-inline
+% tier: T3
+% engine: paragraph
+% covers: \displaystyle inside inline math: limits above and below, display-size operators and fractions, tall lines taking \lineskip, at 11pt
+% issue: #76
+\documentclass[11pt]{article}
+\pagestyle{empty}
+\begin{document}
+A tall formula such as $\displaystyle\sum_{i=1}^{n} i=\frac{n(n+1)}{2}$ in
+running text pushes the lines apart, since the baselines cannot stay at their
+usual distance. The same holds for $\displaystyle\prod_{k=1}^{m}\frac{1}{k}$
+and for $\displaystyle\int_0^1 x^2$, while $\scriptstyle a+b$ is small.
+\end{document}

@@ -47,8 +47,8 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
       if (isLigature(n)) { if (n.text.length === 0) { prevS = s; s++; continue } c = n.text.charCodeAt(0) }
       else c = n.char
       hf = ctx.fontOf(n.font, n.size); hfKey = fontKey(n)
-    } else if (n.kind === "kern" && !n.explicit) { prevS = s; s++; continue }
-    else return // done1
+    } else if ((n.kind === "kern" && !n.explicit) || n.kind === "whatsit") { prevS = s; s++; continue }
+    else return // done1: a formula, box, rule or glue
     const lc = lcCode(c)
     if (lc !== 0) { if (lc === c || ctx.ucHyph > 0) break; else return }
     prevS = s; s++
@@ -96,8 +96,8 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
     if (!n) return
     if (n.kind === "char") { s++; continue }
     if (n.kind === "kern") { if (n.explicit) break; s++; continue }
-    if (n.kind === "glue" || n.kind === "penalty") break
-    return // boxes, rules, discretionaries: no hyphenation
+    if (n.kind === "glue" || n.kind === "penalty" || n.kind === "whatsit") break
+    return // boxes, rules, discretionaries, formulas: no hyphenation
   }
 
   // § 923: patterns

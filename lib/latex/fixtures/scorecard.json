@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 54,
-  "exact": 36,
+  "fixtures": 59,
+  "exact": 41,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 18,
-  "glyphs": 20565
+  "glyphs": 21414
  },
  "areas": [
   {
@@ -23,6 +23,11 @@
    "area": "linebreak",
    "fixtures": 16,
    "exact": 16
+  },
+  {
+   "area": "math",
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "pages",
@@ -557,6 +562,61 @@
    "glyphs": 328,
    "covers": "\\pretolerance=-1 skips the first pass; TeX prints no @secondpass marker in that case (§ 863)",
    "issue": "#112"
+  },
+  {
+   "id": "math/display-style-inline",
+   "file": "micro/math/display-style-inline.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 163,
+   "covers": "\\displaystyle inside inline math: limits above and below, display-size operators and fractions, tall lines taking \\lineskip, at 11pt",
+   "issue": "#76"
+  },
+  {
+   "id": "math/inline-operators",
+   "file": "micro/math/inline-operators.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 179,
+   "covers": "inline fractions and big operators in text style: \\frac, \\sum and \\prod with scripts beside them, \\int with \\nolimits, \\limits in text style",
+   "issue": "#76"
+  },
+  {
+   "id": "math/inline-scripts",
+   "file": "micro/math/inline-scripts.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 214,
+   "covers": "inline superscripts, subscripts, both at once, primes and scripts on groups (rules 18a-f), in running text",
+   "issue": "#77"
+  },
+  {
+   "id": "math/math-breaks",
+   "file": "micro/math/math-breaks.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 157,
+   "covers": "line breaks inside formulas at \\relpenalty and \\binoppenalty, after \\mathoff, and none at glue inside a formula, in a narrow \\parshape",
+   "issue": "#86"
+  },
+  {
+   "id": "math/no-hyphen-next-to-math",
+   "file": "micro/math/no-hyphen-next-to-math.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 136,
+   "covers": "a word touching a formula is not hyphenated (§ 899), the space factor is 1000 after a formula, and \\mathoff is a breakpoint, at 12pt",
+   "issue": "#86"
   },
   {
    "id": "pages/article-multipage",
