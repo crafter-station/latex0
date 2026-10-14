@@ -3,6 +3,7 @@
 //   bun scripts/issues/sync-issues.ts --dry-run   # print the plan, touch nothing
 //   bun scripts/issues/sync-issues.ts             # create/update labels, milestones, issues
 // Issues are matched by exact title; bodies, labels and milestones are updated in place.
+import { spawnSync } from "node:child_process"
 import { AREAS, EXTRA_LABELS, ISSUES, MILESTONES, type Issue } from "./engine-issues"
 
 const DRY = process.argv.includes("--dry-run")
@@ -12,9 +13,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 function gh(args: string[]): string {
   if (DRY) return ""
-  const p = Bun.spawnSync(["gh", ...args], { stdout: "pipe", stderr: "pipe" })
-  if (p.exitCode !== 0) throw new Error(`gh ${args.slice(0, 3).join(" ")} failed: ${new TextDecoder().decode(p.stderr)}`)
-  return new TextDecoder().decode(p.stdout).trim()
+  const p = spawnSync("gh", args, { encoding: "utf8" })
+  if (p.status !== 0) throw new Error(`gh ${args.slice(0, 3).join(" ")} failed: ${p.stderr}`)
+  return p.stdout.trim()
 }
 
 const areaOf = (k: Issue["area"]) => AREAS.find((a) => a.key === k)!
