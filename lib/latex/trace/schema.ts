@@ -13,12 +13,14 @@ export interface TraceRule { h: number; v: number; width: number; height: number
 /** The box tree of a page (the \showbox view of a document). */
 export type BoxNode =
   | { type: "hbox" | "vbox"; width: number; height: number; depth: number; shift: number; glueSet: number; glueSign: 0 | 1 | 2; glueOrder: 0 | 1 | 2 | 3; children: BoxNode[] }
-  | { type: "char"; font: string; size: number; char: number }
-  | { type: "glue"; width: number; stretch: number; stretchOrder: number; shrink: number; shrinkOrder: number }
-  | { type: "kern"; width: number }
+  | { type: "char"; font: string; size: number; char: number; /** original characters of a ligature */ lig?: string }
+  | { type: "glue"; width: number; stretch: number; stretchOrder: number; shrink: number; shrinkOrder: number; /** skip parameter, e.g. "rightskip" */ param?: string }
+  | { type: "kern"; width: number; explicit?: boolean }
   | { type: "rule"; width: number | null; height: number | null; depth: number | null }
   | { type: "penalty"; penalty: number }
   | { type: "disc"; pre: BoxNode[]; post: BoxNode[]; replaceCount: number }
+  /** Anything the engine does not model yet (\\write, \\special, marks, …), kept verbatim. */
+  | { type: "other"; text: string }
 
 const isInt = (x: unknown): x is number => typeof x === "number" && Number.isInteger(x)
 
@@ -58,6 +60,7 @@ export function validateBoxes(n: BoxNode, path = "root"): string[] {
       n.pre.forEach((c, i) => errs.push(...validateBoxes(c, `${path}/pre/${i}`)))
       n.post.forEach((c, i) => errs.push(...validateBoxes(c, `${path}/post/${i}`)))
       break
+    case "other": break
     case "rule": for (const k of ["width", "height", "depth"] as const) if (n[k] !== null && !isInt(n[k])) errs.push(`${path}: ${k} not an integer or null`); break
     default: errs.push(`${path}: unknown node type`)
   }
@@ -87,4 +90,72 @@ export function compareTraces(expected: Trace, actual: Trace): Divergence | null
     }
   }
   return null
+}
+
+export interface BoxDivergence { path: string; field: string; expected: unknown; actual: unknown }
+
+/**
+ * First difference between two box trees. Fonts are compared through a mapping
+ * that must stay consistent (TeX shows "OT1/cmr/m/n/10" where the engine has
+ * "cmr10"), so every font identifier must correspond to exactly one engine font.
+ * Glue set ratios are compared as TeX prints them: round(65536 × ratio).
+ */
+export function compareBoxLists(expected: BoxNode[], actual: BoxNode[], fonts = new Map<string, string>(), path = ""): BoxDivergence | null {
+  const n = Math.max(expected.length, actual.length)
+  for (let i = 0; i < n; i++) {
+    const e = expected[i], a = actual[i], at = `${path}/${i}`
+    if (!e || !a) return { path: at, field: "node", expected: e ? describe(e) : null, actual: a ? describe(a) : null }
+    if (e.type !== a.type) return { path: at, field: "type", expected: describe(e), actual: describe(a) }
+    const d = compareNode(e, a, fonts, at)
+    if (d) return d
+  }
+  return null
+}
+
+function compareNode(e: BoxNode, a: BoxNode, fonts: Map<string, string>, path: string): BoxDivergence | null {
+  const diff = (field: string, x: unknown, y: unknown): BoxDivergence | null => (x === y ? null : { path, field, expected: x, actual: y })
+  switch (e.type) {
+    case "hbox": case "vbox": {
+      const b = a as typeof e
+      for (const k of ["width", "height", "depth", "shift", "glueSign", "glueOrder"] as const) { const d = diff(k, e[k], b[k]); if (d) return d }
+      const d = diff("glueSet", Math.round(65536 * e.glueSet), Math.round(65536 * b.glueSet))
+      return d ?? compareBoxLists(e.children, b.children, fonts, path)
+    }
+    case "char": {
+      const c = a as typeof e
+      const engineFont = `${c.font}@${c.size}`
+      const mapped = fonts.get(e.font)
+      if (mapped === undefined) {
+        if ([...fonts.values()].includes(engineFont)) return { path, field: "font", expected: e.font, actual: engineFont }
+        fonts.set(e.font, engineFont)
+      } else if (mapped !== engineFont) return { path, field: "font", expected: `${e.font} (= ${mapped})`, actual: engineFont }
+      return diff("char", e.char, c.char) ?? diff("ligature", e.lig ?? null, c.lig ?? null)
+    }
+    case "glue": {
+      const g = a as typeof e
+      for (const k of ["width", "stretch", "stretchOrder", "shrink", "shrinkOrder"] as const) { const d = diff(k, e[k], g[k]); if (d) return d }
+      return diff("param", e.param ?? null, g.param ?? null)
+    }
+    case "kern": { const k = a as typeof e; return diff("width", e.width, k.width) ?? diff("explicit", !!e.explicit, !!k.explicit) }
+    case "penalty": return diff("penalty", e.penalty, (a as typeof e).penalty)
+    case "rule": { const r = a as typeof e; return diff("width", e.width, r.width) ?? diff("height", e.height, r.height) ?? diff("depth", e.depth, r.depth) }
+    case "disc": {
+      const d = a as typeof e
+      return diff("replaceCount", e.replaceCount, d.replaceCount) ?? compareBoxLists(e.pre, d.pre, fonts, `${path}/pre`) ?? compareBoxLists(e.post, d.post, fonts, `${path}/post`)
+    }
+    case "other": return diff("text", e.text, (a as typeof e).text)
+  }
+}
+
+function describe(n: BoxNode): string {
+  switch (n.type) {
+    case "hbox": case "vbox": return `${n.type}(${n.height}+${n.depth})x${n.width}`
+    case "char": return `char ${n.char}${n.lig ? ` (ligature ${n.lig})` : ""}`
+    case "glue": return `glue${n.param ? `(${n.param})` : ""} ${n.width}`
+    case "kern": return `kern${n.explicit ? " " : ""}${n.width}`
+    case "penalty": return `penalty ${n.penalty}`
+    case "rule": return "rule"
+    case "disc": return `disc replacing ${n.replaceCount}`
+    case "other": return n.text
+  }
 }

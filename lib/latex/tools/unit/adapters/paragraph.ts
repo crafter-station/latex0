@@ -12,7 +12,8 @@ import { loadFont } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { latexDefaults, lineBreak } from "../../../layout/linebreak"
-import { emptyBox, glue, kern, type Node } from "../../../layout/nodes"
+import { emptyBox, glue, kern, paramGlue, type Node } from "../../../layout/nodes"
+import { emitBoxes } from "../../../emit/boxes"
 import { vpack } from "../../../layout/pack"
 import { shipOut } from "../../../emit/trace"
 import { readFileSync } from "node:fs"
@@ -71,13 +72,13 @@ export const paragraph: Adapter = (src, oracle) => {
   const { lines, vlist, trace: decisions } = lineBreak(list, params)
 
   // column: \topskip, then the line vlist with interline glue (§ 679)
-  const col: Node[] = [glue(Math.max(0, TOPSKIP - lines[0].height))]
+  const col: Node[] = [paramGlue("topskip", glue(Math.max(0, TOPSKIP - lines[0].height)))]
   let prevDepth: number | null = null
   for (const n of vlist) {
     if (n.kind === "hlist") {
       if (prevDepth !== null) {
         const d = BASELINESKIP - prevDepth - n.height
-        col.push(d < LINESKIPLIMIT ? glue(LINESKIP) : glue(d))
+        col.push(d < LINESKIPLIMIT ? paramGlue("lineskip", glue(LINESKIP)) : paramGlue("baselineskip", glue(d)))
       }
       prevDepth = n.depth
     }
@@ -89,6 +90,7 @@ export const paragraph: Adapter = (src, oracle) => {
   return {
     trace: shipOut([page]),
     decisions: [decisions],
+    column: col.map(emitBoxes),
     notes: [`engine line breaker: ${lines.length} lines via ${decisions.passes.map((p) => p.pass).join(" → ")} pass`, "scaffold: first-baseline position taken from the oracle (page model)"],
   }
 }

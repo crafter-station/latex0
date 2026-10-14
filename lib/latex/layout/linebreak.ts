@@ -6,7 +6,7 @@
 
 import { INF_PENALTY } from "./arith"
 import { hyphenateFollowingWord, type HyphenContext } from "./hyphenpass"
-import { glue as mkGlue, penalty as mkPenalty, FIL, type BoxNode, type DiscNode, type GlueNode, type Node } from "./nodes"
+import { glue as mkGlue, paramGlue, penalty as mkPenalty, FIL, type BoxNode, type DiscNode, type GlueNode, type Node } from "./nodes"
 import { hpack } from "./pack"
 import type { ActiveNode, FeasibleBreak, ParagraphTrace, PassTrace } from "../trace/decisions"
 
@@ -46,7 +46,7 @@ export interface LineBreakParams {
 /** LaTeX defaults (latex.ltx, article.cls) for a 10pt document. */
 export function latexDefaults(hsize: number): LineBreakParams {
   return {
-    hsize, leftSkip: mkGlue(0), rightSkip: mkGlue(0), parFillSkip: mkGlue(0, 65536, FIL),
+    hsize, leftSkip: paramGlue("leftskip", mkGlue(0)), rightSkip: paramGlue("rightskip", mkGlue(0)), parFillSkip: paramGlue("parfillskip", mkGlue(0, 65536, FIL)),
     pretolerance: 100, tolerance: 200, emergencyStretch: 0, linePenalty: 10, adjDemerits: 10000,
     doubleHyphenDemerits: 10000, finalHyphenDemerits: 5000, hangIndent: 0, hangAfter: 1, parShape: [],
     interLinePenalty: 0, clubPenalty: 150, widowPenalty: 150, brokenPenalty: 100, prevGraf: 0,

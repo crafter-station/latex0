@@ -8,6 +8,8 @@ import { basename, join, resolve } from "node:path"
 import type { Decisions } from "../../trace/decisions"
 import { parseDvi, type Trace } from "./dvi"
 import { parseDecisions } from "./tracing"
+import { parseShipouts } from "./boxes"
+import type { BoxNode } from "../../trace/schema"
 import { texEnv } from "../tex"
 import { parseTfm, type Tfm } from "./tfm"
 
@@ -29,7 +31,7 @@ export function texVersion(): string {
   return execFileSync("latex", ["--version"], { env: ENV, encoding: "utf8" }).split("\n")[0]
 }
 
-export interface OracleResult { trace: Trace; decisions: Decisions }
+export interface OracleResult { trace: Trace; decisions: Decisions; /** every shipped page as a box tree (\\tracingoutput) */ pages: BoxNode[] }
 
 /**
  * Compile `fixture` with real TeX (twice, for references) and return TeX's own
@@ -41,14 +43,14 @@ export function oracleRun(fixture: string): OracleResult {
   const dir = join(CACHE, name)
   mkdirSync(dir, { recursive: true })
   copyFileSync(fixture, join(dir, `${name}.tex`))
-  const job = `\\tracingparagraphs=1\\tracingpages=1\\tracingonline=0\\input{${name}}`
+  const job = `\\tracingparagraphs=1\\tracingpages=1\\tracingoutput=1\\showboxdepth=10000\\showboxbreadth=100000\\tracingonline=0\\input{${name}}`
   const env = { ...ENV, max_print_line: "100000", error_line: "254", half_error_line: "238" }
   for (let pass = 0; pass < 2; pass++) {
     execFileSync("latex", ["-interaction=nonstopmode", "-halt-on-error", `-jobname=${name}`, job], { cwd: dir, env, stdio: "pipe" })
   }
   return {
     trace: parseDvi(new Uint8Array(readFileSync(join(dir, `${name}.dvi`))), loadTfm),
-    decisions: parseDecisions(readFileSync(join(dir, `${name}.log`), "latin1")),
+    ...(() => { const log = readFileSync(join(dir, `${name}.log`), "latin1"); return { decisions: parseDecisions(log), pages: parseShipouts(log) } })(),
   }
 }
 
@@ -64,7 +66,7 @@ export function oracleTrace(fixture: string): Trace {
 import { createHash } from "node:crypto"
 import { existsSync, writeFileSync } from "node:fs"
 
-const ORACLE_FORMAT = 2 // 2: cache holds { trace, decisions }
+const ORACLE_FORMAT = 3 // 3: cache holds { trace, decisions, pages }
 let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {

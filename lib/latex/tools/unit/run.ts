@@ -3,7 +3,8 @@
 
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { compareTraces, validateTrace, type Divergence, type Trace } from "../../trace/schema"
+import { compareBoxLists, compareTraces, validateTrace, type BoxDivergence, type Divergence, type Trace } from "../../trace/schema"
+import { findColumn } from "../oracle/boxes"
 import { compareParagraphs, type DecisionDivergence } from "../../trace/decisions"
 import { cachedOracle } from "../oracle/oracle"
 import { ADAPTERS } from "./adapters"
@@ -19,6 +20,7 @@ export interface UnitResult {
   glyphs: number
   divergence?: Divergence
   decisionDivergence?: DecisionDivergence
+  boxDivergence?: BoxDivergence
   context?: string
   message?: string
   notes?: string[]
@@ -68,15 +70,22 @@ export function runFixture(path: string): UnitResult {
   if (!adapter) return done({ status: "skip", message: `no engine adapter "${header.engine ?? ""}" (available: ${Object.keys(ADAPTERS).join(", ")})` })
 
   try {
-    const { trace: expected, decisions: oracleDecisions, cached } = cachedOracle(path)
+    const { trace: expected, decisions: oracleDecisions, pages, cached } = cachedOracle(path)
     base.cached = cached
     base.glyphs = expected.pages.reduce((n, p) => n + p.glyphs.length, 0)
-    const { trace: actual, decisions, notes } = adapter(src, expected)
+    const { trace: actual, decisions, column, notes } = adapter(src, expected)
     const schema = validateTrace(actual)
     if (schema.length) return done({ status: "error", message: `schema: ${schema[0]}`, notes })
     if (decisions) {
       const dd = compareParagraphs(oracleDecisions.paragraphs, decisions)
       if (dd) return done({ status: "fail", decisionDivergence: dd, message: `line-breaking decisions differ: ${dd.what}`, notes })
+    }
+    if (column) {
+      const texColumn = pages[0] ? findColumn(pages[0]) : null
+      if (!texColumn) return done({ status: "error", message: "no \\topskip column in TeX's page dump", notes })
+      // compare the engine's column with the same number of items from TeX's
+      const bd = compareBoxLists(texColumn.slice(0, column.length), column)
+      if (bd) return done({ status: "fail", boxDivergence: bd, message: `box tree differs at ${bd.path}: ${bd.field}`, notes })
     }
     const divergence = compareTraces(expected, actual)
     if (divergence) return done({ status: "fail", divergence, context: contextOf(expected, divergence), notes })
@@ -98,6 +107,7 @@ export function report(results: UnitResult[], verbose = false): string {
         (typeof d.expected === "number" && typeof d.actual === "number" ? ` (Δ ${d.actual - d.expected} sp)` : ""))
       if (r.context) lines.push(`    TeX line: ${r.context}`)
     }
+    if (r.boxDivergence) lines.push(`    TeX:    ${JSON.stringify(r.boxDivergence.expected)}`, `    engine: ${JSON.stringify(r.boxDivergence.actual)}`)
     if (r.decisionDivergence) {
       const d = r.decisionDivergence
       lines.push(`    TeX:    ${JSON.stringify(d.expected)}`, `    engine: ${JSON.stringify(d.actual)}`)

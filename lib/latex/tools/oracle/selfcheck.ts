@@ -73,3 +73,20 @@ for (const fx of collectFixtures(["lib/latex/fixtures"])) {
 }
 if (rtFail || pathFail) { console.log("DECISION ORACLE CHECK FAILED"); process.exit(1) }
 console.log("DECISION ORACLE CHECK PASSED")
+
+// ---- box-tree oracle (#27) ----
+import type { BoxNode } from "../../trace/schema"
+
+// every line of every page dump must parse into a known node; only whatsits may stay opaque
+const opaque: string[] = []
+let nodes = 0
+const walk = (ns: BoxNode[]) => ns.forEach((n) => {
+  nodes++
+  if (n.type === "hbox" || n.type === "vbox") walk(n.children)
+  else if (n.type === "disc") { walk(n.pre); walk(n.post) }
+  else if (n.type === "other" && !/^\\(write|special|openout|closeout)/.test(n.text)) opaque.push(n.text)
+})
+for (const fx of collectFixtures(["lib/latex/fixtures"])) walk(cachedOracle(fx).pages)
+console.log(`box dumps: ${nodes} nodes parsed, ${opaque.length} unrecognized${opaque.length ? ": " + [...new Set(opaque)].slice(0, 5).join(" | ") : ""}`)
+if (opaque.length) { console.log("BOX ORACLE CHECK FAILED"); process.exit(1) }
+console.log("BOX ORACLE CHECK PASSED")
