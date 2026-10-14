@@ -48,3 +48,27 @@ console.log("first line from DVI:", words.filter(w => w.v === words[0].v).map(w 
 const ok = a === 327681 && unmatched === 0 && compared === pdfWords.length && maxErr < 0.01
 console.log(ok ? "ORACLE SELF-CHECK PASSED" : "ORACLE SELF-CHECK FAILED")
 if (!ok) process.exit(1)
+
+// ---- decision oracle (#28) ----
+import { collectFixtures } from "../unit/run"
+import { cachedOracle } from "./oracle"
+import { parseScaled, printScaled } from "./tracing"
+
+// 1. print_scaled / round_decimals round-trip over a dense sample of sp values
+let rtFail = 0
+for (let sp = -3 * 65536; sp <= 3 * 65536; sp++) if (parseScaled(printScaled(sp)) !== sp) rtFail++
+for (let i = 0; i < 200000; i++) { const sp = Math.floor(Math.random() * 2 ** 30) - 2 ** 29; if (parseScaled(printScaled(sp)) !== sp) rtFail++ }
+console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"} over 593217 values`)
+
+// 2. every fixture: the chosen break path has exactly as many lines as the DVI
+let pathFail = 0
+for (const fx of collectFixtures(["lib/latex/fixtures"])) {
+  const { trace, decisions } = cachedOracle(fx)
+  const dviLines = new Set(trace.pages[0]?.glyphs.map((g) => g.v)).size
+  const chosen = decisions.paragraphs.find((p) => p.chosen.length)?.chosen.length ?? 0
+  const ok = chosen === dviLines
+  if (!ok) pathFail++
+  console.log(`  ${ok ? "✓" : "✗"} ${fx.split("/").slice(-2).join("/")}: chosen path ${chosen} lines, DVI ${dviLines} lines`)
+}
+if (rtFail || pathFail) { console.log("DECISION ORACLE CHECK FAILED"); process.exit(1) }
+console.log("DECISION ORACLE CHECK PASSED")

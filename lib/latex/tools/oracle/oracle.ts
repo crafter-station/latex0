@@ -5,7 +5,9 @@
 import { execFileSync } from "node:child_process"
 import { mkdirSync, readFileSync, copyFileSync } from "node:fs"
 import { basename, join, resolve } from "node:path"
+import type { Decisions } from "../../trace/decisions"
 import { parseDvi, type Trace } from "./dvi"
+import { parseDecisions } from "./tracing"
 import { parseTfm, type Tfm } from "./tfm"
 
 const TEXBIN = process.env.TEXBIN ?? "/Library/TeX/texbin"
@@ -27,16 +29,32 @@ export function texVersion(): string {
   return execFileSync("latex", ["--version"], { env: ENV, encoding: "utf8" }).split("\n")[0]
 }
 
-/** Compile `fixture` to DVI (twice, for refs) and return the trace. */
-export function oracleTrace(fixture: string): Trace {
+export interface OracleResult { trace: Trace; decisions: Decisions }
+
+/**
+ * Compile `fixture` with real TeX (twice, for references) and return TeX's own
+ * records: glyph positions from the DVI, and line/page-break decisions from the
+ * log (\tracingparagraphs, \tracingpages). Tracing does not change the output.
+ */
+export function oracleRun(fixture: string): OracleResult {
   const name = basename(fixture, ".tex")
   const dir = join(CACHE, name)
   mkdirSync(dir, { recursive: true })
   copyFileSync(fixture, join(dir, `${name}.tex`))
+  const job = `\\tracingparagraphs=1\\tracingpages=1\\tracingonline=0\\input{${name}}`
+  const env = { ...ENV, max_print_line: "100000", error_line: "254", half_error_line: "238" }
   for (let pass = 0; pass < 2; pass++) {
-    execFileSync("latex", ["-interaction=nonstopmode", "-halt-on-error", `${name}.tex`], { cwd: dir, env: ENV, stdio: "pipe" })
+    execFileSync("latex", ["-interaction=nonstopmode", "-halt-on-error", `-jobname=${name}`, job], { cwd: dir, env, stdio: "pipe" })
   }
-  return parseDvi(new Uint8Array(readFileSync(join(dir, `${name}.dvi`))), loadTfm)
+  return {
+    trace: parseDvi(new Uint8Array(readFileSync(join(dir, `${name}.dvi`))), loadTfm),
+    decisions: parseDecisions(readFileSync(join(dir, `${name}.log`), "latin1")),
+  }
+}
+
+/** Glyph positions only (kept for callers that need just the DVI view). */
+export function oracleTrace(fixture: string): Trace {
+  return oracleRun(fixture).trace
 }
 
 // ---- reference cache (#32) ----
@@ -46,16 +64,21 @@ export function oracleTrace(fixture: string): Trace {
 import { createHash } from "node:crypto"
 import { existsSync, writeFileSync } from "node:fs"
 
-const ORACLE_FORMAT = 1
+const ORACLE_FORMAT = 2 // 2: cache holds { trace, decisions }
 let texVersionMemo: string | undefined
 
-export function cachedOracleTrace(fixture: string): { trace: Trace; cached: boolean } {
+export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {
   texVersionMemo ??= texVersion()
   const key = createHash("sha256").update(readFileSync(fixture)).update(texVersionMemo).update(String(ORACLE_FORMAT)).digest("hex").slice(0, 16)
   const file = join(CACHE, "refs", `${basename(fixture, ".tex")}.${key}.json`)
-  if (existsSync(file)) return { trace: JSON.parse(readFileSync(file, "utf8")) as Trace, cached: true }
-  const trace = oracleTrace(fixture)
+  if (existsSync(file)) return { ...(JSON.parse(readFileSync(file, "utf8")) as OracleResult), cached: true }
+  const result = oracleRun(fixture)
   mkdirSync(join(CACHE, "refs"), { recursive: true })
-  writeFileSync(file, JSON.stringify(trace))
-  return { trace, cached: false }
+  writeFileSync(file, JSON.stringify(result))
+  return { ...result, cached: false }
+}
+
+export function cachedOracleTrace(fixture: string): { trace: Trace; cached: boolean } {
+  const { trace, cached } = cachedOracle(fixture)
+  return { trace, cached }
 }
