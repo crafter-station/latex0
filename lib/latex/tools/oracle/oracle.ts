@@ -38,3 +38,24 @@ export function oracleTrace(fixture: string): Trace {
   }
   return parseDvi(new Uint8Array(readFileSync(join(dir, `${name}.dvi`))), loadTfm)
 }
+
+// ---- reference cache (#32) ----
+// Key: fixture content + TeX version + oracle format version. A hit skips TeX
+// entirely, so re-running one fixture after an engine edit takes milliseconds.
+
+import { createHash } from "node:crypto"
+import { existsSync, writeFileSync } from "node:fs"
+
+const ORACLE_FORMAT = 1
+let texVersionMemo: string | undefined
+
+export function cachedOracleTrace(fixture: string): { trace: Trace; cached: boolean } {
+  texVersionMemo ??= texVersion()
+  const key = createHash("sha256").update(readFileSync(fixture)).update(texVersionMemo).update(String(ORACLE_FORMAT)).digest("hex").slice(0, 16)
+  const file = join(CACHE, "refs", `${basename(fixture, ".tex")}.${key}.json`)
+  if (existsSync(file)) return { trace: JSON.parse(readFileSync(file, "utf8")) as Trace, cached: true }
+  const trace = oracleTrace(fixture)
+  mkdirSync(join(CACHE, "refs"), { recursive: true })
+  writeFileSync(file, JSON.stringify(trace))
+  return { trace, cached: false }
+}

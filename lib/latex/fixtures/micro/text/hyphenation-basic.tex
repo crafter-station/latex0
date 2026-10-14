@@ -1,0 +1,14 @@
+% fixture: text/hyphenation-basic
+% tier: T3
+% engine: paragraph
+% covers: TeX hyphenates "waffle" at a line end (Liang patterns, hyph-en-us)
+% issue: #113
+% xfail: needs hyphenation (#113) and the paragraph builder (#112)
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+Affluent officers shuffled the baffling raffle while ``Yes,'' said AVA, ``we
+waffle.'' LTV Tallow Today Wafer Yogurt VAT AWAY Typeset Vowel. Pages 10--20
+cover it---entirely. ?`Que pasa? !`Hola! Flip flop fifty fluffy
+offline efficient.
+\end{document}

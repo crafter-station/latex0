@@ -1,27 +1,55 @@
 #!/usr/bin/env bun
-// latex0 engine CLI (dev tooling). Grows per issue #39.
-//   bun engine trace <fixture.tex>      TeX oracle trace (glyph positions in sp) as JSON
-//   bun engine oracle:check             self-check the oracle against pdflatex
-//   bun engine check:paragraph [fixture]  engine layout vs TeX at 0 sp (#29)
+// latex0 engine CLI (dev tooling, #39).
+//   bun engine unit [paths…] [--watch] [--json] [-v]   fixtures vs TeX at 0 sp (#32)
+//   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
+//   bun engine oracle:check                            oracle self-check against pdflatex
+import { spawn } from "node:child_process"
+import { watch } from "node:fs"
 import { oracleTrace } from "./oracle/oracle"
+import { collectFixtures, report, runFixture } from "./unit/run"
 
-const [cmd, ...args] = process.argv.slice(2)
+const FIXTURES = "lib/latex/fixtures"
+const [cmd, ...rest] = process.argv.slice(2)
+const flags = new Set(rest.filter((a) => a.startsWith("-")))
+const args = rest.filter((a) => !a.startsWith("-"))
+
+function unit(): number {
+  const results = collectFixtures(args.length ? args : [FIXTURES]).map(runFixture)
+  console.log(flags.has("--json") ? JSON.stringify(results, null, 1) : report(results, flags.has("-v")))
+  return results.some((r) => r.status === "fail" || r.status === "error" || r.status === "xpass") ? 1 : 0
+}
+
+function watchUnit() {
+  // Re-run in a fresh process so edited engine modules are reloaded.
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const run = () => {
+    process.stdout.write("\x1bc")
+    spawn(process.execPath, [process.argv[1], "unit", ...rest.filter((a) => a !== "--watch")], { stdio: "inherit" })
+      .on("exit", () => console.log(`\nwatching lib/latex for changes… (ctrl-c to stop)`))
+  }
+  watch("lib/latex", { recursive: true }, (_e, file) => {
+    if (!file || file.includes(".cache") || !/\.(ts|tex)$/.test(String(file))) return
+    clearTimeout(timer); timer = setTimeout(run, 150)
+  })
+  run()
+}
+
 switch (cmd) {
-  case "trace": {
+  case "unit":
+    if (flags.has("--watch")) watchUnit()
+    else process.exit(unit())
+    break
+  case "check:paragraph": // kept as an alias from #29
+    process.exitCode = (() => { args.splice(0, args.length, args[0] ?? `${FIXTURES}/micro/text/paragraph-basic.tex`); return unit() })()
+    break
+  case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")
     console.log(JSON.stringify(oracleTrace(args[0]), null, 1))
     break
-  }
-  case "check:paragraph": {
-    const { checkParagraph } = await import("./checks/paragraph")
-    const fx = args[0] ?? "lib/latex/fixtures/micro/text/paragraph-basic.tex"
-    if (!checkParagraph(fx)) process.exit(1)
-    break
-  }
   case "oracle:check":
     await import("./oracle/selfcheck")
     break
   default:
-    console.log("usage: bun engine <trace|oracle:check|check:paragraph> ...")
+    console.log("usage: bun engine <unit|trace|oracle:check> …")
     process.exit(cmd ? 1 : 0)
 }
