@@ -1,0 +1,11 @@
+% fixture: text/paragraph-basic
+% tier: T3
+% covers: glyph runs, ligatures (fi, ff), kerning, interword glue, paragraph indent, line breaking
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+The office staff found a difficult affair: efficient AVA workflows, offline
+coffee, and fluffy waffles. TeX typesets this paragraph with kerns between
+``AV'' and ligatures for fi, ff and ffl --- exactly the cases our engine must
+reproduce glyph for glyph, down to the scaled point.
+\end{document}

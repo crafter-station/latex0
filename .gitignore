@@ -46,3 +46,6 @@ CLAUDE.md
 # clerk configuration (can include secrets)
 /.clerk/
 .env*.local
+
+# engine oracle build artifacts
+.cache/
