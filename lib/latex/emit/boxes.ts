@@ -22,6 +22,10 @@ export function emitBoxes(n: Node): BoxOut {
     case "rule": return { type: "rule", width: n.width, height: n.height, depth: n.depth }
     case "penalty": return { type: "penalty", penalty: n.penalty }
     case "whatsit": return { type: "other", text: n.text }
+    case "ins": { // § 188
+      const g = n.splitTopSkip, spec = printScaled(g.width) + (g.stretch ? ` plus ${printScaled(g.stretch)}${["", "fil", "fill", "filll"][g.stretchOrder]}` : "") + (g.shrink ? ` minus ${printScaled(g.shrink)}${["", "fil", "fill", "filll"][g.shrinkOrder]}` : "")
+      return { type: "other", text: `\\insert${n.n}, natural size ${printScaled(n.height)}; split(${spec},${printScaled(n.depth)}); float cost ${n.floatCost}`, children: n.list.map(emitBoxes) }
+    }
     case "math": return { type: "other", text: (n.on ? "\\mathon" : "\\mathoff") + (n.width ? ", surrounded " + printScaled(n.width) : "") }
     case "disc": return { type: "disc", pre: n.pre.map(emitBoxes), post: n.post.map(emitBoxes), replaceCount: n.replaceCount }
   }

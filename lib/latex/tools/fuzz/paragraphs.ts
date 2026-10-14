@@ -1,7 +1,8 @@
 // Paragraph fuzzer (#112, #41, #86): N seeded random paragraphs in one
 // document, each with its own width, tolerances, \looseness, \emergencystretch
-// and hanging indentation, and some with inline formulas (breakable at their
-// relation and binary-operator penalties, and after \mathoff). TeX breaks them once; the engine breaks each one; every
+// and hanging indentation, some with inline formulas (breakable at their
+// relation and binary-operator penalties, and after \mathoff), and some with
+// footnotes, short or long enough to be split across pages (#115). TeX breaks them once; the engine breaks each one; every
 // paragraph's \tracingparagraphs decisions must be identical.
 //
 //   bun engine fuzz:paragraphs [--n 200] [--seed 1]
@@ -12,7 +13,10 @@ import { lineBreak } from "../../layout/linebreak"
 import { compareParagraphs, comparePages, documentPages } from "../../trace/decisions"
 import { oracleRun } from "../oracle/oracle"
 import { classData } from "../classes"
-import { paragraphInput, typesetBody } from "../unit/adapters/paragraph"
+import { makeColumns, paragraphInput, typesetBody } from "../unit/adapters/paragraph"
+import { emitBoxes } from "../../emit/boxes"
+import { compareBoxLists } from "../../trace/schema"
+import { findColumn } from "../oracle/boxes"
 
 // Fixed vocabulary, so a seed means the same text on every machine. It mixes
 // ligatures (fi ff ffl), kerns, capitals, punctuation that changes the space
@@ -80,6 +84,12 @@ export function makeParagraphs(n: number, seed: number): string[] {
     }
     // a formula as a word, glued to punctuation, or touching a word (which then is not hyphenated, § 899)
     const words = Array.from({ length: len }, () => !withMath || r() >= 0.15 ? pick(WORDS) : r() < 0.7 ? formula() + (r() < 0.2 ? pick([",", ".", ";"]) : "") : pick(WORDS) + formula())
+    // footnotes after a word: mostly short, some long enough to split across pages
+    for (let f = r() < 0.2 ? 1 + Math.floor(r() * 3) : 0; f > 0; f--) {
+      const at = Math.floor(r() * words.length)
+      const n = r() < 0.1 ? 150 + Math.floor(r() * 500) : 3 + Math.floor(r() * 60)
+      words[at] += `\\footnote{${Array.from({ length: n }, () => (withMath && r() < 0.05 ? formula() : pick(WORDS))).join(" ")}}`
+    }
     out.push([...a, words.join(" ")].join(" "))
   }
   return out
@@ -91,25 +101,40 @@ export function fuzzParagraphs(n: number, seed: number): number {
   mkdirSync(dir, { recursive: true })
   const file = join(dir, `paragraphs-${seed}-${n}.tex`)
   writeFileSync(file, ["\\documentclass{article}", "\\pagestyle{empty}", "\\begin{document}", ...bodies.flatMap((b) => [`{${b}\\par}`, ""]), "\\end{document}", ""].join("\n"))
-  const texDecisions = oracleRun(file).decisions
+  const oracle = oracleRun(file)
+  const texDecisions = oracle.decisions
   const tex = texDecisions.paragraphs
-  if (tex.length !== n) throw new Error(`TeX traced ${tex.length} paragraphs, expected ${n}`)
+  // the engine's paragraphs in TeX's order: each footnote's paragraph before the one it is in
+  const k = classData("article", "10pt")
+  const doc = { footnote: 0 }
+  const engine = bodies.flatMap((body, i) => {
+    const { list, params, notes } = paragraphInput(body, k, "normalsize", doc)
+    return [...notes, lineBreak(list, params).trace].map((trace) => ({ trace, i, body }))
+  })
+  if (tex.length !== engine.length) throw new Error(`TeX traced ${tex.length} paragraphs, the engine broke ${engine.length}`)
   let failed = 0
-  bodies.forEach((body, i) => {
-    const { list, params } = paragraphInput(body)
-    const d = compareParagraphs([tex[i]], [lineBreak(list, params).trace])
+  engine.forEach(({ trace, i, body }, j) => {
+    const d = compareParagraphs([tex[j]], [trace])
     if (!d) return
     failed++
     if (failed <= 5) console.log(`✗ paragraph ${i}: ${d.what}\n    TeX:    ${JSON.stringify(d.expected)}\n    engine: ${JSON.stringify(d.actual)}\n    ${body.slice(0, 160)}…`)
   })
   // the same paragraphs as one document: every page-break decision must match too
-  const { pageTrace } = typesetBody(bodies.map((text) => ({ size: "normalsize" as const, text })), classData("article", "10pt"))
+  const { pageTrace, pages } = typesetBody(bodies.map((text) => ({ size: "normalsize" as const, text })), k)
   const texPages = documentPages(texDecisions.pages)
   const pd = comparePages(texPages, pageTrace)
   if (pd) { failed++; console.log(`✗ pages: ${pd.what}\n    TeX:    ${JSON.stringify(pd.expected)}\n    engine: ${JSON.stringify(pd.actual)}`) }
-  else console.log(`${texPages.length} pages: every page-break decision identical to TeX (${texPages.reduce((n, p) => n + p.candidates.length, 0)} candidates)`)
+  else console.log(`${texPages.length} pages: every page-break decision identical to TeX (${texPages.reduce((n, p) => n + p.candidates.length, 0)} candidates, ${texPages.reduce((n, p) => n + p.splits.length, 0)} footnote splits)`)
+  // and every page's column as a box tree: text, footnote rule, footnotes and their split remainders
+  const shipped = oracle.pages, columns = makeColumns(pages, k)
+  for (const [i, c] of columns.entries()) {
+    const tc = shipped[i] && findColumn(shipped[i])
+    const bd = tc ? compareBoxLists(tc, c.column.map(emitBoxes)) : { path: "", field: "page", expected: "a page", actual: null }
+    if (bd) { failed++; console.log(`✗ page ${i + 1} box tree at ${bd.path}: ${bd.field}\n    TeX:    ${JSON.stringify(bd.expected)}\n    engine: ${JSON.stringify(bd.actual)}`); break }
+  }
+  if (shipped.length !== columns.length) { failed++; console.log(`✗ page count: TeX ${shipped.length}, engine ${columns.length}`) }
   const passes = tex.flatMap((p) => p.passes.map((x) => x.pass))
   const count = (k: string) => passes.filter((x) => x === k).length
-  console.log(`${n - failed}/${n} paragraphs identical to TeX (seed ${seed}; passes: ${count("first")} first, ${count("second")} second, ${count("emergency")} emergency; ${tex.filter((p) => p.looseness).length} with \\looseness)`)
+  console.log(`${engine.length - failed}/${engine.length} paragraphs (${engine.length - n} in footnotes) identical to TeX (seed ${seed}; passes: ${count("first")} first, ${count("second")} second, ${count("emergency")} emergency; ${tex.filter((p) => p.looseness).length} with \\looseness)`)
   return failed ? 1 : 0
 }

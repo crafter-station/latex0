@@ -21,6 +21,8 @@ export interface SizeData {
   /** display skips; set by \normalsize, \small and \footnotesize, inherited by the others */
   /** math families 0–3 (roman, math italic, symbols, extension) at text, script and scriptscript size */
   math: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
+  /** \\strutbox as \\@setfontsize makes it: 0.7 and 0.3 \\baselineskip */
+  strut: { height: number; depth: number }
   abovedisplayskip: GlueSpec
   belowdisplayskip: GlueSpec
   abovedisplayshortskip: GlueSpec

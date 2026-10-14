@@ -17,13 +17,16 @@ import { loadFont, QUAD, X_HEIGHT } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
-import { emptyBox, FIL, glue, kern, paramGlue, type GlueNode, type Node } from "../../../layout/nodes"
+import { xnOverD } from "../../../layout/arith"
+import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
 import type { MathData } from "../../../mathlayout/data"
-import { mlistToHlist, TEXT, type MathEnv } from "../../../mathlayout/mlist"
+import { mlistToHlist, ORD, TEXT, type MathEnv } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
-import { buildPages } from "../../../layout/pagebuilder"
+import { buildPages, type Page } from "../../../layout/pagebuilder"
 import { emitBoxes } from "../../../emit/boxes"
-import { vpack } from "../../../layout/pack"
+import { hpack, vpack } from "../../../layout/pack"
+import { roundDecimals } from "../../../layout/dimen"
+import { documentPages, type ParagraphTrace } from "../../../trace/decisions"
 import { shipOut } from "../../../emit/trace"
 import { readFileSync } from "node:fs"
 import { classData, documentClass } from "../../classes"
@@ -67,14 +70,145 @@ export function classParams(k: ClassOptionData): LineBreakParams {
   }
 }
 
+/** Document state that crosses paragraphs: LaTeX's footnote counter. */
+export interface DocState { footnote: number }
+
+/** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
+type Piece = { kind: "text" | "math" | "footnote"; src: string }
+
+function pieces(body: string, footnotes = true): Piece[] {
+  const out: Piece[] = []
+  let i = 0, text = ""
+  const flushText = () => {
+    if (/[\\{}%&#^_~]/.test(text)) throw new Error(`paragraph adapter accepts plain text, $…$ and \\footnote{…}: ${text.slice(0, 40)}`)
+    if (text) out.push({ kind: "text", src: text })
+    text = ""
+  }
+  while (i < body.length) {
+    if (body[i] === "$") {
+      const j = body.indexOf("$", i + 1)
+      if (j < 0) throw new Error("paragraph adapter: unbalanced $")
+      flushText(); out.push({ kind: "math", src: body.slice(i + 1, j) }); i = j + 1
+    } else if (footnotes && body.startsWith("\\footnote{", i)) {
+      let depth = 0, j = i + 9
+      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
+      if (j >= body.length) throw new Error("paragraph adapter: unbalanced \\footnote{")
+      flushText(); out.push({ kind: "footnote", src: body.slice(i + 10, j) }); i = j + 1
+    } else text += body[i++]
+  }
+  flushText()
+  return out
+}
+
+const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[size].font; return loadFont(dataFont(f.name), f.at) }
+const hss = () => glue(0, 65536, FIL, 65536, FIL)
+
 /**
- * One paragraph of plain text with leading assignments, as the horizontal list
- * TeX builds for it and the line-breaking parameters in force.
+ * \@makefnmark at a size: \hbox{\@textsuperscript{\normalfont N}}, that is
+ * \hbox{$^{\mbox{N}}$} with \mathsurround=0pt and N in roman at \sf@size.
  */
-export function paragraphInput(body: string, k: ClassOptionData = classData("article", "10pt"), size: SizeCommand = "normalsize"): { list: Node[]; params: LineBreakParams } {
+function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand): BoxNode {
+  const ref = k.sizes[size].math.script[0]
+  const digits: Node[] = []
+  appendText(digits, String(n), loadFont(dataFont(ref.name), ref.at), { spaceFactor: 1000 }, false)
+  const mbox = hpack(digits)
+  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size), TEXT, false)
+  return hpack([{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }])
+}
+
+/** Interline glue (§ 679) and the box, appended to a vertical list; returns the new \prevdepth. */
+function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | null, baselineskip: GlueSpec, lineskip: GlueSpec, lineskiplimit: number): number {
+  if (prevDepth !== null) {
+    const d = baselineskip.width - prevDepth - box.height
+    out.push(d < lineskiplimit ? spec("lineskip", lineskip) : spec("baselineskip", baselineskip, d))
+  }
+  out.push(box)
+  return box.depth
+}
+
+/**
+ * \@footnotetext: \insert\footins{\footnotesize … \@parboxrestore \@makefntext{\rule\z@\footnotesep
+ * text \@finalstrut\strutbox}\par}, with the article class's \@makefntext:
+ * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
+ * footnote paragraph's line-breaking trace.
+ */
+function footnoteInsert(src: string, n: number, ctx: PieceContext) {
+  const { k } = ctx
+  const fs: SizeCommand = "footnotesize"
+  const font = sizeFont(k, fs)
+  const em = font.params[QUAD]
+  // the paragraph's parameters, less what normal_paragraph (§ 1070) resets at \insert and what
+  // \@parboxrestore sets: \leftskip, \rightskip 0, \parfillskip \@flushglue, \sloppy
+  // (\tolerance 9999, \emergencystretch 3em)
+  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0 }
+  Object.assign(params, {
+    hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", glue(0, 65536, FIL)),
+    tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
+  })
+  params.hyphenation = hyphenation(k, font)
+  const markBox = hpack([hss(), footnoteMark(n, k, fs)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
+  const list: Node[] = [markBox, strut]
+  appendPieces(list, pieces(src.trim(), false), font, fs, { spaceFactor: 1000 }, ctx)
+  if (list.at(-1)?.kind === "glue") list.pop() // \unskip
+  list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
+  const { vlist, trace } = lineBreak(list, params)
+  // the insertion's vertical list starts with \prevdepth = ignore_depth (§ 1099)
+  const v: Node[] = []
+  let prevDepth: number | null = null
+  for (const x of vlist) {
+    if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
+    else v.push(x)
+  }
+  const box = vpack(v)
+  const ins: InsNode = {
+    kind: "ins", n: k.ints.footins, height: box.height + box.depth, depth: k.sizes[fs].strut.depth,
+    splitTopSkip: glue(k.dimens.footnotesep), floatCost: 20000, list: v,
+  }
+  return { ins, trace }
+}
+
+const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
+
+function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): LineBreakParams["hyphenation"] {
+  return {
+    hyphenator: hyphenator(),
+    fontOf: (name, size) => { if (name !== font.name || size !== font.size) throw new Error(`no font ${name}@${size}`); return font },
+    lHyf: k.ints.lefthyphenmin, rHyf: k.ints.righthyphenmin, ucHyph: k.ints.uchyph,
+  }
+}
+
+/** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[] }
+
+/** Text, formulas and footnotes into a horizontal list. */
+function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFont>, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext) {
+  const { k, mathSurround, doc } = ctx
+  for (const p of ps) {
+    if (p.kind === "text") appendText(list, p.src, font, state)
+    else if (p.kind === "math") {
+      // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData()), mathEnv(k, size), TEXT, true), { kind: "math", on: false, width: mathSurround })
+      state.spaceFactor = 1000
+    } else {
+      // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
+      const n = ++doc.footnote
+      list.push(penalty(10000), footnoteMark(n, k, size))
+      const { ins, trace } = footnoteInsert(p.src, n, ctx)
+      list.push(ins)
+      ctx.notes.push(trace)
+    }
+  }
+}
+
+/**
+ * One paragraph of text, inline math and footnotes with leading assignments, as
+ * the horizontal list TeX builds for it and the line-breaking parameters in
+ * force. `notes` are the footnote paragraphs' traces, which TeX breaks first.
+ */
+export function paragraphInput(body: string, k: ClassOptionData = classData("article", "10pt"), size: SizeCommand = "normalsize", doc: DocState = { footnote: 0 }): { list: Node[]; params: LineBreakParams; notes: ParagraphTrace[] } {
   const params = classParams(k)
-  const nf = k.sizes[size].font
-  const font = loadFont(dataFont(nf.name), nf.at)
+  const font = sizeFont(k, size)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   let indent = true
   let mathSurround = mathData().dimens.mathsurround
@@ -97,24 +231,12 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     if (s.errors.length) throw new Error(`\\${name}: ${s.errors[0]}`)
     body = s.rest().trimStart()
   }
-  const parts = body.split("$")
-  if (parts.length % 2 === 0) throw new Error("paragraph adapter: unbalanced $")
-  if (parts.some((t, i) => i % 2 === 0 && /[\\{}%&#^_~]/.test(t))) throw new Error("paragraph adapter accepts plain text and $…$ after the assignments")
-
-  params.hyphenation = {
-    hyphenator: hyphenator(),
-    fontOf: (name, size) => { if (name !== font.name || size !== font.size) throw new Error(`no font ${name}@${size}`); return font },
-    lHyf: k.ints.lefthyphenmin, rHyf: k.ints.righthyphenmin, ucHyph: k.ints.uchyph,
-  }
+  const ps = pieces(body)
+  params.hyphenation = hyphenation(k, font)
   const list: Node[] = indent ? [emptyBox("hlist", k.dimens.parindent)] : []
-  const state = { spaceFactor: 1000 }
-  parts.forEach((t, i) => {
-    if (i % 2 === 0) { appendText(list, t, font, state); return }
-    // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-    list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(t, mathData()), mathEnv(k, size), TEXT, true), { kind: "math", on: false, width: mathSurround })
-    state.spaceFactor = 1000
-  })
-  return { list, params }
+  const notes: ParagraphTrace[] = []
+  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes })
+  return { list, params, notes }
 }
 
 /** The body's paragraphs: blank-line separated, or a size group {\large … \par}. */
@@ -144,25 +266,20 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
   // (new_graf, § 1091), then a second, zero \parskip: LaTeX's paragraph code (ltpara)
   // restarts the paragraph in a group with \parskip=0pt.
   const contrib: Node[] = [{ kind: "whatsit", text: "\\write-{}" }]
-  const decisions = []
+  const decisions: ParagraphTrace[] = []
+  const doc: DocState = { footnote: 0 }
   let prevDepth: number | null = null
   let lineCount = 0
   for (const para of paras) {
-    const { list, params } = paragraphInput(para.text, k, para.size)
+    const { list, params, notes } = paragraphInput(para.text, k, para.size, doc)
     const { lines, vlist, trace } = lineBreak(list, params)
-    decisions.push(trace)
+    decisions.push(...notes, trace) // footnote paragraphs end, and are broken, first
     lineCount += lines.length
     const baselineskip = k.sizes[para.size].baselineskip // in force when \par appends the lines
     contrib.push(spec("parskip", k.glue.parskip), paramGlue("parskip", glue(0)))
     for (const n of vlist) {
-      if (n.kind === "hlist") {
-        if (prevDepth !== null) {
-          const d = baselineskip.width - prevDepth - n.height
-          contrib.push(d < k.dimens.lineskiplimit ? spec("lineskip", k.glue.lineskip) : spec("baselineskip", baselineskip, d))
-        }
-        prevDepth = n.depth
-      }
-      contrib.push(n)
+      if (n.kind === "hlist") prevDepth = appendToVlist(contrib, n, prevDepth, baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+      else contrib.push(n)
     }
   }
   // \end{document}: a skip of -\prevdepth, at most \maxdepth, when the last line has depth,
@@ -170,8 +287,41 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
   // show both forms)
   if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-Math.min(prevDepth, k.dimens.maxdepth)))
   contrib.push(glue(0, 65536, FIL), { kind: "penalty", penalty: -10000 })
-  const { pages, trace: pageTrace } = buildPages(contrib, { vsize: k.dimens.textheight, maxDepth: k.dimens.maxdepth, topSkip: spec("topskip", k.glue.topskip) })
-  return { decisions, pages, pageTrace, lineCount }
+  // the rest of \clearpage: \write\m@ne{}\vbox{}\penalty-\@Mi. Its output routine (\@doclearpage)
+  // ships a page only for footnotes still held over, and then clears the page again
+  const clear = (): Node[] => [{ kind: "whatsit", text: "\\write-{}" }, emptyBox("vlist"), penalty(-10001)]
+  const built = buildPages(contrib, {
+    vsize: k.dimens.textheight, maxDepth: k.dimens.maxdepth, topSkip: spec("topskip", k.glue.topskip),
+    inserts: { [k.ints.footins]: { skip: glue(k.glue.footinsskip.width, k.glue.footinsskip.stretch, k.glue.footinsskip.stretchOrder, k.glue.footinsskip.shrink, k.glue.footinsskip.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen } },
+    more: (last) => (last?.outputPenalty === -10000 || (last?.outputPenalty === -10001 && last.inserts[k.ints.footins]) ? clear() : null),
+  })
+  const pages = built.pages.filter((pg) => pg.outputPenalty !== -10001 || pg.inserts[k.ints.footins])
+  return { decisions, pages, pageTrace: documentPages(built.trace), lineCount }
+}
+
+/**
+ * LaTeX's output routine for each page. \@makecol: without footnotes the output box is
+ * \box255; with them, \vbox{\boxmaxdepth\@maxdepth \unvbox255 \vskip\skip\footins
+ * \footnoterule \unvbox\footins}, where \footnoterule is \kern-3pt \hrule width .4\columnwidth
+ * \kern2.6pt. Then \vbox to\@colht{\unvbox the output box, \vskip-its depth, \@textbottom}.
+ * `column` is that box's list from \topskip on.
+ */
+export function makeColumns(pages: Page[], k: ClassOptionData) {
+  const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
+  const rule: Node = { kind: "rule", width: xnOverD(k.dimens.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 }
+  const fs = k.glue.footinsskip
+  return pages.map((pg) => {
+    let box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, k.dimens.maxdepth)
+    const top = box255
+    if (pg.outputPenalty === -10001) box255 = vpack([box255, glue(0, 65536, FIL)]) // \@doclearpage: \vbox{\box\@cclv\vfil}
+    const foot = pg.inserts[k.ints.footins]
+    const out = foot
+      ? vpack([...box255.list, glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list], { additional: 0 }, k.dimens.maxdepth)
+      : box255
+    const list = [...out.list, glue(-out.depth), ...textbottom]
+    const col = top === box255 ? list : top.list
+    return { outputbox: vpack(list, { exactly: k.dimens.textheight }), column: col.slice(col.findIndex((n) => n.kind === "glue" && n.param === "topskip")) }
+  })
 }
 
 export const paragraph: Adapter = (src) => {
@@ -180,16 +330,10 @@ export const paragraph: Adapter = (src) => {
   const paras = paragraphsOf(src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")))
   const { decisions, pages, pageTrace, lineCount } = typesetBody(paras, k)
 
-  // LaTeX's output routine for each page: \@makecol puts \box255 in
-  // \vbox to\@colht{\unvbox255 \vskip-\dp255 \@textbottom}; \@outputpage stacks
-  // \topmargin, the \headheight box and \headsep above it, shifted by \oddsidemargin
-  const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
-  const boxes = pages.map((pg, i) => {
-    const box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, k.dimens.maxdepth)
-    const outputbox = vpack([...pg.nodes, glue(-box255.depth), ...textbottom], { exactly: k.dimens.textheight })
-    outputbox.shift = k.ints.twoside && i % 2 === 1 ? k.dimens.evensidemargin : k.dimens.oddsidemargin // \@themargin
-    return { outputbox, column: pg.nodes.slice(pg.nodes.findIndex((n) => n.kind === "glue" && n.param === "topskip")) }
-  })
+  // \@outputpage stacks \topmargin, the \headheight box and \headsep above the column,
+  // shifted by \oddsidemargin
+  const boxes = makeColumns(pages, k)
+  boxes.forEach((b, i) => { b.outputbox.shift = k.ints.twoside && i % 2 === 1 ? k.dimens.evensidemargin : k.dimens.oddsidemargin }) // \@themargin
   const shipped = boxes.map((b) => vpack([kern(k.dimens.topmargin + k.dimens.headheight + k.dimens.headsep), b.outputbox]))
   return {
     trace: shipOut(shipped),

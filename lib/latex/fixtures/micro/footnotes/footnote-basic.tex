@@ -1,0 +1,12 @@
+% fixture: footnotes/footnote-basic
+% tier: T3
+% engine: paragraph
+% covers: \footnote: the mark (\@makefnmark in \hbox{$^{\mbox{1}}$}), the insertion (\footins, \skip\footins), its paragraph in \footnotesize with \sloppy, and \footnoterule
+% issue: #115
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+Footnotes are typeset at the bottom of the page.\footnote{This is the note, which is long enough to take two lines of footnote text at the bottom of the page.} The text goes on after the mark, with the space factor the period left, and the page goal shrinks by the note's height and by the skip above it.
+
+A second paragraph has two notes,\footnote{A short one.} one after a comma and one at its end.\footnote{And a final note with $x^2+y^2$ in it.}
+\end{document}

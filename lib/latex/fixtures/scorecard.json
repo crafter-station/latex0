@@ -1,18 +1,23 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 59,
-  "exact": 41,
+  "fixtures": 62,
+  "exact": 44,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 18,
-  "glyphs": 21414
+  "glyphs": 34601
  },
  "areas": [
   {
    "area": "classes",
    "fixtures": 8,
    "exact": 8
+  },
+  {
+   "area": "footnotes",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "hyphenation",
@@ -331,6 +336,39 @@
    "glyphs": 639,
    "covers": "every size command \\tiny … \\Huge in article [12pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
    "issue": "#44"
+  },
+  {
+   "id": "footnotes/footnote-basic",
+   "file": "micro/footnotes/footnote-basic.tex",
+   "area": "footnotes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 335,
+   "covers": "\\footnote: the mark (\\@makefnmark in \\hbox{$^{\\mbox{1}}$}), the insertion (\\footins, \\skip\\footins), its paragraph in \\footnotesize with \\sloppy, and \\footnoterule",
+   "issue": "#115"
+  },
+  {
+   "id": "footnotes/footnote-split",
+   "file": "micro/footnotes/footnote-split.tex",
+   "area": "footnotes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9045,
+   "covers": "a footnote too long for its page: vert_break splits it (the % split trace), the remainder waits for the next page under \\splittopskip (prune_page_top), and \\insert_penalties weigh on later breaks",
+   "issue": "#115"
+  },
+  {
+   "id": "footnotes/footnotes-book-12pt",
+   "file": "micro/footnotes/footnotes-book-12pt.tex",
+   "area": "footnotes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3807,
+   "covers": "footnotes in a two-sided 12pt book: \\skip\\footins and \\footnotesep at 12pt, flush-bottom pages stretching around the notes, several notes on a page, numbering across pages",
+   "issue": "#115"
   },
   {
    "id": "hyphenation/explicit-hyphens",
