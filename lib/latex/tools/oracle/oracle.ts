@@ -43,7 +43,7 @@ export function oracleRun(fixture: string): OracleResult {
   const dir = join(CACHE, name)
   mkdirSync(dir, { recursive: true })
   copyFileSync(fixture, join(dir, `${name}.tex`))
-  const job = `\\tracingparagraphs=1\\tracingpages=1\\tracingoutput=1\\showboxdepth=10000\\showboxbreadth=100000\\tracingonline=0\\input{${name}}`
+  const job = `\\AtBeginDocument{\\tracingassigns=1}\\tracingparagraphs=1\\tracingpages=1\\tracingoutput=1\\showboxdepth=10000\\showboxbreadth=100000\\tracingonline=0\\input{${name}}`
   const env = { ...ENV, max_print_line: "100000", error_line: "254", half_error_line: "238" }
   for (let pass = 0; pass < 2; pass++) {
     execFileSync("latex", ["-interaction=nonstopmode", "-halt-on-error", `-jobname=${name}`, job], { cwd: dir, env, stdio: "pipe" })
@@ -66,7 +66,7 @@ export function oracleTrace(fixture: string): Trace {
 import { createHash } from "node:crypto"
 import { existsSync, writeFileSync } from "node:fs"
 
-const ORACLE_FORMAT = 3 // 3: cache holds { trace, decisions, pages }
+const ORACLE_FORMAT = 4 // 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
 let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {

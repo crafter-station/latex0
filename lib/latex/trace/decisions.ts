@@ -16,6 +16,27 @@ export interface ParagraphTrace {
   passes: PassTrace[]
   /** Serials of the chosen breaks, first line to last (empty if no pass succeeded). */
   chosen: number[]
+  /** \looseness in force when the paragraph ended (§ 875); absent means 0. */
+  looseness?: number
+}
+
+/**
+ * The break that ends the paragraph (§§ 874–875): among the final active nodes,
+ * fewest demerits, then the line count nearest `looseness` without overshooting
+ * it. Ties keep the earlier node, as TeX's scan of the active list does.
+ */
+export function bestFinal<T extends { line: number; total: number }>(finals: T[], looseness = 0): T | null {
+  let best: T | null = null
+  for (const r of finals) if (!best || r.total < best.total) best = r
+  if (!best || looseness === 0) return best
+  const bestLine = best.line
+  let actual = 0
+  for (const r of finals) {
+    const diff = r.line - bestLine
+    if ((diff < actual && looseness <= diff) || (diff > actual && looseness >= diff)) { best = r; actual = diff }
+    else if (diff === actual && r.total < best.total) best = r
+  }
+  return best
 }
 
 /** "% t=… g=… b=… p=… c=…[#]": one candidate page break. */
@@ -31,6 +52,7 @@ export function compareParagraphs(expected: ParagraphTrace[], actual: ParagraphT
   if (expected.length !== actual.length) return { paragraph: -1, what: "paragraph count", expected: expected.length, actual: actual.length }
   for (let i = 0; i < expected.length; i++) {
     const e = expected[i], a = actual[i]
+    if ((e.looseness ?? 0) !== (a.looseness ?? 0)) return { paragraph: i, what: "\\looseness", expected: e.looseness ?? 0, actual: a.looseness ?? 0 }
     const ep = e.passes.map((p) => p.pass).join(","), ap = a.passes.map((p) => p.pass).join(",")
     if (ep !== ap) return { paragraph: i, what: "passes", expected: ep, actual: ap }
     for (let p = 0; p < e.passes.length; p++) {
