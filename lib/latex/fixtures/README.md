@@ -30,6 +30,9 @@ bun engine unit lib/latex/fixtures/micro/text/space-factor.tex
 bun engine unit <paths> --watch         rerun on every save under lib/latex
 bun engine unit --json                  machine-readable results
 bun engine fuzz:paragraphs --n 1000     random paragraphs, line-break decisions vs TeX
+bun engine dimen:check --n 20000        numbers, dimensions and glue vs TeX's scanners
+bun engine glyph:check --n 10000        words in every font and synthetic lig/kern fonts vs \showbox
+bun engine scorecard [--check]          write (or verify) scorecard.json and badge.json
 ```
 
 TeX references are cached in `.cache/oracle/refs`, keyed by fixture content and

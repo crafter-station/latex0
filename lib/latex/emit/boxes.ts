@@ -8,8 +8,10 @@ export function emitBoxes(n: Node): BoxOut {
     case "hlist": case "vlist":
       return { type: n.kind === "hlist" ? "hbox" : "vbox", width: n.width, height: n.height, depth: n.depth, shift: n.shift, glueSet: n.glueSet, glueSign: n.glueSign, glueOrder: n.glueOrder, children: n.list.map(emitBoxes) }
     case "char": {
-      const lig = n.text.length !== 1 || n.text.charCodeAt(0) !== n.char
-      return lig ? { type: "char", font: n.font, size: n.size, char: n.char, lig: n.text } : { type: "char", font: n.font, size: n.size, char: n.char }
+      // show_box (§ 193): "(ligature |ff|)", with | for the left and right boundary
+      const lig = n.ligature || n.text.length !== 1 || n.text.charCodeAt(0) !== n.char
+      const hits = n.ligHits ?? 0
+      return lig ? { type: "char", font: n.font, size: n.size, char: n.char, lig: (hits > 1 ? "|" : "") + n.text + (hits % 2 ? "|" : "") } : { type: "char", font: n.font, size: n.size, char: n.char }
     }
     case "glue": {
       const g = { type: "glue" as const, width: n.width, stretch: n.stretch, stretchOrder: n.stretchOrder, shrink: n.shrink, shrinkOrder: n.shrinkOrder }
