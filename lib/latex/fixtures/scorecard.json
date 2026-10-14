@@ -1,0 +1,361 @@
+{
+ "format": 1,
+ "summary": {
+  "fixtures": 33,
+  "exact": 33,
+  "expectedFailures": 0,
+  "failing": 0,
+  "glyphs": 9451
+ },
+ "areas": [
+  {
+   "area": "classes",
+   "fixtures": 8,
+   "exact": 8
+  },
+  {
+   "area": "hyphenation",
+   "fixtures": 5,
+   "exact": 5
+  },
+  {
+   "area": "linebreak",
+   "fixtures": 16,
+   "exact": 16
+  },
+  {
+   "area": "text",
+   "fixtures": 4,
+   "exact": 4
+  }
+ ],
+ "fixtures": [
+  {
+   "id": "classes/article-11pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "[11pt]: cmr10 at 10.95pt, 13.6pt baselineskip, 360pt text width, 17pt indent, page geometry from size11.clo",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/article-12pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "[12pt]: cmr12, 14.5pt baselineskip, 390pt text width, 1.5em indent, page geometry from size12.clo",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/book-11pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "book [11pt]: twoside margins, the first page is odd (\\oddsidemargin)",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/book-12pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "book [12pt]",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/report-10pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "report shares article's size10.clo parameters",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/sizes-10pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 639,
+   "covers": "every size command \\tiny … \\Huge in article [10pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/sizes-11pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 639,
+   "covers": "every size command \\tiny … \\Huge in article [11pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
+   "issue": "#44"
+  },
+  {
+   "id": "classes/sizes-12pt",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 639,
+   "covers": "every size command \\tiny … \\Huge in article [12pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
+   "issue": "#44"
+  },
+  {
+   "id": "hyphenation/explicit-hyphens",
+   "area": "hyphenation",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 128,
+   "covers": "explicit hyphens insert empty discretionaries (exhyphenpenalty); words after them are not hyphenated",
+   "issue": "#113"
+  },
+  {
+   "id": "hyphenation/ligature-splits",
+   "area": "hyphenation",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 129,
+   "covers": "hyphens inside ff, fi, ffi, ffl ligatures: reconstitute splits and rebuilds them (§§ 903–918)",
+   "issue": "#113"
+  },
+  {
+   "id": "hyphenation/narrow-column",
+   "area": "hyphenation",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 176,
+   "covers": "many second-pass hyphenations in a narrow measure; doublehyphendemerits and finalhyphendemerits",
+   "issue": "#113"
+  },
+  {
+   "id": "hyphenation/punctuation-around-words",
+   "area": "hyphenation",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 135,
+   "covers": "words after an opening quote or parenthesis (ha is a character, § 903) and before punctuation (bchar)",
+   "issue": "#113"
+  },
+  {
+   "id": "hyphenation/uppercase-words",
+   "area": "hyphenation",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 138,
+   "covers": "capitalized words hyphenate because \\uchyph=1; exceptions list (ta-ble, present, project)",
+   "issue": "#113"
+  },
+  {
+   "id": "linebreak/badness-100",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 261,
+   "covers": "a feasible break with badness exactly 100, on a fitness-class boundary (§ 852: decent ≤ 12 < loose ≤ 99 < very loose); found by search",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/badness-12",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 236,
+   "covers": "a feasible break with badness exactly 12, on a fitness-class boundary (§ 852: decent ≤ 12 < loose ≤ 99 < very loose); found by search",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/badness-13",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 194,
+   "covers": "a feasible break with badness exactly 13, on a fitness-class boundary (§ 852: decent ≤ 12 < loose ≤ 99 < very loose); found by search",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/badness-99",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 241,
+   "covers": "a feasible break with badness exactly 99, on a fitness-class boundary (§ 852: decent ≤ 12 < loose ≤ 99 < very loose); found by search",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/emergency-pass",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 331,
+   "covers": "the first and second passes find no feasible breaks, so \\emergencystretch adds a third pass (§§ 863, 873)",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/hangafter-negative",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 196,
+   "covers": "hanging indentation on the first two lines (\\hangafter<0), §§ 849, 889",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/hangindent-right",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 196,
+   "covers": "negative \\hangindent shortens lines on the right, § 849",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/hangindent",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 196,
+   "covers": "hanging indentation after the first line (\\hangindent>0, \\hangafter=1), §§ 849, 889",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/long-paragraph",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 632,
+   "covers": "many lines and active nodes, fitness classes, adjdemerits, widow and club penalties in the vertical list",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/looseness-minus",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 330,
+   "covers": "\\looseness=-1: the first pass cannot drop a line; the second pass, with hyphenation, sets 5 lines instead of 6 (§§ 873–875)",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/looseness-plus",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 331,
+   "covers": "\\looseness=1: the first pass cannot add a line, so the second pass (\\tolerance=10000) gives 7 lines instead of 6 (§§ 873–875)",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/looseness-unreachable",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 330,
+   "covers": "\\looseness=-5 cannot be met; the final pass keeps the line count nearest to it (§ 875)",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/noindent",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 196,
+   "covers": "paragraph without the indentation box",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/parshape-units",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 196,
+   "covers": "\\parshape lengths in em, pc, in, cm, mm, bp and dd, scanned as TeX scans them (§§ 448–458)",
+   "issue": "#52"
+  },
+  {
+   "id": "linebreak/parshape",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 196,
+   "covers": "explicit \\parshape line widths and indents, last entry repeats, §§ 848, 850, 889",
+   "issue": "#112"
+  },
+  {
+   "id": "linebreak/second-pass-only",
+   "area": "linebreak",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "\\pretolerance=-1 skips the first pass; TeX prints no @secondpass marker in that case (§ 863)",
+   "issue": "#112"
+  },
+  {
+   "id": "text/hyphenation-basic",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 176,
+   "covers": "TeX hyphenates \"waffle\" at a line end (Liang patterns, hyph-en-us)",
+   "issue": "#113"
+  },
+  {
+   "id": "text/ligatures-kerns",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 171,
+   "covers": "f-ligatures, quote ligatures, en and em dashes, Spanish ?` !` ligatures, uppercase kern pairs (AV AW LT Ta To Wa Yo VA)"
+  },
+  {
+   "id": "text/paragraph-basic",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 212,
+   "covers": "glyph runs, ligatures (fi, ff), kerning, interword glue, paragraph indent, line breaking"
+  },
+  {
+   "id": "text/space-factor",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 239,
+   "covers": "\\sfcode rules after . ? ! : ; , and after uppercase (NASA. rule), ) and ' leaving the factor unchanged"
+  }
+ ]
+}

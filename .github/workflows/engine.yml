@@ -2,7 +2,8 @@ name: Engine conformance
 
 # Every change to the engine is checked against real TeX: committed data must
 # match TeX's files, the oracles must agree with pdflatex, every fixture must be
-# identical to TeX at 0 sp, and hyphenation must match \showhyphens.
+# identical to TeX at 0 sp (and none may regress against main's scorecard), and
+# the scanners, line breaker and hyphenation must match TeX on generated input.
 
 on:
   pull_request:
@@ -14,6 +15,10 @@ on:
 concurrency:
   group: engine-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write # the scorecard comment
 
 jobs:
   conformance:
@@ -37,6 +42,18 @@ jobs:
         run: bun engine oracle:check
       - name: Fixtures identical to TeX at 0 sp
         run: bun engine unit
+      - name: Scorecard does not regress against main
+        if: always()
+        run: |
+          git fetch -q --depth=1 origin main
+          git show origin/main:lib/latex/fixtures/scorecard.json > "$RUNNER_TEMP/base.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/base.json"
+          bun engine scorecard --check --base "$RUNNER_TEMP/base.json" --markdown "$RUNNER_TEMP/scorecard.md"
+      - name: Post the scorecard on the PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true # read-only token on forks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file "$RUNNER_TEMP/scorecard.md" --edit-last --create-if-none
       - name: Number, dimension and glue scanning identical to TeX (20,000 cases)
         run: bun engine dimen:check --n 20000
       - name: Line breaking identical to TeX (1,000 random paragraphs)
