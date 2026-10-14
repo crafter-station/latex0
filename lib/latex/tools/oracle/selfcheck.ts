@@ -61,12 +61,12 @@ for (let sp = -3 * 65536; sp <= 3 * 65536; sp++) if (parseScaled(printScaled(sp)
 for (let i = 0; i < 200000; i++) { const sp = Math.floor(Math.random() * 2 ** 30) - 2 ** 29; if (parseScaled(printScaled(sp)) !== sp) rtFail++ }
 console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"} over 593217 values`)
 
-// 2. every fixture: the chosen break path has exactly as many lines as the DVI
+// 2. every fixture: the chosen break paths have exactly as many lines as the DVI
 let pathFail = 0
 for (const fx of collectFixtures(["lib/latex/fixtures"])) {
   const { trace, decisions } = cachedOracle(fx)
   const dviLines = new Set(trace.pages[0]?.glyphs.map((g) => g.v)).size
-  const chosen = decisions.paragraphs.find((p) => p.chosen.length)?.chosen.length ?? 0
+  const chosen = decisions.paragraphs.reduce((n, p) => n + p.chosen.length, 0)
   const ok = chosen === dviLines
   if (!ok) pathFail++
   console.log(`  ${ok ? "✓" : "✗"} ${fx.split("/").slice(-2).join("/")}: chosen path ${chosen} lines, DVI ${dviLines} lines`)
