@@ -18,7 +18,7 @@ export function loadTfm(name: string): Tfm {
   if (hit) return hit
   const path = execFileSync("kpsewhich", [`${name}.tfm`], { env: ENV, encoding: "utf8" }).trim()
   if (!path) throw new Error(`TFM not found: ${name}`)
-  const tfm = parseTfm(new Uint8Array(readFileSync(path)))
+  const tfm = parseTfm(new Uint8Array(readFileSync(path)), name)
   tfmCache.set(name, tfm)
   return tfm
 }

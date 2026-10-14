@@ -1,30 +1,13 @@
-// TeX Font Metric (TFM) reader. Zero dependencies.
-// Spec: "TeX: The Program" §§ 539–576 and tftopl.web. Dimensions are fix_words
-// (signed, 20 fractional bits, in units of the design size). `scaled()` converts
-// a fix_word to scaled points for a font loaded at size `s` sp using TeX's own
-// integer algorithm (§ 571–572 store_scaled), so results are bit-exact.
+// TeX Font Metric (TFM) reader. Zero dependencies. Dev tooling: the engine
+// itself consumes generated metrics data, never .tfm files (issue #42).
+// Spec: "TeX: The Program" §§ 539–576 and tftopl.web.
 
-export interface TfmChar {
-  width: number // fix_word
-  height: number
-  depth: number
-  italic: number
-  tag: number // 0 none, 1 lig/kern, 2 list (next larger), 3 extensible
-  remainder: number
-}
+import type { FixWordFont } from "../../layout/font"
+export { scaled } from "../../layout/arith"
 
-export interface Tfm {
-  checksum: number
-  designSize: number // fix_word (pt * 2^20)
-  bc: number
-  ec: number
-  chars: Map<number, TfmChar>
-  ligKern: number[] // raw 4-byte instructions packed as uint32
-  kerns: number[] // fix_words
-  params: number[] // fix_words, params[1..np] (index 0 unused)
-}
+export type Tfm = FixWordFont
 
-export function parseTfm(buf: Uint8Array): Tfm {
+export function parseTfm(buf: Uint8Array, name = ""): Tfm {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
   const half = (i: number) => dv.getUint16(i * 2)
   const [lf, lh, bc, ec, nw, nh, nd, ni, nl, nk, ne, np] = Array.from({ length: 12 }, (_, i) => half(i))
@@ -45,10 +28,10 @@ export function parseTfm(buf: Uint8Array): Tfm {
   p += ne
   const paramBase = p
 
-  const chars = new Map<number, TfmChar>()
+  const chars: Tfm["chars"] = new Map()
   for (let c = bc; c <= ec; c++) {
-    const ci = charInfo + (c - bc)
-    const b0 = buf[ci * 4], b1 = buf[ci * 4 + 1], b2 = buf[ci * 4 + 2], b3 = buf[ci * 4 + 3]
+    const ci = (charInfo + (c - bc)) * 4
+    const b0 = buf[ci], b1 = buf[ci + 1], b2 = buf[ci + 2], b3 = buf[ci + 3]
     if (b0 === 0) continue // width index 0 = char absent
     chars.set(c, {
       width: word(widthBase + b0),
@@ -60,26 +43,12 @@ export function parseTfm(buf: Uint8Array): Tfm {
     })
   }
   return {
+    name,
     checksum: uword(header),
     designSize: word(header + 1),
-    bc, ec, chars,
+    chars,
     ligKern: Array.from({ length: nl }, (_, i) => uword(ligBase + i)),
     kerns: Array.from({ length: nk }, (_, i) => word(kernBase + i)),
     params: [0, ...Array.from({ length: np }, (_, i) => word(paramBase + i))],
   }
-}
-
-/** Convert a fix_word to sp for a font at size `s` sp — TeX § 572, bit-exact. */
-export function scaled(fix: number, s: number): number {
-  let z = s
-  let alpha = 16
-  while (z >= 0o40000000) { z = Math.floor(z / 2); alpha += alpha }
-  const beta = Math.floor(256 / alpha)
-  alpha *= z
-  const u = fix >>> 0
-  const a = u >>> 24, b = (u >>> 16) & 255, c = (u >>> 8) & 255, d = u & 255
-  const sw = Math.floor((Math.floor((Math.floor((d * z) / 256) + c * z) / 256) + b * z) / beta)
-  if (a === 0) return sw
-  if (a === 255) return sw - alpha
-  throw new Error(`bad fix_word ${fix}`)
 }

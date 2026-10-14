@@ -3,12 +3,11 @@
 // num/den/mag (25400000/473628672, 1000) one DVI unit is exactly 1 sp, so the
 // trace is in scaled points with no rounding.
 
-import { scaled, type Tfm } from "./tfm"
+import { scaled } from "../../layout/arith"
+import type { Trace, TracePage } from "../../trace/schema"
+import type { Tfm } from "./tfm"
 
-export interface TraceGlyph { font: string; size: number; char: number; h: number; v: number; width: number }
-export interface TraceRule { h: number; v: number; width: number; height: number }
-export interface TracePage { counts: number[]; glyphs: TraceGlyph[]; rules: TraceRule[]; specials: string[] }
-export interface Trace { unit: "sp"; mag: number; pages: TracePage[] }
+export type { Trace, TracePage } from "../../trace/schema"
 
 export type FontLoader = (name: string) => Tfm
 
