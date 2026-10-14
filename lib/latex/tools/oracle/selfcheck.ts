@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process"
 import { join } from "node:path"
 import { oracleTrace, loadTfm, texVersion } from "./oracle"
 import { scaled } from "./tfm"
+import { texEnv } from "../tex"
 
 const fx = join(process.cwd(), "lib/latex/fixtures/micro/text/paragraph-basic.tex")
 console.log(texVersion())
@@ -31,7 +32,7 @@ for (const g of pg.glyphs) {
 
 // 3. Independent check: pdflatex + pdftotext -bbox word xMin, in bp from page corner
 const dir = join(process.cwd(), ".cache/oracle/paragraph-basic")
-execFileSync("pdflatex", ["-interaction=nonstopmode", "paragraph-basic.tex"], { cwd: dir, env: { ...process.env, PATH: `/Library/TeX/texbin:${process.env.PATH}` }, stdio: "pipe" })
+execFileSync("pdflatex", ["-interaction=nonstopmode", "paragraph-basic.tex"], { cwd: dir, env: texEnv(), stdio: "pipe" })
 const html = execFileSync("pdftotext", ["-bbox", join(dir, "paragraph-basic.pdf"), "-"], { encoding: "utf8" })
 const pdfWords = [...html.matchAll(/xMin="([\d.]+)" yMin="[\d.]+" xMax="[\d.]+" yMax="([\d.]+)">([^<]*)</g)].map((m) => ({ x: +m[1], s: m[3] }))
 const toBp = (sp: number) => (sp / 65536 + 72.27) * 72 / 72.27 // DVI origin is 1in,1in

@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { decodeFontData, encodeFontData, type FontData } from "../../layout/fontdata"
 import type { FixWordFont } from "../../layout/font"
-import { loadTfm, texVersion } from "../oracle/oracle"
+import { loadTfm } from "../oracle/oracle"
 
 export const FONTS = [
   // text
@@ -40,7 +40,7 @@ export function codegenFonts(check: boolean): number {
     if (!sameFont(decodeFontData(data), tfm)) throw new Error(`${name}: encoded data does not round-trip`)
     files.set(`${name}.json`, JSON.stringify(data) + "\n")
   }
-  const index = { generatedFrom: texVersion(), fonts: FONTS.map((n) => ({ name: n, checksum: (JSON.parse(files.get(`${n}.json`)!) as FontData).checksum })) }
+  const index = { fonts: FONTS.map((n) => ({ name: n, checksum: (JSON.parse(files.get(`${n}.json`)!) as FontData).checksum })) }
   files.set("index.json", JSON.stringify(index, null, 1) + "\n")
 
   const stale = [...files].filter(([f, body]) => !existsSync(join(OUT, f)) || readFileSync(join(OUT, f), "utf8") !== body).map(([f]) => f)

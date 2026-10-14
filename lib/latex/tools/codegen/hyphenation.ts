@@ -5,9 +5,9 @@ import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { HyphenationData } from "../../layout/hyphenate"
+import { texEnv } from "../tex"
 
 const OUT = "lib/latex/data/hyphenation"
-const TEXBIN = process.env.TEXBIN ?? "/Library/TeX/texbin"
 
 function block(src: string, cmd: string): string[] {
   const start = src.indexOf(`\\${cmd}{`)
@@ -19,7 +19,7 @@ function block(src: string, cmd: string): string[] {
 }
 
 export function codegenHyphenation(check: boolean): number {
-  const path = execFileSync(`${TEXBIN}/kpsewhich`, ["hyphen.tex"], { encoding: "utf8" }).trim()
+  const path = execFileSync("kpsewhich", ["hyphen.tex"], { encoding: "utf8", env: texEnv() }).trim()
   const src = readFileSync(path, "latin1")
   const data: HyphenationData = { format: 1, source: "hyphen.tex (Knuth, TeX Live)", patterns: block(src, "patterns"), exceptions: block(src, "hyphenation") }
   const body = JSON.stringify(data) + "\n"

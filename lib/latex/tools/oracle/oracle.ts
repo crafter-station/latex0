@@ -8,10 +8,10 @@ import { basename, join, resolve } from "node:path"
 import type { Decisions } from "../../trace/decisions"
 import { parseDvi, type Trace } from "./dvi"
 import { parseDecisions } from "./tracing"
+import { texEnv } from "../tex"
 import { parseTfm, type Tfm } from "./tfm"
 
-const TEXBIN = process.env.TEXBIN ?? "/Library/TeX/texbin"
-const ENV = { ...process.env, PATH: `${TEXBIN}:${process.env.PATH}` }
+const ENV = texEnv()
 const CACHE = resolve(process.cwd(), ".cache/oracle")
 
 const tfmCache = new Map<string, Tfm>()
