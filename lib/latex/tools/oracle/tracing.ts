@@ -2,16 +2,14 @@
 // 863) and \tracingpages (§§ 986, 1005, 1011). The log must be written with
 // max_print_line large enough that lines are not wrapped.
 
+import { roundDecimals } from "../../layout/dimen"
 import { bestFinal, type BreakKind, type Decisions, type FeasibleBreak, type PageTrace, type ParagraphTrace, type Pass, type PassTrace } from "../../trace/decisions"
 
 /** Parse a decimal printed by print_scaled back to sp exactly (round_decimals, § 102). */
 export function parseScaled(s: string): number {
   const m = s.match(/^(-?)(\d+)(?:\.(\d+))?$/)
   if (!m) throw new Error(`not a dimension: ${s}`)
-  const digits = (m[3] ?? "").slice(0, 17).split("").map(Number)
-  let a = 0
-  for (let k = digits.length - 1; k >= 0; k--) a = Math.floor((a + digits[k] * 0o400000) / 10)
-  const sp = Number(m[2]) * 65536 + Math.floor((a + 1) / 2)
+  const sp = Number(m[2]) * 65536 + roundDecimals((m[3] ?? "").slice(0, 17).split("").map(Number))
   return m[1] ? -sp : sp
 }
 

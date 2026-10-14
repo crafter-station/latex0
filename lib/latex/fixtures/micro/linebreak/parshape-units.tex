@@ -1,0 +1,10 @@
+% fixture: linebreak/parshape-units
+% tier: T3
+% engine: paragraph
+% covers: \parshape lengths in em, pc, in, cm, mm, bp and dd, scanned as TeX scans them (§§ 448–458)
+% issue: #52
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 4 1em 20pc 0.5in 10cm 12.7mm 250bp 2,5dd 300.25pt The quick brown fox jumps over the lazy dog while the patient cat watches from the warm windowsill. Nobody seems to mind the noise, and the garden stays calm as the evening light slowly fades into a quiet and gentle night over the old town.
+\end{document}
