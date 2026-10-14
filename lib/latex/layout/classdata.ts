@@ -7,6 +7,8 @@ import type { GlueSpec } from "./dimen"
 export const SIZE_COMMANDS = ["tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge"] as const
 export type SizeCommand = (typeof SIZE_COMMANDS)[number]
 
+export interface FontRef { name: string; at: number }
+
 /** One size command: \@setfontsize plus what the .clo sets with it. */
 export interface SizeData {
   /** \f@size, and the math sizes \sf@size, \ssf@size (fontdef \DeclareMathSizes) */
@@ -14,9 +16,11 @@ export interface SizeData {
   scriptSize: number
   scriptScriptSize: number
   /** the upright roman font at this size: TFM name and at-size */
-  font: { name: string; at: number }
+  font: FontRef
   baselineskip: GlueSpec
   /** display skips; set by \normalsize, \small and \footnotesize, inherited by the others */
+  /** math families 0–3 (roman, math italic, symbols, extension) at text, script and scriptscript size */
+  math: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
   abovedisplayskip: GlueSpec
   belowdisplayskip: GlueSpec
   abovedisplayshortskip: GlueSpec

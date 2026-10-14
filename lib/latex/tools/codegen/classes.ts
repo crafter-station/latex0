@@ -41,7 +41,9 @@ function probe(cls: string, option: string): string {
     `\\documentclass[${option}]{${cls}}`,
     "\\makeatletter",
     "\\def\\P#1#2{\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}}",
-    `\\def\\S#1{{#1\\check@mathfonts\\immediate\\write16{S:\\expandafter\\@gobble\\string#1:\\f@size:\\sf@size:\\ssf@size:\\fontname\\font:\\the\\baselineskip${DISPLAY.map((d) => `:\\the\\${d}`).join("")}}}}`,
+    `\\def\\S#1{{#1\\check@mathfonts\\immediate\\write16{S:\\expandafter\\@gobble\\string#1:\\f@size:\\sf@size:\\ssf@size:\\fontname\\font:\\the\\baselineskip${DISPLAY.map((d) => `:\\the\\${d}`).join("")}}` +
+      // the math families 0–3 at text, script and scriptscript size
+      `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}}}`,
     "\\begin{document}",
     ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
     ...SIZE_COMMANDS.map((s) => `\\S\\${s}`),
@@ -63,6 +65,7 @@ function texData(cls: string, option: string): ClassOptionData {
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "probe.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
   const log = readFileSync(join(dir, "probe.log"), "latin1").split("\n")
   const data: ClassOptionData = { dimens: {}, glue: {}, ints: {}, sizes: {} as ClassOptionData["sizes"] }
+  const mathFonts = new Map<string, SizeData["math"]>()
   for (const line of log) {
     let m: RegExpMatchArray | null
     if ((m = line.match(/^([DGI]):(\w+)=(.*)$/))) {
@@ -76,11 +79,16 @@ function texData(cls: string, option: string): ClassOptionData {
         font: { name: m[5], at: m[6] ? parseScaled(m[6]) : designSize(m[5]) },
         baselineskip,
         abovedisplayskip: display[0], belowdisplayskip: display[1], abovedisplayshortskip: display[2], belowdisplayshortskip: display[3],
+        math: { text: [], script: [], scriptscript: [] },
       }
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
+    } else if ((m = line.match(/^F:(\w+):(.*)$/))) {
+      const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
+      mathFonts.set(m[1], { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) })
     }
   }
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside"].filter((i) => !(i in data.ints)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s])]
+  for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside"].filter((i) => !(i in data.ints)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }
