@@ -7,13 +7,26 @@
 // delimited and #{ parameters; \expandafter \noexpand \csname \string \number
 // \meaning \unexpanded \detokenize; \ifx \if \ifcat \ifnum \iftrue \iffalse
 // \else \fi; \relax, {}, \begingroup \endgroup.
+//
+// With `latex: true` it also knows LaTeX's \newcommand, \renewcommand,
+// \providecommand and \DeclareRobustCommand (latex.ltx \@argdef, \@xargdef), and
+// \let to a command it does not know makes an alias, for documents (#46). A
+// macro with an optional argument is two macros, as in LaTeX: \foo looks for
+// [ after \@ifnextchar skips spaces and calls the internal \\foo, so a \let copy
+// of \foo follows a later \renewcommand. The assignments \@ifnextchar makes end a
+// ligature and kern run; the expansion starts with \relax to do the same.
 
 import { LEFT_BRACE, MAC_PARAM, OTHER_CHAR, RIGHT_BRACE, SPACER, Tokenizer, latexCatcodes, printCs, sameTok, showTokens, type Tok } from "./tokens"
 
 /** A macro's parameter text: literal tokens and parameter markers; `brace` for a final #{. */
 export type ParamItem = { tok: Tok } | { param: number }
 export type BodyItem = { tok: Tok } | { arg: number }
-export interface Macro { kind: "macro"; params: ParamItem[]; brace: boolean; body: BodyItem[]; long: boolean; protected: boolean }
+export interface Macro {
+  kind: "macro"; params: ParamItem[]; brace: boolean; body: BodyItem[]; long: boolean; protected: boolean
+  /** LaTeX's optional first argument: its default, and the internal macro that takes [#1] */
+  optional?: Tok[]
+  inner?: string
+}
 export type Meaning = Macro | { kind: "prim"; name: string } | { kind: "char"; cat: number; c: number } | { kind: "undefined" }
 
 const EXPANDABLE = new Set(["expandafter", "noexpand", "csname", "string", "number", "meaning", "unexpanded", "detokenize",
@@ -21,6 +34,16 @@ const EXPANDABLE = new Set(["expandafter", "noexpand", "csname", "string", "numb
 const CONDITIONALS = new Set(["ifx", "if", "ifcat", "ifnum", "iftrue", "iffalse"])
 const PRIMITIVES = [...EXPANDABLE, "def", "gdef", "edef", "xdef", "let", "global", "long", "protected", "relax", "endcsname",
   "begingroup", "endgroup", "par"]
+const LATEX_DEFINITIONS = ["newcommand", "renewcommand", "providecommand", "DeclareRobustCommand"]
+const DEFINITIONS = new Set(["def", "gdef", "edef", "xdef", "let", "global", "long", "protected", ...LATEX_DEFINITIONS])
+
+export interface ExpanderOptions {
+  fuel?: number
+  /** LaTeX's definition commands (\\newcommand family) and aliases for \\let */
+  latex?: boolean
+  /** commands defined outside the expander (a renderer's built-ins), for \\providecommand */
+  known?: (name: string) => boolean
+}
 
 export class ExpansionError extends Error {}
 
@@ -34,10 +57,33 @@ export class Expander {
   fuel: number
   readonly catcodes = latexCatcodes()
 
-  constructor(private reader: Tokenizer, fuel = 1_000_000) {
-    this.fuel = fuel
+  private latex: boolean
+  private known: (name: string) => boolean
+  /** problems met while running in document mode (\\newcommand of a defined command) */
+  readonly warnings: string[] = []
+
+  constructor(private reader: Tokenizer, opts: number | ExpanderOptions = {}) {
+    const o = typeof opts === "number" ? { fuel: opts } : opts
+    this.fuel = o.fuel ?? 1_000_000
+    this.latex = !!o.latex
+    this.known = o.known ?? (() => false)
     for (const p of PRIMITIVES) this.meanings.set(p, { kind: "prim", name: p })
+    if (this.latex) for (const p of LATEX_DEFINITIONS) this.meanings.set(p, { kind: "prim", name: p })
   }
+
+  // ---- document mode: a driver reads top-level tokens and decides what to expand ----
+  /** The next token: from pending expansions first, then the source. */
+  read(): Tok | null { return this.getNext() }
+  /** True while tokens from earlier expansions are still waiting to be read. */
+  get pending(): boolean {
+    while (this.input.length && this.input[this.input.length - 1].i >= this.input[this.input.length - 1].toks.length) this.input.pop()
+    return this.input.length > 0
+  }
+  isExpandable(t: Tok): boolean { return this.expandable(t) }
+  /** A definition command: it runs, and leaves nothing in the output. */
+  isDefinition(t: Tok): boolean { const m = this.meaning(t); return t.cs !== undefined && !t.dontExpand && m.kind === "prim" && DEFINITIONS.has(m.name) }
+  /** Act on an unexpandable token as main control does: definitions and grouping. */
+  perform(t: Tok) { this.command(t, { global: false, long: false, protected: false }) }
 
   meaning(t: Tok): Meaning {
     const k = key(t)
@@ -136,6 +182,16 @@ export class Expander {
   private macroCall(t: Tok, m: Macro) {
     const args: Tok[][] = []
     let pi = 0
+    let relax = false
+    if (m.inner) { // \\@protected@testopt\\foo\\\\foo{default}: \\@ifnextchar[ skips spaces, then looks for [
+      const inner = this.meanings.get(m.inner)
+      if (!inner || inner.kind !== "macro") throw new ExpansionError(`Undefined control sequence \\${m.inner}`)
+      let x = this.need(this.getNext())
+      while (x.cat === SPACER) x = this.need(this.getNext())
+      this.backInput([x])
+      if (!(x.cat === OTHER_CHAR && x.c === 91)) { args[0] = m.optional!; pi = 3 }
+      m = inner; relax = true
+    }
     const items = m.params
     while (pi < items.length) {
       const item = items[pi]
@@ -151,7 +207,7 @@ export class Expander {
       args[item.param - 1] = delim.length ? this.delimitedArg(t, delim, m.long) : this.undelimitedArg(t, m.long)
       pi = j
     }
-    const out: Tok[] = []
+    const out: Tok[] = relax ? [{ cs: "relax" }] : []
     for (const b of m.body) { if ("tok" in b) out.push(b.tok); else out.push(...args[b.arg - 1]) }
     this.backInput(out)
   }
@@ -346,6 +402,7 @@ export class Expander {
         return
       }
       case "def": case "gdef": case "edef": case "xdef": this.def(m.name, pre); return
+      case "newcommand": case "renewcommand": case "providecommand": case "DeclareRobustCommand": this.newcommand(m.name); return
       case "let": this.let(pre.global); return
       case "begingroup": this.beginGroup(); return
       case "endgroup": this.endGroup(); return
@@ -379,12 +436,60 @@ export class Expander {
     }
     // #{: the brace stays in the parameter text as the last delimiter (§ 476)
     // § 477: the body, expanded for \\edef and \\xdef
-    const expandBody = kind === "edef" || kind === "xdef"
+    const body = this.readBody(target, n, kind === "edef" || kind === "xdef")
+    if (brace) body.push({ tok: { cat: LEFT_BRACE, c: 123 } }) // § 476: #{ puts the brace back at the end of the body
+    const global = pre.global || kind === "gdef" || kind === "xdef"
+    this.define(key(target)!, { kind: "macro", params, brace, body, long: pre.long, protected: pre.protected }, global)
+  }
+
+  /** \\newcommand{\\cs}[n][default]{body} and its relatives (latex.ltx \\@star@or@long, \\@argdef, \\@xargdef). */
+  private newcommand(kind: string) {
+    let x = this.need(this.getNext())
+    while (x.cat === SPACER) x = this.need(this.getNext())
+    const long = !(x.cat === OTHER_CHAR && x.c === 42) // \\newcommand* makes a short macro
+    if (!long) x = this.need(this.getNext())
+    while (x.cat === SPACER) x = this.need(this.getNext())
+    let target: Tok = x
+    if (x.cat === LEFT_BRACE) {
+      const name = this.balanced(x, true).filter((y) => y.cat !== SPACER)
+      if (name.length !== 1 || name[0].cs === undefined) throw new ExpansionError(`\\${kind}: missing control sequence`)
+      target = name[0]
+    } else if (x.cs === undefined) throw new ExpansionError(`\\${kind}: missing control sequence`)
+    const next = () => { let y = this.need(this.getNext()); while (y.cat === SPACER) y = this.need(this.getNext()); return y }
+    const bracket = (): Tok[] => this.delimitedArg(target, [{ cat: OTHER_CHAR, c: 93 }], true)
+    let y = next(), n = 0
+    let optional: Tok[] | undefined
+    if (y.cat === OTHER_CHAR && y.c === 91) {
+      const digits = bracket().filter((z) => z.cat !== SPACER).map((z) => String.fromCharCode(z.c ?? 0)).join("")
+      if (!/^[0-9]$/.test(digits)) throw new ExpansionError(`\\${kind}: illegal number of arguments [${digits}]`)
+      n = Number(digits)
+      y = next()
+      if (y.cat === OTHER_CHAR && y.c === 91) { optional = bracket(); y = next() }
+    }
+    if (y.cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
+    const body = this.readBody(target, n, false)
+    const params: ParamItem[] = optional
+      ? [{ tok: { cat: OTHER_CHAR, c: 91 } }, { param: 1 }, { tok: { cat: OTHER_CHAR, c: 93 } }, ...Array.from({ length: n - 1 }, (_, i) => ({ param: i + 2 }))]
+      : Array.from({ length: n }, (_, i) => ({ param: i + 1 }))
+    if (optional && n === 0) throw new ExpansionError(`\\${kind}: a default value needs an argument`)
+    const k = key(target)!
+    const defined = this.meanings.has(k) && this.meanings.get(k)!.kind !== "undefined"
+    if (kind === "newcommand" && defined) { this.warnings.push(`Command ${printCs(target.cs!).trim()} already defined`); return }
+    if (kind === "providecommand" && (defined || this.known(target.cs!))) return
+    const macro: Macro = { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }
+    if (!optional) { this.define(k, macro, false); return }
+    // \\foo is \\@protected@testopt\\foo\\\\foo{default}; \\\\foo takes [#1]
+    this.define("\\" + k, macro, false)
+    this.define(k, { kind: "macro", params: [], brace: false, body: [], long: false, protected: true, optional, inner: "\\" + k }, false)
+  }
+
+  /** A macro body up to the matching right brace (the left brace already read), with #1…#n (§ 477). */
+  private readBody(target: Tok, n: number, expand: boolean): BodyItem[] {
     const body: BodyItem[] = []
     let depth = 1
     for (;;) {
       let x = this.need(this.getNext())
-      if (expandBody) {
+      if (expand) {
         while (this.expandable(x) && !this.isProtected(x)) {
           if (this.meaning(x).kind === "prim" && (this.meaning(x) as { name: string }).name === "unexpanded") {
             for (const u of this.scanGeneralText()) body.push({ tok: u })
@@ -397,7 +502,7 @@ export class Expander {
         if (x.dontExpand) x = { cs: x.cs!, ...(x.active ? { active: true } : {}) }
       }
       if (x.cat === LEFT_BRACE) depth++
-      else if (x.cat === RIGHT_BRACE && --depth === 0) break
+      else if (x.cat === RIGHT_BRACE && --depth === 0) return body
       if (x.cat === MAC_PARAM) {
         const y = this.need(this.getNext())
         if (y.cat === MAC_PARAM) { body.push({ tok: y }); continue } // ## → one parameter character
@@ -406,9 +511,6 @@ export class Expander {
       }
       body.push({ tok: x })
     }
-    if (brace) body.push({ tok: { cat: LEFT_BRACE, c: 123 } }) // § 476: #{ puts the brace back at the end of the body
-    const global = pre.global || kind === "gdef" || kind === "xdef"
-    this.define(key(target)!, { kind: "macro", params, brace, body, long: pre.long, protected: pre.protected }, global)
   }
 
   private isProtected(x: Tok): boolean { const m = this.meaning(x); return m.kind === "macro" && m.protected }
@@ -418,7 +520,9 @@ export class Expander {
     let x = this.need(this.getNext())
     while (x.cat === SPACER) x = this.need(this.getNext())
     if (x.cat === OTHER_CHAR && x.c === 61) { x = this.need(this.getNext()); if (x.cat === SPACER) x = this.need(this.getNext()) }
-    const m: Meaning = x.cs === undefined ? { kind: "char", cat: x.cat, c: x.c } : x.dontExpand ? { kind: "prim", name: "relax" } : this.meaning(x)
+    let m: Meaning = x.cs === undefined ? { kind: "char", cat: x.cat, c: x.c } : x.dontExpand ? { kind: "prim", name: "relax" } : this.meaning(x)
+    // a document's \\let to a command defined outside the expander: an alias for it
+    if (this.latex && m.kind === "undefined" && x.cs !== undefined) m = { kind: "macro", params: [], brace: false, body: [{ tok: x }], long: false, protected: false }
     this.define(key(target)!, m, global)
   }
 }

@@ -1,7 +1,7 @@
 // Arity-aware, environment-aware recursive-descent parser.
 // Turns the flat token stream into a tree the renderer can walk in one pass.
 
-import { TEXT_ACCENTS } from "./symbols"
+import { SYMBOLS, TEXT_ACCENTS } from "./symbols"
 import { Tok, type Node, type Token } from "./types"
 
 // Accent commands (\'e \"o \^a \c{c} ...) bind to a single following atom.
@@ -10,6 +10,11 @@ const ACCENT_CMDS = new Set(Object.keys(TEXT_ACCENTS))
 // How many mandatory {..} arguments well-known commands consume. Anything not
 // listed takes 0 (it renders as a standalone symbol/command). This table is the
 // single place to grow command coverage.
+/** Commands the renderer knows: \providecommand leaves these alone (expand/document.ts). */
+export function isKnownCommand(name: string): boolean {
+  return name in ARITY || name in SYMBOLS || name in TEXT_ACCENTS
+}
+
 const ARITY: Record<string, number> = {
   // sectioning
   part: 1,
