@@ -4,6 +4,7 @@
 //   bun engine codegen [--check]                       regenerate committed font metrics (#42)
 //   bun engine decisions <fixture.tex>                 TeX line-break and page-break decisions (#28)
 //   bun engine search:badness 12,13                    ask TeX for paragraphs hitting given badness values; write fixtures
+//   bun engine hyphen:check [--words N]                engine hyphenation vs TeX \\showhyphens (#113)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -47,7 +48,8 @@ switch (cmd) {
     break
   case "codegen": {
     const { codegenFonts } = await import("./codegen/fonts")
-    process.exit(codegenFonts(flags.has("--check")))
+    const { codegenHyphenation } = await import("./codegen/hyphenation")
+    process.exit(codegenFonts(flags.has("--check")) | codegenHyphenation(flags.has("--check")))
   }
   case "decisions": {
     if (!args[0]) throw new Error("usage: bun engine decisions <fixture.tex>")
@@ -64,6 +66,11 @@ switch (cmd) {
     for (const f of writeBadnessFixtures(found)) console.log("wrote", f)
     if (missing.length) console.log("not found:", missing.join(", "))
     break
+  }
+  case "hyphen:check": {
+    const { hyphenCheck } = await import("./oracle/showhyphens")
+    const i = rest.indexOf("--words")
+    process.exit(hyphenCheck(i >= 0 ? Number(rest[i + 1]) : 10000))
   }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")

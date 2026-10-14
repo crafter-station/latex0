@@ -1,0 +1,10 @@
+% fixture: hyphenation/narrow-column
+% tier: T3
+% engine: paragraph
+% covers: many second-pass hyphenations in a narrow measure; doublehyphendemerits and finalhyphendemerits
+% issue: #113
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 1 0pt 120pt Hyphenation algorithms determine where words may be broken. Typographers appreciate consistent paragraphs, considerable flexibility, and remarkable typesetting quality throughout documentation.
+\end{document}

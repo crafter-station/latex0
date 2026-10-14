@@ -2,11 +2,11 @@
 // §§ 813–890. Integer-exact port. Delta nodes (§§ 843–844, 860–861) are
 // replaced by prefix sums of the same integers, which yields identical widths.
 //
-// Not yet implemented, each tracked: hyphenation in the second pass (#113),
-// \looseness (§ 875), discretionary and math breaks.
+// Not yet implemented, each tracked: \looseness (§ 875), math breaks.
 
 import { INF_PENALTY } from "./arith"
-import { glue as mkGlue, penalty as mkPenalty, FIL, type BoxNode, type GlueNode, type Node } from "./nodes"
+import { hyphenateFollowingWord, type HyphenContext } from "./hyphenpass"
+import { glue as mkGlue, penalty as mkPenalty, FIL, type BoxNode, type DiscNode, type GlueNode, type Node } from "./nodes"
 import { hpack } from "./pack"
 import type { ActiveNode, FeasibleBreak, ParagraphTrace, PassTrace } from "../trace/decisions"
 
@@ -37,6 +37,10 @@ export interface LineBreakParams {
   brokenPenalty: number
   /** \prevgraf before the paragraph (0 for a fresh paragraph). */
   prevGraf: number
+  hyphenPenalty: number
+  exHyphenPenalty: number
+  /** Patterns and fonts for second-pass hyphenation; without it the second pass does not hyphenate. */
+  hyphenation?: HyphenContext
 }
 
 /** LaTeX defaults (latex.ltx, article.cls) for a 10pt document. */
@@ -46,6 +50,7 @@ export function latexDefaults(hsize: number): LineBreakParams {
     pretolerance: 100, tolerance: 200, emergencyStretch: 0, linePenalty: 10, adjDemerits: 10000,
     doubleHyphenDemerits: 10000, finalHyphenDemerits: 5000, hangIndent: 0, hangAfter: 1, parShape: [],
     interLinePenalty: 0, clubPenalty: 150, widowPenalty: 150, brokenPenalty: 100, prevGraf: 0,
+    hyphenPenalty: 50, exHyphenPenalty: 50,
   }
 }
 
@@ -78,7 +83,16 @@ export interface LineBreakResult {
 
 /** precedes_break (§ 148): node types that may precede a glue breakpoint. */
 function precedesBreak(n: Node): boolean {
-  return n.kind === "char" || n.kind === "hlist" || n.kind === "vlist" || n.kind === "rule"
+  return n.kind === "char" || n.kind === "hlist" || n.kind === "vlist" || n.kind === "rule" || n.kind === "disc"
+}
+
+/** Width of a node inside a discretionary list (§§ 841–842, 870). */
+function discItemWidth(n: Node): number {
+  switch (n.kind) {
+    case "char": case "hlist": case "vlist": case "kern": return n.width
+    case "rule": return n.width ?? 0
+    default: throw new Error(`discretionary list may not contain ${n.kind} (§ 841)`)
+  }
 }
 
 /** Break `hlist` (a paragraph's horizontal list, without \parfillskip) into lines. */
@@ -125,7 +139,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
       case "glue":
         if (n.shrinkOrder !== 0 && n.shrink !== 0) throw new Error("Infinite glue shrinkage found in a paragraph")
         t[0] += sign * n.width; t[1 + n.stretchOrder] += sign * n.stretch; t[5] += sign * n.shrink; break
-      case "penalty": break
+      case "penalty": case "disc": break
     }
   }
 
@@ -153,9 +167,18 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
     let minimumDemerits = AWFUL_BAD
 
     // break_width (§ 837): totals at the start of the line that follows a break at cur
-    const breakStart = (cur: number): Six => {
+    const breakStart = (cur: number, hyphenated: boolean): Six => {
       const s = totals.slice() as Six
-      for (let k = cur; k < list.length; k++) {
+      let k = cur
+      if (hyphenated && cur < list.length) {
+        // § 840: the replaced nodes vanish and the post-break text starts the line
+        const d = list[cur] as DiscNode
+        for (let t = 1; t <= d.replaceCount; t++) s[0] += discItemWidth(list[cur + t])
+        for (const n of d.post) s[0] -= discItemWidth(n)
+        if (d.post.length) return s
+        k = cur + d.replaceCount + 1 // nodes may be discardable after the break
+      }
+      for (; k < list.length; k++) {
         const n = list[k]
         if (n.kind === "glue" || n.kind === "penalty") { add(s, n); continue }
         if (n.kind === "kern" && n.explicit) { add(s, n); continue }
@@ -165,21 +188,21 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
     }
 
     // try_break (§ 829). `cur` is the index of the break node, or list.length for the end.
-    const tryBreak = (pi: number, hyphenated: boolean, cur: number) => {
+    const tryBreak = (pi: number, hyphenated: boolean, cur: number, discWidth = 0) => {
       if (Math.abs(pi) >= INF_PENALTY) { if (pi > 0) return; pi = EJECT_PENALTY }
       let noBreakYet = true
       let start: Six | null = null
       let oldL = 0
       let lineWidth = 0
       let i = 0
-      const curWidth = (r: Active): Six => totals.map((t, k) => bg[k] + t - r.start[k]) as Six
+      const curWidth = (r: Active): Six => totals.map((t, k) => bg[k] + t - r.start[k] + (k === 0 ? discWidth : 0)) as Six
       for (;;) {
         const r = active[i] // undefined = last_active
         const l = r ? r.line : Infinity
         if (l > oldL) {
           // § 835–836: create new active nodes for the best feasible breaks just found
           if (minimumDemerits < AWFUL_BAD && (oldL !== easyLine || !r)) {
-            if (noBreakYet) { noBreakYet = false; start = breakStart(cur) }
+            if (noBreakYet) { noBreakYet = false; start = breakStart(cur, hyphenated) }
             if (Math.abs(p.adjDemerits) >= AWFUL_BAD - minimumDemerits) minimumDemerits = AWFUL_BAD - 1
             else minimumDemerits += Math.abs(p.adjDemerits)
             for (let fit = VERY_LOOSE; fit <= TIGHT; fit++) {
@@ -237,7 +260,8 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
             if (hyphenated && r.hyphenated) d += cur < list.length ? p.doubleHyphenDemerits : p.finalHyphenDemerits
             if (Math.abs(fit - r.fitness) > 1) d += p.adjDemerits
           }
-          const kind: FeasibleBreak["kind"] = cur >= list.length ? "par" : list[cur].kind === "glue" ? "glue" : list[cur].kind === "penalty" ? "penalty" : list[cur].kind === "kern" ? "kern" : "glue"
+          const at = list[cur]
+          const kind: FeasibleBreak["kind"] = cur >= list.length ? "par" : at.kind === "penalty" ? "penalty" : at.kind === "kern" ? "kern" : at.kind === "disc" ? "disc" : "glue"
           pass.feasible.push({ kind, via: r.passive?.serial ?? 0, badness: b > INF_BAD ? null : b, penalty: pi, demerits: artificial ? null : d })
           d += r.total
           if (d <= minimalDemerits[fit]) {
@@ -258,13 +282,26 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
       switch (n.kind) {
         case "glue": {
           if (precedesBreak(prev) || (prev.kind === "kern" && !prev.explicit)) tryBreak(0, false, k)
-          break
+          add(totals, n)
+          // § 894: in the second pass, hyphenate the word that follows this glue
+          if (secondPass && p.hyphenation) hyphenateFollowingWord(list, k, p.hyphenation)
+          prev = n
+          continue
         }
         case "kern": {
           if (n.explicit) { const nx = list[k + 1]; if (nx && nx.kind === "glue") tryBreak(0, false, k) }
           break
         }
         case "penalty": tryBreak(n.penalty, false, k); break
+        case "disc": {
+          // § 869: try to break after the pre-break text, then skip the replaced nodes
+          if (n.pre.length === 0) tryBreak(p.exHyphenPenalty, true, k)
+          else tryBreak(p.hyphenPenalty, true, k, n.pre.reduce((w, x) => w + discItemWidth(x), 0))
+          for (let t = 1; t <= n.replaceCount; t++) add(totals, list[k + t])
+          k += n.replaceCount
+          prev = n
+          continue
+        }
         default: break
       }
       add(totals, n)
@@ -303,20 +340,30 @@ function postLineBreak(list: Node[], breaks: Passive[], bestLine: number, p: Lin
   const lines: BoxNode[] = []
   const vlist: Node[] = []
   let pos = 0
+  let carry: Node[] = [] // post-break text that starts the next line (§ 884)
   let curLine = p.prevGraf + 1
   breaks.forEach((brk, bi) => {
     // § 881: modify the end of the line
-    let line: Node[]
+    let line: Node[] = carry
+    carry = []
+    let discBreak = false, postDiscBreak = false
     if (brk.curBreak < list.length) {
       const q = list[brk.curBreak]
-      if (q.kind === "glue") line = [...list.slice(pos, brk.curBreak), { ...p.rightSkip }]
-      else {
-        const kept = q.kind === "kern" ? { ...q, width: 0 } : q
-        line = [...list.slice(pos, brk.curBreak), kept, { ...p.rightSkip }]
+      line = [...line, ...list.slice(pos, brk.curBreak)]
+      if (q.kind === "glue") { line.push({ ...p.rightSkip }); pos = brk.curBreak + 1 }
+      else if (q.kind === "disc") {
+        // §§ 882–885: the discretionary becomes compulsory
+        line.push({ kind: "disc", pre: [], post: [], replaceCount: 0 }, ...q.pre, { ...p.rightSkip })
+        carry = [...q.post]
+        postDiscBreak = q.post.length > 0
+        discBreak = true
+        pos = brk.curBreak + 1 + q.replaceCount
+      } else {
+        line.push(q.kind === "kern" ? { ...q, width: 0 } : q, { ...p.rightSkip })
+        pos = brk.curBreak + 1
       }
-      pos = brk.curBreak + (q.kind === "glue" ? 1 : 1)
     } else {
-      line = [...list.slice(pos), { ...p.rightSkip }]
+      line = [...line, ...list.slice(pos), { ...p.rightSkip }]
       pos = list.length
     }
     // § 880: \leftskip
@@ -335,16 +382,18 @@ function postLineBreak(list: Node[], breaks: Passive[], bestLine: number, p: Lin
       let pen = p.interLinePenalty
       if (curLine === p.prevGraf + 1) pen += p.clubPenalty
       if (curLine + 2 === bestLine) pen += p.widowPenalty
-      // (disc_break → \brokenpenalty once hyphenation lands, #113)
+      if (discBreak) pen += p.brokenPenalty
       if (pen !== 0) vlist.push(mkPenalty(pen))
     }
     curLine++
-    // § 879: prune unwanted nodes at the beginning of the next line
-    const next = breaks[bi + 1]
-    while (pos < list.length && (!next || pos !== next.curBreak)) {
-      const n = list[pos]
-      if (n.kind === "glue" || n.kind === "penalty" || (n.kind === "kern" && n.explicit)) { pos++; continue }
-      break
+    // § 879: prune unwanted nodes at the beginning of the next line (not after a post-break text)
+    if (!postDiscBreak) {
+      const next = breaks[bi + 1]
+      while (pos < list.length && (!next || pos !== next.curBreak)) {
+        const n = list[pos]
+        if (n.kind === "glue" || n.kind === "penalty" || (n.kind === "kern" && n.explicit)) { pos++; continue }
+        break
+      }
     }
   })
   return { lines, vlist }

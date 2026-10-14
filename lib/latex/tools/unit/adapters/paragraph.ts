@@ -10,10 +10,12 @@
 import { UNITY } from "../../../layout/arith"
 import { loadFont } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
+import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { latexDefaults, lineBreak } from "../../../layout/linebreak"
 import { emptyBox, glue, kern, type Node } from "../../../layout/nodes"
 import { vpack } from "../../../layout/pack"
 import { shipOut } from "../../../emit/trace"
+import { readFileSync } from "node:fs"
 import { dataFont } from "../../fonts"
 import type { Adapter } from "./index"
 
@@ -31,6 +33,9 @@ function pt(s: string): number {
   const sp = Number(m[2] || 0) * 65536 + Math.floor((a + 1) / 2)
   return m[1] ? -sp : sp
 }
+
+let memoHyphenator: ReturnType<typeof buildHyphenator> | undefined
+const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("lib/latex/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
 
 export const paragraph: Adapter = (src, oracle) => {
   const eg = oracle.pages[0]?.glyphs ?? []
@@ -56,6 +61,11 @@ export const paragraph: Adapter = (src, oracle) => {
   if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text after the shape assignments")
 
   const font = loadFont(dataFont("cmr10"), 10 * PT)
+  params.hyphenation = {
+    hyphenator: hyphenator(),
+    fontOf: (name, size) => { if (name !== font.name || size !== font.size) throw new Error(`no font ${name}@${size}`); return font },
+    lHyf: 2, rHyf: 3, ucHyph: 1, // \lefthyphenmin, \righthyphenmin, \uchyph for English
+  }
   const list: Node[] = indent ? [emptyBox("hlist", PARINDENT)] : []
   appendText(list, body, font, { spaceFactor: 1000 })
   const { lines, vlist, trace: decisions } = lineBreak(list, params)

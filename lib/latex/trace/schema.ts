@@ -18,6 +18,7 @@ export type BoxNode =
   | { type: "kern"; width: number }
   | { type: "rule"; width: number | null; height: number | null; depth: number | null }
   | { type: "penalty"; penalty: number }
+  | { type: "disc"; pre: BoxNode[]; post: BoxNode[]; replaceCount: number }
 
 const isInt = (x: unknown): x is number => typeof x === "number" && Number.isInteger(x)
 
@@ -52,6 +53,11 @@ export function validateBoxes(n: BoxNode, path = "root"): string[] {
     case "glue": ints(n, ["width", "stretch", "stretchOrder", "shrink", "shrinkOrder"]); break
     case "kern": ints(n, ["width"]); break
     case "penalty": ints(n, ["penalty"]); break
+    case "disc":
+      ints(n, ["replaceCount"])
+      n.pre.forEach((c, i) => errs.push(...validateBoxes(c, `${path}/pre/${i}`)))
+      n.post.forEach((c, i) => errs.push(...validateBoxes(c, `${path}/post/${i}`)))
+      break
     case "rule": for (const k of ["width", "height", "depth"] as const) if (n[k] !== null && !isInt(n[k])) errs.push(`${path}: ${k} not an integer or null`); break
     default: errs.push(`${path}: unknown node type`)
   }

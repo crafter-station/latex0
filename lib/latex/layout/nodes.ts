@@ -20,11 +20,17 @@ export interface BoxNode {
   glueSet: number; glueSign: GlueSign; glueOrder: GlueOrder
   list: Node[]
 }
-export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode
+/**
+ * Discretionary (§ 145): `pre` ends the line and `post` starts the next if TeX
+ * breaks here; otherwise the `replaceCount` nodes that follow it stay.
+ */
+export interface DiscNode { kind: "disc"; pre: Node[]; post: Node[]; replaceCount: number }
+export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode
 
 export const glue = (width: number, stretch = 0, stretchOrder: GlueOrder = NORMAL, shrink = 0, shrinkOrder: GlueOrder = NORMAL): GlueNode =>
   ({ kind: "glue", width, stretch, stretchOrder, shrink, shrinkOrder })
 export const kern = (width: number, explicit = false): KernNode => (explicit ? { kind: "kern", width, explicit } : { kind: "kern", width })
 export const penalty = (p: number): PenaltyNode => ({ kind: "penalty", penalty: p })
+export const emptyDisc = (): DiscNode => ({ kind: "disc", pre: [], post: [], replaceCount: 0 })
 export const emptyBox = (kind: "hlist" | "vlist", width = 0): BoxNode =>
   ({ kind, width, height: 0, depth: 0, shift: 0, glueSet: 0, glueSign: SIGN_NORMAL, glueOrder: NORMAL, list: [] })
