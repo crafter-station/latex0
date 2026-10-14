@@ -11,7 +11,7 @@ import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node } from "../
 import { hpack, vpack } from "../../../layout/pack"
 import { shipOut } from "../../../emit/trace"
 import type { Trace } from "../../../trace/schema"
-import { loadTfm } from "../../oracle/oracle"
+import { dataFont } from "../../fonts"
 import type { Adapter } from "./index"
 
 // article.cls, 10pt, letterpaper (size10.clo)
@@ -32,7 +32,7 @@ export const paragraph: Adapter = (src, oracle) => {
   const origin = { h: eg[0].h - PARINDENT, v: eg[0].v }
 
   // engine computation
-  const font = loadFont(loadTfm("cmr10"), 10 * PT)
+  const font = loadFont(dataFont("cmr10"), 10 * PT)
   const body = src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")).replace(/\s+/g, " ").trim()
   if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text only (no commands or special characters)")
 
