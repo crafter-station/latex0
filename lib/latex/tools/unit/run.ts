@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { compareBoxLists, compareTraces, validateTrace, type BoxDivergence, type Divergence, type Trace } from "../../trace/schema"
 import { findColumn } from "../oracle/boxes"
-import { compareParagraphs, type DecisionDivergence } from "../../trace/decisions"
+import { compareParagraphs, comparePages, documentPages, type DecisionDivergence } from "../../trace/decisions"
 import { cachedOracle } from "../oracle/oracle"
 import { ADAPTERS } from "./adapters"
 import { parseHeader, type Tier } from "./header"
@@ -81,19 +81,26 @@ export function runFixture(path: string): UnitResult {
     const { trace: expected, decisions: oracleDecisions, pages, cached } = cachedOracle(path)
     base.cached = cached
     base.glyphs = expected.pages.reduce((n, p) => n + p.glyphs.length, 0)
-    const { trace: actual, decisions, column, notes } = adapter(src, expected)
+    const { trace: actual, decisions, pages: pageDecisions, columns, notes } = adapter(src, expected)
     const schema = validateTrace(actual)
     if (schema.length) return done({ status: "error", message: `schema: ${schema[0]}`, notes })
     if (decisions) {
       const dd = compareParagraphs(oracleDecisions.paragraphs, decisions)
       if (dd) return done({ status: "fail", decisionDivergence: dd, message: `line-breaking decisions differ: ${dd.what}`, notes })
     }
-    if (column) {
-      const texColumn = pages[0] ? findColumn(pages[0]) : null
-      if (!texColumn) return done({ status: "error", message: "no \\topskip column in TeX's page dump", notes })
-      // compare the engine's column with the same number of items from TeX's
-      const bd = compareBoxLists(texColumn.slice(0, column.length), column)
-      if (bd) return done({ status: "fail", boxDivergence: bd, message: `box tree differs at ${bd.path}: ${bd.field}`, notes })
+    if (pageDecisions) {
+      const pd = comparePages(documentPages(oracleDecisions.pages), pageDecisions)
+      if (pd) return done({ status: "fail", decisionDivergence: pd, message: `page-breaking decisions differ: ${pd.what}`, notes })
+    }
+    if (columns) {
+      if (columns.length !== pages.length) return done({ status: "fail", message: `page count: TeX ${pages.length}, engine ${columns.length}`, notes })
+      for (const [k, column] of columns.entries()) {
+        const texColumn = findColumn(pages[k])
+        if (!texColumn) return done({ status: "error", message: `no \\topskip column in TeX's page ${k + 1}`, notes })
+        // compare the engine's column with the same number of items from TeX's
+        const bd = compareBoxLists(texColumn.slice(0, column.length), column)
+        if (bd) return done({ status: "fail", boxDivergence: { ...bd, path: `page ${k + 1}${bd.path}` }, message: `box tree differs on page ${k + 1} at ${bd.path}: ${bd.field}`, notes })
+      }
     }
     const divergence = compareTraces(expected, actual)
     if (divergence) return done({ status: "fail", divergence, context: contextOf(expected, divergence), notes })

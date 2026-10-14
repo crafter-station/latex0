@@ -1,0 +1,18 @@
+% fixture: pages/max-depth
+% tier: T3
+% engine: paragraph
+% covers: \Huge lines deeper than \maxdepth (5pt) over two pages: page_depth is capped and the excess moves into \pagetotal (§ 1003)
+% issue: #115
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+{\Huge (Jolly) quips (jump) gaily; (pygmy) jays (query) the (gypsy) judge. Big (quiet) jugs (yield) plenty of (spicy) syrup.\par}
+\end{document}

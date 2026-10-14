@@ -69,3 +69,25 @@ export function compareParagraphs(expected: ParagraphTrace[], actual: ParagraphT
   }
   return null
 }
+
+/**
+ * TeX's page traces for the pages a document actually builds: LaTeX's own
+ * output calls (penalties ≤ -10001, e.g. at \begin{document} and in \clearpage)
+ * are bookkeeping, not page breaks.
+ */
+export function documentPages(pages: PageTrace[]): PageTrace[] {
+  return pages.filter((p) => !p.candidates.some((c) => c.penalty <= -10001))
+}
+
+/** First difference in page-breaking decisions (goal, max depth, every candidate). */
+export function comparePages(expected: PageTrace[], actual: PageTrace[]): DecisionDivergence | null {
+  if (expected.length !== actual.length) return { paragraph: -1, what: "page count", expected: expected.length, actual: actual.length }
+  for (let i = 0; i < expected.length; i++) {
+    const e = expected[i], a = actual[i]
+    if (e.goal !== a.goal || e.maxDepth !== a.maxDepth) return { paragraph: i, what: `page ${i + 1} goal`, expected: [e.goal, e.maxDepth], actual: [a.goal, a.maxDepth] }
+    for (let k = 0; k < Math.max(e.candidates.length, a.candidates.length); k++) {
+      if (JSON.stringify(e.candidates[k]) !== JSON.stringify(a.candidates[k])) return { paragraph: i, what: `page ${i + 1}, break candidate ${k}`, expected: e.candidates[k] ?? null, actual: a.candidates[k] ?? null }
+    }
+  }
+  return null
+}

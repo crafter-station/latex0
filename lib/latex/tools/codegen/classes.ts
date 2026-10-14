@@ -45,6 +45,9 @@ function probe(cls: string, option: string): string {
     "\\begin{document}",
     ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
     ...SIZE_COMMANDS.map((s) => `\\S\\${s}`),
+    // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
+    "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
+    "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}",
     "\\end{document}", "",
   ].join("\n")
 }
@@ -77,7 +80,7 @@ function texData(cls: string, option: string): ClassOptionData {
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
     }
   }
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...INTS.filter((i) => !(i in data.ints)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s])]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside"].filter((i) => !(i in data.ints)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s])]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }

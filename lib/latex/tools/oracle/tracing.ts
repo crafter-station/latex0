@@ -109,18 +109,4 @@ export function parseDecisions(log: string): Decisions {
   return { paragraphs, pages }
 }
 
-/** TeX's print_scaled (§ 103): the shortest decimal that parses back to `s`. */
-export function printScaled(s: number): string {
-  let out = ""
-  if (s < 0) { out = "-"; s = -s }
-  out += Math.floor(s / 65536) + "."
-  s = 10 * (s % 65536) + 5
-  let delta = 10
-  do {
-    if (delta > 65536) s = s + 0o100000 - 50000 // round the last digit
-    out += String(Math.floor(s / 65536))
-    s = 10 * (s % 65536)
-    delta *= 10
-  } while (s > delta)
-  return out
-}
+export { printScaled } from "../../layout/arith"

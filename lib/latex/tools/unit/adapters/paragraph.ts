@@ -16,7 +16,8 @@ import { loadFont, QUAD, X_HEIGHT } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
-import { emptyBox, glue, kern, paramGlue, type GlueNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, glue, kern, paramGlue, type GlueNode, type Node } from "../../../layout/nodes"
+import { buildPages } from "../../../layout/pagebuilder"
 import { emitBoxes } from "../../../emit/boxes"
 import { vpack } from "../../../layout/pack"
 import { shipOut } from "../../../emit/trace"
@@ -106,46 +107,68 @@ function paragraphsOf(body: string): { size: SizeCommand; text: string }[] {
   return out
 }
 
-export const paragraph: Adapter = (src) => {
-  const { cls, option } = documentClass(src)
-  const k = classData(cls, option)
-  const paras = paragraphsOf(src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")))
-
-  // text column: \topskip; each paragraph's lines with interline glue (§§ 679, 1001).
-  // A paragraph begun in vertical mode gets \parskip (new_graf, § 1091), then a
-  // second, zero \parskip: LaTeX's paragraph code (ltpara) restarts the paragraph
-  // in a group with \parskip=0pt. The page builder discards both on the first one.
-  const col: Node[] = []
+/**
+ * The document body as TeX builds it: each paragraph broken into lines, the
+ * main vertical list (§ 679 interline glue, LaTeX's \parskip pair), and the pages
+ * cut from it by the page builder.
+ */
+export function typesetBody(paras: { size: SizeCommand; text: string }[], k: ClassOptionData) {
+  // the main vertical list: LaTeX's \write at \begin{document}, then each paragraph's lines
+  // with interline glue (§ 679). A paragraph begun in vertical mode gets \parskip
+  // (new_graf, § 1091), then a second, zero \parskip: LaTeX's paragraph code (ltpara)
+  // restarts the paragraph in a group with \parskip=0pt.
+  const contrib: Node[] = [{ kind: "whatsit", text: "\\write-{}" }]
   const decisions = []
   let prevDepth: number | null = null
   let lineCount = 0
-  for (const [i, para] of paras.entries()) {
+  for (const para of paras) {
     const { list, params } = paragraphInput(para.text, k, para.size)
     const { lines, vlist, trace } = lineBreak(list, params)
     decisions.push(trace)
     lineCount += lines.length
     const baselineskip = k.sizes[para.size].baselineskip // in force when \par appends the lines
-    if (i === 0) col.push(spec("topskip", k.glue.topskip, Math.max(0, k.glue.topskip.width - lines[0].height)))
-    else col.push(spec("parskip", k.glue.parskip), paramGlue("parskip", glue(0)))
+    contrib.push(spec("parskip", k.glue.parskip), paramGlue("parskip", glue(0)))
     for (const n of vlist) {
       if (n.kind === "hlist") {
         if (prevDepth !== null) {
           const d = baselineskip.width - prevDepth - n.height
-          col.push(d < k.dimens.lineskiplimit ? spec("lineskip", k.glue.lineskip) : spec("baselineskip", baselineskip, d))
+          contrib.push(d < k.dimens.lineskiplimit ? spec("lineskip", k.glue.lineskip) : spec("baselineskip", baselineskip, d))
         }
         prevDepth = n.depth
       }
-      col.push(n)
+      contrib.push(n)
     }
   }
-  const column = vpack(col)
-  column.shift = k.dimens.oddsidemargin
-  // \@outputpage: \topmargin, the \headheight box, \headsep, then the text box
-  const page = vpack([kern(k.dimens.topmargin + k.dimens.headheight + k.dimens.headsep), column])
+  // \end{document}: a skip of -\prevdepth when the last line has depth, then \clearpage,
+  // whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps show both forms)
+  if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-prevDepth))
+  contrib.push(glue(0, 65536, FIL), { kind: "penalty", penalty: -10000 })
+  const { pages, trace: pageTrace } = buildPages(contrib, { vsize: k.dimens.textheight, maxDepth: k.dimens.maxdepth, topSkip: spec("topskip", k.glue.topskip) })
+  return { decisions, pages, pageTrace, lineCount }
+}
+
+export const paragraph: Adapter = (src) => {
+  const { cls, option } = documentClass(src)
+  const k = classData(cls, option)
+  const paras = paragraphsOf(src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")))
+  const { decisions, pages, pageTrace, lineCount } = typesetBody(paras, k)
+
+  // LaTeX's output routine for each page: \@makecol puts \box255 in
+  // \vbox to\@colht{\unvbox255 \vskip-\dp255 \@textbottom}; \@outputpage stacks
+  // \topmargin, the \headheight box and \headsep above it, shifted by \oddsidemargin
+  const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
+  const boxes = pages.map((pg, i) => {
+    const box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, k.dimens.maxdepth)
+    const outputbox = vpack([...pg.nodes, glue(-box255.depth), ...textbottom], { exactly: k.dimens.textheight })
+    outputbox.shift = k.ints.twoside && i % 2 === 1 ? k.dimens.evensidemargin : k.dimens.oddsidemargin // \@themargin
+    return { outputbox, column: pg.nodes.slice(pg.nodes.findIndex((n) => n.kind === "glue" && n.param === "topskip")) }
+  })
+  const shipped = boxes.map((b) => vpack([kern(k.dimens.topmargin + k.dimens.headheight + k.dimens.headsep), b.outputbox]))
   return {
-    trace: shipOut([page]),
+    trace: shipOut(shipped),
     decisions,
-    column: col.map(emitBoxes),
-    notes: [`${cls} [${option}]; ${paras.length} paragraph(s), ${lineCount} lines from the engine line breaker`],
+    pages: pageTrace,
+    columns: boxes.map((b) => b.column.map(emitBoxes)),
+    notes: [`${cls} [${option}]; ${paras.length} paragraph(s), ${lineCount} lines, ${pages.length} page(s) from the engine's line and page builders`],
   }
 }
