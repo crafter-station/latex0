@@ -1,0 +1,23 @@
+% fixture: classes/sizes-10pt
+% tier: T3
+% engine: paragraph
+% covers: every size command \tiny … \Huge in article [10pt]: font, \baselineskip between sizes, \parskip between paragraphs
+% issue: #44
+\documentclass[10pt]{article}
+\pagestyle{empty}
+\begin{document}
+{\tiny The quick brown fox jumps over the lazy dog.\par}
+{\scriptsize The quick brown fox jumps over the lazy dog.\par}
+{\footnotesize The quick brown fox jumps over the lazy dog.\par}
+{\small The quick brown fox jumps over the lazy dog.\par}
+{\normalsize The quick brown fox jumps over the lazy dog.\par}
+{\large The quick brown fox jumps over the lazy dog.\par}
+{\Large The quick brown fox jumps over the lazy dog.\par}
+{\LARGE The quick brown fox jumps over the lazy dog.\par}
+{\huge The quick brown fox jumps over the lazy dog.\par}
+{\Huge The quick brown fox jumps over the lazy dog.\par}
+
+Back at the normal size, a longer paragraph runs over more than one line so that the baselines inside it and the parskip before it are both measured against what TeX does with the same text.
+
+{\small A small paragraph after it, long enough to break into two lines, checks the interline glue that the small size sets, including its own baselineskip.\par}
+\end{document}

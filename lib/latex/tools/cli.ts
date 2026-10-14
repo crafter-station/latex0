@@ -51,7 +51,9 @@ switch (cmd) {
   case "codegen": {
     const { codegenFonts } = await import("./codegen/fonts")
     const { codegenHyphenation } = await import("./codegen/hyphenation")
-    process.exit(codegenFonts(flags.has("--check")) | codegenHyphenation(flags.has("--check")))
+    const { codegenClasses } = await import("./codegen/classes")
+    const check = flags.has("--check")
+    process.exit(codegenFonts(check) | codegenHyphenation(check) | codegenClasses(check))
   }
   case "decisions": {
     if (!args[0]) throw new Error("usage: bun engine decisions <fixture.tex>")
