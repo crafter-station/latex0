@@ -1,0 +1,10 @@
+% fixture: hyphenation/explicit-hyphens
+% tier: T3
+% engine: paragraph
+% covers: explicit hyphens insert empty discretionaries (exhyphenpenalty); words after them are not hyphenated
+% issue: #113
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 1 0pt 130pt Well-established self-explanatory state-of-the-art high-performance cost-effectiveness long-term up-to-date double-checked mother-in-law.
+\end{document}

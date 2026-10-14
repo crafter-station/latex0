@@ -1,0 +1,10 @@
+% fixture: hyphenation/uppercase-words
+% tier: T3
+% engine: paragraph
+% covers: capitalized words hyphenate because \uchyph=1; exceptions list (ta-ble, present, project)
+% issue: #113
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 1 0pt 130pt Mississippi Constantinople Philadelphia Massachusetts Netherlands present table project presents projects Independence Representatives Encyclopedia.
+\end{document}

@@ -4,7 +4,7 @@
 import { xnOverD } from "./arith"
 import { EXTRA_SPACE, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "./font"
 import { ligKern } from "./ligkern"
-import { glue, type Node } from "./nodes"
+import { emptyDisc, glue, type Node } from "./nodes"
 
 /** \sfcode table as set by LaTeX's \nonfrenchspacing (plain.tex / latex.ltx). */
 export function sfCode(c: number): number {
@@ -30,10 +30,25 @@ export function spaceGlue(font: Font, sf: number): Node {
   )
 }
 
-/** Append `text` (already tokenized: one space between words) to `list`. */
-export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number }) {
+/** \hyphenchar of every font (LaTeX's \defaulthyphenchar). */
+export const HYPHEN_CHAR = 45
+
+/**
+ * Append `text` (already tokenized: one space between words) to `list`.
+ * In a paragraph (unrestricted horizontal mode) TeX puts an empty discretionary
+ * after any character, or ligature ending in a character, equal to the font's
+ * \hyphenchar (§§ 1035, 1039), before any kern that follows it.
+ */
+export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number }, paragraph = true) {
   let run: number[] = []
-  const flush = () => { if (run.length) list.push(...ligKern(run, font)); run = [] }
+  const flush = () => {
+    if (!run.length) return
+    for (const n of ligKern(run, font)) {
+      list.push(n)
+      if (paragraph && n.kind === "char" && n.text.charCodeAt(n.text.length - 1) === HYPHEN_CHAR) list.push(emptyDisc())
+    }
+    run = []
+  }
   for (const ch of text) {
     if (ch === " ") {
       flush()

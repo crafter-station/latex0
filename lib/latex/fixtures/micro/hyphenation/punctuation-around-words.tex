@@ -1,0 +1,10 @@
+% fixture: hyphenation/punctuation-around-words
+% tier: T3
+% engine: paragraph
+% covers: words after an opening quote or parenthesis (ha is a character, § 903) and before punctuation (bchar)
+% issue: #113
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 1 0pt 140pt Consider ``extraordinary'' (unbelievable) circumstances: international, parenthetical, and ``questionable'' (incomprehensible) responsibilities.
+\end{document}
