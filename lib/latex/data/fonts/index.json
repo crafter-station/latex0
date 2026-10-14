@@ -1,0 +1,265 @@
+{
+ "generatedFrom": "pdfTeX 3.141592653-2.6-1.40.27 (TeX Live 2025)",
+ "fonts": [
+  {
+   "name": "cmr5",
+   "checksum": 2248383322
+  },
+  {
+   "name": "cmr6",
+   "checksum": 3108069800
+  },
+  {
+   "name": "cmr7",
+   "checksum": 3650330706
+  },
+  {
+   "name": "cmr8",
+   "checksum": 2088458503
+  },
+  {
+   "name": "cmr9",
+   "checksum": 1874103239
+  },
+  {
+   "name": "cmr10",
+   "checksum": 1274110073
+  },
+  {
+   "name": "cmr12",
+   "checksum": 1487622411
+  },
+  {
+   "name": "cmr17",
+   "checksum": 1154739572
+  },
+  {
+   "name": "cmbx5",
+   "checksum": 2871889000
+  },
+  {
+   "name": "cmbx6",
+   "checksum": 2152054900
+  },
+  {
+   "name": "cmbx7",
+   "checksum": 1712792792
+  },
+  {
+   "name": "cmbx8",
+   "checksum": 851919049
+  },
+  {
+   "name": "cmbx9",
+   "checksum": 1946978618
+  },
+  {
+   "name": "cmbx10",
+   "checksum": 452076118
+  },
+  {
+   "name": "cmbx12",
+   "checksum": 3268824736
+  },
+  {
+   "name": "cmti7",
+   "checksum": 1954372810
+  },
+  {
+   "name": "cmti8",
+   "checksum": 600925840
+  },
+  {
+   "name": "cmti9",
+   "checksum": 3161100729
+  },
+  {
+   "name": "cmti10",
+   "checksum": 4244645690
+  },
+  {
+   "name": "cmti12",
+   "checksum": 2612758592
+  },
+  {
+   "name": "cmsl8",
+   "checksum": 2704812495
+  },
+  {
+   "name": "cmsl9",
+   "checksum": 2490456984
+  },
+  {
+   "name": "cmsl10",
+   "checksum": 1890463818
+  },
+  {
+   "name": "cmsl12",
+   "checksum": 2103976403
+  },
+  {
+   "name": "cmtt8",
+   "checksum": 3745761907
+  },
+  {
+   "name": "cmtt9",
+   "checksum": 3752087040
+  },
+  {
+   "name": "cmtt10",
+   "checksum": 3756670072
+  },
+  {
+   "name": "cmtt12",
+   "checksum": 3750147412
+  },
+  {
+   "name": "cmss8",
+   "checksum": 3329439377
+  },
+  {
+   "name": "cmss9",
+   "checksum": 3530540919
+  },
+  {
+   "name": "cmss10",
+   "checksum": 1831058770
+  },
+  {
+   "name": "cmss12",
+   "checksum": 2194559542
+  },
+  {
+   "name": "cmssbx10",
+   "checksum": 4050338120
+  },
+  {
+   "name": "cmssi10",
+   "checksum": 3310718441
+  },
+  {
+   "name": "cmcsc10",
+   "checksum": 2351822868
+  },
+  {
+   "name": "cmbxti10",
+   "checksum": 1175274390
+  },
+  {
+   "name": "cmu10",
+   "checksum": 320884962
+  },
+  {
+   "name": "cmmi5",
+   "checksum": 1326307932
+  },
+  {
+   "name": "cmmi6",
+   "checksum": 281919182
+  },
+  {
+   "name": "cmmi7",
+   "checksum": 811964274
+  },
+  {
+   "name": "cmmi8",
+   "checksum": 3607172914
+  },
+  {
+   "name": "cmmi9",
+   "checksum": 905551394
+  },
+  {
+   "name": "cmmi10",
+   "checksum": 195060286
+  },
+  {
+   "name": "cmmi12",
+   "checksum": 3085002659
+  },
+  {
+   "name": "cmsy5",
+   "checksum": 2967220334
+  },
+  {
+   "name": "cmsy6",
+   "checksum": 1906386187
+  },
+  {
+   "name": "cmsy7",
+   "checksum": 1327620741
+  },
+  {
+   "name": "cmsy8",
+   "checksum": 3192637451
+  },
+  {
+   "name": "cmsy9",
+   "checksum": 2846986442
+  },
+  {
+   "name": "cmsy10",
+   "checksum": 555887770
+  },
+  {
+   "name": "cmex10",
+   "checksum": 4205933842
+  },
+  {
+   "name": "cmmib10",
+   "checksum": 1145473428
+  },
+  {
+   "name": "cmbsy10",
+   "checksum": 3771304972
+  },
+  {
+   "name": "msam5",
+   "checksum": 579411064
+  },
+  {
+   "name": "msbm5",
+   "checksum": 4260765975
+  },
+  {
+   "name": "eufm5",
+   "checksum": 3100225492
+  },
+  {
+   "name": "msam7",
+   "checksum": 3094736439
+  },
+  {
+   "name": "msbm7",
+   "checksum": 1903804545
+  },
+  {
+   "name": "eufm7",
+   "checksum": 1491936770
+  },
+  {
+   "name": "msam10",
+   "checksum": 2545151693
+  },
+  {
+   "name": "msbm10",
+   "checksum": 2293634760
+  },
+  {
+   "name": "eufm10",
+   "checksum": 2401595058
+  },
+  {
+   "name": "lasy10",
+   "checksum": 1416745987
+  },
+  {
+   "name": "line10",
+   "checksum": 2145669027
+  },
+  {
+   "name": "lcircle10",
+   "checksum": 4237311128
+  }
+ ]
+}

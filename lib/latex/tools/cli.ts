@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // latex0 engine CLI (dev tooling, #39).
 //   bun engine unit [paths…] [--watch] [--json] [-v]   fixtures vs TeX at 0 sp (#32)
+//   bun engine codegen [--check]                       regenerate committed font metrics (#42)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -42,6 +43,10 @@ switch (cmd) {
   case "check:paragraph": // kept as an alias from #29
     process.exitCode = (() => { args.splice(0, args.length, args[0] ?? `${FIXTURES}/micro/text/paragraph-basic.tex`); return unit() })()
     break
+  case "codegen": {
+    const { codegenFonts } = await import("./codegen/fonts")
+    process.exit(codegenFonts(flags.has("--check")))
+  }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")
     console.log(JSON.stringify(oracleTrace(args[0]), null, 1))
@@ -50,6 +55,6 @@ switch (cmd) {
     await import("./oracle/selfcheck")
     break
   default:
-    console.log("usage: bun engine <unit|trace|oracle:check> …")
+    console.log("usage: bun engine <unit|codegen|trace|oracle:check> …")
     process.exit(cmd ? 1 : 0)
 }
