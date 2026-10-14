@@ -52,12 +52,33 @@ export function parseLine(text: string): BoxNode {
     const d = (x: string) => (x === "*" ? null : parseScaled(x))
     return { type: "rule", height: d(m[1]), depth: d(m[2]), width: d(m[3]) }
   }
-  // font character or ligature: "\OT1/cmr/m/n/10 w" or "\OT1/cmr/m/n/10 ^^O (ligature ffl)"
-  if ((m = text.match(/^\\(\S+) (\^\^[0-9a-f]{2}|\^\^.|.)(?: \(ligature \|?(.*?)\|?\))?$/))) {
+  // font character or ligature: "\OT1/cmr/m/n/10 w" or "\OT1/cmr/m/n/10 ^^O (ligature ffl)";
+  // the ligature text keeps § 193's | marks for boundary hits
+  if ((m = text.match(/^\\(\S+) (\^\^[0-9a-f]{2}|\^\^.|.)(?: \(ligature (.*)\))?$/))) {
     const c: BoxNode = { type: "char", font: m[1], size: 0, char: decodeChar(m[2]) }
     return m[3] !== undefined ? { ...c, lig: m[3] } : c
   }
   return { type: "other", text }
+}
+
+/** A box display (show_box) whose first line is lines[i]; ends at an empty line. */
+export function parseBoxDump(lines: string[], i: number): { box: BoxNode; end: number } {
+  // stack of (depth, list to append to); disc children go to pre or post by the "|" marker
+  const root = parseLine(lines[i])
+  const stack: { depth: number; node: BoxNode }[] = [{ depth: 0, node: root }]
+  for (i++; i < lines.length && lines[i] !== ""; i++) {
+    const line = lines[i]
+    const prefix = line.match(/^[.|]*/)![0]
+    const depth = prefix.length
+    const node = parseLine(line.slice(depth))
+    while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop()
+    const parent = stack[stack.length - 1].node
+    if (parent.type === "hbox" || parent.type === "vbox") parent.children.push(node)
+    else if (parent.type === "disc") (prefix.endsWith("|") ? parent.post : parent.pre).push(node)
+    else throw new Error(`box dump: ${parent.type} cannot have children (line ${i + 1})`)
+    stack.push({ depth, node })
+  }
+  return { box: root, end: i }
 }
 
 /** Every "Completed box being shipped out" page in the log, as box trees. */
@@ -66,22 +87,9 @@ export function parseShipouts(log: string): BoxNode[] {
   const lines = log.split("\n")
   for (let i = 0; i < lines.length; i++) {
     if (!lines[i].startsWith("Completed box being shipped out")) continue
-    // stack of (depth, list to append to); disc children go to pre or post by the "|" marker
-    const root = parseLine(lines[++i])
-    const stack: { depth: number; node: BoxNode }[] = [{ depth: 0, node: root }]
-    for (i++; i < lines.length && lines[i] !== ""; i++) {
-      const line = lines[i]
-      const prefix = line.match(/^[.|]*/)![0]
-      const depth = prefix.length
-      const node = parseLine(line.slice(depth))
-      while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop()
-      const parent = stack[stack.length - 1].node
-      if (parent.type === "hbox" || parent.type === "vbox") parent.children.push(node)
-      else if (parent.type === "disc") (prefix.endsWith("|") ? parent.post : parent.pre).push(node)
-      else throw new Error(`box dump: ${parent.type} cannot have children (line ${i + 1})`)
-      stack.push({ depth, node })
-    }
-    pages.push(root)
+    const { box, end } = parseBoxDump(lines, i + 1)
+    pages.push(box)
+    i = end
   }
   return pages
 }

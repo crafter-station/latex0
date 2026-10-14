@@ -14,6 +14,7 @@ const GENERATED = [
   { what: "Random paragraphs", detail: "line-break decisions, all three passes, \\looseness", count: "1,000" },
   { what: "Number, dimension and glue scans", detail: "values, errors and unscanned input", count: "20,000" },
   { what: "Dictionary words", detail: "hyphenation points against \\showhyphens", count: "20,000" },
+  { what: "Words in 65 fonts and 40 synthetic fonts", detail: "ligatures, kerns, boundary characters, italic corrections", count: "10,000" },
 ]
 
 export default function ScorecardPage() {

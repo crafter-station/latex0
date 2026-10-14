@@ -6,7 +6,15 @@ export type GlueOrder = 0 | 1 | 2 | 3
 export const SIGN_NORMAL = 0, STRETCHING = 1, SHRINKING = 2
 export type GlueSign = 0 | 1 | 2
 
-export interface CharNode { kind: "char"; font: string; size: number; char: number; width: number; height: number; depth: number; /** source characters for ligatures */ text: string }
+export interface CharNode {
+  kind: "char"; font: string; size: number; char: number; width: number; height: number; depth: number
+  /** source characters for ligatures */
+  text: string
+  /** a ligature node (§ 143), even when it stands for itself or for nothing */
+  ligature?: boolean
+  /** ligature subtype: 2 if it began at the left boundary, +1 if it ended at the right boundary */
+  ligHits?: number
+}
 export interface GlueNode { kind: "glue"; width: number; stretch: number; stretchOrder: GlueOrder; shrink: number; shrinkOrder: GlueOrder; /** skip parameter this glue came from, e.g. "rightskip" (§ 149 subtype) */ param?: string }
 export interface KernNode { kind: "kern"; width: number; /** \kern from the source (vs. a font kern); explicit kerns are breakpoints (§ 155, 866) */ explicit?: boolean }
 export interface PenaltyNode { kind: "penalty"; penalty: number }
