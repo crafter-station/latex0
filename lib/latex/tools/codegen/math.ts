@@ -1,5 +1,5 @@
 // Codegen (#74): LaTeX's math setup as data — \mathcode of every 7-bit
-// character, the mu skips, and the math penalties and dimensions — read from
+// character, the \mathchar of each symbol command, the mu skips, and the math penalties and dimensions — read from
 // TeX in a document body.
 //   bun engine codegen [--check]
 
@@ -15,6 +15,21 @@ const OUT = "lib/latex/data/math"
 const INTS = ["binoppenalty", "relpenalty", "delimiterfactor"]
 const DIMENS = ["mathsurround", "delimitershortfall", "nulldelimiterspace", "scriptspace"]
 const MUSKIPS = ["thinmuskip", "medmuskip", "thickmuskip"]
+// candidate symbol commands (fontmath.ltx); those that are \mathchar become data
+const SYMBOLS = (
+  "alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi varpi rho varrho sigma varsigma " +
+  "tau upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega " +
+  "aleph imath jmath ell wp Re Im partial infty prime emptyset nabla top bot triangle forall exists neg lnot flat natural sharp " +
+  "clubsuit diamondsuit heartsuit spadesuit " +
+  "pm mp setminus cdot times ast star diamond circ bullet div cap cup uplus sqcap sqcup triangleleft triangleright wr " +
+  "bigcirc bigtriangleup bigtriangledown vee lor wedge land oplus ominus otimes oslash odot dagger ddagger amalg " +
+  "leq le geq ge equiv models prec succ sim perp preceq succeq simeq mid ll gg asymp parallel subset supset approx smile frown " +
+  "subseteq supseteq sqsubseteq sqsupseteq propto vdash dashv in ni owns " +
+  "leftarrow gets rightarrow to uparrow downarrow leftrightarrow Leftarrow Rightarrow Uparrow Downarrow Leftrightarrow " +
+  "nearrow searrow swarrow nwarrow leftharpoonup leftharpoondown rightharpoonup rightharpoondown rightleftharpoons " +
+  "sum prod coprod intop ointop bigcup bigcap bigsqcup bigvee bigwedge bigodot bigotimes bigoplus biguplus " +
+  "ldotp cdotp colon"
+).split(" ")
 
 export function codegenMath(check: boolean): number {
   const dir = ".cache/mathdata"
@@ -25,16 +40,18 @@ export function codegenMath(check: boolean): number {
     ...INTS.map((x) => `\\immediate\\write16{I:${x}=\\the\\${x}}`),
     ...DIMENS.map((x) => `\\immediate\\write16{D:${x}=\\the\\${x}}`),
     ...MUSKIPS.map((x) => `\\immediate\\write16{M:${x}=\\the\\${x}}`),
+    ...SYMBOLS.map((x) => `\\immediate\\write16{S:${x}=\\meaning\\${x}}`),
     "\\end{document}", "",
   ].join("\n"))
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "probe.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }) })
-  const data: MathData = { mathcodes: [], ints: {}, dimens: {}, muskips: {} }
+  const data: MathData = { mathcodes: [], ints: {}, dimens: {}, muskips: {}, symbols: {} }
   for (const line of readFileSync(join(dir, "probe.log"), "latin1").split("\n")) {
     let m: RegExpMatchArray | null
     if ((m = line.match(/^C:(\d+)=(\d+)$/))) data.mathcodes[Number(m[1])] = Number(m[2])
     else if ((m = line.match(/^I:(\w+)=(-?\d+)$/))) data.ints[m[1]] = Number(m[2])
     else if ((m = line.match(/^D:(\w+)=(-?[\d.]+)pt$/))) data.dimens[m[1]] = parseScaled(m[2])
     else if ((m = line.match(/^M:(\w+)=(.*)$/))) data.muskips[m[1]] = new Scanner(m[2], { em: 0, ex: 0 }).scanGlue(true)
+    else if ((m = line.match(/^S:(\w+)=\\mathchar"([0-9A-F]+)$/))) data.symbols[m[1]] = parseInt(m[2], 16)
   }
   if (data.mathcodes.length !== 128 || Object.keys(data.muskips).length !== 3) throw new Error("math codegen: TeX did not report every value")
   const body = JSON.stringify(data) + "\n"

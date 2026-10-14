@@ -56,7 +56,7 @@ export function parseLine(text: string): BoxNode {
   }
   // font character or ligature: "\OT1/cmr/m/n/10 w" or "\OT1/cmr/m/n/10 ^^O (ligature ffl)";
   // the ligature text keeps § 193's | marks for boundary hits
-  if ((m = text.match(/^\\(\S+) (\^\^[0-9a-f]{2}|\^\^.|.)(?: \(ligature (.*)\))?$/))) {
+  if ((m = text.match(/^\\(\S+) (\^\^[0-9a-f]{2}|\^\^.|[^])(?: \(ligature (.*)\))?$/))) {
     const c: BoxNode = { type: "char", font: m[1], size: 0, char: decodeChar(m[2]) }
     return m[3] !== undefined ? { ...c, lig: m[3] } : c
   }
@@ -69,7 +69,9 @@ export function parseBoxDump(lines: string[], i: number): { box: BoxNode; end: n
   const root = parseLine(lines[i])
   const stack: { depth: number; node: BoxNode }[] = [{ depth: 0, node: root }]
   for (i++; i < lines.length && lines[i] !== ""; i++) {
-    const line = lines[i]
+    let line = lines[i]
+    // character 10 is LaTeX's \newlinechar, so print_ASCII ends the line there (§ 58)
+    if (/^[.|]*\\\S+ $/.test(line) && i + 1 < lines.length) line += "\n" + lines[++i]
     const prefix = line.match(/^[.|]*/)![0]
     const depth = prefix.length
     const node = parseLine(line.slice(depth))
