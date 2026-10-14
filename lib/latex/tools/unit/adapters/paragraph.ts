@@ -9,7 +9,8 @@
 // \oddsidemargin (62pt).
 
 import { UNITY } from "../../../layout/arith"
-import { loadFont } from "../../../layout/font"
+import { Scanner } from "../../../layout/dimen"
+import { loadFont, QUAD, X_HEIGHT } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { latexDefaults, lineBreak, type LineBreakParams } from "../../../layout/linebreak"
@@ -24,17 +25,6 @@ import type { Adapter } from "./index"
 const PT = UNITY
 const HSIZE = 345 * PT, PARINDENT = 15 * PT, BASELINESKIP = 12 * PT, TOPSKIP = 10 * PT
 const LINESKIP = 1 * PT, LINESKIPLIMIT = 0, ODDSIDEMARGIN = 62 * PT
-
-/** "12.5pt" → sp, via TeX's decimal rounding (§ 102) */
-function pt(s: string): number {
-  const m = s.match(/^(-?)(\d*)(?:\.(\d+))?pt$/)
-  if (!m) throw new Error(`paragraph adapter: only pt dimensions are supported, got "${s}"`)
-  const digits = (m[3] ?? "").slice(0, 17).split("").map(Number)
-  let a = 0
-  for (let k = digits.length - 1; k >= 0; k--) a = Math.floor((a + digits[k] * 0o400000) / 10)
-  const sp = Number(m[2] || 0) * 65536 + Math.floor((a + 1) / 2)
-  return m[1] ? -sp : sp
-}
 
 // assignable parameters: TeX name → LineBreakParams field
 const INT_PARAMS = {
@@ -53,28 +43,29 @@ const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFile
  */
 export function paragraphInput(body: string): { list: Node[]; params: LineBreakParams } {
   const params = latexDefaults(HSIZE)
+  const font = loadFont(dataFont("cmr10"), 10 * PT)
+  const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   let indent = true
   body = body.replace(/\s+/g, " ").trim()
-  // leading paragraph assignments
+  // leading paragraph assignments, scanned as TeX scans them (§§ 440–463)
   for (;;) {
-    let m: RegExpMatchArray | null
-    if ((m = body.match(/^\\noindent\s*/))) { indent = false }
-    else if ((m = body.match(/^\\([a-z]+)\s*=\s*(-?\d+)(?![\d.p])\s*/)) && m[1] in INT_PARAMS) {
-      params[INT_PARAMS[m[1] as keyof typeof INT_PARAMS]] = Number(m[2])
-    } else if ((m = body.match(/^\\([a-z]+)\s*=\s*(-?[\d.]+pt)\s*/)) && m[1] in DIMEN_PARAMS) {
-      params[DIMEN_PARAMS[m[1] as keyof typeof DIMEN_PARAMS]] = pt(m[2])
+    const m = body.match(/^\\([a-z]+)\s*/)
+    if (!m) break
+    const name = m[1]
+    if (name === "noindent") { indent = false; body = body.slice(m[0].length); continue }
+    if (!(name in INT_PARAMS || name in DIMEN_PARAMS || name === "parshape")) break
+    const s = new Scanner(body.slice(m[0].length).replace(/^=\s*/, ""), env) // optional equals (§ 1224)
+    if (name in INT_PARAMS) params[INT_PARAMS[name as keyof typeof INT_PARAMS]] = s.scanInt().value
+    else if (name in DIMEN_PARAMS) params[DIMEN_PARAMS[name as keyof typeof DIMEN_PARAMS]] = s.scanDimen().value
+    else {
+      const n = s.scanInt().value
+      params.parShape = Array.from({ length: n }, () => [s.scanDimen().value, s.scanDimen().value] as [number, number])
     }
-    else if ((m = body.match(/^\\parshape\s*=?\s*(\d+)((?:\s+-?[\d.]+pt)+)\s*/))) {
-      const dims = m[2].trim().split(/\s+/).map(pt)
-      const n = Number(m[1])
-      if (dims.length !== 2 * n) throw new Error(`\\parshape ${n} needs ${2 * n} dimensions`)
-      params.parShape = Array.from({ length: n }, (_, i) => [dims[2 * i], dims[2 * i + 1]] as [number, number])
-    } else break
-    body = body.slice(m[0].length)
+    if (s.errors.length) throw new Error(`\\${name}: ${s.errors[0]}`)
+    body = s.rest().trimStart()
   }
   if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text after the assignments")
 
-  const font = loadFont(dataFont("cmr10"), 10 * PT)
   params.hyphenation = {
     hyphenator: hyphenator(),
     fontOf: (name, size) => { if (name !== font.name || size !== font.size) throw new Error(`no font ${name}@${size}`); return font },

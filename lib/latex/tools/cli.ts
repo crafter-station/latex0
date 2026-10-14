@@ -6,6 +6,7 @@
 //   bun engine search:badness 12,13                    ask TeX for paragraphs hitting given badness values; write fixtures
 //   bun engine hyphen:check [--words N]                engine hyphenation vs TeX \\showhyphens (#113)
 //   bun engine fuzz:paragraphs [--n 200] [--seed 1]    random paragraphs: engine line breaks vs TeX's decisions (#112)
+//   bun engine dimen:check [--n 5000] [--seed 1]       numbers, dimensions and glue: engine scanner vs TeX (#52)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -77,6 +78,11 @@ switch (cmd) {
     const { fuzzParagraphs } = await import("./fuzz/paragraphs")
     const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
     process.exit(fuzzParagraphs(opt("--n", 200), opt("--seed", 1)))
+  }
+  case "dimen:check": {
+    const { dimenCheck } = await import("./oracle/dimencheck")
+    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
+    process.exit(dimenCheck(opt("--n", 5000), opt("--seed", 1)))
   }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")

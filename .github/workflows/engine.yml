@@ -37,6 +37,8 @@ jobs:
         run: bun engine oracle:check
       - name: Fixtures identical to TeX at 0 sp
         run: bun engine unit
+      - name: Number, dimension and glue scanning identical to TeX (20,000 cases)
+        run: bun engine dimen:check --n 20000
       - name: Line breaking identical to TeX (1,000 random paragraphs)
         run: bun engine fuzz:paragraphs --n 1000 --seed 1
       - name: Hyphenation identical to TeX (20,000 words)
