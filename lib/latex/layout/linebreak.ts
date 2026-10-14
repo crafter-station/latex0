@@ -1,8 +1,9 @@
 // TeX's paragraph builder: line_break and post_line_break, "TeX: The Program"
 // §§ 813–890. Integer-exact port. Delta nodes (§§ 843–844, 860–861) are
 // replaced by prefix sums of the same integers, which yields identical widths.
-//
-// Not yet implemented, tracked in #86: math breaks.
+// Inside a formula (between \mathon and \mathoff) glue is not a breakpoint and
+// the following word is not hyphenated (auto_breaking, § 866); a formula can
+// break at its own penalties, or after \mathoff when glue follows.
 
 import { INF_PENALTY } from "./arith"
 import { hyphenateFollowingWord, type HyphenContext } from "./hyphenpass"
@@ -182,7 +183,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
       }
       for (; k < list.length; k++) {
         const n = list[k]
-        if (n.kind === "glue" || n.kind === "penalty") { add(s, n); continue }
+        if (n.kind === "glue" || n.kind === "penalty" || n.kind === "math") { add(s, n); continue }
         if (n.kind === "kern" && n.explicit) { add(s, n); continue }
         break
       }
@@ -263,7 +264,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
             if (Math.abs(fit - r.fitness) > 1) d += p.adjDemerits
           }
           const at = list[cur]
-          const kind: FeasibleBreak["kind"] = cur >= list.length ? "par" : at.kind === "penalty" ? "penalty" : at.kind === "kern" ? "kern" : at.kind === "disc" ? "disc" : "glue"
+          const kind: FeasibleBreak["kind"] = cur >= list.length ? "par" : at.kind === "penalty" ? "penalty" : at.kind === "kern" ? "kern" : at.kind === "disc" ? "disc" : at.kind === "math" ? "math" : "glue"
           pass.feasible.push({ kind, via: r.passive?.serial ?? 0, badness: b > INF_BAD ? null : b, penalty: pi, demerits: artificial ? null : d })
           d += r.total
           if (d <= minimalDemerits[fit]) {
@@ -279,23 +280,23 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
 
     // § 866: main loop
     let prev: Node = list[0]
+    let autoBreaking = true
+    // kern_break: a kern or math node is a breakpoint when glue follows it
+    const kernBreak = (k: number) => { const nx = list[k + 1]; if (autoBreaking && nx && nx.kind === "glue") tryBreak(0, false, k) }
     for (let k = 0; k < list.length && active.length > 0; k++) {
       const n = list[k]
       switch (n.kind) {
         case "glue": {
-          if (precedesBreak(prev) || (prev.kind === "kern" && !prev.explicit)) tryBreak(0, false, k)
+          if (autoBreaking && (precedesBreak(prev) || (prev.kind === "kern" && !prev.explicit))) tryBreak(0, false, k)
           add(totals, n)
           // § 894: in the second pass, hyphenate the word that follows this glue
-          if (secondPass && p.hyphenation) hyphenateFollowingWord(list, k, p.hyphenation)
+          if (secondPass && autoBreaking && p.hyphenation) hyphenateFollowingWord(list, k, p.hyphenation)
           prev = n
           continue
         }
-        case "kern": {
-          if (n.explicit) { const nx = list[k + 1]; if (nx && nx.kind === "glue") tryBreak(0, false, k) }
-          break
-        }
+        case "kern": if (n.explicit) kernBreak(k); break
         case "penalty": tryBreak(n.penalty, false, k); break
-        case "math": throw new Error("math in paragraphs is not supported yet (#86)")
+        case "math": autoBreaking = !n.on; kernBreak(k); break
         case "disc": {
           // § 869: try to break after the pre-break text, then skip the replaced nodes
           if (n.pre.length === 0) tryBreak(p.exHyphenPenalty, true, k)
@@ -362,7 +363,7 @@ function postLineBreak(list: Node[], breaks: Passive[], bestLine: number, p: Lin
         discBreak = true
         pos = brk.curBreak + 1 + q.replaceCount
       } else {
-        line.push(q.kind === "kern" ? { ...q, width: 0 } : q, { ...p.rightSkip })
+        line.push(q.kind === "kern" || q.kind === "math" ? { ...q, width: 0 } : q, { ...p.rightSkip })
         pos = brk.curBreak + 1
       }
     } else {
@@ -394,7 +395,7 @@ function postLineBreak(list: Node[], breaks: Passive[], bestLine: number, p: Lin
       const next = breaks[bi + 1]
       while (pos < list.length && (!next || pos !== next.curBreak)) {
         const n = list[pos]
-        if (n.kind === "glue" || n.kind === "penalty" || (n.kind === "kern" && n.explicit)) { pos++; continue }
+        if (n.kind === "glue" || n.kind === "penalty" || n.kind === "math" || (n.kind === "kern" && n.explicit)) { pos++; continue }
         break
       }
     }

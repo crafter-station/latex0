@@ -51,7 +51,7 @@ export function parseDecisions(log: string): Decisions {
   }
 
   for (const raw of log.split("\n")) {
-    const line = raw.trimEnd()
+    const line = raw.replace(/[ \r]+$/, "") // not trimEnd: characters 11 and 12 (\alpha, \beta in cmmi) print raw and are JS whitespace
     let m: RegExpMatchArray | null
     // \tracingassigns (e-TeX, from \begin{document}). After line_break, end_graf's
     // normal_paragraph (§ 1070) resets \looseness first if it was nonzero, so the

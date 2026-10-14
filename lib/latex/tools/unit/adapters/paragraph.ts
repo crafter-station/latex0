@@ -1,8 +1,9 @@
-// Adapter "paragraph": a fixture whose body is plain-text paragraphs in a
-// standard class at 10pt, 11pt or 12pt. Paragraphs are separated by blank lines;
+// Adapter "paragraph": a fixture whose body is paragraphs of plain text and
+// inline math ($…$, as mathlayout/parse.ts reads it) in a standard class at
+// 10pt, 11pt or 12pt. Paragraphs are separated by blank lines;
 // one may be set in a size group, {\large … \par}. Each may start with
 // paragraph assignments:
-//   \noindent  \parshape <n> <i>pt <l>pt …  \<int param>=<n>  \<dimen param>=<n>pt
+//   \noindent  \parshape <n> <i>pt <l>pt …  \<int param>=<n>  \<dimen param>=<n>pt  \mathsurround=<n>pt
 // (see INT_PARAMS and DIMEN_PARAMS).
 // Lines are broken by the engine's own line breaker (#112).
 //
@@ -17,6 +18,9 @@ import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
 import { emptyBox, FIL, glue, kern, paramGlue, type GlueNode, type Node } from "../../../layout/nodes"
+import type { MathData } from "../../../mathlayout/data"
+import { mlistToHlist, TEXT, type MathEnv } from "../../../mathlayout/mlist"
+import { parseMath } from "../../../mathlayout/parse"
 import { buildPages } from "../../../layout/pagebuilder"
 import { emitBoxes } from "../../../emit/boxes"
 import { vpack } from "../../../layout/pack"
@@ -38,6 +42,18 @@ const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStr
 
 let memoHyphenator: ReturnType<typeof buildHyphenator> | undefined
 const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("lib/latex/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
+let memoMath: MathData | undefined
+const mathData = () => (memoMath ??= JSON.parse(readFileSync("lib/latex/data/math/latex.json", "utf8")) as MathData)
+
+/** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
+export function mathEnv(k: ClassOptionData, size: SizeCommand): MathEnv {
+  const m = k.sizes[size].math, data = mathData()
+  return {
+    fonts: [m.text, m.script, m.scriptscript].map((fs) => fs.map((f) => loadFont(dataFont(f.name), f.at))),
+    muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
+    scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
+  }
+}
 
 /** Line-breaking parameters as a class sets them (latex.ltx and the class's .clo). */
 export function classParams(k: ClassOptionData): LineBreakParams {
@@ -61,6 +77,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const font = loadFont(dataFont(nf.name), nf.at)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   let indent = true
+  let mathSurround = mathData().dimens.mathsurround
   body = body.replace(/\s+/g, " ").trim()
   // leading paragraph assignments, scanned as TeX scans them (§§ 440–463)
   for (;;) {
@@ -68,10 +85,11 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     if (!m) break
     const name = m[1]
     if (name === "noindent") { indent = false; body = body.slice(m[0].length); continue }
-    if (!(name in INT_PARAMS || name in DIMEN_PARAMS || name === "parshape")) break
+    if (!(name in INT_PARAMS || name in DIMEN_PARAMS || name === "parshape" || name === "mathsurround")) break
     const s = new Scanner(body.slice(m[0].length).replace(/^=\s*/, ""), env) // optional equals (§ 1224)
     if (name in INT_PARAMS) params[INT_PARAMS[name as keyof typeof INT_PARAMS]] = s.scanInt().value
     else if (name in DIMEN_PARAMS) params[DIMEN_PARAMS[name as keyof typeof DIMEN_PARAMS]] = s.scanDimen().value
+    else if (name === "mathsurround") mathSurround = s.scanDimen().value
     else {
       const n = s.scanInt().value
       params.parShape = Array.from({ length: n }, () => [s.scanDimen().value, s.scanDimen().value] as [number, number])
@@ -79,7 +97,9 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     if (s.errors.length) throw new Error(`\\${name}: ${s.errors[0]}`)
     body = s.rest().trimStart()
   }
-  if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text after the assignments")
+  const parts = body.split("$")
+  if (parts.length % 2 === 0) throw new Error("paragraph adapter: unbalanced $")
+  if (parts.some((t, i) => i % 2 === 0 && /[\\{}%&#^_~]/.test(t))) throw new Error("paragraph adapter accepts plain text and $…$ after the assignments")
 
   params.hyphenation = {
     hyphenator: hyphenator(),
@@ -87,7 +107,13 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     lHyf: k.ints.lefthyphenmin, rHyf: k.ints.righthyphenmin, ucHyph: k.ints.uchyph,
   }
   const list: Node[] = indent ? [emptyBox("hlist", k.dimens.parindent)] : []
-  appendText(list, body, font, { spaceFactor: 1000 })
+  const state = { spaceFactor: 1000 }
+  parts.forEach((t, i) => {
+    if (i % 2 === 0) { appendText(list, t, font, state); return }
+    // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
+    list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(t, mathData()), mathEnv(k, size), TEXT, true), { kind: "math", on: false, width: mathSurround })
+    state.spaceFactor = 1000
+  })
   return { list, params }
 }
 
@@ -99,7 +125,7 @@ function paragraphsOf(body: string): { size: SizeCommand; text: string }[] {
   while (body) {
     const m = body.match(group)
     if (m) { out.push({ size: m[1] as SizeCommand, text: m[2] }); body = body.slice(m[0].length); continue }
-    const end = body.search(/\n\s*\n|\{\\/)
+    const end = body.search(new RegExp(`\\n\\s*\\n|\\{\\\\(${SIZE_COMMANDS.join("|")})\\b`))
     const text = end < 0 ? body : body.slice(0, Math.max(end, 1))
     if (text.trim()) out.push({ size: "normalsize", text })
     body = body.slice(text.length).trim()
@@ -139,9 +165,10 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
       contrib.push(n)
     }
   }
-  // \end{document}: a skip of -\prevdepth when the last line has depth, then \clearpage,
-  // whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps show both forms)
-  if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-prevDepth))
+  // \end{document}: a skip of -\prevdepth, at most \maxdepth, when the last line has depth,
+  // then \clearpage, whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps
+  // show both forms)
+  if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-Math.min(prevDepth, k.dimens.maxdepth)))
   contrib.push(glue(0, 65536, FIL), { kind: "penalty", penalty: -10000 })
   const { pages, trace: pageTrace } = buildPages(contrib, { vsize: k.dimens.textheight, maxDepth: k.dimens.maxdepth, topSkip: spec("topskip", k.glue.topskip) })
   return { decisions, pages, pageTrace, lineCount }

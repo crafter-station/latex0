@@ -55,6 +55,7 @@ if (!ok) process.exit(1)
 import { collectFixtures } from "../unit/run"
 import { cachedOracle } from "./oracle"
 import { parseScaled, printScaled } from "./tracing"
+import { findColumn } from "./boxes"
 
 // 1. print_scaled / round_decimals round-trip over a dense sample of sp values
 let rtFail = 0
@@ -62,16 +63,17 @@ for (let sp = -3 * 65536; sp <= 3 * 65536; sp++) if (parseScaled(printScaled(sp)
 for (let i = 0; i < 200000; i++) { const sp = Math.floor(Math.random() * 2 ** 30) - 2 ** 29; if (parseScaled(printScaled(sp)) !== sp) rtFail++ }
 console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"} over 593217 values`)
 
-// 2. every paragraph fixture: the chosen break paths have exactly as many lines as the DVI
-// (whole documents also have titles, displays and pages that no paragraph accounts for)
+// 2. every paragraph fixture: the chosen break paths have exactly as many lines as the
+// shipped pages' main vertical lists have line boxes (whole documents also have titles,
+// displays and pages that no paragraph accounts for)
 let pathFail = 0
 for (const fx of collectFixtures(["lib/latex/fixtures"]).filter((f) => /% engine: paragraph/.test(readFileSync(f, "utf8")))) {
-  const { trace, decisions } = cachedOracle(fx)
-  const dviLines = trace.pages.reduce((n, pg) => n + new Set(pg.glyphs.map((g) => g.v)).size, 0)
+  const { pages, decisions } = cachedOracle(fx)
+  const boxLines = pages.reduce((n, pg) => n + (findColumn(pg) ?? []).filter((b) => b.type === "hbox").length, 0)
   const chosen = decisions.paragraphs.reduce((n, p) => n + p.chosen.length, 0)
-  const ok = chosen === dviLines
+  const ok = chosen === boxLines
   if (!ok) pathFail++
-  console.log(`  ${ok ? "✓" : "✗"} ${fx.split("/").slice(-2).join("/")}: chosen path ${chosen} lines, DVI ${dviLines} lines`)
+  console.log(`  ${ok ? "✓" : "✗"} ${fx.split("/").slice(-2).join("/")}: chosen path ${chosen} lines, page boxes ${boxLines} lines`)
 }
 if (rtFail || pathFail) { console.log("DECISION ORACLE CHECK FAILED"); process.exit(1) }
 console.log("DECISION ORACLE CHECK PASSED")

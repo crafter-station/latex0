@@ -2,18 +2,20 @@
 // characters by \mathcode (§ 1151), symbol commands by their \mathchar,
 // math groups and their collapse to a lone ord's nucleus (§ 1186), sub_sup
 // with its dummy noads (§§ 1176–1177), \limits and \nolimits (§ 1159),
-// style commands (§ 1169), and three LaTeX definitions: \frac
+// style commands (§ 1169), \penalty, and these LaTeX definitions: \allowbreak
+// (\penalty0), \nobreak (\penalty10000), \frac
 // ({\begingroup#1\endgroup\over#2}), \int and \oint (\intop\nolimits), and
 // the prime ' (^\bgroup\prime…\egroup, which takes in a superscript that
 // follows: x'^{ab} is x^{\prime ab}).
 
 import type { MathData } from "./data"
+import { penalty } from "../layout/nodes"
 import { groupField, mathCharField, mathCharNoad, OP, ORD, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
 
-type Token = { cs: string } | { ch: string }
+type Token = { cs: string; value?: number } | { ch: string }
 
 function tokenize(src: string): Token[] {
   const out: Token[] = []
@@ -22,8 +24,13 @@ function tokenize(src: string): Token[] {
     if (c === "\\") {
       const m = src.slice(i + 1).match(/^([A-Za-z]+|.)/)
       if (!m) throw new Error("math: \\ at end of input")
-      out.push({ cs: m[1] }); i += 1 + m[1].length
+      i += 1 + m[1].length
       if (/^[A-Za-z]/.test(m[1])) while (/\s/.test(src[i] ?? "")) i++ // spaces after a control word
+      if (m[1] === "penalty") { // scan_int (§ 440): optional signs, digits, one optional space
+        const n = src.slice(i).match(/^([+-\s]*)(\d+) ?/)
+        if (!n) throw new Error("math: \\penalty needs an integer")
+        out.push({ cs: m[1], value: ((n[1].match(/-/g) ?? []).length % 2 ? -1 : 1) * Number(n[2]) }); i += n[0].length
+      } else out.push({ cs: m[1] })
     } else if (/\s/.test(c)) i++ // spaces are ignored in math mode
     else if (c === "%") { while (i < src.length && src[i] !== "\n") i++ }
     else { out.push({ ch: c }); i++ }
@@ -108,6 +115,8 @@ function parseTokens(toks: Token[], data: MathData): MItem[] {
       }
       const cs = OPERATOR_MACROS[t.cs] ?? t.cs
       if (cs in STYLES) out.push({ kind: "style", style: STYLES[cs] })
+      else if (cs === "allowbreak" || cs === "nobreak") out.push(penalty(cs === "nobreak" ? 10000 : 0))
+      else if (cs === "penalty") out.push(penalty(t.value!))
       else if (cs === "limits" || cs === "nolimits") {
         const tail = out[out.length - 1]
         if (!tail || !("noad" in tail) || tail.noad !== OP) throw new Error("math: Limit controls must follow a math operator")

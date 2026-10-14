@@ -1,6 +1,7 @@
-// Paragraph fuzzer (#112, #41): N seeded random paragraphs in one document, each
-// with its own width, tolerances, \looseness, \emergencystretch and hanging
-// indentation. TeX breaks them once; the engine breaks each one; every
+// Paragraph fuzzer (#112, #41, #86): N seeded random paragraphs in one
+// document, each with its own width, tolerances, \looseness, \emergencystretch
+// and hanging indentation, and some with inline formulas (breakable at their
+// relation and binary-operator penalties, and after \mathoff). TeX breaks them once; the engine breaks each one; every
 // paragraph's \tracingparagraphs decisions must be identical.
 //
 //   bun engine fuzz:paragraphs [--n 200] [--seed 1]
@@ -35,6 +36,10 @@ calm evening light slowly fades quiet gentle night town characteristically incom
 internationalization representation hyphenation algorithm demerits badness tolerance
 fitness loose tight decent stretch shrink glue penalty discretionary ligature kerning`.split(/\s+/)
 
+// inline math: atoms joined into formulas with relations and binary operators
+const MATH_ATOMS = ["x", "y", "n", "a_i", "x^2", "2", "10", "(x)", "f(x)", "\\alpha", "\\beta_k", "\\frac{1}{2}", "x'", "\\sum_{i=1}^n a_i", "e^{i\\pi}", "\\infty"]
+const MATH_OPS = ["+", "-", "=", "<", ">", "\\leq", "\\cdot", "\\times", "\\in", "\\to", ",", "\\nobreak=", "\\allowbreak,", "+\\penalty-50"]
+
 /** mulberry32: small, fast, deterministic PRNG */
 function rng(seed: number) {
   let a = seed >>> 0
@@ -64,8 +69,17 @@ export function makeParagraphs(n: number, seed: number): string[] {
     if (r() < 0.1) a.push(`\\linepenalty=${pick([0, 100, 1000])}`)
     if (r() < 0.1) a.push(`\\adjdemerits=${pick([0, 100000])}`)
     if (r() < 0.1) a.push(`\\hyphenpenalty=${pick([-100, 0, 1000, 10000])}`)
+    if (r() < 0.1) a.push(`\\mathsurround=${pick([1, 2, 5])}pt`)
     const len = 20 + Math.floor(r() * 120)
-    const words = Array.from({ length: len }, () => pick(WORDS))
+    const withMath = r() < 0.4
+    const formula = () => {
+      let f = pick(MATH_ATOMS)
+      const join = (x: string) => { f += (/\\[A-Za-z]+$/.test(f) || r() < 0.5 ? " " : "") + x }
+      for (let k = Math.floor(r() * 6); k > 0; k--) { join(pick(MATH_OPS)); join(pick(MATH_ATOMS)) }
+      return `$${f}$`
+    }
+    // a formula as a word, glued to punctuation, or touching a word (which then is not hyphenated, § 899)
+    const words = Array.from({ length: len }, () => !withMath || r() >= 0.15 ? pick(WORDS) : r() < 0.7 ? formula() + (r() < 0.2 ? pick([",", ".", ";"]) : "") : pick(WORDS) + formula())
     out.push([...a, words.join(" ")].join(" "))
   }
   return out

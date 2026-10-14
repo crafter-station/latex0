@@ -1,0 +1,14 @@
+% fixture: math/inline-scripts
+% tier: T3
+% engine: paragraph
+% covers: inline superscripts, subscripts, both at once, primes and scripts on groups (rules 18a-f), in running text
+% issue: #77
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+The sum of squares $x^2+y^2=z^2$ holds for the triple $(3,4,5)$, and the
+sequence $a_1, a_2, a_n$ has terms $a_i^2$ and $a_{i+1}^{k-1}$. A function
+$f'$ and its second derivative $f''(x)$ differ from $g'^2$ and from the
+empty base ${}^ab_c$. The group ${(x+y)}^{n}$ is raised as a box, and
+$e^{i\pi}+1=0$ is famous.
+\end{document}
