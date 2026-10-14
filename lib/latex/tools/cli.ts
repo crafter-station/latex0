@@ -9,6 +9,7 @@
 //   bun engine dimen:check [--n 5000] [--seed 1]       numbers, dimensions and glue: engine scanner vs TeX (#52)
 //   bun engine scorecard [--check] [--base f] [--markdown out.md]   fixture scorecard; CI gate and PR comment (#37)
 //   bun engine glyph:check [--n 4000] [--seed 1]      words in every font and synthetic lig/kern fonts vs TeX \showbox (#111)
+//   bun engine expand:check [--n 3000] [--seed 1]     random macro programs: \edef results and \meaning vs TeX (#46)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -97,6 +98,11 @@ switch (cmd) {
     const { glyphCheck } = await import("./oracle/glyphcheck")
     const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
     process.exit(glyphCheck(opt("--n", 4000), opt("--seed", 1)))
+  }
+  case "expand:check": {
+    const { expandCheck } = await import("./oracle/expandcheck")
+    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
+    process.exit(expandCheck(opt("--n", 3000), opt("--seed", 1)))
   }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")
