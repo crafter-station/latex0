@@ -45,6 +45,7 @@ function probe(cls: string, option: string): string {
     `\\def\\S#1{{#1\\check@mathfonts\\immediate\\write16{S:\\expandafter\\@gobble\\string#1:\\f@size:\\sf@size:\\ssf@size:\\fontname\\font:\\the\\baselineskip${DISPLAY.map((d) => `:\\the\\${d}`).join("")}}` +
       // the math families 0–3 at text, script and scriptscript size
       `\\immediate\\write16{T:\\expandafter\\@gobble\\string#1:\\the\\ht\\strutbox:\\the\\dp\\strutbox}` +
+      `{\\fontencoding{TS1}\\selectfont\\immediate\\write16{C:\\expandafter\\@gobble\\string#1:\\fontname\\font}}` +
       `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}}}`,
     "\\begin{document}",
     ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
@@ -72,6 +73,7 @@ function texData(cls: string, option: string): ClassOptionData {
   const data: ClassOptionData = { dimens: {}, glue: {}, ints: {}, sizes: {} as ClassOptionData["sizes"] }
   const mathFonts = new Map<string, SizeData["math"]>()
   const struts = new Map<string, SizeData["strut"]>()
+  const companion = new Map<string, SizeData["companion"]>()
   for (const line of log) {
     let m: RegExpMatchArray | null
     if ((m = line.match(/^([DGI]):(\w+)=(.*)$/))) {
@@ -87,8 +89,11 @@ function texData(cls: string, option: string): ClassOptionData {
         abovedisplayskip: display[0], belowdisplayskip: display[1], abovedisplayshortskip: display[2], belowdisplayshortskip: display[3],
         math: { text: [], script: [], scriptscript: [] },
         strut: { height: 0, depth: 0 },
+        companion: { name: "", at: 0 },
       }
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
+    } else if ((m = line.match(/^C:(\w+):(\w+)(?: at ([\d.]+)pt)?$/))) {
+      companion.set(m[1], { name: m[2], at: m[3] ? parseScaled(m[3]) : designSize(m[2]) })
     } else if ((m = line.match(/^T:(\w+):([\d.]+)pt:([\d.]+)pt$/))) {
       struts.set(m[1], { height: parseScaled(m[2]), depth: parseScaled(m[3]) })
     } else if ((m = line.match(/^F:(\w+):(.*)$/))) {
@@ -98,6 +103,7 @@ function texData(cls: string, option: string): ClassOptionData {
   }
   for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
+  for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount"].filter((i) => !(i in data.ints)), ...["footinsskip"].filter((g) => !(g in data.glue)), ...["footinsdimen"].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data

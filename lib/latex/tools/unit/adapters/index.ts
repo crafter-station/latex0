@@ -4,6 +4,7 @@
 
 import type { PageTrace, ParagraphTrace } from "../../../trace/decisions"
 import type { BoxNode, Trace } from "../../../trace/schema"
+import { document } from "./document"
 import { paragraph } from "./paragraph"
 
 export interface AdapterResult {
@@ -18,4 +19,4 @@ export interface AdapterResult {
 }
 export type Adapter = (src: string, oracle: Trace) => AdapterResult
 
-export const ADAPTERS: Record<string, Adapter> = { paragraph }
+export const ADAPTERS: Record<string, Adapter> = { paragraph, document }

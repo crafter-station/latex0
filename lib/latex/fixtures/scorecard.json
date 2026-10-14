@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 62,
-  "exact": 44,
+  "fixtures": 67,
+  "exact": 51,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 18,
-  "glyphs": 34601
+  "pending": 16,
+  "glyphs": 40494
  },
  "areas": [
   {
@@ -30,6 +30,11 @@
    "exact": 16
   },
   {
+   "area": "lists",
+   "fixtures": 5,
+   "exact": 5
+  },
+  {
    "area": "math",
    "fixtures": 5,
    "exact": 5
@@ -42,7 +47,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 0
+   "exact": 2
   },
   {
    "area": "text",
@@ -133,8 +138,8 @@
    "file": "macro/templates/enumerate.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 35,
    "covers": "snippet in a minimal article: Ordered list with items",
    "issue": "#30"
@@ -177,8 +182,8 @@
    "file": "macro/templates/itemize.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 32,
    "covers": "snippet in a minimal article: Unordered list with items",
    "issue": "#30"
@@ -600,6 +605,61 @@
    "glyphs": 328,
    "covers": "\\pretolerance=-1 skips the first pass; TeX prints no @secondpass marker in that case (§ 863)",
    "issue": "#112"
+  },
+  {
+   "id": "lists/consecutive-lists",
+   "file": "micro/lists/consecutive-lists.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 359,
+   "covers": "lists one after another: \\addpenalty when \\lastskip is not zero (the penalty goes before the skip, with the \\prevdepth correction) and \\addvspace keeping the larger skip, between itemize and enumerate",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/enumerate-long",
+   "file": "micro/lists/enumerate-long.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2170,
+   "covers": "enumerate past nine items (two-digit labels), items across a page break with \\@itempenalty, at 11pt",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/itemize-book-12pt",
+   "file": "micro/lists/itemize-book-12pt.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2388,
+   "covers": "itemize in a two-sided 12pt book: \\leftmargini and the list skips at 12pt, \\textbullet from TS1 at 12pt, flush bottom, and page numbers on odd and even pages",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/list-between-paragraphs",
+   "file": "micro/lists/list-between-paragraphs.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 410,
+   "covers": "itemize between paragraphs: \\@trivlist's \\topsep+\\partopsep+\\parskip, \\addpenalty and \\addvspace against the paragraph's \\prevdepth, \\@endparenv, and a paragraph after a blank line; page number in the foot",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/list-in-paragraph",
+   "file": "micro/lists/list-in-paragraph.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 499,
+   "covers": "a list begun inside a paragraph (no \\partopsep, \\unskip\\par) and text right after \\end{enumerate} without a blank line (\\@endpe: no indentation)",
+   "issue": "#30"
   },
   {
    "id": "math/display-style-inline",

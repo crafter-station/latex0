@@ -1,0 +1,15 @@
+% fixture: lists/list-in-paragraph
+% tier: T3
+% engine: document
+% covers: a list begun inside a paragraph (no \partopsep, \unskip\par) and text right after \end{enumerate} without a blank line (\@endpe: no indentation)
+% issue: #30
+\documentclass{article}
+\begin{document}
+Lists are set by the list environment, which indents every line by the left margin and puts each label in a box of the label width, set off by the label separation. It goes on into a list:
+\begin{enumerate}
+\item one item,
+\item another item with some words, and
+\item An item long enough to take more than one line shows that every line of the item keeps the left margin, through the paragraph shape the list sets.
+\end{enumerate}
+and the paragraph continues after the list without indentation. Lists are set by the list environment, which indents every line by the left margin and puts each label in a box of the label width, set off by the label separation.
+\end{document}

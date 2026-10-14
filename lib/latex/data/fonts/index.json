@@ -259,6 +259,54 @@
   {
    "name": "lcircle10",
    "checksum": 4237311128
+  },
+  {
+   "name": "tcrm0500",
+   "checksum": 3117572015
+  },
+  {
+   "name": "tcrm0600",
+   "checksum": 51768958
+  },
+  {
+   "name": "tcrm0700",
+   "checksum": 4103145164
+  },
+  {
+   "name": "tcrm0800",
+   "checksum": 477660349
+  },
+  {
+   "name": "tcrm0900",
+   "checksum": 1806885514
+  },
+  {
+   "name": "tcrm1000",
+   "checksum": 3157912729
+  },
+  {
+   "name": "tcrm1095",
+   "checksum": 3126736231
+  },
+  {
+   "name": "tcrm1200",
+   "checksum": 2867035203
+  },
+  {
+   "name": "tcrm1440",
+   "checksum": 769099994
+  },
+  {
+   "name": "tcrm1728",
+   "checksum": 3734051270
+  },
+  {
+   "name": "tcrm2074",
+   "checksum": 2810961207
+  },
+  {
+   "name": "tcrm2488",
+   "checksum": 494110587
   }
  ]
 }

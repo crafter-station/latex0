@@ -11,10 +11,13 @@ const REPO = "https://github.com/crafter-station/latex0"
 
 // Checks CI runs on every engine change, on generated input (.github/workflows/engine.yml)
 const GENERATED = [
-  { what: "Random paragraphs", detail: "line-break decisions, all three passes, \\looseness", count: "1,000" },
+  { what: "Random paragraphs", detail: "line breaks with inline math and footnotes, page breaks, every page's boxes", count: "1,000" },
   { what: "Number, dimension and glue scans", detail: "values, errors and unscanned input", count: "20,000" },
   { what: "Dictionary words", detail: "hyphenation points against \\showhyphens", count: "20,000" },
-  { what: "Words in 65 fonts and 40 synthetic fonts", detail: "ligatures, kerns, boundary characters, italic corrections", count: "10,000" },
+  { what: "Words in 77 fonts and 40 synthetic fonts", detail: "ligatures, kerns, boundary characters, italic corrections", count: "10,000" },
+  { what: "Macro programs", detail: "expansion results and \\meaning, against TeX", count: "3,000" },
+  { what: "Documents with their own macros", detail: "typeset unchanged after the renderer's expansion", count: "300" },
+  { what: "Math formulas", detail: "scripts, fractions, operators and styles, against \\showbox", count: "3,000" },
 ]
 
 export default function ScorecardPage() {
