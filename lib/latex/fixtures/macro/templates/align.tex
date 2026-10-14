@@ -1,0 +1,14 @@
+% fixture: templates/align
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Multi-line aligned equations
+% issue: #30
+% source: lib/templates.ts "Align" (LATEX0 editor template)
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\begin{align}
+  a &= b + c \\
+  d &= e + f
+\end{align}
+\end{document}

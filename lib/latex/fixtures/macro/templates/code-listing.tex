@@ -1,0 +1,15 @@
+% fixture: templates/code-listing
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Code block with syntax highlighting
+% issue: #30
+% source: lib/templates.ts "Code Listing" (LATEX0 editor template)
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+% Requires \usepackage{listings} in preamble
+\begin{lstlisting}[language=Python, caption={Your caption}]
+def hello():
+    print("Hello, World!")
+\end{lstlisting}
+\end{document}

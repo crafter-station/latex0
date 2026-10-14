@@ -11,7 +11,8 @@ export function parseTfm(buf: Uint8Array, name = ""): Tfm {
   const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
   const half = (i: number) => dv.getUint16(i * 2)
   const [lf, lh, bc, ec, nw, nh, nd, ni, nl, nk, ne, np] = Array.from({ length: 12 }, (_, i) => half(i))
-  if (lf * 4 !== buf.byteLength) throw new Error(`TFM length mismatch: lf=${lf} bytes=${buf.byteLength}`)
+  // TeX reads lf words and ignores anything after them (Metafont-made TFMs can be padded)
+  if (lf * 4 > buf.byteLength) throw new Error(`TFM truncated in ${name}: lf=${lf} bytes=${buf.byteLength}`)
   if (lf !== 6 + lh + (ec - bc + 1) + nw + nh + nd + ni + nl + nk + ne + np) throw new Error("TFM header inconsistent")
 
   const word = (w: number) => dv.getInt32(w * 4)

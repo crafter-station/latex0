@@ -16,6 +16,8 @@ const BADGE = `${FIXTURES}/badge.json`
 
 export interface ScoreFixture {
   id: string
+  /** path from lib/latex/fixtures */
+  file: string
   area: string
   /** target tier from the header */
   tier: Tier
@@ -28,7 +30,7 @@ export interface ScoreFixture {
 }
 export interface Scorecard {
   format: 1
-  summary: { fixtures: number; exact: number; expectedFailures: number; failing: number; glyphs: number }
+  summary: { fixtures: number; exact: number; expectedFailures: number; failing: number; /** no engine path yet */ pending: number; glyphs: number }
   areas: { area: string; fixtures: number; exact: number }[]
   fixtures: ScoreFixture[]
 }
@@ -38,7 +40,7 @@ export function buildScorecard(results: UnitResult[]): Scorecard {
     const h = parseHeader(readFileSync(r.fixture, "utf8"))
     const id = r.fixture.replace(`${FIXTURES}/`, "").replace(/^(micro|macro)\//, "").replace(/\.tex$/, "")
     return {
-      id, area: id.split("/")[0], tier: r.tier, reached: r.status === "pass" ? r.tier : null, status: r.status,
+      id, file: r.fixture.replace(`${FIXTURES}/`, ""), area: id.split("/")[0], tier: r.tier, reached: r.status === "pass" ? r.tier : null, status: r.status,
       glyphs: r.glyphs, covers: h.covers ?? "", ...(h.issue ? { issue: h.issue } : {}),
     }
   })
@@ -53,6 +55,7 @@ export function buildScorecard(results: UnitResult[]): Scorecard {
       exact: fixtures.filter((f) => f.reached === "T3").length,
       expectedFailures: fixtures.filter((f) => f.status === "xfail").length,
       failing: fixtures.filter((f) => f.status === "fail" || f.status === "error" || f.status === "xpass").length,
+      pending: fixtures.filter((f) => f.status === "skip").length,
       glyphs: fixtures.filter((f) => f.reached).reduce((n, f) => n + f.glyphs, 0),
     },
     areas,
@@ -61,8 +64,9 @@ export function buildScorecard(results: UnitResult[]): Scorecard {
 }
 
 export function badge(s: Scorecard) {
-  const { exact, fixtures } = s.summary
-  return { schemaVersion: 1, label: "identical to TeX", message: `${exact}/${fixtures} fixtures`, color: exact === fixtures ? "brightgreen" : exact / fixtures > 0.9 ? "yellow" : "red" }
+  const { exact, fixtures, failing, pending } = s.summary
+  // red only for failures; fixtures the engine cannot lay out yet are work to do, not regressions
+  return { schemaVersion: 1, label: "identical to TeX", message: `${exact}/${fixtures} fixtures`, color: failing ? "red" : pending ? "blue" : "brightgreen" }
 }
 
 const RANK: Record<Tier, number> = { T0: 0, T1: 1, T2: 2, T3: 3 }
@@ -86,13 +90,13 @@ export function compareScorecards(base: Scorecard | null, now: Scorecard): Delta
 
 export function markdown(now: Scorecard, d: Delta, results: UnitResult[]): string {
   const s = now.summary
-  const icon = (f: ScoreFixture) => (f.reached ? "✅" : f.status === "xfail" ? "⏳" : "❌")
+  const icon = (f: ScoreFixture) => (f.reached ? "✅" : f.status === "xfail" ? "⏳" : f.status === "skip" ? "⚪" : "❌")
   const row = (f: ScoreFixture) => `| ${icon(f)} | \`${f.id}\` | ${f.reached ?? "—"} | ${f.covers.replace(/\|/g, "\\|")} |`
   const out = [
     "### Engine scorecard",
     "",
     `**${s.exact}/${s.fixtures}** fixtures identical to TeX at 0 sp (${s.glyphs.toLocaleString("en-US")} glyphs)` +
-      (s.expectedFailures ? ` · ${s.expectedFailures} expected failures` : "") + (s.failing ? ` · **${s.failing} failing**` : ""),
+      (s.pending ? ` · ${s.pending} with no engine path yet` : "") + (s.expectedFailures ? ` · ${s.expectedFailures} expected failures` : "") + (s.failing ? ` · **${s.failing} failing**` : ""),
     "",
   ]
   if (d.regressed.length || d.removed.length) {

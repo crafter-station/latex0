@@ -1,0 +1,39 @@
+% fixture: templates/report
+% tier: T3
+% engine: document
+% covers: Multi-chapter report with table of contents
+% issue: #30
+% source: lib/templates.ts "Thesis / Report" (LATEX0 editor template)
+\documentclass[12pt]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Report Title}
+\author{Author Name}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\chapter{Introduction}
+Your introduction here.
+
+\chapter{Background}
+Background information here.
+
+\chapter{Methodology}
+Your methodology here.
+
+\chapter{Results}
+Your results here.
+
+\chapter{Conclusion}
+Your conclusion here.
+
+\end{document}

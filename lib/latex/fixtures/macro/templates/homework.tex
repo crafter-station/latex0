@@ -1,0 +1,37 @@
+% fixture: templates/homework
+% tier: T3
+% engine: document
+% covers: Clean homework layout with problem/solution structure
+% issue: #30
+% source: lib/templates.ts "Homework / Assignment" (LATEX0 editor template)
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=1in]{geometry}
+
+\title{Homework \#1}
+\author{Your Name}
+\date{\today}
+
+\newcounter{problem}
+\newcommand{\problem}{\stepcounter{problem}\paragraph{Problem \theproblem.}}
+
+\begin{document}
+
+\maketitle
+
+\problem
+State the problem here.
+
+\textbf{Solution.}
+Write your solution here.
+
+\problem
+State the next problem here.
+
+\textbf{Solution.}
+Write your solution here.
+
+\end{document}

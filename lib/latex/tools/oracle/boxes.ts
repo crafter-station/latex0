@@ -30,16 +30,18 @@ function parseSpec(s: string) {
 
 export function parseLine(text: string): BoxNode {
   let m: RegExpMatchArray | null
-  if ((m = text.match(/^\\([hv])box\((-?[\d.]+)\+(-?[\d.]+)\)x(-?[\d.]+)(?:, glue set (- )?(>|< -)?(-?[\d.]+)(fil{1,3})?)?(?:, shifted (-?[\d.]+))?$/))) {
-    if (m[6]) throw new Error("glue set beyond ±20000 is not representable exactly")
-    const sign = m[7] === undefined ? 0 : m[5] ? 2 : 1
-    return {
+  if ((m = text.match(/^\\([hv])box\((-?[\d.]+)\+(-?[\d.]+)\)x(-?[\d.]+)(?:, glue set (- )?(>|< -)?(-?[\d.]+)(fil{1,3})?)?(?:, shifted (-?[\d.]+))?(, display)?$/))) {
+    // § 186: |ratio| > 20000 prints as ">20000.0" or "< -20000.0"; keep the printed value
+    const sign = m[7] === undefined ? 0 : m[5] || m[6] === "< -" ? 2 : 1
+    const box: BoxNode = {
       type: m[1] === "h" ? "hbox" : "vbox",
       height: parseScaled(m[2]), depth: parseScaled(m[3]), width: parseScaled(m[4]),
       // TeX prints round(unity × glue_set); keep that exact integer as a ratio
       glueSet: m[7] ? parseScaled(m[7]) / 65536 : 0, glueSign: sign as 0 | 1 | 2, glueOrder: ORDER[m[8] ?? ""] as 0 | 1 | 2 | 3,
       shift: m[9] ? parseScaled(m[9]) : 0, children: [],
     }
+    if (m[10]) box.display = true
+    return box
   }
   if ((m = text.match(/^\\glue(?:\(\\([a-z]+)\))? (.*)$/))) {
     const g: BoxNode = { type: "glue", ...parseSpec(m[2]) }
@@ -75,6 +77,7 @@ export function parseBoxDump(lines: string[], i: number): { box: BoxNode; end: n
     const parent = stack[stack.length - 1].node
     if (parent.type === "hbox" || parent.type === "vbox") parent.children.push(node)
     else if (parent.type === "disc") (prefix.endsWith("|") ? parent.post : parent.pre).push(node)
+    else if (parent.type === "other") (parent.children ??= []).push(node)
     else throw new Error(`box dump: ${parent.type} cannot have children (line ${i + 1})`)
     stack.push({ depth, node })
   }

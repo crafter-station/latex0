@@ -1,0 +1,38 @@
+% fixture: templates/book
+% tier: T3
+% engine: document
+% covers: Full book layout with front matter, chapters, and back matter
+% issue: #30
+% source: lib/templates.ts "Book" (LATEX0 editor template)
+\documentclass[12pt]{book}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Book Title}
+\author{Author Name}
+\date{\today}
+
+\begin{document}
+
+\frontmatter
+\maketitle
+\tableofcontents
+
+\mainmatter
+
+\chapter{Introduction}
+Your introduction here.
+
+\chapter{Chapter One}
+Content of chapter one.
+
+\chapter{Chapter Two}
+Content of chapter two.
+
+\backmatter
+
+\end{document}

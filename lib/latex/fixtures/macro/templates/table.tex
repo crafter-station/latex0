@@ -1,0 +1,22 @@
+% fixture: templates/table
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Table with header row and sample data
+% issue: #30
+% source: lib/templates.ts "Table" (LATEX0 editor template)
+\documentclass{article}
+\begin{document}
+\begin{table}[htbp]
+  \centering
+  \caption{Your Title}
+  \label{tab:label}
+  \begin{tabular}{lcc}
+    \hline
+    \textbf{Column 1} & \textbf{Column 2} & \textbf{Column 3} \\
+    \hline
+    Value 1 & Value 2 & Value 3 \\
+    Value 4 & Value 5 & Value 6 \\
+    \hline
+  \end{tabular}
+\end{table}
+\end{document}
