@@ -10,6 +10,7 @@
 //   bun engine scorecard [--check] [--base f] [--markdown out.md]   fixture scorecard; CI gate and PR comment (#37)
 //   bun engine glyph:check [--n 4000] [--seed 1]      words in every font and synthetic lig/kern fonts vs TeX \showbox (#111)
 //   bun engine expand:check [--n 3000] [--seed 1]     random macro programs: \edef results and \meaning vs TeX (#46)
+//   bun engine expand:doc [--n 300] [--seed 1]        random documents: TeX output unchanged by expandDocument (#46)
 //   bun engine math:check [--n 3000] [--seed 1]       random formulas: mlist_to_hlist vs TeX \showbox (#74)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
@@ -105,6 +106,11 @@ switch (cmd) {
     const { expandCheck } = await import("./oracle/expandcheck")
     const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
     process.exit(expandCheck(opt("--n", 3000), opt("--seed", 1)))
+  }
+  case "expand:doc": {
+    const { expandDocCheck } = await import("./oracle/expanddoc")
+    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
+    process.exit(expandDocCheck(opt("--n", 300), opt("--seed", 1)))
   }
   case "math:check": {
     const { mathCheck } = await import("./oracle/mathcheck")

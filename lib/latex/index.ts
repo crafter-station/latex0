@@ -2,25 +2,34 @@
 //
 //   render(source)  ->  HTML string
 //
-// Pipeline: tokenize() -> parse() -> renderAst(). Each stage is exported so
-// callers can cache or inspect intermediate results.
+// Pipeline: expandDocument() -> tokenize() -> parse() -> renderAst(). The
+// document's own macros are expanded at token level, exactly as TeX expands
+// them (expand/); each stage is exported so callers can cache or inspect
+// intermediate results.
 
+import { expandDocument } from "./expand/document"
 import { tokenize } from "./lexer"
-import { expandMacros } from "./macros"
-import { parse } from "./parser"
+import { isKnownCommand, parse } from "./parser"
 import { renderAst, type RenderOptions } from "./render"
+import { escapeHtml } from "./util"
 
+export { expandDocument, type DocumentExpansion } from "./expand/document"
 export { tokenize } from "./lexer"
-export { expandMacros } from "./macros"
 export { parse } from "./parser"
 export { renderAst, type RenderOptions } from "./render"
 export { LATEX_CSS } from "./styles"
 export type { Node, Token } from "./types"
 
+/** The source with the document's macro definitions removed and their uses expanded. */
+export function expandMacros(source: string): string {
+  return expandDocument(source, { known: isKnownCommand }).text
+}
+
 /** Render LaTeX source to an HTML fragment string. */
 export function render(source: string, opts: RenderOptions = {}): string {
-  const expanded = expandMacros(source)
-  const tokens = tokenize(expanded)
-  const ast = parse(tokens, expanded)
-  return renderAst(ast, opts)
+  const { text, errors } = expandDocument(source, { known: isKnownCommand })
+  const tokens = tokenize(text)
+  const ast = parse(tokens, text)
+  const warning = errors.length ? `<div class="l0-warning">Macro expansion stopped: ${escapeHtml(errors[0])}</div>` : ""
+  return warning + renderAst(ast, opts)
 }

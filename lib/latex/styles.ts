@@ -134,4 +134,6 @@ export const LATEX_CSS = `
 .l0-graphics-icon { font-size: 1.4em; }
 
 .l0-unknown { color: #dc2626; font-family: monospace; font-size: 0.85em; }
+.l0-warning { margin: 0 0 1em; padding: 0.5em 0.75em; border-left: 3px solid #d97706; background: #fffbeb;
+  color: #92400e; font: 0.85em system-ui; }
 `

@@ -46,6 +46,13 @@ export class Tokenizer {
     for (const l of this.lines) { this.offsets.push(o); o += l.length + 1 }
   }
 
+  /** Source offset just past what has been read (the end of the last token, with any spaces a control word skipped). */
+  get offset(): number {
+    if (this.line < 0) return 0
+    if (this.line >= this.lines.length) return this.offsets[this.lines.length - 1] + this.lines[this.lines.length - 1].length
+    return this.offsets[this.line] + Math.min(this.loc, this.lines[this.line].length)
+  }
+
   private nextLine(): boolean {
     if (++this.line >= this.lines.length) return false
     this.buf = this.lines[this.line].replace(/ +$/, "") // § 31: trailing spaces are removed

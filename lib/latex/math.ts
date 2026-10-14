@@ -155,7 +155,7 @@ function renderMathCommand(name: string, args: Node[][], optional?: Node[]): str
 
   // equation bookkeeping commands render nothing in the math body
   if (name === "label" || name === "nonumber" || name === "notag" || name === "tag" || name === "qedhere") return ""
-  if (name === "nolimits" || name === "limits" || name === "displaystyle" || name === "textstyle" || name === "scriptstyle") return ""
+  if (name === "nolimits" || name === "limits" || name === "displaystyle" || name === "textstyle" || name === "scriptstyle" || name === "relax") return ""
 
   // symbol table
   const sym = SYMBOLS[name]
