@@ -56,7 +56,7 @@ jobs:
         run: gh pr comment ${{ github.event.pull_request.number }} --body-file "$RUNNER_TEMP/scorecard.md" --edit-last --create-if-none
       - name: Number, dimension and glue scanning identical to TeX (20,000 cases)
         run: bun engine dimen:check --n 20000
-      - name: Glyph runs identical to TeX (10,000 words, 65 fonts + 40 synthetic lig/kern fonts)
+      - name: Glyph runs identical to TeX (10,000 words, 77 fonts + 40 synthetic lig/kern fonts)
         run: bun engine glyph:check --n 10000
       - name: Macro expansion identical to TeX (3,000 random programs)
         run: bun engine expand:check --n 3000

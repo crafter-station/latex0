@@ -183,7 +183,7 @@ export class Expander {
     const args: Tok[][] = []
     let pi = 0
     let relax = false
-    if (m.inner) { // \\@protected@testopt\\foo\\\\foo{default}: \\@ifnextchar[ skips spaces, then looks for [
+    if (m.inner) { // \@protected@testopt\foo\\foo{default}: \@ifnextchar[ skips spaces, then looks for [
       const inner = this.meanings.get(m.inner)
       if (!inner || inner.kind !== "macro") throw new ExpansionError(`Undefined control sequence \\${m.inner}`)
       let x = this.need(this.getNext())
@@ -478,7 +478,7 @@ export class Expander {
     if (kind === "providecommand" && (defined || this.known(target.cs!))) return
     const macro: Macro = { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }
     if (!optional) { this.define(k, macro, false); return }
-    // \\foo is \\@protected@testopt\\foo\\\\foo{default}; \\\\foo takes [#1]
+    // \foo is \@protected@testopt\foo\\foo{default}; \\foo takes [#1]
     this.define("\\" + k, macro, false)
     this.define(k, { kind: "macro", params: [], brace: false, body: [], long: false, protected: true, optional, inner: "\\" + k }, false)
   }

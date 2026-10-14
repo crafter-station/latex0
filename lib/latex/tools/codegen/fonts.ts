@@ -25,6 +25,8 @@ export const FONTS = [
   // AMS and friends
   ...["5", "7", "10"].flatMap((s) => [`msam${s}`, `msbm${s}`, `eufm${s}`]),
   "lasy10", "line10", "lcircle10",
+  // text companion (TS1: \textbullet and friends) at the class sizes
+  ...["0500", "0600", "0700", "0800", "0900", "1000", "1095", "1200", "1440", "1728", "2074", "2488"].map((s) => `tcrm${s}`),
 ]
 
 const OUT = "lib/latex/data/fonts"

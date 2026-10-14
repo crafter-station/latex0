@@ -1,0 +1,22 @@
+% fixture: lists/consecutive-lists
+% tier: T3
+% engine: document
+% covers: lists one after another: \addpenalty when \lastskip is not zero (the penalty goes before the skip, with the \prevdepth correction) and \addvspace keeping the larger skip, between itemize and enumerate
+% issue: #30
+\documentclass{article}
+\begin{document}
+Two lists in a row meet at a skip: the second list's first item puts its penalty before that skip, and its own top skip only adds what is larger.
+
+\begin{itemize}
+\item A first list, with a descender in its last item: gypsy.
+\end{itemize}
+\begin{enumerate}
+\item A second list right after it, quickly.
+\item And its second item.
+\end{enumerate}
+\begin{itemize}
+\item A third list ends with no descender
+\end{itemize}
+
+Two lists in a row meet at a skip: the second list's first item puts its penalty before that skip, and its own top skip only adds what is larger.
+\end{document}

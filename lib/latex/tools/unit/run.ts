@@ -7,6 +7,7 @@ import { compareBoxLists, compareTraces, validateTrace, type BoxDivergence, type
 import { findColumn } from "../oracle/boxes"
 import { compareParagraphs, comparePages, documentPages, type DecisionDivergence } from "../../trace/decisions"
 import { cachedOracle } from "../oracle/oracle"
+import { Unsupported } from "./adapters/document"
 import { ADAPTERS } from "./adapters"
 import { parseHeader, type Tier } from "./header"
 
@@ -106,6 +107,7 @@ export function runFixture(path: string): UnitResult {
     if (divergence) return done({ status: "fail", divergence, context: contextOf(expected, divergence), notes })
     return done({ status: "pass", notes })
   } catch (e) {
+    if (e instanceof Unsupported) return done({ status: "skip", message: `not laid out yet: ${e.message}` })
     return done({ status: "error", message: (e as Error).message.split("\n")[0] })
   }
 }

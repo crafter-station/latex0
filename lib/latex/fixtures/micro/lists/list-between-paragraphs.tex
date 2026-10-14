@@ -1,0 +1,17 @@
+% fixture: lists/list-between-paragraphs
+% tier: T3
+% engine: document
+% covers: itemize between paragraphs: \@trivlist's \topsep+\partopsep+\parskip, \addpenalty and \addvspace against the paragraph's \prevdepth, \@endparenv, and a paragraph after a blank line; page number in the foot
+% issue: #30
+\documentclass{article}
+\begin{document}
+Lists are set by the list environment, which indents every line by the left margin and puts each label in a box of the label width, set off by the label separation.
+
+\begin{itemize}
+  \item First, a short item.
+  \item An item long enough to take more than one line shows that every line of the item keeps the left margin, through the paragraph shape the list sets.
+  \item Third.
+\end{itemize}
+
+Lists are set by the list environment, which indents every line by the left margin and puts each label in a box of the label width, set off by the label separation.
+\end{document}

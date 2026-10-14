@@ -33,7 +33,7 @@ import { classData, documentClass } from "../../classes"
 import { dataFont } from "../../fonts"
 import type { Adapter } from "./index"
 
-const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
+export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
 // assignable parameters: TeX name → LineBreakParams field
 const INT_PARAMS = {
@@ -72,6 +72,9 @@ export function classParams(k: ClassOptionData): LineBreakParams {
 
 /** Document state that crosses paragraphs: LaTeX's footnote counter. */
 export interface DocState { footnote: number }
+
+/** What a paragraph's surroundings set: the start of its list (in place of the indent box) and its shape. */
+export interface ParagraphOptions { start?: Node[]; parShape?: [number, number][]; clubPenalty?: number }
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece = { kind: "text" | "math" | "footnote"; src: string }
@@ -117,7 +120,7 @@ function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand): BoxNode
 }
 
 /** Interline glue (§ 679) and the box, appended to a vertical list; returns the new \prevdepth. */
-function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | null, baselineskip: GlueSpec, lineskip: GlueSpec, lineskiplimit: number): number {
+export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | null, baselineskip: GlueSpec, lineskip: GlueSpec, lineskiplimit: number): number {
   if (prevDepth !== null) {
     const d = baselineskip.width - prevDepth - box.height
     out.push(d < lineskiplimit ? spec("lineskip", lineskip) : spec("baselineskip", baselineskip, d))
@@ -206,7 +209,7 @@ function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFon
  * the horizontal list TeX builds for it and the line-breaking parameters in
  * force. `notes` are the footnote paragraphs' traces, which TeX breaks first.
  */
-export function paragraphInput(body: string, k: ClassOptionData = classData("article", "10pt"), size: SizeCommand = "normalsize", doc: DocState = { footnote: 0 }): { list: Node[]; params: LineBreakParams; notes: ParagraphTrace[] } {
+export function paragraphInput(body: string, k: ClassOptionData = classData("article", "10pt"), size: SizeCommand = "normalsize", doc: DocState = { footnote: 0 }, opts: ParagraphOptions = {}): { list: Node[]; params: LineBreakParams; notes: ParagraphTrace[] } {
   const params = classParams(k)
   const font = sizeFont(k, size)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
@@ -233,7 +236,9 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   }
   const ps = pieces(body)
   params.hyphenation = hyphenation(k, font)
-  const list: Node[] = indent ? [emptyBox("hlist", k.dimens.parindent)] : []
+  if (opts.parShape) params.parShape = opts.parShape
+  if (opts.clubPenalty !== undefined) params.clubPenalty = opts.clubPenalty
+  const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes })
   return { list, params, notes }
@@ -282,9 +287,14 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
       else contrib.push(n)
     }
   }
-  // \end{document}: a skip of -\prevdepth, at most \maxdepth, when the last line has depth,
-  // then \clearpage, whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps
-  // show both forms)
+  const { pages, pageTrace } = endDocument(contrib, prevDepth, k)
+  return { decisions, pages, pageTrace, lineCount }
+}
+
+/** \end{document} after the main vertical list `contrib`, and the pages TeX's page builder cuts. */
+export function endDocument(contrib: Node[], prevDepth: number | null, k: ClassOptionData) {
+  // a skip of -\prevdepth, at most \maxdepth, when the last line has depth, then \clearpage,
+  // whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps show both forms)
   if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-Math.min(prevDepth, k.dimens.maxdepth)))
   contrib.push(glue(0, 65536, FIL), { kind: "penalty", penalty: -10000 })
   // the rest of \clearpage: \write\m@ne{}\vbox{}\penalty-\@Mi. Its output routine (\@doclearpage)
@@ -296,7 +306,7 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
     more: (last) => (last?.outputPenalty === -10000 || (last?.outputPenalty === -10001 && last.inserts[k.ints.footins]) ? clear() : null),
   })
   const pages = built.pages.filter((pg) => pg.outputPenalty !== -10001 || pg.inserts[k.ints.footins])
-  return { decisions, pages, pageTrace: documentPages(built.trace), lineCount }
+  return { pages, pageTrace: documentPages(built.trace) }
 }
 
 /**
