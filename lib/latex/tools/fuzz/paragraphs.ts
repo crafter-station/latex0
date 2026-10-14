@@ -8,9 +8,10 @@
 import { mkdirSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { lineBreak } from "../../layout/linebreak"
-import { compareParagraphs } from "../../trace/decisions"
+import { compareParagraphs, comparePages, documentPages } from "../../trace/decisions"
 import { oracleRun } from "../oracle/oracle"
-import { paragraphInput } from "../unit/adapters/paragraph"
+import { classData } from "../classes"
+import { paragraphInput, typesetBody } from "../unit/adapters/paragraph"
 
 // Fixed vocabulary, so a seed means the same text on every machine. It mixes
 // ligatures (fi ff ffl), kerns, capitals, punctuation that changes the space
@@ -76,7 +77,8 @@ export function fuzzParagraphs(n: number, seed: number): number {
   mkdirSync(dir, { recursive: true })
   const file = join(dir, `paragraphs-${seed}-${n}.tex`)
   writeFileSync(file, ["\\documentclass{article}", "\\pagestyle{empty}", "\\begin{document}", ...bodies.flatMap((b) => [`{${b}\\par}`, ""]), "\\end{document}", ""].join("\n"))
-  const tex = oracleRun(file).decisions.paragraphs
+  const texDecisions = oracleRun(file).decisions
+  const tex = texDecisions.paragraphs
   if (tex.length !== n) throw new Error(`TeX traced ${tex.length} paragraphs, expected ${n}`)
   let failed = 0
   bodies.forEach((body, i) => {
@@ -86,6 +88,12 @@ export function fuzzParagraphs(n: number, seed: number): number {
     failed++
     if (failed <= 5) console.log(`✗ paragraph ${i}: ${d.what}\n    TeX:    ${JSON.stringify(d.expected)}\n    engine: ${JSON.stringify(d.actual)}\n    ${body.slice(0, 160)}…`)
   })
+  // the same paragraphs as one document: every page-break decision must match too
+  const { pageTrace } = typesetBody(bodies.map((text) => ({ size: "normalsize" as const, text })), classData("article", "10pt"))
+  const texPages = documentPages(texDecisions.pages)
+  const pd = comparePages(texPages, pageTrace)
+  if (pd) { failed++; console.log(`✗ pages: ${pd.what}\n    TeX:    ${JSON.stringify(pd.expected)}\n    engine: ${JSON.stringify(pd.actual)}`) }
+  else console.log(`${texPages.length} pages: every page-break decision identical to TeX (${texPages.reduce((n, p) => n + p.candidates.length, 0)} candidates)`)
   const passes = tex.flatMap((p) => p.passes.map((x) => x.pass))
   const count = (k: string) => passes.filter((x) => x === k).length
   console.log(`${n - failed}/${n} paragraphs identical to TeX (seed ${seed}; passes: ${count("first")} first, ${count("second")} second, ${count("emergency")} emergency; ${tex.filter((p) => p.looseness).length} with \\looseness)`)

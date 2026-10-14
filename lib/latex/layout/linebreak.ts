@@ -85,7 +85,7 @@ export interface LineBreakResult {
 
 /** precedes_break (§ 148): node types that may precede a glue breakpoint. */
 function precedesBreak(n: Node): boolean {
-  return n.kind === "char" || n.kind === "hlist" || n.kind === "vlist" || n.kind === "rule" || n.kind === "disc"
+  return n.kind === "char" || n.kind === "hlist" || n.kind === "vlist" || n.kind === "rule" || n.kind === "disc" || n.kind === "whatsit"
 }
 
 /** Width of a node inside a discretionary list (§§ 841–842, 870). */
@@ -141,7 +141,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
       case "glue":
         if (n.shrinkOrder !== 0 && n.shrink !== 0) throw new Error("Infinite glue shrinkage found in a paragraph")
         t[0] += sign * n.width; t[1 + n.stretchOrder] += sign * n.stretch; t[5] += sign * n.shrink; break
-      case "penalty": case "disc": break
+      case "penalty": case "disc": case "whatsit": break
     }
   }
 

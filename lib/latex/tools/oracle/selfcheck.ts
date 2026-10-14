@@ -67,7 +67,7 @@ console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"}
 let pathFail = 0
 for (const fx of collectFixtures(["lib/latex/fixtures"]).filter((f) => /% engine: paragraph/.test(readFileSync(f, "utf8")))) {
   const { trace, decisions } = cachedOracle(fx)
-  const dviLines = new Set(trace.pages[0]?.glyphs.map((g) => g.v)).size
+  const dviLines = trace.pages.reduce((n, pg) => n + new Set(pg.glyphs.map((g) => g.v)).size, 0)
   const chosen = decisions.paragraphs.reduce((n, p) => n + p.chosen.length, 0)
   const ok = chosen === dviLines
   if (!ok) pathFail++

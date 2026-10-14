@@ -20,6 +20,7 @@ export function emitBoxes(n: Node): BoxOut {
     case "kern": return n.explicit ? { type: "kern", width: n.width, explicit: true } : { type: "kern", width: n.width }
     case "rule": return { type: "rule", width: n.width, height: n.height, depth: n.depth }
     case "penalty": return { type: "penalty", penalty: n.penalty }
+    case "whatsit": return { type: "other", text: n.text }
     case "disc": return { type: "disc", pre: n.pre.map(emitBoxes), post: n.post.map(emitBoxes), replaceCount: n.replaceCount }
   }
 }

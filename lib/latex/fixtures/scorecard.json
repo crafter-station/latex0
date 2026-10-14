@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 51,
-  "exact": 33,
+  "fixtures": 54,
+  "exact": 36,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 18,
-  "glyphs": 9451
+  "glyphs": 20565
  },
  "areas": [
   {
@@ -23,6 +23,11 @@
    "area": "linebreak",
    "fixtures": 16,
    "exact": 16
+  },
+  {
+   "area": "pages",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "templates",
@@ -552,6 +557,39 @@
    "glyphs": 328,
    "covers": "\\pretolerance=-1 skips the first pass; TeX prints no @secondpass marker in that case (§ 863)",
    "issue": "#112"
+  },
+  {
+   "id": "pages/article-multipage",
+   "file": "micro/pages/article-multipage.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5108,
+   "covers": "page breaks over three pages: \\pagegoal, \\pagetotal, club and widow penalties, \\raggedbottom (§§ 980–1028)",
+   "issue": "#115"
+  },
+  {
+   "id": "pages/book-multipage",
+   "file": "micro/pages/book-multipage.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5106,
+   "covers": "page breaks in book [11pt]: \\flushbottom stretches \\parskip to fill each page (§§ 980–1028)",
+   "issue": "#115"
+  },
+  {
+   "id": "pages/max-depth",
+   "file": "micro/pages/max-depth.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 900,
+   "covers": "\\Huge lines deeper than \\maxdepth (5pt) over two pages: page_depth is capped and the excess moves into \\pagetotal (§ 1003)",
+   "issue": "#115"
   },
   {
    "id": "text/hyphenation-basic",

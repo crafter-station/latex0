@@ -33,7 +33,9 @@ export interface BoxNode {
  * breaks here; otherwise the `replaceCount` nodes that follow it stay.
  */
 export interface DiscNode { kind: "disc"; pre: Node[]; post: Node[]; replaceCount: number }
-export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode
+/** A whatsit (§ 146) such as \\write: no size, but it can precede a break (§ 148). */
+export interface WhatsitNode { kind: "whatsit"; text: string }
+export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode | WhatsitNode
 
 export const glue = (width: number, stretch = 0, stretchOrder: GlueOrder = NORMAL, shrink = 0, shrinkOrder: GlueOrder = NORMAL): GlueNode =>
   ({ kind: "glue", width, stretch, stretchOrder, shrink, shrinkOrder })
