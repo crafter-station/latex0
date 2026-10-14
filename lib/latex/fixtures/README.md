@@ -21,6 +21,15 @@ Each fixture starts with `% key: value` comment lines:
 | `covers` | What the fixture exercises |
 | `issue` | Issue that owns it (optional) |
 | `xfail` | Reason it is expected to fail; an unexpected pass fails the run so the marker gets removed |
+| `source` | Where a fixture was taken from (macro fixtures), with its license if it is not ours |
+
+A fixture whose `engine` has no adapter yet (whole documents use `document`)
+is still compiled by TeX on every run, so it is known to be valid, and it shows
+on the scorecard as not yet matching. That is the point of the macro corpus: it
+measures how far the engine is from real documents.
+
+The oracle compiles with a fixed date (`SOURCE_DATE_EPOCH`), so `\today` never
+changes a reference.
 
 ## Running
 

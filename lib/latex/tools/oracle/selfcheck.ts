@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 // Oracle self-check: the DVI trace must agree with pdflatex + pdftotext -bbox,
 // an independent path through TeX. Run: bun lib/latex/tools/oracle/selfcheck.ts
 import { execFileSync } from "node:child_process"
@@ -61,9 +62,10 @@ for (let sp = -3 * 65536; sp <= 3 * 65536; sp++) if (parseScaled(printScaled(sp)
 for (let i = 0; i < 200000; i++) { const sp = Math.floor(Math.random() * 2 ** 30) - 2 ** 29; if (parseScaled(printScaled(sp)) !== sp) rtFail++ }
 console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"} over 593217 values`)
 
-// 2. every fixture: the chosen break paths have exactly as many lines as the DVI
+// 2. every paragraph fixture: the chosen break paths have exactly as many lines as the DVI
+// (whole documents also have titles, displays and pages that no paragraph accounts for)
 let pathFail = 0
-for (const fx of collectFixtures(["lib/latex/fixtures"])) {
+for (const fx of collectFixtures(["lib/latex/fixtures"]).filter((f) => /% engine: paragraph/.test(readFileSync(f, "utf8")))) {
   const { trace, decisions } = cachedOracle(fx)
   const dviLines = new Set(trace.pages[0]?.glyphs.map((g) => g.v)).size
   const chosen = decisions.paragraphs.reduce((n, p) => n + p.chosen.length, 0)
@@ -77,14 +79,16 @@ console.log("DECISION ORACLE CHECK PASSED")
 // ---- box-tree oracle (#27) ----
 import type { BoxNode } from "../../trace/schema"
 
-// every line of every page dump must parse into a known node; only whatsits may stay opaque
+// every line of every page dump must parse into a known node. Node kinds the engine does
+// not model yet stay opaque, but only if they are kinds show_box prints (§§ 183–198, pdfTeX)
+const KNOWN_OPAQUE = /^\\(write|special|openout|closeout|mathon|mathoff|marks?\d*\{|insert\d+|vadjust|[cx]?leaders|pdf\w+|unset|lastbox)/
 const opaque: string[] = []
 let nodes = 0
 const walk = (ns: BoxNode[]) => ns.forEach((n) => {
   nodes++
   if (n.type === "hbox" || n.type === "vbox") walk(n.children)
   else if (n.type === "disc") { walk(n.pre); walk(n.post) }
-  else if (n.type === "other" && !/^\\(write|special|openout|closeout)/.test(n.text)) opaque.push(n.text)
+  else if (n.type === "other") { if (!KNOWN_OPAQUE.test(n.text)) opaque.push(n.text); walk(n.children ?? []) }
 })
 for (const fx of collectFixtures(["lib/latex/fixtures"])) walk(cachedOracle(fx).pages)
 console.log(`box dumps: ${nodes} nodes parsed, ${opaque.length} unrecognized${opaque.length ? ": " + [...new Set(opaque)].slice(0, 5).join(" | ") : ""}`)

@@ -67,7 +67,15 @@ export function runFixture(path: string): UnitResult {
 
   if (header.tier !== "T3") return done({ status: "skip", message: `tier ${header.tier} comparison lands with the harness (#25)` })
   const adapter = header.engine ? ADAPTERS[header.engine] : undefined
-  if (!adapter) return done({ status: "skip", message: `no engine adapter "${header.engine ?? ""}" (available: ${Object.keys(ADAPTERS).join(", ")})` })
+  if (!adapter) {
+    // no engine path yet: still compile the reference, so the fixture is known to be valid TeX
+    try {
+      const { trace, cached } = cachedOracle(path)
+      base.cached = cached
+      base.glyphs = trace.pages.reduce((n, p) => n + p.glyphs.length, 0)
+    } catch (e) { return done({ status: "error", message: `TeX could not compile it: ${(e as Error).message.split("\n")[0]}` }) }
+    return done({ status: "skip", message: `no engine adapter "${header.engine ?? ""}" yet (available: ${Object.keys(ADAPTERS).join(", ")})` })
+  }
 
   try {
     const { trace: expected, decisions: oracleDecisions, pages, cached } = cachedOracle(path)

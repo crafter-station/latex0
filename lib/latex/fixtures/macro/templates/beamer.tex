@@ -1,0 +1,49 @@
+% fixture: templates/beamer
+% tier: T3
+% engine: document
+% covers: Slide deck with title page, outline, and content frames
+% issue: #30
+% source: lib/templates.ts "Beamer Presentation" (LATEX0 editor template)
+\documentclass{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+
+\title{Presentation Title}
+\author{Author Name}
+\institute{Institution}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+\titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+
+\section{Introduction}
+\begin{frame}{Introduction}
+\begin{itemize}
+  \item First point
+  \item Second point
+  \item Third point
+\end{itemize}
+\end{frame}
+
+\section{Main Content}
+\begin{frame}{Main Content}
+Your content here.
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}{Conclusion}
+\begin{itemize}
+  \item Summary point 1
+  \item Summary point 2
+\end{itemize}
+\end{frame}
+
+\end{document}

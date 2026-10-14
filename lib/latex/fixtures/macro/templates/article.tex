@@ -1,0 +1,36 @@
+% fixture: templates/article
+% tier: T3
+% engine: document
+% covers: Standard academic paper with abstract, sections, and references
+% issue: #30
+% source: lib/templates.ts "Academic Article" (LATEX0 editor template)
+\documentclass[12pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\title{Your Title Here}
+\author{Author Name}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Your abstract here.
+\end{abstract}
+
+\section{Introduction}
+Your introduction here.
+
+\section{Main Content}
+Your main content here.
+
+\section{Conclusion}
+Your conclusion here.
+
+\end{document}

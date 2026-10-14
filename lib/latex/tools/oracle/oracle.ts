@@ -13,7 +13,8 @@ import type { BoxNode } from "../../trace/schema"
 import { texEnv } from "../tex"
 import { parseTfm, type Tfm } from "./tfm"
 
-const ENV = texEnv()
+// a fixed date, so \today and friends never change a reference (pdfTeX honours SOURCE_DATE_EPOCH)
+const ENV = texEnv({ SOURCE_DATE_EPOCH: "1735689600", FORCE_SOURCE_DATE: "1" })
 const CACHE = resolve(process.cwd(), ".cache/oracle")
 
 const tfmCache = new Map<string, Tfm>()
@@ -66,7 +67,7 @@ export function oracleTrace(fixture: string): Trace {
 import { createHash } from "node:crypto"
 import { existsSync, writeFileSync } from "node:fs"
 
-const ORACLE_FORMAT = 4 // 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
+const ORACLE_FORMAT = 5 // 5: fixed date; 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
 let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {

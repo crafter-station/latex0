@@ -1,10 +1,11 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 33,
+  "fixtures": 51,
   "exact": 33,
   "expectedFailures": 0,
   "failing": 0,
+  "pending": 18,
   "glyphs": 9451
  },
  "areas": [
@@ -24,6 +25,11 @@
    "exact": 16
   },
   {
+   "area": "templates",
+   "fixtures": 18,
+   "exact": 0
+  },
+  {
    "area": "text",
    "fixtures": 4,
    "exact": 4
@@ -31,7 +37,206 @@
  ],
  "fixtures": [
   {
+   "id": "templates/align",
+   "file": "macro/templates/align.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 17,
+   "covers": "snippet in a minimal article: Multi-line aligned equations",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/article",
+   "file": "macro/templates/article.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 158,
+   "covers": "Standard academic paper with abstract, sections, and references",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/beamer",
+   "file": "macro/templates/beamer.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 480,
+   "covers": "Slide deck with title page, outline, and content frames",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/bibliography",
+   "file": "macro/templates/bibliography.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 55,
+   "covers": "snippet in a minimal article: Manual bibliography with entries",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/book",
+   "file": "macro/templates/book.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 275,
+   "covers": "Full book layout with front matter, chapters, and back matter",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/code-listing",
+   "file": "macro/templates/code-listing.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 54,
+   "covers": "snippet in a minimal article: Code block with syntax highlighting",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/demo",
+   "file": "macro/templates/demo.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 68,
+   "covers": "the document a new LATEX0 project starts with",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/enumerate",
+   "file": "macro/templates/enumerate.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 35,
+   "covers": "snippet in a minimal article: Ordered list with items",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/equation",
+   "file": "macro/templates/equation.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 17,
+   "covers": "snippet in a minimal article: Labeled equation environment",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/figure",
+   "file": "macro/templates/figure.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 24,
+   "covers": "snippet in a minimal article: Figure with image, caption, and label",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/homework",
+   "file": "macro/templates/homework.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 156,
+   "covers": "Clean homework layout with problem/solution structure",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/itemize",
+   "file": "macro/templates/itemize.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 32,
+   "covers": "snippet in a minimal article: Unordered list with items",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/letter",
+   "file": "macro/templates/letter.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 134,
+   "covers": "Formal letter with sender/recipient addresses",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/matrix",
+   "file": "macro/templates/matrix.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 20,
+   "covers": "snippet in a minimal article: Matrix with parentheses",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/report",
+   "file": "macro/templates/report.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 300,
+   "covers": "Multi-chapter report with table of contents",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/resume",
+   "file": "macro/templates/resume.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 347,
+   "covers": "Clean one-page resume with sections for experience and education",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/table",
+   "file": "macro/templates/table.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 74,
+   "covers": "snippet in a minimal article: Table with header row and sample data",
+   "issue": "#30"
+  },
+  {
+   "id": "templates/tikz-simple",
+   "file": "macro/templates/tikz-simple.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 40,
+   "covers": "snippet in a minimal article: Simple TikZ diagram with nodes and arrows",
+   "issue": "#30"
+  },
+  {
    "id": "classes/article-11pt",
+   "file": "micro/classes/article-11pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -42,6 +247,7 @@
   },
   {
    "id": "classes/article-12pt",
+   "file": "micro/classes/article-12pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -52,6 +258,7 @@
   },
   {
    "id": "classes/book-11pt",
+   "file": "micro/classes/book-11pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -62,6 +269,7 @@
   },
   {
    "id": "classes/book-12pt",
+   "file": "micro/classes/book-12pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -72,6 +280,7 @@
   },
   {
    "id": "classes/report-10pt",
+   "file": "micro/classes/report-10pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -82,6 +291,7 @@
   },
   {
    "id": "classes/sizes-10pt",
+   "file": "micro/classes/sizes-10pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -92,6 +302,7 @@
   },
   {
    "id": "classes/sizes-11pt",
+   "file": "micro/classes/sizes-11pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -102,6 +313,7 @@
   },
   {
    "id": "classes/sizes-12pt",
+   "file": "micro/classes/sizes-12pt.tex",
    "area": "classes",
    "tier": "T3",
    "reached": "T3",
@@ -112,6 +324,7 @@
   },
   {
    "id": "hyphenation/explicit-hyphens",
+   "file": "micro/hyphenation/explicit-hyphens.tex",
    "area": "hyphenation",
    "tier": "T3",
    "reached": "T3",
@@ -122,6 +335,7 @@
   },
   {
    "id": "hyphenation/ligature-splits",
+   "file": "micro/hyphenation/ligature-splits.tex",
    "area": "hyphenation",
    "tier": "T3",
    "reached": "T3",
@@ -132,6 +346,7 @@
   },
   {
    "id": "hyphenation/narrow-column",
+   "file": "micro/hyphenation/narrow-column.tex",
    "area": "hyphenation",
    "tier": "T3",
    "reached": "T3",
@@ -142,6 +357,7 @@
   },
   {
    "id": "hyphenation/punctuation-around-words",
+   "file": "micro/hyphenation/punctuation-around-words.tex",
    "area": "hyphenation",
    "tier": "T3",
    "reached": "T3",
@@ -152,6 +368,7 @@
   },
   {
    "id": "hyphenation/uppercase-words",
+   "file": "micro/hyphenation/uppercase-words.tex",
    "area": "hyphenation",
    "tier": "T3",
    "reached": "T3",
@@ -162,6 +379,7 @@
   },
   {
    "id": "linebreak/badness-100",
+   "file": "micro/linebreak/badness-100.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -172,6 +390,7 @@
   },
   {
    "id": "linebreak/badness-12",
+   "file": "micro/linebreak/badness-12.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -182,6 +401,7 @@
   },
   {
    "id": "linebreak/badness-13",
+   "file": "micro/linebreak/badness-13.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -192,6 +412,7 @@
   },
   {
    "id": "linebreak/badness-99",
+   "file": "micro/linebreak/badness-99.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -202,6 +423,7 @@
   },
   {
    "id": "linebreak/emergency-pass",
+   "file": "micro/linebreak/emergency-pass.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -212,6 +434,7 @@
   },
   {
    "id": "linebreak/hangafter-negative",
+   "file": "micro/linebreak/hangafter-negative.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -222,6 +445,7 @@
   },
   {
    "id": "linebreak/hangindent-right",
+   "file": "micro/linebreak/hangindent-right.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -232,6 +456,7 @@
   },
   {
    "id": "linebreak/hangindent",
+   "file": "micro/linebreak/hangindent.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -242,6 +467,7 @@
   },
   {
    "id": "linebreak/long-paragraph",
+   "file": "micro/linebreak/long-paragraph.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -252,6 +478,7 @@
   },
   {
    "id": "linebreak/looseness-minus",
+   "file": "micro/linebreak/looseness-minus.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -262,6 +489,7 @@
   },
   {
    "id": "linebreak/looseness-plus",
+   "file": "micro/linebreak/looseness-plus.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -272,6 +500,7 @@
   },
   {
    "id": "linebreak/looseness-unreachable",
+   "file": "micro/linebreak/looseness-unreachable.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -282,6 +511,7 @@
   },
   {
    "id": "linebreak/noindent",
+   "file": "micro/linebreak/noindent.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -292,6 +522,7 @@
   },
   {
    "id": "linebreak/parshape-units",
+   "file": "micro/linebreak/parshape-units.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -302,6 +533,7 @@
   },
   {
    "id": "linebreak/parshape",
+   "file": "micro/linebreak/parshape.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -312,6 +544,7 @@
   },
   {
    "id": "linebreak/second-pass-only",
+   "file": "micro/linebreak/second-pass-only.tex",
    "area": "linebreak",
    "tier": "T3",
    "reached": "T3",
@@ -322,6 +555,7 @@
   },
   {
    "id": "text/hyphenation-basic",
+   "file": "micro/text/hyphenation-basic.tex",
    "area": "text",
    "tier": "T3",
    "reached": "T3",
@@ -332,6 +566,7 @@
   },
   {
    "id": "text/ligatures-kerns",
+   "file": "micro/text/ligatures-kerns.tex",
    "area": "text",
    "tier": "T3",
    "reached": "T3",
@@ -341,6 +576,7 @@
   },
   {
    "id": "text/paragraph-basic",
+   "file": "micro/text/paragraph-basic.tex",
    "area": "text",
    "tier": "T3",
    "reached": "T3",
@@ -350,6 +586,7 @@
   },
   {
    "id": "text/space-factor",
+   "file": "micro/text/space-factor.tex",
    "area": "text",
    "tier": "T3",
    "reached": "T3",

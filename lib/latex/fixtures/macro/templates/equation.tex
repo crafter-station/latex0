@@ -1,0 +1,14 @@
+% fixture: templates/equation
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Labeled equation environment
+% issue: #30
+% source: lib/templates.ts "Equation" (LATEX0 editor template)
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\begin{equation}
+  f(x) = ax^2 + bx + c
+  \label{eq:label}
+\end{equation}
+\end{document}

@@ -1,0 +1,23 @@
+% fixture: templates/tikz-simple
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Simple TikZ diagram with nodes and arrows
+% issue: #30
+% source: lib/templates.ts "TikZ Diagram" (LATEX0 editor template)
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+% Requires \usepackage{tikz} in preamble
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[node distance=2cm, auto]
+    \node (A) {Start};
+    \node (B) [right of=A] {Process};
+    \node (C) [right of=B] {End};
+    \draw[->] (A) -- (B);
+    \draw[->] (B) -- (C);
+  \end{tikzpicture}
+  \caption{Simple flow diagram}
+  \label{fig:tikz}
+\end{figure}
+\end{document}

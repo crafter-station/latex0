@@ -1,0 +1,16 @@
+% fixture: templates/figure
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Figure with image, caption, and label
+% issue: #30
+% source: lib/templates.ts "Figure" (LATEX0 editor template)
+\documentclass{article}
+\usepackage{graphicx}
+\begin{document}
+\begin{figure}[htbp]
+  \centering
+  % \includegraphics[width=0.8\textwidth]{filename}
+  \caption{Your caption here}
+  \label{fig:label}
+\end{figure}
+\end{document}

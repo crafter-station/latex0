@@ -1,0 +1,43 @@
+% fixture: templates/resume
+% tier: T3
+% engine: document
+% covers: Clean one-page resume with sections for experience and education
+% issue: #30
+% source: lib/templates.ts "Resume / CV" (LATEX0 editor template)
+\documentclass[11pt]{article}
+
+\usepackage[margin=0.75in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \textbf{Your Name}}\\[4pt]
+your.email@example.com \quad | \quad (123) 456-7890 \quad | \quad City, State
+\end{center}
+
+\vspace{8pt}
+\hrule
+\vspace{8pt}
+
+\section*{Education}
+\textbf{University Name} \hfill Expected May 2025\\
+B.S. in Computer Science, GPA: 3.9/4.0
+
+\section*{Experience}
+\textbf{Company Name} --- Software Engineer Intern \hfill Jun 2024 -- Aug 2024
+\begin{itemize}[nosep, leftmargin=*]
+  \item Built and deployed features used by 10K+ users
+  \item Reduced API latency by 40\% through query optimization
+\end{itemize}
+
+\section*{Skills}
+\textbf{Languages:} Python, TypeScript, C++, SQL\\
+\textbf{Tools:} Git, Docker, AWS, React, Node.js
+
+\end{document}

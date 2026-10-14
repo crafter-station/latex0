@@ -29,13 +29,14 @@ export default function ScorecardPage() {
         <h1 className="mt-6 text-3xl font-semibold tracking-tight">Engine scorecard</h1>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           Each fixture is typeset twice: by real TeX and by the LATEX0 engine, which has no TeX inside. A fixture counts only
-          when the line breaks, the box tree and every glyph position are identical, to the scaled point (1/65536 pt).
+          when the line breaks, the box tree and every glyph position are identical, to the scaled point (1/65536 pt). Whole
+          documents from the editor's templates are in the corpus too; they turn green as the engine learns to lay them out.
         </p>
 
         <section className="mt-8 grid gap-3 sm:grid-cols-3">
           <Stat label="Fixtures identical to TeX" value={`${summary.exact}/${summary.fixtures}`} note={`${pct}%`} />
           <Stat label="Glyphs placed exactly" value={summary.glyphs.toLocaleString("en-US")} note="0 sp difference" />
-          <Stat label="Failing" value={String(summary.failing)} note={summary.expectedFailures ? `${summary.expectedFailures} expected` : "none expected"} />
+          <Stat label="Not yet attempted" value={String(summary.pending)} note={summary.failing ? `${summary.failing} failing` : "0 failing"} />
         </section>
 
         <section className="mt-10">
@@ -73,11 +74,11 @@ export default function ScorecardPage() {
             {fixtures.map((f) => (
               <li key={f.id} className="flex gap-3 px-4 py-3 text-sm">
                 <span
-                  aria-label={f.reached ? "identical" : f.status}
-                  className={`mt-1.5 size-2 shrink-0 rounded-full ${f.reached ? "bg-emerald-500" : f.status === "xfail" ? "bg-amber-500" : "bg-red-500"}`}
+                  aria-label={f.reached ? "identical" : f.status === "skip" ? "not yet attempted" : f.status}
+                  className={`mt-1.5 size-2 shrink-0 rounded-full ${f.reached ? "bg-emerald-500" : f.status === "skip" ? "bg-muted-foreground/40" : f.status === "xfail" ? "bg-amber-500" : "bg-red-500"}`}
                 />
                 <div className="min-w-0 flex-1">
-                  <a href={`${REPO}/blob/main/lib/latex/fixtures/micro/${f.id}.tex`} className="break-all font-mono text-xs hover:underline">
+                  <a href={`${REPO}/blob/main/lib/latex/fixtures/${f.file}`} className="break-all font-mono text-xs hover:underline">
                     {f.id}
                   </a>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{f.covers}</p>

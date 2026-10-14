@@ -1,0 +1,16 @@
+% fixture: templates/matrix
+% tier: T3
+% engine: document
+% covers: snippet in a minimal article: Matrix with parentheses
+% issue: #30
+% source: lib/templates.ts "Matrix" (LATEX0 editor template)
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\begin{equation}
+  A = \begin{pmatrix}
+    a_{11} & a_{12} \\
+    a_{21} & a_{22}
+  \end{pmatrix}
+\end{equation}
+\end{document}

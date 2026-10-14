@@ -1,0 +1,24 @@
+% fixture: templates/letter
+% tier: T3
+% engine: document
+% covers: Formal letter with sender/recipient addresses
+% issue: #30
+% source: lib/templates.ts "Letter" (LATEX0 editor template)
+\documentclass{letter}
+
+\signature{Your Name}
+\address{Your Address \\ City, State ZIP}
+
+\begin{document}
+
+\begin{letter}{Recipient Name \\ Recipient Address \\ City, State ZIP}
+
+\opening{Dear Sir or Madam,}
+
+Your letter content here.
+
+\closing{Sincerely,}
+
+\end{letter}
+
+\end{document}

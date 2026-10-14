@@ -12,7 +12,7 @@ export interface TraceRule { h: number; v: number; width: number; height: number
 
 /** The box tree of a page (the \showbox view of a document). */
 export type BoxNode =
-  | { type: "hbox" | "vbox"; width: number; height: number; depth: number; shift: number; glueSet: number; glueSign: 0 | 1 | 2; glueOrder: 0 | 1 | 2 | 3; children: BoxNode[] }
+  | { type: "hbox" | "vbox"; width: number; height: number; depth: number; shift: number; glueSet: number; glueSign: 0 | 1 | 2; glueOrder: 0 | 1 | 2 | 3; children: BoxNode[]; /** e-TeX's ", display" box of display math */ display?: boolean }
   | { type: "char"; font: string; size: number; char: number; /** original characters of a ligature */ lig?: string }
   | { type: "glue"; width: number; stretch: number; stretchOrder: number; shrink: number; shrinkOrder: number; /** skip parameter, e.g. "rightskip" */ param?: string }
   | { type: "kern"; width: number; explicit?: boolean }
@@ -20,7 +20,7 @@ export type BoxNode =
   | { type: "penalty"; penalty: number }
   | { type: "disc"; pre: BoxNode[]; post: BoxNode[]; replaceCount: number }
   /** Anything the engine does not model yet (\\write, \\special, marks, …), kept verbatim. */
-  | { type: "other"; text: string }
+  | { type: "other"; text: string; /** inserts, leaders, \\vadjust … carry material */ children?: BoxNode[] }
 
 const isInt = (x: unknown): x is number => typeof x === "number" && Number.isInteger(x)
 
@@ -118,7 +118,9 @@ function compareNode(e: BoxNode, a: BoxNode, fonts: Map<string, string>, path: s
     case "hbox": case "vbox": {
       const b = a as typeof e
       for (const k of ["width", "height", "depth", "shift", "glueSign", "glueOrder"] as const) { const d = diff(k, e[k], b[k]); if (d) return d }
-      const d = diff("glueSet", Math.round(65536 * e.glueSet), Math.round(65536 * b.glueSet))
+      // as TeX prints it (§ 186): ratios beyond ±20000 show as >20000 / < -20000
+      const shown = (g: number) => Math.round(65536 * Math.max(-20000, Math.min(20000, g)))
+      const d = diff("glueSet", shown(e.glueSet), shown(b.glueSet)) ?? diff("display", !!e.display, !!b.display)
       return d ?? compareBoxLists(e.children, b.children, fonts, path)
     }
     case "char": {
@@ -143,7 +145,7 @@ function compareNode(e: BoxNode, a: BoxNode, fonts: Map<string, string>, path: s
       const d = a as typeof e
       return diff("replaceCount", e.replaceCount, d.replaceCount) ?? compareBoxLists(e.pre, d.pre, fonts, `${path}/pre`) ?? compareBoxLists(e.post, d.post, fonts, `${path}/post`)
     }
-    case "other": return diff("text", e.text, (a as typeof e).text)
+    case "other": { const o = a as typeof e; return diff("text", e.text, o.text) ?? compareBoxLists(e.children ?? [], o.children ?? [], fonts, path) }
   }
 }
 
