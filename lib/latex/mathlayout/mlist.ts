@@ -1,51 +1,75 @@
-// Math lists to horizontal lists: "TeX: The Program" §§ 719–767 (Appendix G),
-// for character noads without scripts: mathcode classes (§ 1151), rule 5's bin
-// demotion (§§ 728–729), make_ord's kerns and ligatures between characters of
-// one family (§§ 749–753), the character node with its italic correction
-// (§ 755), and the inter-atom spacing and penalties of the second pass
-// (§§ 760–767). Scripts, fractions, radicals, operators and delimiters follow
-// in #76–#80.
+// Math lists to horizontal lists: "TeX: The Program" §§ 699–767 (Appendix G).
+// Noads with math-character, box and sub-mlist nuclei; the eight styles and
+// their size and mu changes (§§ 702–703, rule 17 of Appendix G); mathcode
+// classes (§ 1151), rule 5's bin demotion (§§ 728–729); make_ord's kerns and
+// ligatures (§§ 749–753); characters with their italic corrections (§ 755);
+// operators with and without limits (§§ 749–750); generalized fractions with
+// null delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
+// 18a–f); and the inter-atom spacing and penalties of the second pass
+// (§§ 760–767). Radicals, accents and \left…\right follow in #79–#80.
 
 import { xnOverD } from "../layout/arith"
 import type { GlueSpec } from "../layout/dimen"
 import { QUAD, SPACE, type Font } from "../layout/font"
-import { glue, kern, paramGlue, penalty, type CharNode, type Node } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
 
 export const ORD = 0, OP = 1, BIN = 2, REL = 3, OPEN = 4, CLOSE = 5, PUNCT = 6, INNER = 7
 export type NoadType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
+/** Styles (§ 688): D, D', T, T', S, S', SS, SS'; odd styles are cramped. */
+export const DISPLAY = 0, TEXT = 2, SCRIPT = 4, SCRIPT_SCRIPT = 6
 
-/** A noad whose nucleus is a math character (math_char or math_text_char). */
-export interface CharNoad { noad: NoadType; fam: number; char: number; textChar?: boolean }
-/** An mlist: noads, and plain nodes (kerns from make_ord, glue, penalties). */
-export type MItem = CharNoad | Node
+/** A noad field (§ 681): a math character, a box, a sub-mlist, or empty (null). */
+export type Field =
+  | { kind: "char"; fam: number; char: number; /** math_text_char: made by make_ord or a |=:|>> ligature */ text?: boolean }
+  | { kind: "box"; box: BoxNode }
+  | { kind: "mlist"; list: MItem[] }
+  | null
+/** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal. */
+export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits" }
+/** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
+export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
+/** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
+export interface StyleNode { kind: "style"; style: number }
+/** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
+export type MItem = Noad | FractionNoad | StyleNode | Node
 
-const isNoad = (x: MItem): x is CharNoad => "noad" in x
+const isNoad = (x: MItem): x is Noad | FractionNoad => "noad" in x
 
 /** set_math_char (§ 1155): a mathcode becomes a noad; class 7 takes \\fam when it is a valid family. */
-export function mathCharNoad(mathcode: number, fam = -1): CharNoad {
+export function mathCharNoad(mathcode: number, fam = -1): Noad {
   if (mathcode >= 0x8000) throw new Error("active math character")
-  const cls = mathcode >> 12
+  return { noad: mathcodeClass(mathcode), nucleus: mathCharField(mathcode, fam), sup: null, sub: null }
+}
+/** The noad type a mathcode makes: class 7 is ord. */
+export const mathcodeClass = (mathcode: number): NoadType => ((mathcode >> 12) === 7 ? ORD : mathcode >> 12) as NoadType
+/** scan_math's math_char field (§ 1151), which keeps only family and character. */
+export function mathCharField(mathcode: number, fam = -1): Field {
   const f = (mathcode >> 8) & 15
-  return { noad: (cls === 7 ? ORD : cls) as NoadType, fam: cls === 7 && fam >= 0 && fam < 16 ? fam : f, char: mathcode & 255 }
+  return { kind: "char", fam: mathcode >> 12 === 7 && fam >= 0 && fam < 16 ? fam : f, char: mathcode & 255 }
+}
+/** A math group {…} as scan_math leaves it (§ 1186): a lone ord without scripts gives up its nucleus. */
+export function groupField(list: MItem[]): Field {
+  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !p.sub && !p.sup) return p.nucleus }
+  return { kind: "mlist", list }
 }
 
 export interface MathEnv {
-  /** fonts of families 0–15 at the current size (fam_fnt(fam + cur_size)) */
-  fonts: (Font | undefined)[]
+  /** fam_fnt(fam + size): fonts of families 0–15 for text, script and scriptscript size */
+  fonts: (Font | undefined)[][]
   /** \\thinmuskip, \\medmuskip, \\thickmuskip in mu */
   muskips: { thinmuskip: GlueSpec; medmuskip: GlueSpec; thickmuskip: GlueSpec }
   binoppenalty: number
   relpenalty: number
-  /** inline math in a paragraph (mlist_penalties, § 1194) */
-  penalties: boolean
-  /** cur_style < script_style */
-  textStyle: boolean
+  scriptspace: number
+  nulldelimiterspace: number
   /** called for a character the font lacks (char_warning) */
   missing?: (fam: number, c: number) => void
 }
 
 // § 764: the spacing table, rows by the preceding noad's type, columns by this one
 const MATH_SPACING = "02340001" + "22*40001" + "33**3**3" + "44*04004" + "00*00000" + "02340001" + "11*11111" + "12341011"
+const LIST_TAG = 2, LIG_TAG = 1
 
 /** x_over_n (§ 106): quotient and remainder, truncating toward zero */
 function xOverN(x: number, n: number): [number, number] {
@@ -64,6 +88,9 @@ function nxPlusY(n: number, x: number, y: number): number {
   throw new Error("arithmetic overflow in math glue")
 }
 
+/** half (§ 100): rounds odd values up */
+const half = (x: number) => (x % 2 !== 0 ? Math.trunc((x + 1) / 2) : Math.trunc(x / 2))
+
 /** math_glue (§ 716): mu glue to pt glue for a math unit m */
 export function mathGlue(g: GlueSpec, m: number): GlueSpec {
   let [n, f] = xOverN(m, 0o200000)
@@ -76,64 +103,322 @@ export function mathGlue(g: GlueSpec, m: number): GlueSpec {
   }
 }
 
-/** mlist_to_hlist (§ 726) for an mlist of character noads in one style. */
-export function mlistToHlist(mlist: MItem[], env: MathEnv): Node[] {
-  const list = mlist.slice()
-  const hl = new Map<CharNoad, Node[]>() // new_hlist(q)
-  const fetch = (q: CharNoad) => { // § 722
-    const f = env.fonts[q.fam]
-    if (!f) throw new Error(`\\textfont ${q.fam} is undefined (character ${String.fromCharCode(q.char)})`)
-    const m = f.chars.get(q.char)
-    if (!m) env.missing?.(q.fam, q.char)
+// subsidiary styles (§ 702)
+const crampedStyle = (s: number) => 2 * (s >> 1) + 1
+const subStyle = (s: number) => 2 * (s >> 2) + SCRIPT + 1
+const supStyle = (s: number) => 2 * (s >> 2) + SCRIPT + (s % 2)
+const numStyle = (s: number) => s + 2 - 2 * Math.floor(s / 6)
+const denomStyle = (s: number) => 2 * (s >> 1) + 1 + 2 - 2 * Math.floor(s / 6)
+
+/**
+ * mlist_to_hlist (§ 726) in a starting style. `penalties` is mlist_penalties:
+ * true for inline math in a paragraph (§ 1194).
+ */
+export function mlistToHlist(mlist: MItem[], env: MathEnv, style = TEXT, penalties = false): Node[] {
+  return new Converter(env).convert(mlist, style, penalties)
+}
+
+class Converter {
+  curStyle = TEXT
+  curSize = 0 // 0, 1, 2 for text, script, scriptscript size
+  curMu = 0
+  constructor(readonly env: MathEnv) {}
+
+  /** § 703 */
+  setStyle(s: number) {
+    this.curStyle = s
+    this.curSize = s < SCRIPT ? 0 : (s - TEXT) >> 1
+    this.curMu = xOverN(this.mathsy(6, this.curSize), 18)[0]
+  }
+  font(fam: number, size: number) { return this.env.fonts[size]?.[fam] }
+  /** math-symbol parameters of family 2 (§ 700) */
+  mathsy(n: number, size: number) {
+    const f = this.font(2, size)
+    if (!f || f.params.length <= 22) throw new Error("Math formula deleted: Insufficient symbol fonts")
+    return f.params[n]
+  }
+  /** math-extension parameters of family 3 at the current size (§ 701) */
+  mathex(n: number) {
+    const f = this.font(3, this.curSize)
+    if (!f || f.params.length <= 13) throw new Error("Math formula deleted: Insufficient extension fonts")
+    return f.params[n]
+  }
+  get axisHeight() { return this.mathsy(22, this.curSize) }
+  get mathXHeight() { return this.mathsy(5, this.curSize) }
+  get ruleThickness() { return this.mathex(8) }
+
+  /** fetch (§ 722): the font and metrics of a math_char field; a missing character empties it. */
+  fetch(holder: { [k: string]: unknown }, key: string) {
+    const a = holder[key] as Extract<Field, { kind: "char" }>
+    const f = this.font(a.fam, this.curSize)
+    if (!f) throw new Error(`${["\\textfont", "\\scriptfont", "\\scriptscriptfont"][this.curSize]} ${a.fam} is undefined (character ${String.fromCharCode(a.char)})`)
+    const m = f.chars.get(a.char)
+    if (!m) { this.env.missing?.(a.fam, a.char); holder[key] = null }
     return { f, m }
   }
 
-  // first pass (§§ 727–755)
-  let r: CharNoad | null = null
-  let rType: NoadType = OP
-  for (let i = 0; i < list.length; i++) {
-    const q = list[i]
-    if (!isNoad(q)) continue // nodes are done with (§ 730)
-    if (q.noad === BIN && (rType === BIN || rType === OP || rType === REL || rType === OPEN || rType === PUNCT)) q.noad = ORD // § 729
-    if ((q.noad === REL || q.noad === CLOSE || q.noad === PUNCT) && rType === BIN && r) r.noad = ORD
-    if (q.noad === ORD) makeOrd(list, i, env)
-    // § 755: the character node, with the italic correction as a kern
-    const { f, m } = fetch(q)
-    if (m) {
-      let delta = m.italic
-      const p: Node[] = [charNode(f, q.char)]
-      if (q.textChar && f.params[SPACE] !== 0) delta = 0 // no italic correction in mid-word of a text font
-      if (delta !== 0) p.push(kern(delta))
+  convert(mlist: MItem[], style: number, penalties: boolean): Node[] {
+    const list = mlist.slice()
+    const hl = new Map<object, Node[]>() // new_hlist(q)
+    this.setStyle(style)
+    // first pass (§§ 727–759)
+    let r: Noad | FractionNoad | null = null
+    let rType: NoadType | "fraction" = OP
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i]
+      if (!isNoad(q)) { // § 730
+        if ("kind" in q && q.kind === "style") this.setStyle(q.style)
+        continue
+      }
+      if (q.noad === "fraction") { hl.set(q, this.makeFraction(q)); r = q; rType = "fraction"; continue }
+      let delta = 0
+      if (q.noad === BIN && (rType === BIN || rType === OP || rType === REL || rType === OPEN || rType === PUNCT)) q.noad = ORD // § 729
+      if ((q.noad === REL || q.noad === CLOSE || q.noad === PUNCT) && rType === BIN && r) r.noad = ORD
+      if (q.noad === OP) {
+        delta = this.makeOp(q, hl)
+        if (q.limits === "limits") { r = q; rType = q.noad; continue }
+      } else if (q.noad === ORD) this.makeOrd(list, i)
+      // § 754: the nucleus as an hlist
+      let p: Node[]
+      const n = q.nucleus
+      if (n?.kind === "char") { // § 755
+        const { f, m } = this.fetch(q as never, "nucleus")
+        if (m) {
+          delta = m.italic
+          p = [charNode(f, n.char)]
+          if (n.text && f.params[SPACE] !== 0) delta = 0 // no italic correction in mid-word of a text font
+          if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
+        } else p = []
+      } else if (!n) p = []
+      else if (n.kind === "box") p = [n.box]
+      else {
+        const save = this.curStyle
+        const inner = this.convert(n.list, this.curStyle, false)
+        this.setStyle(save)
+        p = [hpack(inner)]
+      }
       hl.set(q, p)
-    } else hl.set(q, [])
-    r = q; rType = q.noad
-  }
-  if (rType === BIN && r) r.noad = ORD // § 729: a final bin
+      if (q.sub || q.sup) this.makeScripts(q, p, delta)
+      r = q; rType = q.noad
+    }
+    if (rType === BIN && r) r.noad = ORD // § 729: a final bin
 
-  // second pass (§§ 760–767)
-  const out: Node[] = []
-  const mu = xOverN(env.fonts[2]?.params[QUAD] ?? 0, 18)[0] // § 703: cur_mu = math_quad / 18
-  let prev = -1 // r_type; -1 before the first noad
-  for (let i = 0; i < list.length; i++) {
-    const q = list[i]
-    if (!isNoad(q)) { out.push(q); continue }
-    const t = q.noad
-    if (prev >= 0) {
-      const code = MATH_SPACING[prev * 8 + t]
-      const which = code === "1" ? (env.textStyle ? "thinmuskip" : null) : code === "2" ? "thinmuskip"
-        : code === "3" ? (env.textStyle ? "medmuskip" : null) : code === "4" ? (env.textStyle ? "thickmuskip" : null) : null
-      if (code === "*") throw new Error("mlist4: impossible noad sequence")
-      if (which) { const g = mathGlue(env.muskips[which], mu); out.push(paramGlue(which, glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))) }
+    // second pass (§§ 760–767)
+    const out: Node[] = []
+    this.setStyle(style)
+    let prev = -1 // r_type; -1 before the first noad
+    for (let i = 0; i < list.length; i++) {
+      const q = list[i]
+      if (!isNoad(q)) {
+        if ("kind" in q && q.kind === "style") this.setStyle(q.style)
+        else out.push(q as Node)
+        continue
+      }
+      const t = q.noad === "fraction" ? ORD : q.noad
+      if (prev >= 0) {
+        const code = MATH_SPACING[prev * 8 + t]
+        if (code === "*") throw new Error("mlist4: impossible noad sequence")
+        const small = this.curStyle >= SCRIPT
+        const which = code === "1" ? (small ? null : "thinmuskip") : code === "2" ? "thinmuskip"
+          : code === "3" ? (small ? null : "medmuskip") : code === "4" ? (small ? null : "thickmuskip") : null
+        if (which) { const g = mathGlue(this.env.muskips[which], this.curMu); out.push(paramGlue(which, glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))) }
+      }
+      out.push(...(hl.get(q) ?? []))
+      const pen = t === BIN ? this.env.binoppenalty : t === REL ? this.env.relpenalty : 10000
+      if (penalties && pen < 10000 && i + 1 < list.length) {
+        const nx = list[i + 1]
+        if (!(!isNoad(nx) && "kind" in nx && nx.kind === "penalty") && !(isNoad(nx) && nx.noad === REL)) out.push(penalty(pen))
+      }
+      prev = t
     }
-    out.push(...(hl.get(q) ?? []))
-    const pen = t === BIN ? env.binoppenalty : t === REL ? env.relpenalty : 10000
-    if (env.penalties && pen < 10000 && i + 1 < list.length) {
-      const nx = list[i + 1]
-      if (!(!isNoad(nx) && nx.kind === "penalty") && !(isNoad(nx) && nx.noad === REL)) out.push(penalty(pen))
-    }
-    prev = t
+    return out
   }
-  return out
+
+  /** clean_box (§ 720): a field as a box with zero shift, in style s. */
+  cleanBox(field: Field, s: number): BoxNode {
+    let q: Node[]
+    if (field?.kind === "box") q = [field.box]
+    else if (!field) q = [emptyBox("hlist")]
+    else {
+      const save = this.curStyle
+      const mlist: MItem[] = field.kind === "char" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      q = this.convert(mlist, s, false)
+      this.setStyle(save)
+    }
+    let x: BoxNode
+    const q0 = q[0]
+    if (!q0 || q0.kind === "char") x = hpack(q)
+    else if (q.length === 1 && (q0.kind === "hlist" || q0.kind === "vlist") && q0.shift === 0) x = q0
+    else x = hpack(q)
+    // § 721: drop an unneeded italic correction (the width keeps it)
+    const l = x.list
+    if (l.length === 2 && l[0].kind === "char" && l[1].kind === "kern") x.list = [l[0]]
+    return x
+  }
+
+  /** make_ord (§§ 749–753): kerns and ligatures between adjacent characters of one family. */
+  makeOrd(list: MItem[], i: number) {
+    for (;;) { // restart
+      const q = list[i] as Noad
+      const p = list[i + 1]
+      const n = q.nucleus
+      if (q.sub || q.sup || n?.kind !== "char" || n.text) return
+      if (!p || !isNoad(p) || p.noad === "fraction" || p.noad > PUNCT) return
+      const pn = p.nucleus
+      if (pn?.kind !== "char" || pn.text || pn.fam !== n.fam) return
+      n.text = true
+      const { f, m } = this.fetch(q as never, "nucleus")
+      if (!m || m.tag !== LIG_TAG) return
+      let a = m.remainder
+      let w = f.ligKern[a] >>> 0
+      if (w >>> 24 > 128) { a = 256 * ((w >>> 8) & 255) + (w & 255); w = f.ligKern[a] >>> 0 }
+      for (;;) {
+        const skip = w >>> 24, next = (w >>> 16) & 255, op = (w >>> 8) & 255, rem = w & 255
+        if (next === pn.char && skip <= 128) {
+          if (op >= 128) { list.splice(i + 1, 0, kern(f.kerns[256 * (op - 128) + rem])); return }
+          switch (op) {
+            case 1: case 5: n.char = rem; break // =:|  =:|>
+            case 2: case 6: pn.char = rem; break // |=:  |=:>
+            case 3: case 7: case 11: { // |=:|  |=:|>  |=:|>>
+              list.splice(i + 1, 0, { noad: ORD, nucleus: { kind: "char", fam: n.fam, char: rem, ...(op === 11 ? { text: true } : {}) }, sup: null, sub: null })
+              break
+            }
+            default: list.splice(i + 1, 1); n.char = rem; q.sub = p.sub; q.sup = p.sup // =:
+          }
+          if (op > 3) return
+          n.text = false
+          break // restart
+        }
+        if (skip >= 128) return
+        a += skip + 1
+        w = f.ligKern[a] >>> 0
+      }
+    }
+  }
+
+  /** make_op (§§ 749–750): returns the italic correction that offsets the superscript. */
+  makeOp(q: Noad, hl: Map<object, Node[]>): number {
+    if (!q.limits && this.curStyle < TEXT) q.limits = "limits"
+    let delta = 0
+    const n = q.nucleus
+    if (n?.kind === "char") {
+      let { f, m } = this.fetch(q as never, "nucleus")
+      if (m && this.curStyle < TEXT && m.tag === LIST_TAG) { // make it larger
+        const c = m.remainder, i = f.chars.get(c)
+        if (i) { m = i; n.char = c }
+      }
+      delta = m?.italic ?? 0
+      const x = this.cleanBox(q.nucleus, this.curStyle)
+      if (q.sub && q.limits !== "limits") x.width -= delta // remove italic correction
+      x.shift = half(x.height - x.depth) - this.axisHeight // center vertically
+      q.nucleus = { kind: "box", box: x }
+    }
+    if (q.limits === "limits") { // § 750
+      const x = this.cleanBox(q.sup, supStyle(this.curStyle))
+      const y = this.cleanBox(q.nucleus, this.curStyle)
+      const z = this.cleanBox(q.sub, subStyle(this.curStyle))
+      const v = emptyBox("vlist")
+      v.width = Math.max(y.width, x.width, z.width)
+      const xb = rebox(x, v.width), yb = rebox(y, v.width), zb = rebox(z, v.width)
+      xb.shift = half(delta); zb.shift = -xb.shift
+      v.height = yb.height; v.depth = yb.depth
+      // § 751
+      const s1 = this.mathex(9), s2 = this.mathex(10), s3 = this.mathex(11), s4 = this.mathex(12), s5 = this.mathex(13)
+      const items: Node[] = []
+      if (q.sup) {
+        const shiftUp = Math.max(s3 - xb.depth, s1)
+        items.push(kern(s5), xb, kern(shiftUp))
+        v.height += s5 + xb.height + xb.depth + shiftUp
+      }
+      items.push(yb)
+      if (q.sub) {
+        const shiftDown = Math.max(s4 - zb.height, s2)
+        items.push(kern(shiftDown), zb, kern(s5))
+        v.depth += s5 + zb.height + zb.depth + shiftDown
+      }
+      v.list = items
+      hl.set(q, [v])
+    }
+    return delta
+  }
+
+  /** make_fraction (§§ 743–748) with null delimiters. */
+  makeFraction(q: FractionNoad): Node[] {
+    const t = q.thickness ?? this.ruleThickness
+    let x = this.cleanBox({ kind: "mlist", list: q.num }, numStyle(this.curStyle))
+    let z = this.cleanBox({ kind: "mlist", list: q.denom }, denomStyle(this.curStyle))
+    if (x.width < z.width) x = rebox(x, z.width); else z = rebox(z, x.width)
+    const display = this.curStyle < TEXT
+    let shiftUp: number, shiftDown: number
+    if (display) { shiftUp = this.mathsy(8, this.curSize); shiftDown = this.mathsy(11, this.curSize) }
+    else { shiftDown = this.mathsy(12, this.curSize); shiftUp = this.mathsy(t !== 0 ? 9 : 10, this.curSize) }
+    let delta = 0
+    if (t === 0) { // § 745
+      const clr = display ? 7 * this.ruleThickness : 3 * this.ruleThickness
+      delta = half(clr - ((shiftUp - x.depth) - (z.height - shiftDown)))
+      if (delta > 0) { shiftUp += delta; shiftDown += delta }
+    } else { // § 746
+      const clr = display ? 3 * t : t
+      delta = half(t)
+      const delta1 = clr - ((shiftUp - x.depth) - (this.axisHeight + delta))
+      const delta2 = clr - ((this.axisHeight - delta) - (z.height - shiftDown))
+      if (delta1 > 0) shiftUp += delta1
+      if (delta2 > 0) shiftDown += delta2
+    }
+    // § 747
+    const v = emptyBox("vlist")
+    v.height = shiftUp + x.height; v.depth = z.depth + shiftDown; v.width = x.width
+    v.list = t === 0
+      ? [x, kern((shiftUp - x.depth) - (z.height - shiftDown)), z]
+      : [x, kern((shiftUp - x.depth) - (this.axisHeight + delta)), { kind: "rule", width: null, height: t, depth: 0 }, kern((this.axisHeight - delta) - (z.height - shiftDown)), z]
+    // § 748: var_delimiter of a null delimiter is an empty box of \\nulldelimiterspace, centered on the axis
+    const nullDelimiter = () => { const b = emptyBox("hlist", this.env.nulldelimiterspace); b.shift = half(0) - this.axisHeight; return b }
+    return [hpack([nullDelimiter(), v, nullDelimiter()])]
+  }
+
+  /** make_scripts (§§ 756–759): attach the scripts of q to its hlist p. */
+  makeScripts(q: Noad, p: Node[], delta: number) {
+    let shiftUp = 0, shiftDown = 0
+    if (p[0]?.kind !== "char") {
+      const z = hpack(p)
+      const t = this.curStyle < SCRIPT ? 1 : 2
+      shiftUp = z.height - this.mathsy(18, t)
+      shiftDown = z.depth + this.mathsy(19, t)
+    }
+    const xh = Math.abs(this.mathXHeight)
+    let x: BoxNode
+    if (!q.sup) { // § 757
+      x = this.cleanBox(q.sub, subStyle(this.curStyle))
+      x.width += this.env.scriptspace
+      if (shiftDown < this.mathsy(16, this.curSize)) shiftDown = this.mathsy(16, this.curSize)
+      const clr = x.height - Math.trunc((xh * 4) / 5)
+      if (shiftDown < clr) shiftDown = clr
+      x.shift = shiftDown
+    } else {
+      x = this.cleanBox(q.sup, supStyle(this.curStyle)) // § 758
+      x.width += this.env.scriptspace
+      let clr = this.curStyle % 2 ? this.mathsy(15, this.curSize) : this.curStyle < TEXT ? this.mathsy(13, this.curSize) : this.mathsy(14, this.curSize)
+      if (shiftUp < clr) shiftUp = clr
+      clr = x.depth + Math.trunc(xh / 4)
+      if (shiftUp < clr) shiftUp = clr
+      if (!q.sub) x.shift = -shiftUp
+      else { // § 759
+        const y = this.cleanBox(q.sub, subStyle(this.curStyle))
+        y.width += this.env.scriptspace
+        if (shiftDown < this.mathsy(17, this.curSize)) shiftDown = this.mathsy(17, this.curSize)
+        clr = 4 * this.ruleThickness - ((shiftUp - x.depth) - (y.height - shiftDown))
+        if (clr > 0) {
+          shiftDown += clr
+          clr = Math.trunc((xh * 4) / 5) - (shiftUp - x.depth)
+          if (clr > 0) { shiftUp += clr; shiftDown -= clr }
+        }
+        x.shift = delta // the superscript is delta to the right of the subscript
+        x = vpack([x, kern((shiftUp - x.depth) - (y.height - shiftDown)), y])
+        x.shift = shiftDown
+      }
+    }
+    p.push(x)
+  }
 }
 
 function charNode(f: Font, c: number): CharNode {
@@ -141,41 +426,18 @@ function charNode(f: Font, c: number): CharNode {
   return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text: String.fromCharCode(c) }
 }
 
-/** make_ord (§§ 749–753): kerns and ligatures between adjacent characters of one family. */
-function makeOrd(list: MItem[], i: number, env: MathEnv) {
-  for (;;) { // restart
-    const q = list[i] as CharNoad
-    const p = list[i + 1]
-    // both nuclei must be math_char: a noad made by |=:|>> is math_text_char and does not combine
-    if (q.textChar || !p || !isNoad(p) || p.textChar || p.noad > PUNCT || p.fam !== q.fam) return
-    q.textChar = true
-    const f = env.fonts[q.fam]
-    const ci = f?.chars.get(q.char)
-    if (!f || !ci || ci.tag !== 1) return
-    let a = ci.remainder
-    let w = f.ligKern[a] >>> 0
-    if (w >>> 24 > 128) { a = 256 * ((w >>> 8) & 255) + (w & 255); w = f.ligKern[a] >>> 0 }
-    for (;;) {
-      const skip = w >>> 24, next = (w >>> 16) & 255, op = (w >>> 8) & 255, rem = w & 255
-      if (next === p.char && skip <= 128) {
-        if (op >= 128) { list.splice(i + 1, 0, kern(f.kerns[256 * (op - 128) + rem])); return }
-        switch (op) {
-          case 1: case 5: q.char = rem; break // =:|  =:|>
-          case 2: case 6: p.char = rem; break // |=:  |=:>
-          case 3: case 7: case 11: { // |=:|  |=:|>  |=:|>>
-            const r: CharNoad = { noad: ORD, fam: q.fam, char: rem, ...(op === 11 ? { textChar: true } : {}) }
-            list.splice(i + 1, 0, r)
-            break
-          }
-          default: list.splice(i + 1, 1); q.char = rem // =:
-        }
-        if (op > 3) return
-        q.textChar = false
-        break // restart
-      }
-      if (skip >= 128) return
-      a += skip + 1
-      w = f.ligKern[a] >>> 0
+/** rebox (§ 715): center box b in width w with \\hss glue at both ends. */
+function rebox(b: BoxNode, w: number): BoxNode {
+  if (b.width !== w && b.list.length) {
+    if (b.kind === "vlist") b = hpack([b])
+    const p = b.list.slice()
+    if (p.length === 1 && p[0].kind === "char") {
+      const v = p[0].width
+      if (v !== b.width) p.push(kern(b.width - v))
     }
+    const ss = () => glue(0, 65536, FIL, 65536, FIL)
+    return hpack([ss(), ...p, ss()], { exactly: w })
   }
+  b.width = w
+  return b
 }
