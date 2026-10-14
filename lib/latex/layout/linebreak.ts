@@ -136,7 +136,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
   // contribution of a node to the running totals
   const add = (t: Six, n: Node, sign = 1) => {
     switch (n.kind) {
-      case "char": case "hlist": case "vlist": case "kern": t[0] += sign * (n.width ?? 0); break
+      case "char": case "hlist": case "vlist": case "kern": case "math": t[0] += sign * (n.width ?? 0); break
       case "rule": t[0] += sign * (n.width ?? 0); break
       case "glue":
         if (n.shrinkOrder !== 0 && n.shrink !== 0) throw new Error("Infinite glue shrinkage found in a paragraph")
@@ -295,6 +295,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
           break
         }
         case "penalty": tryBreak(n.penalty, false, k); break
+        case "math": throw new Error("math in paragraphs is not supported yet (#86)")
         case "disc": {
           // § 869: try to break after the pre-break text, then skip the replaced nodes
           if (n.pre.length === 0) tryBreak(p.exHyphenPenalty, true, k)

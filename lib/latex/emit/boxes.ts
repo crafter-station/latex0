@@ -1,5 +1,6 @@
 // Box-tree emitter: the layout tree in the shared \showbox-style schema.
 
+import { printScaled } from "../layout/arith"
 import type { Node } from "../layout/nodes"
 import type { BoxNode as BoxOut } from "../trace/schema"
 
@@ -21,6 +22,7 @@ export function emitBoxes(n: Node): BoxOut {
     case "rule": return { type: "rule", width: n.width, height: n.height, depth: n.depth }
     case "penalty": return { type: "penalty", penalty: n.penalty }
     case "whatsit": return { type: "other", text: n.text }
+    case "math": return { type: "other", text: (n.on ? "\\mathon" : "\\mathoff") + (n.width ? ", surrounded " + printScaled(n.width) : "") }
     case "disc": return { type: "disc", pre: n.pre.map(emitBoxes), post: n.post.map(emitBoxes), replaceCount: n.replaceCount }
   }
 }

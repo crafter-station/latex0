@@ -45,7 +45,7 @@ export function hpack(list: Node[], spec: PackSpec = NATURAL): BoxNode {
         break
       }
       case "glue": x += p.width; stretch[p.stretchOrder] += p.stretch; shrink[p.shrinkOrder] += p.shrink; break
-      case "kern": x += p.width; break
+      case "kern": case "math": x += p.width; break
       case "penalty": case "disc": case "whatsit": break // a discretionary's no-break text is already in the list
     }
   }
@@ -72,6 +72,7 @@ export function vpack(list: Node[], spec: PackSpec = NATURAL, maxDepth = MAX_DIM
       case "glue": x += d; d = 0; stretch[p.stretchOrder] += p.stretch; shrink[p.shrinkOrder] += p.shrink; x += p.width; break
       case "kern": x += d + p.width; d = 0; break
       case "penalty": case "whatsit": break
+      case "math": throw new Error("vpack: math node in vertical list")
       case "disc": throw new Error("vpack: discretionary in vertical list")
     }
   }
