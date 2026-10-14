@@ -3,6 +3,7 @@
 //   bun engine unit [paths…] [--watch] [--json] [-v]   fixtures vs TeX at 0 sp (#32)
 //   bun engine codegen [--check]                       regenerate committed font metrics (#42)
 //   bun engine decisions <fixture.tex>                 TeX line-break and page-break decisions (#28)
+//   bun engine search:badness 12,13                    ask TeX for paragraphs hitting given badness values; write fixtures
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -52,6 +53,16 @@ switch (cmd) {
     if (!args[0]) throw new Error("usage: bun engine decisions <fixture.tex>")
     const { cachedOracle } = await import("./oracle/oracle")
     console.log(JSON.stringify(cachedOracle(args[0]).decisions, null, 1))
+    break
+  }
+  case "search:badness": {
+    const { searchBadness, writeBadnessFixtures } = await import("./search/badness")
+    const targets = (args[0] ?? "").split(",").filter(Boolean).map(Number)
+    if (!targets.length) throw new Error("usage: bun engine search:badness 12,13,99,100")
+    const found = searchBadness(targets)
+    const missing = targets.filter((t) => !(t in found))
+    for (const f of writeBadnessFixtures(found)) console.log("wrote", f)
+    if (missing.length) console.log("not found:", missing.join(", "))
     break
   }
   case "trace":

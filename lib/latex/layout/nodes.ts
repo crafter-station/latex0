@@ -8,7 +8,7 @@ export type GlueSign = 0 | 1 | 2
 
 export interface CharNode { kind: "char"; font: string; size: number; char: number; width: number; height: number; depth: number; /** source characters for ligatures */ text: string }
 export interface GlueNode { kind: "glue"; width: number; stretch: number; stretchOrder: GlueOrder; shrink: number; shrinkOrder: GlueOrder }
-export interface KernNode { kind: "kern"; width: number }
+export interface KernNode { kind: "kern"; width: number; /** \kern from the source (vs. a font kern); explicit kerns are breakpoints (§ 155, 866) */ explicit?: boolean }
 export interface PenaltyNode { kind: "penalty"; penalty: number }
 /** null dimensions are "running" and take the enclosing box's size (§ 138). */
 export interface RuleNode { kind: "rule"; width: number | null; height: number | null; depth: number | null }
@@ -24,7 +24,7 @@ export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | Box
 
 export const glue = (width: number, stretch = 0, stretchOrder: GlueOrder = NORMAL, shrink = 0, shrinkOrder: GlueOrder = NORMAL): GlueNode =>
   ({ kind: "glue", width, stretch, stretchOrder, shrink, shrinkOrder })
-export const kern = (width: number): KernNode => ({ kind: "kern", width })
+export const kern = (width: number, explicit = false): KernNode => (explicit ? { kind: "kern", width, explicit } : { kind: "kern", width })
 export const penalty = (p: number): PenaltyNode => ({ kind: "penalty", penalty: p })
 export const emptyBox = (kind: "hlist" | "vlist", width = 0): BoxNode =>
   ({ kind, width, height: 0, depth: 0, shift: 0, glueSet: 0, glueSign: SIGN_NORMAL, glueOrder: NORMAL, list: [] })

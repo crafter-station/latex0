@@ -1,69 +1,84 @@
-// Adapter "paragraph": a fixture whose body is one plain-text paragraph in
-// article 10pt. Lays it out with the engine's layout primitives.
+// Adapter "paragraph": a fixture whose body is one paragraph of plain text in
+// article 10pt, optionally preceded by paragraph-shape assignments:
+//   \noindent  \hangindent=<n>pt  \hangafter=<n>  \parshape <n> <i>pt <l>pt …
+// Lines are broken by the engine's own line breaker (#112).
 //
-// Scaffolding, stated plainly: line breaks and the page origin are read from
-// the oracle until the paragraph builder (#112) and the page model exist.
+// Scaffolding, stated plainly: the page origin (first baseline) is read from the
+// oracle until the page model exists. The left margin is article's letterpaper
+// \oddsidemargin (62pt).
 
-import { INF_PENALTY, UNITY } from "../../../layout/arith"
+import { UNITY } from "../../../layout/arith"
 import { loadFont } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
-import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node } from "../../../layout/nodes"
-import { hpack, vpack } from "../../../layout/pack"
+import { latexDefaults, lineBreak } from "../../../layout/linebreak"
+import { emptyBox, glue, kern, type Node } from "../../../layout/nodes"
+import { vpack } from "../../../layout/pack"
 import { shipOut } from "../../../emit/trace"
-import type { Trace } from "../../../trace/schema"
 import { dataFont } from "../../fonts"
 import type { Adapter } from "./index"
 
-// article.cls, 10pt, letterpaper (size10.clo)
 const PT = UNITY
 const HSIZE = 345 * PT, PARINDENT = 15 * PT, BASELINESKIP = 12 * PT, TOPSKIP = 10 * PT
-const LINESKIP = 1 * PT, LINESKIPLIMIT = 0
+const LINESKIP = 1 * PT, LINESKIPLIMIT = 0, ODDSIDEMARGIN = 62 * PT
+
+/** "12.5pt" → sp, via TeX's decimal rounding (§ 102) */
+function pt(s: string): number {
+  const m = s.match(/^(-?)(\d*)(?:\.(\d+))?pt$/)
+  if (!m) throw new Error(`paragraph adapter: only pt dimensions are supported, got "${s}"`)
+  const digits = (m[3] ?? "").slice(0, 17).split("").map(Number)
+  let a = 0
+  for (let k = digits.length - 1; k >= 0; k--) a = Math.floor((a + digits[k] * 0o400000) / 10)
+  const sp = Number(m[2] || 0) * 65536 + Math.floor((a + 1) / 2)
+  return m[1] ? -sp : sp
+}
 
 export const paragraph: Adapter = (src, oracle) => {
   const eg = oracle.pages[0]?.glyphs ?? []
   if (!eg.length) throw new Error("oracle trace has no glyphs")
 
-  // scaffold inputs from the oracle
-  const lineVs = [...new Set(eg.map((g) => g.v))]
-  const wordsPerLine = lineVs.map((v) => {
-    const gs = eg.filter((g) => g.v === v)
-    return 1 + gs.slice(1).filter((g, i) => g.h - (gs[i].h + gs[i].width) > 1.5 * PT).length
-  })
-  const origin = { h: eg[0].h - PARINDENT, v: eg[0].v }
-
-  // engine computation
-  const font = loadFont(dataFont("cmr10"), 10 * PT)
-  const body = src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")).replace(/\s+/g, " ").trim()
-  if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text only (no commands or special characters)")
-
-  const list: Node[] = [emptyBox("hlist", PARINDENT)]
-  appendText(list, body, font, { spaceFactor: 1000 })
-  if (list.at(-1)?.kind === "glue") list.pop() // § 816
-  list.push(penalty(INF_PENALTY), glue(0, UNITY, FIL)) // \parfillskip
-
-  const lines: BoxNode[] = []
-  let line: Node[] = [], seen = 0, li = 0, target = wordsPerLine[0]
-  for (const n of list) {
-    if (n.kind === "glue" && n.stretchOrder === 0 && ++seen === target) {
-      lines.push(hpack([...line, glue(0)], { exactly: HSIZE })) // + \rightskip (§ 887)
-      line = []; li++; target += wordsPerLine[li] ?? Infinity
-      continue
-    }
-    line.push(n)
+  let body = src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")).replace(/\s+/g, " ").trim()
+  const params = latexDefaults(HSIZE)
+  let indent = true
+  // leading paragraph-shape assignments
+  for (;;) {
+    let m: RegExpMatchArray | null
+    if ((m = body.match(/^\\noindent\s*/))) { indent = false }
+    else if ((m = body.match(/^\\hangindent\s*=\s*(-?[\d.]+pt)\s*/))) { params.hangIndent = pt(m[1]) }
+    else if ((m = body.match(/^\\hangafter\s*=\s*(-?\d+)\s*/))) { params.hangAfter = Number(m[1]) }
+    else if ((m = body.match(/^\\parshape\s*=?\s*(\d+)((?:\s+-?[\d.]+pt)+)\s*/))) {
+      const dims = m[2].trim().split(/\s+/).map(pt)
+      const n = Number(m[1])
+      if (dims.length !== 2 * n) throw new Error(`\\parshape ${n} needs ${2 * n} dimensions`)
+      params.parShape = Array.from({ length: n }, (_, i) => [dims[2 * i], dims[2 * i + 1]] as [number, number])
+    } else break
+    body = body.slice(m[0].length)
   }
-  lines.push(hpack([...line, glue(0)], { exactly: HSIZE }))
+  if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text after the shape assignments")
 
+  const font = loadFont(dataFont("cmr10"), 10 * PT)
+  const list: Node[] = indent ? [emptyBox("hlist", PARINDENT)] : []
+  appendText(list, body, font, { spaceFactor: 1000 })
+  const { lines, vlist, trace: decisions } = lineBreak(list, params)
+
+  // column: \topskip, then the line vlist with interline glue (§ 679)
   const col: Node[] = [glue(Math.max(0, TOPSKIP - lines[0].height))]
-  lines.forEach((b, i) => {
-    if (i > 0) {
-      const d = BASELINESKIP - lines[i - 1].depth - b.height
-      col.push(d < LINESKIPLIMIT ? glue(LINESKIP) : glue(d))
+  let prevDepth: number | null = null
+  for (const n of vlist) {
+    if (n.kind === "hlist") {
+      if (prevDepth !== null) {
+        const d = BASELINESKIP - prevDepth - n.height
+        col.push(d < LINESKIPLIMIT ? glue(LINESKIP) : glue(d))
+      }
+      prevDepth = n.depth
     }
-    col.push(b)
-  })
+    col.push(n)
+  }
   const column = vpack(col)
-  column.shift = origin.h
-  const page = vpack([kern(origin.v - TOPSKIP), column])
-  const trace: Trace = shipOut([page])
-  return { trace, notes: [`scaffold: ${lines.length} line breaks and page origin taken from the oracle (#112, page model)`] }
+  column.shift = ODDSIDEMARGIN
+  const page = vpack([kern(eg[0].v - TOPSKIP), column])
+  return {
+    trace: shipOut([page]),
+    decisions: [decisions],
+    notes: [`engine line breaker: ${lines.length} lines via ${decisions.passes.map((p) => p.pass).join(" → ")} pass`, "scaffold: first-baseline position taken from the oracle (page model)"],
+  }
 }

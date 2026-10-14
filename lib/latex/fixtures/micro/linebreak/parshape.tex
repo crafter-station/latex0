@@ -1,0 +1,10 @@
+% fixture: linebreak/parshape
+% tier: T3
+% engine: paragraph
+% covers: explicit \parshape line widths and indents, last entry repeats, §§ 848, 850, 889
+% issue: #112
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\parshape 3 0pt 345pt 20pt 300pt 40pt 260pt The quick brown fox jumps over the lazy dog while the patient cat watches from the warm windowsill. Nobody seems to mind the noise, and the garden stays calm as the evening light slowly fades into a quiet and gentle night over the old town.
+\end{document}
