@@ -2,6 +2,7 @@
 // latex0 engine CLI (dev tooling, #39).
 //   bun engine unit [paths…] [--watch] [--json] [-v]   fixtures vs TeX at 0 sp (#32)
 //   bun engine codegen [--check]                       regenerate committed font metrics (#42)
+//   bun engine decisions <fixture.tex>                 TeX line-break and page-break decisions (#28)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -46,6 +47,12 @@ switch (cmd) {
   case "codegen": {
     const { codegenFonts } = await import("./codegen/fonts")
     process.exit(codegenFonts(flags.has("--check")))
+  }
+  case "decisions": {
+    if (!args[0]) throw new Error("usage: bun engine decisions <fixture.tex>")
+    const { cachedOracle } = await import("./oracle/oracle")
+    console.log(JSON.stringify(cachedOracle(args[0]).decisions, null, 1))
+    break
   }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")
