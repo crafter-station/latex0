@@ -118,9 +118,10 @@ function compareNode(e: BoxNode, a: BoxNode, fonts: Map<string, string>, path: s
     case "hbox": case "vbox": {
       const b = a as typeof e
       for (const k of ["width", "height", "depth", "shift", "glueSign", "glueOrder"] as const) { const d = diff(k, e[k], b[k]); if (d) return d }
-      // as TeX prints it (§ 186): ratios beyond ±20000 show as >20000 / < -20000
-      const shown = (g: number) => Math.round(65536 * Math.max(-20000, Math.min(20000, g)))
-      const d = diff("glueSet", shown(e.glueSet), shown(b.glueSet)) ?? diff("display", !!e.display, !!b.display)
+      // as TeX prints it (§ 186): nothing when the glue sign is normal (an overfull box with no
+      // shrink keeps ratio 1.0 there, § 664), and ratios beyond ±20000 as >20000 / < -20000
+      const shown = (x: typeof e) => (x.glueSign === 0 ? 0 : Math.round(65536 * Math.max(-20000, Math.min(20000, x.glueSet))))
+      const d = diff("glueSet", shown(e), shown(b)) ?? diff("display", !!e.display, !!b.display)
       return d ?? compareBoxLists(e.children, b.children, fonts, path)
     }
     case "char": {

@@ -86,7 +86,7 @@ export interface LineBreakResult {
 
 /** precedes_break (§ 148): node types that may precede a glue breakpoint. */
 function precedesBreak(n: Node): boolean {
-  return n.kind === "char" || n.kind === "hlist" || n.kind === "vlist" || n.kind === "rule" || n.kind === "disc" || n.kind === "whatsit"
+  return n.kind === "char" || n.kind === "hlist" || n.kind === "vlist" || n.kind === "rule" || n.kind === "disc" || n.kind === "whatsit" || n.kind === "ins"
 }
 
 /** Width of a node inside a discretionary list (§§ 841–842, 870). */
@@ -142,7 +142,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
       case "glue":
         if (n.shrinkOrder !== 0 && n.shrink !== 0) throw new Error("Infinite glue shrinkage found in a paragraph")
         t[0] += sign * n.width; t[1 + n.stretchOrder] += sign * n.stretch; t[5] += sign * n.shrink; break
-      case "penalty": case "disc": case "whatsit": break
+      case "penalty": case "disc": case "whatsit": case "ins": break
     }
   }
 
@@ -377,10 +377,11 @@ function postLineBreak(list: Node[], breaks: Passive[], bestLine: number, p: Lin
     if (curLine > w.lastSpecialLine) { curWidth = w.secondWidth; curIndent = w.secondIndent }
     else if (p.parShape.length === 0) { curWidth = w.firstWidth; curIndent = w.firstIndent }
     else { curWidth = p.parShape[curLine - 1][1]; curIndent = p.parShape[curLine - 1][0] }
-    const box = hpack(line, { exactly: curWidth })
+    // § 889: hpack takes insertions out of the line; they follow it in the vertical list
+    const box = hpack(line.filter((n) => n.kind !== "ins"), { exactly: curWidth })
     box.shift = curIndent
     lines.push(box)
-    vlist.push(box)
+    vlist.push(box, ...line.filter((n) => n.kind === "ins"))
     // § 890: interline penalty
     if (curLine + 1 !== bestLine) {
       let pen = p.interLinePenalty

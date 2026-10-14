@@ -88,6 +88,8 @@ export function comparePages(expected: PageTrace[], actual: PageTrace[]): Decisi
     for (let k = 0; k < Math.max(e.candidates.length, a.candidates.length); k++) {
       if (JSON.stringify(e.candidates[k]) !== JSON.stringify(a.candidates[k])) return { paragraph: i, what: `page ${i + 1}, break candidate ${k}`, expected: e.candidates[k] ?? null, actual: a.candidates[k] ?? null }
     }
+    // insertion splits (§ 1011)
+    if (JSON.stringify(e.splits) !== JSON.stringify(a.splits)) return { paragraph: i, what: `page ${i + 1} insertion splits`, expected: e.splits, actual: a.splits }
   }
   return null
 }

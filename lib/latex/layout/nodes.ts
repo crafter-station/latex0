@@ -37,7 +37,13 @@ export interface DiscNode { kind: "disc"; pre: Node[]; post: Node[]; replaceCoun
 export interface MathNode { kind: "math"; on: boolean; width: number }
 /** A whatsit (§ 146) such as \\write: no size, but it can precede a break (§ 148). */
 export interface WhatsitNode { kind: "whatsit"; text: string }
-export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode | WhatsitNode | MathNode
+/**
+ * An insertion (§ 140): \\insert n with its vertical list. `height` is the list's
+ * natural height plus depth; `depth` is \\splitmaxdepth; `splitTopSkip` and
+ * `floatCost` (\\floatingpenalty) are the values in force when it ended.
+ */
+export interface InsNode { kind: "ins"; n: number; height: number; depth: number; splitTopSkip: GlueNode; floatCost: number; list: Node[] }
+export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode | WhatsitNode | MathNode | InsNode
 
 export const glue = (width: number, stretch = 0, stretchOrder: GlueOrder = NORMAL, shrink = 0, shrinkOrder: GlueOrder = NORMAL): GlueNode =>
   ({ kind: "glue", width, stretch, stretchOrder, shrink, shrinkOrder })

@@ -55,7 +55,8 @@ if (!ok) process.exit(1)
 import { collectFixtures } from "../unit/run"
 import { cachedOracle } from "./oracle"
 import { parseScaled, printScaled } from "./tracing"
-import { findColumn } from "./boxes"
+const hasChar = (b: BoxNode): boolean => b.type === "char" || ((b.type === "hbox" || b.type === "vbox") && b.children.some(hasChar))
+const lineBoxes = (b: BoxNode): number => (b.type === "vbox" ? b.children.reduce((n, c) => n + (c.type === "hbox" ? (hasChar(c) ? 1 : 0) : lineBoxes(c)), 0) : 0)
 
 // 1. print_scaled / round_decimals round-trip over a dense sample of sp values
 let rtFail = 0
@@ -64,12 +65,12 @@ for (let i = 0; i < 200000; i++) { const sp = Math.floor(Math.random() * 2 ** 30
 console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"} over 593217 values`)
 
 // 2. every paragraph fixture: the chosen break paths have exactly as many lines as the
-// shipped pages' main vertical lists have line boxes (whole documents also have titles,
-// displays and pages that no paragraph accounts for)
+// shipped pages have line boxes, the hboxes with characters in vertical lists (whole
+// documents also have titles, displays and pages that no paragraph accounts for)
 let pathFail = 0
 for (const fx of collectFixtures(["lib/latex/fixtures"]).filter((f) => /% engine: paragraph/.test(readFileSync(f, "utf8")))) {
   const { pages, decisions } = cachedOracle(fx)
-  const boxLines = pages.reduce((n, pg) => n + (findColumn(pg) ?? []).filter((b) => b.type === "hbox").length, 0)
+  const boxLines = pages.reduce((n, pg) => n + lineBoxes(pg), 0)
   const chosen = decisions.paragraphs.reduce((n, p) => n + p.chosen.length, 0)
   const ok = chosen === boxLines
   if (!ok) pathFail++

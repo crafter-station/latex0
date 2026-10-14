@@ -96,7 +96,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
     if (!n) return
     if (n.kind === "char") { s++; continue }
     if (n.kind === "kern") { if (n.explicit) break; s++; continue }
-    if (n.kind === "glue" || n.kind === "penalty" || n.kind === "whatsit") break
+    if (n.kind === "glue" || n.kind === "penalty" || n.kind === "whatsit" || n.kind === "ins") break
     return // boxes, rules, discretionaries, formulas: no hyphenation
   }
 

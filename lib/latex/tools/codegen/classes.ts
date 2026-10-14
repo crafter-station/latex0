@@ -21,18 +21,19 @@ const DIMENS = [
   "footskip", "maxdepth", "marginparwidth", "marginparsep", "columnsep", "columnseprule", "parindent", "lineskiplimit",
   "hoffset", "voffset", "emergencystretch", "hfuzz", "vfuzz", "footnotesep", "leftmargini", "leftmarginii", "leftmarginiii",
   "leftmarginiv", "leftmarginv", "leftmarginvi", "labelsep", "labelwidth", "arraycolsep", "tabcolsep", "arrayrulewidth",
-  "doublerulesep", "fboxsep", "fboxrule", "jot", "abovecaptionskip", "belowcaptionskip",
+  "doublerulesep", "fboxsep", "fboxrule", "jot", "abovecaptionskip", "belowcaptionskip", "columnwidth", "normallineskiplimit",
 ]
 const GLUE = [
   "topskip", "parskip", "baselineskip", "lineskip", "parfillskip", "leftskip", "rightskip", "floatsep", "textfloatsep",
   "intextsep", "dblfloatsep", "dbltextfloatsep", "smallskipamount", "medskipamount", "bigskipamount", "marginparpush",
   "topsep", "partopsep", "itemsep", "parsep", "abovedisplayskip", "belowdisplayskip", "abovedisplayshortskip", "belowdisplayshortskip",
+  "normallineskip",
 ]
 const INTS = [
   "pretolerance", "tolerance", "linepenalty", "hyphenpenalty", "exhyphenpenalty", "clubpenalty", "widowpenalty",
   "displaywidowpenalty", "brokenpenalty", "binoppenalty", "relpenalty", "predisplaypenalty", "postdisplaypenalty",
   "interlinepenalty", "floatingpenalty", "adjdemerits", "doublehyphendemerits", "finalhyphendemerits", "looseness",
-  "lefthyphenmin", "righthyphenmin", "uchyph", "mag",
+  "lefthyphenmin", "righthyphenmin", "uchyph", "mag", "interfootnotelinepenalty",
 ]
 const DISPLAY = ["abovedisplayskip", "belowdisplayskip", "abovedisplayshortskip", "belowdisplayshortskip"] as const
 
@@ -43,6 +44,7 @@ function probe(cls: string, option: string): string {
     "\\def\\P#1#2{\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}}",
     `\\def\\S#1{{#1\\check@mathfonts\\immediate\\write16{S:\\expandafter\\@gobble\\string#1:\\f@size:\\sf@size:\\ssf@size:\\fontname\\font:\\the\\baselineskip${DISPLAY.map((d) => `:\\the\\${d}`).join("")}}` +
       // the math families 0–3 at text, script and scriptscript size
+      `\\immediate\\write16{T:\\expandafter\\@gobble\\string#1:\\the\\ht\\strutbox:\\the\\dp\\strutbox}` +
       `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}}}`,
     "\\begin{document}",
     ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
@@ -50,6 +52,9 @@ function probe(cls: string, option: string): string {
     // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
     "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
     "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}",
+    // the footnote insertion class: its box number, \\skip, \\count and \\dimen
+    "\\immediate\\write16{I:footins=\\number\\footins}\\immediate\\write16{I:footinscount=\\the\\count\\footins}",
+    "\\immediate\\write16{G:footinsskip=\\the\\skip\\footins}\\immediate\\write16{D:footinsdimen=\\the\\dimen\\footins}",
     "\\end{document}", "",
   ].join("\n")
 }
@@ -66,6 +71,7 @@ function texData(cls: string, option: string): ClassOptionData {
   const log = readFileSync(join(dir, "probe.log"), "latin1").split("\n")
   const data: ClassOptionData = { dimens: {}, glue: {}, ints: {}, sizes: {} as ClassOptionData["sizes"] }
   const mathFonts = new Map<string, SizeData["math"]>()
+  const struts = new Map<string, SizeData["strut"]>()
   for (const line of log) {
     let m: RegExpMatchArray | null
     if ((m = line.match(/^([DGI]):(\w+)=(.*)$/))) {
@@ -80,15 +86,19 @@ function texData(cls: string, option: string): ClassOptionData {
         baselineskip,
         abovedisplayskip: display[0], belowdisplayskip: display[1], abovedisplayshortskip: display[2], belowdisplayshortskip: display[3],
         math: { text: [], script: [], scriptscript: [] },
+        strut: { height: 0, depth: 0 },
       }
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
+    } else if ((m = line.match(/^T:(\w+):([\d.]+)pt:([\d.]+)pt$/))) {
+      struts.set(m[1], { height: parseScaled(m[2]), depth: parseScaled(m[3]) })
     } else if ((m = line.match(/^F:(\w+):(.*)$/))) {
       const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
       mathFonts.set(m[1], { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) })
     }
   }
   for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside"].filter((i) => !(i in data.ints)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
+  for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount"].filter((i) => !(i in data.ints)), ...["footinsskip"].filter((g) => !(g in data.glue)), ...["footinsdimen"].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }
