@@ -7,6 +7,7 @@
 //   bun engine hyphen:check [--words N]                engine hyphenation vs TeX \\showhyphens (#113)
 //   bun engine fuzz:paragraphs [--n 200] [--seed 1]    random paragraphs: engine line breaks vs TeX's decisions (#112)
 //   bun engine dimen:check [--n 5000] [--seed 1]       numbers, dimensions and glue: engine scanner vs TeX (#52)
+//   bun engine scorecard [--check] [--base f] [--markdown out.md]   fixture scorecard; CI gate and PR comment (#37)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 import { spawn } from "node:child_process"
@@ -85,6 +86,11 @@ switch (cmd) {
     const { dimenCheck } = await import("./oracle/dimencheck")
     const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
     process.exit(dimenCheck(opt("--n", 5000), opt("--seed", 1)))
+  }
+  case "scorecard": {
+    const { scorecard } = await import("./scorecard")
+    const opt = (k: string) => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : undefined }
+    process.exit(scorecard({ check: flags.has("--check"), base: opt("--base"), markdownOut: opt("--markdown") }))
   }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")

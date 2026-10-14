@@ -28,6 +28,9 @@
   <a href="https://monaco-editor.github.io">
     <img src="https://img.shields.io/badge/Monaco-68217A?style=for-the-badge&logo=visual-studio-code&logoColor=white" alt="Monaco Editor" />
   </a>
+  <a href="https://latex0.crafter.run/scorecard">
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcrafter-station%2Flatex0%2Fmain%2Flib%2Flatex%2Ffixtures%2Fbadge.json&style=for-the-badge" alt="Fixtures identical to TeX" />
+  </a>
 </p>
 
 <p align="center">
