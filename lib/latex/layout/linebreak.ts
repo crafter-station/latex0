@@ -2,13 +2,13 @@
 // §§ 813–890. Integer-exact port. Delta nodes (§§ 843–844, 860–861) are
 // replaced by prefix sums of the same integers, which yields identical widths.
 //
-// Not yet implemented, each tracked: \looseness (§ 875), math breaks.
+// Not yet implemented, tracked in #86: math breaks.
 
 import { INF_PENALTY } from "./arith"
 import { hyphenateFollowingWord, type HyphenContext } from "./hyphenpass"
 import { glue as mkGlue, paramGlue, penalty as mkPenalty, FIL, type BoxNode, type DiscNode, type GlueNode, type Node } from "./nodes"
 import { hpack } from "./pack"
-import type { ActiveNode, FeasibleBreak, ParagraphTrace, PassTrace } from "../trace/decisions"
+import { bestFinal, type ActiveNode, type FeasibleBreak, type ParagraphTrace, type PassTrace } from "../trace/decisions"
 
 const INF_BAD = 10000
 const EJECT_PENALTY = -INF_PENALTY
@@ -35,6 +35,8 @@ export interface LineBreakParams {
   clubPenalty: number
   widowPenalty: number
   brokenPenalty: number
+  /** \looseness: try for this many more (or fewer) lines than optimal (§ 875). */
+  looseness: number
   /** \prevgraf before the paragraph (0 for a fresh paragraph). */
   prevGraf: number
   hyphenPenalty: number
@@ -49,7 +51,7 @@ export function latexDefaults(hsize: number): LineBreakParams {
     hsize, leftSkip: paramGlue("leftskip", mkGlue(0)), rightSkip: paramGlue("rightskip", mkGlue(0)), parFillSkip: paramGlue("parfillskip", mkGlue(0, 65536, FIL)),
     pretolerance: 100, tolerance: 200, emergencyStretch: 0, linePenalty: 10, adjDemerits: 10000,
     doubleHyphenDemerits: 10000, finalHyphenDemerits: 5000, hangIndent: 0, hangAfter: 1, parShape: [],
-    interLinePenalty: 0, clubPenalty: 150, widowPenalty: 150, brokenPenalty: 100, prevGraf: 0,
+    interLinePenalty: 0, clubPenalty: 150, widowPenalty: 150, brokenPenalty: 100, looseness: 0, prevGraf: 0,
     hyphenPenalty: 50, exHyphenPenalty: 50,
   }
 }
@@ -128,8 +130,8 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
     lastSpecialLine = shape.length - 1
     secondWidth = shape[shape.length - 1][1]; secondIndent = shape[shape.length - 1][0]
   }
-  const easyLine = lastSpecialLine // looseness = 0 (§ 848)
   const MAX_HALFWORD = 0xfffffff
+  const easyLine = p.looseness === 0 ? lastSpecialLine : MAX_HALFWORD // § 848
 
   // contribution of a node to the running totals
   const add = (t: Six, n: Node, sign = 1) => {
@@ -311,9 +313,9 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
     if (active.length > 0) {
       tryBreak(EJECT_PENALTY, true, list.length)
       if (active.length > 0) {
-        // § 874: fewest demerits (looseness = 0)
-        bestBet = active.reduce((b, r) => (r.total < b.total ? r : b), active[0])
-        break
+        // §§ 874–875: fewest demerits, then the line count nearest \looseness
+        bestBet = bestFinal(active, p.looseness)!
+        if (p.looseness === 0 || bestBet.line - bestFinal(active)!.line === p.looseness || finalPass) break
       }
     }
     if (!secondPass) {
@@ -329,7 +331,7 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
   const breaks: Passive[] = []
   for (let q = bestBet!.passive; q; q = q.prev) breaks.unshift(q)
   const bestLine = bestBet!.line
-  const trace: ParagraphTrace = { passes, chosen: breaks.map((b) => b.serial) }
+  const trace: ParagraphTrace = { passes, chosen: breaks.map((b) => b.serial), ...(p.looseness ? { looseness: p.looseness } : {}) }
   return { ...postLineBreak(list, breaks, bestLine, p, { lastSpecialLine, firstWidth, firstIndent, secondWidth, secondIndent }), trace }
 }
 

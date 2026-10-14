@@ -2,7 +2,7 @@
 // 863) and \tracingpages (§§ 986, 1005, 1011). The log must be written with
 // max_print_line large enough that lines are not wrapped.
 
-import type { ActiveNode, BreakKind, Decisions, FeasibleBreak, PageTrace, ParagraphTrace, Pass, PassTrace } from "../../trace/decisions"
+import { bestFinal, type BreakKind, type Decisions, type FeasibleBreak, type PageTrace, type ParagraphTrace, type Pass, type PassTrace } from "../../trace/decisions"
 
 /** Parse a decimal printed by print_scaled back to sp exactly (round_decimals, § 102). */
 export function parseScaled(s: string): number {
@@ -28,35 +28,60 @@ export function parseDecisions(log: string): Decisions {
   // For each pass: number of feasible breaks seen when each active node was created.
   const createdAt = new Map<PassTrace, number[]>()
   const succeeded = (p: PassTrace | null) => !!p && p.feasible.some((f) => f.kind === "par")
+  // the chosen path depends on \looseness, which is known only after the trace
+  const choose: (() => void)[] = []
+  let awaitingLooseness = null as ParagraphTrace | null
   const finishParagraph = () => {
     if (!para) return
-    const last = para.passes.at(-1)
+    const done = para, last = para.passes.at(-1)
     if (last && succeeded(last)) {
-      // Nodes created after the first \par feasible break are the candidates for
-      // the end of the paragraph; TeX keeps the one with fewest total demerits
-      // (looseness = 0, § 874). Then follow the prev links back to the start.
+      // Nodes created after the first \par feasible break are the final active
+      // nodes; §§ 874–875 pick one. Then follow the prev links back to the start.
       const firstPar = last.feasible.findIndex((f) => f.kind === "par")
       const at = createdAt.get(last) ?? []
       const finals = last.nodes.filter((_, i) => at[i] > firstPar)
-      const best = finals.reduce<ActiveNode | null>((b, n) => (!b || n.total < b.total ? n : b), null)
       const bySerial = new Map(last.nodes.map((n) => [n.serial, n]))
-      const path: number[] = []
-      for (let n = best; n; n = bySerial.get(n.prev) ?? null) path.unshift(n.serial)
-      para.chosen = path
+      choose.push(() => {
+        const path: number[] = []
+        for (let n = bestFinal(finals, done.looseness); n; n = bySerial.get(n.prev) ?? null) path.unshift(n.serial)
+        done.chosen = path
+      })
     }
     paragraphs.push(para)
+    awaitingLooseness = para
     para = null; pass = null
   }
 
   for (const raw of log.split("\n")) {
     const line = raw.trimEnd()
     let m: RegExpMatchArray | null
+    // \tracingassigns (e-TeX, from \begin{document}). After line_break, end_graf's
+    // normal_paragraph (§ 1070) resets \looseness first if it was nonzero, so the
+    // first assignment after a paragraph reveals the \looseness it was broken with.
+    if (line.startsWith("{")) {
+      if (awaitingLooseness && (m = line.match(/^\{changing \\looseness=(-?\d+)\}$/))) awaitingLooseness.looseness = Number(m[1])
+      awaitingLooseness = null
+      continue
+    }
+    // end_diagnostic (§ 863) closes each paragraph's trace with an empty line
+    if (!line && para) { finishParagraph(); continue }
     if ((m = line.match(/^@(first|second|emergency)pass$/))) {
       const kind = m[1] as Pass
-      if (kind === "first" || !para || succeeded(pass)) { finishParagraph(); para = { passes: [], chosen: [] } }
+      if (kind === "first" || !para) {
+        finishParagraph(); para = { passes: [], chosen: [] }
+        // an emergency pass always follows a second pass, which went unmarked
+        // (\pretolerance < 0) and found no feasible break to print
+        if (kind === "emergency") para.passes.push({ pass: "second", feasible: [], nodes: [], text: "" })
+      }
       pass = { pass: kind, feasible: [], nodes: [], text: "" }
       para!.passes.push(pass)
       continue
+    }
+    // with \pretolerance < 0 the second pass starts without a marker (§ 863)
+    if (!pass && /^@(?:\\[a-z]+)? via @@\d+ |^@@\d+: line /.test(line)) {
+      para = { passes: [], chosen: [] }
+      pass = { pass: "second", feasible: [], nodes: [], text: "" }
+      para.passes.push(pass)
     }
     if (pass && (m = line.match(/^@(\\[a-z]+)? via @@(\d+) b=(\*|-?\d+) p=(-?\d+) d=(\*|-?\d+)$/))) {
       const f: FeasibleBreak = { kind: KIND[m[1] ?? ""], via: Number(m[2]), badness: star(m[3]), penalty: Number(m[4]), demerits: star(m[5]) }
@@ -82,6 +107,7 @@ export function parseDecisions(log: string): Decisions {
     if (pass && line && !line.startsWith("@")) pass.text += (pass.text ? " " : "") + line
   }
   finishParagraph()
+  choose.forEach((f) => f())
   return { paragraphs, pages }
 }
 

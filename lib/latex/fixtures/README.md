@@ -29,6 +29,7 @@ bun engine unit                         all fixtures
 bun engine unit lib/latex/fixtures/micro/text/space-factor.tex
 bun engine unit <paths> --watch         rerun on every save under lib/latex
 bun engine unit --json                  machine-readable results
+bun engine fuzz:paragraphs --n 1000     random paragraphs, line-break decisions vs TeX
 ```
 
 TeX references are cached in `.cache/oracle/refs`, keyed by fixture content and

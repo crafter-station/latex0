@@ -1,6 +1,7 @@
 // Adapter "paragraph": a fixture whose body is one paragraph of plain text in
-// article 10pt, optionally preceded by paragraph-shape assignments:
-//   \noindent  \hangindent=<n>pt  \hangafter=<n>  \parshape <n> <i>pt <l>pt …
+// article 10pt, optionally preceded by paragraph assignments:
+//   \noindent  \parshape <n> <i>pt <l>pt …  \<int param>=<n>  \<dimen param>=<n>pt
+// (see INT_PARAMS and DIMEN_PARAMS).
 // Lines are broken by the engine's own line breaker (#112).
 //
 // Scaffolding, stated plainly: the page origin (first baseline) is read from the
@@ -11,7 +12,7 @@ import { UNITY } from "../../../layout/arith"
 import { loadFont } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
-import { latexDefaults, lineBreak } from "../../../layout/linebreak"
+import { latexDefaults, lineBreak, type LineBreakParams } from "../../../layout/linebreak"
 import { emptyBox, glue, kern, paramGlue, type Node } from "../../../layout/nodes"
 import { emitBoxes } from "../../../emit/boxes"
 import { vpack } from "../../../layout/pack"
@@ -35,22 +36,34 @@ function pt(s: string): number {
   return m[1] ? -sp : sp
 }
 
+// assignable parameters: TeX name → LineBreakParams field
+const INT_PARAMS = {
+  hangafter: "hangAfter", looseness: "looseness", tolerance: "tolerance", pretolerance: "pretolerance",
+  linepenalty: "linePenalty", adjdemerits: "adjDemerits", hyphenpenalty: "hyphenPenalty", exhyphenpenalty: "exHyphenPenalty",
+  doublehyphendemerits: "doubleHyphenDemerits", finalhyphendemerits: "finalHyphenDemerits",
+} as const
+const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStretch" } as const
+
 let memoHyphenator: ReturnType<typeof buildHyphenator> | undefined
 const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("lib/latex/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
 
-export const paragraph: Adapter = (src, oracle) => {
-  const eg = oracle.pages[0]?.glyphs ?? []
-  if (!eg.length) throw new Error("oracle trace has no glyphs")
-
-  let body = src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")).replace(/\s+/g, " ").trim()
+/**
+ * One paragraph of article-10pt plain text with leading assignments, as the
+ * horizontal list TeX builds for it and the line-breaking parameters in force.
+ */
+export function paragraphInput(body: string): { list: Node[]; params: LineBreakParams } {
   const params = latexDefaults(HSIZE)
   let indent = true
-  // leading paragraph-shape assignments
+  body = body.replace(/\s+/g, " ").trim()
+  // leading paragraph assignments
   for (;;) {
     let m: RegExpMatchArray | null
     if ((m = body.match(/^\\noindent\s*/))) { indent = false }
-    else if ((m = body.match(/^\\hangindent\s*=\s*(-?[\d.]+pt)\s*/))) { params.hangIndent = pt(m[1]) }
-    else if ((m = body.match(/^\\hangafter\s*=\s*(-?\d+)\s*/))) { params.hangAfter = Number(m[1]) }
+    else if ((m = body.match(/^\\([a-z]+)\s*=\s*(-?\d+)(?![\d.p])\s*/)) && m[1] in INT_PARAMS) {
+      params[INT_PARAMS[m[1] as keyof typeof INT_PARAMS]] = Number(m[2])
+    } else if ((m = body.match(/^\\([a-z]+)\s*=\s*(-?[\d.]+pt)\s*/)) && m[1] in DIMEN_PARAMS) {
+      params[DIMEN_PARAMS[m[1] as keyof typeof DIMEN_PARAMS]] = pt(m[2])
+    }
     else if ((m = body.match(/^\\parshape\s*=?\s*(\d+)((?:\s+-?[\d.]+pt)+)\s*/))) {
       const dims = m[2].trim().split(/\s+/).map(pt)
       const n = Number(m[1])
@@ -59,7 +72,7 @@ export const paragraph: Adapter = (src, oracle) => {
     } else break
     body = body.slice(m[0].length)
   }
-  if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text after the shape assignments")
+  if (/[\\{}$%&#^_~]/.test(body)) throw new Error("paragraph adapter accepts plain text after the assignments")
 
   const font = loadFont(dataFont("cmr10"), 10 * PT)
   params.hyphenation = {
@@ -69,6 +82,13 @@ export const paragraph: Adapter = (src, oracle) => {
   }
   const list: Node[] = indent ? [emptyBox("hlist", PARINDENT)] : []
   appendText(list, body, font, { spaceFactor: 1000 })
+  return { list, params }
+}
+
+export const paragraph: Adapter = (src, oracle) => {
+  const eg = oracle.pages[0]?.glyphs ?? []
+  if (!eg.length) throw new Error("oracle trace has no glyphs")
+  const { list, params } = paragraphInput(src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")))
   const { lines, vlist, trace: decisions } = lineBreak(list, params)
 
   // column: \topskip, then the line vlist with interline glue (§ 679)
