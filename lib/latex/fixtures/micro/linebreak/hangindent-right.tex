@@ -1,0 +1,10 @@
+% fixture: linebreak/hangindent-right
+% tier: T3
+% engine: paragraph
+% covers: negative \hangindent shortens lines on the right, § 849
+% issue: #112
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\hangindent=-50pt \hangafter=0 The quick brown fox jumps over the lazy dog while the patient cat watches from the warm windowsill. Nobody seems to mind the noise, and the garden stays calm as the evening light slowly fades into a quiet and gentle night over the old town.
+\end{document}

@@ -4,7 +4,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { compareTraces, validateTrace, type Divergence, type Trace } from "../../trace/schema"
-import { cachedOracleTrace } from "../oracle/oracle"
+import { compareParagraphs, type DecisionDivergence } from "../../trace/decisions"
+import { cachedOracle } from "../oracle/oracle"
 import { ADAPTERS } from "./adapters"
 import { parseHeader, type Tier } from "./header"
 
@@ -17,6 +18,7 @@ export interface UnitResult {
   ms: number
   glyphs: number
   divergence?: Divergence
+  decisionDivergence?: DecisionDivergence
   context?: string
   message?: string
   notes?: string[]
@@ -66,12 +68,16 @@ export function runFixture(path: string): UnitResult {
   if (!adapter) return done({ status: "skip", message: `no engine adapter "${header.engine ?? ""}" (available: ${Object.keys(ADAPTERS).join(", ")})` })
 
   try {
-    const { trace: expected, cached } = cachedOracleTrace(path)
+    const { trace: expected, decisions: oracleDecisions, cached } = cachedOracle(path)
     base.cached = cached
     base.glyphs = expected.pages.reduce((n, p) => n + p.glyphs.length, 0)
-    const { trace: actual, notes } = adapter(src, expected)
+    const { trace: actual, decisions, notes } = adapter(src, expected)
     const schema = validateTrace(actual)
     if (schema.length) return done({ status: "error", message: `schema: ${schema[0]}`, notes })
+    if (decisions) {
+      const dd = compareParagraphs(oracleDecisions.paragraphs, decisions)
+      if (dd) return done({ status: "fail", decisionDivergence: dd, message: `line-breaking decisions differ: ${dd.what}`, notes })
+    }
     const divergence = compareTraces(expected, actual)
     if (divergence) return done({ status: "fail", divergence, context: contextOf(expected, divergence), notes })
     return done({ status: "pass", notes })
@@ -91,6 +97,10 @@ export function report(results: UnitResult[], verbose = false): string {
       lines.push(`    first divergence: page ${d.page + 1}, glyph ${d.index}, ${d.field}: TeX ${JSON.stringify(d.expected)} vs engine ${JSON.stringify(d.actual)}` +
         (typeof d.expected === "number" && typeof d.actual === "number" ? ` (Δ ${d.actual - d.expected} sp)` : ""))
       if (r.context) lines.push(`    TeX line: ${r.context}`)
+    }
+    if (r.decisionDivergence) {
+      const d = r.decisionDivergence
+      lines.push(`    TeX:    ${JSON.stringify(d.expected)}`, `    engine: ${JSON.stringify(d.actual)}`)
     }
     if (r.message && r.status !== "pass") lines.push(`    ${r.message}`)
     if (verbose && r.notes) r.notes.forEach((n) => lines.push(`    note: ${n}`))
