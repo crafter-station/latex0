@@ -712,7 +712,9 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     let eqnshift = div(z - totwidth, tempcnta), alignsep = eqnshift
     if (alignsep < minalignsep) { alignsep = minalignsep; if (eqnshift > 0) eqnshift = div(z - totwidth - tempcntb * alignsep, 2) }
     if (eqnshift < 0) eqnshift = 0
-    // \calc@shift@align (tags on the right, not fleqn), last row first
+    // \calc@shift@align (tags on the right, not fleqn), last row first; a tag that does not fit beside its
+    // row is shifted below it (\saveshift@1)
+    const shifted = rows.map(() => false)
     for (let r = rows.length - 1; r >= 0; r--) {
       const tw = tags[r].width
       if (!(tw > 0)) continue
@@ -727,7 +729,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       if (cntb > column) { cnta -= cntb; cnta += column; cntb = column }
       const dima = dimc + tw
       let dimen = minalignsep * cntb + mintagsep + mintagsep + dima
-      if (dimen > z) throw new Unsupported("an align tag moved to its own line")
+      if (dimen > z) { shifted[r] = true; continue }
       dimen = eqnshift + dima + cntb * alignsep + tw
       if (dimen > z) {
         dimen = div(z - dima, cnta)
@@ -749,7 +751,18 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
         row.push(j % 2 ? [f, hfil()] : [hfil(), strutBox(), f])
       }
       const tagCol: Node[] = [kern(-alignsep, true)]
-      if (r.numbered) tagCol.push(kern(-tagshift, true), hpack([hss(), tags[ri]], { exactly: 0 }))
+      if (r.numbered && shifted[ri]) {
+        // \place@tag: \llap{\vtop{\normalbaselines \setbox\@ne\null \dp\@ne\lineht@ \box\@ne \boxz@}}, \lineht@
+        // the deepest field of the row (\set@field; \math@cr@@@align resets it after each row)
+        // (\measure@'s rows never reset it: the first row starts from the deepest field of them all)
+        const lineht = Math.max(0, ...(ri === 0 ? rows.flatMap((x) => x.fields) : r.fields).map((f) => f.depth))
+        const nul = hpack([]); nul.depth = lineht
+        const list: Node[] = [nul]
+        appendToVlist(list, tags[ri], lineht, k.sizes.normalsize.baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
+        const vt = vpack(list)
+        vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
+        tagCol.push(kern(-tagshift, true), hpack([hss(), vt], { exactly: 0 }))
+      } else if (r.numbered) tagCol.push(kern(-tagshift, true), hpack([hss(), tags[ri]], { exactly: 0 }))
       row.push(tagCol)
       return row
     })
