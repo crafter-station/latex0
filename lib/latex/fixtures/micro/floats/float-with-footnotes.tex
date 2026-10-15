@@ -1,0 +1,18 @@
+% fixture: floats/float-with-footnotes
+% tier: T3
+% engine: document
+% covers: a float placed here on a page that already has footnotes: they wait in \footins, \@pageht counts them, and \@reinserts puts them back as one insertion before the float, at 12pt in a report
+% issue: #115
+\documentclass[12pt]{report}
+\begin{document}
+Floats are boxes the output routine places: here, if the page so far leaves room for them and enough text, and otherwise at the top or bottom of a page, or on a page of their own.\footnote{A footnote before the float.} Floats are boxes the output routine places: here, if the page so far leaves room for them and enough text, and otherwise at the top or bottom of a page, or on a page of their own.
+
+\begin{figure}[htbp]
+\centering
+\caption{After the notes}
+\end{figure}
+
+Floats are boxes the output routine places: here, if the page so far leaves room for them and enough text, and otherwise at the top or bottom of a page, or on a page of their own.\footnote{And one after it.}
+
+Floats are boxes the output routine places: here, if the page so far leaves room for them and enough text, and otherwise at the top or bottom of a page, or on a page of their own.
+\end{document}

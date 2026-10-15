@@ -38,7 +38,11 @@ export interface DiscNode { kind: "disc"; pre: Node[]; post: Node[]; replaceCoun
 /** \\mathon / \\mathoff (§ 147), with \\mathsurround as width. */
 export interface MathNode { kind: "math"; on: boolean; width: number }
 /** A whatsit (§ 146) such as \\write: no size, but it can precede a break (§ 148). */
-export interface WhatsitNode { kind: "whatsit"; text: string }
+export interface WhatsitNode {
+  kind: "whatsit"; text: string
+  /** a float leaving vertical mode (LaTeX's \penalty-\@Miv \vbox{} \penalty-\@Miii): the output routine places it */
+  float?: unknown
+}
 /**
  * An insertion (§ 140): \\insert n with its vertical list. `height` is the list's
  * natural height plus depth; `depth` is \\splitmaxdepth; `splitTopSkip` and

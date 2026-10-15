@@ -22,7 +22,7 @@ import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type GlueN
 import type { MathData } from "../../../mathlayout/data"
 import { mlistToHlist, ORD, TEXT, type MathEnv } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
-import { buildPages, type Page } from "../../../layout/pagebuilder"
+import { buildPages, type Page, type PageParams } from "../../../layout/pagebuilder"
 import { emitBoxes } from "../../../emit/boxes"
 import { hpack, vpack } from "../../../layout/pack"
 import { roundDecimals } from "../../../layout/dimen"
@@ -313,7 +313,7 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
 }
 
 /** \end{document} after the main vertical list `contrib`, and the pages TeX's page builder cuts. */
-export function endDocument(contrib: Node[], prevDepth: number | null, k: ClassOptionData) {
+export function endDocument(contrib: Node[], prevDepth: number | null, k: ClassOptionData, float?: PageParams["float"]) {
   // a skip of -\prevdepth, at most \maxdepth, when the last line has depth, then \clearpage,
   // whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps show both forms)
   if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-Math.min(prevDepth, k.dimens.maxdepth)))
@@ -325,6 +325,7 @@ export function endDocument(contrib: Node[], prevDepth: number | null, k: ClassO
     vsize: k.dimens.textheight, maxDepth: k.dimens.maxdepth, topSkip: spec("topskip", k.glue.topskip),
     inserts: { [k.ints.footins]: { skip: glue(k.glue.footinsskip.width, k.glue.footinsskip.stretch, k.glue.footinsskip.stretchOrder, k.glue.footinsskip.shrink, k.glue.footinsskip.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen } },
     more: (last) => (last?.outputPenalty === -10000 || (last?.outputPenalty === -10001 && last.inserts[k.ints.footins]) ? clear() : null),
+    float,
   })
   const pages = built.pages.filter((pg) => pg.outputPenalty !== -10001 || pg.inserts[k.ints.footins])
   return { pages, pageTrace: documentPages(built.trace) }

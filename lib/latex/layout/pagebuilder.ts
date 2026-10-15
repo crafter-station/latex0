@@ -8,7 +8,7 @@
 
 import { printScaled } from "./arith"
 import { badness } from "./linebreak"
-import { glue as mkGlue, paramGlue, type GlueNode, type InsNode, type KernNode, type Node } from "./nodes"
+import { glue as mkGlue, paramGlue, type GlueNode, type InsNode, type KernNode, type Node, type WhatsitNode } from "./nodes"
 import { vpack } from "./pack"
 import type { PageCandidate, PageTrace } from "../trace/decisions"
 
@@ -29,6 +29,12 @@ export interface PageParams {
    * what the output routine contributes next (LaTeX's \clearpage), or null to stop.
    */
   more?: (last: Page | undefined) => Node[] | null
+  /**
+   * A float marker reached on the current page: what LaTeX's output routine puts back on the
+   * contribution list for the page so far (\@specialoutput with \@holdpg, \@addtocurcol). `column`
+   * is the state of the current column (\@colnum, \@textfloatsheight), reset when a page is output.
+   */
+  float?: (page: Node[], marker: WhatsitNode, column: { colnum: number; textFloatsHeight: number }, boxes: Record<number, Node[]>) => Node[]
 }
 
 export interface Page {
@@ -65,6 +71,10 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
   const pages: Page[] = []
   const trace: PageTrace[] = []
   let queue = contrib.slice()
+  let column = { colnum: 3, textFloatsHeight: 0 }
+  // insertion boxes (\box n) between outputs: an output routine that returns the page without
+  // emptying them (a float's \@specialoutput) leaves their material there for the next page
+  let regs: Record<number, Node[]> = {}
   const insClass = (n: number) => { const c = p.inserts?.[n]; if (!c) throw new Error(`page builder: no parameters for \\insert${n}`); return c }
 
   for (;;) {
@@ -77,7 +87,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     let insertPenalties = 0
     let pageTrace: PageTrace | null = null
     const pageIns: PageIns[] = [] // sorted by n
-    let fired = false
+    let fired = false, restarted = false
 
     // § 987
     const freeze = (s: number) => {
@@ -91,6 +101,20 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     for (let i = 0; ; i++) {
       if (i >= queue.length && !refill()) break
       const n = queue[i]
+      if (n.kind === "whatsit" && n.float) {
+        // the -\@Miv and -\@Miii penalties fire the output routine (their pages are not output, and
+        // TeX's \tracingpages shows them with those penalties); what it returns comes first, then the
+        // \penalty10000 left from the -\@Miii break, then the rest
+        if (!p.float) throw new Error("page builder: a float, but no output routine for floats")
+        // fire_up moves the page's insertions into their boxes first (§§ 1018–1021, all of them: the
+        // break is at the end of the page)
+        if (pageIns.some((r) => r.splitUp)) throw new Error("page builder: a float on a page with a split insertion")
+        const held = page.filter((x) => { if (x.kind !== "ins") return true; (regs[x.n] ??= []).push(...x.list); return false })
+        if (pageTrace) trace.pop()
+        queue = [...p.float(held, n, column, regs), { kind: "penalty", penalty: INF_PENALTY }, ...queue.slice(i + 1)]
+        restarted = true
+        break
+      }
       let pi: number | null = null
       switch (n.kind) {
         case "hlist": case "vlist": case "rule":
@@ -125,6 +149,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
           let r = pageIns.find((x) => x.n === n.n)
           if (!r) { // § 1009: the glue correction for box n
             r = { n: n.n, splitUp: false, height: 0, lastIns: null, bestIns: null, brokenIns: null, brokenAt: null }
+            if (regs[n.n]?.length) { const b = vpack(regs[n.n].slice()); r.height = b.height + b.depth } // box n is not void
             pageIns.push(r); pageIns.sort((a, b) => a.n - b.n)
             const h = c.count === 1000 ? r.height : xOverN(r.height, 1000) * c.count
             goal -= h + c.skip.width
@@ -188,6 +213,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
       if (depth > maxDepth) { total += depth - maxDepth; depth = maxDepth }
       page.push(n)
     }
+    if (restarted) continue
     if (!fired) return finish()
 
     function fire() {
@@ -198,6 +224,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
       if (bp && bp.kind === "penalty") rest[0] = { kind: "penalty", penalty: INF_PENALTY }
       // §§ 1018–1022: insertions before the break go to their boxes or wait for the next page
       const boxes: Record<number, Node[]> = {}
+      for (const [k, l] of Object.entries(regs)) if (l.length) boxes[Number(k)] = l.slice()
       for (const r of pageIns) if (r.bestIns) boxes[r.n] ??= []
       const held: InsNode[] = []
       const nodes: Node[] = []
@@ -229,6 +256,8 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
         held.push(n)
       }
       pages.push({ nodes, goal: bestSize, outputPenalty, inserts: boxes })
+      regs = {} // the output routine empties the insertion boxes
+      column = { colnum: 3, textFloatsHeight: 0 } // \@startcolumn
       // § 1026: held-over insertions go back first, then the rest of the contributions
       queue = [...held, ...rest]
     }

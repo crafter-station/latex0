@@ -64,7 +64,13 @@ export function makeDocument(r: () => number): string {
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x = r()
-    if (x < 0.15) {
+    if (x < 0.07) {
+      // a float between paragraphs: a caption, mostly allowed here
+      const env = pick(["figure", "table"])
+      out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]"])}`, r() < 0.7 ? "\\centering" : "",
+        `\\caption{${words(1 + Math.floor(r() * 8))}}`, `\\end{${env}}`)
+      afterPar = false
+    } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection"])
       out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}`)
       afterPar = false
@@ -108,17 +114,19 @@ export function fuzzDocuments(n: number, seed: number): number {
   const r = rng(seed)
   const dir = ".cache/fuzzdoc"
   mkdirSync(dir, { recursive: true })
-  let pass = 0, glyphs = 0
+  let pass = 0, glyphs = 0, pending = 0
   const failures: string[] = []
+  const reasons = new Map<string, number>()
   for (let i = 0; i < n; i++) {
     const file = join(dir, `doc-${seed}-${i}.tex`)
     writeFileSync(file, "% engine: document\n" + makeDocument(r))
     const res = runFixture(file)
     glyphs += res.glyphs
     if (res.status === "pass") pass++
+    else if (res.status === "skip") { pending++; const k = (res.message ?? "").replace(/"[^"]*"/g, "…"); reasons.set(k, (reasons.get(k) ?? 0) + 1) } // a float LaTeX would move elsewhere: not laid out yet
     else failures.push(`${file}: ${res.status} ${res.message ?? ""}${res.divergence ? ` ${JSON.stringify(res.divergence)}` : ""}${res.boxDivergence ? ` ${JSON.stringify(res.boxDivergence)}` : ""}${res.decisionDivergence ? ` ${JSON.stringify(res.decisionDivergence).slice(0, 300)}` : ""}`)
   }
   for (const f of failures.slice(0, 5)) console.log("✗ " + f)
-  console.log(`${pass}/${n} random documents identical to TeX (seed ${seed}; ${glyphs} glyphs)`)
-  return pass === n ? 0 : 1
+  console.log(`${pass}/${n} random documents identical to TeX, ${pending} not laid out yet${pending ? ` (${[...reasons].map(([k, v]) => `${k} ×${v}`).join("; ")})` : ""}, ${failures.length} different (seed ${seed}; ${glyphs} glyphs)`)
+  return failures.length ? 1 : 0
 }
