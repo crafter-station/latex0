@@ -28,12 +28,17 @@ const DIR = ".cache/mathcheck"
 const SPECIAL = new Set([..."#$%&\\^_{}~'"].map((c) => c.charCodeAt(0)))
 const OPERATORS = ["sum", "prod", "int", "oint", "bigcup", "coprod"]
 const STYLES = ["displaystyle", "textstyle", "scriptstyle", "scriptscriptstyle"]
+// what \left and \right take: characters with a \delcode, \delimiter commands, the null delimiter
+const FENCES = ["(", ")", "[", "]", "|", "/", ".", "<", ">", "\\{", "\\}", "\\|", "\\langle ", "\\rangle ", "\\lfloor ", "\\rceil ", "\\vert ", "\\Vert ",
+  "\\uparrow ", "\\Downarrow ", "\\updownarrow ", "\\backslash ", "\\lgroup ", "\\rmoustache ", "\\arrowvert ", "\\bracevert "]
 
 /** A formula as a tree: what the generator draws, printed for TeX and built for the engine. */
 type Nucleus =
   | { kind: "char"; code: number } | { kind: "sym"; name: string }
   | { kind: "group"; items: Item[] } | { kind: "frac"; num: Item[]; den: Item[] }
   | { kind: "op"; name: string; limits?: "limits" | "nolimits" }
+  | { kind: "fence"; left: string; items: Item[]; right: string }
+  | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
 type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | { kind: "group"; items: Item[] }
 type Item =
   | { kind: "atom"; nucleus: Nucleus | null; sup?: Script; sub?: Script; primes: number; subFirst: boolean }
@@ -50,25 +55,37 @@ function rng(seed: number) {
   }
 }
 
-function generator(r: () => number, pool: number[], busy: number[], symbols: string[]) {
+const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix"]
+
+function generator(r: () => number, pool: number[], busy: number[], symbols: string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
-  const char = (): Nucleus & Script => (r() < 0.15 ? { kind: "sym", name: pick(symbols) } : { kind: "char", code: r() < 0.45 ? pick(busy) : pick(pool) })
+  // (amsmath redefines \colon: \nobreak\mskip2mu\mathpunct{}\nonscript\mkern-\thinmuskip{:}\mskip6mu plus1mu)
+  const char = (): Nucleus & Script => {
+    if (r() < 0.15) { let name = pick(symbols); if (name === "colon" && ams()) name = "cdotp"; return { kind: "sym", name } }
+    return { kind: "char", code: r() < 0.45 ? pick(busy) : pick(pool) }
+  }
   const script = (depth: number): Script => (depth < 3 && r() < 0.3 ? { kind: "group", items: list(depth + 1, 3) } : char())
   const nucleus = (depth: number): Nucleus => {
     const x = r()
     if (depth < 3 && x < 0.12) return { kind: "group", items: list(depth + 1, 3) }
     if (depth < 3 && x < 0.2) return { kind: "frac", num: list(depth + 1, 3), den: list(depth + 1, 3) }
+    if (depth < 4 && x < 0.24) return { kind: "fence", left: pick(FENCES), items: list(depth + 1, 4), right: pick(FENCES) }
+    if (depth < 3 && x < 0.28 && ams()) { // amsmath's matrix environments: rows of cells, sometimes ragged, sometimes a final \\
+      const cols = 1 + Math.floor(r() * 3)
+      const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: r() < 0.2 ? 1 + Math.floor(r() * cols) : cols }, () => list(depth + 1, 2, true)))
+      return { kind: "matrix", env: pick(MATRICES), rows, cr: r() < 0.3 }
+    }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
     return char()
   }
   // a bare script (empty nucleus) only where TeX inserts a dummy noad: at the start of a list or after a style change
-  const list = (depth: number, max: number): Item[] => {
+  const list = (depth: number, max: number, noBare = false): Item[] => {
     const out: Item[] = []
     const n = Math.floor(r() * (max + 1))
     for (let i = 0; i < n; i++) {
       const prev = out[out.length - 1]
       if (r() < 0.08) { out.push({ kind: "style", style: 2 * Math.floor(r() * 4) }); continue }
-      const bare = (!prev || prev.kind === "style") && r() < 0.1
+      const bare = (!prev || prev.kind === "style") && r() < 0.1 && !noBare
       const primes = r() < 0.12 ? 1 + Math.floor(r() * 2) : 0
       const s = r()
       out.push({
@@ -89,7 +106,9 @@ function print(items: Item[]): string {
     if (it.kind === "style") return `\\${STYLES[it.style / 2]} `
     const n = it.nucleus
     let out = !n ? "" : n.kind === "group" ? `{${print(n.items)}}` : n.kind === "frac" ? `\\frac{${print(n.num)}}{${print(n.den)}}`
-      : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : ch(n)
+      : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : n.kind === "fence" ? `\\left${n.left}${print(n.items)}\\right${n.right}`
+      // a space after \\: amsmath's \new@ifnextchar then sees no [ or *
+      : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""
     const primes = "'".repeat(it.primes)
     out += it.subFirst ? sub + primes + sup : primes + sup + sub
@@ -104,28 +123,32 @@ export function mathCheck(n: number, seed: number): number {
   const r = rng(seed)
   // operators and punctuation weigh more, so spacing and rule 5 come up often
   const busy = pool.filter((c) => (data.mathcodes[c] >> 12) !== 7 && (data.mathcodes[c] >> 12) !== 0)
-  const symbols = Object.keys(data.symbols).filter((x) => (data.symbols[x] >> 12) !== 1) // big operators come as nuclei
-  const gen = generator(r, pool, busy, symbols)
+  const symbols = [...Object.keys(data.symbols).filter((x) => (data.symbols[x] >> 12) !== 1), ...Object.keys(data.delimiters)] // big operators come as nuclei
+  let ams = false
+  const gen = generator(r, pool, busy, symbols, () => ams)
   let failed = 0, total = 0
   const seen = new Map<string, number>()
-  for (const option of ["10pt", "11pt", "12pt"]) {
+  // each size without and with amsmath (its fonts, its matrix environments)
+  for (const [option, withAms] of [["10pt", false], ["11pt", false], ["12pt", false], ["10pt", true], ["11pt", true], ["12pt", true]] as const) {
+    ams = withAms
+    const name = `math-${option}${withAms ? "-ams" : ""}`
     const k = classData("article", option)
-    const m = k.sizes.normalsize.math
+    const m = withAms ? k.sizes.normalsize.mathAms : k.sizes.normalsize.math
     const fonts = [m.text, m.script, m.scriptscript].map((size) => size.map((f) => loadFont(dataFont(f.name), f.at)))
-    const cases = Array.from({ length: Math.ceil(n / 3) }, () => ({ style: Math.floor(r() * 4) * 2, items: gen() }))
-    writeFileSync(join(DIR, `math-${option}.tex`), [
-      `\\documentclass[${option}]{article}`, "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
+    const cases = Array.from({ length: Math.ceil(n / 6) }, () => ({ style: Math.floor(r() * 4) * 2, items: gen() }))
+    writeFileSync(join(DIR, `${name}.tex`), [
+      `\\documentclass[${option}]{article}`, ...(withAms ? ["\\usepackage{amsmath}"] : []), "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
       ...cases.map((c) => `\\setbox0\\hbox{$\\${STYLES[c.style / 2]} ${print(c.items)}$}\\showbox0`), "\\end{document}", "",
     ].join("\n"))
-    const run = spawnSync("latex", ["-interaction=nonstopmode", `math-${option}.tex`], { cwd: DIR, env: texEnv({ max_print_line: "100000" }), stdio: "ignore", timeout: 300_000 })
+    const run = spawnSync("latex", ["-interaction=nonstopmode", `${name}.tex`], { cwd: DIR, env: texEnv({ max_print_line: "100000" }), stdio: "ignore", timeout: 300_000 })
     if (run.error) throw run.error
-    const log = readFileSync(join(DIR, `math-${option}.log`), "latin1")
+    const log = readFileSync(join(DIR, `${name}.log`), "latin1")
     const err = log.match(/^! (?!OK\.).*$/m)
-    if (err) throw new Error(`TeX error in ${DIR}/math-${option}.log: ${err[0]}`)
+    if (err) throw new Error(`TeX error in ${DIR}/${name}.log: ${err[0]}`)
     const lines = log.split("\n")
     const boxes: BoxNode[] = []
     for (let i = 0; i < lines.length; i++) if (lines[i] === "> \\box0=") { const { box, end } = parseBoxDump(lines, i + 1); boxes.push(box); i = end }
-    if (boxes.length !== cases.length) throw new Error(`TeX showed ${boxes.length} boxes for ${cases.length} formulas (${DIR}/math-${option}.log)`)
+    if (boxes.length !== cases.length) throw new Error(`TeX showed ${boxes.length} boxes for ${cases.length} formulas (${DIR}/${name}.log)`)
     const count = (b: BoxNode) => {
       if (b.type === "glue" && b.param) seen.set(b.param, (seen.get(b.param) ?? 0) + 1)
       if (b.type === "rule") seen.set("fraction rule", (seen.get("fraction rule") ?? 0) + 1)
@@ -133,9 +156,11 @@ export function mathCheck(n: number, seed: number): number {
     }
     cases.forEach((c, i) => {
       total++
-      const hl = mlistToHlist(parseMath(`\\${STYLES[c.style / 2]} ${print(c.items)}`, data), {
+      const hl = mlistToHlist(parseMath(`\\${STYLES[c.style / 2]} ${print(c.items)}`, data, { amsmath: withAms }), {
         fonts, muskips: data.muskips as never, binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
         scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
+        delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
+        arraycolsep: k.dimens.arraycolsep, arstrut: k.sizes.normalsize.strut,
       }, TEXT, false)
       const list: Node[] = [{ kind: "math", on: true, width: data.dimens.mathsurround }, ...hl, { kind: "math", on: false, width: data.dimens.mathsurround }]
       const engine = emitBoxes(hpack(list))
@@ -144,7 +169,7 @@ export function mathCheck(n: number, seed: number): number {
       const d = compareBoxLists([tex], [engine])
       if (!d) return
       failed++
-      if (failed <= 8) console.log(`✗ [${option}] $\\${STYLES[c.style / 2]} ${print(c.items)}$: ${d.path} ${d.field}\n    TeX:    ${JSON.stringify(d.expected)}\n    engine: ${JSON.stringify(d.actual)}`)
+      if (failed <= 8) console.log(`✗ [${name}] $\\${STYLES[c.style / 2]} ${print(c.items)}$: ${d.path} ${d.field}\n    TeX:    ${JSON.stringify(d.expected)}\n    engine: ${JSON.stringify(d.actual)}`)
     })
   }
   console.log(`${total - failed}/${total} formulas identical to TeX (seed ${seed}; ${[...seen].map(([k, v]) => `${k} ×${v}`).join(", ")})`)

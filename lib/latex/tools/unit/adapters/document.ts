@@ -769,7 +769,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       if (labels.length > 1) throw new Unsupported("several \\label in an equation")
       const label = labels[0]
       if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
-      const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) } }
+      const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData(), { amsmath }) } catch (e) { throw new Unsupported((e as Error).message) } }
       if (next.kind === "equation") { counters.equation++; refs.href = href("equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
       const newlabel: Node | null = label ? labelWrite(refs, label[1], the(counters.equation)) : null
       let mlist: MItem[]
@@ -818,7 +818,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
     const env = mathEnv(k, "normalsize", true)
     const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
-    const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) } }
+    const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData(), { amsmath }) } catch (e) { throw new Unsupported((e as Error).message) } }
     const rows = src.split(/\\\\/).map((r) => {
       const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
       const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {

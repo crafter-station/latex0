@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 115,
-  "exact": 109,
+  "fixtures": 117,
+  "exact": 112,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 6,
-  "glyphs": 148403
+  "pending": 5,
+  "glyphs": 148634
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "math",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "pages",
@@ -72,7 +72,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 12
+   "exact": 13
   },
   {
    "area": "text",
@@ -234,8 +234,8 @@
    "file": "macro/templates/matrix.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 20,
    "covers": "snippet in a minimal article: Matrix with parentheses",
    "issue": "#30"
@@ -956,6 +956,17 @@
    "issue": "#30"
   },
   {
+   "id": "math/delimiters",
+   "file": "micro/math/delimiters.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 106,
+   "covers": "\\left and \\right (math_left_right, make_left_right with \\delimiterfactor 901 and \\delimitershortfall 5pt, var_delimiter's small and large variants along the charlist from the current size down, extensible recipes from cmex10, the null delimiter), \\delimiter commands as math characters, inline and displayed",
+   "issue": "#30"
+  },
+  {
    "id": "math/display-style-inline",
    "file": "micro/math/display-style-inline.tex",
    "area": "math",
@@ -998,6 +1009,17 @@
    "glyphs": 157,
    "covers": "line breaks inside formulas at \\relpenalty and \\binoppenalty, after \\mathoff, and none at glue inside a formula, in a narrow \\parshape",
    "issue": "#86"
+  },
+  {
+   "id": "math/matrices",
+   "file": "micro/math/matrices.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix and Vmatrix: \\hskip-\\arraycolsep, \\array{*\\c@MaxMatrixCols c} in a \\vcenter (make_vcenter), rows starting with \\@arstrut, cells \\hskip\\arraycolsep\\hfil$…$\\hfil\\hskip\\arraycolsep in text style, a short row, the ${} \\@arraycr leaves, zero \\lineskip between rows, \\left and \\right around them, in equations and in text",
+   "issue": "#30"
   },
   {
    "id": "math/no-hyphen-next-to-math",

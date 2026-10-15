@@ -7,8 +7,12 @@ import type { GlueSpec } from "../layout/dimen"
 
 export interface MathData {
   mathcodes: number[]
+  /** \delcode of every 7-bit character (-1: none) */
+  delcodes: number[]
   ints: Record<string, number>
   dimens: Record<string, number>
   muskips: Record<string, GlueSpec>
   symbols: Record<string, number>
+  /** the 27-bit \delimiter code of each delimiter command */
+  delimiters: Record<string, number>
 }

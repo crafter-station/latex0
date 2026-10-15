@@ -56,6 +56,8 @@ export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false):
     fonts: [m.text, m.script, m.scriptscript].map((fs) => fs.map((f) => loadFont(dataFont(f.name), f.at))),
     muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
     scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
+    delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
+    arraycolsep: k.dimens.arraycolsep, arstrut: k.sizes[size].strut, // \@arstrutbox: \strutbox at \arraystretch 1
   }
 }
 
@@ -424,7 +426,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData()), mathEnv(k, size, ctx.amsmath), TEXT, true), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData(), { amsmath: ctx.amsmath }), mathEnv(k, size, ctx.amsmath), TEXT, true), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext

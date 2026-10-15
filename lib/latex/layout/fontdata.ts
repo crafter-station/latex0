@@ -19,6 +19,8 @@ export interface FontData {
   kerns: number[]
   /** 1-based like TFM; params[0] is unused. */
   params: number[]
+  /** extensible recipes, in fonts that have them */
+  exten?: number[]
 }
 
 export function decodeFontData(d: FontData): FixWordFont {
@@ -27,7 +29,7 @@ export function decodeFontData(d: FontData): FixWordFont {
   for (const [c, w, h, dp, i, tag, remainder] of d.chars) {
     chars.set(c, { width: d.widths[w], height: d.heights[h], depth: d.depths[dp], italic: d.italics[i], tag, remainder })
   }
-  return { name: d.name, checksum: d.checksum, designSize: d.designSize, chars, ligKern: d.ligKern, kerns: d.kerns, params: d.params }
+  return { name: d.name, checksum: d.checksum, designSize: d.designSize, chars, ligKern: d.ligKern, kerns: d.kerns, params: d.params, ...(d.exten ? { exten: d.exten } : {}) }
 }
 
 export function encodeFontData(f: FixWordFont): FontData {
@@ -35,5 +37,5 @@ export function encodeFontData(f: FixWordFont): FontData {
   const w = table(), h = table(), dp = table(), it = table()
   const chars: FontData["chars"] = [...f.chars.entries()].sort((a, b) => a[0] - b[0])
     .map(([c, m]) => [c, w.at(m.width), h.at(m.height), dp.at(m.depth), it.at(m.italic), m.tag, m.remainder])
-  return { format: FONT_DATA_FORMAT, name: f.name, checksum: f.checksum, designSize: f.designSize, widths: w.vals, heights: h.vals, depths: dp.vals, italics: it.vals, chars, ligKern: f.ligKern, kerns: f.kerns, params: f.params }
+  return { format: FONT_DATA_FORMAT, name: f.name, checksum: f.checksum, designSize: f.designSize, widths: w.vals, heights: h.vals, depths: dp.vals, italics: it.vals, chars, ligKern: f.ligKern, kerns: f.kerns, params: f.params, ...(f.exten ? { exten: f.exten } : {}) }
 }

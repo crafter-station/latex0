@@ -1,0 +1,14 @@
+% fixture: math/matrices
+% tier: T3
+% engine: document
+% covers: amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix and Vmatrix: \hskip-\arraycolsep, \array{*\c@MaxMatrixCols c} in a \vcenter (make_vcenter), rows starting with \@arstrut, cells \hskip\arraycolsep\hfil$…$\hfil\hskip\arraycolsep in text style, a short row, the ${} \@arraycr leaves, zero \lineskip between rows, \left and \right around them, in equations and in text
+% issue: #30
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+A matrix in text: $\begin{pmatrix} a & b \\ c & d \end{pmatrix}$ and one more $\begin{matrix} 1 & 2 \\ 3 \end{matrix}$.
+\begin{equation}
+A = \begin{pmatrix} a_{11} & a_{12} & a_{13} \\ a_{21} & a_{22} & a_{23} \\ a_{31} & a_{32} & a_{33} \end{pmatrix}
+\end{equation}
+\[ \begin{bmatrix} 1 & 0 \\ 0 & 1 \\ \end{bmatrix} \begin{Bmatrix} x \end{Bmatrix} \begin{vmatrix} a & b \\ c & d \end{vmatrix} = \begin{Vmatrix} \frac{1}{2} & \frac{\frac{a}{b}}{c} \end{Vmatrix}^2 \]
+\end{document}

@@ -13,6 +13,8 @@ export interface FixWordFont {
   ligKern: number[] // 4-byte instructions packed big-endian into uint32
   kerns: number[]
   params: number[] // 1-based; params[0] unused
+  /** extensible recipes (§ 546), each top, mid, bot, rep packed big-endian into a uint32 */
+  exten?: number[]
 }
 
 export interface CharMetrics { width: number; height: number; depth: number; italic: number; tag: number; remainder: number }
@@ -33,6 +35,8 @@ export interface Font {
   bcharLabel: number | null
   /** \hyphenchar: 45 unless the font's family says otherwise (-1 for typewriter: no hyphenation) */
   hyphenChar?: number
+  /** extensible recipes (§ 546), each top, mid, bot, rep packed big-endian */
+  exten?: number[]
 }
 
 /** Boundary-character data from a lig/kern program (§§ 573, 576). */
@@ -53,7 +57,7 @@ export function loadFont(f: FixWordFont, size: number): Font {
   }
   // Param 1 (slant) is a pure number and is not scaled (§ 575).
   const params = f.params.map((p, i) => (i <= 1 ? p : scaled(p, size)))
-  return { name: f.name, size, chars, ligKern: f.ligKern, kerns: f.kerns.map((k) => scaled(k, size)), params, ...boundaries(f.ligKern, f.chars) }
+  return { name: f.name, size, chars, ligKern: f.ligKern, kerns: f.kerns.map((k) => scaled(k, size)), params, ...boundaries(f.ligKern, f.chars), ...(f.exten ? { exten: f.exten } : {}) }
 }
 
 // Named font parameters (§ 547).
