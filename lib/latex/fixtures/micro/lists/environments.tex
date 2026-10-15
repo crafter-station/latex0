@@ -1,0 +1,54 @@
+% fixture: lists/environments
+% tier: T3
+% engine: document
+% covers: abstract (\small, center with \vspace in the paragraph as \vadjust, quotation), center, flushleft, flushright (\trivlist with \centering, \raggedright, \raggedleft; \\ as \@centercr), quote, quotation with several paragraphs (\listparindent), verse (\\, negative \itemindent), description (\descriptionlabel, wide labels), environments nested in lists and lists in environments
+% issue: #30
+\documentclass{article}
+\begin{document}
+\begin{abstract}
+This abstract is set in a smaller size, as a quotation under a centered heading. It runs on for a few lines so that the quotation's margins show on both sides of the text.
+
+Its second paragraph is indented by the quotation's paragraph indentation.
+\end{abstract}
+Text after the abstract, then environments of every kind.
+\begin{center}
+A centered line\\
+and another one after a line break\\
+and a third.
+\end{center}
+\begin{flushleft}
+Ragged right text that runs over more than one line to show that the right margin is not justified at all in this environment.
+\end{flushleft}
+\begin{flushright}
+Ragged left text, set flush against the right margin, long enough to take two lines of the page.
+\end{flushright}
+\begin{quote}
+A quote is indented on both sides. It can run over several lines of text without any extra indentation.
+\end{quote}
+\begin{quotation}
+A quotation indents its first line and its paragraphs.
+
+A second paragraph of the quotation, also indented.
+\end{quotation}
+\begin{verse}
+Lines of verse are broken by hand\\
+and long ones hang from the left with the verse's own indentation, as poems do in books\\
+the end.
+\end{verse}
+\begin{description}
+\item[First] the first term and its description.
+\item[A much longer term] whose label is wider than the label width.
+\item without a label.
+\end{description}
+\begin{itemize}
+\item An item with a quote in it:
+  \begin{quote}
+  quoted inside the item.
+  \end{quote}
+  and text after.
+\item An item with a centered line:
+  \begin{center}
+  centered in the item
+  \end{center}
+\end{itemize}
+\end{document}

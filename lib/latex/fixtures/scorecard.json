@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 87,
-  "exact": 76,
+  "fixtures": 88,
+  "exact": 77,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 57126
+  "glyphs": 58093
  },
  "areas": [
   {
@@ -41,8 +41,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "math",
@@ -767,6 +767,17 @@
    "status": "pass",
    "glyphs": 2170,
    "covers": "enumerate past nine items (two-digit labels), items across a page break with \\@itempenalty, at 11pt",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/environments",
+   "file": "micro/lists/environments.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 967,
+   "covers": "abstract (\\small, center with \\vspace in the paragraph as \\vadjust, quotation), center, flushleft, flushright (\\trivlist with \\centering, \\raggedright, \\raggedleft; \\\\ as \\@centercr), quote, quotation with several paragraphs (\\listparindent), verse (\\\\, negative \\itemindent), description (\\descriptionlabel, wide labels), environments nested in lists and lists in environments",
    "issue": "#30"
   },
   {

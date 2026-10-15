@@ -69,6 +69,8 @@ function probe(cls: string, option: string, packages = ""): string {
     "\\immediate\\write16{I:topnumber=\\the\\c@topnumber}\\immediate\\write16{I:bottomnumber=\\the\\c@bottomnumber}\\immediate\\write16{I:totalnumber=\\the\\c@totalnumber}",
     ...([["toproom", "topfraction"], ["botroom", "bottomfraction"], ["textmin", "textfraction"], ["fpmin", "floatpagefraction"]] as const).map(([d, f]) => `{\\dimen@\\${f}\\textheight\\immediate\\write16{D:${d}=\\the\\dimen@}}`),
     "\\immediate\\write16{G:fptop=\\the\\@fptop}\\immediate\\write16{G:fpsep=\\the\\@fpsep}\\immediate\\write16{G:fpbot=\\the\\@fpbot}",
+    // the first list level at each size (\\small and \\footnotesize define their own \\@listi)
+    ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.map(([t, p]) => `\\immediate\\write16{${t}:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
     // list levels as \\list sets them, each nested in the one before (\\@listi … \\@listvi)
     `{${["i", "ii", "iii", "iv", "v", "vi"].map((r, n) => `\\@list${r}${LIST.map(([t, p]) => `\\immediate\\write16{${t}:list${n + 1}${p}=\\the\\${p}}`).join("")}`).join("")}}`,
     // the footnote insertion class: its box number, \\skip, \\count and \\dimen
@@ -103,7 +105,7 @@ function texData(cls: string, option: string): ClassOptionData {
   const bold = new Map<string, SizeData["bold"]>()
   for (const line of log) {
     let m: RegExpMatchArray | null
-    if ((m = line.match(/^([DGI]):(\w+)=(.*)$/))) {
+    if ((m = line.match(/^([DGI]):([\w@]+)=(.*)$/))) {
       if (m[1] === "D") data.dimens[m[2]] = dimen(m[3])
       else if (m[1] === "G") data.glue[m[2]] = glue(m[3])
       else data.ints[m[2]] = Number(m[3])
@@ -152,7 +154,7 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }

@@ -51,7 +51,9 @@ export interface WhatsitNode {
  * `floatCost` (\\floatingpenalty) are the values in force when it ended.
  */
 export interface InsNode { kind: "ins"; n: number; height: number; depth: number; splitTopSkip: GlueNode; floatCost: number; list: Node[] }
-export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode | WhatsitNode | MathNode | InsNode
+/** \vadjust material (§ 158): it leaves its line and follows it on the vertical list (§ 655). */
+export interface AdjustNode { kind: "adjust"; list: Node[] }
+export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | BoxNode | DiscNode | WhatsitNode | MathNode | InsNode | AdjustNode
 
 export const glue = (width: number, stretch = 0, stretchOrder: GlueOrder = NORMAL, shrink = 0, shrinkOrder: GlueOrder = NORMAL): GlueNode =>
   ({ kind: "glue", width, stretch, stretchOrder, shrink, shrinkOrder })
