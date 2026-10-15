@@ -1,0 +1,21 @@
+% fixture: lists/item-labels
+% tier: T3
+% engine: document
+% covers: \item[label] in itemize and enumerate (\makelabel, an enumerate item with its own label does not step the counter), labels wider than \labelwidth
+% issue: #30
+\documentclass{article}
+\begin{document}
+Lists with labels of their own.
+\begin{itemize}
+\item[--] a dash instead of a bullet
+\item an ordinary bullet item
+\item[Note:] a label wider than the label width pushes the text along
+\end{itemize}
+\begin{enumerate}
+\item first
+\item[(a)] lettered by hand, with no step of the counter
+\item second, numbered 2
+\item[] an empty label
+\end{enumerate}
+The end.
+\end{document}

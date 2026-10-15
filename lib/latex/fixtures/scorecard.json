@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 81,
-  "exact": 70,
+  "fixtures": 83,
+  "exact": 72,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 55141
+  "glyphs": 55784
  },
  "areas": [
   {
@@ -41,8 +41,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "math",
@@ -759,6 +759,17 @@
    "issue": "#30"
   },
   {
+   "id": "lists/item-labels",
+   "file": "micro/lists/item-labels.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 204,
+   "covers": "\\item[label] in itemize and enumerate (\\makelabel, an enumerate item with its own label does not step the counter), labels wider than \\labelwidth",
+   "issue": "#30"
+  },
+  {
    "id": "lists/itemize-book-12pt",
    "file": "micro/lists/itemize-book-12pt.tex",
    "area": "lists",
@@ -789,6 +800,17 @@
    "status": "pass",
    "glyphs": 499,
    "covers": "a list begun inside a paragraph (no \\partopsep, \\unskip\\par) and text right after \\end{enumerate} without a blank line (\\@endpe: no indentation)",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/nested-lists",
+   "file": "micro/lists/nested-lists.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 439,
+   "covers": "lists nested four deep (\\@listii … \\@listiv: \\leftmargin, \\labelwidth, \\topsep, \\parsep, \\itemsep, the enclosing \\parskip in \\@topsep), itemize labels (\\textbullet, bold \\textendash, \\textasteriskcentered, \\textperiodcentered), enumerate labels (1. (a) i. A.), an item's text after a nested list (\\@doendpe), mixed itemize and enumerate",
    "issue": "#30"
   },
   {

@@ -53,10 +53,62 @@ const IGNORE_DEPTH = null // \prevdepth = -1000pt
 
 type Block =
   | { kind: "par"; text: string; noindent: boolean }
-  | { kind: "list"; env: "itemize" | "enumerate"; items: string[]; inPar: boolean; blank: boolean }
+  | ListBlock
   | { kind: "heading"; level: 1 | 2 | 3; star: boolean; title: string }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
+
+/** An itemize or enumerate list: each item's optional label, then its text and the lists nested in it. */
+interface ListBlock { kind: "list"; env: "itemize" | "enumerate"; items: Item[]; inPar: boolean; blank: boolean }
+interface Item { label: string | null; parts: ({ kind: "text"; text: string } | ListBlock)[] }
+
+/** Where the \end matching a list's \begin is (lists nest), and where it ends. */
+function listEnd(body: string, from: number, env: string): { at: number; next: number } {
+  const re = /\\(begin|end)\{(itemize|enumerate)\}/g
+  re.lastIndex = from
+  let depth = 1
+  for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
+    depth += m[1] === "begin" ? 1 : -1
+    if (depth === 0) { if (m[2] !== env) throw new Unsupported(`\\end{${m[2]}} for \\begin{${env}}`); return { at: m.index, next: re.lastIndex } }
+  }
+  throw new Unsupported(`\\begin{${env}} without its \\end`)
+}
+
+/** A list's body: its items at this level, each split at the lists nested in it. */
+function parseList(env: "itemize" | "enumerate", inner: string, inPar: boolean, blank: boolean): ListBlock {
+  // \item at this level only
+  const cuts: number[] = []
+  const re = /\\item\b|\\begin\{(itemize|enumerate)\}/g
+  for (let m: RegExpExecArray | null; (m = re.exec(inner)); ) {
+    if (m[1]) { re.lastIndex = listEnd(inner, re.lastIndex, m[1]).next; continue }
+    cuts.push(m.index)
+  }
+  if (inner.slice(0, cuts[0] ?? inner.length).trim()) throw new Unsupported("text before the first \\item")
+  const items = cuts.map((c, i) => {
+    let x = inner.slice(c + 5, cuts[i + 1] ?? inner.length)
+    const opt = x.match(/^\s*\[([^\]]*)\]/) // \item[label]
+    if (opt && /[\\{}$%&#^_~[]/.test(opt[1])) throw new Unsupported(`\\item[${opt[1]}]`)
+    if (opt) x = x.slice(opt[0].length)
+    const parts: Item["parts"] = []
+    const nested = /\\begin\{(itemize|enumerate)\}/g
+    let at = 0
+    for (let m: RegExpExecArray | null; (m = nested.exec(x)); ) {
+      const before = x.slice(at, m.index)
+      if (/\n[ \t]*\n/.test(before.trim())) throw new Unsupported("an item with several paragraphs")
+      if (before.trim()) parts.push({ kind: "text", text: before.replace(/\s+/g, " ").trim() })
+      else if (!parts.length) throw new Unsupported("a list right after \\item")
+      else throw new Unsupported("two lists in a row in an item")
+      const end = listEnd(x, nested.lastIndex, m[1])
+      parts.push(parseList(m[1] as ListBlock["env"], x.slice(nested.lastIndex, end.at), true, false))
+      at = nested.lastIndex = end.next
+    }
+    const rest = x.slice(at)
+    if (/\n[ \t]*\n/.test(rest.trim())) throw new Unsupported("an item with several paragraphs")
+    if (rest.trim() || !parts.length) parts.push({ kind: "text", text: rest.replace(/\s+/g, " ").trim() })
+    return { label: opt ? opt[1] : null, parts }
+  })
+  return { kind: "list", env, items, inPar, blank }
+}
 
 const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
 
@@ -81,7 +133,7 @@ function displaySegments(text: string): (string | Display)[] {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}([^]*?)\\end\{\3\}|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
+  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -112,13 +164,10 @@ function blocksOf(body: string): Block[] {
       continue
     }
     const inPar = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== ""
-    if (/\\begin\{(itemize|enumerate)\}/.test(m[4])) throw new Unsupported("nested lists")
-    const items = m[4].split(/\\item\b/)
-    if (items[0].trim()) throw new Unsupported("text before the first \\item")
-    if (items.slice(1).some((x) => /^\s*\[/.test(x))) throw new Unsupported("\\item[label]")
-    if (items.slice(1).some((x) => /\n[ \t]*\n/.test(x.trim()))) throw new Unsupported("an item with several paragraphs")
-    out.push({ kind: "list", env: m[3] as "itemize" | "enumerate", items: items.slice(1).map((x) => x.replace(/\s+/g, " ").trim()), inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
-    at = m.index + m[0].length
+    const end = listEnd(body, re.lastIndex, m[3])
+    out.push(parseList(m[3] as ListBlock["env"], body.slice(re.lastIndex, end.at), inPar, /\n[ \t]*\n\s*$/.test(before)))
+    re.lastIndex = end.next
+    at = end.next
     endpe = true
   }
   text(body.slice(at))
@@ -126,7 +175,14 @@ function blocksOf(body: string): Block[] {
   const check = (t: string) => { const m = t.replace(/\$[^$]*\$/g, "").match(/\\(?!footnote\b|noindent\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`) }
   for (const b of out) {
     if (b.kind === "par") displaySegments(b.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
-    else if (b.kind === "list") b.items.forEach((t) => { if (DISPLAY.test(t)) throw new Unsupported("a display in a list item"); check(t) })
+    else if (b.kind === "list") {
+      const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
+        if (p.kind === "list") return walk(p)
+        if (DISPLAY.test(p.text)) throw new Unsupported("a display in a list item")
+        check(p.text)
+      }))
+      walk(b)
+    }
     else if (b.kind === "maketitle" || b.kind === "float") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
@@ -222,10 +278,10 @@ function charBox(f: Font, c: number): CharNode {
 const hss = () => glue(0, 65536, FIL, 65536, FIL)
 
 /** \@item's \@labels box: \hskip\itemindent \hskip-\labelwidth \hskip-\labelsep \hbox to\labelwidth{\makelabel{label}} \hskip\labelsep */
-function labelBox(label: Node[], k: ClassOptionData): BoxNode {
+function labelBox(label: Node[], k: ClassOptionData, lw = k.dimens.labelwidth): BoxNode {
   const llap = hpack([hss(), ...label], { exactly: 0 }) // \makelabel = \hss\llap{#1}
   const tempbox = hpack([hss(), llap])
-  const lw = k.dimens.labelwidth, ls = k.dimens.labelsep
+  const ls = k.dimens.labelsep
   const boxed = tempbox.width > lw ? tempbox : hpack(tempbox.list, { exactly: lw })
   return hpack([glue(0), glue(-lw), glue(-ls), boxed, glue(ls)])
 }
@@ -340,29 +396,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       return
     }
     if (b.blank) v.par() // a blank line before the list
-    // \list (with \@listi): \@trivlist, \parskip\parsep, \parshape 1 \leftmargin \linewidth
-    const leftmargin = k.dimens.leftmargini
-    const topsepadd = b.inPar ? k.glue.topsep : addGlue(k.glue.topsep, k.glue.partopsep) // \partopsep only from vertical mode
-    const topsep = addGlue(topsepadd, outerParskip) // \advance\@topsep\parskip, the outer \parskip
-    const parsep = k.glue.parsep
-    const parShape: [number, number][] = [[leftmargin, k.dimens.textwidth - leftmargin]]
-    const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-    const companion = loadFont(dataFont(k.sizes.normalsize.companion.name), k.sizes.normalsize.companion.at)
-    b.items.forEach((text, i) => {
-      // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
-      // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
-      let club: number | undefined
-      if (i === 0 && v.nobreak) { v.addvspace(addGlue(outerParskip, negate(parsep))); v.nobreak = false; club = 10000 }
-      else if (i === 0) { v.addpenalty(-LOW_PENALTY); v.addvspace(topsep); v.addvspace(negate(parsep)) }
-      else { v.addpenalty(-LOW_PENALTY); v.addvspace(k.glue.itemsep) }
-      const label: Node[] = []
-      if (b.env === "itemize") label.push(charBox(companion, TEXTBULLET))
-      else appendText(label, `${i + 1}.`, font, { spaceFactor: 1000 }, false) // \labelenumi = \theenumi.
-      // \everypar: the indent box gives way to \box\@labels \penalty\z@
-      typeset(text, { start: [labelBox(label, k), penalty(0)], parShape, ...(club ? { clubPenalty: club } : {}) }, parsep)
-    })
-    // \endtrivlist: the last item's \par, then \@endparenv
-    v.endtrivlist(parsep, outerParskip, topsepadd)
+    list(b, { depth: 1, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip })
     // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe
     v.afterheadingEverypar = false
     v.endpePar = true
@@ -575,6 +609,65 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   }
 
   /** a paragraph from a ready horizontal list (the display's opening line) */
+  /**
+   * \list at a depth (\@listi … \@listvi): \@trivlist (\@topsep from \topsep, \partopsep when it
+   * starts in vertical mode, and the enclosing \parskip), \parskip\parsep, \parshape 1
+   * \@totalleftmargin \linewidth; each \item (\@item) with its label in \labelwidth; a list nested
+   * in an item starts in its paragraph (\unskip\par) and the item's text after it is not indented
+   * (\@doendpe); \endtrivlist and \@endparenv.
+   */
+  function list(b: ListBlock, ctx: { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec }) {
+    if (ctx.depth > 6) throw new Unsupported("lists nested more than six deep") // LaTeX: Too deeply nested
+    const L = (p: string) => k.glue[`list${ctx.depth}${p}`]
+    const leftmargin = k.dimens[`list${ctx.depth}leftmargin`], labelwidth = k.dimens[`list${ctx.depth}labelwidth`]
+    const topsepadd = b.inPar ? L("topsep") : addGlue(L("topsep"), L("partopsep")) // \partopsep only from vertical mode
+    const topsep = addGlue(topsepadd, ctx.parskip) // \advance\@topsep\parskip, the enclosing \parskip
+    const parsep = L("parsep")
+    const totalLeft = ctx.totalLeft + leftmargin, lineWidth = ctx.lineWidth - leftmargin
+    const parShape: [number, number][] = [[totalLeft, lineWidth]]
+    const itemDepth = ctx.itemDepth + (b.env === "itemize" ? 1 : 0), enumDepth = ctx.enumDepth + (b.env === "enumerate" ? 1 : 0)
+    const level = b.env === "itemize" ? itemDepth : enumDepth
+    if (level > 4) throw new Unsupported(`${b.env} nested more than four deep`)
+    const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
+    const bold = loadFont(dataFont(k.sizes.normalsize.bold.name), k.sizes.normalsize.bold.at)
+    const companion = loadFont(dataFont(k.sizes.normalsize.companion.name), k.sizes.normalsize.companion.at)
+    let counter = 0 // \c@enum…: an item with its own label does not step it
+    const alph = (n: number) => String.fromCharCode(96 + n)
+    const roman = (n: number) => { // \@roman (TeX's \romannumeral)
+      let out = ""
+      for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (n >= v) { out += r; n -= v }
+      return out
+    }
+    b.items.forEach(({ label: given, parts }, i) => {
+      // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
+      // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
+      let club: number | undefined
+      if (i === 0 && v.nobreak) { v.addvspace(addGlue(ctx.parskip, negate(parsep))); v.nobreak = false; club = 10000 }
+      else if (i === 0) { v.addpenalty(-LOW_PENALTY); v.addvspace(topsep); v.addvspace(negate(parsep)) }
+      else { v.addpenalty(-LOW_PENALTY); v.addvspace(L("itemsep")) }
+      const label: Node[] = []
+      if (given !== null) appendText(label, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false) // \makelabel{label}
+      else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
+        if (level === 2) label.push(charBox(bold, 123))
+        else label.push(charBox(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
+      } else { // \labelenumi … iv: 1. (a) i. A.
+        const n = ++counter
+        if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
+        appendText(label, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
+      }
+      parts.forEach((p, j) => {
+        if (p.kind === "list") return list(p, { depth: ctx.depth + 1, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep })
+        // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested list, \@doendpe drops it
+        if (j === 0) typeset(p.text, { start: [labelBox(label, k, labelwidth), penalty(0)], parShape, ...(club ? { clubPenalty: club } : {}) }, parsep)
+        // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
+        // heading); \@doendpe's \par sets \@clubpenalty for the lines
+        else if (p.text) typeset("\\noindent " + p.text, { parShape, noteClubPenalty: club ?? k.ints.clubpenalty }, parsep)
+      })
+    })
+    // \endtrivlist: the last item's \par, then \@endparenv
+    v.endtrivlist(parsep, ctx.parskip, topsepadd)
+  }
+
   function typesetList(list: Node[], opts: Parameters<typeof paragraphInput>[4], withParskip: boolean) {
     const { params } = paragraphInput("", k, "normalsize", doc, { ...opts, amsmath })
     const lb = lineBreak(list, params)
