@@ -20,7 +20,7 @@ import { emitBoxes } from "../../../emit/boxes"
 import { shipOut } from "../../../emit/trace"
 import type { ClassOptionData, SizeCommand } from "../../../layout/classdata"
 import type { GlueSpec } from "../../../layout/dimen"
-import { loadFont, QUAD, X_HEIGHT, type Font } from "../../../layout/font"
+import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
 import { Scanner } from "../../../layout/dimen"
 import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
@@ -43,11 +43,15 @@ const LOW_PENALTY = 51 // \@lowpenalty: \@beginparpenalty, \@itempenalty and \@e
 const TEXTBULLET = 136 // \textbullet in TS1
 const IGNORE_DEPTH = null // \prevdepth = -1000pt
 
+/** What a float marker carries to the output routine: the float's box, its placement bits, and \if@nobreak. */
+interface FloatMarker { box: BoxNode; fps: number; nobreak: boolean }
+
 type Block =
   | { kind: "par"; text: string; noindent: boolean }
   | { kind: "list"; env: "itemize" | "enumerate"; items: string[]; inPar: boolean; blank: boolean }
   | { kind: "heading"; level: 1 | 2 | 3; star: boolean; title: string }
   | { kind: "maketitle" }
+  | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
 
 const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
 
@@ -72,7 +76,7 @@ function displaySegments(text: string): (string | Display)[] {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}([^]*?)\\end\{\3\}|\\(maketitle)\b\s*/g
+  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}([^]*?)\\end\{\3\}|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -86,6 +90,11 @@ function blocksOf(body: string): Block[] {
     const before = body.slice(at, m.index)
     text(before)
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
+    if (m[6]) {
+      const inPar = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== ""
+      out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar })
+      at = re.lastIndex; endpe = false; continue
+    }
     if (m[1]) { // a heading: its argument in braces
       if (body[re.lastIndex] !== "{") throw new Unsupported(`\\${m[1]} without a {title}${body[re.lastIndex] === "[" ? " (or with a short title)" : ""}`)
       let depth = 0, j = re.lastIndex
@@ -113,7 +122,7 @@ function blocksOf(body: string): Block[] {
   for (const b of out) {
     if (b.kind === "par") displaySegments(b.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
     else if (b.kind === "list") b.items.forEach((t) => { if (DISPLAY.test(t)) throw new Unsupported("a display in a list item"); check(t) })
-    else if (b.kind === "maketitle") continue
+    else if (b.kind === "maketitle" || b.kind === "float") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -131,7 +140,8 @@ const dimen = (w: number): GlueSpec => ({ width: w, stretch: 0, stretchOrder: 0,
 /** The main vertical list, with what LaTeX's vertical-mode macros look at. */
 class VerticalList {
   nodes: Node[] = [{ kind: "whatsit", text: "\\write-{}" }] // \begin{document}'s \write
-  prevDepth: number | null = IGNORE_DEPTH
+  /** \prevdepth is 0pt when the document begins (the first line's interline glue goes at the top of the page) */
+  prevDepth: number | null = 0
   /** \if@nobreak: right after a heading (\@afterheading), until the next paragraph starts */
   nobreak = false
   /** \if@afterindent: whether that paragraph keeps its indentation */
@@ -248,6 +258,7 @@ export const document: Adapter = (src) => {
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage{amsmath}") { amsmath = true; continue }
+    if (line === "\\usepackage{graphicx}") continue // nothing to lay out until \includegraphics
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
@@ -272,10 +283,11 @@ export const document: Adapter = (src) => {
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   const titleBoxes: BoxNode[] = []
-  const counters = Object.assign([0, 0, 0, 0], { equation: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
+  const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   blocks.forEach((b, bi) => {
     if (b.kind === "heading") { heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
+    if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
       if (b.noindent) {
         // right after a list: \@doendpe's \everypar drops the indent box; its \par resets \clubpenalty
@@ -524,6 +536,107 @@ export const document: Adapter = (src) => {
     return { just: lb.lines[lb.lines.length - 1] ?? null, params, lines: lb.lines.length }
   }
 
+  /**
+   * A float (latex.ltx \@float, \@xfloat, \@caption, the class's \@makecaption, \end@float) from
+   * vertical mode: its box is built now, and a marker stands for \penalty-\@Miv\vbox{}\penalty-\@Miii,
+   * where the output routine will place it.
+   */
+  function floatBlock(b: Extract<Block, { kind: "float" }>) {
+    if (b.inPar) throw new Unsupported("a float inside a paragraph")
+    // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !
+    let fps = 16
+    for (const c of b.fps ?? "tbp") { // \fps@figure and \fps@table are tbp
+      if (c === "h") { if (fps % 2 === 0) fps++ }
+      else if (c === "t" || c === "b" || c === "p") { const bit = c === "t" ? 2 : c === "b" ? 4 : 8; if (Math.floor(fps / bit) % 2 === 0) fps += bit }
+      else if (c === "!") { if (fps > 15) fps -= 16 }
+      else throw new Unsupported(`float option ${c}`)
+    }
+    const content: Node[] = []
+    let pd: number | null = IGNORE_DEPTH, number = 0
+    const hsize = k.dimens.columnwidth
+    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^}]*\}|\S+/g) ?? []
+    for (const it of items) {
+      if (it === "\\centering") continue
+      let m = it.match(/^\\caption\s*\{([^]*)\}$/)
+      if (m) {
+        const text = m[1].replace(/\s+/g, " ").trim()
+        if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
+        number = ++counters[b.env]
+        const ext = b.env === "figure" ? "lof" : "lot"
+        content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${number}}{\\ignorespaces ${text}}}{\\thepage }{}\\protected@file@percent }}` })
+        content.push(glue(k.dimens.abovecaptionskip))
+        // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
+        const l: Node[] = [], state = { spaceFactor: 1000 }
+        appendText(l, b.env === "figure" ? "Figure" : "Table", romanFont, state, false)
+        l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
+        appendText(l, `${number}: ${text}`, romanFont, state, false)
+        const cap = hpack(l)
+        if (cap.width > hsize) throw new Unsupported("a caption longer than a line")
+        pd = appendToVlist(content, hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+        content.push(glue(k.dimens.belowcaptionskip))
+        continue
+      }
+      m = it.match(/^\\label\s*\{([^}]*)\}$/)
+      if (m) {
+        if (!number) throw new Unsupported("\\label before \\caption in a float")
+        const href = `${b.env}.${cls === "article" ? "" : `${counters[0]}.`}${number}` // \@currentHref: report and book prefix \thechapter
+        content.push({ kind: "whatsit", text: `\\write1{\\newlabel{${m[1]}}{{${number}}{\\thepage }{}{${href}}{}}}` })
+        continue
+      }
+      throw new Unsupported(`${it} in a ${b.env}`)
+    }
+    content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
+    const box = vpack([vpack(content)]) // \color@vbox\normalcolor\vbox{…}
+    v.nodes.push({ kind: "whatsit", text: "", float: { box, fps, nobreak: v.nobreak } as FloatMarker })
+    v.nobreak = false // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse)
+  }
+
+  /**
+   * \@specialoutput and \@addtocurcol for the float at the marker, given the page so far
+   * (\@holdpg): "here" placement — \vskip\intextsep \box \penalty\interlinepenalty \vskip\intextsep
+   * \vskip-\parskip — when it is allowed and the column has room.
+   */
+  function placeFloat(page: Node[], marker: { float?: unknown }, column: { colnum: number; textFloatsHeight: number }, boxes: Record<number, Node[]>): Node[] {
+    const f = marker.float as FloatMarker
+    const held = vpack(page.slice())
+    let pageht = held.height + held.depth // \advance\@pageht\@pagedp
+    const foot = boxes[k.ints.footins]
+    if (foot?.length) { const fb = vpack(foot.slice()); pageht += fb.height + k.glue.footinsskip.width + fb.depth } // \ifvoid\footins\else
+    const colht = k.dimens.textheight, colroom = colht
+    const fpstype = f.fps % 32
+    if (fpstype === 8 || fpstype === 24) throw new Unsupported("a float allowed only on a float page")
+    let textmin = fpstype < 16 ? 0 : xnOverD(colht, 13107, 65536) // \textfraction (.2) \@colht
+    textmin += column.textFloatsHeight
+    let req = Math.max(pageht, textmin) + f.box.height
+    if (!(colroom > req)) throw new Unsupported("a float that does not fit on its page")
+    if (fpstype < 16 && column.colnum === 0) column.colnum = 1
+    if (column.colnum <= 0) throw new Unsupported("more floats than \\totalnumber on a page")
+    if (f.box.depth !== 0) throw new Unsupported("a float of the wrong width")
+    if (fpstype % 2 === 0) throw new Unsupported("a float placed at the top or bottom")
+    const intextsep = k.glue.intextsep
+    req += intextsep.width
+    if (!(colroom > req)) throw new Unsupported("a float placed at the top or bottom")
+    column.colnum--
+    column.textFloatsHeight += f.box.height + 2 * intextsep.width
+    const out = page.slice()
+    // \@reinserts: \insert\footins{\unvbox\footins}, with the output routine's \splittopskip (10pt),
+    // \splitmaxdepth (\maxdimen) and \floatingpenalty (0)
+    if (foot?.length) {
+      const fb = vpack(foot.slice())
+      out.push({ kind: "ins", n: k.ints.footins, height: fb.height + fb.depth, depth: 0o7777777777, splitTopSkip: glue(655360), floatCost: 0, list: foot.slice() })
+      delete boxes[k.ints.footins]
+    }
+    if (f.nobreak) out.push(penalty(10000))
+    else { // \addpenalty\interlinepenalty after \unvbox\@holdpg, where \prevdepth is -1000pt
+      const last = out[out.length - 1]
+      const p = k.ints.interlinepenalty
+      if (last?.kind === "glue" && last.width !== 0) out.push(plain(negate(last)), penalty(p), plain(last))
+      else out.push(penalty(p))
+    }
+    out.push(plain(intextsep), f.box, penalty(k.ints.interlinepenalty), plain(intextsep), plain(negate(outerParskip)))
+    return out
+  }
+
   /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
    *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
    *  {\large date}, then \vskip 1.5em */
@@ -652,7 +765,12 @@ export const document: Adapter = (src) => {
   }
 
   if (pagestyle === "headings" && blocks.some((b) => b.kind === "heading")) throw new Unsupported("running heads with section marks")
-  const { pages, pageTrace } = endDocument(v.nodes, v.prevDepth, k)
+  let built: ReturnType<typeof endDocument>
+  try { built = endDocument(v.nodes, v.prevDepth, k, placeFloat) } catch (e) {
+    if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
+    throw e
+  }
+  const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
   const special = new Set(pages.flatMap((pg, i) => (pg.nodes.some((n) => titleBoxes.includes(n as BoxNode)) ? [i] : [])))
   const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, special.has(i) ? "plain" : pagestyle))

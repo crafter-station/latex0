@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 74,
-  "exact": 60,
+  "fixtures": 76,
+  "exact": 63,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 14,
-  "glyphs": 47608
+  "pending": 13,
+  "glyphs": 48899
  },
  "areas": [
   {
@@ -18,6 +18,11 @@
    "area": "display",
    "fixtures": 3,
    "exact": 3
+  },
+  {
+   "area": "floats",
+   "fixtures": 2,
+   "exact": 2
   },
   {
    "area": "footnotes",
@@ -57,7 +62,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 4
+   "exact": 5
   },
   {
    "area": "text",
@@ -175,8 +180,8 @@
    "file": "macro/templates/figure.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 24,
    "covers": "snippet in a minimal article: Figure with image, caption, and label",
    "issue": "#30"
@@ -389,6 +394,28 @@
    "glyphs": 996,
    "covers": "\\[ \\], equation with its number, $$ $$ and displaymath in running text: \\predisplaysize and short or regular skips, \\predisplaypenalty, \\postdisplaypenalty, \\displaywidowpenalty before, prevgraf+3 after; a display opening a paragraph (\\makebox[.6\\linewidth]{}) and an equation after a blank line",
    "issue": "#86"
+  },
+  {
+   "id": "floats/float-with-footnotes",
+   "file": "micro/floats/float-with-footnotes.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 635,
+   "covers": "a float placed here on a page that already has footnotes: they wait in \\footins, \\@pageht counts them, and \\@reinserts puts them back as one insertion before the float, at 12pt in a report",
+   "issue": "#115"
+  },
+  {
+   "id": "floats/here-floats",
+   "file": "micro/floats/here-floats.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 632,
+   "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label in a float, one right after a heading (\\nobreak), and text after them",
+   "issue": "#115"
   },
   {
    "id": "footnotes/footnote-basic",
