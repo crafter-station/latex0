@@ -85,6 +85,8 @@ export interface Refs {
   /** \@currentlabelname: hyperref's nameref sets it to a heading's title */
   name: string
   prev: Map<string, { label: string; page: string; href: string }> | null
+  /** \bibcite values the run before wrote: key → number */
+  cites?: Map<string, string>
   writes: { node: Node; key: string; label: string; href: string }[]
   /** hyperref: \ref and \pageref are links to the label's anchor */
   hyper?: boolean
@@ -117,6 +119,10 @@ export interface ParagraphOptions {
   prevGraf?: number; widowPenalty?: number
   /** nodes after the text, before the \par (marks from \@mkboth in a heading's title) */
   end?: Node[]
+  /** \sfcode changes (thebibliography's \sfcode`\.\@m) */
+  sfcodes?: Record<number, number>
+  /** \widowpenalty in force, which footnotes see, when not the class's (thebibliography's 4000) */
+  noteWidowPenalty?: number
 }
 
 /**
@@ -134,7 +140,7 @@ export const squeeze = (t: string): string => {
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "label"; key: string } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -228,6 +234,8 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "companion", src: "$" }); i += 2; continue }
     if (body[i] === "~") { flushText(); out.push({ kind: "tie" }); i++; continue }
+    const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
+    if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
     if (cur) { flushText(); out.push({ kind: "currentlabel", label: cur[1], href: cur[2] }); i += cur[0].length; continue }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
@@ -304,7 +312,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   // the paragraph's parameters, less what normal_paragraph (§ 1070) resets at \insert and what
   // \@parboxrestore sets: \leftskip, \rightskip 0, \parfillskip \@flushglue, \sloppy
   // (\tolerance 9999, \emergencystretch 3em)
-  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0, widowPenalty: k.ints.widowpenalty, ...(ctx.noteClub !== undefined ? { clubPenalty: ctx.noteClub } : {}) }
+  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0, widowPenalty: ctx.noteWidow ?? k.ints.widowpenalty, ...(ctx.noteClub !== undefined ? { clubPenalty: ctx.noteClub } : {}) }
   Object.assign(params, {
     hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", glue(0, 65536, FIL)),
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
@@ -313,7 +321,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   const markBox = hpack([hss(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
-  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000 }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
+  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
   const { vlist, trace } = lineBreak(list, params)
@@ -343,7 +351,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
@@ -352,7 +360,24 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state); ctx.ignoreSpaces = false; continue }
     if (p.kind === "currentlabel") { if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href } continue }
     ctx.ignoreSpaces = false
-    if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
+    if (p.kind === "cite") {
+      // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
+      // ,\penalty\@m\  , then ]
+      appendText(list, "[", font, state)
+      p.keys.forEach((key, i) => {
+        if (i) {
+          appendText(list, ",", font, state)
+          list.push(penalty(1000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+        }
+        const n = doc.refs?.cites?.get(key), l: Node[] = []
+        if (n) appendText(l, n, font, { spaceFactor: 1000 }, false)
+        else appendText(l, "?", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
+        list.push(hpack(l))
+        state.spaceFactor = 1000
+      })
+      appendText(list, "]", font, state)
+    }
+    else if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
       list.push(penalty(10000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
     }
     else if (p.kind === "label") {
@@ -459,7 +484,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, amsmath: opts.amsmath, base })
+  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base })
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   if (opts.end) list.push(...opts.end)
   return { list, params, notes }

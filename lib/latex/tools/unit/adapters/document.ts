@@ -69,16 +69,18 @@ type Block =
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
   | { kind: "toc" }
   | { kind: "matter"; which: "front" | "main" | "back" }
+  /** \begin{thebibliography}: its heading and \@mkboth, then the list */
+  | { kind: "bib"; keys: string[] }
 
 /** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{} */
 interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string }
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
-const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract"] as const
+const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography"] as const
 type EnvName = typeof ENVS[number]
 const ENV_ALT = ENVS.join("|")
 /** An environment: its items (one, from \item\relax, for all but itemize, enumerate and description). */
-interface ListBlock { kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean }
+interface ListBlock { kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 interface Item { label: string | null; parts: Part[] }
 type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number } | ListBlock
@@ -101,7 +103,7 @@ function listEnd(body: string, from: number, env: string): { at: number; next: n
 
 /** An environment's body: its items at this level, each split into paragraphs and nested environments. */
 function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean): ListBlock {
-  const listy = env === "itemize" || env === "enumerate" || env === "description"
+  const listy = env === "itemize" || env === "enumerate" || env === "description" || env === "thebibliography"
   const crs = env === "center" || env === "flushleft" || env === "flushright" || env === "verse" // \\ is \@centercr
   // \item at this level only
   const cuts: number[] = []
@@ -187,7 +189,7 @@ function inParagraph(before: string): boolean {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -203,6 +205,19 @@ function blocksOf(body: string): Block[] {
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
+    if (m[11] !== undefined) {
+      // \bibitem{key} is \item[\@biblabel{n}] after \refstepcounter{enumiv} (and an immediate \bibcite)
+      const end = body.indexOf("\\end{thebibliography}", re.lastIndex)
+      if (end < 0) throw new Unsupported("\\begin{thebibliography} without its \\end")
+      const inner = body.slice(re.lastIndex, end)
+      if (/\\bibitem\s*\[/.test(inner)) throw new Unsupported("\\bibitem[label]")
+      const bib = parseList("thebibliography", inner.replace(/\\bibitem\s*\{[^{}]*\}/g, "\\item "), false, true)
+      bib.widest = m[11]
+      out.push({ kind: "bib", keys: [...inner.matchAll(/\\bibitem\s*\{([^{}]*)\}/g)].map((x) => x[1].trim()) }, bib)
+      re.lastIndex = at = end + "\\end{thebibliography}".length
+      endpe = true
+      continue
+    }
     if (m[6]) {
       const inPar = inParagraph(before)
       out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar })
@@ -230,7 +245,7 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }
@@ -245,7 +260,7 @@ function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter") continue
+    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -401,7 +416,7 @@ export const document: Adapter = (source) => {
 interface MarkValue { print: string; parts: ({ text: string } | { ctrl: true } | { quad: true })[]; upper: boolean }
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[] }
+interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -463,7 +478,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
-  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper }
+  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
   /** \Hy@linkcounter (anchors of unnumbered headings) and \Hy@writebookmark's state */
   let linkcounter = 0
   const bookmarks = new Bookmarks()
@@ -621,11 +636,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
     if (runIn && b.kind === "list") { const club = v.club; runInAlone(); v.club = club; list({ ...b, inPar: true, blank: false }, topCtx()); v.afterheadingEverypar = false; v.endpePar = true; return }
-    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
     if (b.kind === "heading") { if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
     if (b.kind === "toc") { if (runIn) runInAlone(); tableOfContents(); return }
     if (b.kind === "matter") { if (runIn) runInAlone(); matter(b.which); return }
+    if (b.kind === "bib") { if (runIn) runInAlone(); bibliography(); return }
     if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
@@ -958,6 +974,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       else if (b.env === "quote") rightmargin = leftmargin
       else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
       else if (b.env === "verse") { itemsep = dimen(0); itemindent = -ems("1.5em"); listparindent = itemindent; rightmargin = leftmargin; leftmargin += ems("1.5em") }
+      else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
+        const w: Node[] = []
+        appendText(w, `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
+        labelwidth = hpack(w).width; leftmargin = labelwidth + k.dimens.labelsep
+      }
     }
     const topsepadd = b.inPar ? topsep : addGlue(topsep, partopsep) // \partopsep only from vertical mode
     const topsepAll = addGlue(topsepadd, ctx.parskip) // \advance\@topsep\parskip, the enclosing \parskip
@@ -972,7 +993,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     if (b.env === "center") { align = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushleft") { atRightskip = glue(0, 65536, FIL); align = { rightSkip: flush("rightskip") }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushright") { align = { leftSkip: flush("leftskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
-    const shape = { ...align, ...(parShape ? { parShape } : {}), ...(finalHyph !== undefined ? { finalHyphenDemerits: finalHyph } : {}) }
+    // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m
+    const bib = b.env === "thebibliography" ? { tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: 4000, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
+    const shape = { ...align, ...(parShape ? { parShape } : {}), ...(finalHyph !== undefined ? { finalHyphenDemerits: finalHyph } : {}), ...bib }
     const itemDepth = ctx.itemDepth + (b.env === "itemize" ? 1 : 0), enumDepth = ctx.enumDepth + (b.env === "enumerate" ? 1 : 0)
     const level = b.env === "itemize" ? itemDepth : enumDepth
     if (level > 4) throw new Unsupported(`${b.env} nested more than four deep`)
@@ -1016,7 +1039,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         content = [glue(ls)]
         if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
       } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, given, font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
-      else { content = [glue(0, 65536, FIL)]; if (given) appendText(content, given, font, { spaceFactor: 1000 }, false) } // \@mklab: \hfil #1
+      else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
+        content = [glue(0, 65536, FIL)]
+        const l = b.env === "thebibliography" ? `[${i + 1}]` : given
+        if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
+        if (b.env === "thebibliography") { refs.label = String(i + 1); refs.href = `enumiv.${i + 1}` } // \refstepcounter{enumiv}
+      }
       const temp = hpack(content.slice())
       const boxed = temp.width > labelwidth ? temp : hpack(content.slice(), { exactly: labelwidth })
       const labels = hpack([glue(itemindent), glue(-labelwidth), glue(-ls), boxed, glue(ls)])
@@ -1176,6 +1204,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    * \tableofcontents: \section*{\contentsname} (report: \chapter*), then \@starttoc{toc}, which reads
    * the lines the run before wrote (\contentsline → \l@<name>) and ends with \@nobreakfalse
    */
+  /** \thebibliography's start: \section*{\refname} (report, book: \chapter*{\bibname}), then \@mkboth */
+  function bibliography() {
+    if (hyper) throw new Unsupported("thebibliography with hyperref")
+    const [name, macro] = cls === "article" ? ["References", "refname"] : ["Bibliography", "bibname"]
+    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
+    else chapter({ kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
+    const value = markValue([{ text: name }], true)
+    if (mkboth) v.nodes.push(...insertMarks(markboth(value, value), v.nobreak))
+  }
+
   function tableOfContents() {
     const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
     // with running heads, \@mkboth is \markboth: its marks in the title's line, which they leave (§ 655)
@@ -1618,7 +1656,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   })
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body) || hyper) {
+  if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{|\\cite\{/.test(body) || hyper) {
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>()
     const walk = (n: Node, page: string) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
     shipped.forEach((b, i) => walk(b, pages[i].thepage))
@@ -1632,6 +1670,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
       labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, href: w.href }])),
       bookmarks: bookmarks.written,
+      // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins
+      cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
     }
   }
   return {

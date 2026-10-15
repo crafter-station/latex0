@@ -1,0 +1,24 @@
+% fixture: bibliography/thebibliography-article
+% tier: T3
+% engine: document
+% covers: thebibliography in article: \section*{\refname}, the \list with \labelwidth from \@biblabel{widest} and \leftmargin\labelwidth+\labelsep, [n] labels (\@mklab), \sloppy, \clubpenalty and \widowpenalty 4000, \sfcode`\.\@m (no extra space after a period, also in a footnote), \cite with \bibcite numbers from the first run ([n], \hbox each, ,\penalty\@m\ between, a bold ? when undefined)
+% issue: #30
+\documentclass{article}
+\begin{document}
+\section{Intro}
+As shown by \cite{knuth} and \cite{lamport,knuth}, and not \cite{nobody}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+
+\begin{thebibliography}{99}
+\bibitem{knuth} Author 0. \emph{A Title, Volume 0}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{lamport} Author 1. \emph{A Title, Volume 1}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r3} Author 2. \emph{A Title, Volume 2}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.\footnote{A note. With periods. In it. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.}
+\bibitem{r4} Author 3. \emph{A Title, Volume 3}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r5} Author 4. \emph{A Title, Volume 4}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r6} Author 5. \emph{A Title, Volume 5}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r7} Author 6. \emph{A Title, Volume 6}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r8} Author 7. \emph{A Title, Volume 7}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r9} Author 8. \emph{A Title, Volume 8}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r10} Author 9. \emph{A Title, Volume 9}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{r11} Author 10. \emph{A Title, Volume 10}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\end{thebibliography}
+\end{document}

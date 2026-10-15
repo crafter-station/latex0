@@ -1,0 +1,15 @@
+% fixture: bibliography/thebibliography-report
+% tier: T3
+% engine: document
+% covers: thebibliography in report with running heads: \chapter*{\bibname} on a new page, \@mkboth{\MakeUppercase\bibname} after it in vertical mode (\nobreak after each mark)
+% issue: #30
+\documentclass{report}
+\pagestyle{headings}
+\begin{document}
+\chapter{One}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam. \cite{a}.
+\begin{thebibliography}{9}
+\bibitem{a} First. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\bibitem{b} Second. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam.
+\end{thebibliography}
+\end{document}
