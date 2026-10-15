@@ -1,7 +1,8 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
 // lays out — classes and sizes, OT1 or T1 fonts, page styles, paragraphs with inline math,
 // \textbf and the other font commands, and footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
-// lists (nested, \item[label]) started in or out of a paragraph, with text right after them or after a
+// lists (nested, \item[label]), description, quote, quotation, verse, center, flushleft,
+// flushright and abstract, started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
 // them, \label in both — each compared with TeX as a fixture is: every glyph, every line
@@ -73,6 +74,7 @@ export function makeDocument(r: () => number): string {
   }
   out.push("\\begin{document}")
   if (titled) out.push("\\maketitle")
+  if (cls === "article" && r() < 0.3) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(10 + Math.floor(r() * 30))] : []), "\\end{abstract}")
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x = r()
@@ -102,15 +104,32 @@ export function makeDocument(r: () => number): string {
     } else if (x < 0.3) {
       if (!afterPar || r() < 0.6) out.push("")
       // lists nested up to six deep (four of a kind), items with labels of their own, text after a nested list
+      // environments nested up to six lists deep (four of a kind): lists with items (labels of their own,
+      // text after a nested environment) and \item\relax ones with paragraphs and, where \\ ends a line, lines
       const list = (depth: number, items: number, enums: number) => {
-        const env = items >= 4 ? "enumerate" : enums >= 4 ? "itemize" : pick(["itemize", "enumerate"])
-        out.push(`\\begin{${env}}`)
-        for (let i = 1 + Math.floor(r() * (env === "enumerate" ? (depth === 1 ? 12 : 5) : 6)); i > 0; i--) {
-          const label = r() < 0.1 ? `[${pick(["--", "Note:", "(a)", "", "*", "first one"])}]` : ""
-          out.push(`\\item${label} ${text(r() < 0.3 ? 30 + Math.floor(r() * 50) : 2 + Math.floor(r() * 10))}`)
-          if (depth < 6 && r() < 0.25 / depth) {
-            list(depth + 1, items + (env === "itemize" ? 1 : 0), enums + (env === "enumerate" ? 1 : 0))
+        const env = pick(["itemize", "enumerate", "itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright"]
+          .filter((e) => !(e === "itemize" && items >= 4) && !(e === "enumerate" && enums >= 4) && !(depth >= 6 && !["center", "flushleft", "flushright"].includes(e))))
+        const deeper = ["center", "flushleft", "flushright"].includes(env) ? depth : depth + 1
+        const nest = () => {
+          if (deeper < 6 && r() < 0.25 / depth) {
+            list(deeper + (deeper === depth ? 1 : 0), items + (env === "itemize" ? 1 : 0), enums + (env === "enumerate" ? 1 : 0))
             if (r() < 0.3) out.push(text(3 + Math.floor(r() * 20)))
+          }
+        }
+        out.push(`\\begin{${env}}`)
+        if (env === "itemize" || env === "enumerate" || env === "description") {
+          for (let i = 1 + Math.floor(r() * (env === "enumerate" ? (depth === 1 ? 12 : 5) : 6)); i > 0; i--) {
+            const label = env === "description" ? (r() < 0.9 ? `[${words(1 + Math.floor(r() * 3))}]` : "") : r() < 0.1 ? `[${pick(["--", "Note:", "(a)", "", "*", "first one"])}]` : ""
+            out.push(`\\item${label} ${text(r() < 0.3 ? 30 + Math.floor(r() * 50) : 2 + Math.floor(r() * 10))}`)
+            nest()
+          }
+        } else {
+          const crs = ["center", "flushleft", "flushright", "verse"].includes(env)
+          for (let i = 1 + Math.floor(r() * 3); i > 0; i--) {
+            const lines = Array.from({ length: crs ? 1 + Math.floor(r() * 3) : 1 }, () => text(r() < 0.3 ? 20 + Math.floor(r() * 40) : 2 + Math.floor(r() * 10)))
+            out.push(lines.join(" \\\\\n") + (crs && r() < 0.15 ? " \\\\" : ""))
+            nest()
+            if (i > 1) out.push("")
           }
         }
         out.push(`\\end{${env}}`)

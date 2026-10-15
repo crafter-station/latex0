@@ -45,7 +45,7 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
         break
       }
       case "kern": case "math": cur.h += p.width; break
-      case "penalty": case "disc": case "whatsit": case "ins": break
+      case "penalty": case "disc": case "whatsit": case "ins": case "adjust": break
     }
   }
 }
@@ -86,7 +86,7 @@ function vlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
         break
       }
       case "kern": cur.v += p.width; break
-      case "penalty": case "whatsit": case "ins": break
+      case "penalty": case "whatsit": case "ins": case "adjust": break
       case "math": throw new Error("math node in a vertical list")
       case "disc": throw new Error("vlist_out: discretionary in vertical list")
     }

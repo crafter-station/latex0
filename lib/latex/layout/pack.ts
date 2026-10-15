@@ -46,7 +46,7 @@ export function hpack(list: Node[], spec: PackSpec = NATURAL): BoxNode {
       }
       case "glue": x += p.width; stretch[p.stretchOrder] += p.stretch; shrink[p.shrinkOrder] += p.shrink; break
       case "kern": case "math": x += p.width; break
-      case "penalty": case "disc": case "whatsit": case "ins": break // a discretionary's no-break text is already in the list; insertions migrate (post_line_break)
+      case "penalty": case "disc": case "whatsit": case "ins": case "adjust": break // a discretionary's no-break text is already in the list; insertions migrate (post_line_break)
     }
   }
   box.height = h; box.depth = d

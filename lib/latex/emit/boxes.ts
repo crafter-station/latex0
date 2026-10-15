@@ -28,5 +28,6 @@ export function emitBoxes(n: Node): BoxOut {
     }
     case "math": return { type: "other", text: (n.on ? "\\mathon" : "\\mathoff") + (n.width ? ", surrounded " + printScaled(n.width) : "") }
     case "disc": return { type: "disc", pre: n.pre.map(emitBoxes), post: n.post.map(emitBoxes), replaceCount: n.replaceCount }
+    case "adjust": return { type: "other", text: "\\vadjust", children: n.list.map(emitBoxes) } // § 197
   }
 }
