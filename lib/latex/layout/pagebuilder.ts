@@ -19,7 +19,8 @@ const AWFUL_BAD = 0o7777777777, DEPLORABLE = 100000, MAX_DIMEN = 0o7777777777
 export interface InsertClass { skip: GlueNode; count: number; dimen: number }
 
 export interface PageParams {
-  vsize: number
+  /** \vsize when a page starts: a number, or what the output routine last left it at */
+  vsize: number | (() => number)
   maxDepth: number
   topSkip: GlueNode
   /** insertion classes by box number (LaTeX's \\footins is 253) */
@@ -31,10 +32,14 @@ export interface PageParams {
   more?: (last: Page | undefined) => Node[] | null
   /**
    * A float marker reached on the current page: what LaTeX's output routine puts back on the
-   * contribution list for the page so far (\@specialoutput with \@holdpg, \@addtocurcol). `column`
-   * is the state of the current column (\@colnum, \@textfloatsheight), reset when a page is output.
+   * contribution list for the page so far (\@specialoutput with \@holdpg, \@addtocurcol). `boxes`
+   * are the insertion boxes, which it may empty.
    */
-  float?: (page: Node[], marker: WhatsitNode, column: { colnum: number; textFloatsHeight: number }, boxes: Record<number, Node[]>) => Node[]
+  float?: (page: Node[], marker: WhatsitNode, boxes: Record<number, Node[]>) => Node[]
+  /** An assignment the output routine sees, made when the page builder reaches it (a whatsit with a hook). */
+  hook?: (hook: unknown) => void
+  /** The output routine for each page cut at a break: called after the page is added to the result. */
+  output?: (page: Page) => void
 }
 
 export interface Page {
@@ -71,7 +76,6 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
   const pages: Page[] = []
   const trace: PageTrace[] = []
   let queue = contrib.slice()
-  let column = { colnum: 3, textFloatsHeight: 0 }
   // insertion boxes (\box n) between outputs: an output routine that returns the page without
   // emptying them (a float's \@specialoutput) leaves their material there for the next page
   let regs: Record<number, Node[]> = {}
@@ -92,26 +96,56 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     // § 987
     const freeze = (s: number) => {
       contents = s
-      goal = p.vsize; maxDepth = p.maxDepth; depth = 0; total = 0; shrink = 0; stretch.fill(0); least = AWFUL_BAD
+      goal = typeof p.vsize === "number" ? p.vsize : p.vsize(); maxDepth = p.maxDepth; depth = 0; total = 0; shrink = 0; stretch.fill(0); least = AWFUL_BAD
       pageTrace = { goal, maxDepth, candidates: [], splits: [] }
       trace.push(pageTrace)
     }
 
+    // § 1005: badness and cost of breaking at index i with penalty pi; true when the page is cut
+    const consider = (pi: number, i: number): boolean => {
+      let b: number
+      if (total < goal) b = stretch[1] || stretch[2] || stretch[3] ? 0 : badness(goal - total, stretch[0])
+      else if (total - goal > shrink) b = AWFUL_BAD
+      else b = badness(total - goal, shrink)
+      let c: number
+      if (b < AWFUL_BAD) c = pi <= EJECT_PENALTY ? pi : b < INF_BAD ? b + pi + insertPenalties : DEPLORABLE
+      else c = b
+      if (insertPenalties >= 10000) c = AWFUL_BAD
+      const best = c <= least
+      pageTrace!.candidates.push(candidate(total, stretch, shrink, goal, b, pi, c, best))
+      if (best) {
+        bestBreak = i; bestSize = goal; least = c
+        for (const r of pageIns) r.bestIns = r.lastIns
+      }
+      return c === AWFUL_BAD || pi <= EJECT_PENALTY
+    }
     const refill = () => { const extra = p.more?.(pages[pages.length - 1]); if (!extra?.length) return false; queue.push(...extra); return true }
     for (let i = 0; ; i++) {
       if (i >= queue.length && !refill()) break
       const n = queue[i]
+      if (n.kind === "whatsit" && n.hook) { p.hook?.(n.hook); queue.splice(i--, 1); continue }
       if (n.kind === "whatsit" && n.float) {
         // the -\@Miv and -\@Miii penalties fire the output routine (their pages are not output, and
         // TeX's \tracingpages shows them with those penalties); what it returns comes first, then the
-        // \penalty10000 left from the -\@Miii break, then the rest
+        // \penalty10000 left from the -\@Miii break, then the rest. On a page already too full the
+        // -\@Miv break costs awful_bad: the page is cut at its best break, and the float comes after
         if (!p.float) throw new Error("page builder: a float, but no output routine for floats")
+        if (contents === BOX_THERE && consider(-10004, i) && bestBreak !== i) { fire(); fired = true; break }
         // fire_up moves the page's insertions into their boxes first (§§ 1018–1021, all of them: the
         // break is at the end of the page)
-        if (pageIns.some((r) => r.splitUp)) throw new Error("page builder: a float on a page with a split insertion")
-        const held = page.filter((x) => { if (x.kind !== "ins") return true; (regs[x.n] ??= []).push(...x.list); return false })
+        // fire_up at the float's penalty: the page's insertions go to their boxes, and \@holdpg keeps the
+        // rest. A split insertion's remainder waits on the page of LaTeX's \vbox{} (\vsize is \maxdimen
+        // there), and the \penalty-\@Miii break puts it in its box after the part already there
+        for (const r of pageIns) { r.bestIns = r.lastIns; if (r.bestIns) regs[r.n] ??= [] }
+        const { nodes: held, held: waiting } = takeInserts(page, regs)
+        for (const w of waiting) {
+          const box = regs[w.n] ??= []
+          const b = vpack(box.slice())
+          if (box.length && b.height + b.depth + w.height > insClass(w.n).dimen) throw new Error("page builder: a float's insertion split again")
+          box.push(...w.list)
+        }
         if (pageTrace) trace.pop()
-        queue = [...p.float(held, n, column, regs), { kind: "penalty", penalty: INF_PENALTY }, ...queue.slice(i + 1)]
+        queue = [...p.float(held, n, regs), { kind: "penalty", penalty: INF_PENALTY }, ...queue.slice(i + 1)]
         restarted = true
         break
       }
@@ -182,24 +216,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
         default: throw new Error(`page builder: ${n.kind} in a vertical list`)
       }
 
-      if (pi !== null && pi < INF_PENALTY) {
-        // § 1005: badness and cost of breaking here
-        let b: number
-        if (total < goal) b = stretch[1] || stretch[2] || stretch[3] ? 0 : badness(goal - total, stretch[0])
-        else if (total - goal > shrink) b = AWFUL_BAD
-        else b = badness(total - goal, shrink)
-        let c: number
-        if (b < AWFUL_BAD) c = pi <= EJECT_PENALTY ? pi : b < INF_BAD ? b + pi + insertPenalties : DEPLORABLE
-        else c = b
-        if (insertPenalties >= 10000) c = AWFUL_BAD
-        const best = c <= least
-        pageTrace!.candidates.push(candidate(total, stretch, shrink, goal, b, pi, c, best))
-        if (best) {
-          bestBreak = i; bestSize = goal; least = c
-          for (const r of pageIns) r.bestIns = r.lastIns
-        }
-        if (c === AWFUL_BAD || pi <= EJECT_PENALTY) { fire(); fired = true; break }
-      }
+      if (pi !== null && pi < INF_PENALTY && consider(pi, i)) { fire(); fired = true; break }
 
       if (n.kind === "glue" || n.kind === "kern") {
         // § 1004: update the heights
@@ -216,19 +233,11 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     if (restarted) continue
     if (!fired) return finish()
 
-    function fire() {
-      // § 1013: the penalty at the best break becomes 10000 and is kept with the rest
-      const bp = queue[bestBreak]
-      const outputPenalty = bp && bp.kind === "penalty" ? bp.penalty : INF_PENALTY
-      const rest = queue.slice(bestBreak)
-      if (bp && bp.kind === "penalty") rest[0] = { kind: "penalty", penalty: INF_PENALTY }
-      // §§ 1018–1022: insertions before the break go to their boxes or wait for the next page
-      const boxes: Record<number, Node[]> = {}
-      for (const [k, l] of Object.entries(regs)) if (l.length) boxes[Number(k)] = l.slice()
-      for (const r of pageIns) if (r.bestIns) boxes[r.n] ??= []
+    // §§ 1018–1022: insertions before the break go to their boxes, split if called for, or wait for the next page
+    function takeInserts(list: Node[], boxes: Record<number, Node[]>) {
       const held: InsNode[] = []
       const nodes: Node[] = []
-      for (const n of queue.slice(0, bestBreak)) {
+      for (const n of list) {
         if (n.kind !== "ins") { nodes.push(n); continue }
         const r = pageIns.find((x) => x.n === n.n)!
         let wait: boolean
@@ -255,9 +264,23 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
         }
         held.push(n)
       }
-      pages.push({ nodes, goal: bestSize, outputPenalty, inserts: boxes })
+      return { nodes, held }
+    }
+    function fire() {
+      // § 1013: the penalty at the best break becomes 10000 and is kept with the rest
+      const bp = queue[bestBreak]
+      const outputPenalty = bp && bp.kind === "penalty" ? bp.penalty : INF_PENALTY
+      const rest = queue.slice(bestBreak)
+      if (bp && bp.kind === "penalty") rest[0] = { kind: "penalty", penalty: INF_PENALTY }
+      // §§ 1018–1022: insertions before the break go to their boxes or wait for the next page
+      const boxes: Record<number, Node[]> = {}
+      for (const [k, l] of Object.entries(regs)) if (l.length) boxes[Number(k)] = l.slice()
+      for (const r of pageIns) if (r.bestIns) boxes[r.n] ??= []
+      const { nodes, held } = takeInserts(queue.slice(0, bestBreak), boxes)
+      const out: Page = { nodes, goal: bestSize, outputPenalty, inserts: boxes }
+      pages.push(out)
       regs = {} // the output routine empties the insertion boxes
-      column = { colnum: 3, textFloatsHeight: 0 } // \@startcolumn
+      p.output?.(out)
       // § 1026: held-over insertions go back first, then the rest of the contributions
       queue = [...held, ...rest]
     }

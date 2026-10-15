@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 78,
-  "exact": 66,
+  "fixtures": 80,
+  "exact": 68,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 12,
-  "glyphs": 49322
+  "glyphs": 54790
  },
  "areas": [
   {
@@ -21,8 +21,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "footnotes",
@@ -418,6 +418,17 @@
    "issue": "#30"
   },
   {
+   "id": "floats/float-pages",
+   "file": "micro/floats/float-pages.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2435,
+   "covers": "pages of floats (\\@tryfcolumn with \\floatpagefraction, \\@vtryfc with \\@fptop, \\@fpsep, \\@fpbot), p-only floats, floats too tall for the text (\\@largefloatcheck), and \\clearpage at \\end{document} flushing the rest (\\@doclearpage, \\@makefcolumn)",
+   "issue": "#30"
+  },
+  {
    "id": "floats/float-with-footnotes",
    "file": "micro/floats/float-with-footnotes.tex",
    "area": "floats",
@@ -438,6 +449,17 @@
    "glyphs": 632,
    "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label after a caption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
+  },
+  {
+   "id": "floats/top-bottom-floats",
+   "file": "micro/floats/top-bottom-floats.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3033,
+   "covers": "floats at the top and bottom of pages (\\@addtotoporbot, \\@cflt, \\@cflb with \\floatsep and \\textfloatsep), deferred to the next page (\\@startcolumn, \\@addtonextcol), an [h] float changed to [ht] (\\@resethfps), \\maketitle's \\@topnum=0",
+   "issue": "#30"
   },
   {
    "id": "footnotes/footnote-basic",

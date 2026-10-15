@@ -13,7 +13,8 @@ import { lineBreak } from "../../layout/linebreak"
 import { compareParagraphs, comparePages, documentPages } from "../../trace/decisions"
 import { oracleRun } from "../oracle/oracle"
 import { classData } from "../classes"
-import { makeColumns, paragraphInput, typesetBody } from "../unit/adapters/paragraph"
+import { paragraphInput, typesetBody } from "../unit/adapters/paragraph"
+import { makeColumns } from "../unit/adapters/output"
 import { emitBoxes } from "../../emit/boxes"
 import { compareBoxLists } from "../../trace/schema"
 import { findColumn } from "../oracle/boxes"
@@ -129,7 +130,7 @@ export function fuzzParagraphs(n: number, seed: number): number {
   const shipped = oracle.pages, columns = makeColumns(pages, k)
   for (const [i, c] of columns.entries()) {
     const tc = shipped[i] && findColumn(shipped[i])
-    const bd = tc ? compareBoxLists(tc, c.column.map(emitBoxes)) : { path: "", field: "page", expected: "a page", actual: null }
+    const bd = tc ? compareBoxLists(tc, c.column!.map(emitBoxes)) : { path: "", field: "page", expected: "a page", actual: null }
     if (bd) { failed++; console.log(`✗ page ${i + 1} box tree at ${bd.path}: ${bd.field}\n    TeX:    ${JSON.stringify(bd.expected)}\n    engine: ${JSON.stringify(bd.actual)}`); break }
   }
   if (shipped.length !== columns.length) { failed++; console.log(`✗ page count: TeX ${shipped.length}, engine ${columns.length}`) }

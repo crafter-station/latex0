@@ -72,7 +72,7 @@ export function oracleTrace(fixture: string): Trace {
 // entirely, so re-running one fixture after an engine edit takes milliseconds.
 
 import { createHash } from "node:crypto"
-import { existsSync, writeFileSync } from "node:fs"
+import { existsSync, readdirSync, unlinkSync, writeFileSync } from "node:fs"
 
 const ORACLE_FORMAT = 5 // 5: fixed date; 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
 let texVersionMemo: string | undefined
@@ -84,6 +84,9 @@ export function cachedOracle(fixture: string): OracleResult & { cached: boolean 
   if (existsSync(file)) return { ...(JSON.parse(readFileSync(file, "utf8")) as OracleResult), cached: true }
   const result = oracleRun(fixture)
   mkdirSync(join(CACHE, "refs"), { recursive: true })
+  // one reference per fixture name: older ones (another content or TeX) go
+  const prefix = `${basename(fixture, ".tex")}.`
+  for (const f of readdirSync(join(CACHE, "refs"))) if (f.startsWith(prefix) && /^[0-9a-f]{16}\.json$/.test(f.slice(prefix.length))) unlinkSync(join(CACHE, "refs", f))
   writeFileSync(file, JSON.stringify(result))
   return { ...result, cached: false }
 }

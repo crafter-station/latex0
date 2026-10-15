@@ -21,7 +21,7 @@ import { shipOut } from "../../../emit/trace"
 import type { ClassOptionData, SizeCommand } from "../../../layout/classdata"
 import type { GlueSpec } from "../../../layout/dimen"
 import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
-import { Scanner } from "../../../layout/dimen"
+import { parseGlue, Scanner } from "../../../layout/dimen"
 import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
 import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
@@ -33,8 +33,9 @@ import { halign } from "../../../layout/align"
 import { xnOverD } from "../../../layout/arith"
 import { ORACLE_EPOCH } from "../../tex"
 import type { ParagraphTrace } from "../../../trace/decisions"
-import type { Adapter } from "./index"
-import { appendToVlist, endDocument, makeColumns, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
+import type { Adapter, AdapterResult } from "./index"
+import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
+import { appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 /** How many groups are open at the end of `src` (braces not escaped). */
@@ -47,7 +48,6 @@ const TEXTBULLET = 136 // \textbullet in TS1
 const IGNORE_DEPTH = null // \prevdepth = -1000pt
 
 /** What a float marker carries to the output routine: the float's box, its placement bits, and \if@nobreak. */
-interface FloatMarker { box: BoxNode; fps: number; nobreak: boolean }
 
 type Block =
   | { kind: "par"; text: string; noindent: boolean }
@@ -250,11 +250,29 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
   return vpack([glue(k.dimens.topmargin), box])
 }
 
+/**
+ * Whether a float right after a heading goes here decides \if@nobreak for the text after it,
+ * which is laid out before the output routine places the float: the document is laid out again,
+ * with the float not placed here, until every such guess holds.
+ */
 export const document: Adapter = (src) => {
+  const notHere = new Set<number>()
+  for (;;) {
+    try { return layout(src, notHere) } catch (e) {
+      if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
+      notHere.add(e.index)
+    }
+  }
+}
+
+function layout(src: string, notHere: Set<number>): AdapterResult {
   const { cls, option } = documentClass(src)
   if (!["article", "report", "book"].includes(cls)) throw new Unsupported(`class ${cls}`)
   const k = classData(cls, option)
-  const pre = src.slice(0, src.indexOf("\\begin{document}")).replace(/(^|[^\\])%.*$/gm, "$1")
+  // \begin{document} and \end{document} outside comments
+  const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
+  const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
+  const pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
   const title: { title?: string; author?: string; date?: string } = {}
@@ -268,7 +286,7 @@ export const document: Adapter = (src) => {
     if (m) { pagestyle = m[1]; continue }
     throw new Unsupported(`preamble: ${line}`)
   }
-  const body = src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}"))
+  const body = src.slice(begin + 16, end)
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
@@ -286,6 +304,7 @@ export const document: Adapter = (src) => {
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   const titleBoxes: BoxNode[] = []
+  let floats = 0 // floats so far
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
   const href = (counter: string, n: number) => (cls === "article" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
@@ -580,10 +599,18 @@ export const document: Adapter = (src) => {
     const content: Node[] = []
     let pd: number | null = IGNORE_DEPTH, number = 0
     const hsize = k.dimens.columnwidth
-    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^}]*\}|\S+/g) ?? []
+    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\S+/g) ?? []
     for (const it of items) {
       if (it === "\\centering") continue
-      let m = it.match(/^\\caption\s*\{([^]*)\}$/)
+      // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
+      let m = it.match(/^\\vspace\s*\{([^}]*)\}$/)
+      if (m) {
+        let g: GlueSpec
+        try { g = parseGlue(m[1], { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${m[1]}}`) }
+        content.push(plain(g), glue(0))
+        continue
+      }
+      m = it.match(/^\\caption\s*\{([^]*)\}$/)
       if (m) {
         const text = m[1].replace(/\s+/g, " ").trim()
         if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
@@ -610,54 +637,12 @@ export const document: Adapter = (src) => {
     }
     content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
     const box = vpack([vpack(content)]) // \color@vbox\normalcolor\vbox{…}
-    v.nodes.push({ kind: "whatsit", text: "", float: { box, fps, nobreak: v.nobreak } as FloatMarker })
-    v.nobreak = false // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse)
-  }
-
-  /**
-   * \@specialoutput and \@addtocurcol for the float at the marker, given the page so far
-   * (\@holdpg): "here" placement — \vskip\intextsep \box \penalty\interlinepenalty \vskip\intextsep
-   * \vskip-\parskip — when it is allowed and the column has room.
-   */
-  function placeFloat(page: Node[], marker: { float?: unknown }, column: { colnum: number; textFloatsHeight: number }, boxes: Record<number, Node[]>): Node[] {
-    const f = marker.float as FloatMarker
-    const held = vpack(page.slice())
-    let pageht = held.height + held.depth // \advance\@pageht\@pagedp
-    const foot = boxes[k.ints.footins]
-    if (foot?.length) { const fb = vpack(foot.slice()); pageht += fb.height + k.glue.footinsskip.width + fb.depth } // \ifvoid\footins\else
-    const colht = k.dimens.textheight, colroom = colht
-    const fpstype = f.fps % 32
-    if (fpstype === 8 || fpstype === 24) throw new Unsupported("a float allowed only on a float page")
-    let textmin = fpstype < 16 ? 0 : xnOverD(colht, 13107, 65536) // \textfraction (.2) \@colht
-    textmin += column.textFloatsHeight
-    let req = Math.max(pageht, textmin) + f.box.height
-    if (!(colroom > req)) throw new Unsupported("a float that does not fit on its page")
-    if (fpstype < 16 && column.colnum === 0) column.colnum = 1
-    if (column.colnum <= 0) throw new Unsupported("more floats than \\totalnumber on a page")
-    if (f.box.depth !== 0) throw new Unsupported("a float of the wrong width")
-    if (fpstype % 2 === 0) throw new Unsupported("a float placed at the top or bottom")
-    const intextsep = k.glue.intextsep
-    req += intextsep.width
-    if (!(colroom > req)) throw new Unsupported("a float placed at the top or bottom")
-    column.colnum--
-    column.textFloatsHeight += f.box.height + 2 * intextsep.width
-    const out = page.slice()
-    // \@reinserts: \insert\footins{\unvbox\footins}, with the output routine's \splittopskip (10pt),
-    // \splitmaxdepth (\maxdimen) and \floatingpenalty (0)
-    if (foot?.length) {
-      const fb = vpack(foot.slice())
-      out.push({ kind: "ins", n: k.ints.footins, height: fb.height + fb.depth, depth: 0o7777777777, splitTopSkip: glue(655360), floatCost: 0, list: foot.slice() })
-      delete boxes[k.ints.footins]
-    }
-    if (f.nobreak) out.push(penalty(10000))
-    else { // \addpenalty\interlinepenalty after \unvbox\@holdpg, where \prevdepth is -1000pt
-      const last = out[out.length - 1]
-      const p = k.ints.interlinepenalty
-      if (last?.kind === "glue" && last.width !== 0) out.push(plain(negate(last)), penalty(p), plain(last))
-      else out.push(penalty(p))
-    }
-    out.push(plain(intextsep), f.box, penalty(k.ints.interlinepenalty), plain(intextsep), plain(negate(outerParskip)))
-    return out
+    if (box.height > k.dimens.textheight) box.height = k.dimens.textheight // \@largefloatcheck
+    const index = floats++
+    v.nodes.push({ kind: "whatsit", text: "", float: { box, count: fps + 32 * (b.env === "figure" ? 1 : 2), nobreak: v.nobreak, index, here: !notHere.has(index) } satisfies Float }) // \ftype@figure 1, \ftype@table 2
+    // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
+    // elsewhere \nobreak alone, and the text after it is still right after the heading
+    if (!notHere.has(index)) v.nobreak = false
   }
 
   /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
@@ -669,7 +654,8 @@ export const document: Adapter = (src) => {
     const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
     v.par()
     v.nobreak = false
-    for (let i = 0; i < 2; i++) v.nodes.push(glue(0, 65536, FIL), penalty(-10000)) // \newpage in \maketitle and \@maketitle
+    // \newpage, \global\@topnum\z@ (no float at the top of this page), and \@maketitle's \newpage
+    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook }, glue(0, 65536, FIL), penalty(-10000))
     const nul = hpack([])
     titleBoxes.push(nul) // \thispagestyle{plain}: the page this lands on gets the plain style
     v.box(nul, k.sizes.normalsize.baselineskip) // \null
@@ -789,19 +775,20 @@ export const document: Adapter = (src) => {
 
   if (pagestyle === "headings" && blocks.some((b) => b.kind === "heading")) throw new Unsupported("running heads with section marks")
   let built: ReturnType<typeof endDocument>
-  try { built = endDocument(v.nodes, k, placeFloat) } catch (e) {
+  try { built = endDocument(v.nodes, k, outerParskip) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
+    if (e instanceof OutputUnsupported) throw new Unsupported(e.message)
     throw e
   }
   const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
-  const special = new Set(pages.flatMap((pg, i) => (pg.nodes.some((n) => titleBoxes.includes(n as BoxNode)) ? [i] : [])))
+  const special = new Set(pages.flatMap((pg, i) => (pg.kind === "text" && pg.page.nodes.some((n) => titleBoxes.includes(n as BoxNode)) ? [i] : [])))
   const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, special.has(i) ? "plain" : pagestyle))
   return {
     trace: shipOut(shipped),
     decisions,
     pages: pageTrace,
-    columns: columns.map((c) => c.column.map(emitBoxes)),
+    columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
     notes: [`${cls} [${option}], \\pagestyle{${pagestyle}}; ${blocks.length} block(s), ${pages.length} page(s)`],
   }
 }

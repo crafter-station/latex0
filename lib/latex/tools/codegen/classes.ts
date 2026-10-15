@@ -55,6 +55,11 @@ function probe(cls: string, option: string, packages = ""): string {
     "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
     "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}",
     "\\immediate\\write16{I:secnumdepth=\\the\\c@secnumdepth}",
+    // float placement: the counters, the fractions of \\textheight TeX computes (\\@floatplacement's
+    // \\@toproom, \\@botroom and \\@fpmin, \\@flsettextmin's \\@textmin), and the float page skips
+    "\\immediate\\write16{I:topnumber=\\the\\c@topnumber}\\immediate\\write16{I:bottomnumber=\\the\\c@bottomnumber}\\immediate\\write16{I:totalnumber=\\the\\c@totalnumber}",
+    ...([["toproom", "topfraction"], ["botroom", "bottomfraction"], ["textmin", "textfraction"], ["fpmin", "floatpagefraction"]] as const).map(([d, f]) => `{\\dimen@\\${f}\\textheight\\immediate\\write16{D:${d}=\\the\\dimen@}}`),
+    "\\immediate\\write16{G:fptop=\\the\\@fptop}\\immediate\\write16{G:fpsep=\\the\\@fpsep}\\immediate\\write16{G:fpbot=\\the\\@fpbot}",
     // the footnote insertion class: its box number, \\skip, \\count and \\dimen
     "\\immediate\\write16{I:footins=\\number\\footins}\\immediate\\write16{I:footinscount=\\the\\count\\footins}",
     "\\immediate\\write16{G:footinsskip=\\the\\skip\\footins}\\immediate\\write16{D:footinsdimen=\\the\\dimen\\footins}",
@@ -120,7 +125,7 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth"].filter((i) => !(i in data.ints)), ...["footinsskip"].filter((g) => !(g in data.glue)), ...["footinsdimen"].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot"].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin"].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }

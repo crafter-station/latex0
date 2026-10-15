@@ -3,7 +3,7 @@
 // footnotes, \section to \subsubsection (starred or not), itemize and enumerate
 // lists started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
-// placed here, \label in both — each compared with TeX as a fixture is: every glyph, every line
+// of any height and placement (here, top, bottom, float pages), \label in both — each compared with TeX as a fixture is: every glyph, every line
 // and page decision, every page's box tree.
 //
 //   bun engine fuzz:documents [--n 30] [--seed 1]
@@ -65,11 +65,12 @@ export function makeDocument(r: () => number): string {
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x = r()
-    if (x < 0.07) {
-      // a float between paragraphs: a caption, mostly allowed here
+    if (x < 0.1) {
+      // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
-      out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]"])}`, r() < 0.7 ? "\\centering" : "",
-        `\\caption{${words(1 + Math.floor(r() * 8))}}`, r() < 0.5 ? `\\label{${env}:${b}}` : "", `\\end{${env}}`)
+      const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
+      out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
+        space, `\\caption{${words(1 + Math.floor(r() * 8))}}`, r() < 0.5 ? `\\label{${env}:${b}}` : "", `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection"])

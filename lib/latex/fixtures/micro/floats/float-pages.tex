@@ -1,0 +1,37 @@
+% fixture: floats/float-pages
+% tier: T3
+% engine: document
+% covers: pages of floats (\@tryfcolumn with \floatpagefraction, \@vtryfc with \@fptop, \@fpsep, \@fpbot), p-only floats, floats too tall for the text (\@largefloatcheck), and \clearpage at \end{document} flushing the rest (\@doclearpage, \@makefcolumn)
+% issue: #30
+\documentclass[12pt]{report}
+\begin{document}
+Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page.
+
+\begin{figure}[p]
+\vspace{200pt}
+\caption{Only on a float page}
+\end{figure}
+
+\begin{table}[p]
+\vspace{150pt}
+\caption{Another one}
+\end{table}
+
+Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page.
+
+\begin{figure}[tbp]
+\vspace{700pt}
+\caption{Taller than the page}
+\end{figure}
+
+Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page. Typesetting composition paragraphs hyphenation algorithm demerits badness tolerance well-known affluent offline staff difficult efficient words that fill the lines of the page.
+
+\begin{table}[!t]
+\vspace{40pt}
+\caption{Last}
+\end{table}
+\begin{figure}[b]
+\vspace{30pt}
+\caption{Waiting at the end}
+\end{figure}
+\end{document}

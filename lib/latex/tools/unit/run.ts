@@ -96,6 +96,7 @@ export function runFixture(path: string): UnitResult {
     if (columns) {
       if (columns.length !== pages.length) return done({ status: "fail", message: `page count: TeX ${pages.length}, engine ${columns.length}`, notes })
       for (const [k, column] of columns.entries()) {
+        if (!column) continue // a page of floats: no text column (its glyphs are still compared)
         const texColumn = findColumn(pages[k])
         if (!texColumn) return done({ status: "error", message: `no \\topskip column in TeX's page ${k + 1}`, notes })
         // compare the engine's column with the same number of items from TeX's
