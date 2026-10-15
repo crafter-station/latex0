@@ -90,7 +90,7 @@ export function makeDocument(r: () => number): string {
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
   hyper = r() < 0.25
   if (hyper) out.push("\\usepackage{hyperref}")
-  const titled = cls === "article" && r() < 0.5
+  const titled = r() < 0.5 // report: a title page
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
     out.push(`\\title{${words(r() < 0.2 ? 15 + Math.floor(r() * 15) : 2 + Math.floor(r() * 6))}}`)

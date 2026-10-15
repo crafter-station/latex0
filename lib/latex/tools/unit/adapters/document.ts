@@ -1226,16 +1226,25 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
    *  {\large date}, then \vskip 1.5em */
   function maketitle() {
-    if (cls !== "article") throw new Unsupported(`\\maketitle in ${cls}`)
     if (!title.title) throw new Unsupported("\\maketitle without \\title")
     const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
+    // report: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), then
+    // \null\vfil\vskip60\p@; article: \newpage, \global\@topnum\z@ (no float at the top of this page), and
+    // \@maketitle's \newpage, \null, \vskip2em
+    const titlepage = cls === "report"
     v.par()
     v.nobreak = false
-    // \newpage, \global\@topnum\z@ (no float at the top of this page), and \@maketitle's \newpage
-    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook }, glue(0, 65536, FIL), penalty(-10000))
-    const nul = hpack([])
-    v.box(nul, k.sizes.normalsize.baselineskip) // \null
-    v.vskip(dimen(em("2em", romanFont)))
+    const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
+    if (titlepage) {
+      v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("empty"), hook("page=1"))
+      v.box(hpack([]), k.sizes.normalsize.baselineskip)
+      v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+      v.vskip(dimen(60 * 65536))
+    } else {
+      v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("notop"), glue(0, 65536, FIL), penalty(-10000))
+      v.box(hpack([]), k.sizes.normalsize.baselineskip) // \null
+      v.vskip(dimen(em("2em", romanFont)))
+    }
     // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
     const topsepadd = addGlue(k.glue.topsep, k.glue.partopsep)
     v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
@@ -1246,8 +1255,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
     check(title.title, "\\title")
     typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: k.ints.clubpenalty }, outerParskip, "LARGE")
-    v.vskip(dimen(em("1.5em", romanFont)))
-    // {\large \lineskip .5em \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
+    v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
+    // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
     const large = loadFont(dataFont(k.sizes.large.font.name), k.sizes.large.font.at)
     const authors = (title.author ?? "").split(/\\and\b/).map((a) => a.split(/\\\\/).map((r) => r.trim()))
     authors.flat().forEach((r) => check(r, "\\author"))
@@ -1259,9 +1268,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty, amsmath })
     const ab = lineBreak(authorPar.list, authorPar.params)
     decisions.push(ab.trace)
-    v.paragraph(ab.vlist, outerParskip, k.sizes.large.baselineskip, dimen(em(".5em", large)))
-    v.vskip(dimen(em("1em", romanFont)))
-    // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip
+    v.paragraph(ab.vlist, outerParskip, k.sizes.large.baselineskip, dimen(em(titlepage ? ".75em" : ".5em", large)))
+    v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
+    // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
+    // {\large \@date \par}, with \large's)
     const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today())
     check(date, "\\date")
     if (date) {
@@ -1269,12 +1279,20 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       appendText(dp.list, date, large, { spaceFactor: 1000 })
       const db = lineBreak(dp.list, dp.params)
       decisions.push(db.trace)
-      v.paragraph(db.vlist, outerParskip)
+      v.paragraph(db.vlist, outerParskip, titlepage ? k.sizes.large.baselineskip : k.sizes.normalsize.baselineskip)
     }
-    // \endtrivlist; then \par \vskip 1.5em
     v.endtrivlist(outerParskip, outerParskip, topsepadd)
-    v.vskip(dimen(em("1.5em", romanFont)))
-    v.nodes.push({ kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }) // \thispagestyle{plain}
+    if (titlepage) {
+      // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
+      v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+      v.box(hpack([]), k.sizes.normalsize.baselineskip)
+      v.nodes.push(glue(0, 65536, FIL), penalty(-10000))
+      if (!k.ints.twoside) v.nodes.push(hook("page=1"))
+    } else {
+      // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}
+      v.vskip(dimen(em("1.5em", romanFont)))
+      v.nodes.push(hook("plain"))
+    }
     doc.footnote = 0 // \setcounter{footnote}{0}
   }
 
@@ -1498,13 +1516,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
   const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
-  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, pages[i].special ? "plain" : pagestyle, hyper))
+  const shipped = columns.map((c, i) => outputPage(c.outputbox, pages[i].count, k, pages[i].special ?? pagestyle, hyper))
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
   if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body) || hyper) {
     const pageOf = new Map<Node, number>(), order = new Map<Node, number>()
     const walk = (n: Node, page: number) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
-    shipped.forEach((b, i) => walk(b, i + 1))
+    shipped.forEach((b, i) => walk(b, pages[i].count))
     const page = (node: Node) => {
       const p = pageOf.get(node)
       if (p === undefined) throw new Error("a \\write that was not shipped out")
@@ -1519,7 +1537,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
   return {
     result: {
-      trace: shipOut(shipped),
+      trace: shipOut(shipped, undefined, pages.map((p) => p.count)),
       decisions,
       pages: pageTrace,
       columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
