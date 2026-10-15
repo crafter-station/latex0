@@ -49,9 +49,9 @@ export function geometry(k: ClassOptionData, optionLists: string[], env: ScanEnv
       return reg[1] ? -x : x
     }
     const s = new Scanner(v, env)
-    const d = s.scanDimen().value
+    const value = s.scanDimen().value
     if (s.errors.length || s.rest().trim()) throw new GeometryUnsupported(`geometry length "${v}"`)
-    return d
+    return value
   }
   /** <factor><dimen>: nx_plus_y(integer part, v, xn_over_d(v, fraction, 2^16)) (§§ 452–455) */
   const scaled = (factor: string, v: number): number => {
