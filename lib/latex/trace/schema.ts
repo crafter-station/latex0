@@ -117,11 +117,16 @@ function compareNode(e: BoxNode, a: BoxNode, fonts: Map<string, string>, path: s
   switch (e.type) {
     case "hbox": case "vbox": {
       const b = a as typeof e
-      for (const k of ["width", "height", "depth", "shift", "glueSign", "glueOrder"] as const) { const d = diff(k, e[k], b[k]); if (d) return d }
-      // as TeX prints it (§ 186): nothing when the glue sign is normal (an overfull box with no
-      // shrink keeps ratio 1.0 there, § 664), and ratios beyond ±20000 as >20000 / < -20000
-      const shown = (x: typeof e) => (x.glueSign === 0 ? 0 : Math.round(65536 * Math.max(-20000, Math.min(20000, x.glueSet))))
-      const d = diff("glueSet", shown(e), shown(b)) ?? diff("display", !!e.display, !!b.display)
+      for (const k of ["width", "height", "depth", "shift"] as const) { const d = diff(k, e[k], b[k]); if (d) return d }
+      // as TeX prints it (§ 186): the glue setting only when the sign is not normal and the ratio not
+      // zero (an overfull box with no shrink keeps ratio 1.0 under a normal sign, § 664; an alignment
+      // cell with nothing to stretch is "stretching" by 0, § 810), and ratios beyond ±20000 as
+      // >20000 / < -20000
+      // (expected comes from TeX's printout, so a printed "glue set 0.0" keeps its sign; for the
+      // engine's box the exact ratio decides whether TeX would have printed it)
+      const shown = (x: typeof e, printed: boolean) => (x.glueSign === 0 || (!printed && x.glueSet === 0) ? [0, 0, 0] : [x.glueSign, x.glueOrder, Math.round(65536 * Math.max(-20000, Math.min(20000, x.glueSet)))])
+      const [se, sb] = [shown(e, true), shown(b, false)]
+      const d = diff("glueSign", se[0], sb[0]) ?? diff("glueOrder", se[1], sb[1]) ?? diff("glueSet", se[2], sb[2]) ?? diff("display", !!e.display, !!b.display)
       return d ?? compareBoxLists(e.children, b.children, fonts, path)
     }
     case "char": {

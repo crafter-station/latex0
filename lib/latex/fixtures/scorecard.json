@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 73,
-  "exact": 58,
+  "fixtures": 74,
+  "exact": 60,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 15,
-  "glyphs": 47057
+  "pending": 14,
+  "glyphs": 47608
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "display",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "footnotes",
@@ -57,7 +57,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 3
+   "exact": 4
   },
   {
    "area": "text",
@@ -76,8 +76,8 @@
    "file": "macro/templates/align.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 17,
    "covers": "snippet in a minimal article: Multi-line aligned equations",
    "issue": "#30"
@@ -356,6 +356,17 @@
    "glyphs": 639,
    "covers": "every size command \\tiny … \\Huge in article [12pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
    "issue": "#44"
+  },
+  {
+   "id": "display/align-amsmath",
+   "file": "micro/display/align-amsmath.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 534,
+   "covers": "amsmath align and align*: \\measure@ (column widths, \\totwidth@), \\eqnshift@ and \\alignsep@ for one and two column pairs, \\minalignsep, tags placed by \\place@tag, \\nonumber, empty fields, \\openup\\jot and \\interdisplaylinepenalty, inside a paragraph and opening one",
+   "issue": "#30"
   },
   {
    "id": "display/displays-amsmath-12pt",

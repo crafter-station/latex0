@@ -48,6 +48,8 @@ export function makeDocument(r: () => number): string {
   const cls = pick(["article", "article", "report"])
   const out = [`\\documentclass${pick(["", "[11pt]", "[12pt]"])}{${cls}}`]
   if (r() < 0.25) out.push("\\pagestyle{empty}")
+  const ams = r() < 0.35
+  if (ams) out.push("\\usepackage{amsmath}")
   const titled = cls === "article" && r() < 0.5
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
@@ -79,8 +81,18 @@ export function makeDocument(r: () => number): string {
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120))]
       for (let d = r() < 0.3 ? 1 + Math.floor(r() * 2) : 0; d > 0; d--) {
         const f = display()
-        const env = pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
-        parts.push(env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : `\\begin{${env}} ${f} \\end{${env}}`)
+        const env = ams ? pick(["bracket", "align", "align", "align*", "dollars"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
+        if (env === "align" || env === "align*") {
+          // rows of 1 to 3 column pairs: right-aligned & left-aligned fields, some rows unnumbered
+          const pairs = 1 + Math.floor(r() * 3)
+          const field = () => pick(["x", "a+b", "f(x)", "\\alpha", "", "x^2", "\\sum_{i=1}^n i", "\\frac{1}{2}", "y_1"])
+          const rows = Array.from({ length: 1 + Math.floor(r() * 4) }, () => {
+            const fs: string[] = []
+            for (let p = 0; p < pairs; p++) fs.push(field(), `${pick(["=", "\\leq", "+", ""])} ${field()}`)
+            return fs.join(" & ") + (r() < 0.2 ? " \\nonumber" : "")
+          })
+          parts.push(`\\begin{${env}}\n${rows.join(" \\\\\n")}\n\\end{${env}}`)
+        } else parts.push(env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : `\\begin{${env}} ${f} \\end{${env}}`)
         parts.push(r() < 0.3 ? "" : text(5 + Math.floor(r() * 60)))
       }
       if (!parts.join("").trim()) parts[0] = text(10)
