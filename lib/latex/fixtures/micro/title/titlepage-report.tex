@@ -1,0 +1,16 @@
+% fixture: title/titlepage-report
+% tier: T3
+% engine: document
+% covers: report's \maketitle: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), \null\vfil\vskip60\p@, the centered title, \vskip3em, the authors with \lineskip.75em, \vskip1.5em, {\large date\par} with \large's \baselineskip, \vfil\null, \newpage; one-sided, the next page is page 1 again
+% issue: #30
+\documentclass{report}
+\title{A Report Title Long Enough to Need Two Lines at the Large Size of This Class}
+\author{First Author \\ Affiliation \and Second Author}
+\date{\today}
+\begin{document}
+\maketitle
+\chapter{Introduction}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{document}

@@ -118,10 +118,10 @@ function vlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
 }
 
 /** ship_out (§ 640): `origin` is the DVI position of the box's top-left corner. */
-export function shipOut(pages: BoxNode[], origin = { h: 0, v: 0 }): Trace {
+export function shipOut(pages: BoxNode[], origin = { h: 0, v: 0 }, count0: number[] = pages.map((_, i) => i + 1)): Trace {
   const trace: Trace = { unit: "sp", mag: 1000, pages: [] }
   pages.forEach((box, i) => {
-    const page: TracePage = { counts: [i + 1, 0, 0, 0, 0, 0, 0, 0, 0, 0], glyphs: [], rules: [], specials: [] }
+    const page: TracePage = { counts: [count0[i], 0, 0, 0, 0, 0, 0, 0, 0, 0], glyphs: [], rules: [], specials: [] }
     const cur = { h: origin.h, v: origin.v + box.height }
     if (box.kind === "vlist") vlistOut(box, cur, page); else hlistOut(box, cur, page)
     trace.pages.push(page)

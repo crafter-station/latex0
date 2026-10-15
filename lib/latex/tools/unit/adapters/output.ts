@@ -27,10 +27,11 @@ export interface Float {
 }
 
 /** What the output routine ships: a page of text with its top and bottom floats, or a page of floats. */
-export type Shipped = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }) & { /** \thispagestyle{plain} was in force (\if@specialpage) */ special?: boolean }
+type ShippedContent = { kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }
+export type Shipped = ShippedContent & { /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out */ count: number }
 
 /** Assignments the document makes to the output routine's state. */
-export type OutputHook = "notop" | "plain"
+export type OutputHook = "notop" | "plain" | "empty" | `page=${number}`
 
 /** Thrown for what the output routine does that is not modeled yet. */
 export class OutputUnsupported extends Error {}
@@ -287,10 +288,20 @@ export class LatexOutput {
   }
 
   /** An assignment from the document: article's \maketitle sets \@topnum to 0 for its page */
-  /** \global\@topnum\z@; \thispagestyle{plain}, which \@outputpage applies to the next page it ships */
-  hook(h: OutputHook) { if (h === "notop") this.topnum = 0; else this.special = true }
-  private special = false
-  private ship(s: Shipped) { if (this.special) { s.special = true; this.special = false } this.shipped.push(s) }
+  /** \global\@topnum\z@; \thispagestyle, which \@outputpage applies to the next page it ships; \setcounter{page} */
+  hook(h: OutputHook) {
+    if (h === "notop") this.topnum = 0
+    else if (h === "plain" || h === "empty") this.special = h
+    else this.page = Number(h.slice(5))
+  }
+  private special: "plain" | "empty" | null = null
+  private page = 1
+  /** \@outputpage: the page style, then \stepcounter{page} */
+  private ship(s: ShippedContent) {
+    const shipped = { ...s, count: this.page++ } as Shipped
+    if (this.special) { shipped.special = this.special; this.special = null }
+    this.shipped.push(shipped)
+  }
 
   /** At the end: floats still waiting were never output. */
   done() { if (this.deferlist.length || this.toplist.length || this.botlist.length) throw new OutputUnsupported("floats lost at the end of the document") }

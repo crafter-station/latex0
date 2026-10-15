@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 105,
-  "exact": 96,
+  "fixtures": 107,
+  "exact": 99,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 9,
-  "glyphs": 114785
+  "pending": 8,
+  "glyphs": 115759
  },
  "areas": [
   {
@@ -67,7 +67,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 9
+   "exact": 10
   },
   {
    "area": "text",
@@ -76,8 +76,8 @@
   },
   {
    "area": "title",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 4,
+   "exact": 4
   }
  ],
  "fixtures": [
@@ -240,8 +240,8 @@
    "file": "macro/templates/report.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 300,
    "covers": "Multi-chapter report with table of contents",
    "issue": "#30"
@@ -1231,6 +1231,28 @@
    "status": "pass",
    "glyphs": 340,
    "covers": "\\maketitle at 11pt with a title long enough to take three centered lines (\\centering: \\leftskip and \\rightskip \\@flushglue, \\parfillskip zero), \\date{} empty (\\endtrivlist redoes the last skip), and text right after",
+   "issue": "#30"
+  },
+  {
+   "id": "title/titlepage-report-twoside",
+   "file": "micro/title/titlepage-report-twoside.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 337,
+   "covers": "report's title page two-sided: the page after it is page 2",
+   "issue": "#30"
+  },
+  {
+   "id": "title/titlepage-report",
+   "file": "micro/title/titlepage-report.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 337,
+   "covers": "report's \\maketitle: the titlepage environment (\\newpage, \\thispagestyle{empty}, \\setcounter{page}\\@ne), \\null\\vfil\\vskip60\\p@, the centered title, \\vskip3em, the authors with \\lineskip.75em, \\vskip1.5em, {\\large date\\par} with \\large's \\baselineskip, \\vfil\\null, \\newpage; one-sided, the next page is page 1 again",
    "issue": "#30"
   }
  ]
