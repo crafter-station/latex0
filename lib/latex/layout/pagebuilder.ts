@@ -36,8 +36,9 @@ export interface PageParams {
    * are the insertion boxes, which it may empty.
    */
   float?: (page: Node[], marker: WhatsitNode, boxes: Record<number, Node[]>) => Node[]
-  /** An assignment the output routine sees, made when the page builder reaches it (a whatsit with a hook). */
-  hook?: (hook: unknown) => void
+  /** An assignment the output routine sees, made when the page builder reaches it (a whatsit with a hook);
+   *  what it returns goes on the contribution list in its place (a conditional on the output's state) */
+  hook?: (hook: unknown) => Node[] | void
   /** The output routine for each page cut at a break, called after the page is added to the result:
    *  what it returns goes on the contribution list after held-over insertions, before the rest. */
   output?: (page: Page) => Node[] | void
@@ -124,7 +125,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     for (let i = 0; ; i++) {
       if (i >= queue.length && !refill()) break
       const n = queue[i]
-      if (n.kind === "whatsit" && n.hook) { p.hook?.(n.hook); queue.splice(i--, 1); continue }
+      if (n.kind === "whatsit" && n.hook) { queue.splice(i--, 1, ...(p.hook?.(n.hook) ?? [])); continue }
       if (n.kind === "whatsit" && n.float) {
         // the -\@Miv and -\@Miii penalties fire the output routine (their pages are not output, and
         // TeX's \tracingpages shows them with those penalties); what it returns comes first, then the

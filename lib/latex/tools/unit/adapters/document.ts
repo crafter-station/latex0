@@ -68,9 +68,10 @@ type Block =
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
   | { kind: "toc" }
+  | { kind: "matter"; which: "front" | "main" | "back" }
 
 /** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{} */
-interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; page: number; /** with hyperref, the heading's anchor */ anchor: string }
+interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string }
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
 const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract"] as const
@@ -186,7 +187,7 @@ function inParagraph(before: string): boolean {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -201,6 +202,7 @@ function blocksOf(body: string): Block[] {
     text(before)
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
+    if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
     if (m[6]) {
       const inPar = inParagraph(before)
       out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar })
@@ -243,7 +245,7 @@ function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc") continue
+    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -347,9 +349,9 @@ function labelBox(label: Node[], k: ClassOptionData, lw = k.dimens.labelwidth): 
 }
 
 /** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
-function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = []): BoxNode {
+function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page)): BoxNode {
   const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-  const number = () => { const l: Node[] = []; appendText(l, String(page), font, { spaceFactor: 1000 }, false); return l }
+  const number = () => { const l: Node[] = []; appendText(l, thepage, font, { spaceFactor: 1000 }, false); return l }
   const hfil = () => glue(0, 65536, FIL)
   const even = k.ints.twoside && page % 2 === 0
   // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
@@ -367,7 +369,7 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
   box.shift = k.ints.twoside && page % 2 === 0 ? k.dimens.evensidemargin : k.dimens.oddsidemargin
   const shipped = vpack([glue(k.dimens.topmargin), box])
   // hyperref's \AtBeginShipout: the page anchor before the page, with \lineskip between
-  if (hyper) return vpack([pageAnchor(page, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
+  if (hyper) return vpack([pageAnchor(thepage, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
   return shipped
 }
 
@@ -417,6 +419,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
+  let mainmatter = true // book's \if@mainmatter
+  // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
+  // keeps them, and only \@mkboth goes back to \@gobbletwo
+  let markDefs = cls === "book"
   let hyper = false // hyperref, with the dvips driver
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
@@ -445,7 +451,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
-    if (m) { pagestyle = m[1]; continue }
+    if (m) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = true; continue }
     throw new Unsupported(`preamble: ${line}`)
   }
   if (t1) k = withT1(k)
@@ -509,7 +515,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const text = parts.map((p) => ("text" in p ? p.text : "quad" in p ? "\\hskip 1em\\relax " : "\\ ")).join("")
     return { print: upper ? `\\MakeUppercase    []{${text}}` : text, parts, upper }
   }
-  const headings = pagestyle === "headings"
+  const headings = markDefs, mkboth = pagestyle === "headings"
   /** \sectionmark and \subsectionmark (article: \thesection\quad title; report two-sided: \thesection. \ title) */
   const sectionMarks = (level: number, number: string, title: string, nobreak: boolean): Node[] => {
     if (!headings) return []
@@ -519,7 +525,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       return insertMarks(twoside ? markboth(v1, EMPTY_MARK) : markright(v1), nobreak)
     }
     if (cls === "article" && level === 2 && twoside) return insertMarks(markright(markValue([{ text: number }, { quad: true }, { text: title }], false)), nobreak)
-    if (cls === "report" && level === 1 && twoside) return insertMarks(markright(markValue([{ text: `${number}. ` }, { ctrl: true }, { text: title }], true)), nobreak)
+    if (cls !== "article" && level === 1 && twoside) return insertMarks(markright(markValue([{ text: `${number}. ` }, { ctrl: true }, { text: title }], true)), nobreak)
     return []
   }
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
@@ -615,10 +621,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
     if (runIn && b.kind === "list") { const club = v.club; runInAlone(); v.club = club; list({ ...b, inPar: true, blank: false }, topCtx()); v.afterheadingEverypar = false; v.endpePar = true; return }
-    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
     if (b.kind === "heading") { if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
     if (b.kind === "toc") { if (runIn) runInAlone(); tableOfContents(); return }
+    if (b.kind === "matter") { if (runIn) runInAlone(); matter(b.which); return }
     if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
@@ -1173,7 +1180,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
     // with running heads, \@mkboth is \markboth: its marks in the title's line, which they leave (§ 655)
     const contents = markValue([{ text: "Contents" }], true)
-    const end = headings ? insertMarks(markboth(contents, contents), false) : undefined
+    const end = mkboth ? insertMarks(markboth(contents, contents), false) : undefined
     if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents", source, end })
     else chapter({ kind: "heading", level: 0, star: true, title: "Contents", source, end })
     const tocdepth = cls === "article" ? 3 : 2
@@ -1267,7 +1274,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // report: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), then
     // \null\vfil\vskip60\p@; article: \newpage, \global\@topnum\z@ (no float at the top of this page), and
     // \@maketitle's \newpage, \null, \vskip2em
-    const titlepage = cls === "report"
+    const titlepage = cls !== "article"
     v.par()
     v.nobreak = false
     const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
@@ -1415,26 +1422,53 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    * {\parindent\z@ \raggedright \normalfont \huge\bfseries \@chapapp\space\thechapter \par\nobreak \vskip20pt
    * \interlinepenalty\@M \Huge\bfseries title\par\nobreak \vskip40pt}, then \@afterheading
    */
-  function chapter(b: Extract<Block, { kind: "heading" }>) {
-    if (cls !== "report") throw new Unsupported(`\\chapter in ${cls}`)
-    v.par()
-    // \clearpage: \newpage (which ends \if@nobreak), \write\m@ne{}, \vbox{}, \penalty-\@Mi
+  /** \clearpage: \newpage (which ends \if@nobreak), \write\m@ne{}, \vbox{}, \penalty-\@Mi */
+  function clearpage() {
     if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
     v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
     v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
+    v.nodes.push(penalty(-10001))
+  }
+  /** \cleardoublepage: \clearpage, then, two-sided, \ifodd\c@page\else\hbox{}\newpage\fi (the output decides) */
+  function cleardoublepage() {
+    clearpage()
+    if (!k.ints.twoside) return
+    const extra: Node[] = []
+    appendToVlist(extra, hpack([]), v.prevDepth, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+    extra.push(glue(0, 65536, FIL), penalty(-10000))
+    v.nodes.push({ kind: "whatsit", text: "", hook: { cleardouble: extra } satisfies OutputHook })
+  }
+  /** book's \frontmatter (\cleardoublepage, \@mainmatterfalse, \pagenumbering{roman}), \mainmatter, \backmatter */
+  function matter(which: "front" | "main" | "back") {
+    if (cls !== "book") throw new Unsupported(`\\${which}matter in ${cls}`)
+    v.par()
+    cleardoublepage() // \backmatter's when openright, as book is
+    mainmatter = which === "main"
+    if (which !== "back") v.nodes.push({ kind: "whatsit", text: "", hook: which === "front" ? "roman" : "arabic" })
+  }
+
+  function chapter(b: Extract<Block, { kind: "heading" }>) {
+    if (cls !== "report" && cls !== "book") throw new Unsupported(`\\chapter in ${cls}`)
+    v.par()
+    if (cls === "book") cleardoublepage() // openright
+    else clearpage()
     // \thispagestyle{plain}, \global\@topnum\z@
-    v.nodes.push(penalty(-10001), { kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }, { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
+    v.nodes.push({ kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }, { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
+    // book's \@chapter numbers only in the main matter
+    const numbered = !b.star && (cls !== "book" || mainmatter)
     if (!b.star) {
-      counters[0]++
-      refs.label = String(counters[0]); refs.href = `chapter.${counters[0]}`
-      for (let l = 1; l < counters.length; l++) counters[l] = 0
-      counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
-      // hyperref: \refstepcounter's anchor, then \addcontentsline's bookmark and toc line
+      if (numbered) {
+        counters[0]++
+        refs.label = String(counters[0]); refs.href = `chapter.${counters[0]}`
+        for (let l = 1; l < counters.length; l++) counters[l] = 0
+        counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
+      } else if (hyper) refs.href = `chapter*.${++linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
+      // hyperref: the anchor, then \addcontentsline's bookmark and toc line
       if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
-      v.nodes.push(...contentsWrites(0, String(counters[0]), b.title, refs.href, false))
+      v.nodes.push(...contentsWrites(0, numbered ? String(counters[0]) : null, b.title, refs.href, false))
       // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
       if (headings) {
-        const cv = markValue([{ text: "Chapter" }, { ctrl: true }, { text: `${counters[0]}. ` }, { ctrl: true }, { text: b.title }], true)
+        const cv = markValue(numbered ? [{ text: "Chapter" }, { ctrl: true }, { text: `${counters[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
         v.nodes.push(...insertMarks(k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
       }
       for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
@@ -1451,7 +1485,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // (in the head's group)
     const club = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
     const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
-    if (!b.star) {
+    if (numbered) {
       typeset(`Chapter ${counters[0]}`, { ...ragged(), font: k.sizes.huge.bold }, outerParskip, "huge")
       v.nodes.push(penalty(10000))
       v.vskip(dimen(20 * 65536))
@@ -1580,14 +1614,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   })
   const shipped = columns.map((c, i) => {
     const even = k.ints.twoside && pages[i].count % 2 === 0
-    return outputPage(c.outputbox, pages[i].count, k, pages[i].special ?? pagestyle, hyper, markText(even ? headMarks[i].left : headMarks[i].right))
+    return outputPage(c.outputbox, pages[i].count, k, pages[i].special ?? pagestyle, hyper, markText(even ? headMarks[i].left : headMarks[i].right), pages[i].thepage)
   })
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
   if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body) || hyper) {
-    const pageOf = new Map<Node, number>(), order = new Map<Node, number>()
-    const walk = (n: Node, page: number) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
-    shipped.forEach((b, i) => walk(b, pages[i].count))
+    const pageOf = new Map<Node, string>(), order = new Map<Node, number>()
+    const walk = (n: Node, page: string) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
+    shipped.forEach((b, i) => walk(b, pages[i].thepage))
     const page = (node: Node) => {
       const p = pageOf.get(node)
       if (p === undefined) throw new Error("a \\write that was not shipped out")
@@ -1596,7 +1630,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     written = {
       toc: tocWrites.slice().sort((x, y) => order.get(x.node)! - order.get(y.node)!).map(({ node, entry }) => ({ ...entry, page: page(node) })),
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
-      labels: new Map(refs.writes.map((w) => ({ ...w, page: String(page(w.node)) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, href: w.href }])),
+      labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, href: w.href }])),
       bookmarks: bookmarks.written,
     }
   }
