@@ -11,7 +11,7 @@ interface Cursor { h: number; v: number }
 
 function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
   let curG = 0, curGlue = 0
-  const baseLine = cur.v
+  const baseLine = cur.v, leftEdge = cur.h
   for (const p of box.list) {
     switch (p.kind) {
       case "char":
@@ -41,6 +41,30 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
           } else if (p.shrinkOrder === box.glueOrder) { curGlue -= p.shrink; curG = texRound(vetGlue(box.glueSet * curGlue)) }
         }
         ruleWd += curG
+        const lb = p.leaders?.box
+        if (lb && lb.width > 0 && ruleWd > 0) { // § 626: the box as often as it fits, at multiples of its width from the left edge
+          ruleWd += 10 // compensate for floating-point rounding
+          const edge = cur.h + ruleWd
+          let lx = 0
+          if (p.leaders!.kind === "leaders") {
+            const saveH = cur.h
+            cur.h = leftEdge + lb.width * Math.trunc((cur.h - leftEdge) / lb.width)
+            if (cur.h < saveH) cur.h += lb.width
+          } else {
+            const lq = Math.trunc(ruleWd / lb.width), lr = ruleWd % lb.width
+            if (p.leaders!.kind === "cleaders") cur.h += Math.trunc(lr / 2)
+            else { lx = Math.trunc(lr / (lq + 1)); cur.h += Math.trunc((lr - (lq - 1) * lx) / 2) }
+          }
+          while (cur.h + lb.width <= edge) {
+            const saveH = cur.h
+            cur.v = baseLine + lb.shift
+            if (lb.kind === "vlist") vlistOut(lb, cur, page); else hlistOut(lb, cur, page)
+            cur.v = baseLine
+            cur.h = saveH + lb.width + lx
+          }
+          cur.h = edge - 10
+          break
+        }
         cur.h += ruleWd
         break
       }

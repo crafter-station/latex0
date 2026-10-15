@@ -13,7 +13,7 @@
 
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../../../layout/classdata"
 import { Scanner, type GlueSpec } from "../../../layout/dimen"
-import { loadFont, QUAD, SLANT, X_HEIGHT, type Font } from "../../../layout/font"
+import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
@@ -72,7 +72,21 @@ export function classParams(k: ClassOptionData): LineBreakParams {
 
 /** Document state that crosses paragraphs: LaTeX's footnote counter, and the font shapes NFSS has
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
-export interface DocState { footnote: number; substituted?: Set<string> }
+export interface DocState { footnote: number; substituted?: Set<string>; refs?: Refs }
+
+/**
+ * Cross-references: \@currentlabel (local: lists, equations and floats restore it), \@currentHref
+ * (global), the labels the run before wrote to the .aux file (null: none yet), and this run's
+ * \newlabel writes, whose pages make the next run's \pageref.
+ */
+export interface Refs { label: string; href: string; prev: Map<string, { label: string; page: string }> | null; writes: { node: Node; key: string; label: string }[] }
+
+/** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
+export function labelWrite(refs: Refs, key: string, label = refs.label, href = refs.href): Node {
+  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${label}}{\\thepage }{}{${href}}{}}}` }
+  refs.writes.push({ node, key, label })
+  return node
+}
 
 /** What a paragraph's surroundings set: the start of its list (in place of the indent box) and its shape. */
 export interface ParagraphOptions {
@@ -101,12 +115,15 @@ export interface ParagraphOptions {
  */
 export const squeeze = (t: string): string => {
   const s = t.replace(/\s+/g, " ").replace(/^ /, "")
-  return / $/.test(s) && /\} $/.test(s) ? s : s.replace(/ $/, "")
+  // a space after } or ~ is glue \par removes in place of what comes before it
+  return /[}~] $/.test(s) ? s : s.replace(/ $/, "")
 }
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
+  /** ~, \label{key}, \ref{key}, \pageref{key} */
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "label"; key: string } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -199,6 +216,14 @@ function pieces(body: string, footnotes = true): Piece[] {
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
     if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "companion", src: "$" }); i += 2; continue }
+    if (body[i] === "~") { flushText(); out.push({ kind: "tie" }); i++; continue }
+    const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
+    if (cur) { flushText(); out.push({ kind: "currentlabel", label: cur[1], href: cur[2] }); i += cur[0].length; continue }
+    const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
+    if (ref) {
+      if (ref[1] === "label" && !footnotes) throw new Error("paragraph adapter: \\label in a footnote")
+      flushText(); out.push({ kind: ref[1] as "label" | "ref" | "pageref", key: ref[2] } as Piece); i += ref[0].length; continue
+    }
     // an empty group: no node, but no ligature or kern across it
     if (body.startsWith("{}", i)) { flushText(); i += 2; continue }
     if (body[i] === "$") {
@@ -307,13 +332,37 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; amsmath?: boolean; base: FontAttrs }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
-    if (p.kind === "text") appendText(list, p.src, font, state)
+    if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state); ctx.ignoreSpaces = false; continue }
+    if (p.kind === "currentlabel") { if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href } continue }
+    ctx.ignoreSpaces = false
+    if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
+      list.push(penalty(10000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+    }
+    else if (p.kind === "label") {
+      // \@bsphack, the write, \@esphack: after a space, \nobreak\hskip\z@skip and \ignorespaces
+      if (!doc.refs) throw new Error("paragraph adapter: \\label outside a document")
+      const last = list[list.length - 1]
+      const savsk = last?.kind === "glue" ? last.width : 0
+      list.push(labelWrite(doc.refs, p.key))
+      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+    }
+    else if (p.kind === "ref" || p.kind === "pageref") {
+      // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}
+      const known = doc.refs?.prev?.get(p.key)
+      if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state); list.push(hpack([])) }
+      else {
+        const qq: Node[] = []
+        appendText(qq, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
+        list.push(hpack(qq))
+      }
+      state.spaceFactor = 1000
+    }
     // \textdollar: in T1 the text font's own; otherwise the TS1 font of the same family, series and shape
     else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state)
     else if (p.kind === "font") {
@@ -327,6 +376,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const corr = p.src !== "" && p.src !== " "
       if (corr && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
       appendPieces(list, p.inner, inner, size, state, ctx, a)
+      ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
       if (corr && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
     }
     else if (p.kind === "math") {

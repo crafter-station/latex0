@@ -27,10 +27,10 @@ export interface Float {
 }
 
 /** What the output routine ships: a page of text with its top and bottom floats, or a page of floats. */
-export type Shipped = { kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }
+export type Shipped = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }) & { /** \thispagestyle{plain} was in force (\if@specialpage) */ special?: boolean }
 
 /** Assignments the document makes to the output routine's state. */
-export type OutputHook = "notop"
+export type OutputHook = "notop" | "plain"
 
 /** Thrown for what the output routine does that is not modeled yet. */
 export class OutputUnsupported extends Error {}
@@ -249,7 +249,7 @@ export class LatexOutput {
       this.colroom = this.colht
       const floats = this.tryfcolumn(this.k.dimens.fpmin, true)
       if (!floats) break
-      this.shipped.push({ kind: "floats", floats })
+      this.ship({ kind: "floats", floats })
       this.opcol()
     }
     const waiting = this.deferlist
@@ -267,19 +267,19 @@ export class LatexOutput {
         this.deferlist = [...this.toplist, ...this.botlist, ...this.deferlist]
         this.toplist = []; this.botlist = []; this.midlist = []
         this.colroom = this.colht
-        for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false)); ) { this.shipped.push({ kind: "floats", floats }); this.opcol() }
+        for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false)); ) { this.ship({ kind: "floats", floats }); this.opcol() }
         if (this.deferlist.length) throw new OutputUnsupported("floats left after \\clearpage")
         const first = page.nodes.findIndex((n) => n.kind !== "whatsit")
         return [...page.nodes.slice(0, first < 0 ? page.nodes.length : first), ...this.endOutput()]
       }
       // footnotes still held over: \vbox{\box\@cclv\vfil}, \@makecol\@opcol, and \clearpage again
       // (its \newpage falls on an empty page: \write\m@ne{}\vbox{}\penalty-\@Mi)
-      this.shipped.push({ kind: "text", page, top, bot })
+      this.ship({ kind: "text", page, top, bot })
       this.toplist = []; this.botlist = []; this.midlist = []
       this.opcol()
       return [...clearRest(), ...this.endOutput()]
     }
-    this.shipped.push({ kind: "text", page, top, bot })
+    this.ship({ kind: "text", page, top, bot })
     this.toplist = []; this.botlist = []; this.midlist = []
     this.opcol()
     this.startcolumn()
@@ -287,7 +287,10 @@ export class LatexOutput {
   }
 
   /** An assignment from the document: article's \maketitle sets \@topnum to 0 for its page */
-  hook(h: OutputHook) { if (h === "notop") this.topnum = 0 }
+  /** \global\@topnum\z@; \thispagestyle{plain}, which \@outputpage applies to the next page it ships */
+  hook(h: OutputHook) { if (h === "notop") this.topnum = 0; else this.special = true }
+  private special = false
+  private ship(s: Shipped) { if (this.special) { s.special = true; this.special = false } this.shipped.push(s) }
 
   /** At the end: floats still waiting were never output. */
   done() { if (this.deferlist.length || this.toplist.length || this.botlist.length) throw new OutputUnsupported("floats lost at the end of the document") }
@@ -357,6 +360,8 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData): { outputbox: 
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)
     const col = [...list, glue(-out.depth), ...textbottom]
     const column = first === box255 ? col : first.list
-    return { outputbox: vpack(col, { exactly: k.dimens.textheight }), column: column.slice(column.findIndex((n) => n.kind === "glue" && n.param === "topskip")) }
+    // a column with no box (only \write nodes and glue, before a chapter's float pages) has no \topskip
+    const top = column.findIndex((n) => n.kind === "glue" && n.param === "topskip")
+    return { outputbox: vpack(col, { exactly: k.dimens.textheight }), column: top < 0 ? null : column.slice(top) }
   })
 }

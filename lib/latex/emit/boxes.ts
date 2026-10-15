@@ -15,6 +15,10 @@ export function emitBoxes(n: Node): BoxOut {
       return lig ? { type: "char", font: n.font, size: n.size, char: n.char, lig: (hits > 1 ? "|" : "") + n.text + (hits % 2 ? "|" : "") } : { type: "char", font: n.font, size: n.size, char: n.char }
     }
     case "glue": {
+      if (n.leaders) { // § 189: \leaders and the spec, then the box
+        const spec = printScaled(n.width) + (n.stretch ? ` plus ${printScaled(n.stretch)}${["", "fil", "fill", "filll"][n.stretchOrder]}` : "") + (n.shrink ? ` minus ${printScaled(n.shrink)}${["", "fil", "fill", "filll"][n.shrinkOrder]}` : "")
+        return { type: "other", text: `\\${n.leaders.kind} ${spec}`, children: [emitBoxes(n.leaders.box)] }
+      }
       const g = { type: "glue" as const, width: n.width, stretch: n.stretch, stretchOrder: n.stretchOrder, shrink: n.shrink, shrinkOrder: n.shrinkOrder }
       return n.param ? { ...g, param: n.param } : g
     }

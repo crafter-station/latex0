@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 94,
-  "exact": 84,
+  "fixtures": 100,
+  "exact": 90,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 10,
-  "glyphs": 83280
+  "glyphs": 110495
  },
  "areas": [
   {
@@ -51,13 +51,13 @@
   },
   {
    "area": "pages",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "sections",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "templates",
@@ -924,6 +924,17 @@
    "issue": "#115"
   },
   {
+   "id": "pages/chapter-after-float-page",
+   "file": "micro/pages/chapter-after-float-page.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5856,
+   "covers": "a float page from \\chapter's \\clearpage after a full page: the \\write nodes \\vsplit keeps make a page with no box (no \\topskip), and \\thispagestyle{plain} goes to that page, not to the chapter's (\\@specialpage is for the next page shipped); a random document (fuzz:documents seed 4)",
+   "issue": "#30"
+  },
+  {
    "id": "pages/geometry-margin",
    "file": "micro/pages/geometry-margin.tex",
    "area": "pages",
@@ -990,6 +1001,28 @@
    "issue": "#30"
   },
   {
+   "id": "sections/cross-references",
+   "file": "micro/sections/cross-references.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3782,
+   "covers": "\\ref and \\pageref from the .aux file the first run writes (forward and backward, a page past the first), undefined ones as bold ?? in \\nfss@text, \\@setref's \\null, \\label after a heading (\\nobreak twice) and in text (\\@bsphack, \\@esphack: \\nobreak\\hskip\\z@skip, \\ignorespaces up to a closing brace), labels of sections, an equation, a figure and items, ~ (\\nobreak\\ ) also before a paragraph's end",
+   "issue": "#30"
+  },
+  {
+   "id": "sections/labels-report",
+   "file": "micro/sections/labels-report.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 67,
+   "covers": "\\newlabel values in report: \\@currentlabel (local: lists, equations and floats restore it) and \\@currentHref (global) for a chapter, a section, items four enumerate levels deep (1, 1a, 1(a)i, 1(a)iA), an \\item[x], an equation, \\refstepcounter of a \\newcounter where it stands in a paragraph, a figure, a \\ref in a footnote",
+   "issue": "#30"
+  },
+  {
    "id": "sections/run-in-headings",
    "file": "micro/sections/run-in-headings.tex",
    "area": "sections",
@@ -1020,6 +1053,39 @@
    "status": "pass",
    "glyphs": 2871,
    "covers": "sections in a 12pt report: numbers prefixed by \\thechapter (0), \\subsubsection unnumbered (secnumdepth 2) but in the toc, sections across pages, a list right after a heading (\\@nbitem)",
+   "issue": "#30"
+  },
+  {
+   "id": "sections/toc-article",
+   "file": "micro/sections/toc-article.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 12318,
+   "covers": "\\tableofcontents from the .toc file the first run writes: \\section* Contents, \\l@section (\\addpenalty, \\addvspace, bold, \\hfil, the page in \\@pnumwidth), \\@dottedtocline with \\leaders dots (§ 626 aligned leaders), titles wrapping onto a second toc line, page numbers past the first page, a \\section* (no line), tocdepth 3",
+   "issue": "#30"
+  },
+  {
+   "id": "sections/toc-in-text",
+   "file": "micro/sections/toc-in-text.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "\\tableofcontents after a paragraph and before one (\\@starttoc's \\@nobreakfalse, the \\@afterheading \\everypar still pending), a run-in \\paragraph's toc line below tocdepth",
+   "issue": "#30"
+  },
+  {
+   "id": "sections/toc-report",
+   "file": "micro/sections/toc-report.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5129,
+   "covers": "\\tableofcontents in report: \\chapter* Contents, \\l@chapter (\\addpenalty-\\@highpenalty, \\vskip 1em plus 1pt, \\penalty\\@highpenalty after it), sections and subsections as dotted lines, math in a title, subsubsections below tocdepth 2",
    "issue": "#30"
   },
   {
