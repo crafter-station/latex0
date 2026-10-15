@@ -1,0 +1,40 @@
+% fixture: hyperref/sections
+% tier: T3
+% engine: document
+% covers: hyperref with its dvips driver: the Doc-Start anchor and the outlines (from the .out file the first run writes, /Count from the children) at the start, a numbered heading's anchor on the vertical list (\Hy@SaveLastskip: \nobreak\vskip-\lastskip\vskip\lastskip), an unnumbered or run-in heading's \hbox to 0pt anchor in its title (section*.n), \BOOKMARK lines (a level jump fixed, the parent), toc lines with the anchor, \newlabel with nameref's title (a final period dropped), the page anchors
+% issue: #30
+\documentclass{article}
+\usepackage{hyperref}
+\title{The Title}
+\author{An Author}
+\date{\today}
+\begin{document}
+\maketitle
+\begin{abstract}
+Abstract text.
+\end{abstract}
+\section*{Star}\label{st}
+Text after a starred heading.
+\subsection{Sub}
+More text.
+\paragraph{Run.} In text \label{r}after it.
+\section{Part 1 (indeed) well-known}\label{s1}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\subsubsection{Jump 1}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\section{Part 2 (indeed) well-known}\label{s2}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\subsubsection{Jump 2}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\section{Part 3 (indeed) well-known}\label{s3}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\subsubsection{Jump 3}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\subparagraph{Indented} run in. See \ref{s1}, \ref{st}, \ref{r} and \pageref{s3}.
+\end{document}

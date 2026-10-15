@@ -32,6 +32,7 @@ import { classData, documentClass } from "../../classes"
 import { dataFont } from "../../fonts"
 import type { Adapter } from "./index"
 import { endDocument, makeColumns } from "./output"
+import { refLink } from "./hyperref"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -79,12 +80,20 @@ export interface DocState { footnote: number; substituted?: Set<string>; refs?: 
  * (global), the labels the run before wrote to the .aux file (null: none yet), and this run's
  * \newlabel writes, whose pages make the next run's \pageref.
  */
-export interface Refs { label: string; href: string; prev: Map<string, { label: string; page: string }> | null; writes: { node: Node; key: string; label: string }[] }
+export interface Refs {
+  label: string; href: string
+  /** \@currentlabelname: hyperref's nameref sets it to a heading's title */
+  name: string
+  prev: Map<string, { label: string; page: string; href: string }> | null
+  writes: { node: Node; key: string; label: string; href: string }[]
+  /** hyperref: \ref and \pageref are links to the label's anchor */
+  hyper?: boolean
+}
 
 /** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
-export function labelWrite(refs: Refs, key: string, label = refs.label, href = refs.href): Node {
-  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${label}}{\\thepage }{}{${href}}{}}}` }
-  refs.writes.push({ node, key, label })
+export function labelWrite(refs: Refs, key: string, label = refs.label, href = refs.href, name = refs.name): Node {
+  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${label}}{\\thepage }{${name}}{${href}}{}}}` }
+  refs.writes.push({ node, key, label, href })
   return node
 }
 
@@ -355,6 +364,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "ref" || p.kind === "pageref") {
       // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}
       const known = doc.refs?.prev?.get(p.key)
+      if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
+        if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
+        const text: Node[] = []
+        appendText(text, p.kind === "ref" ? known.label : known.page, font, state)
+        list.push(...refLink(text, known.href))
+        continue
+      }
       if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state); list.push(hpack([])) }
       else {
         const qq: Node[] = []

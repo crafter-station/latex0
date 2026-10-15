@@ -38,6 +38,7 @@ import { geometry, GeometryUnsupported } from "./geometry"
 import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
+import { anchor, Bookmarks, documentStart, labelName, pageAnchor, sectionAnchorBox, tocLink, type Bookmark } from "./hyperref"
 import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, spec, type DocState, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
@@ -63,13 +64,13 @@ const IGNORE_DEPTH = null // \prevdepth = -1000pt
 type Block =
   | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number }
   | ListBlock
-  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string }
+  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
   | { kind: "toc" }
 
 /** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{} */
-interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; page: number }
+interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; page: number; /** with hyperref, the heading's anchor */ anchor: string }
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
 const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract"] as const
@@ -346,7 +347,7 @@ function labelBox(label: Node[], k: ClassOptionData, lw = k.dimens.labelwidth): 
 }
 
 /** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
-function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string): BoxNode {
+function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false): BoxNode {
   const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
   const number = () => { const l: Node[] = []; appendText(l, String(page), font, { spaceFactor: 1000 }, false); return l }
   const hfil = () => glue(0, 65536, FIL)
@@ -364,7 +365,10 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
   inner.push(d < 0 ? glue(0) : glue(d), foot)
   const box = vpack(inner)
   box.shift = k.ints.twoside && page % 2 === 0 ? k.dimens.evensidemargin : k.dimens.oddsidemargin
-  return vpack([glue(k.dimens.topmargin), box])
+  const shipped = vpack([glue(k.dimens.topmargin), box])
+  // hyperref's \AtBeginShipout: the page anchor before the page, with \lineskip between
+  if (hyper) return vpack([pageAnchor(page, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
+  return shipped
 }
 
 /**
@@ -392,7 +396,7 @@ export const document: Adapter = (source) => {
 }
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string }> }
+interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[] }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -410,6 +414,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
+  let hyper = false // hyperref, with the dvips driver
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   const geometryOptions: string[] = []
@@ -428,7 +433,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref"].includes(n))
+      if (names.includes("hyperref")) hyper = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
       continue
@@ -448,7 +454,20 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
-  const refs: Refs = { label: "", href: "", prev: prev ? prev.labels : null, writes: [] }
+  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper }
+  /** \Hy@linkcounter (anchors of unnumbered headings) and \Hy@writebookmark's state */
+  let linkcounter = 0
+  const bookmarks = new Bookmarks()
+  /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
+  const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
+  if (hyper) {
+    // features whose hyperref anchors and links are not modeled yet
+    const m = body.replace(/(^|[^\\])%.*$/gm, "$1").match(/\\footnote\b|\\begin\{(?:enumerate|figure|table|equation|align)\}|\\refstepcounter\b/)
+    if (m) throw new Unsupported(`${m[0]} with hyperref`)
+    // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
+    v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
+    v.nodes.push(...anchor("Doc-Start", k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+  }
   const doc: DocState = { footnote: 0, refs }
   const decisions: ParagraphTrace[] = []
   const outerParskip = k.glue.parskip
@@ -464,11 +483,25 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   /** the \addcontentsline{toc} writes: \thepage is the page each one is shipped out on */
   const tocWrites: { node: Node; entry: Omit<TocEntry, "page"> }[] = []
-  const tocWrite = (level: TocEntry["level"], number: string | null, title: string): Node => {
+  const tocWrite = (level: TocEntry["level"], number: string | null, title: string, anchor = ""): Node => {
     const name = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"][level]
-    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${number !== null ? `\\protect \\numberline {${number}}` : ""}${title}}{\\thepage }{}\\protected@file@percent }}` }
-    tocWrites.push({ node, entry: { level, number, title } })
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${number !== null ? `\\protect \\numberline {${number}}` : ""}${title}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
+    tocWrites.push({ node, entry: { level, number, title, anchor } })
     return node
+  }
+  /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
+   *  \protected@write adds \nobreak while \if@nobreak holds */
+  const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[] => {
+    const out: Node[] = []
+    if (hyper && level <= (cls === "article" ? 3 : 2)) {
+      const bm = bookmarks.add(level, anchorName, title)
+      if (!bm) throw new Unsupported(`a bookmark for "${title}"`)
+      out.push(bm)
+      if (nobreak) out.push(penalty(10000))
+    }
+    out.push(tocWrite(level, number, title, hyper ? anchorName : ""))
+    if (nobreak) out.push(penalty(10000))
+    return out
   }
   let floats = 0 // floats so far
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
@@ -963,7 +996,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
         else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
         else {
-          itemClub = undefined
+          // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
+          if (p.text) itemClub = undefined
           if (p.start === "cr") v.addvspace(negate(parsep)) // \@centercr: \par \addvspace{-\parskip}
           if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un }, parsep, ctx.size)
         }
@@ -1103,8 +1137,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    * the lines the run before wrote (\contentsline → \l@<name>) and ends with \@nobreakfalse
    */
   function tableOfContents() {
-    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents" })
-    else chapter({ kind: "heading", level: 0, star: true, title: "Contents" })
+    const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
+    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents", source })
+    else chapter({ kind: "heading", level: 0, star: true, title: "Contents", source })
     const tocdepth = cls === "article" ? 3 : 2
     for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(e)
     v.nobreak = false
@@ -1151,10 +1186,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       if (v.nobreak) { v.nobreak = false; club = 10000; keepIndent = e.level !== top || v.afterindent }
       else club = k.ints.clubpenalty
     }
-    let start: Node[], tail: Node[], params: Parameters<typeof paragraphInput>[4]
+    let start: Node[], nl: Node[], tail: Node[], params: Parameters<typeof paragraphInput>[4]
     if (e.level === top) {
       const tempdima = dims("1.5em"), pnum = dims("1.55em")
-      start = [...(keepIndent ? [emptyBox("hlist", 0)] : []), glue(-tempdima), ...numberline(tempdima)]
+      start = [...(keepIndent ? [emptyBox("hlist", 0)] : []), glue(-tempdima)]
+      nl = numberline(tempdima)
       tail = [penalty(10000), glue(0, 65536, FIL), penalty(10000), pageBox(glue(0, 65536, FIL, 65536, FIL))]
       params = { leftSkip: spec("leftskip", dimen(tempdima)), rightSkip: spec("rightskip", dimen(pnum)), parFillSkip: spec("parfillskip", dimen(-pnum)) }
     } else {
@@ -1166,11 +1202,19 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       const dot: Node[] = []
       appendText(dot, ".", f, { spaceFactor: 1000 }, false)
       const leader = hpack([{ kind: "math", on: true, width: 0 }, kern(mk, true), hpack(dot), kern(mk, true), { kind: "math", on: false, width: 0 }])
-      start = [emptyBox("hlist", indent), hpack([]), penalty(10000), glue(-(indent + numwidth)), ...numberline(numwidth)]
+      start = [emptyBox("hlist", indent), hpack([]), penalty(10000), glue(-(indent + numwidth))]
+      nl = numberline(numwidth)
       tail = [penalty(10000), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(glue(0, 65536, FIL))]
       params = { leftSkip: spec("leftskip", dimen(indent + numwidth)), rightSkip: spec("rightskip", dimen(rmarg)), parFillSkip: spec("parfillskip", dimen(-rmarg)), interLinePenalty: 10000 }
     }
-    const { list, params: ps, notes } = paragraphInput(e.title, k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })
+    // hyperref (linktoc=section): the number and the title in a link to the heading's anchor
+    let body = e.title
+    if (hyper && e.anchor) {
+      const title = paragraphInput(e.title, k, "normalsize", doc, { start: [], font, amsmath }).list
+      start.push(tocLink([...nl, ...title], e.anchor, k.sizes.normalsize.baselineskip.width))
+      body = ""
+    } else start.push(...nl)
+    const { list, params: ps, notes } = paragraphInput(body, k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })
     list.push(...tail)
     const lb = lineBreak(list, ps)
     decisions.push(...notes, lb.trace)
@@ -1331,8 +1375,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       refs.label = String(counters[0]); refs.href = `chapter.${counters[0]}`
       for (let l = 1; l < counters.length; l++) counters[l] = 0
       counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
-      v.nodes.push(tocWrite(0, String(counters[0]), b.title))
+      // hyperref: \refstepcounter's anchor, then \addcontentsline's bookmark and toc line
+      if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
+      v.nodes.push(...contentsWrites(0, String(counters[0]), b.title, refs.href, false))
       for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
+    } else if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor
+      refs.href = `chapter*.${++linkcounter}`; refs.name = labelName(b.source ?? b.title)
+      v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     }
     // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
     const pd = v.prevDepth
@@ -1372,11 +1421,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     v.afterindent = true
     if (!b.star && b.level <= k.ints.secnumdepth) throw new Unsupported(`numbered \\${name}`)
     v.nobreak = false // \@nobreakfalse
+    // hyperref: \Hy@MakeCurrentHrefAuto now, its anchor box at the start of the title
+    const anchorName = hyper ? `section*.${++linkcounter}` : ""
+    if (hyper) { refs.href = anchorName; refs.name = labelName(b.title) }
     // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
     runIn = () => {
       const title = counted(b.title)
-      const head = paragraphInput(title, k, "normalsize", doc, { start: [glue(b.level === 5 ? k.dimens.parindent : 0)], font: k.sizes.normalsize.bold, amsmath }).list
-      if (!b.star) head.push(tocWrite(b.level, null, title))
+      const indent = b.level === 5 ? k.dimens.parindent : 0
+      const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, k.sizes.normalsize.baselineskip.width)] : [])]
+      const head = paragraphInput(title, k, "normalsize", doc, { start, font: k.sizes.normalsize.bold, amsmath }).list
+      if (!b.star) head.push(...contentsWrites(b.level, null, title, anchorName, false))
       if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip
       head.push(glue(romanFont.params[QUAD])) // \hskip -\@tempskipa
       return head
@@ -1409,16 +1463,24 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       number = (cls === "article" ? counters.slice(1, b.level + 1) : counters.slice(0, b.level + 1)).join(".")
     }
     if (numbered) { refs.label = number; refs.href = `${["", "section", "subsection", "subsubsection"][b.level]}.${number}` } // \refstepcounter
+    // hyperref: \refstepcounter's anchor on the vertical list; an unnumbered heading's (\Hy@MakeCurrentHrefAuto)
+    // in an \hbox to 0pt at the start of its title; nameref's \@currentlabelname is the title
+    let anchorName = ""
+    if (hyper) {
+      if (numbered) { anchorName = refs.href; v.nodes.push(...anchor(anchorName, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
+      else { anchorName = `section*.${++linkcounter}`; refs.href = anchorName }
+      refs.name = labelName(heading.source ?? heading.title)
+    }
     const bold = k.sizes[size].bold
     const bf = loadFont(dataFont(bold.name), bold.at)
     const label: Node[] = [glue(0)] // \hskip #3 (\z@)
     if (numbered) { appendText(label, number, bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
     const box = hpack(label)
-    typeset(b.title, { start: [box], font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub }, outerParskip, size)
+    const start = hyper && !numbered ? [box, sectionAnchorBox(anchorName, 0, k.sizes[size].baselineskip.width)] : [box]
+    typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub }, outerParskip, size)
     // \addcontentsline{toc}: \protected@write, a \write after the heading's lines, with \nobreak after it
     // while \if@nobreak holds (a heading right after a heading)
-    if (!b.star) v.nodes.push(tocWrite(b.level, numbered ? number : null, b.title))
-    if (!b.star && afterHeading) v.nodes.push(penalty(10000))
+    if (!b.star) v.nodes.push(...contentsWrites(b.level, numbered ? number : null, b.title, anchorName, afterHeading))
     // \@xsect: \par \nobreak \vskip afterskip \@afterheading
     v.nodes.push(penalty(10000))
     v.vskip(after)
@@ -1436,10 +1498,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
   const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
-  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, pages[i].special ? "plain" : pagestyle))
+  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, pages[i].special ? "plain" : pagestyle, hyper))
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body)) {
+  if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body) || hyper) {
     const pageOf = new Map<Node, number>(), order = new Map<Node, number>()
     const walk = (n: Node, page: number) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
     shipped.forEach((b, i) => walk(b, i + 1))
@@ -1451,7 +1513,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     written = {
       toc: tocWrites.slice().sort((x, y) => order.get(x.node)! - order.get(y.node)!).map(({ node, entry }) => ({ ...entry, page: page(node) })),
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
-      labels: new Map(refs.writes.map((w) => ({ ...w, page: String(page(w.node)) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page }])),
+      labels: new Map(refs.writes.map((w) => ({ ...w, page: String(page(w.node)) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, href: w.href }])),
+      bookmarks: bookmarks.written,
     }
   }
   return {

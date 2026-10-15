@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 101,
-  "exact": 91,
+  "fixtures": 105,
+  "exact": 96,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 10,
-  "glyphs": 110707
+  "pending": 9,
+  "glyphs": 114785
  },
  "areas": [
   {
@@ -30,6 +30,11 @@
    "exact": 3
   },
   {
+   "area": "hyperref",
+   "fixtures": 3,
+   "exact": 3
+  },
+  {
    "area": "hyphenation",
    "fixtures": 5,
    "exact": 5
@@ -41,8 +46,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "math",
@@ -62,7 +67,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 8
+   "exact": 9
   },
   {
    "area": "text",
@@ -92,8 +97,8 @@
    "file": "macro/templates/article.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 158,
    "covers": "Standard academic paper with abstract, sections, and references",
    "issue": "#30"
@@ -539,6 +544,39 @@
    "issue": "#115"
   },
   {
+   "id": "hyperref/links",
+   "file": "micro/hyperref/links.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "hyperref links: \\ref and \\pageref through \\pdf@rect (H.S, the text in an hbox, \\raise\\ht H.R, /ANN; H.S \\lower\\dp in an hbox when the text has depth), the space factor kept from the text, no link for an empty label, undefined references as ?? without a link",
+   "issue": "#30"
+  },
+  {
+   "id": "hyperref/report-toc",
+   "file": "micro/hyperref/report-toc.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 996,
+   "covers": "hyperref in report: \\tableofcontents (its \\chapter* anchor chapter*.1 and its name), toc lines with the number and title in a link box (H.S, \\Hy@AllowHyphens, H.L, /ANN), a chapter's anchor after \\clearpage, \\chapter* anchors, \\BOOKMARK parents, a hyphen in a toc link without a discretionary",
+   "issue": "#30"
+  },
+  {
+   "id": "hyperref/sections",
+   "file": "micro/hyperref/sections.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2008,
+   "covers": "hyperref with its dvips driver: the Doc-Start anchor and the outlines (from the .out file the first run writes, /Count from the children) at the start, a numbered heading's anchor on the vertical list (\\Hy@SaveLastskip: \\nobreak\\vskip-\\lastskip\\vskip\\lastskip), an unnumbered or run-in heading's \\hbox to 0pt anchor in its title (section*.n), \\BOOKMARK lines (a level jump fixed, the parent), toc lines with the anchor, \\newlabel with nameref's title (a final period dropped), the page anchors",
+   "issue": "#30"
+  },
+  {
    "id": "hyphenation/explicit-hyphens",
    "file": "micro/hyphenation/explicit-hyphens.tex",
    "area": "hyphenation",
@@ -768,6 +806,17 @@
    "glyphs": 328,
    "covers": "\\pretolerance=-1 skips the first pass; TeX prints no @secondpass marker in that case (§ 863)",
    "issue": "#112"
+  },
+  {
+   "id": "lists/club-after-centercr",
+   "file": "micro/lists/club-after-centercr.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 451,
+   "covers": "a list right after \\\\ in an environment that follows a heading: no paragraph starts in between, so \\@item's \\everypar never resets \\clubpenalty, and a footnote read after the inner list sees \\@M",
+   "issue": "#30"
   },
   {
    "id": "lists/consecutive-lists",
