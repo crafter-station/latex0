@@ -65,10 +65,10 @@ export function makeDocument(r: () => number): string {
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x = r()
     if (x < 0.07) {
-      // a float between paragraphs: a caption (sometimes labelled), mostly allowed here
+      // a float between paragraphs: a caption, mostly allowed here
       const env = pick(["figure", "table"])
       out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]"])}`, r() < 0.7 ? "\\centering" : "",
-        `\\caption{${words(1 + Math.floor(r() * 8))}}`, r() < 0.5 ? `\\label{${env}:${b}}` : "", `\\end{${env}}`)
+        `\\caption{${words(1 + Math.floor(r() * 8))}}`, `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection"])

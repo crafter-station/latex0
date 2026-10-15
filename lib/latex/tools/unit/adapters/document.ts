@@ -576,13 +576,9 @@ export const document: Adapter = (src) => {
         content.push(glue(k.dimens.belowcaptionskip))
         continue
       }
-      m = it.match(/^\\label\s*\{([^}]*)\}$/)
-      if (m) {
-        if (!number) throw new Unsupported("\\label before \\caption in a float")
-        const href = `${b.env}.${cls === "article" ? "" : `${counters[0]}.`}${number}` // \@currentHref: report and book prefix \thechapter
-        content.push({ kind: "whatsit", text: `\\write1{\\newlabel{${m[1]}}{{${number}}{\\thepage }{}{${href}}{}}}` })
-        continue
-      }
+      // \label writes \newlabel{…}{{n}{\thepage }{}{<link target>}{}}, and the link target is empty in
+      // TeX Live 2023 but figure.n in 2025: left out until the oracle's TeX Live is pinned
+      if (/^\\label\b/.test(it)) throw new Unsupported("\\label in a float (its \\newlabel differs between TeX Live releases)")
       throw new Unsupported(`${it} in a ${b.env}`)
     }
     content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip

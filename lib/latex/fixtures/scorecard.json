@@ -2,11 +2,11 @@
  "format": 1,
  "summary": {
   "fixtures": 76,
-  "exact": 63,
+  "exact": 62,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 13,
-  "glyphs": 48899
+  "pending": 14,
+  "glyphs": 48875
  },
  "areas": [
   {
@@ -62,7 +62,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 5
+   "exact": 4
   },
   {
    "area": "text",
@@ -180,8 +180,8 @@
    "file": "macro/templates/figure.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
+   "reached": null,
+   "status": "skip",
    "glyphs": 24,
    "covers": "snippet in a minimal article: Figure with image, caption, and label",
    "issue": "#30"
@@ -414,7 +414,7 @@
    "reached": "T3",
    "status": "pass",
    "glyphs": 632,
-   "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label in a float, one right after a heading (\\nobreak), and text after them",
+   "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
   },
   {
