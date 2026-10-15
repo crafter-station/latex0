@@ -62,7 +62,8 @@ export function parseDecisions(log: string): Decisions {
       continue
     }
     // end_diagnostic (§ 863) closes each paragraph's trace with an empty line
-    if (!line && para) { finishParagraph(); continue }
+    // (a line of spaces is printed text: glue at the end of a line of the paragraph)
+    if (!raw.replace(/\r$/, "") && para) { finishParagraph(); continue }
     if ((m = line.match(/^@(first|second|emergency)pass$/))) {
       const kind = m[1] as Pass
       if (kind === "first" || !para) {

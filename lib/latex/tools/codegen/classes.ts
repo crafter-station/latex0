@@ -36,7 +36,7 @@ const INTS = [
   "lefthyphenmin", "righthyphenmin", "uchyph", "mag", "interfootnotelinepenalty",
 ]
 /** The text fonts the engine selects: encoding/family/series/shape (NFSS) */
-const FONT_SHAPES = ["OT1", "T1"].flatMap((e) => ["cmr", "cmss", "cmtt"].flatMap((f) => ["m", "bx"].flatMap((s) => ["n", "it", "sl", "sc", "scit", "scsl"].map((h) => `${e}/${f}/${s}/${h}`))))
+const FONT_SHAPES = ["OT1", "T1", "TS1"].flatMap((e) => ["cmr", "cmss", "cmtt"].flatMap((f) => ["m", "bx"].flatMap((s) => ["n", "it", "sl", "sc", "scit", "scsl"].map((h) => `${e}/${f}/${s}/${h}`))))
 const LIST = [["D", "leftmargin"], ["D", "labelwidth"], ["G", "topsep"], ["G", "partopsep"], ["G", "parsep"], ["G", "itemsep"]] as const
 const DISPLAY = ["abovedisplayskip", "belowdisplayskip", "abovedisplayshortskip", "belowdisplayshortskip"] as const
 

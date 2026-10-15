@@ -1,0 +1,31 @@
+% fixture: sections/run-in-headings
+% tier: T3
+% engine: document
+% covers: \paragraph and \subparagraph (run-in: \@svsechd in the next paragraph's \everypar, \hskip 1em, \clubpenalty\@M, the toc line), one followed by another heading or ending the document, \newcounter with \stepcounter, \setcounter, \addtocounter, \the and \roman \Alph, macros from \newcommand expanded first, \# \% \& \$ in text and titles
+% issue: #30
+\documentclass{article}
+\newcounter{problem}
+\newcounter{step}[problem]
+\newcommand{\problem}{\stepcounter{problem}\paragraph{Problem \theproblem.}}
+\newcommand{\Part}{\stepcounter{step}\subparagraph{Part \thestep}}
+\title{Homework \#1}
+\author{A. Student}
+\date{}
+\begin{document}
+\maketitle
+\section{Problems}
+\problem
+State the problem here, with 50\% of the marks \& a \$5 prize for problem \#\theproblem.
+
+A second paragraph of the problem, indented as usual.
+
+\problem Run on at once into the text of the problem, which is long enough to take more than one line of the page.
+\Part The first part, numbered \thestep.
+\Part The second part.
+\setcounter{problem}{9}\addtocounter{problem}{2}
+\problem
+\paragraph*{Starred} heading right before another heading.
+\subsection{Roman \roman{problem} and \Alph{step}}
+Text after the subsection.
+\paragraph{Last} 
+\end{document}

@@ -44,6 +44,7 @@ export function makeDocument(r: () => number): string {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
       if (r() < 0.05) ws[i] += " " + math()
+      if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (r() < 0.015) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
     }
     // runs of words in other fonts (\textbf, \emph, …), sometimes nested, sometimes before , or .
@@ -91,6 +92,9 @@ export function makeDocument(r: () => number): string {
     if (d < 0.3) out.push("\\date{}")
     else if (d < 0.6) out.push(`\\date{${words(3)}}`)
   }
+  // a counter and a macro that steps it and makes a run-in heading, as homework templates do
+  const macros = r() < 0.3
+  if (macros) out.push("\\newcounter{thm}", "\\newcommand{\\thm}{\\stepcounter{thm}\\paragraph{Theorem \\thethm.}}")
   out.push("\\begin{document}")
   if (titled) out.push("\\maketitle")
   if (cls === "article" && r() < 0.3) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(10 + Math.floor(r() * 30))] : []), "\\end{abstract}")
@@ -117,7 +121,8 @@ export function makeDocument(r: () => number): string {
         space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
-      const level = pick(["section", "section", "subsection", "subsubsection", ...(cls === "report" ? ["chapter"] : [])])
+      const level = pick(["section", "section", "subsection", "subsubsection", "paragraph", "subparagraph", ...(cls === "report" ? ["chapter"] : [])])
+      if (macros && r() < 0.3) { out.push("", r() < 0.5 ? "\\thm" : `\\thm ${text(5 + Math.floor(r() * 30))}`); afterPar = false; continue }
       out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}`)
       afterPar = false
     } else if (x < 0.3) {

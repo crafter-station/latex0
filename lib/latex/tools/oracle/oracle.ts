@@ -74,7 +74,7 @@ export function oracleTrace(fixture: string): Trace {
 import { createHash } from "node:crypto"
 import { existsSync, readdirSync, unlinkSync, writeFileSync } from "node:fs"
 
-const ORACLE_FORMAT = 5 // 5: fixed date; 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
+const ORACLE_FORMAT = 6 // 6: a line of spaces does not end a paragraph's trace; 5: fixed date; 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
 let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {
