@@ -18,7 +18,7 @@ import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
 import { xnOverD } from "../../../layout/arith"
-import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
 import type { MathData } from "../../../mathlayout/data"
 import { mlistToHlist, ORD, TEXT, type MathEnv } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
@@ -308,15 +308,14 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
       else contrib.push(n)
     }
   }
-  const { pages, pageTrace } = endDocument(contrib, prevDepth, k)
+  const { pages, pageTrace } = endDocument(contrib, k)
   return { decisions, pages, pageTrace, lineCount }
 }
 
 /** \end{document} after the main vertical list `contrib`, and the pages TeX's page builder cuts. */
-export function endDocument(contrib: Node[], prevDepth: number | null, k: ClassOptionData, float?: PageParams["float"]) {
-  // a skip of -\prevdepth, at most \maxdepth, when the last line has depth, then \clearpage,
-  // whose \newpage is \vfil\penalty-10000 (TeX's page trace and box dumps show both forms)
-  if (prevDepth !== null && prevDepth > 0) contrib.push(glue(-Math.min(prevDepth, k.dimens.maxdepth)))
+export function endDocument(contrib: Node[], k: ClassOptionData, float?: PageParams["float"]) {
+  // \clearpage, whose \newpage is \vfil\penalty-10000 (since LaTeX 2025-06-01 the last line's
+  // depth is backed up in the output routine, \@outputbox@reinsertbskip, not here)
   contrib.push(glue(0, 65536, FIL), { kind: "penalty", penalty: -10000 })
   // the rest of \clearpage: \write\m@ne{}\vbox{}\penalty-\@Mi. Its output routine (\@doclearpage)
   // ships a page only for footnotes still held over, and then clears the page again
@@ -332,27 +331,37 @@ export function endDocument(contrib: Node[], prevDepth: number | null, k: ClassO
 }
 
 /**
- * LaTeX's output routine for each page. \@makecol: without footnotes the output box is
- * \box255; with them, \vbox{\boxmaxdepth\@maxdepth \unvbox255 \vskip\skip\footins
- * \footnoterule \unvbox\footins}, where \footnoterule is \kern-3pt \hrule width .4\columnwidth
- * \kern2.6pt. Then \vbox to\@colht{\unvbox the output box, \vskip-its depth, \@textbottom}.
+ * LaTeX's output routine for each page, \@makecol as of LaTeX 2025-06-01 (its default
+ * footnotes-floats-legacy plug). \@outputbox@removebskip: a list ending in fil glue loses it,
+ * and \@outputbox@reinsertbskip puts it back, after \vskip-\@outputbox@depth (the list's
+ * depth, at most \maxdepth) when there are no footnotes. \@outputbox@appendfootnotes adds
+ * \vskip\skip\footins \footnoterule \unvbox\footins, where \footnoterule is \kern-3pt
+ * \hrule width .4\columnwidth \kern2.6pt. Each step rebuilds the box with \boxmaxdepth
+ * \@maxdepth. Then \vbox to\@colht{\unvbox the output box, \vskip-its depth, \@textbottom}.
  * `column` is that box's list from \topskip on.
  */
 export function makeColumns(pages: Page[], k: ClassOptionData) {
   const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
   const rule: Node = { kind: "rule", width: xnOverD(k.dimens.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 }
-  const fs = k.glue.footinsskip
+  const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth
   return pages.map((pg) => {
-    let box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, k.dimens.maxdepth)
+    let box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, maxDepth)
     const top = box255
     if (pg.outputPenalty === -10001) box255 = vpack([box255, glue(0, 65536, FIL)]) // \@doclearpage: \vbox{\box\@cclv\vfil}
     const foot = pg.inserts[k.ints.footins]
-    const out = foot
-      ? vpack([...box255.list, glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list], { additional: 0 }, k.dimens.maxdepth)
-      : box255
-    const list = [...out.list, glue(-out.depth), ...textbottom]
-    const col = top === box255 ? list : top.list
-    return { outputbox: vpack(list, { exactly: k.dimens.textheight }), column: col.slice(col.findIndex((n) => n.kind === "glue" && n.param === "topskip")) }
+    const list = box255.list.slice()
+    const last = list[list.length - 1]
+    if (last?.kind === "glue" && last.stretchOrder !== NORMAL) {
+      list.pop()
+      const d = vpack(list.slice(), { additional: 0 }, maxDepth).depth
+      if (!foot && d > 0) list.push(glue(-Math.min(d, maxDepth)))
+      list.push(glue(last.width, last.stretch, last.stretchOrder, last.shrink, last.shrinkOrder))
+    }
+    if (foot) list.push(glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list)
+    const out = vpack(list.slice(), { additional: 0 }, maxDepth)
+    const col = [...list, glue(-out.depth), ...textbottom]
+    const column = top === box255 ? col : top.list
+    return { outputbox: vpack(col, { exactly: k.dimens.textheight }), column: column.slice(column.findIndex((n) => n.kind === "glue" && n.param === "topskip")) }
   })
 }
 

@@ -1,10 +1,23 @@
-// Where the dev tooling finds TeX. $TEXBIN wins; otherwise MacTeX's location if
-// present; otherwise whatever is on PATH (Linux, CI).
+// Where the dev tooling finds TeX. $TEXBIN wins; otherwise the pinned TeX Live
+// that lib/latex/tools/install-tex.sh puts in .cache/texlive (what CI uses); otherwise
+// MacTeX's location if present; otherwise whatever is on PATH.
 
-import { existsSync } from "node:fs"
+import { existsSync, readdirSync } from "node:fs"
+import { join, resolve } from "node:path"
 
 const MACTEX = "/Library/TeX/texbin"
-export const TEXBIN = process.env.TEXBIN ?? (existsSync(MACTEX) ? MACTEX : "")
+
+/** Where install-tex.sh puts the TeX Live every reference comes from: the final, frozen 2025 edition. */
+const PINNED = resolve(process.cwd(), ".cache/texlive/2025")
+
+function pinned(): string {
+  const bin = join(PINNED, "bin")
+  if (!existsSync(bin)) return ""
+  const arch = readdirSync(bin).find((a) => existsSync(join(bin, a, "latex")))
+  return arch ? join(bin, arch) : ""
+}
+
+export const TEXBIN = process.env.TEXBIN ?? (pinned() || (existsSync(MACTEX) ? MACTEX : ""))
 
 /** The fixed date the oracle compiles at (SOURCE_DATE_EPOCH), so \today never changes a reference. */
 export const ORACLE_EPOCH = 1735689600
