@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 76,
-  "exact": 62,
+  "fixtures": 78,
+  "exact": 66,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 14,
-  "glyphs": 48875
+  "pending": 12,
+  "glyphs": 49322
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "display",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "floats",
@@ -62,7 +62,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 4
+   "exact": 6
   },
   {
    "area": "text",
@@ -169,8 +169,8 @@
    "file": "macro/templates/equation.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 17,
    "covers": "snippet in a minimal article: Labeled equation environment",
    "issue": "#30"
@@ -180,8 +180,8 @@
    "file": "macro/templates/figure.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 24,
    "covers": "snippet in a minimal article: Figure with image, caption, and label",
    "issue": "#30"
@@ -396,6 +396,28 @@
    "issue": "#86"
   },
   {
+   "id": "display/equation-amsmath",
+   "file": "micro/display/equation-amsmath.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 304,
+   "covers": "amsmath's numbered equation: \\mathopen{}, the tag box (\\tagform@) and the \\label write after it, centring next to it, squeezing, short and regular skips",
+   "issue": "#30"
+  },
+  {
+   "id": "display/equation-labels",
+   "file": "micro/display/equation-labels.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 102,
+   "covers": "\\label in LaTeX's equation: the \\newlabel write stays where it stands in the formula",
+   "issue": "#30"
+  },
+  {
    "id": "floats/float-with-footnotes",
    "file": "micro/floats/float-with-footnotes.tex",
    "area": "floats",
@@ -414,7 +436,7 @@
    "reached": "T3",
    "status": "pass",
    "glyphs": 632,
-   "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, one right after a heading (\\nobreak), and text after them",
+   "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label after a caption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
   },
   {

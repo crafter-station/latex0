@@ -1,7 +1,7 @@
 % fixture: floats/here-floats
 % tier: T3
 % engine: document
-% covers: figure and table placed here (\@specialoutput, \@addtocurcol with \intextsep, \textfraction, \@textfloatsheight), captions from \@makecaption, one right after a heading (\nobreak), and text after them
+% covers: figure and table placed here (\@specialoutput, \@addtocurcol with \intextsep, \textfraction, \@textfloatsheight), captions from \@makecaption, \label after a caption, one right after a heading (\nobreak), and text after them
 % issue: #115
 \documentclass{article}
 \begin{document}
@@ -10,6 +10,7 @@ Floats are boxes the output routine places: here, if the page so far leaves room
 \begin{figure}[h]
 \centering
 \caption{A figure placed here}
+\label{fig:here}
 \end{figure}
 
 Floats are boxes the output routine places: here, if the page so far leaves room for them and enough text, and otherwise at the top or bottom of a page, or on a page of their own.
@@ -17,7 +18,7 @@ Floats are boxes the output routine places: here, if the page so far leaves room
 \section{Tables}
 
 \begin{table}[!h]
-\caption{A table}
+\caption{A table}\label{tab:one}
 \end{table}
 
 Floats are boxes the output routine places: here, if the page so far leaves room for them and enough text, and otherwise at the top or bottom of a page, or on a page of their own.

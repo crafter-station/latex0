@@ -1,0 +1,16 @@
+% fixture: display/equation-labels
+% tier: T3
+% engine: document
+% covers: \label in LaTeX's equation: the \newlabel write stays where it stands in the formula
+% issue: #30
+\documentclass{article}
+\begin{document}
+Two numbered formulas, each with a label written where it stands.
+\begin{equation}
+  E = mc^2 \label{eq:energy}
+\end{equation}
+\begin{equation}
+  \label{eq:sum} \sum_{i=1}^n i = \frac{n(n+1)}{2}
+\end{equation}
+and some text after them.
+\end{document}
