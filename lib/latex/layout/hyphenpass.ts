@@ -55,8 +55,9 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
     prevS = s; s++
   }
   // done2
-  const hyfChar = HYPHEN_CHAR
   const font = hf!
+  const hyfChar = font.hyphenChar ?? HYPHEN_CHAR
+  if (hyfChar < 0 || hyfChar > 255) return // done1
   const ha = prevS
 
   // § 896: collect letters into hu/hc up to hb

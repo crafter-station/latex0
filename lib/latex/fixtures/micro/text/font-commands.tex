@@ -1,0 +1,9 @@
+% fixture: text/font-commands
+% tier: T3
+% engine: document
+% covers: \textbf \textit \emph (nested: upright inside italic) \textsl \textsc \texttt \textsf \textmd \textup \textrm \textnormal, the italic corrections of \check@icl and \check@icr (\sw@slant, \fix@penalty; none before , or .), interword spaces in each font, hyphenation of words in other fonts, a footnote with \emph
+% issue: #30
+\documentclass{article}
+\begin{document}
+Of \textbf{bold} words, \textit{italic} words, \textit{it}. and \emph{emphasis with \emph{inner} text} that runs on. A \textsl{slanted phrase}, \textsc{Small Capitals}, \texttt{typewriter text}, \textsf{sans serif} and \textbf{\textit{bold italic}} side by side, then \textmd{medium}, \textup{upright}, \textrm{roman} and \textnormal{normal}. Long words in other fonts break across lines too: \textit{hyphenation demerits typesetting} \textbf{composition paragraphs algorithm} \texttt{tolerance}.\footnote{A note with \emph{emphasis} and \textbf{weight}.} The end of the paragraph \textit{comes here}
+\end{document}

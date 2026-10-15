@@ -287,18 +287,16 @@ const clearRest = (): Node[] => [{ kind: "whatsit", text: "\\write-{}" }, emptyB
 
 /** \end{document} after the main vertical list `contrib`: the pages TeX's page builder cuts and LaTeX's output routine ships. */
 export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSpec = k.glue.parskip) {
-  // \clearpage, whose \newpage is \vfil\penalty-10000 (since LaTeX 2025-06-01 the last line's
-  // depth is backed up in the output routine, \@outputbox@reinsertbskip, not here)
-  contrib.push(glue(0, 65536, FIL), penalty(-10000))
-  // the rest of \clearpage. Its output routine (\@doclearpage) ships a page only for footnotes still
-  // held over, and then clears the page again
-  const clear = clearRest
+  // \clearpage: its \newpage (\vfil\penalty-10000; since LaTeX 2025-06-01 the last line's depth is backed
+  // up in the output routine, \@outputbox@reinsertbskip, not here), then \write\m@ne{}\vbox{}\penalty-\@Mi,
+  // whose output routine (\@doclearpage) ships a page only for footnotes still held over, and then
+  // clears the page again
+  contrib.push(glue(0, 65536, FIL), penalty(-10000), ...clearRest())
   const out = new LatexOutput(k, parskip)
   const fs = k.glue.footinsskip
   const built = buildPages(contrib, {
     vsize: () => out.vsize(), maxDepth: k.dimens.maxdepth, topSkip: paramGlue("topskip", plain(k.glue.topskip)),
     inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen } },
-    more: (last) => (last?.outputPenalty === -10000 ? clear() : null),
     float: (held, marker, boxes) => out.float(held, marker, boxes),
     hook: (h) => out.hook(h as OutputHook),
     output: (page) => out.output(page),

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 85,
-  "exact": 74,
+  "fixtures": 86,
+  "exact": 75,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 56514
+  "glyphs": 56857
  },
  "areas": [
   {
@@ -66,8 +66,8 @@
   },
   {
    "area": "text",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "title",
@@ -932,6 +932,17 @@
    "status": "pass",
    "glyphs": 2871,
    "covers": "sections in a 12pt report: numbers prefixed by \\thechapter (0), \\subsubsection unnumbered (secnumdepth 2) but in the toc, sections across pages, a list right after a heading (\\@nbitem)",
+   "issue": "#30"
+  },
+  {
+   "id": "text/font-commands",
+   "file": "micro/text/font-commands.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 343,
+   "covers": "\\textbf \\textit \\emph (nested: upright inside italic) \\textsl \\textsc \\texttt \\textsf \\textmd \\textup \\textrm \\textnormal, the italic corrections of \\check@icl and \\check@icr (\\sw@slant, \\fix@penalty; none before , or .), interword spaces in each font, hyphenation of words in other fonts, a footnote with \\emph",
    "issue": "#30"
   },
   {

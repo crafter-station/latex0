@@ -1,6 +1,6 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
-// lays out — classes and sizes, OT1 or T1 fonts, page styles, paragraphs with inline math and
-// footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
+// lays out — classes and sizes, OT1 or T1 fonts, page styles, paragraphs with inline math,
+// \textbf and the other font commands, and footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
 // lists (nested, \item[label]) started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
@@ -9,7 +9,7 @@
 //
 //   bun engine fuzz:documents [--n 30] [--seed 1]
 
-import { mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { runFixture } from "../unit/run"
 
@@ -44,6 +44,15 @@ export function makeDocument(r: () => number): string {
     for (let i = 0; i < ws.length; i++) {
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.015) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
+    }
+    // runs of words in other fonts (\textbf, \emph, …), sometimes nested, sometimes before , or .
+    const font = () => pick(["textbf", "textit", "emph", "emph", "textsl", "textsc", "texttt", "textsf", "textmd", "textup"])
+    for (let i = 0; i < ws.length; i++) {
+      if (r() >= 0.04) continue
+      const len = 1 + Math.floor(r() * 4)
+      let inner = ws.slice(i, i + len).join(" ")
+      if (r() < 0.2) inner = `${inner} \\${font()}{${words(1 + Math.floor(r() * 2))}}`
+      ws.splice(i, len, `\\${font()}{${inner}}${r() < 0.2 ? pick([",", "."]) : ""}`)
     }
     return ws.join(" ")
   }
@@ -151,6 +160,12 @@ export function fuzzDocuments(n: number, seed: number): number {
     const file = join(dir, `doc-${seed}-${i}.tex`)
     writeFileSync(file, "% engine: document\n" + makeDocument(r))
     const res = runFixture(file)
+    // TeX's work files (a log with \tracingassigns runs to tens of megabytes) and its saved reference are
+    // kept only for differences
+    if (res.status === "pass" || res.status === "skip") {
+      rmSync(join(".cache/oracle", `doc-${seed}-${i}`), { recursive: true, force: true })
+      for (const f of existsSync(".cache/oracle/refs") ? readdirSync(".cache/oracle/refs") : []) if (f.startsWith(`doc-${seed}-${i}.`)) rmSync(join(".cache/oracle/refs", f))
+    }
     glyphs += res.glyphs
     if (res.status === "pass") pass++
     else if (res.status === "skip") { pending++; const k = (res.message ?? "").replace(/"[^"]*"/g, "…"); reasons.set(k, (reasons.get(k) ?? 0) + 1) } // a float LaTeX would move elsewhere: not laid out yet

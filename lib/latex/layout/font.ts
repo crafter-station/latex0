@@ -31,6 +31,8 @@ export interface Font {
   falseBchar: number
   /** start of the left boundary program in ligKern (bchar_label), or null */
   bcharLabel: number | null
+  /** \hyphenchar: 45 unless the font's family says otherwise (-1 for typewriter: no hyphenation) */
+  hyphenChar?: number
 }
 
 /** Boundary-character data from a lig/kern program (§§ 573, 576). */
