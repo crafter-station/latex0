@@ -84,6 +84,8 @@ export interface ParagraphOptions {
   noteClubPenalty?: number
   /** \centering and friends */
   leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode; finalHyphenDemerits?: number
+  /** \unskips before the \par (\@item's two, \endtrivlist's one), each taking a final glue */
+  unskip?: number
   /** \sloppy (\@parboxrestore in floats and boxes) */
   tolerance?: number; emergencyStretch?: number
   /** amsmath is loaded: its math fonts */
@@ -92,9 +94,19 @@ export interface ParagraphOptions {
   prevGraf?: number; widowPenalty?: number
 }
 
+/**
+ * Paragraph text as TeX's reading leaves it: runs of spaces are one space, none at the start. One at the
+ * end stays after a closing brace: the group may end with a space of its own, and \par (line_break, § 816)
+ * removes only the last glue; elsewhere the end's space is that last glue, so it goes.
+ */
+export const squeeze = (t: string): string => {
+  const s = t.replace(/\s+/g, " ").replace(/^ /, "")
+  return / $/.test(s) && /\} $/.test(s) ? s : s.replace(/ $/, "")
+}
+
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece =
-  | { kind: "text" | "math" | "footnote"; src: string }
+  | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -104,7 +116,7 @@ const FONT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup
 type FontCommand = typeof FONT_COMMANDS[number]
 
 /** NFSS attributes: encoding, family, series, shape */
-export interface FontAttrs { enc: "OT1" | "T1"; fam: "cmr" | "cmss" | "cmtt"; ser: "m" | "bx"; shape: Shape }
+export interface FontAttrs { enc: "OT1" | "T1" | "TS1"; fam: "cmr" | "cmss" | "cmtt"; ser: "m" | "bx"; shape: Shape }
 type Shape = "n" | "it" | "sl" | "sc" | "scit" | "scsl"
 
 /**
@@ -180,11 +192,15 @@ function pieces(body: string, footnotes = true): Piece[] {
   const out: Piece[] = []
   let i = 0, text = ""
   const flushText = () => {
-    if (/[\\{}%&#^_~]/.test(text)) throw new Error(`paragraph adapter accepts plain text, $…$ and \\footnote{…}: ${text.slice(0, 40)}`)
     if (text) out.push({ kind: "text", src: text })
     text = ""
   }
   while (i < body.length) {
+    // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
+    if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
+    if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "companion", src: "$" }); i += 2; continue }
+    // an empty group: no node, but no ligature or kern across it
+    if (body.startsWith("{}", i)) { flushText(); i += 2; continue }
     if (body[i] === "$") {
       const j = body.indexOf("$", i + 1)
       if (j < 0) throw new Error("paragraph adapter: unbalanced $")
@@ -202,7 +218,10 @@ function pieces(body: string, footnotes = true): Piece[] {
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Error("paragraph adapter: unbalanced \\footnote{")
       flushText(); out.push({ kind: "footnote", src: body.slice(i + 10, j) }); i = j + 1
-    } else text += body[i++]
+    } else {
+      if ("\\{}%&#^_~".includes(body[i])) throw new Error(`paragraph adapter accepts plain text, $…$ and \\footnote{…}: ${body.slice(i, i + 40)}`)
+      text += body[i++]
+    }
   }
   flushText()
   return out
@@ -258,7 +277,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   const markBox = hpack([hss(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
-  appendPieces(list, pieces(src.trim(), false), font, fs, { spaceFactor: 1000 }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
+  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000 }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
   const { vlist, trace } = lineBreak(list, params)
@@ -295,6 +314,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
     if (p.kind === "text") appendText(list, p.src, font, state)
+    // \textdollar: in T1 the text font's own; otherwise the TS1 font of the same family, series and shape
+    else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state)
     else if (p.kind === "font") {
       // \DeclareTextFontCommand: {\text@command{#1}<switch>\check@icl #1\check@icr}; an empty argument (or a
       // lone space) has no italic corrections; one before the argument if the new font is upright and the
@@ -334,7 +355,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   let indent = true
   let mathSurround = mathData().dimens.mathsurround
-  body = body.replace(/\s+/g, " ").trim()
+  body = squeeze(body)
   // leading paragraph assignments, scanned as TeX scans them (§§ 440–463)
   for (;;) {
     const m = body.match(/^\\([a-z]+)\s*/)
@@ -371,6 +392,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
   appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, amsmath: opts.amsmath, base })
+  for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   return { list, params, notes }
 }
 

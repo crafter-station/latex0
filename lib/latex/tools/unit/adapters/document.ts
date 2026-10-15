@@ -35,8 +35,10 @@ import { ORACLE_EPOCH } from "../../tex"
 import type { ParagraphTrace } from "../../../trace/decisions"
 import type { Adapter, AdapterResult } from "./index"
 import { geometry, GeometryUnsupported } from "./geometry"
+import { expandDocument } from "../../../expand/document"
+import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
-import { appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
+import { squeeze, appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 type TabularLine = { cells: string[] } | { rule: true }
@@ -59,9 +61,9 @@ const IGNORE_DEPTH = null // \prevdepth = -1000pt
 /** What a float marker carries to the output routine: the float's box, its placement bits, and \if@nobreak. */
 
 type Block =
-  | { kind: "par"; text: string; noindent: boolean }
+  | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number }
   | ListBlock
-  | { kind: "heading"; level: 0 | 1 | 2 | 3; star: boolean; title: string }
+  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
 
@@ -73,7 +75,7 @@ const ENV_ALT = ENVS.join("|")
 interface ListBlock { kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 interface Item { label: string | null; parts: Part[] }
-type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[] } | ListBlock
+type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number } | ListBlock
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
@@ -105,23 +107,28 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
   if (!listy && cuts.length) throw new Unsupported(`\\item in ${env}`)
   if (listy && inner.slice(0, cuts[0] ?? inner.length).trim()) throw new Unsupported("text before the first \\item")
   const bodies = listy ? cuts.map((c, i) => inner.slice(c + 5, cuts[i + 1] ?? inner.length)) : [inner]
-  const items = bodies.map((x) => {
+  const items = bodies.map((x, bi) => {
     const opt = listy ? x.match(/^\s*\[([^\]]*)\]/) : null // \item[label]
     if (opt && /[\\{}$%&#^_~[]/.test(opt[1])) throw new Unsupported(`\\item[${opt[1]}]`)
     if (opt) x = x.slice(opt[0].length)
     const parts: Part[] = []
     // text: paragraphs at blank lines and, where \\ is \@centercr, at \\
-    const text = (t: string, afterEnv: boolean) => {
-      t.split(/\n[ \t]*\n/).forEach((para, pi) => {
+    // what ends the last paragraph of a stretch of text: \@item's \unskip\unskip\par, \endtrivlist's and
+    // \@trivlist's \unskip\par; a blank line or \@centercr's \par after its \unskip
+    const text = (t: string, afterEnv: boolean, endUnskip: number) => {
+      const paras = t.split(/\n[ \t]*\n/)
+      paras.forEach((para0, pi) => {
+        const para = pi < paras.length - 1 ? para0 + " " : para0 // the line end before a blank line is a space
         const lines = para.split(/\\\\/)
         if (lines.length > 1 && !crs) throw new Unsupported(`\\\\ in ${env}`)
         lines.forEach((line, li) => {
           if (/^\s*[*[]/.test(line) && li > 0) throw new Unsupported("\\\\* or \\\\[…]")
-          const tx = line.replace(/\s+/g, " ").trim()
+          const tx = squeeze(line)
           if (!tx && li > 0 && parts.length) { parts.push({ kind: "text", text: "", start: "cr" }); return } // a \\ ending the text
           if (!tx) return
           const start = !parts.length ? "label" : li > 0 ? "cr" : pi === 0 && afterEnv ? "doendpe" : "par"
-          parts.push({ kind: "text", text: tx, start })
+          const unskip = li < lines.length - 1 ? 1 : pi < paras.length - 1 ? 0 : endUnskip
+          parts.push({ kind: "text", text: tx, start, unskip })
         })
       })
     }
@@ -129,7 +136,7 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
     let at = 0
     for (let m: RegExpExecArray | null; (m = nested.exec(x)); ) {
       const before = x.slice(at, m.index)
-      text(before, at > 0)
+      text(before, at > 0, 1)
       if (!parts.length) throw new Unsupported(`an environment right at the start of ${listy ? "an \\item" : env}`)
       // in a paragraph unless a blank line or a \\ (\@centercr's \par) ended it
       const inP = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/\\\\\s*$/.test(before)
@@ -137,14 +144,14 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
       parts.push(parseList(m[1] as EnvName, x.slice(nested.lastIndex, end.at), inP, /\n[ \t]*\n\s*$/.test(before)))
       at = nested.lastIndex = end.next
     }
-    text(x.slice(at), at > 0)
+    text(x.slice(at), at > 0, listy && bi < bodies.length - 1 ? 2 : 1)
     if (!parts.length) parts.push({ kind: "text", text: "", start: "label" })
     return { label: opt ? opt[1] : null, parts }
   })
   return { kind: "list", env, items, inPar, blank }
 }
 
-const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3 } as const
+const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
 interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*"; src: string }
@@ -167,13 +174,13 @@ function displaySegments(text: string): (string | Display)[] {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
     const parts = s.split(/\n[ \t]*\n/)
     parts.forEach((p, i) => {
-      const t = p.replace(/\s+/g, " ").trim()
+      const t = squeeze(i < parts.length - 1 ? p + " " : p) // the line end before a blank line is a space
       if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe })
     })
   }
@@ -199,6 +206,8 @@ function blocksOf(body: string): Block[] {
     }
     const inPar = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== ""
     const end = listEnd(body, re.lastIndex, m[3])
+    const prev = out[out.length - 1]
+    if (inPar && prev?.kind === "par") prev.unskip = 1
     out.push(parseList(m[3] as EnvName, body.slice(re.lastIndex, end.at), inPar, /\n[ \t]*\n\s*$/.test(before)))
     re.lastIndex = end.next
     at = end.next
@@ -206,7 +215,7 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`) }
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`) }
   for (const b of out) {
     if (b.kind === "par") displaySegments(b.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
     else if (b.kind === "list") {
@@ -218,7 +227,7 @@ function blocksOf(body: string): Block[] {
       walk(b)
     }
     else if (b.kind === "maketitle" || b.kind === "float") continue
-    else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, ""))) throw new Unsupported(`heading "${b.title}"`)
+    else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
 }
@@ -347,7 +356,11 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
  * which is laid out before the output routine places the float: the document is laid out again,
  * with the float not placed here, until every such guess holds.
  */
-export const document: Adapter = (src) => {
+export const document: Adapter = (source) => {
+  // the document's own macros expanded first, as the renderer does (expand:doc checks this keeps TeX's output)
+  const expanded = expandDocument(source, { known: isKnownCommand })
+  if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
+  const src = expanded.text
   const notHere = new Set<number>()
   for (;;) {
     try { return layout(src, notHere) } catch (e) {
@@ -371,9 +384,13 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   const geometryOptions: string[] = []
+  const newCounters: [string, string | null][] = []
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
+    if (line === "{}") continue // a definition the expander took out
+    const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
+    if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
     const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
     if (geo) { geometryOptions.push(geo[1] ?? ""); continue }
@@ -406,7 +423,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   const decisions: ParagraphTrace[] = []
   const outerParskip = k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
-    const { list, params, notes } = paragraphInput(text, k, size, doc, { ...opts, amsmath })
+    const { list, params, notes } = paragraphInput(counted(text), k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
     v.paragraph(vlist, parskip, k.sizes[size].baselineskip)
@@ -422,37 +439,125 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   const href = (counter: string, n: number) => (cls === "article" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
   // \theequation, \thefigure, \thetable: in report and book, prefixed by the chapter once there is one
   const the = (n: number) => (cls !== "article" && counters[0] > 0 ? `${counters[0]}.${n}` : String(n))
+  // counters the document makes (\newcounter), with the counter that resets each, and LaTeX's own
+  const userCounters = new Map<string, { value: number; within: string | null }>()
+  for (const [name, within] of newCounters) userCounters.set(name, { value: 0, within })
+  const counterValue = (name: string): number => {
+    const u = userCounters.get(name)
+    if (u) return u.value
+    const i = ["chapter", "section", "subsection", "subsubsection"].indexOf(name)
+    if (i >= 0) return counters[i]
+    if (name === "equation" || name === "figure" || name === "table") return counters[name]
+    if (name === "footnote") return doc.footnote
+    throw new Unsupported(`counter ${name}`)
+  }
+  const setCounter = (name: string, value: number) => {
+    const u = userCounters.get(name)
+    if (u) { u.value = value; return }
+    throw new Unsupported(`\\setcounter of LaTeX's ${name}`)
+  }
+  const representation = (style: string, n: number) => {
+    if (style === "arabic") return String(n)
+    if (style === "roman" || style === "Roman") {
+      let out = "", x = n
+      for (const [v2, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (x >= v2) { out += r; x -= v2 }
+      return style === "Roman" ? out.toUpperCase() : out
+    }
+    if (n === 0) return "" // \ifcase 0: nothing
+    if (n < 0 || n > 26) throw new Unsupported(`\\${style} of ${n}`) // LaTeX: Counter too large
+    return String.fromCharCode((style === "alph" ? 96 : 64) + n)
+  }
+  /** \the<counter>: \arabic (\newcounter{c}[parent] only resets it; \counterwithin would change \the) */
+  const theCounter = (name: string): string => {
+    const u = userCounters.get(name)
+    if (!u) throw new Unsupported(`\\the${name}`)
+    return String(u.value)
+  }
+  const COUNTER_COMMANDS = /\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?|\{\}/g
+  /** Counter commands in text, in order: \stepcounter and friends act (resetting the counters within), \the… and \arabic… print */
+  const counted = (text: string): string => text.replace(/\\(setcounter|addtocounter|stepcounter|refstepcounter)\s*\{([^{}]*)\}(?:\s*\{([^{}]*)\})?|\\(arabic|roman|Roman|alph|Alph)\s*\{([^{}]*)\}|\\the([a-zA-Z]+)\b\s*/g, (_m, cmd, name, arg, style, cname, tname) => {
+    if (cmd) {
+      const val = (x: string | undefined) => { const vm = x?.match(/^\s*\\value\s*\{([^{}]*)\}\s*$/); if (vm) return counterValue(vm[1]); if (x === undefined || !/^\s*-?\d+\s*$/.test(x)) throw new Unsupported(`\\${cmd} value "${x}"`); return Number(x) }
+      if (cmd === "setcounter") setCounter(name, val(arg))
+      else if (cmd === "addtocounter") setCounter(name, counterValue(name) + val(arg))
+      else {
+        if (!userCounters.has(name)) throw new Unsupported(`\\${cmd}{${name}}`)
+        setCounter(name, counterValue(name) + 1)
+        for (const [n2, u] of userCounters) if (u.within === name) u.value = 0
+        if (arg !== undefined) return `{${arg}}`
+      }
+      return "{}" // no node, but the spaces around it stay apart
+    }
+    if (style) return representation(style, counterValue(cname))
+    if (userCounters.has(tname)) return theCounter(tname)
+    return _m
+  })
+  const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined })
+  /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
+  let runIn: (() => Node[]) | null = null
+  /** a run-in heading followed by another heading: \@startsection's \leavevmode\par makes it a paragraph of its own */
+  const runInAlone = () => {
+    const start = runIn!()
+    runIn = null
+    v.par()
+    v.club = 10000
+    typeset("", { start, clubPenalty: 10000 }, outerParskip)
+    v.afterheadingEverypar = true
+  }
   blocks.forEach((b, bi) => {
-    if (b.kind === "heading") { if (b.level === 0) chapter(b); else heading(b); return }
+    // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
+    // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
+    if (runIn && b.kind === "list") { const club = v.club; runInAlone(); v.club = club; list({ ...b, inPar: true, blank: false }, topCtx()); v.afterheadingEverypar = false; v.endpePar = true; return }
+    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+    if (b.kind === "heading") { if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
     if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
+      // counter commands in vertical mode make no paragraph
+      if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
+      // a run-in heading goes in place first: its title sees the counters as the paragraph starts
+      const head = runIn ? runIn() : null
+      const text = counted(b.text)
+      if (head) { // \@xsect's \everypar: the indent box gives way to the heading, \clubpenalty\@M
+        const start = head
+        runIn = null
+        v.par()
+        if (v.nobreak) throw new Unsupported("a run-in heading right after a heading")
+        // a display environment that starts the paragraph starts it in its own group: \clubpenalty\@M ends there
+        const segs0 = displaySegments(text)
+        const grouped = !(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath))
+        const outer = v.club
+        // (the heading's own lines, before the first display, are inside that group)
+        paragraphWithDisplays(text, false, grouped ? outer : 10000, grouped ? outer : 10000, start, b.unskip, 10000)
+        if (!grouped) { v.club = 10000; v.afterheadingEverypar = true } // the next paragraph's \everypar sets \@clubpenalty
+        return
+      }
       if (b.noindent) {
         // right after a list: \@doendpe's \everypar drops the indent box; its \par resets \clubpenalty
         // first, so the lines see \@clubpenalty while footnotes read before it see the value in force
         // (a list that follows at once runs that \par inside its own group, so the reset does not last)
         const noteClub = v.club
         const next = blocks[bi + 1]
-        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(b.text, true, noteClub, k.ints.clubpenalty)
-        else { v.par(); paragraphWithDisplays(b.text, true, noteClub, v.club) }
+        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(text, true, noteClub, k.ints.clubpenalty, undefined, b.unskip)
+        else { v.par(); paragraphWithDisplays(text, true, noteClub, v.club, undefined, b.unskip) }
         return
       }
       v.par() // the blank line before it
       let noindent = false
       // a display environment (or amsmath's \[, which is \begin{equation*}) that starts the paragraph
       // starts it inside the environment's group: \everypar's assignments there do not last
-      const segs = displaySegments(b.text)
+      const segs = displaySegments(text)
       const grouped = !(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath))
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
         if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000 }
         else if (!grouped) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
       }
-      paragraphWithDisplays(b.text, noindent, v.club, v.club)
+      paragraphWithDisplays(text, noindent, v.club, v.club, undefined, b.unskip)
       return
     }
     if (b.blank) v.par() // a blank line before the list
-    list(b, { depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined })
+    list(b, topCtx())
     // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe
     v.afterheadingEverypar = false
     v.endpePar = true
@@ -464,21 +569,21 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
    * it with prev_graf+3, no indentation and no \parskip. `club` is \clubpenalty while the
    * paragraph is read and `parClub` the one its final \par sees.
    */
-  function paragraphWithDisplays(text: string, noindent: boolean, club: number, parClub: number) {
+  function paragraphWithDisplays(text: string, noindent: boolean, club: number, parClub: number, start?: Node[], unskip = 0, firstClub = club) {
     const segs = displaySegments(text)
     const quad = romanFont.params[QUAD]
     let prevGraf = 0
     segs.forEach((seg, i) => {
       if (typeof seg !== "string") return
       const first = i === 0, last = i === segs.length - 1
-      const t = first ? seg.trim() : seg.replace(/^\s+/, "").trimEnd() // a display ends with \ignorespaces
+      const t = squeeze(seg) // a display ends with \ignorespaces
       const next = segs[i + 1] as Display | undefined
       let justBox: BoxNode | null = null, nlines = 0
       let params: ReturnType<typeof paragraphInput>["params"] | null = null
       const opts = {
-        clubPenalty: last ? parClub : club, noteClubPenalty: club, prevGraf,
-        ...(last ? {} : { widowPenalty: k.ints.displaywidowpenalty }),
-        ...(first ? {} : { start: [] as Node[] }),
+        clubPenalty: last ? parClub : first ? firstClub : club, noteClubPenalty: first ? firstClub : club, prevGraf,
+        ...(last ? (unskip ? { unskip } : {}) : { widowPenalty: k.ints.displaywidowpenalty }),
+        ...(first ? (start ? { start } : {}) : { start: [] as Node[] }),
       }
       if (first && !t) {
         // the display starts the paragraph: $$ (and amsmath's \[) from vertical mode starts it with the
@@ -487,10 +592,10 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
           v.prevDepth = IGNORE_DEPTH
           const lw = k.dimens.textwidth
           const mb = hpack([hss(), hss()], { exactly: xnOverD(lw, 39322, 65536) })
-          const r = typesetList([...(noindent ? [] : [emptyBox("hlist", k.dimens.parindent)]), mb], opts, true)
+          const r = typesetList([...(start ?? (noindent ? [] : [emptyBox("hlist", k.dimens.parindent)])), mb], opts, true)
           justBox = r.just; params = r.params; nlines = r.lines
-        } else if (!noindent) {
-          const r = typesetList([emptyBox("hlist", k.dimens.parindent)], opts, true)
+        } else if (!noindent || start) { // a run-in heading takes the indent box's place
+          const r = typesetList(start ?? [emptyBox("hlist", k.dimens.parindent)], opts, true)
           justBox = r.just; params = r.params; nlines = r.lines
         } else v.nodes.push(spec("parskip", outerParskip), paramGlue("parskip", glue(0))) // \noindent$$: an empty paragraph
       } else if (t || !last) {
@@ -767,14 +872,15 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
         }
         // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
         // drops it; later paragraphs are indented by \parindent
-        if (p.start === "label") typeset(p.text, { start: [labels, penalty(0), ...(p.nodes ?? [])], ...shape, ...(club ? { clubPenalty: club } : {}) }, parsep, ctx.size)
+        const un = p.unskip ? { unskip: p.unskip } : {}
+        if (p.start === "label") typeset(p.text, { start: [labels, penalty(0), ...(p.nodes ?? [])], ...shape, ...un, ...(club ? { clubPenalty: club } : {}) }, parsep, ctx.size)
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
-        else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
+        else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
         else {
           itemClub = undefined
           if (p.start === "cr") v.addvspace(negate(parsep)) // \@centercr: \par \addvspace{-\parskip}
-          if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape }, parsep, ctx.size)
+          if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un }, parsep, ctx.size)
         }
       })
     })
@@ -926,7 +1032,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack([], { exactly: 0 }), glue(labelsep)])
     const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
     const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
-    const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t)) throw new Unsupported(`${what} "${t}"`) }
+    const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
     check(title.title, "\\title")
     typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: k.ints.clubpenalty }, outerParskip, "LARGE")
     v.vskip(dimen(em("1.5em", romanFont)))
@@ -1081,10 +1187,39 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     v.afterindent = false
   }
 
+  /**
+   * \paragraph and \subparagraph: \@startsection with a negative afterskip (-1em). Before it, \par and
+   * \@secpenalty with the beforeskip (3.25ex plus1ex minus.2ex), or \everypar{} right after a heading;
+   * the heading waits (\@svsechd) for the next paragraph, whose \everypar puts it in place of the indent
+   * box: {\normalfont\normalsize\bfseries\hskip #3 title}, the toc line, \unskip\hskip 1em
+   */
+  function runInHeading(b: Extract<Block, { kind: "heading" }>) {
+    const name = b.level === 4 ? "paragraph" : "subparagraph"
+    const before = new Scanner("3.25ex plus1ex minus.2ex", bodyUnits).scanGlue()
+    v.par()
+    if (runIn) throw new Unsupported("two run-in headings in a row")
+    if (v.nobreak) v.afterheadingEverypar = false // \everypar{}
+    else { v.addpenalty(-300); v.addvspace(before) }
+    v.afterindent = true
+    if (!b.star && b.level <= k.ints.secnumdepth) throw new Unsupported(`numbered \\${name}`)
+    v.nobreak = false // \@nobreakfalse
+    // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
+    runIn = () => {
+      const title = counted(b.title)
+      const head = paragraphInput(title, k, "normalsize", doc, { start: [glue(b.level === 5 ? k.dimens.parindent : 0)], font: k.sizes.normalsize.bold, amsmath }).list
+      if (!b.star) head.push({ kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${title}}{\\thepage }{}\\protected@file@percent }}` })
+      if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip
+      head.push(glue(romanFont.params[QUAD])) // \hskip -\@tempskipa
+      return head
+    }
+  }
+
   /** \@startsection{name}{level}{\z@}{beforeskip}{afterskip}{\normalfont<size>\bfseries} and its starred form */
-  function heading(b: Extract<Block, { kind: "heading" }>) {
-    const name = (["", "section", "subsection", "subsubsection"] as const)[b.level]
-    const size: SizeCommand = (["normalsize", "Large", "large", "normalsize"] as const)[b.level]
+  function heading(heading: Extract<Block, { kind: "heading" }>) {
+    if (heading.level >= 4) return runInHeading(heading)
+    const b = { ...heading, title: counted(heading.title) } // as \protected@edef and the typesetting see it
+    const name = ["", "section", "subsection", "subsubsection"][b.level]
+    const size = (["normalsize", "Large", "large", "normalsize"] as const)[b.level as 0 | 1 | 2 | 3]
     const glueOf = (x: string) => new Scanner(x, bodyUnits).scanGlue()
     let before = glueOf(b.level === 1 ? "-3.5ex plus -1ex minus -.2ex" : "-3.25ex plus -1ex minus -.2ex")
     const after = glueOf(b.level === 1 ? "2.3ex plus .2ex" : "1.5ex plus .2ex")
@@ -1122,6 +1257,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     v.afterheadingEverypar = true
   }
 
+  if (runIn) runInAlone() // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
   if (pagestyle === "headings" && blocks.some((b) => b.kind === "heading")) throw new Unsupported("running heads with section marks")
   let built: ReturnType<typeof endDocument>
   try { built = endDocument(v.nodes, k, outerParskip) } catch (e) {
