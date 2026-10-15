@@ -3,7 +3,8 @@
 // footnotes, \section to \subsubsection (starred or not), itemize and enumerate
 // lists started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
-// of any height and placement (here, top, bottom, float pages), \label in both — each compared with TeX as a fixture is: every glyph, every line
+// of any height and placement (here, top, bottom, float pages) with tabulars in
+// them, \label in both — each compared with TeX as a fixture is: every glyph, every line
 // and page decision, every page's box tree.
 //
 //   bun engine fuzz:documents [--n 30] [--seed 1]
@@ -69,8 +70,20 @@ export function makeDocument(r: () => number): string {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
+      // maybe a tabular: l, c, r columns, \hline (sometimes doubled), \textbf cells
+      const cols = Array.from({ length: 1 + Math.floor(r() * 4) }, () => pick(["l", "c", "r"]))
+      const cell = () => { const w = words(1 + Math.floor(r() * 3)).replace(/[^A-Za-z ]/g, "").trim() || "x"; return r() < 0.2 ? `\\textbf{${w}}` : w }
+      const rows: string[] = []
+      for (let i = Math.floor(r() * 6); i >= 0; i--) {
+        if (r() < 0.3) rows.push(r() < 0.2 ? "\\hline\\hline" : "\\hline")
+        rows.push(cols.map(cell).join(" & ") + " \\\\")
+      }
+      if (r() < 0.5) rows.push("\\hline")
+      const table = r() < 0.4 ? `\\begin{tabular}{${cols.join("")}}\n${rows.join("\n")}\n\\end{tabular}` : ""
+      const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
+      const below = table && r() < 0.5
       out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
-        space, `\\caption{${words(1 + Math.floor(r() * 8))}}`, r() < 0.5 ? `\\label{${env}:${b}}` : "", `\\end{${env}}`)
+        space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection"])

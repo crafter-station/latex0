@@ -38,6 +38,8 @@ import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, 
 import { appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
+type TabularLine = { cells: string[] } | { rule: true }
+
 /** How many groups are open at the end of `src` (braces not escaped). */
 const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
 
@@ -599,9 +601,31 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     const content: Node[] = []
     let pd: number | null = IGNORE_DEPTH, number = 0
     const hsize = k.dimens.columnwidth
-    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\S+/g) ?? []
+    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\begin\{tabular\}\{[^}]*\}[^]*?\\end\{tabular\}|\S+/g) ?? []
+    let centered = false
     for (const it of items) {
-      if (it === "\\centering") continue
+      if (it === "\\centering") { centered = true; continue }
+      // a tabular starts a paragraph (\leavevmode): the \parindent box (zero after \@parboxrestore), then
+      // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
+      const tab = it.match(/^\\begin\{tabular\}\{([^}]*)\}([^]*)\\end\{tabular\}$/)
+      if (tab) {
+        const { cols, lines } = tabularOf(tab[1], tab[2])
+        const box = tabular(lines, cols, "normalsize", "c")
+        const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+        const shape = centered ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : {}
+        // \@parboxrestore's \sloppy: \tolerance 9999, \emergencystretch 3em
+        const par = paragraphInput("", k, "normalsize", doc, { ...shape, start: [hpack([]), box], amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD] })
+        const lb = lineBreak(par.list, par.params)
+        decisions.push(lb.trace)
+        // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
+        // so does LaTeX's restart of the paragraph
+        if (content.length) content.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+        for (const n of lb.vlist) {
+          if (n.kind === "hlist") pd = appendToVlist(content, n, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+          else content.push(n)
+        }
+        continue
+      }
       // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
       let m = it.match(/^\\vspace\s*\{([^}]*)\}$/)
       if (m) {
@@ -678,7 +702,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     const start: Node[] = [hpack([])] // \parindent is zero in center
     authors.forEach((rows, i) => {
       if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
-      start.push(tabular(rows.map((r) => [r]), ["c"], "large"))
+      start.push(tabular(rows.map((r) => ({ cells: [r] })), ["c"], "large"))
     })
     const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty, amsmath })
     const ab = lineBreak(authorPar.list, authorPar.params)
@@ -702,16 +726,30 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   }
 
   /** \begin{tabular}[t]{cols}: \leavevmode\hbox{$\vtop{\ialign{\@arstrut ...\cr ...}}$} (latex.ltx \@tabular, \@array) */
-  function tabular(rows: string[][], cols: ("l" | "c" | "r")[], size: SizeCommand): BoxNode {
+  /**
+   * \begin{tabular}[pos]{cols} (latex.ltx \@tabular, \@array): \hbox{$\vtop or \vcenter{\halign…}$}, each
+   * row starting with \@arstrut, each cell \hskip\tabcolsep, the entry (\hfil around it as the column
+   * says), \hskip\tabcolsep; \hline is \noalign{\hrule height\arrayrulewidth}, and a second one right
+   * after it adds \vskip\doublerulesep \vskip-\arrayrulewidth. A cell is text or \textbf{text}.
+   */
+  function tabular(lines: TabularLine[], cols: ("l" | "c" | "r")[], size: SizeCommand, pos: "t" | "c" = "t"): BoxNode {
     const f = k.sizes[size].font, font = loadFont(dataFont(f.name), f.at)
+    const bf = loadFont(dataFont(k.sizes[size].bold.name), k.sizes[size].bold.at)
     const strut = k.sizes[size].strut
     const sep = k.dimens.tabcolsep
-    const cells = rows.map((row) => row.map((text, j) => {
+    const rows = lines.filter((l): l is { cells: string[] } => "cells" in l)
+    const cells = rows.map((row) => row.cells.map((text, j) => {
       const l: Node[] = j === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }] : [] // \@arstrut
       l.push(glue(sep)) // \@acol: \hskip\tabcolsep
       const hfil = () => glue(0, 65536, FIL)
       const body: Node[] = []
-      appendText(body, text.replace(/\s+/g, " ").trim(), font, { spaceFactor: 1000 }, false) // \ignorespaces # \unskip
+      const t = text.replace(/\s+/g, " ").trim()
+      const bold = t.match(/^\\textbf\s*\{([^{}\\]*)\}$/)
+      if (/[\\{}$%&#^_~]/.test(bold ? bold[1] : t)) throw new Unsupported(`tabular cell "${t}"`)
+      appendText(body, (bold ? bold[1] : t).trim(), bold ? bf : font, { spaceFactor: 1000 }, false) // \ignorespaces # \unskip
+      // \textbf's \check@icr: an italic correction after it (the outer font is upright, and what follows is no , or .)
+      const lastChar = body[body.length - 1]
+      if (bold && lastChar?.kind === "char") body.push(kern(bf.chars.get(lastChar.char)!.italic, true))
       const c = cols[j]
       if (c === "c") l.push(hfil(), glue(1), ...body, hfil())
       else if (c === "l") l.push(glue(1), ...body, hfil())
@@ -721,15 +759,46 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     }))
     const tabskip = Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0)))
     const rowBoxes = halign(cells, tabskip, { additional: 0 })
-    // the \vtop's list: rows with interline glue (\baselineskip and \lineskip are zero in \@array)
+    // the alignment's list: rows with interline glue (\baselineskip and \lineskip are zero in \@array), rules
     const list: Node[] = []
-    let pd: number | null = null
-    for (const r of rowBoxes) pd = appendToVlist(list, r, pd, dimen(0), dimen(0), k.dimens.lineskiplimit)
-    const vtop = vpack(list)
+    let pd: number | null = null, r = 0
+    lines.forEach((l, i) => {
+      if ("cells" in l) { pd = appendToVlist(list, rowBoxes[r++], pd, dimen(0), dimen(0), k.dimens.lineskiplimit); return }
+      if (i > 0 && "rule" in lines[i - 1]) list.push(glue(k.dimens.doublerulesep), glue(-k.dimens.arrayrulewidth))
+      list.push({ kind: "rule", width: rowBoxes[0]?.width ?? 0, height: k.dimens.arrayrulewidth, depth: 0 }) // fin_align sets a running width (§ 805)
+      pd = null // a rule leaves \prevdepth at -1000pt
+    })
+    const box = vpack(list)
     const first = list[0]
-    const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
-    vtop.depth = vtop.depth - h + vtop.height; vtop.height = h // § 1087
-    return hpack([{ kind: "math", on: true, width: 0 }, vtop, { kind: "math", on: false, width: 0 }])
+    if (pos === "t") { // \vtop (§ 1087)
+      const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
+      box.depth = box.depth - h + box.height; box.height = h
+    } else { // \vcenter: make_vcenter (§ 736), about the axis of the text size
+      const delta = box.height + box.depth
+      box.height = mathEnv(k, size, amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+      box.depth = delta - box.height
+    }
+    return hpack([{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }])
+  }
+
+  /** \begin{tabular}{cols}…\end{tabular}: its lines, or Unsupported */
+  function tabularOf(spec: string, body: string): { cols: ("l" | "c" | "r")[]; lines: TabularLine[] } {
+    if (!/^[lcr]+$/.test(spec)) throw new Unsupported(`tabular columns {${spec}}`)
+    const cols = [...spec] as ("l" | "c" | "r")[]
+    const lines: TabularLine[] = []
+    let rest = body.trim()
+    for (;;) {
+      while (/^\\hline\b/.test(rest)) { lines.push({ rule: true }); rest = rest.replace(/^\\hline\s*/, "") }
+      if (!rest) break
+      const end = rest.indexOf("\\\\")
+      const row = end < 0 ? rest : rest.slice(0, end)
+      rest = end < 0 ? "" : rest.slice(end + 2).trim()
+      if (/\\hline/.test(row)) throw new Unsupported("\\hline inside a row")
+      const cells = row.split("&")
+      if (cells.length > cols.length) throw new Unsupported("more cells than columns")
+      lines.push({ cells })
+    }
+    return { cols, lines }
   }
 
   /** \@startsection{name}{level}{\z@}{beforeskip}{afterskip}{\normalfont<size>\bfseries} and its starred form */

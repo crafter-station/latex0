@@ -1,0 +1,44 @@
+% fixture: floats/tabulars
+% tier: T3
+% engine: document
+% covers: tabular in a float (\@tabular with \vcenter about the axis, \@arstrut, \hskip\tabcolsep, l c r columns), \hline and a doubled \hline (\doublerulesep), rules as wide as the alignment (fin_align), \textbf cells with \check@icr, centered or not, caption above or below
+% issue: #30
+\documentclass[11pt]{article}
+\begin{document}
+Tables come in many shapes; this paragraph is here so that the floats have some text to float around.
+
+\begin{table}[h]
+\centering
+\caption{Measurements}\label{tab:m}
+\begin{tabular}{lrc}
+\hline\hline
+\textbf{Name} & \textbf{Value} & Unit \\
+\hline
+width & 12 & pt \\
+height & 3.5 & pt \\
+depth of a very long entry & 0 & pt\\
+\hline
+\end{tabular}
+\end{table}
+
+More text between the floats, long enough to make a line or two of its own on the page.
+
+\begin{table}[h]
+\begin{tabular}{cc}
+a & b \\
+c & d
+\end{tabular}
+\caption{Not centered, caption below}
+\end{table}
+
+\begin{figure}[h]
+\centering
+\begin{tabular}{r}
+\textbf{Bold} \\
+\hline
+right
+\end{tabular}
+\end{figure}
+
+The end.
+\end{document}

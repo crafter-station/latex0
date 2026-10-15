@@ -83,6 +83,8 @@ export interface ParagraphOptions {
   noteClubPenalty?: number
   /** \centering and friends */
   leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode; finalHyphenDemerits?: number
+  /** \sloppy (\@parboxrestore in floats and boxes) */
+  tolerance?: number; emergencyStretch?: number
   /** amsmath is loaded: its math fonts */
   amsmath?: boolean
   /** lines already in the paragraph (before a display), and the widow penalty in force */
@@ -257,6 +259,8 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   if (opts.rightSkip) params.rightSkip = opts.rightSkip
   if (opts.parFillSkip) params.parFillSkip = opts.parFillSkip
   if (opts.finalHyphenDemerits !== undefined) params.finalHyphenDemerits = opts.finalHyphenDemerits
+  if (opts.tolerance !== undefined) params.tolerance = opts.tolerance
+  if (opts.emergencyStretch !== undefined) params.emergencyStretch = opts.emergencyStretch
   if (opts.prevGraf !== undefined) params.prevGraf = opts.prevGraf
   if (opts.widowPenalty !== undefined) params.widowPenalty = opts.widowPenalty
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
