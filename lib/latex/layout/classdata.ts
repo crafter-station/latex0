@@ -29,6 +29,8 @@ export interface SizeData {
   companion: FontRef
   /** the roman and bold fonts with \usepackage[T1]{fontenc}: the EC fonts */
   t1: { font: FontRef; bold: FontRef }
+  /** the font LaTeX selects for "encoding/family/series/shape" (OT1 or T1; cmr, cmss, cmtt; m, bx; n, it, sl, sc) */
+  fonts: Record<string, FontRef & { hyphenchar: number; declared: boolean }>
   /** \strutbox as \@setfontsize makes it: 0.7 and 0.3 \baselineskip */
   strut: { height: number; depth: number }
   abovedisplayskip: GlueSpec

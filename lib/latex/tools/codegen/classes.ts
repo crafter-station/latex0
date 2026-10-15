@@ -9,7 +9,7 @@ import { join } from "node:path"
 import { SIZE_COMMANDS, type ClassData, type ClassOptionData, type SizeData } from "../../layout/classdata"
 import { parseGlue } from "../../layout/dimen"
 import { parseScaled } from "../oracle/tracing"
-import { dataFont } from "../fonts"
+import { loadTfm } from "../oracle/oracle"
 import { texEnv } from "../tex"
 
 const OUT = "lib/latex/data/classes"
@@ -35,6 +35,8 @@ const INTS = [
   "interlinepenalty", "floatingpenalty", "adjdemerits", "doublehyphendemerits", "finalhyphendemerits", "looseness",
   "lefthyphenmin", "righthyphenmin", "uchyph", "mag", "interfootnotelinepenalty",
 ]
+/** The text fonts the engine selects: encoding/family/series/shape (NFSS) */
+const FONT_SHAPES = ["OT1", "T1"].flatMap((e) => ["cmr", "cmss", "cmtt"].flatMap((f) => ["m", "bx"].flatMap((s) => ["n", "it", "sl", "sc", "scit", "scsl"].map((h) => `${e}/${f}/${s}/${h}`))))
 const LIST = [["D", "leftmargin"], ["D", "labelwidth"], ["G", "topsep"], ["G", "partopsep"], ["G", "parsep"], ["G", "itemsep"]] as const
 const DISPLAY = ["abovedisplayskip", "belowdisplayskip", "abovedisplayshortskip", "belowdisplayshortskip"] as const
 
@@ -50,6 +52,12 @@ function probe(cls: string, option: string, packages = ""): string {
       `{\\bfseries\\immediate\\write16{B:\\expandafter\\@gobble\\string#1:\\fontname\\font}}` +
       `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}}}`,
     "\\begin{document}",
+    // with fontenc loaded: the font of every encoding, family, series and shape at every size (what NFSS
+    // substitutes when the shape is not declared) and its \\hyphenchar
+    // which shapes the .fd files declare, read before any substitution (which declares the shape it replaces)
+    ...(packages.includes("fontenc") ? [...new Set(FONT_SHAPES.map((f) => f.split("/").slice(0, 2).join("/")))].map((ef) => `{\\fontencoding{${ef.split("/")[0]}}\\fontfamily{${ef.split("/")[1]}}\\fontseries{m}\\fontshape{n}\\selectfont}`) : []),
+    ...(packages.includes("fontenc") ? FONT_SHAPES.map((f) => `\\immediate\\write16{D:${f}:\\ifcsname ${f}\\endcsname 1\\else 0\\fi}`) : []),
+    ...(packages.includes("fontenc") ? SIZE_COMMANDS.map((sz) => `{\\${sz}${FONT_SHAPES.map((f) => { const [e, fam, ser, sh] = f.split("/"); return `{\\fontencoding{${e}}\\fontfamily{${fam}}\\fontseries{${ser}}\\fontshape{${sh}}\\selectfont\\immediate\\write16{N:${sz}:${f}:\\fontname\\font:\\the\\hyphenchar\\font}}` }).join("")}}`) : []),
     ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
     ...SIZE_COMMANDS.map((s) => `\\S\\${s}`),
     // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
@@ -112,6 +120,7 @@ function texData(cls: string, option: string): ClassOptionData {
         companion: { name: "", at: 0 },
         bold: { name: "", at: 0 },
         t1: { font: { name: "", at: 0 }, bold: { name: "", at: 0 } },
+        fonts: {},
       }
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
     } else if ((m = line.match(/^([CB]):(\w+):(\w+)(?: at ([\d.]+)pt)?$/))) {
@@ -131,23 +140,26 @@ function texData(cls: string, option: string): ClassOptionData {
     data.sizes[m[1] as keyof ClassOptionData["sizes"]].mathAms = { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) }
   }
   const ref = (name: string, at?: string) => ({ name, at: at ? parseScaled(at) : designSize(name) })
+  const declared = new Map<string, boolean>()
   for (const line of t1Log) {
     let m: RegExpMatchArray | null
     const sz = (x: string) => data.sizes[x as keyof ClassOptionData["sizes"]]
-    if ((m = line.match(/^S:(\w+):[\d.]+:[\d.]+:[\d.]+:(\w+)(?: at ([\d.]+)pt)?:/)) && sz(m[1])) sz(m[1]).t1.font = ref(m[2], m[3])
+    if ((m = line.match(/^D:([\w/]+):([01])$/))) declared.set(m[1], m[2] === "1")
+    else if ((m = line.match(/^N:(\w+):([\w/]+):(\w+)(?: at ([\d.]+)pt)?:(-?\d+)$/)) && sz(m[1])) sz(m[1]).fonts[m[2]] = { ...ref(m[3], m[4]), hyphenchar: Number(m[5]), declared: declared.get(m[2]) ?? false }
+    else if ((m = line.match(/^S:(\w+):[\d.]+:[\d.]+:[\d.]+:(\w+)(?: at ([\d.]+)pt)?:/)) && sz(m[1])) sz(m[1]).t1.font = ref(m[2], m[3])
     else if ((m = line.match(/^B:(\w+):(\w+)(?: at ([\d.]+)pt)?$/)) && sz(m[1])) sz(m[1]).t1.bold = ref(m[2], m[3])
   }
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name)]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }
 
 /** A font loaded without "at" is at its design size: the TFM's fix_word, in sp (§ 568). */
 function designSize(name: string): number {
-  return Math.floor(dataFont(name).designSize / 16)
+  return Math.floor(loadTfm(name).designSize / 16)
 }
 
 export function codegenClasses(check: boolean): number {

@@ -3,7 +3,7 @@
 //   bun engine codegen --check  fail if committed data differs from the TFMs (CI)
 // Every file is verified to decode back to exactly the parsed TFM before it is written.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { decodeFontData, encodeFontData, type FontData } from "../../layout/fontdata"
 import type { FixWordFont } from "../../layout/font"
@@ -36,21 +36,33 @@ const OUT = "lib/latex/data/fonts"
 const sameFont = (a: FixWordFont, b: FixWordFont) => JSON.stringify(encodeFontData(a)) === JSON.stringify(encodeFontData(b)) &&
   a.chars.size === b.chars.size && [...a.chars].every(([c, m]) => JSON.stringify(m) === JSON.stringify(b.chars.get(c)))
 
+/** Every font the committed class data refers to (codegen writes the class data after the fonts: run it twice after a change there). */
+function classFonts(): string[] {
+  const names = new Set<string>()
+  const walk = (x: unknown): void => {
+    if (Array.isArray(x)) x.forEach(walk)
+    else if (x && typeof x === "object") { const o = x as Record<string, unknown>; if (typeof o.name === "string" && typeof o.at === "number") names.add(o.name); else Object.values(o).forEach(walk) }
+  }
+  for (const f of readdirSync("lib/latex/data/classes")) if (f.endsWith(".json")) walk(JSON.parse(readFileSync(join("lib/latex/data/classes", f), "utf8")))
+  return [...names].sort()
+}
+
 export function codegenFonts(check: boolean): number {
   const files = new Map<string, string>()
-  for (const name of FONTS) {
+  const all = [...new Set([...FONTS, ...classFonts()])]
+  for (const name of all) {
     const tfm = loadTfm(name)
     const data = encodeFontData(tfm)
     if (!sameFont(decodeFontData(data), tfm)) throw new Error(`${name}: encoded data does not round-trip`)
     files.set(`${name}.json`, JSON.stringify(data) + "\n")
   }
-  const index = { fonts: FONTS.map((n) => ({ name: n, checksum: (JSON.parse(files.get(`${n}.json`)!) as FontData).checksum })) }
+  const index = { fonts: all.map((n) => ({ name: n, checksum: (JSON.parse(files.get(`${n}.json`)!) as FontData).checksum })) }
   files.set("index.json", JSON.stringify(index, null, 1) + "\n")
 
   const stale = [...files].filter(([f, body]) => !existsSync(join(OUT, f)) || readFileSync(join(OUT, f), "utf8") !== body).map(([f]) => f)
   if (check) {
     if (stale.length) { console.log(`font data out of date: ${stale.join(", ")}\nrun: bun engine codegen`); return 1 }
-    console.log(`font data up to date (${FONTS.length} fonts)`)
+    console.log(`font data up to date (${all.length} fonts)`)
     return 0
   }
   mkdirSync(OUT, { recursive: true })

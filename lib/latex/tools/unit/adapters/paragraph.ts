@@ -13,7 +13,7 @@
 
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../../../layout/classdata"
 import { Scanner, type GlueSpec } from "../../../layout/dimen"
-import { loadFont, QUAD, X_HEIGHT } from "../../../layout/font"
+import { loadFont, QUAD, SLANT, X_HEIGHT, type Font } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
@@ -70,8 +70,9 @@ export function classParams(k: ClassOptionData): LineBreakParams {
   }
 }
 
-/** Document state that crosses paragraphs: LaTeX's footnote counter. */
-export interface DocState { footnote: number }
+/** Document state that crosses paragraphs: LaTeX's footnote counter, and the font shapes NFSS has
+ *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
+export interface DocState { footnote: number; substituted?: Set<string> }
 
 /** What a paragraph's surroundings set: the start of its list (in place of the indent box) and its shape. */
 export interface ParagraphOptions {
@@ -92,7 +93,88 @@ export interface ParagraphOptions {
 }
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
-type Piece = { kind: "text" | "math" | "footnote"; src: string }
+type Piece =
+  | { kind: "text" | "math" | "footnote"; src: string }
+  /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
+   *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
+  | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
+
+/** LaTeX's text font commands (\DeclareTextFontCommand) */
+const FONT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "textnormal", "emph"] as const
+type FontCommand = typeof FONT_COMMANDS[number]
+
+/** NFSS attributes: encoding, family, series, shape */
+export interface FontAttrs { enc: "OT1" | "T1"; fam: "cmr" | "cmss" | "cmtt"; ser: "m" | "bx"; shape: Shape }
+type Shape = "n" | "it" | "sl" | "sc" | "scit" | "scsl"
+
+/**
+ * \fontshape with LaTeX's \DeclareFontShapeChangeRule table: a rule gives a shape and a second choice;
+ * \selectfont takes the first that the family declares, else the shape asked for (\merge@font@shape).
+ * Without a rule, the shape asked for. \upshape asks for "up".
+ */
+const SHAPE_RULES: Record<Shape, Partial<Record<"it" | "sl" | "sc" | "up", [Shape, Shape | null]>>> = {
+  n: { it: ["it", "sl"], sl: ["sl", "it"], up: ["n", null] },
+  it: { sl: ["sl", "it"], sc: ["scit", "scsl"], up: ["n", null] },
+  sl: { it: ["it", "sl"], sc: ["scsl", "scit"], up: ["n", null] },
+  sc: { it: ["scit", "scsl"], sl: ["scsl", "scit"], up: ["n", null] },
+  scit: { it: ["scit", null], sl: ["scsl", "scit"], sc: ["scit", null], up: ["sc", null] },
+  scsl: { it: ["scit", "scsl"], sl: ["scsl", null], sc: ["scsl", null], up: ["sc", null] },
+}
+function mergeShape(k: ClassOptionData, size: SizeCommand, a: FontAttrs, target: "it" | "sl" | "sc" | "up", doc: DocState): Shape {
+  const rule = SHAPE_RULES[a.shape][target]
+  if (!rule) { if (target === "up") throw new Error(`no \\upshape rule from ${a.shape}`); return target }
+  const declared = (sh: Shape | null) => sh !== null && (k.sizes[size].fonts[`${a.enc}/${a.fam}/${a.ser}/${sh}`]?.declared || doc.substituted?.has(`${a.enc}/${a.fam}/${a.ser}/${sh}`))
+  if (declared(rule[0])) return rule[0]
+  if (declared(rule[1])) return rule[1]!
+  if (target === "up") throw new Error(`\\upshape from ${a.shape}: no shape declared`)
+  return target
+}
+const fontMemo = new Map<string, Font>()
+/** A font at a size, loaded once */
+export function fontAt(name: string, at: number, hyphenChar?: number): Font {
+  const key = `${name}@${at}`
+  let f = fontMemo.get(key)
+  if (!f) { f = loadFont(dataFont(name), at); fontMemo.set(key, f) }
+  if (hyphenChar !== undefined) f.hyphenChar = hyphenChar
+  return f
+}
+/** \selectfont: the font for the attributes at a size, from the class data (NFSS's substitute for an undeclared shape) */
+export function selectFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
+  const r = k.sizes[size].fonts[`${a.enc}/${a.fam}/${a.ser}/${a.shape}`]
+  if (!r) throw new Error(`no font ${a.enc}/${a.fam}/${a.ser}/${a.shape} at ${size}`)
+  return fontAt(r.name, r.at, r.hyphenchar)
+}
+/** A font command's attributes; \em turns italic in an upright font and upright in a slanted one */
+function applyFontCommand(cmd: FontCommand, a: FontAttrs, cur: Font, base: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState): FontAttrs {
+  switch (cmd) {
+    case "textbf": return { ...a, ser: "bx" }
+    case "textmd": return { ...a, ser: "m" }
+    case "textit": return { ...a, shape: mergeShape(k, size, a, "it", doc) }
+    case "textsl": return { ...a, shape: mergeShape(k, size, a, "sl", doc) }
+    case "textsc": return { ...a, shape: mergeShape(k, size, a, "sc", doc) }
+    case "textup": return { ...a, shape: mergeShape(k, size, a, "up", doc) }
+    case "textrm": return { ...a, fam: "cmr" }
+    case "textsf": return { ...a, fam: "cmss" }
+    case "texttt": return { ...a, fam: "cmtt" }
+    case "textnormal": return { ...base, fam: "cmr", ser: "m", shape: "n" }
+    case "emph": return { ...a, shape: mergeShape(k, size, a, cur.params[SLANT] > 0 ? "up" : "it", doc) } // \eminnershape is \upshape
+  }
+}
+
+/**
+ * \sw@slant (latex.ltx): the italic correction of the character before, with a skip at the end of
+ * the list taken off first (\unskip … \hskip) and a penalty too (\fix@penalty)
+ */
+function swSlant(list: Node[]) {
+  const last = list[list.length - 1]
+  const skip = last?.kind === "glue" && last.width !== 0 ? (list.pop() as GlueNode) : null
+  const l2 = list[list.length - 1]
+  const pen = l2?.kind === "penalty" && l2.penalty !== 0 ? list.pop() : null
+  const tail = list[list.length - 1]
+  if (tail?.kind === "char") list.push(kern(fontAt(tail.font, tail.size).chars.get(tail.char)!.italic, true)) // \/
+  if (pen) list.push(pen)
+  if (skip) list.push(glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder))
+}
 
 function pieces(body: string, footnotes = true): Piece[] {
   const out: Piece[] = []
@@ -107,6 +189,14 @@ function pieces(body: string, footnotes = true): Piece[] {
       const j = body.indexOf("$", i + 1)
       if (j < 0) throw new Error("paragraph adapter: unbalanced $")
       flushText(); out.push({ kind: "math", src: body.slice(i + 1, j) }); i = j + 1
+    } else if (body[i] === "\\" && FONT_COMMANDS.some((c) => body.startsWith(`\\${c}{`, i) || body.startsWith(`\\${c} {`, i))) {
+      const cmd = body.slice(i + 1).match(/^[a-z]+/)![0] as FontCommand
+      const open = body.indexOf("{", i)
+      let depth = 0, j = open
+      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
+      if (j >= body.length) throw new Error(`paragraph adapter: unbalanced \\${cmd}{`)
+      const src = body.slice(open + 1, j)
+      flushText(); out.push({ kind: "font", cmd, src, inner: pieces(src, footnotes), next: body[j + 1] ?? "" }); i = j + 1
     } else if (footnotes && body.startsWith("\\footnote{", i)) {
       let depth = 0, j = i + 9
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
@@ -168,7 +258,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   const markBox = hpack([hss(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
-  appendPieces(list, pieces(src.trim(), false), font, fs, { spaceFactor: 1000 }, ctx)
+  appendPieces(list, pieces(src.trim(), false), font, fs, { spaceFactor: 1000 }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
   const { vlist, trace } = lineBreak(list, params)
@@ -192,19 +282,32 @@ const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrin
 function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): LineBreakParams["hyphenation"] {
   return {
     hyphenator: hyphenator(),
-    fontOf: (name, size) => { if (name !== font.name || size !== font.size) throw new Error(`no font ${name}@${size}`); return font },
+    fontOf: (name, size) => (name === font.name && size === font.size ? font : fontAt(name, size)),
     lHyf: k.ints.lefthyphenmin, rHyf: k.ints.righthyphenmin, ucHyph: k.ints.uchyph,
   }
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; amsmath?: boolean }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; amsmath?: boolean; base: FontAttrs }
 
 /** Text, formulas and footnotes into a horizontal list. */
-function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFont>, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext) {
+function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
     if (p.kind === "text") appendText(list, p.src, font, state)
+    else if (p.kind === "font") {
+      // \DeclareTextFontCommand: {\text@command{#1}<switch>\check@icl #1\check@icr}; an empty argument (or a
+      // lone space) has no italic corrections; one before the argument if the new font is upright and the
+      // argument does not start with , or . ; one after it if the font around is upright and no , or . follows
+      const a = applyFontCommand(p.cmd, attrs, font, ctx.base, k, size, doc)
+      const inner = selectFont(k, size, a)
+      const key = `${a.enc}/${a.fam}/${a.ser}/${a.shape}`
+      if (!k.sizes[size].fonts[key].declared) (doc.substituted ??= new Set()).add(key) // \wrong@fontshape
+      const corr = p.src !== "" && p.src !== " "
+      if (corr && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
+      appendPieces(list, p.inner, inner, size, state, ctx, a)
+      if (corr && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
+    }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
       list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData()), mathEnv(k, size, ctx.amsmath), TEXT, true), { kind: "math", on: false, width: mathSurround })
@@ -266,7 +369,8 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   if (opts.widowPenalty !== undefined) params.widowPenalty = opts.widowPenalty
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
-  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, amsmath: opts.amsmath })
+  const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
+  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, amsmath: opts.amsmath, base })
   return { list, params, notes }
 }
 
