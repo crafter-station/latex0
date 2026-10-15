@@ -1,0 +1,42 @@
+% fixture: lists/nested-lists
+% tier: T3
+% engine: document
+% covers: lists nested four deep (\@listii … \@listiv: \leftmargin, \labelwidth, \topsep, \parsep, \itemsep, the enclosing \parskip in \@topsep), itemize labels (\textbullet, bold \textendash, \textasteriskcentered, \textperiodcentered), enumerate labels (1. (a) i. A.), an item's text after a nested list (\@doendpe), mixed itemize and enumerate
+% issue: #30
+\documentclass{article}
+\begin{document}
+Nested lists, as they come in notes and outlines.
+\begin{itemize}
+\item The first level, with enough words in it to run over onto a second line of the item.
+  \begin{itemize}
+  \item Second level.
+    \begin{itemize}
+    \item Third level.
+      \begin{itemize}
+      \item Fourth level, as deep as LaTeX goes with the standard classes.
+      \item Another one.
+      \end{itemize}
+    \item Back on the third level.
+    \end{itemize}
+  \item Back on the second level.
+  \end{itemize}
+  and the first item goes on after its list, without indentation.
+\item Second item of the first level.
+  \begin{enumerate}
+  \item Numbered inside a bullet list.
+    \begin{enumerate}
+    \item lettered
+    \item lettered again
+      \begin{enumerate}
+      \item roman
+      \item roman two
+        \begin{enumerate}
+        \item capital
+        \end{enumerate}
+      \end{enumerate}
+    \end{enumerate}
+  \item Numbered two.
+  \end{enumerate}
+\end{itemize}
+Text after the whole thing.
+\end{document}

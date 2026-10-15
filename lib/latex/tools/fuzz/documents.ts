@@ -1,7 +1,7 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
 // lays out — classes and sizes, page styles, paragraphs with inline math and
 // footnotes, \section to \subsubsection (starred or not), itemize and enumerate
-// lists started in or out of a paragraph, with text right after them or after a
+// lists (nested, \item[label]) started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
 // them, \label in both — each compared with TeX as a fixture is: every glyph, every line
@@ -90,11 +90,22 @@ export function makeDocument(r: () => number): string {
       out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}`)
       afterPar = false
     } else if (x < 0.3) {
-      const env = pick(["itemize", "enumerate"])
       if (!afterPar || r() < 0.6) out.push("")
-      out.push(`\\begin{${env}}`)
-      for (let i = 1 + Math.floor(r() * (env === "enumerate" ? 12 : 6)); i > 0; i--) out.push(`\\item ${text(r() < 0.3 ? 30 + Math.floor(r() * 50) : 2 + Math.floor(r() * 10))}`)
-      out.push(`\\end{${env}}`)
+      // lists nested up to six deep (four of a kind), items with labels of their own, text after a nested list
+      const list = (depth: number, items: number, enums: number) => {
+        const env = items >= 4 ? "enumerate" : enums >= 4 ? "itemize" : pick(["itemize", "enumerate"])
+        out.push(`\\begin{${env}}`)
+        for (let i = 1 + Math.floor(r() * (env === "enumerate" ? (depth === 1 ? 12 : 5) : 6)); i > 0; i--) {
+          const label = r() < 0.1 ? `[${pick(["--", "Note:", "(a)", "", "*", "first one"])}]` : ""
+          out.push(`\\item${label} ${text(r() < 0.3 ? 30 + Math.floor(r() * 50) : 2 + Math.floor(r() * 10))}`)
+          if (depth < 6 && r() < 0.25 / depth) {
+            list(depth + 1, items + (env === "itemize" ? 1 : 0), enums + (env === "enumerate" ? 1 : 0))
+            if (r() < 0.3) out.push(text(3 + Math.floor(r() * 20)))
+          }
+        }
+        out.push(`\\end{${env}}`)
+      }
+      list(1, 0, 0)
       afterPar = false
       if (r() < 0.3) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } // text right after the list
     } else {
