@@ -1,0 +1,27 @@
+% fixture: display/align-amsmath
+% tier: T3
+% engine: document
+% covers: amsmath align and align*: \measure@ (column widths, \totwidth@), \eqnshift@ and \alignsep@ for one and two column pairs, \minalignsep, tags placed by \place@tag, \nonumber, empty fields, \openup\jot and \interdisplaylinepenalty, inside a paragraph and opening one
+% issue: #30
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Aligned equations are set by an alignment inside a display: right-aligned and left-aligned fields alternate, the block is centred, and each row's number sits at the right margin.
+\begin{align}
+a &= b + c \\
+d &= e + f \nonumber \\
+\sum_{i=1}^n i &= \frac{n(n+1)}{2}
+\end{align}
+and two pairs of columns:
+\begin{align}
+x &= 1 & y &= 2 \\
+x^2 + y^2 &= 5 & & = z
+\end{align}
+Aligned equations are set by an alignment inside a display: right-aligned and left-aligned fields alternate, the block is centred, and each row's number sits at the right margin.
+
+\begin{align*}
+f(x) &= x^2 \\
+&= x \cdot x
+\end{align*}
+Aligned equations are set by an alignment inside a display: right-aligned and left-aligned fields alternate, the block is centred, and each row's number sits at the right margin.
+\end{document}

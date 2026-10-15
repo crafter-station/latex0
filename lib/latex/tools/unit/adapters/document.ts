@@ -24,9 +24,9 @@ import { loadFont, QUAD, X_HEIGHT, type Font } from "../../../layout/font"
 import { Scanner } from "../../../layout/dimen"
 import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
-import { emptyBox, FIL, glue, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../../../layout/display"
-import { DISPLAY as DISPLAY_STYLE, mlistToHlist } from "../../../mathlayout/mlist"
+import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
 import { hpack, vpack } from "../../../layout/pack"
 import { halign } from "../../../layout/align"
@@ -52,8 +52,8 @@ type Block =
 const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
-interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath"; src: string }
-const DISPLAY = /\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath)\}([^]*?)\\end\{\3\}/
+interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*"; src: string }
+const DISPLAY = /\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?)\}([^]*?)\\end\{\3\}/
 /** A paragraph's text split at its displays: text, display, text, …, text. */
 function displaySegments(text: string): (string | Display)[] {
   const out: (string | Display)[] = []
@@ -292,7 +292,7 @@ export const document: Adapter = (src) => {
       // a display environment (or amsmath's \[, which is \begin{equation*}) that starts the paragraph
       // starts it inside the environment's group: \everypar's assignments there do not last
       const segs = displaySegments(b.text)
-      const grouped = !(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind === "equation" || segs[1].kind === "equation*" || segs[1].kind === "displaymath" || (segs[1].kind === "bracket" && amsmath))
+      const grouped = !(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath))
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
         if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000 }
@@ -380,6 +380,12 @@ export const document: Adapter = (src) => {
       // the display
       const ps = params ?? paragraphInput("", k, "normalsize", doc, { amsmath }).params
       const line = displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape)
+      if (next.kind === "align" || next.kind === "align*") {
+        if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
+        alignDisplay(next, line, ps)
+        prevGraf += 3
+        return
+      }
       let mlist
       try { mlist = parseMath(next.src.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) }
       const env = mathEnv(k, "normalsize", amsmath)
@@ -402,6 +408,113 @@ export const document: Adapter = (src) => {
       prevGraf += 3
     })
   }
+  /**
+   * amsmath's align and align* (\start@align\@ne, \align@, \measure@, \calc@shift@align,
+   * \math@cr@@@align, \place@tag): fields alternate right- and left-aligned, the whole is centred
+   * by \eqnshift@ with \alignsep@ between column pairs, and each row's number is set off at the
+   * right edge. TeX finishes it as an alignment in a display (§ 1206).
+   */
+  function alignDisplay(d: Display, line: { width: number; indent: number }, _ps: unknown) {
+    const starred = d.kind === "align*"
+    let src = d.src.trim()
+    if (/\\\\\s*$/.test(src)) throw new Unsupported("align ending with \\\\")
+    if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
+    const env = mathEnv(k, "normalsize", true)
+    const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
+    const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) } }
+    const rows = src.split(/\\\\/).map((r) => {
+      const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
+      const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {
+        const items = parse(f)
+        // \setboxz@h{\@lign$\m@th\displaystyle{##}$} and {{}##} for the left-aligned fields
+        return mathBox([{ noad: ORD_NOAD, nucleus: groupField(j % 2 ? [{ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, ...items] : items), sup: null, sub: null }])
+      })
+      return { fields, numbered }
+    })
+    const z = line.width
+    const sz = k.sizes.normalsize, strut = sz.strut
+    const strutBox = () => hpack([vpack([kern(-k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+    // tags: \strut@ and (n) in \maketag@@@, numbered in row order
+    const tags = rows.map((r) => {
+      if (!r.numbered) return hpack([strutBox()])
+      counters.equation++
+      const l: Node[] = []
+      appendText(l, `(${counters.equation}`, romanFont, { spaceFactor: 1000 }, false)
+      const last = l[l.length - 1] as CharNode
+      l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
+      appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+      return hpack([strutBox(), hpack(l)])
+    })
+    // \measure@
+    let maxfields = Math.max(...rows.map((r) => r.fields.length))
+    if (maxfields % 2) maxfields++
+    const colW = Array.from({ length: maxfields }, (_, j) => Math.max(0, ...rows.map((r) => r.fields[j]?.width ?? 0)))
+    const totwidth = colW.reduce((a, b) => a + b, 0)
+    const div = (a: number, b: number) => Math.trunc(a / b)
+    const minalignsep = 655360
+    const mintagsep = xnOverD(env.fonts[0][2]!.params[QUAD], 32768, 65536)
+    let tempcntb = maxfields / 2, tempcnta = tempcntb
+    tempcntb -= 1; tempcnta += 1
+    let eqnshift = div(z - totwidth, tempcnta), alignsep = eqnshift
+    if (alignsep < minalignsep) { alignsep = minalignsep; if (eqnshift > 0) eqnshift = div(z - totwidth - tempcntb * alignsep, 2) }
+    if (eqnshift < 0) eqnshift = 0
+    // \calc@shift@align (tags on the right, not fleqn), last row first
+    for (let r = rows.length - 1; r >= 0; r--) {
+      const tw = tags[r].width
+      if (!(tw > 0)) continue
+      let dimb = 0, dimc = 0
+      rows[r].fields.forEach((f, i) => { // \x@rcalc@width
+        const col = i + 1, a = f.width
+        if (a > 0) { dimc += dimb; if (col % 2) { dimc += colW[i]; dimb = 0 } else { dimc += a; dimb = colW[i] - a } }
+        else dimb += colW[i]
+      })
+      let cnta = tempcnta, cntb = tempcntb
+      const column = div(rows[r].fields.length - 1, 2)
+      if (cntb > column) { cnta -= cntb; cnta += column; cntb = column }
+      const dima = dimc + tw
+      let dimen = minalignsep * cntb + mintagsep + mintagsep + dima
+      if (dimen > z) throw new Unsupported("an align tag moved to its own line")
+      dimen = eqnshift + dima + cntb * alignsep + tw
+      if (dimen > z) {
+        dimen = div(z - dima, cnta)
+        if (dimen < minalignsep) { alignsep = minalignsep; eqnshift = div(z - dima - cntb * alignsep, 2) }
+        else {
+          if (dimen < eqnshift) eqnshift = dimen < 0 ? 0 : dimen
+          if (dimen < alignsep) alignsep = dimen
+        }
+      }
+    }
+    const tagshift = totwidth + tempcntb * alignsep + eqnshift - z
+    // the main \halign: cells, then the \omit column with \kern-\alignsep@ and \place@tag
+    const hfil = () => glue(0, 65536, FIL)
+    const cells = rows.map((r, ri) => {
+      const row: Node[][] = []
+      for (let j = 0; j < maxfields; j++) {
+        const f = r.fields[j]
+        if (!f) { row.push(j % 2 ? [hfil()] : [hfil(), strutBox()]); continue } // \add@amps: empty fields
+        row.push(j % 2 ? [f, hfil()] : [hfil(), strutBox(), f])
+      }
+      const tagCol: Node[] = [kern(-alignsep, true)]
+      if (r.numbered) tagCol.push(kern(-tagshift, true), hpack([hss(), tags[ri]], { exactly: 0 }))
+      row.push(tagCol)
+      return row
+    })
+    const tabskip = [paramGlue("tabskip", glue(eqnshift))]
+    for (let j = 0; j <= maxfields; j++) tabskip.push(paramGlue("tabskip", glue(j % 2 ? alignsep : 0)))
+    const rowBoxes = halign(cells.map((r) => r.map((c) => c)), tabskip, { additional: 0 })
+    // § 1206, with \openup\jot and amsmath's \everycr
+    v.nodes.push(penalty(k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
+    const jot = 196608
+    v.nodes.push(glue(-(k.dimens.lineskiplimit + jot)), glue(k.dimens.normallineskiplimit))
+    const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(k.glue.lineskip, dimen(jot))
+    for (const rb of rowBoxes) {
+      rb.display = true; rb.shift = line.indent
+      v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, k.dimens.lineskiplimit + jot)
+      v.nodes.push(penalty(10000), glue(0)) // \interdisplaylinepenalty is \@M in amsmath; \\ adds \vskip\z@
+    }
+    v.nodes.push(penalty(k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+  }
+
   /** a paragraph from a ready horizontal list (the display's opening line) */
   function typesetList(list: Node[], opts: Parameters<typeof paragraphInput>[4], withParskip: boolean) {
     const { params } = paragraphInput("", k, "normalsize", doc, { ...opts, amsmath })
