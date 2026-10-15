@@ -44,6 +44,8 @@ export interface ClassOptionData {
   glue: Record<string, GlueSpec>
   ints: Record<string, number>
   sizes: Record<SizeCommand, SizeData>
+  /** what the paper and side options change ("a4paper,twoside"), against the class defaults */
+  variants?: Record<string, { dimens: Record<string, number>; ints: Record<string, number> }>
 }
 
 /** A class: its data for each size option ("10pt", "11pt", "12pt"). */

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 88,
-  "exact": 77,
+  "fixtures": 92,
+  "exact": 81,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 58093
+  "glyphs": 82611
  },
  "areas": [
   {
@@ -51,8 +51,8 @@
   },
   {
    "area": "pages",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "sections",
@@ -911,6 +911,50 @@
    "glyphs": 5106,
    "covers": "page breaks in book [11pt]: \\flushbottom stretches \\parskip to fill each page (§§ 980–1028)",
    "issue": "#115"
+  },
+  {
+   "id": "pages/geometry-margin",
+   "file": "micro/pages/geometry-margin.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6126,
+   "covers": "the geometry package: \\usepackage[margin=1in]{geometry} (letter paper): \\textwidth, \\textheight, \\oddsidemargin, \\evensidemargin, \\topmargin as \\Gm@@process sets them",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/geometry-scale",
+   "file": "micro/pages/geometry-scale.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6125,
+   "covers": "the geometry package: \\usepackage[hscale=0.8,vmarginratio=1:1,heightrounded]{geometry} (class options twoside): \\textwidth, \\textheight, \\oddsidemargin, \\evensidemargin, \\topmargin as \\Gm@@process sets them",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/geometry-sides",
+   "file": "micro/pages/geometry-sides.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6125,
+   "covers": "the geometry package: \\usepackage[left=2cm,right=3cm,top=2.5cm,bottom=2cm,includehead]{geometry} (class options a4paper): \\textwidth, \\textheight, \\oddsidemargin, \\evensidemargin, \\topmargin as \\Gm@@process sets them",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/geometry-text",
+   "file": "micro/pages/geometry-text.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6142,
+   "covers": "the geometry package: \\usepackage[textwidth=30em,textheight=40\\baselineskip]{geometry} (letter paper): \\textwidth, \\textheight, \\oddsidemargin, \\evensidemargin, \\topmargin as \\Gm@@process sets them",
+   "issue": "#30"
   },
   {
    "id": "pages/max-depth",

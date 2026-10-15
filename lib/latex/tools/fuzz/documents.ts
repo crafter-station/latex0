@@ -1,5 +1,5 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
-// lays out — classes and sizes, OT1 or T1 fonts, page styles, paragraphs with inline math,
+// lays out — classes, sizes, papers, one or two sides, the geometry package, OT1 or T1 fonts, page styles, paragraphs with inline math,
 // \textbf and the other font commands, and footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
 // lists (nested, \item[label]), description, quote, quotation, verse, center, flushleft,
 // flushright and abstract, started in or out of a paragraph, with text right after them or after a
@@ -58,7 +58,26 @@ export function makeDocument(r: () => number): string {
     return ws.join(" ")
   }
   const cls = pick(["article", "article", "report"])
-  const out = [`\\documentclass${pick(["", "[11pt]", "[12pt]"])}{${cls}}`]
+  // class options: the size, sometimes a paper and two-sided printing
+  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 ? "twoside" : ""].filter(Boolean)
+  const out = [`\\documentclass${copts.length ? `[${copts.join(",")}]` : ""}{${cls}}`]
+  // the geometry package: margins, body sizes, scales, ratios, head and foot, rounding
+  if (r() < 0.3) {
+    const len = () => pick([`${(0.5 + Math.floor(r() * 12) / 8).toFixed(3).replace(/0+$/, "")}in`, `${1 + Math.floor(r() * 30) / 10}cm`, `${20 + Math.floor(r() * 50)}mm`, `${40 + Math.floor(r() * 60)}pt`])
+    const keys = pick([
+      () => [`margin=${len()}`],
+      () => [`left=${len()}`, `right=${len()}`, `top=${len()}`, `bottom=${len()}`],
+      () => [`hmargin=${len()}`, `vmargin={${len()},${len()}}`],
+      () => [`textwidth=${300 + Math.floor(r() * 150)}pt`, `textheight=${30 + Math.floor(r() * 15)}\\baselineskip`],
+      () => [`hscale=0.${6 + Math.floor(r() * 3)}`, `vscale=0.${6 + Math.floor(r() * 3)}`],
+      () => [`left=${len()}`, `width=${300 + Math.floor(r() * 120)}pt`, `top=${len()}`],
+      () => [`right=${len()}`, `bottom=${len()}`],
+      () => [`margin=${len()}`, `hmarginratio=${1 + Math.floor(r() * 3)}:${1 + Math.floor(r() * 3)}`],
+    ])()
+    if (r() < 0.2) keys.push(pick(["includehead", "includefoot", "includeheadfoot", "heightrounded", "a4paper", "landscape", "bindingoffset=1cm", "headsep=10pt", "footskip=20pt"]))
+    if (r() < 0.5) out.push(`\\usepackage[${keys.join(",")}]{geometry}`)
+    else out.push("\\usepackage{geometry}", `\\geometry{${keys.join(",")}}`)
+  }
   if (r() < 0.25) out.push("\\pagestyle{empty}")
   if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35

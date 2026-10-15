@@ -422,8 +422,9 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
 }
 
 export const paragraph: Adapter = (src) => {
-  const { cls, option } = documentClass(src)
-  const k = classData(cls, option)
+  const { cls, option, extras, unknown } = documentClass(src)
+  if (unknown.length) throw new Error(`class option ${unknown.join(",")} is not laid out`)
+  const k = classData(cls, option, extras)
   const paras = paragraphsOf(src.slice(src.indexOf("\\begin{document}") + 16, src.indexOf("\\end{document}")))
   const { decisions, pages, pageTrace, lineCount } = typesetBody(paras, k)
 
