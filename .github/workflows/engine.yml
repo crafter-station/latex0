@@ -66,5 +66,7 @@ jobs:
         run: bun engine math:check --n 3000
       - name: Line breaking, footnotes and pages identical to TeX (1,000 random paragraphs)
         run: bun engine fuzz:paragraphs --n 1000 --seed 1
+      - name: Whole documents identical to TeX (30 random documents with sections, lists, math and footnotes)
+        run: bun engine fuzz:documents --n 30 --seed 1
       - name: Hyphenation identical to TeX (20,000 words)
         run: bun engine hyphen:check --words 20000

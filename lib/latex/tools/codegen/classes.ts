@@ -46,6 +46,7 @@ function probe(cls: string, option: string): string {
       // the math families 0–3 at text, script and scriptscript size
       `\\immediate\\write16{T:\\expandafter\\@gobble\\string#1:\\the\\ht\\strutbox:\\the\\dp\\strutbox}` +
       `{\\fontencoding{TS1}\\selectfont\\immediate\\write16{C:\\expandafter\\@gobble\\string#1:\\fontname\\font}}` +
+      `{\\bfseries\\immediate\\write16{B:\\expandafter\\@gobble\\string#1:\\fontname\\font}}` +
       `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}}}`,
     "\\begin{document}",
     ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
@@ -53,6 +54,7 @@ function probe(cls: string, option: string): string {
     // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
     "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
     "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}",
+    "\\immediate\\write16{I:secnumdepth=\\the\\c@secnumdepth}",
     // the footnote insertion class: its box number, \\skip, \\count and \\dimen
     "\\immediate\\write16{I:footins=\\number\\footins}\\immediate\\write16{I:footinscount=\\the\\count\\footins}",
     "\\immediate\\write16{G:footinsskip=\\the\\skip\\footins}\\immediate\\write16{D:footinsdimen=\\the\\dimen\\footins}",
@@ -74,6 +76,7 @@ function texData(cls: string, option: string): ClassOptionData {
   const mathFonts = new Map<string, SizeData["math"]>()
   const struts = new Map<string, SizeData["strut"]>()
   const companion = new Map<string, SizeData["companion"]>()
+  const bold = new Map<string, SizeData["bold"]>()
   for (const line of log) {
     let m: RegExpMatchArray | null
     if ((m = line.match(/^([DGI]):(\w+)=(.*)$/))) {
@@ -90,10 +93,11 @@ function texData(cls: string, option: string): ClassOptionData {
         math: { text: [], script: [], scriptscript: [] },
         strut: { height: 0, depth: 0 },
         companion: { name: "", at: 0 },
+        bold: { name: "", at: 0 },
       }
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
-    } else if ((m = line.match(/^C:(\w+):(\w+)(?: at ([\d.]+)pt)?$/))) {
-      companion.set(m[1], { name: m[2], at: m[3] ? parseScaled(m[3]) : designSize(m[2]) })
+    } else if ((m = line.match(/^([CB]):(\w+):(\w+)(?: at ([\d.]+)pt)?$/))) {
+      (m[1] === "C" ? companion : bold).set(m[2], { name: m[3], at: m[4] ? parseScaled(m[4]) : designSize(m[3]) })
     } else if ((m = line.match(/^T:(\w+):([\d.]+)pt:([\d.]+)pt$/))) {
       struts.set(m[1], { height: parseScaled(m[2]), depth: parseScaled(m[3]) })
     } else if ((m = line.match(/^F:(\w+):(.*)$/))) {
@@ -104,7 +108,8 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount"].filter((i) => !(i in data.ints)), ...["footinsskip"].filter((g) => !(g in data.glue)), ...["footinsdimen"].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
+  for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth"].filter((i) => !(i in data.ints)), ...["footinsskip"].filter((g) => !(g in data.glue)), ...["footinsdimen"].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }

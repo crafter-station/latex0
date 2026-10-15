@@ -11,7 +11,7 @@
 // \@outputpage: \topmargin, a \headheight box and \headsep above the text box,
 // shifted right by \oddsidemargin.
 
-import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../../../layout/classdata"
+import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../../../layout/classdata"
 import { Scanner, type GlueSpec } from "../../../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
@@ -74,7 +74,14 @@ export function classParams(k: ClassOptionData): LineBreakParams {
 export interface DocState { footnote: number }
 
 /** What a paragraph's surroundings set: the start of its list (in place of the indent box) and its shape. */
-export interface ParagraphOptions { start?: Node[]; parShape?: [number, number][]; clubPenalty?: number }
+export interface ParagraphOptions {
+  start?: Node[]; parShape?: [number, number][]; clubPenalty?: number
+  /** the text font, when not the size's roman (a heading's \bfseries) */
+  font?: FontRef
+  hangIndent?: number; interLinePenalty?: number
+  /** \clubpenalty while the paragraph is read, which its footnotes see, when it differs from the one at its \par */
+  noteClubPenalty?: number
+}
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece = { kind: "text" | "math" | "footnote"; src: string }
@@ -143,7 +150,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   // the paragraph's parameters, less what normal_paragraph (§ 1070) resets at \insert and what
   // \@parboxrestore sets: \leftskip, \rightskip 0, \parfillskip \@flushglue, \sloppy
   // (\tolerance 9999, \emergencystretch 3em)
-  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0 }
+  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0, ...(ctx.noteClub !== undefined ? { clubPenalty: ctx.noteClub } : {}) }
   Object.assign(params, {
     hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", glue(0, 65536, FIL)),
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
@@ -182,7 +189,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[] }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFont>, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext) {
@@ -211,7 +218,7 @@ function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFon
  */
 export function paragraphInput(body: string, k: ClassOptionData = classData("article", "10pt"), size: SizeCommand = "normalsize", doc: DocState = { footnote: 0 }, opts: ParagraphOptions = {}): { list: Node[]; params: LineBreakParams; notes: ParagraphTrace[] } {
   const params = classParams(k)
-  const font = sizeFont(k, size)
+  const font = opts.font ? loadFont(dataFont(opts.font.name), opts.font.at) : sizeFont(k, size)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   let indent = true
   let mathSurround = mathData().dimens.mathsurround
@@ -238,9 +245,11 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   params.hyphenation = hyphenation(k, font)
   if (opts.parShape) params.parShape = opts.parShape
   if (opts.clubPenalty !== undefined) params.clubPenalty = opts.clubPenalty
+  if (opts.hangIndent !== undefined) params.hangIndent = opts.hangIndent
+  if (opts.interLinePenalty !== undefined) params.interLinePenalty = opts.interLinePenalty
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
-  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes })
+  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty })
   return { list, params, notes }
 }
 

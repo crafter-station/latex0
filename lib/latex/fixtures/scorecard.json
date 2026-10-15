@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 67,
-  "exact": 51,
+  "fixtures": 69,
+  "exact": 53,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 16,
-  "glyphs": 40494
+  "glyphs": 44705
  },
  "areas": [
   {
@@ -43,6 +43,11 @@
    "area": "pages",
    "fixtures": 3,
    "exact": 3
+  },
+  {
+   "area": "sections",
+   "fixtures": 2,
+   "exact": 2
   },
   {
    "area": "templates",
@@ -748,6 +753,28 @@
    "glyphs": 900,
    "covers": "\\Huge lines deeper than \\maxdepth (5pt) over two pages: page_depth is capped and the excess moves into \\pagetotal (§ 1003)",
    "issue": "#115"
+  },
+  {
+   "id": "sections/sections-article",
+   "file": "micro/sections/sections-article.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1340,
+   "covers": "\\section, \\subsection, \\subsubsection and \\section*: \\@secpenalty and \\addvspace before, the number box and \\quad in \\Large/\\large/\\normalsize \\bfseries, the toc \\write, \\nobreak and the skip after, no indentation and \\clubpenalty\\@M after the heading, consecutive headings",
+   "issue": "#30"
+  },
+  {
+   "id": "sections/sections-report-12pt",
+   "file": "micro/sections/sections-report-12pt.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2871,
+   "covers": "sections in a 12pt report: numbers prefixed by \\thechapter (0), \\subsubsection unnumbered (secnumdepth 2) but in the toc, sections across pages, a list right after a heading (\\@nbitem)",
+   "issue": "#30"
   },
   {
    "id": "text/hyphenation-basic",

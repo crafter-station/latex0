@@ -1,0 +1,26 @@
+% fixture: sections/sections-article
+% tier: T3
+% engine: document
+% covers: \section, \subsection, \subsubsection and \section*: \@secpenalty and \addvspace before, the number box and \quad in \Large/\large/\normalsize \bfseries, the toc \write, \nobreak and the skip after, no indentation and \clubpenalty\@M after the heading, consecutive headings
+% issue: #30
+\documentclass{article}
+\begin{document}
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+
+\section{Introduction}
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+
+\subsection{A subsection with a longer title}
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+\subsubsection{Deeper}
+\subsection{Right after}
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+
+\section*{An unnumbered section}
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+
+\section{A section title long enough to break across two lines in the large bold font}
+Sections are set by the start section command, which puts a penalty and a skip before the heading, sets the number in a box the title hangs from, and keeps the first line of the next paragraph with the heading.
+\end{document}
