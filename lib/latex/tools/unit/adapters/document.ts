@@ -26,6 +26,9 @@ import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
 import { FIL, glue, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
 import { hpack, vpack } from "../../../layout/pack"
+import { halign } from "../../../layout/align"
+import { xnOverD } from "../../../layout/arith"
+import { ORACLE_EPOCH } from "../../tex"
 import type { ParagraphTrace } from "../../../trace/decisions"
 import type { Adapter } from "./index"
 import { appendToVlist, endDocument, makeColumns, paragraphInput, spec, type DocState } from "./paragraph"
@@ -41,6 +44,7 @@ type Block =
   | { kind: "par"; text: string; noindent: boolean }
   | { kind: "list"; env: "itemize" | "enumerate"; items: string[]; inPar: boolean; blank: boolean }
   | { kind: "heading"; level: 1 | 2 | 3; star: boolean; title: string }
+  | { kind: "maketitle" }
 
 const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
 
@@ -48,7 +52,7 @@ const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}([^]*?)\\end\{\3\}/g
+  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}([^]*?)\\end\{\3\}|\\(maketitle)\b\s*/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -61,6 +65,7 @@ function blocksOf(body: string): Block[] {
   for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
     const before = body.slice(at, m.index)
     text(before)
+    if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
     if (m[1]) { // a heading: its argument in braces
       if (body[re.lastIndex] !== "{") throw new Unsupported(`\\${m[1]} without a {title}${body[re.lastIndex] === "[" ? " (or with a short title)" : ""}`)
       let depth = 0, j = re.lastIndex
@@ -88,6 +93,7 @@ function blocksOf(body: string): Block[] {
   for (const b of out) {
     if (b.kind === "par") check(b.text)
     else if (b.kind === "list") b.items.forEach(check)
+    else if (b.kind === "maketitle") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -126,6 +132,16 @@ class VerticalList {
     return n?.kind === "glue" ? n : dimen(0)
   }
   vskip(g: GlueSpec) { this.nodes.push(plain(g)) }
+  /** \endtrivlist in vertical mode: a skip at the end is redone with the list's \parskip taken out,
+   *  then \@endparenv: \addpenalty\@endparpenalty \addvspace\@topsepadd */
+  endtrivlist(parskip: GlueSpec, outerParskip: GlueSpec, topsepadd: GlueSpec) {
+    const last = this.lastSkip
+    if (last.width > 0) { this.vskip(negate(last)); this.vskip(addGlue(addGlue(last, parskip), negate(outerParskip))) }
+    this.addpenalty(-LOW_PENALTY)
+    this.addvspace(topsepadd)
+  }
+  /** a box appended in vertical mode, after interline glue */
+  box(b: BoxNode, baselineskip: GlueSpec) { this.prevDepth = appendToVlist(this.nodes, b, this.prevDepth, baselineskip, this.k.glue.lineskip, this.k.dimens.lineskiplimit) }
 
   /** \addvspace (latex.ltx): the larger of the skip and the one already there */
   addvspace(g: GlueSpec) {
@@ -150,10 +166,10 @@ class VerticalList {
   }
 
   /** A paragraph's lines (and what follows them: penalties, insertions) after \parskip. */
-  paragraph(vlist: Node[], parskip: GlueSpec, baselineskip = this.k.sizes.normalsize.baselineskip) {
+  paragraph(vlist: Node[], parskip: GlueSpec, baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip) {
     this.nodes.push(spec("parskip", parskip), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
     for (const n of vlist) {
-      if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, this.k.glue.lineskip, this.k.dimens.lineskiplimit)
+      if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, lineskip, this.k.dimens.lineskiplimit)
       else this.nodes.push(n)
     }
   }
@@ -203,8 +219,11 @@ export const document: Adapter = (src) => {
   const k = classData(cls, option)
   const pre = src.slice(0, src.indexOf("\\begin{document}")).replace(/(^|[^\\])%.*$/gm, "$1")
   let pagestyle = cls === "book" ? "headings" : "plain"
+  const title: { title?: string; author?: string; date?: string } = {}
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
+    const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
+    if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
     if (m) { pagestyle = m[1]; continue }
     throw new Unsupported(`preamble: ${line}`)
@@ -226,9 +245,11 @@ export const document: Adapter = (src) => {
   // skips in ex are read in the body font (\@startsection evaluates them before the heading's font)
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
+  const titleBoxes: BoxNode[] = []
   const counters = [0, 0, 0, 0] // chapter (never stepped yet), section, subsection, subsubsection
   blocks.forEach((b, bi) => {
     if (b.kind === "heading") { heading(b); return }
+    if (b.kind === "maketitle") { maketitle(); return }
     if (b.kind === "par") {
       if (b.noindent) {
         // right after a list: \@doendpe's \everypar drops the indent box; its \par resets \clubpenalty
@@ -272,14 +293,98 @@ export const document: Adapter = (src) => {
       // \everypar: the indent box gives way to \box\@labels \penalty\z@
       typeset(text, { start: [labelBox(label, k), penalty(0)], parShape, ...(club ? { clubPenalty: club } : {}) }, parsep)
     })
-    // \endtrivlist: the last item's \par, then \@endparenv: \@endparpenalty and \@topsepadd
-    if (v.lastSkip.width > 0) throw new Unsupported("a list ending in vertical space")
-    v.addpenalty(-LOW_PENALTY)
-    v.addvspace(topsepadd)
+    // \endtrivlist: the last item's \par, then \@endparenv
+    v.endtrivlist(parsep, outerParskip, topsepadd)
     // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe
     v.afterheadingEverypar = false
     v.endpePar = true
   })
+
+  /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
+   *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
+   *  {\large date}, then \vskip 1.5em */
+  function maketitle() {
+    if (cls !== "article") throw new Unsupported(`\\maketitle in ${cls}`)
+    if (!title.title) throw new Unsupported("\\maketitle without \\title")
+    const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
+    v.par()
+    v.nobreak = false
+    for (let i = 0; i < 2; i++) v.nodes.push(glue(0, 65536, FIL), penalty(-10000)) // \newpage in \maketitle and \@maketitle
+    const nul = hpack([])
+    titleBoxes.push(nul) // \thispagestyle{plain}: the page this lands on gets the plain style
+    v.box(nul, k.sizes.normalsize.baselineskip) // \null
+    v.vskip(dimen(em("2em", romanFont)))
+    // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
+    const topsepadd = addGlue(k.glue.topsep, k.glue.partopsep)
+    v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
+    const labelsep = k.dimens.labelsep
+    const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack([], { exactly: 0 }), glue(labelsep)])
+    const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+    const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
+    const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t)) throw new Unsupported(`${what} "${t}"`) }
+    check(title.title, "\\title")
+    typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: k.ints.clubpenalty }, outerParskip, "LARGE")
+    v.vskip(dimen(em("1.5em", romanFont)))
+    // {\large \lineskip .5em \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
+    const large = loadFont(dataFont(k.sizes.large.font.name), k.sizes.large.font.at)
+    const authors = (title.author ?? "").split(/\\and\b/).map((a) => a.split(/\\\\/).map((r) => r.trim()))
+    authors.flat().forEach((r) => check(r, "\\author"))
+    const start: Node[] = [hpack([])] // \parindent is zero in center
+    authors.forEach((rows, i) => {
+      if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
+      start.push(tabular(rows.map((r) => [r]), ["c"], "large"))
+    })
+    const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty })
+    const ab = lineBreak(authorPar.list, authorPar.params)
+    decisions.push(ab.trace)
+    v.paragraph(ab.vlist, outerParskip, k.sizes.large.baselineskip, dimen(em(".5em", large)))
+    v.vskip(dimen(em("1em", romanFont)))
+    // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip
+    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today())
+    check(date, "\\date")
+    if (date) {
+      const dp = paragraphInput("", k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: k.ints.clubpenalty })
+      appendText(dp.list, date, large, { spaceFactor: 1000 })
+      const db = lineBreak(dp.list, dp.params)
+      decisions.push(db.trace)
+      v.paragraph(db.vlist, outerParskip)
+    }
+    // \endtrivlist; then \par \vskip 1.5em
+    v.endtrivlist(outerParskip, outerParskip, topsepadd)
+    v.vskip(dimen(em("1.5em", romanFont)))
+    doc.footnote = 0 // \setcounter{footnote}{0}
+  }
+
+  /** \begin{tabular}[t]{cols}: \leavevmode\hbox{$\vtop{\ialign{\@arstrut ...\cr ...}}$} (latex.ltx \@tabular, \@array) */
+  function tabular(rows: string[][], cols: ("l" | "c" | "r")[], size: SizeCommand): BoxNode {
+    const f = k.sizes[size].font, font = loadFont(dataFont(f.name), f.at)
+    const strut = k.sizes[size].strut
+    const sep = k.dimens.tabcolsep
+    const cells = rows.map((row) => row.map((text, j) => {
+      const l: Node[] = j === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }] : [] // \@arstrut
+      l.push(glue(sep)) // \@acol: \hskip\tabcolsep
+      const hfil = () => glue(0, 65536, FIL)
+      const body: Node[] = []
+      appendText(body, text.replace(/\s+/g, " ").trim(), font, { spaceFactor: 1000 }, false) // \ignorespaces # \unskip
+      const c = cols[j]
+      if (c === "c") l.push(hfil(), glue(1), ...body, hfil())
+      else if (c === "l") l.push(glue(1), ...body, hfil())
+      else l.push(hfil(), glue(1), ...body)
+      l.push(glue(sep))
+      return l
+    }))
+    const tabskip = Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0)))
+    const rowBoxes = halign(cells, tabskip, { additional: 0 })
+    // the \vtop's list: rows with interline glue (\baselineskip and \lineskip are zero in \@array)
+    const list: Node[] = []
+    let pd: number | null = null
+    for (const r of rowBoxes) pd = appendToVlist(list, r, pd, dimen(0), dimen(0), k.dimens.lineskiplimit)
+    const vtop = vpack(list)
+    const first = list[0]
+    const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
+    vtop.depth = vtop.depth - h + vtop.height; vtop.height = h // § 1087
+    return hpack([{ kind: "math", on: true, width: 0 }, vtop, { kind: "math", on: false, width: 0 }])
+  }
 
   /** \@startsection{name}{level}{\z@}{beforeskip}{afterskip}{\normalfont<size>\bfseries} and its starred form */
   function heading(b: Extract<Block, { kind: "heading" }>) {
@@ -325,7 +430,8 @@ export const document: Adapter = (src) => {
   if (pagestyle === "headings" && blocks.some((b) => b.kind === "heading")) throw new Unsupported("running heads with section marks")
   const { pages, pageTrace } = endDocument(v.nodes, v.prevDepth, k)
   const columns = makeColumns(pages, k)
-  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, pagestyle))
+  const special = new Set(pages.flatMap((pg, i) => (pg.nodes.some((n) => titleBoxes.includes(n as BoxNode)) ? [i] : [])))
+  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, special.has(i) ? "plain" : pagestyle))
   return {
     trace: shipOut(shipped),
     decisions,
@@ -333,4 +439,11 @@ export const document: Adapter = (src) => {
     columns: columns.map((c) => c.column.map(emitBoxes)),
     notes: [`${cls} [${option}], \\pagestyle{${pagestyle}}; ${blocks.length} block(s), ${pages.length} page(s)`],
   }
+}
+
+/** \today on the oracle's fixed date (SOURCE_DATE_EPOCH): "January 1, 2025" */
+function today(): string {
+  const d = new Date(ORACLE_EPOCH * 1000)
+  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
 }

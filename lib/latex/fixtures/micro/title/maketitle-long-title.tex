@@ -1,0 +1,15 @@
+% fixture: title/maketitle-long-title
+% tier: T3
+% engine: document
+% covers: \maketitle at 11pt with a title long enough to take three centered lines (\centering: \leftskip and \rightskip \@flushglue, \parfillskip zero), \date{} empty (\endtrivlist redoes the last skip), and text right after
+% issue: #30
+\documentclass[11pt]{article}
+\title{A Title That Is Long Enough to Break Across Several Lines When It Is Set in the Large Size of the Eleven Point Class}
+\author{Author}
+\date{}
+\begin{document}
+\maketitle
+The title block is a center environment: the title in LARGE, the authors in tabulars set side by side, and the date, each separated by fixed skips.
+
+The title block is a center environment: the title in LARGE, the authors in tabulars set side by side, and the date, each separated by fixed skips.
+\end{document}

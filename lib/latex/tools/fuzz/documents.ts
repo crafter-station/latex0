@@ -46,7 +46,17 @@ export function makeDocument(r: () => number): string {
   const cls = pick(["article", "article", "report"])
   const out = [`\\documentclass${pick(["", "[11pt]", "[12pt]"])}{${cls}}`]
   if (r() < 0.25) out.push("\\pagestyle{empty}")
+  const titled = cls === "article" && r() < 0.5
+  if (titled) {
+    const name = () => words(1 + Math.floor(r() * 3))
+    out.push(`\\title{${words(r() < 0.2 ? 15 + Math.floor(r() * 15) : 2 + Math.floor(r() * 6))}}`)
+    out.push(`\\author{${Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: 1 + Math.floor(r() * 2) }, name).join(" \\\\ ")).join(" \\and ")}}`)
+    const d = r()
+    if (d < 0.3) out.push("\\date{}")
+    else if (d < 0.6) out.push(`\\date{${words(3)}}`)
+  }
   out.push("\\begin{document}")
+  if (titled) out.push("\\maketitle")
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x = r()

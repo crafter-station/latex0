@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 69,
-  "exact": 53,
+  "fixtures": 71,
+  "exact": 56,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 16,
-  "glyphs": 44705
+  "pending": 15,
+  "glyphs": 45465
  },
  "areas": [
   {
@@ -52,12 +52,17 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 2
+   "exact": 3
   },
   {
    "area": "text",
    "fixtures": 4,
    "exact": 4
+  },
+  {
+   "area": "title",
+   "fixtures": 2,
+   "exact": 2
   }
  ],
  "fixtures": [
@@ -132,8 +137,8 @@
    "file": "macro/templates/demo.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 68,
    "covers": "the document a new LATEX0 project starts with",
    "issue": "#30"
@@ -816,6 +821,28 @@
    "status": "pass",
    "glyphs": 239,
    "covers": "\\sfcode rules after . ? ! : ; , and after uppercase (NASA. rule), ) and ' leaving the factor unchanged"
+  },
+  {
+   "id": "title/maketitle-authors",
+   "file": "micro/title/maketitle-authors.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 352,
+   "covers": "\\maketitle with three authors joined by \\and (\\hskip 1em plus .17fil), two-line authors (tabular rows through \\\\, \\@arstrut, \\tabcolsep), a given \\date, and \\thispagestyle{plain} under \\pagestyle{empty}",
+   "issue": "#30"
+  },
+  {
+   "id": "title/maketitle-long-title",
+   "file": "micro/title/maketitle-long-title.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 340,
+   "covers": "\\maketitle at 11pt with a title long enough to take three centered lines (\\centering: \\leftskip and \\rightskip \\@flushglue, \\parfillskip zero), \\date{} empty (\\endtrivlist redoes the last skip), and text right after",
+   "issue": "#30"
   }
  ]
 }

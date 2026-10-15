@@ -1,0 +1,17 @@
+% fixture: title/maketitle-authors
+% tier: T3
+% engine: document
+% covers: \maketitle with three authors joined by \and (\hskip 1em plus .17fil), two-line authors (tabular rows through \\, \@arstrut, \tabcolsep), a given \date, and \thispagestyle{plain} under \pagestyle{empty}
+% issue: #30
+\documentclass{article}
+\pagestyle{empty}
+\title{Exact Typesetting in the Browser}
+\author{Ada Lovelace \\ Analytical Engines \and Donald Knuth \\ Stanford \and Michael Plass}
+\date{October 2026}
+\begin{document}
+\maketitle
+\section{Introduction}
+The title block is a center environment: the title in LARGE, the authors in tabulars set side by side, and the date, each separated by fixed skips.
+
+The title block is a center environment: the title in LARGE, the authors in tabulars set side by side, and the date, each separated by fixed skips.
+\end{document}
