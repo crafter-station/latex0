@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 86,
-  "exact": 75,
+  "fixtures": 87,
+  "exact": 76,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 56857
+  "glyphs": 57126
  },
  "areas": [
   {
@@ -21,8 +21,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "footnotes",
@@ -449,6 +449,17 @@
    "glyphs": 632,
    "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label after a caption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
+  },
+  {
+   "id": "floats/long-captions",
+   "file": "micro/floats/long-captions.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 269,
+   "covers": "a caption wider than the column becomes a paragraph (\\@makecaption's #1: #2\\par), centered or not, with \\sloppy and hyphenation",
+   "issue": "#30"
   },
   {
    "id": "floats/tabulars",
