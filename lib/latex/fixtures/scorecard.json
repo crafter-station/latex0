@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 93,
-  "exact": 83,
+  "fixtures": 94,
+  "exact": 84,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 10,
-  "glyphs": 83138
+  "glyphs": 83280
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "display",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "floats",
@@ -371,6 +371,17 @@
    "status": "pass",
    "glyphs": 534,
    "covers": "amsmath align and align*: \\measure@ (column widths, \\totwidth@), \\eqnshift@ and \\alignsep@ for one and two column pairs, \\minalignsep, tags placed by \\place@tag, \\nonumber, empty fields, \\openup\\jot and \\interdisplaylinepenalty, inside a paragraph and opening one",
+   "issue": "#30"
+  },
+  {
+   "id": "display/align-tag-below",
+   "file": "micro/display/align-tag-below.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 142,
+   "covers": "amsmath align with rows too wide for their numbers: \\calc@shift@align's \\saveshift@1 and \\place@tag's \\vtop putting the number below the row (\\lineht@, the first row's from the whole \\measure@ pass, \\normalbaselines), rows that fit kept beside their number",
    "issue": "#30"
   },
   {

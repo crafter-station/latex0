@@ -1,0 +1,16 @@
+% fixture: display/align-tag-below
+% tier: T3
+% engine: document
+% covers: amsmath align with rows too wide for their numbers: \calc@shift@align's \saveshift@1 and \place@tag's \vtop putting the number below the row (\lineht@, the first row's from the whole \measure@ pass, \normalbaselines), rows that fit kept beside their number
+% issue: #30
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Wide rows push their numbers below.
+\begin{align}
+a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s &= y \\
+y &= \frac{1}{2} \\
+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s+t+u+v &= x
+\end{align}
+Text after the display.
+\end{document}
