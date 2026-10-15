@@ -13,8 +13,8 @@ export interface AdapterResult {
   decisions?: ParagraphTrace[]
   /** page-breaking decisions, compared with TeX's \tracingpages */
   pages?: PageTrace[]
-  /** each page's main vertical list from \\topskip on, compared with TeX's page dumps */
-  columns?: BoxNode[][]
+  /** each page's main vertical list from \\topskip on, compared with TeX's page dumps (null for a page of floats) */
+  columns?: (BoxNode[] | null)[]
   notes?: string[]
 }
 export type Adapter = (src: string, oracle: Trace) => AdapterResult

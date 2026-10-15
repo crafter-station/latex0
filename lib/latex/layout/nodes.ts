@@ -42,6 +42,8 @@ export interface WhatsitNode {
   kind: "whatsit"; text: string
   /** a float leaving vertical mode (LaTeX's \penalty-\@Miv \vbox{} \penalty-\@Miii): the output routine places it */
   float?: unknown
+  /** not a node: an assignment the output routine sees when the page builder gets here (LaTeX's \global\@topnum\z@) */
+  hook?: unknown
 }
 /**
  * An insertion (§ 140): \\insert n with its vertical list. `height` is the list's

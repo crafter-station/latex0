@@ -76,7 +76,9 @@ export function compareParagraphs(expected: ParagraphTrace[], actual: ParagraphT
  * are bookkeeping, not page breaks.
  */
 export function documentPages(pages: PageTrace[]): PageTrace[] {
-  return pages.filter((p) => !p.candidates.some((c) => c.penalty <= -10001))
+  // a page cut by LaTeX's special penalties (\@Mi and below: floats, \clearpage) is not shipped;
+  // one where such a penalty came too late (cost awful_bad) is cut at its best break as usual
+  return pages.filter((p) => { const last = p.candidates[p.candidates.length - 1]; return !(last && last.penalty <= -10001 && last.cost !== null) })
 }
 
 /** First difference in page-breaking decisions (goal, max depth, every candidate). */
