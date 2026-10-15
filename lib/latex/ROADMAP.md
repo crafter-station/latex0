@@ -115,7 +115,8 @@ Deliverables:
   surfaced in Monaco gutters like TeX's log.
 - **Determinism guard** — Node and headless Chromium produce byte-identical
   output for the whole corpus.
-- **CI** — `texlive/texlive` image; scorecard must not regress; scorecard page
+- **CI** — TeX Live 2025, final and frozen (`lib/latex/tools/install-tex.sh`, the
+  same TeX locally and in CI); scorecard must not regress; scorecard page
   deployed with the app.
 
 ---

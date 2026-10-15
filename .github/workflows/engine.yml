@@ -29,13 +29,17 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.11
-      - name: Install TeX
+      - name: Cache TeX Live 2025
+        uses: actions/cache@v4
+        with:
+          path: .cache/texlive/2025
+          key: texlive-2025-final-${{ runner.os }}-${{ hashFiles('lib/latex/tools/install-tex.sh') }}
+      - name: Install TeX (TeX Live 2025, final and frozen, the same everywhere)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends \
-            texlive-latex-base texlive-latex-recommended texlive-fonts-recommended texlive-pictures texlive-latex-extra \
-            poppler-utils wamerican
-          latex --version | head -1
+          sudo apt-get install -y -qq --no-install-recommends poppler-utils wamerican
+          sh lib/latex/tools/install-tex.sh
+          echo "$(echo "$PWD"/.cache/texlive/2025/bin/*)" >> "$GITHUB_PATH"
       - name: Committed font and hyphenation data match TeX
         run: bun engine codegen --check
       - name: Oracles agree with pdflatex

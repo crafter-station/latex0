@@ -32,6 +32,13 @@ export function texVersion(): string {
   return execFileSync("latex", ["--version"], { env: ENV, encoding: "utf8" }).split("\n")[0]
 }
 
+/** The TeX version plus a hash of the installation's package database, so a reference never outlives the packages that made it. */
+export function texInstallation(): string {
+  const root = execFileSync("kpsewhich", ["-var-value", "TEXMFROOT"], { env: ENV, encoding: "utf8" }).trim()
+  const tlpdb = join(root, "tlpkg", "texlive.tlpdb")
+  return texVersion() + (existsSync(tlpdb) ? " " + createHash("sha256").update(readFileSync(tlpdb)).digest("hex").slice(0, 16) : "")
+}
+
 export interface OracleResult { trace: Trace; decisions: Decisions; /** every shipped page as a box tree (\\tracingoutput) */ pages: BoxNode[] }
 
 /**
@@ -71,7 +78,7 @@ const ORACLE_FORMAT = 5 // 5: fixed date; 3: cache holds { trace, decisions, pag
 let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {
-  texVersionMemo ??= texVersion()
+  texVersionMemo ??= texInstallation()
   const key = createHash("sha256").update(readFileSync(fixture)).update(texVersionMemo).update(String(ORACLE_FORMAT)).digest("hex").slice(0, 16)
   const file = join(CACHE, "refs", `${basename(fixture, ".tex")}.${key}.json`)
   if (existsSync(file)) return { ...(JSON.parse(readFileSync(file, "utf8")) as OracleResult), cached: true }

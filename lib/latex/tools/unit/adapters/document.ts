@@ -762,7 +762,7 @@ export const document: Adapter = (src) => {
 
   if (pagestyle === "headings" && blocks.some((b) => b.kind === "heading")) throw new Unsupported("running heads with section marks")
   let built: ReturnType<typeof endDocument>
-  try { built = endDocument(v.nodes, v.prevDepth, k, placeFloat) } catch (e) {
+  try { built = endDocument(v.nodes, k, placeFloat) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
     throw e
   }
