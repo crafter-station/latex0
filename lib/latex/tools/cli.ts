@@ -11,6 +11,7 @@
 //   bun engine glyph:check [--n 4000] [--seed 1]      words in every font and synthetic lig/kern fonts vs TeX \showbox (#111)
 //   bun engine expand:check [--n 3000] [--seed 1]     random macro programs: \edef results and \meaning vs TeX (#46)
 //   bun engine expand:doc [--n 300] [--seed 1]        random documents: TeX output unchanged by expandDocument (#46)
+//   bun engine fuzz:documents [--n 30] [--seed 1]    random whole documents: sections, lists, paragraphs vs TeX (#30)
 //   bun engine math:check [--n 3000] [--seed 1]       random formulas: mlist_to_hlist vs TeX \showbox (#74)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
@@ -86,6 +87,11 @@ switch (cmd) {
     const { fuzzParagraphs } = await import("./fuzz/paragraphs")
     const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
     process.exit(fuzzParagraphs(opt("--n", 200), opt("--seed", 1)))
+  }
+  case "fuzz:documents": {
+    const { fuzzDocuments } = await import("./fuzz/documents")
+    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
+    process.exit(fuzzDocuments(opt("--n", 30), opt("--seed", 1)))
   }
   case "dimen:check": {
     const { dimenCheck } = await import("./oracle/dimencheck")

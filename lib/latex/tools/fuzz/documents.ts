@@ -1,0 +1,91 @@
+// Document fuzzer (#30): random whole documents in what the document adapter
+// lays out — classes and sizes, page styles, paragraphs with inline math and
+// footnotes, \section to \subsubsection (starred or not), itemize and enumerate
+// lists started in or out of a paragraph, with text right after them or after a
+// blank line — each compared with TeX as a fixture is: every glyph, every line
+// and page decision, every page's box tree.
+//
+//   bun engine fuzz:documents [--n 30] [--seed 1]
+
+import { mkdirSync, writeFileSync } from "node:fs"
+import { join } from "node:path"
+import { runFixture } from "../unit/run"
+
+const WORDS = `the of and a to in is was that for it as with on by be at from this which are or an have but not they
+were his her one all their there been has more when will would who so no if out up into than them can only other new
+some could time these two may first then do any like my now over such our man even most made after also did many
+before must through back years where much your way well down should because each just those people how too little
+state good very make world still own see men work long get here between both life being under never day same another
+know while last might great old year off come since against go came right used take three office official efficient
+difficult different affluent baffled sufficient fluffy offline staff stuff fifty fifteen Typesetting composition
+paragraphs hyphenation algorithm demerits badness tolerance Knuth Plass Paris London. Yes! Really? (indeed) well-known`.split(/\s+/)
+
+function rng(seed: number) {
+  let a = seed >>> 0
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0
+    let t = a
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+export function makeDocument(r: () => number): string {
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const words = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join(" ")
+  const math = () => pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$"])
+  const text = (n: number) => {
+    const ws = words(n).split(" ")
+    for (let i = 0; i < ws.length; i++) {
+      if (r() < 0.05) ws[i] += " " + math()
+      if (r() < 0.015) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
+    }
+    return ws.join(" ")
+  }
+  const cls = pick(["article", "article", "report"])
+  const out = [`\\documentclass${pick(["", "[11pt]", "[12pt]"])}{${cls}}`]
+  if (r() < 0.25) out.push("\\pagestyle{empty}")
+  out.push("\\begin{document}")
+  let afterPar = false
+  for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
+    const x = r()
+    if (x < 0.15) {
+      const level = pick(["section", "section", "subsection", "subsubsection"])
+      out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}`)
+      afterPar = false
+    } else if (x < 0.3) {
+      const env = pick(["itemize", "enumerate"])
+      if (!afterPar || r() < 0.6) out.push("")
+      out.push(`\\begin{${env}}`)
+      for (let i = 1 + Math.floor(r() * (env === "enumerate" ? 12 : 6)); i > 0; i--) out.push(`\\item ${text(r() < 0.3 ? 30 + Math.floor(r() * 50) : 2 + Math.floor(r() * 10))}`)
+      out.push(`\\end{${env}}`)
+      afterPar = false
+      if (r() < 0.3) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } // text right after the list
+    } else {
+      out.push("", text(10 + Math.floor(r() * 120)))
+      afterPar = true
+    }
+  }
+  out.push("\\end{document}", "")
+  return out.join("\n")
+}
+
+export function fuzzDocuments(n: number, seed: number): number {
+  const r = rng(seed)
+  const dir = ".cache/fuzzdoc"
+  mkdirSync(dir, { recursive: true })
+  let pass = 0, glyphs = 0
+  const failures: string[] = []
+  for (let i = 0; i < n; i++) {
+    const file = join(dir, `doc-${seed}-${i}.tex`)
+    writeFileSync(file, "% engine: document\n" + makeDocument(r))
+    const res = runFixture(file)
+    glyphs += res.glyphs
+    if (res.status === "pass") pass++
+    else failures.push(`${file}: ${res.status} ${res.message ?? ""}${res.divergence ? ` ${JSON.stringify(res.divergence)}` : ""}${res.boxDivergence ? ` ${JSON.stringify(res.boxDivergence)}` : ""}${res.decisionDivergence ? ` ${JSON.stringify(res.decisionDivergence).slice(0, 300)}` : ""}`)
+  }
+  for (const f of failures.slice(0, 5)) console.log("✗ " + f)
+  console.log(`${pass}/${n} random documents identical to TeX (seed ${seed}; ${glyphs} glyphs)`)
+  return pass === n ? 0 : 1
+}
