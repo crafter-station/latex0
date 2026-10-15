@@ -27,6 +27,8 @@ export interface BoxNode {
   shift: number
   glueSet: number; glueSign: GlueSign; glueOrder: GlueOrder
   list: Node[]
+  /** e-TeX's dlist subtype: a displayed formula or its equation number (shown ", display") */
+  display?: boolean
 }
 /**
  * Discretionary (§ 145): `pre` ends the line and `post` starts the next if TeX

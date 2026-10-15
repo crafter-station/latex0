@@ -35,6 +35,8 @@ export function makeDocument(r: () => number): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   const words = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join(" ")
   const math = () => pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$"])
+  const display = () => pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
+    "\\prod_{k=1}^{m}\\frac{1}{k}", "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
   const text = (n: number) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -73,7 +75,16 @@ export function makeDocument(r: () => number): string {
       afterPar = false
       if (r() < 0.3) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } // text right after the list
     } else {
-      out.push("", text(10 + Math.floor(r() * 120)))
+      // a paragraph, maybe with displays in it or opening it
+      const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120))]
+      for (let d = r() < 0.3 ? 1 + Math.floor(r() * 2) : 0; d > 0; d--) {
+        const f = display()
+        const env = pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
+        parts.push(env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : `\\begin{${env}} ${f} \\end{${env}}`)
+        parts.push(r() < 0.3 ? "" : text(5 + Math.floor(r() * 60)))
+      }
+      if (!parts.join("").trim()) parts[0] = text(10)
+      out.push("", parts.join("\n"))
       afterPar = true
     }
   }

@@ -1,18 +1,23 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 71,
-  "exact": 56,
+  "fixtures": 73,
+  "exact": 58,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 15,
-  "glyphs": 45465
+  "glyphs": 47057
  },
  "areas": [
   {
    "area": "classes",
    "fixtures": 8,
    "exact": 8
+  },
+  {
+   "area": "display",
+   "fixtures": 2,
+   "exact": 2
   },
   {
    "area": "footnotes",
@@ -351,6 +356,28 @@
    "glyphs": 639,
    "covers": "every size command \\tiny … \\Huge in article [12pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
    "issue": "#44"
+  },
+  {
+   "id": "display/displays-amsmath-12pt",
+   "file": "micro/display/displays-amsmath-12pt.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 596,
+   "covers": "with amsmath at 12pt: \\[ \\] is equation* (no \\makebox line), displays in a list's paragraph shape (\\displayindent, \\displaywidth from \\parshape), after a section heading",
+   "issue": "#86"
+  },
+  {
+   "id": "display/displays-plain",
+   "file": "micro/display/displays-plain.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 996,
+   "covers": "\\[ \\], equation with its number, $$ $$ and displaymath in running text: \\predisplaysize and short or regular skips, \\predisplaypenalty, \\postdisplaypenalty, \\displaywidowpenalty before, prevgraf+3 after; a display opening a paragraph (\\makebox[.6\\linewidth]{}) and an equation after a blank line",
+   "issue": "#86"
   },
   {
    "id": "footnotes/footnote-basic",

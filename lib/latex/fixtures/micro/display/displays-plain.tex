@@ -1,0 +1,24 @@
+% fixture: display/displays-plain
+% tier: T3
+% engine: document
+% covers: \[ \], equation with its number, $$ $$ and displaymath in running text: \predisplaysize and short or regular skips, \predisplaypenalty, \postdisplaypenalty, \displaywidowpenalty before, prevgraf+3 after; a display opening a paragraph (\makebox[.6\linewidth]{}) and an equation after a blank line
+% issue: #86
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+\[ x^2+y^2=z^2 \]
+and the paragraph continues Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+\begin{equation} \sum_{i=1}^n i = \frac{n(n+1)}{2} \end{equation}
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it. Short.
+$$a+b$$
+end of it.
+
+\[ \int_0^1 f(x) \]
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+
+\begin{equation} E=mc^2 \end{equation}
+
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it. A long line of text that reaches far to the right before the display \begin{displaymath} y=f(x) \end{displaymath}
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+\end{document}
