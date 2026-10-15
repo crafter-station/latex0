@@ -38,7 +38,7 @@ export const HYPHEN_CHAR = 45
  * word goes through TeX's main loop (§§ 1034–1040); in a paragraph (unrestricted
  * horizontal mode) an explicit hyphen gets an empty discretionary.
  */
-export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number }, paragraph = true, hyphenChar = font.hyphenChar ?? HYPHEN_CHAR) {
+export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number; /** \sfcode changes in force */ sfcodes?: Record<number, number> }, paragraph = true, hyphenChar = font.hyphenChar ?? HYPHEN_CHAR) {
   let run: number[] = []
   const flush = () => {
     if (!run.length) return
@@ -53,7 +53,7 @@ export function appendText(list: Node[], text: string, font: Font, state: { spac
     }
     const c = ch.codePointAt(0)!
     run.push(c)
-    const s = sfCode(c) // adjust_space_factor (§ 1034)
+    const s = state.sfcodes?.[c] ?? sfCode(c) // adjust_space_factor (§ 1034)
     if (s === 1000) state.spaceFactor = 1000
     else if (s < 1000) { if (s > 0) state.spaceFactor = s }
     else if (state.spaceFactor < 1000) state.spaceFactor = 1000

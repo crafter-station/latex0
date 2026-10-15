@@ -1,14 +1,19 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 113,
-  "exact": 106,
+  "fixtures": 115,
+  "exact": 109,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 7,
-  "glyphs": 145770
+  "pending": 6,
+  "glyphs": 148403
  },
  "areas": [
+  {
+   "area": "bibliography",
+   "fixtures": 2,
+   "exact": 2
+  },
   {
    "area": "classes",
    "fixtures": 10,
@@ -67,7 +72,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 11
+   "exact": 12
   },
   {
    "area": "text",
@@ -119,8 +124,8 @@
    "file": "macro/templates/bibliography.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 55,
    "covers": "snippet in a minimal article: Manual bibliography with entries",
    "issue": "#30"
@@ -277,6 +282,28 @@
    "status": "skip",
    "glyphs": 40,
    "covers": "snippet in a minimal article: Simple TikZ diagram with nodes and arrows",
+   "issue": "#30"
+  },
+  {
+   "id": "bibliography/thebibliography-article",
+   "file": "micro/bibliography/thebibliography-article.tex",
+   "area": "bibliography",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2154,
+   "covers": "thebibliography in article: \\section*{\\refname}, the \\list with \\labelwidth from \\@biblabel{widest} and \\leftmargin\\labelwidth+\\labelsep, [n] labels (\\@mklab), \\sloppy, \\clubpenalty and \\widowpenalty 4000, \\sfcode`\\.\\@m (no extra space after a period, also in a footnote), \\cite with \\bibcite numbers from the first run ([n], \\hbox each, ,\\penalty\\@m\\ between, a bold ? when undefined)",
+   "issue": "#30"
+  },
+  {
+   "id": "bibliography/thebibliography-report",
+   "file": "micro/bibliography/thebibliography-report.tex",
+   "area": "bibliography",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 424,
+   "covers": "thebibliography in report with running heads: \\chapter*{\\bibname} on a new page, \\@mkboth{\\MakeUppercase\\bibname} after it in vertical mode (\\nobreak after each mark)",
    "issue": "#30"
   },
   {

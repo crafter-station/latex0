@@ -51,6 +51,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.015 && !hyper) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
+      if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
     }
     // runs of words in other fonts (\textbf, \emph, …), sometimes nested, sometimes before , or .
     const font = () => pick(["textbf", "textit", "emph", "emph", "textsl", "textsc", "texttt", "textsf", "textmd", "textup"])
@@ -202,6 +203,13 @@ export function makeDocument(r: () => number): string {
       out.push("", parts.join("\n"))
       afterPar = true
     }
+  }
+  // a bibliography: \section*{References} (\chapter*{Bibliography}) and its numbered list
+  if (r() < 0.2 && !hyper) {
+    const n = 1 + Math.floor(r() * (r() < 0.2 ? 12 : 4))
+    out.push("", `\\begin{thebibliography}{${n < 10 ? "9" : "99"}}`)
+    for (let i = 1; i <= n; i++) out.push(`\\bibitem{b${i}} ${text(5 + Math.floor(r() * 40))}`)
+    out.push("\\end{thebibliography}")
   }
   if (cls === "book" && r() < 0.3) out.push("\\backmatter", ...(r() < 0.5 ? [`\\chapter{${words(2)}}`, text(20)] : []))
   out.push("\\end{document}", "")
