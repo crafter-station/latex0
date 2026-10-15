@@ -46,11 +46,11 @@ const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStr
 let memoHyphenator: ReturnType<typeof buildHyphenator> | undefined
 const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("lib/latex/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
 let memoMath: MathData | undefined
-const mathData = () => (memoMath ??= JSON.parse(readFileSync("lib/latex/data/math/latex.json", "utf8")) as MathData)
+export const mathData = () => (memoMath ??= JSON.parse(readFileSync("lib/latex/data/math/latex.json", "utf8")) as MathData)
 
 /** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
-export function mathEnv(k: ClassOptionData, size: SizeCommand): MathEnv {
-  const m = k.sizes[size].math, data = mathData()
+export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
+  const m = amsmath ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
   return {
     fonts: [m.text, m.script, m.scriptscript].map((fs) => fs.map((f) => loadFont(dataFont(f.name), f.at))),
     muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
@@ -83,6 +83,10 @@ export interface ParagraphOptions {
   noteClubPenalty?: number
   /** \centering and friends */
   leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode; finalHyphenDemerits?: number
+  /** amsmath is loaded: its math fonts */
+  amsmath?: boolean
+  /** lines already in the paragraph (before a display), and the widow penalty in force */
+  prevGraf?: number; widowPenalty?: number
 }
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
@@ -119,12 +123,12 @@ const hss = () => glue(0, 65536, FIL, 65536, FIL)
  * \@makefnmark at a size: \hbox{\@textsuperscript{\normalfont N}}, that is
  * \hbox{$^{\mbox{N}}$} with \mathsurround=0pt and N in roman at \sf@size.
  */
-function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand): BoxNode {
+function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
   const ref = k.sizes[size].math.script[0]
   const digits: Node[] = []
   appendText(digits, String(n), loadFont(dataFont(ref.name), ref.at), { spaceFactor: 1000 }, false)
   const mbox = hpack(digits)
-  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size), TEXT, false)
+  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return hpack([{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }])
 }
 
@@ -152,13 +156,13 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   // the paragraph's parameters, less what normal_paragraph (§ 1070) resets at \insert and what
   // \@parboxrestore sets: \leftskip, \rightskip 0, \parfillskip \@flushglue, \sloppy
   // (\tolerance 9999, \emergencystretch 3em)
-  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0, ...(ctx.noteClub !== undefined ? { clubPenalty: ctx.noteClub } : {}) }
+  const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0, widowPenalty: k.ints.widowpenalty, ...(ctx.noteClub !== undefined ? { clubPenalty: ctx.noteClub } : {}) }
   Object.assign(params, {
     hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", glue(0, 65536, FIL)),
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   params.hyphenation = hyphenation(k, font)
-  const markBox = hpack([hss(), footnoteMark(n, k, fs)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const markBox = hpack([hss(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
   appendPieces(list, pieces(src.trim(), false), font, fs, { spaceFactor: 1000 }, ctx)
@@ -191,7 +195,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; amsmath?: boolean }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFont>, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext) {
@@ -200,12 +204,12 @@ function appendPieces(list: Node[], ps: Piece[], font: ReturnType<typeof loadFon
     if (p.kind === "text") appendText(list, p.src, font, state)
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData()), mathEnv(k, size), TEXT, true), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData()), mathEnv(k, size, ctx.amsmath), TEXT, true), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
       const n = ++doc.footnote
-      list.push(penalty(10000), footnoteMark(n, k, size))
+      list.push(penalty(10000), footnoteMark(n, k, size, ctx.amsmath))
       const { ins, trace } = footnoteInsert(p.src, n, ctx)
       list.push(ins)
       ctx.notes.push(trace)
@@ -253,9 +257,11 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   if (opts.rightSkip) params.rightSkip = opts.rightSkip
   if (opts.parFillSkip) params.parFillSkip = opts.parFillSkip
   if (opts.finalHyphenDemerits !== undefined) params.finalHyphenDemerits = opts.finalHyphenDemerits
+  if (opts.prevGraf !== undefined) params.prevGraf = opts.prevGraf
+  if (opts.widowPenalty !== undefined) params.widowPenalty = opts.widowPenalty
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
-  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty })
+  appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, amsmath: opts.amsmath })
   return { list, params, notes }
 }
 

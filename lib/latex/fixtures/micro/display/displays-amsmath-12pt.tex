@@ -1,0 +1,16 @@
+% fixture: display/displays-amsmath-12pt
+% tier: T3
+% engine: document
+% covers: with amsmath at 12pt: \[ \] is equation* (no \makebox line), displays in a list's paragraph shape (\displayindent, \displaywidth from \parshape), after a section heading
+% issue: #86
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\begin{document}
+\section{Displays}
+\[ \alpha+\beta \]
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+\[ f(x)=\sum_{k=0}^\infty a_k x^k \]
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+
+Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it. \begin{equation*} x \end{equation*} Displays interrupt a paragraph: the text so far is broken into lines, the formula is centered on its own line with skips above and below, and the paragraph goes on after it.
+\end{document}

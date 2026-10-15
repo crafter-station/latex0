@@ -7,7 +7,7 @@ import type { BoxNode as BoxOut } from "../trace/schema"
 export function emitBoxes(n: Node): BoxOut {
   switch (n.kind) {
     case "hlist": case "vlist":
-      return { type: n.kind === "hlist" ? "hbox" : "vbox", width: n.width, height: n.height, depth: n.depth, shift: n.shift, glueSet: n.glueSet, glueSign: n.glueSign, glueOrder: n.glueOrder, children: n.list.map(emitBoxes) }
+      return { type: n.kind === "hlist" ? "hbox" : "vbox", width: n.width, height: n.height, depth: n.depth, shift: n.shift, glueSet: n.glueSet, glueSign: n.glueSign, glueOrder: n.glueOrder, children: n.list.map(emitBoxes), ...(n.display ? { display: true } : {}) }
     case "char": {
       // show_box (§ 193): "(ligature |ff|)", with | for the left and right boundary
       const lig = n.ligature || n.text.length !== 1 || n.text.charCodeAt(0) !== n.char

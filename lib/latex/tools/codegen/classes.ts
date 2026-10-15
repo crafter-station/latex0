@@ -37,9 +37,9 @@ const INTS = [
 ]
 const DISPLAY = ["abovedisplayskip", "belowdisplayskip", "abovedisplayshortskip", "belowdisplayshortskip"] as const
 
-function probe(cls: string, option: string): string {
+function probe(cls: string, option: string, packages = ""): string {
   return [
-    `\\documentclass[${option}]{${cls}}`,
+    `\\documentclass[${option}]{${cls}}`, packages,
     "\\makeatletter",
     "\\def\\P#1#2{\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}}",
     `\\def\\S#1{{#1\\check@mathfonts\\immediate\\write16{S:\\expandafter\\@gobble\\string#1:\\f@size:\\sf@size:\\ssf@size:\\fontname\\font:\\the\\baselineskip${DISPLAY.map((d) => `:\\the\\${d}`).join("")}}` +
@@ -72,6 +72,10 @@ function texData(cls: string, option: string): ClassOptionData {
   writeFileSync(join(dir, "probe.tex"), probe(cls, option))
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "probe.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
   const log = readFileSync(join(dir, "probe.log"), "latin1").split("\n")
+  // the same probe with amsmath, which scales the math extension font with the size: only its math fonts are kept
+  writeFileSync(join(dir, "ams.tex"), probe(cls, option, "\\usepackage{amsmath}"))
+  execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "ams.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
+  const amsLog = readFileSync(join(dir, "ams.log"), "latin1").split("\n")
   const data: ClassOptionData = { dimens: {}, glue: {}, ints: {}, sizes: {} as ClassOptionData["sizes"] }
   const mathFonts = new Map<string, SizeData["math"]>()
   const struts = new Map<string, SizeData["strut"]>()
@@ -91,6 +95,7 @@ function texData(cls: string, option: string): ClassOptionData {
         baselineskip,
         abovedisplayskip: display[0], belowdisplayskip: display[1], abovedisplayshortskip: display[2], belowdisplayshortskip: display[3],
         math: { text: [], script: [], scriptscript: [] },
+        mathAms: { text: [], script: [], scriptscript: [] },
         strut: { height: 0, depth: 0 },
         companion: { name: "", at: 0 },
         bold: { name: "", at: 0 },
@@ -106,6 +111,12 @@ function texData(cls: string, option: string): ClassOptionData {
     }
   }
   for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
+  for (const line of amsLog) {
+    const m = line.match(/^F:(\w+):(.*)$/)
+    if (!m || !data.sizes[m[1] as keyof ClassOptionData["sizes"]]) continue
+    const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
+    data.sizes[m[1] as keyof ClassOptionData["sizes"]].mathAms = { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) }
+  }
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c

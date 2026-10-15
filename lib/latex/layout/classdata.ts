@@ -21,6 +21,8 @@ export interface SizeData {
   /** display skips; set by \normalsize, \small and \footnotesize, inherited by the others */
   /** math families 0–3 (roman, math italic, symbols, extension) at text, script and scriptscript size */
   math: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
+  /** the same with amsmath loaded, which declares the extension font (family 3) at every size */
+  mathAms: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
   /** the bold extended roman (\bfseries) at this size */
   bold: FontRef
   /** the text companion font (TS1: \textbullet…) at this size */

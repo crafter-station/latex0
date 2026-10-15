@@ -24,14 +24,17 @@ import { loadFont, QUAD, X_HEIGHT, type Font } from "../../../layout/font"
 import { Scanner } from "../../../layout/dimen"
 import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
-import { FIL, glue, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, glue, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
+import { displayLine, finishDisplay, preDisplaySize } from "../../../layout/display"
+import { DISPLAY as DISPLAY_STYLE, mlistToHlist } from "../../../mathlayout/mlist"
+import { parseMath } from "../../../mathlayout/parse"
 import { hpack, vpack } from "../../../layout/pack"
 import { halign } from "../../../layout/align"
 import { xnOverD } from "../../../layout/arith"
 import { ORACLE_EPOCH } from "../../tex"
 import type { ParagraphTrace } from "../../../trace/decisions"
 import type { Adapter } from "./index"
-import { appendToVlist, endDocument, makeColumns, paragraphInput, spec, type DocState } from "./paragraph"
+import { appendToVlist, endDocument, makeColumns, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 export class Unsupported extends Error {}
@@ -47,6 +50,23 @@ type Block =
   | { kind: "maketitle" }
 
 const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
+
+/** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
+interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath"; src: string }
+const DISPLAY = /\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath)\}([^]*?)\\end\{\3\}/
+/** A paragraph's text split at its displays: text, display, text, …, text. */
+function displaySegments(text: string): (string | Display)[] {
+  const out: (string | Display)[] = []
+  const re = new RegExp(DISPLAY.source, "g")
+  let at = 0
+  for (let m: RegExpExecArray | null; (m = re.exec(text)); ) {
+    out.push(text.slice(at, m.index))
+    out.push(m[1] !== undefined ? { kind: "bracket", src: m[1] } : m[2] !== undefined ? { kind: "dollars", src: m[2] } : { kind: m[3] as Display["kind"], src: m[4] })
+    at = m.index + m[0].length
+  }
+  out.push(text.slice(at))
+  return out
+}
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 function blocksOf(body: string): Block[] {
@@ -91,8 +111,8 @@ function blocksOf(body: string): Block[] {
   // text, inline math and footnotes only; other commands are not laid out yet
   const check = (t: string) => { const m = t.replace(/\$[^$]*\$/g, "").match(/\\(?!footnote\b|noindent\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`) }
   for (const b of out) {
-    if (b.kind === "par") check(b.text)
-    else if (b.kind === "list") b.items.forEach(check)
+    if (b.kind === "par") displaySegments(b.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
+    else if (b.kind === "list") b.items.forEach((t) => { if (DISPLAY.test(t)) throw new Unsupported("a display in a list item"); check(t) })
     else if (b.kind === "maketitle") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
@@ -168,6 +188,10 @@ class VerticalList {
   /** A paragraph's lines (and what follows them: penalties, insertions) after \parskip. */
   paragraph(vlist: Node[], parskip: GlueSpec, baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip) {
     this.nodes.push(spec("parskip", parskip), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
+    this.lines(vlist, baselineskip, lineskip)
+  }
+  /** lines of a paragraph (no \parskip: the part after a display) */
+  lines(vlist: Node[], baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip) {
     for (const n of vlist) {
       if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, lineskip, this.k.dimens.lineskiplimit)
       else this.nodes.push(n)
@@ -219,9 +243,11 @@ export const document: Adapter = (src) => {
   const k = classData(cls, option)
   const pre = src.slice(0, src.indexOf("\\begin{document}")).replace(/(^|[^\\])%.*$/gm, "$1")
   let pagestyle = cls === "book" ? "headings" : "plain"
+  let amsmath = false
   const title: { title?: string; author?: string; date?: string } = {}
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
+    if (line === "\\usepackage{amsmath}") { amsmath = true; continue }
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
@@ -236,7 +262,7 @@ export const document: Adapter = (src) => {
   const decisions: ParagraphTrace[] = []
   const outerParskip = k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
-    const { list, params, notes } = paragraphInput(text, k, size, doc, opts)
+    const { list, params, notes } = paragraphInput(text, k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
     v.paragraph(vlist, parskip, k.sizes[size].baselineskip)
@@ -246,7 +272,7 @@ export const document: Adapter = (src) => {
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   const titleBoxes: BoxNode[] = []
-  const counters = [0, 0, 0, 0] // chapter (never stepped yet), section, subsection, subsubsection
+  const counters = Object.assign([0, 0, 0, 0], { equation: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   blocks.forEach((b, bi) => {
     if (b.kind === "heading") { heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
@@ -257,18 +283,22 @@ export const document: Adapter = (src) => {
         // (a list that follows at once runs that \par inside its own group, so the reset does not last)
         const noteClub = v.club
         const next = blocks[bi + 1]
-        if (next?.kind === "list" && next.inPar) typeset("\\noindent " + b.text, { clubPenalty: k.ints.clubpenalty, noteClubPenalty: noteClub }, outerParskip)
-        else { v.par(); typeset("\\noindent " + b.text, { clubPenalty: v.club, noteClubPenalty: noteClub }, outerParskip) }
+        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(b.text, true, noteClub, k.ints.clubpenalty)
+        else { v.par(); paragraphWithDisplays(b.text, true, noteClub, v.club) }
         return
       }
       v.par() // the blank line before it
       let noindent = false
+      // a display environment (or amsmath's \[, which is \begin{equation*}) that starts the paragraph
+      // starts it inside the environment's group: \everypar's assignments there do not last
+      const segs = displaySegments(b.text)
+      const grouped = !(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind === "equation" || segs[1].kind === "equation*" || segs[1].kind === "displaymath" || (segs[1].kind === "bracket" && amsmath))
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
-        if (v.nobreak) { v.nobreak = false; v.club = 10000; noindent = !v.afterindent }
-        else { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
+        if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000 }
+        else if (!grouped) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
       }
-      typeset((noindent ? "\\noindent " : "") + b.text, { clubPenalty: v.club }, outerParskip)
+      paragraphWithDisplays(b.text, noindent, v.club, v.club)
       return
     }
     if (b.blank) v.par() // a blank line before the list
@@ -299,6 +329,87 @@ export const document: Adapter = (src) => {
     v.afterheadingEverypar = false
     v.endpePar = true
   })
+
+  /**
+   * A paragraph that may hold displays (§§ 1145–1206). The text before each display is broken
+   * with \displaywidowpenalty; the display goes on the vertical list; the paragraph resumes after
+   * it with prev_graf+3, no indentation and no \parskip. `club` is \clubpenalty while the
+   * paragraph is read and `parClub` the one its final \par sees.
+   */
+  function paragraphWithDisplays(text: string, noindent: boolean, club: number, parClub: number) {
+    const segs = displaySegments(text)
+    const quad = romanFont.params[QUAD]
+    let prevGraf = 0
+    segs.forEach((seg, i) => {
+      if (typeof seg !== "string") return
+      const first = i === 0, last = i === segs.length - 1
+      const t = first ? seg.trim() : seg.replace(/^\s+/, "").trimEnd() // a display ends with \ignorespaces
+      const next = segs[i + 1] as Display | undefined
+      let justBox: BoxNode | null = null, nlines = 0
+      let params: ReturnType<typeof paragraphInput>["params"] | null = null
+      const opts = {
+        clubPenalty: last ? parClub : club, noteClubPenalty: club, prevGraf,
+        ...(last ? {} : { widowPenalty: k.ints.displaywidowpenalty }),
+        ...(first ? {} : { start: [] as Node[] }),
+      }
+      if (first && !t) {
+        // the display starts the paragraph: $$ (and amsmath's \[) from vertical mode starts it with the
+        // indent box; LaTeX's own \[ first sets \nointerlineskip\makebox[.6\linewidth]{}
+        if (next!.kind === "bracket" && !amsmath || next!.kind === "displaymath" && !amsmath) {
+          v.prevDepth = IGNORE_DEPTH
+          const lw = k.dimens.textwidth
+          const mb = hpack([hss(), hss()], { exactly: xnOverD(lw, 39322, 65536) })
+          const r = typesetList([...(noindent ? [] : [emptyBox("hlist", k.dimens.parindent)]), mb], opts, true)
+          justBox = r.just; params = r.params; nlines = r.lines
+        } else if (!noindent) {
+          const r = typesetList([emptyBox("hlist", k.dimens.parindent)], opts, true)
+          justBox = r.just; params = r.params; nlines = r.lines
+        } else v.nodes.push(spec("parskip", outerParskip), paramGlue("parskip", glue(0))) // \noindent$$: an empty paragraph
+      } else if (t || !last) {
+        const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, k, "normalsize", doc, { ...opts, amsmath })
+        if (list.length || first) {
+          const lb = lineBreak(list, ps)
+          decisions.push(...notes, lb.trace)
+          if (first) v.paragraph(lb.vlist, outerParskip); else v.lines(lb.vlist)
+          justBox = lb.lines[lb.lines.length - 1] ?? null
+          params = ps; nlines = lb.lines.length
+        }
+      }
+      prevGraf += nlines
+      if (!next) return
+      // the display
+      const ps = params ?? paragraphInput("", k, "normalsize", doc, { amsmath }).params
+      const line = displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape)
+      let mlist
+      try { mlist = parseMath(next.src.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) }
+      const env = mathEnv(k, "normalsize", amsmath)
+      if (next.kind === "equation" && amsmath) throw new Unsupported("amsmath's numbered equation (it differs between TeX Live releases)")
+      if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
+      let eqno: BoxNode | null = null
+      if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
+        counters.equation++
+        const l: Node[] = []
+        appendText(l, `(${counters.equation})`, romanFont, { spaceFactor: 1000 }, false)
+        eqno = hpack([hpack(l)]); eqno.display = true
+      }
+      const sz = k.sizes.normalsize
+      const items = finishDisplay(mlistToHlist(mlist, env, DISPLAY_STYLE, false), eqno, {
+        width: line.width, indent: line.indent, preSize: preDisplaySize(justBox, quad), mathQuad: env.fonts[0][2]!.params[QUAD],
+        preDisplayPenalty: k.ints.predisplaypenalty, postDisplayPenalty: k.ints.postdisplaypenalty,
+        aboveDisplaySkip: sz.abovedisplayskip, belowDisplaySkip: sz.belowdisplayskip, aboveDisplayShortSkip: sz.abovedisplayshortskip, belowDisplayShortSkip: sz.belowdisplayshortskip,
+      })
+      for (const it of items) { if ("box" in it) v.box(it.box, sz.baselineskip); else v.nodes.push(it.node) }
+      prevGraf += 3
+    })
+  }
+  /** a paragraph from a ready horizontal list (the display's opening line) */
+  function typesetList(list: Node[], opts: Parameters<typeof paragraphInput>[4], withParskip: boolean) {
+    const { params } = paragraphInput("", k, "normalsize", doc, { ...opts, amsmath })
+    const lb = lineBreak(list, params)
+    decisions.push(lb.trace)
+    if (withParskip) v.paragraph(lb.vlist, outerParskip); else v.lines(lb.vlist)
+    return { just: lb.lines[lb.lines.length - 1] ?? null, params, lines: lb.lines.length }
+  }
 
   /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
    *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
@@ -334,7 +445,7 @@ export const document: Adapter = (src) => {
       if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
       start.push(tabular(rows.map((r) => [r]), ["c"], "large"))
     })
-    const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty })
+    const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty, amsmath })
     const ab = lineBreak(authorPar.list, authorPar.params)
     decisions.push(ab.trace)
     v.paragraph(ab.vlist, outerParskip, k.sizes.large.baselineskip, dimen(em(".5em", large)))
@@ -343,7 +454,7 @@ export const document: Adapter = (src) => {
     const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today())
     check(date, "\\date")
     if (date) {
-      const dp = paragraphInput("", k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: k.ints.clubpenalty })
+      const dp = paragraphInput("", k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: k.ints.clubpenalty, amsmath })
       appendText(dp.list, date, large, { spaceFactor: 1000 })
       const db = lineBreak(dp.list, dp.params)
       decisions.push(db.trace)
