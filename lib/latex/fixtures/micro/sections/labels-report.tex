@@ -1,0 +1,19 @@
+% fixture: sections/labels-report
+% tier: T3
+% engine: document
+% covers: \newlabel values in report: \@currentlabel (local: lists, equations and floats restore it) and \@currentHref (global) for a chapter, a section, items four enumerate levels deep (1, 1a, 1(a)i, 1(a)iA), an \item[x], an equation, \refstepcounter of a \newcounter where it stands in a paragraph, a figure, a \ref in a footnote
+% issue: #30
+\documentclass{report}
+\newcounter{thm}
+\begin{document}
+\chapter{C}\label{ch}
+\section{S}\label{s}
+\begin{enumerate}\item a\label{i1}\begin{enumerate}\item b\label{i2}\begin{enumerate}\item c\label{i3}\begin{enumerate}\item d\label{i4}\end{enumerate}\end{enumerate}\end{enumerate}\item[x] e\label{i5}\end{enumerate}
+after\label{after}
+\begin{equation}x\label{eq}\end{equation}
+post\label{post} \refstepcounter{thm}\label{thm}
+
+\begin{figure}\caption{F}\label{f}\end{figure}
+
+z\label{z}\footnote{n see~\ref{i3}}
+\end{document}

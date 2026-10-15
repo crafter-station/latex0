@@ -1,0 +1,18 @@
+% fixture: sections/toc-in-text
+% tier: T3
+% engine: document
+% covers: \tableofcontents after a paragraph and before one (\@starttoc's \@nobreakfalse, the \@afterheading \everypar still pending), a run-in \paragraph's toc line below tocdepth
+% issue: #30
+\documentclass{article}
+\begin{document}
+Some text first.
+
+\tableofcontents
+More text after.
+
+\section*{Unnumbered}
+x
+\section{A}
+y
+\paragraph{Run} in text.
+\end{document}

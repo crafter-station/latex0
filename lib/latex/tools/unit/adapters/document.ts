@@ -24,9 +24,9 @@ import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font
 import { parseGlue, Scanner } from "../../../layout/dimen"
 import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
-import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../../../layout/display"
-import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../../../mathlayout/mlist"
+import { DISPLAY as DISPLAY_STYLE, groupField, mathGlue, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
 import { hpack, vpack } from "../../../layout/pack"
 import { halign } from "../../../layout/align"
@@ -38,7 +38,7 @@ import { geometry, GeometryUnsupported } from "./geometry"
 import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
-import { squeeze, appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
+import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, spec, type DocState, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 type TabularLine = { cells: string[] } | { rule: true }
@@ -66,6 +66,10 @@ type Block =
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
+  | { kind: "toc" }
+
+/** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{} */
+interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; page: number }
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
 const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract"] as const
@@ -79,7 +83,7 @@ type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
-interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined }
+interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined; /** the enclosing enumerate counters (\p@enumii …) */ enums: number[] }
 
 /** Where the \end matching an environment's \begin is (environments nest), and where it ends. */
 function listEnd(body: string, from: number, env: string): { at: number; next: number } {
@@ -170,11 +174,18 @@ function displaySegments(text: string): (string | Display)[] {
   return out
 }
 
+/** Whether the text before an environment leaves TeX in a paragraph: text right before it, not
+ *  only \label commands, which do not start one */
+function inParagraph(before: string): boolean {
+  const last = before.split(/\n[ \t]*\n/).pop()!
+  return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*\\label\{[^{}]*\})+\s*$/.test(last)
+}
+
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -188,8 +199,9 @@ function blocksOf(body: string): Block[] {
     const before = body.slice(at, m.index)
     text(before)
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
+    if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[6]) {
-      const inPar = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== ""
+      const inPar = inParagraph(before)
       out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar })
       at = re.lastIndex; endpe = false; continue
     }
@@ -204,7 +216,7 @@ function blocksOf(body: string): Block[] {
       endpe = false
       continue
     }
-    const inPar = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== ""
+    const inPar = inParagraph(before)
     const end = listEnd(body, re.lastIndex, m[3])
     const prev = out[out.length - 1]
     if (inPar && prev?.kind === "par") prev.unskip = 1
@@ -215,18 +227,22 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`) }
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+    if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
+    if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
+  }
   for (const b of out) {
     if (b.kind === "par") displaySegments(b.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
     else if (b.kind === "list") {
       const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
         if (p.kind === "list") return walk(p)
         if (DISPLAY.test(p.text)) throw new Unsupported(`a display in ${l.env}`)
+        if (/^\s*\\label\b/.test(p.text)) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
         check(p.text)
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "float") continue
+    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -260,9 +276,9 @@ class VerticalList {
   par() { if (this.endpePar) { this.club = this.k.ints.clubpenalty; this.endpePar = false; this.afterheadingEverypar = false } }
   constructor(private k: ClassOptionData) {}
 
-  /** \lastskip: the last node's glue, or 0pt */
+  /** \lastskip: the last node's glue, or 0pt (a hook stands for an assignment, not a node) */
   get lastSkip(): GlueSpec {
-    const n = this.nodes[this.nodes.length - 1]
+    const n = this.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
     return n?.kind === "glue" ? n : dimen(0)
   }
   vskip(g: GlueSpec) { this.nodes.push(plain(g)) }
@@ -361,16 +377,29 @@ export const document: Adapter = (source) => {
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   const src = expanded.text
-  const notHere = new Set<number>()
-  for (;;) {
-    try { return layout(src, notHere) } catch (e) {
-      if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
-      notHere.add(e.index)
+  const run = (aux: Aux | null) => {
+    const notHere = new Set<number>()
+    for (;;) {
+      try { return layout(src, notHere, aux) } catch (e) {
+        if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
+        notHere.add(e.index)
+      }
     }
   }
+  // the oracle runs LaTeX twice: the second run reads the .toc and .aux files the first one wrote
+  const first = run(null)
+  return first.written ? run(first.written).result : first.result
 }
 
-function layout(src: string, notHere: Set<number>): AdapterResult {
+/** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
+interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string }> }
+
+/**
+ * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
+ * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
+ */
+function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: AdapterResult; written: Aux | null } {
+  const toc = prev ? prev.toc : null
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
   if (!["article", "report", "book"].includes(cls)) throw new Unsupported(`class ${cls}`)
@@ -419,11 +448,12 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
-  const doc: DocState = { footnote: 0 }
+  const refs: Refs = { label: "", href: "", prev: prev ? prev.labels : null, writes: [] }
+  const doc: DocState = { footnote: 0, refs }
   const decisions: ParagraphTrace[] = []
   const outerParskip = k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
-    const { list, params, notes } = paragraphInput(counted(text), k, size, doc, { ...opts, amsmath })
+    const { list, params, notes } = paragraphInput(counted(text, true), k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
     v.paragraph(vlist, parskip, k.sizes[size].baselineskip)
@@ -432,7 +462,14 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   // skips in ex are read in the body font (\@startsection evaluates them before the heading's font)
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
-  const titleBoxes: Node[] = [] // nodes whose page gets \thispagestyle{plain}
+  /** the \addcontentsline{toc} writes: \thepage is the page each one is shipped out on */
+  const tocWrites: { node: Node; entry: Omit<TocEntry, "page"> }[] = []
+  const tocWrite = (level: TocEntry["level"], number: string | null, title: string): Node => {
+    const name = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"][level]
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${number !== null ? `\\protect \\numberline {${number}}` : ""}${title}}{\\thepage }{}\\protected@file@percent }}` }
+    tocWrites.push({ node, entry: { level, number, title } })
+    return node
+  }
   let floats = 0 // floats so far
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
@@ -475,7 +512,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   }
   const COUNTER_COMMANDS = /\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?|\{\}/g
   /** Counter commands in text, in order: \stepcounter and friends act (resetting the counters within), \the… and \arabic… print */
-  const counted = (text: string): string => text.replace(/\\(setcounter|addtocounter|stepcounter|refstepcounter)\s*\{([^{}]*)\}(?:\s*\{([^{}]*)\})?|\\(arabic|roman|Roman|alph|Alph)\s*\{([^{}]*)\}|\\the([a-zA-Z]+)\b\s*/g, (_m, cmd, name, arg, style, cname, tname) => {
+  const counted = (text: string, inText = false): string => text.replace(/\\(setcounter|addtocounter|stepcounter|refstepcounter)\s*\{([^{}]*)\}(?:\s*\{([^{}]*)\})?|\\(arabic|roman|Roman|alph|Alph)\s*\{([^{}]*)\}|\\the([a-zA-Z]+)\b\s*/g, (_m, cmd, name, arg, style, cname, tname) => {
     if (cmd) {
       const val = (x: string | undefined) => { const vm = x?.match(/^\s*\\value\s*\{([^{}]*)\}\s*$/); if (vm) return counterValue(vm[1]); if (x === undefined || !/^\s*-?\d+\s*$/.test(x)) throw new Unsupported(`\\${cmd} value "${x}"`); return Number(x) }
       if (cmd === "setcounter") setCounter(name, val(arg))
@@ -484,6 +521,10 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
         if (!userCounters.has(name)) throw new Unsupported(`\\${cmd}{${name}}`)
         setCounter(name, counterValue(name) + 1)
         for (const [n2, u] of userCounters) if (u.within === name) u.value = 0
+        if (cmd === "refstepcounter") { // \@currentlabel and \@currentHref: in text, where the command stands
+          if (inText) return `\\LXcurrentlabel{${theCounter(name)}}{${name}.${theCounter(name)}}{}`
+          refs.label = theCounter(name); refs.href = `${name}.${theCounter(name)}`
+        }
         if (arg !== undefined) return `{${arg}}`
       }
       return "{}" // no node, but the spaces around it stay apart
@@ -492,7 +533,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     if (userCounters.has(tname)) return theCounter(tname)
     return _m
   })
-  const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined })
+  const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
   let runIn: (() => Node[]) | null = null
   /** a run-in heading followed by another heading: \@startsection's \leavevmode\par makes it a paragraph of its own */
@@ -511,13 +552,26 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
     if (b.kind === "heading") { if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
+    if (b.kind === "toc") { if (runIn) runInAlone(); tableOfContents(); return }
     if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
+      // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
+      // the \nobreak of \protected@write and of \@esphack
+      const lead = b.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
+      if (lead) {
+        if (runIn) throw new Unsupported("\\label right after a run-in heading")
+        for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) {
+          v.nodes.push(labelWrite(refs, m[1]))
+          if (v.nobreak) v.nodes.push(penalty(10000), penalty(10000))
+        }
+        b.text = b.text.slice(lead[0].length)
+        if (!b.text) return
+      }
       // counter commands in vertical mode make no paragraph
       if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
       // a run-in heading goes in place first: its title sees the counters as the paragraph starts
       const head = runIn ? runIn() : null
-      const text = counted(b.text)
+      const text = counted(b.text, true)
       if (head) { // \@xsect's \everypar: the indent box gives way to the heading, \clubpenalty\@M
         const start = head
         runIn = null
@@ -627,8 +681,8 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       const label = labels[0]
       if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
       const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) } }
-      if (next.kind === "equation") counters.equation++ // \refstepcounter, or amsmath's \incr@eqnum
-      const newlabel: Node | null = label ? { kind: "whatsit", text: `\\write1{\\newlabel{${label[1]}}{{${the(counters.equation)}}{\\thepage }{}{${href("equation", counters.equation)}}{}}}` } : null
+      if (next.kind === "equation") { counters.equation++; refs.href = href("equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
+      const newlabel: Node | null = label ? labelWrite(refs, label[1], the(counters.equation)) : null
       let mlist: MItem[]
       if (!label) mlist = parse(next.src)
       else {
@@ -692,6 +746,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     const tags = rows.map((r) => {
       if (!r.numbered) return hpack([strutBox()])
       counters.equation++
+      refs.href = href("equation", counters.equation)
       const l: Node[] = []
       appendText(l, `(${the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
       const last = l[l.length - 1] as CharNode
@@ -797,6 +852,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
    */
   function list(b: ListBlock, ctx: EnvCtx) {
     if (b.env === "abstract") return abstract(b, ctx)
+    const outerLabel = refs.label // \@currentlabel is local to the environment
     const trivial = b.env === "center" || b.env === "flushleft" || b.env === "flushright"
     const sizeFont = loadFont(dataFont(k.sizes[ctx.size].font.name), k.sizes[ctx.size].font.at)
     const ems = (x: string) => new Scanner(x, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
@@ -863,6 +919,10 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
           else l.push(charBox(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
         } else { // \labelenumi … iv: 1. (a) i. A.
           const n = ++counter
+          // \refstepcounter{enum…}: \p@enum… \theenum… (1, 1a, 1(a)i, 1(a)iA), and \@currentHref enum….n
+          const [v1, v2, v3] = [...ctx.enums, n]
+          refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
+          refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
           if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
           appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
         }
@@ -881,7 +941,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       parts.forEach((p) => {
         if (p.kind === "list") {
           if (p.blank) v.par()
-          return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph })
+          return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums })
         }
         // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
         // drops it; later paragraphs are indented by \parindent
@@ -899,6 +959,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     })
     // \endtrivlist: the last item's \par, then \@endparenv
     v.endtrivlist(parsep, ctx.parskip, topsepadd)
+    refs.label = outerLabel
   }
 
   /**
@@ -955,7 +1016,8 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
       // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
       const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : centered ? { finalHyphenDemerits: 0 } : {}
-      const par = paragraphInput(body, k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD] })
+      // (\clubpenalty is the one in force: \@parboxrestore leaves it, and \@setminipage's \everypar replaces \@afterheading's)
+      const par = paragraphInput(body, k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: v.club })
       const lb = lineBreak(par.list, par.params)
       decisions.push(...par.notes, lb.trace)
       // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
@@ -989,6 +1051,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
         const text = m[1].replace(/\s+/g, " ").trim()
         if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
         number = ++counters[b.env]
+        refs.href = href(b.env, number) // global; \@currentlabel ends with the float's group
         const ext = b.env === "figure" ? "lof" : "lot"
         content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{}\\protected@file@percent }}` })
         content.push(glue(k.dimens.abovecaptionskip))
@@ -1009,7 +1072,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       }
       // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
       m = it.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
-      if (m && number) { content.push({ kind: "whatsit", text: `\\write1{\\newlabel{${m[1]}}{{${the(number)}}{\\thepage }{}{${href(b.env, number)}}{}}}` }); continue }
+      if (m && number) { content.push(labelWrite(refs, m[1], the(number))); continue }
       if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
       throw new Unsupported(`${it} in a ${b.env}`)
     }
@@ -1021,6 +1084,86 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
     // elsewhere \nobreak alone, and the text after it is still right after the heading
     if (!notHere.has(index)) v.nobreak = false
+  }
+
+  /**
+   * \tableofcontents: \section*{\contentsname} (report: \chapter*), then \@starttoc{toc}, which reads
+   * the lines the run before wrote (\contentsline → \l@<name>) and ends with \@nobreakfalse
+   */
+  function tableOfContents() {
+    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents" })
+    else chapter({ kind: "heading", level: 0, star: true, title: "Contents" })
+    const tocdepth = cls === "article" ? 3 : 2
+    for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(e)
+    v.nobreak = false
+  }
+
+  /**
+   * One toc line. The top level (article's \l@section, report's \l@chapter): \addpenalty, the skip,
+   * then in a group \parindent\z@ \rightskip\@pnumwidth \parfillskip-\@pnumwidth \leavevmode\bfseries
+   * \advance\leftskip\@tempdima \hskip-\leftskip #1\nobreak\hfil\nobreak\hb@xt@\@pnumwidth{\hss #2\kern-\p@\kern\p@}\par.
+   * Below it, \@dottedtocline{level}{indent}{numwidth}: \vskip\z@\@plus.2\p@, and in a group \leftskip
+   * indent, \rightskip\@tocrmarg, \parfillskip-\rightskip, \parindent indent, \@afterindenttrue,
+   * \interlinepenalty\@M, \leavevmode \advance\leftskip numwidth \null\nobreak\hskip-\leftskip {#4}\nobreak
+   * \leaders\hbox{$\m@th\mkern\@dotsep mu\hbox{.}\mkern\@dotsep mu$}\hfill\nobreak
+   * \hb@xt@\@pnumwidth{\hfil\normalfont\normalcolor #5\kern-\p@\kern\p@}\par
+   */
+  function tocLine(e: TocEntry) {
+    const top = cls === "article" ? 1 : 0
+    const dims = (x: string, units = bodyUnits) => new Scanner(x, units).scanDimen().value
+    const bold = k.sizes.normalsize.bold
+    const font = e.level === top ? bold : roman
+    const f = loadFont(dataFont(font.name), font.at)
+    const fUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
+    // \numberline{n}: \hb@xt@\@tempdima{n\hfil}
+    const numberline = (width: number): Node[] => {
+      if (e.number === null) return []
+      const l: Node[] = []
+      appendText(l, e.number, f, { spaceFactor: 1000 }, false)
+      return [hpack([...l, glue(0, 65536, FIL)], { exactly: width })]
+    }
+    // the page number: \hb@xt@\@pnumwidth (in the line's font) {\hss or \hfil, #2, \kern-\p@\kern\p@}
+    const pageBox = (fill: Node): BoxNode => {
+      const l: Node[] = [fill]
+      appendText(l, String(e.page), f, { spaceFactor: 1000 }, false)
+      l.push(kern(-65536, true), kern(65536, true))
+      return hpack(l, { exactly: dims("1.55em", fUnits) })
+    }
+    if (e.level === top) {
+      if (cls === "article") { v.addpenalty(-300); v.addvspace({ width: dims("1.0em"), stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }) }
+      else { v.addpenalty(-301); v.vskip({ width: dims("1.0em"), stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }) } // \@highpenalty
+    } else v.vskip({ width: 0, stretch: 13107, stretchOrder: 0, shrink: 0, shrinkOrder: 0 })
+    // the paragraph's \everypar: \@afterheading's, which is reset only inside the line's group
+    let club = v.club, keepIndent = true
+    if (v.afterheadingEverypar) {
+      if (v.nobreak) { v.nobreak = false; club = 10000; keepIndent = e.level !== top || v.afterindent }
+      else club = k.ints.clubpenalty
+    }
+    let start: Node[], tail: Node[], params: Parameters<typeof paragraphInput>[4]
+    if (e.level === top) {
+      const tempdima = dims("1.5em"), pnum = dims("1.55em")
+      start = [...(keepIndent ? [emptyBox("hlist", 0)] : []), glue(-tempdima), ...numberline(tempdima)]
+      tail = [penalty(10000), glue(0, 65536, FIL), penalty(10000), pageBox(glue(0, 65536, FIL, 65536, FIL))]
+      params = { leftSkip: spec("leftskip", dimen(tempdima)), rightSkip: spec("rightskip", dimen(pnum)), parFillSkip: spec("parfillskip", dimen(-pnum)) }
+    } else {
+      const [indent, numwidth] = (cls === "article" ? [["", ""], ["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]] : [["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]])[e.level].map((x) => dims(x))
+      const rmarg = dims("2.55em")
+      // \mkern\@dotsep mu: math_kern (§ 717) in the text size's mu
+      const mu = Math.trunc(mathEnv(k, "normalsize", amsmath).fonts[0][2]!.params[6] / 18)
+      const mk = mathGlue(dimen(dims("4.5pt")), mu).width
+      const dot: Node[] = []
+      appendText(dot, ".", f, { spaceFactor: 1000 }, false)
+      const leader = hpack([{ kind: "math", on: true, width: 0 }, kern(mk, true), hpack(dot), kern(mk, true), { kind: "math", on: false, width: 0 }])
+      start = [emptyBox("hlist", indent), hpack([]), penalty(10000), glue(-(indent + numwidth)), ...numberline(numwidth)]
+      tail = [penalty(10000), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(glue(0, 65536, FIL))]
+      params = { leftSkip: spec("leftskip", dimen(indent + numwidth)), rightSkip: spec("rightskip", dimen(rmarg)), parFillSkip: spec("parfillskip", dimen(-rmarg)), interLinePenalty: 10000 }
+    }
+    const { list, params: ps, notes } = paragraphInput(e.title, k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })
+    list.push(...tail)
+    const lb = lineBreak(list, ps)
+    decisions.push(...notes, lb.trace)
+    v.paragraph(lb.vlist, outerParskip)
+    if (e.level === top && cls !== "article") v.nodes.push(penalty(301)) // \penalty\@highpenalty
   }
 
   /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
@@ -1035,7 +1178,6 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     // \newpage, \global\@topnum\z@ (no float at the top of this page), and \@maketitle's \newpage
     v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook }, glue(0, 65536, FIL), penalty(-10000))
     const nul = hpack([])
-    titleBoxes.push(nul) // \thispagestyle{plain}: the page this lands on gets the plain style
     v.box(nul, k.sizes.normalsize.baselineskip) // \null
     v.vskip(dimen(em("2em", romanFont)))
     // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
@@ -1076,6 +1218,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     // \endtrivlist; then \par \vskip 1.5em
     v.endtrivlist(outerParskip, outerParskip, topsepadd)
     v.vskip(dimen(em("1.5em", romanFont)))
+    v.nodes.push({ kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }) // \thispagestyle{plain}
     doc.footnote = 0 // \setcounter{footnote}{0}
   }
 
@@ -1169,18 +1312,19 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
     v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
     v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
-    v.nodes.push(penalty(-10001), { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
+    // \thispagestyle{plain}, \global\@topnum\z@
+    v.nodes.push(penalty(-10001), { kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }, { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
     if (!b.star) {
       counters[0]++
+      refs.label = String(counters[0]); refs.href = `chapter.${counters[0]}`
       for (let l = 1; l < counters.length; l++) counters[l] = 0
       counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
-      v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {chapter}{\\protect \\numberline {${counters[0]}}${b.title}}{\\thepage }{}\\protected@file@percent }}` })
+      v.nodes.push(tocWrite(0, String(counters[0]), b.title))
       for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
     }
     // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
     const pd = v.prevDepth
     const top: Node = { kind: "rule", width: null, height: 0, depth: 0 }
-    titleBoxes.push(top)
     v.nodes.push(top, penalty(10000), glue(50 * 65536), glue(0))
     v.prevDepth = pd
     // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
@@ -1220,7 +1364,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     runIn = () => {
       const title = counted(b.title)
       const head = paragraphInput(title, k, "normalsize", doc, { start: [glue(b.level === 5 ? k.dimens.parindent : 0)], font: k.sizes.normalsize.bold, amsmath }).list
-      if (!b.star) head.push({ kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${title}}{\\thepage }{}\\protected@file@percent }}` })
+      if (!b.star) head.push(tocWrite(b.level, null, title))
       if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip
       head.push(glue(romanFont.params[QUAD])) // \hskip -\@tempskipa
       return head
@@ -1231,7 +1375,6 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   function heading(heading: Extract<Block, { kind: "heading" }>) {
     if (heading.level >= 4) return runInHeading(heading)
     const b = { ...heading, title: counted(heading.title) } // as \protected@edef and the typesetting see it
-    const name = ["", "section", "subsection", "subsubsection"][b.level]
     const size = (["normalsize", "Large", "large", "normalsize"] as const)[b.level as 0 | 1 | 2 | 3]
     const glueOf = (x: string) => new Scanner(x, bodyUnits).scanGlue()
     let before = glueOf(b.level === 1 ? "-3.5ex plus -1ex minus -.2ex" : "-3.25ex plus -1ex minus -.2ex")
@@ -1253,6 +1396,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       for (let l = b.level + 1; l < counters.length; l++) counters[l] = 0
       number = (cls === "article" ? counters.slice(1, b.level + 1) : counters.slice(0, b.level + 1)).join(".")
     }
+    if (numbered) { refs.label = number; refs.href = `${["", "section", "subsection", "subsubsection"][b.level]}.${number}` } // \refstepcounter
     const bold = k.sizes[size].bold
     const bf = loadFont(dataFont(bold.name), bold.at)
     const label: Node[] = [glue(0)] // \hskip #3 (\z@)
@@ -1261,7 +1405,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     typeset(b.title, { start: [box], font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub }, outerParskip, size)
     // \addcontentsline{toc}: \protected@write, a \write after the heading's lines, with \nobreak after it
     // while \if@nobreak holds (a heading right after a heading)
-    if (!b.star) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${numbered ? `\\protect \\numberline {${number}}` : ""}${b.title}}{\\thepage }{}\\protected@file@percent }}` })
+    if (!b.star) v.nodes.push(tocWrite(b.level, numbered ? number : null, b.title))
     if (!b.star && afterHeading) v.nodes.push(penalty(10000))
     // \@xsect: \par \nobreak \vskip afterskip \@afterheading
     v.nodes.push(penalty(10000))
@@ -1280,14 +1424,33 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   }
   const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
-  const special = new Set(pages.flatMap((pg, i) => (pg.kind === "text" && pg.page.nodes.some((n) => titleBoxes.includes(n)) ? [i] : [])))
-  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, special.has(i) ? "plain" : pagestyle))
+  const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, pages[i].special ? "plain" : pagestyle))
+  // \thepage in each toc line and \newlabel: the page its \write was shipped out on
+  let written: Aux | null = null
+  if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body)) {
+    const pageOf = new Map<Node, number>(), order = new Map<Node, number>()
+    const walk = (n: Node, page: number) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
+    shipped.forEach((b, i) => walk(b, i + 1))
+    const page = (node: Node) => {
+      const p = pageOf.get(node)
+      if (p === undefined) throw new Error("a \\write that was not shipped out")
+      return p
+    }
+    written = {
+      toc: tocWrites.slice().sort((x, y) => order.get(x.node)! - order.get(y.node)!).map(({ node, entry }) => ({ ...entry, page: page(node) })),
+      // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
+      labels: new Map(refs.writes.map((w) => ({ ...w, page: String(page(w.node)) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page }])),
+    }
+  }
   return {
-    trace: shipOut(shipped),
-    decisions,
-    pages: pageTrace,
-    columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
-    notes: [`${cls} [${option}], \\pagestyle{${pagestyle}}; ${blocks.length} block(s), ${pages.length} page(s)`],
+    result: {
+      trace: shipOut(shipped),
+      decisions,
+      pages: pageTrace,
+      columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
+      notes: [`${cls} [${option}], \\pagestyle{${pagestyle}}; ${blocks.length} block(s), ${pages.length} page(s)${toc ? `; ${toc.length} toc line(s)` : ""}`],
+    },
+    written,
   }
 }
 

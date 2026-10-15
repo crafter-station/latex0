@@ -15,7 +15,12 @@ export interface CharNode {
   /** ligature subtype: 2 if it began at the left boundary, +1 if it ended at the right boundary */
   ligHits?: number
 }
-export interface GlueNode { kind: "glue"; width: number; stretch: number; stretchOrder: GlueOrder; shrink: number; shrinkOrder: GlueOrder; /** skip parameter this glue came from, e.g. "rightskip" (§ 149 subtype) */ param?: string }
+export interface GlueNode {
+  kind: "glue"; width: number; stretch: number; stretchOrder: GlueOrder; shrink: number; shrinkOrder: GlueOrder
+  /** skip parameter this glue came from, e.g. "rightskip" (§ 149 subtype) */ param?: string
+  /** \leaders, \cleaders, \xleaders: the box repeated in the glue's space (§ 149 a_leaders…x_leaders) */
+  leaders?: { kind: "leaders" | "cleaders" | "xleaders"; box: BoxNode }
+}
 export interface KernNode { kind: "kern"; width: number; /** \kern from the source (vs. a font kern); explicit kerns are breakpoints (§ 155, 866) */ explicit?: boolean }
 export interface PenaltyNode { kind: "penalty"; penalty: number }
 /** null dimensions are "running" and take the enclosing box's size (§ 138). */
