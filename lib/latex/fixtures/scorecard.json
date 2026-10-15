@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 80,
-  "exact": 68,
+  "fixtures": 81,
+  "exact": 70,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 12,
-  "glyphs": 54790
+  "pending": 11,
+  "glyphs": 55141
  },
  "areas": [
   {
@@ -21,8 +21,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "footnotes",
@@ -62,7 +62,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 6
+   "exact": 7
   },
   {
    "area": "text",
@@ -257,8 +257,8 @@
    "file": "macro/templates/table.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 74,
    "covers": "snippet in a minimal article: Table with header row and sample data",
    "issue": "#30"
@@ -449,6 +449,17 @@
    "glyphs": 632,
    "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label after a caption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
+  },
+  {
+   "id": "floats/tabulars",
+   "file": "micro/floats/tabulars.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 277,
+   "covers": "tabular in a float (\\@tabular with \\vcenter about the axis, \\@arstrut, \\hskip\\tabcolsep, l c r columns), \\hline and a doubled \\hline (\\doublerulesep), rules as wide as the alignment (fin_align), \\textbf cells with \\check@icr, centered or not, caption above or below",
+   "issue": "#30"
   },
   {
    "id": "floats/top-bottom-floats",
