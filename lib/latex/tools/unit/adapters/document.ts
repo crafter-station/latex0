@@ -34,6 +34,7 @@ import { xnOverD } from "../../../layout/arith"
 import { ORACLE_EPOCH } from "../../tex"
 import type { ParagraphTrace } from "../../../trace/decisions"
 import type { Adapter, AdapterResult } from "./index"
+import { geometry, GeometryUnsupported } from "./geometry"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
 
@@ -357,9 +358,10 @@ export const document: Adapter = (src) => {
 }
 
 function layout(src: string, notHere: Set<number>): AdapterResult {
-  const { cls, option } = documentClass(src)
+  const { cls, option, extras, unknown } = documentClass(src)
+  if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
   if (!["article", "report", "book"].includes(cls)) throw new Unsupported(`class ${cls}`)
-  let k = classData(cls, option)
+  let k = classData(cls, option, extras)
   // \begin{document} and \end{document} outside comments
   const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
@@ -368,10 +370,13 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   let amsmath = false
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
+  const geometryOptions: string[] = []
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
+    const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
+    if (geo) { geometryOptions.push(geo[1] ?? ""); continue }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
@@ -389,6 +394,10 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     throw new Unsupported(`preamble: ${line}`)
   }
   if (t1) k = withT1(k)
+  if (geometryOptions.length) {
+    const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
+    try { k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }) } catch (e) { if (e instanceof GeometryUnsupported) throw new Unsupported(e.message); throw e }
+  }
   const body = src.slice(begin + 16, end)
   const blocks = blocksOf(body)
 
@@ -825,7 +834,8 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
      *  3em), and \centering's flush glue when it came before */
     const floatParagraph = (start: Node[], body: string, centering = centered) => {
       const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
-      const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : {}
+      // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
+      const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : centered ? { finalHyphenDemerits: 0 } : {}
       const par = paragraphInput(body, k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD] })
       const lb = lineBreak(par.list, par.params)
       decisions.push(...par.notes, lb.trace)

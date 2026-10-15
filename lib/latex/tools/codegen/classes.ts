@@ -68,6 +68,8 @@ function probe(cls: string, option: string, packages = ""): string {
     // \\@toproom, \\@botroom and \\@fpmin, \\@flsettextmin's \\@textmin), and the float page skips
     "\\immediate\\write16{I:topnumber=\\the\\c@topnumber}\\immediate\\write16{I:bottomnumber=\\the\\c@bottomnumber}\\immediate\\write16{I:totalnumber=\\the\\c@totalnumber}",
     ...([["toproom", "topfraction"], ["botroom", "bottomfraction"], ["textmin", "textfraction"], ["fpmin", "floatpagefraction"]] as const).map(([d, f]) => `{\\dimen@\\${f}\\textheight\\immediate\\write16{D:${d}=\\the\\dimen@}}`),
+    // the fractions as TeX scans them (the factor in sp), for other text heights
+    ...["topfraction", "bottomfraction", "textfraction", "floatpagefraction"].map((f) => `{\\dimen@\\${f}\\p@\\immediate\\write16{I:${f}=\\number\\dimen@}}`),
     "\\immediate\\write16{G:fptop=\\the\\@fptop}\\immediate\\write16{G:fpsep=\\the\\@fpsep}\\immediate\\write16{G:fpbot=\\the\\@fpbot}",
     // the first list level at each size (\\small and \\footnotesize define their own \\@listi)
     ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.map(([t, p]) => `\\immediate\\write16{${t}:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
@@ -154,7 +156,7 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }
@@ -164,11 +166,38 @@ function designSize(name: string): number {
   return Math.floor(loadTfm(name).designSize / 16)
 }
 
+/** Class options besides the size that change the page: the paper, and one- or two-sided printing */
+const PAPERS = ["letterpaper", "a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper"]
+const SIDES = ["oneside", "twoside"]
+
+/** The lengths and switches each paper and side option changes, against the class's defaults. */
+function variants(cls: string, option: string, base: ClassOptionData): ClassOptionData["variants"] {
+  const out: NonNullable<ClassOptionData["variants"]> = {}
+  for (const paper of PAPERS) for (const side of SIDES) {
+    const v = `${paper},${side}`
+    const dir = join(".cache/classes", `${cls}-${option}-${paper}-${side}`)
+    mkdirSync(dir, { recursive: true })
+    const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}}", "\\begin{document}",
+      ...DIMENS.map((d) => `\\P D\\${d}`), "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}", "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}", "\\end{document}", ""].join("\n")
+    writeFileSync(join(dir, "v.tex"), src)
+    execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "v.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
+    const diff = { dimens: {} as Record<string, number>, ints: {} as Record<string, number> }
+    for (const line of readFileSync(join(dir, "v.log"), "latin1").split("\n")) {
+      const m = line.match(/^([DI]):(\w+)=(.*)$/)
+      if (!m) continue
+      if (m[1] === "D") { const x = dimen(m[3]); if (x !== base.dimens[m[2]]) diff.dimens[m[2]] = x }
+      else { const x = Number(m[3]); if (x !== base.ints[m[2]]) diff.ints[m[2]] = x }
+    }
+    if (Object.keys(diff.dimens).length || Object.keys(diff.ints).length) out[v] = diff
+  }
+  return out
+}
+
 export function codegenClasses(check: boolean): number {
   const stale: string[] = []
   for (const cls of CLASSES) {
     const data: ClassData = { class: cls, tex: "LaTeX kernel and standard classes as loaded by `latex`", options: {} }
-    for (const o of OPTIONS) data.options[o] = texData(cls, o)
+    for (const o of OPTIONS) { const d = texData(cls, o); d.variants = variants(cls, o, d); data.options[o] = d }
     const body = JSON.stringify(data) + "\n"
     const file = join(OUT, `${cls}.json`)
     if (existsSync(file) && readFileSync(file, "utf8") === body) continue
