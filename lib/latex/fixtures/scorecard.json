@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 100,
-  "exact": 90,
+  "fixtures": 101,
+  "exact": 91,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 10,
-  "glyphs": 110495
+  "glyphs": 110707
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "display",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "floats",
@@ -382,6 +382,17 @@
    "status": "pass",
    "glyphs": 142,
    "covers": "amsmath align with rows too wide for their numbers: \\calc@shift@align's \\saveshift@1 and \\place@tag's \\vtop putting the number below the row (\\lineht@, the first row's from the whole \\measure@ pass, \\normalbaselines), rows that fit kept beside their number",
+   "issue": "#30"
+  },
+  {
+   "id": "display/align-wider-than-display",
+   "file": "micro/display/align-wider-than-display.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 212,
+   "covers": "amsmath align wider than \\displaywidth in a narrow text block: \\black@\\totwidth@ (with \\minalignsep for each space between column pairs) puts a \\vbox{\\noindent\\hbox to\\displaywidth{\\hbox to\\totwidth@{\\strut@\\hfill}}} after the last row, a paragraph of its own, after \\vskip-\\ht\\strutbox@ \\vskip-\\dp\\strutbox@, with \\prevdepth kept; tags shifted below the rows",
    "issue": "#30"
   },
   {

@@ -1,0 +1,27 @@
+% fixture: display/align-wider-than-display
+% tier: T3
+% engine: document
+% covers: amsmath align wider than \displaywidth in a narrow text block: \black@\totwidth@ (with \minalignsep for each space between column pairs) puts a \vbox{\noindent\hbox to\displaywidth{\hbox to\totwidth@{\strut@\hfill}}} after the last row, a paragraph of its own, after \vskip-\ht\strutbox@ \vskip-\dp\strutbox@, with \prevdepth kept; tags shifted below the rows
+% issue: #30
+\documentclass[12pt,b5paper]{article}
+\usepackage{geometry}
+\geometry{left=59mm,right=62mm,top=2.1cm,bottom=3.3cm}
+\usepackage{amsmath}
+\begin{document}
+Some text before the first one.
+\begin{align}
+x^2 & = a+b &  & + x^2 &  & = \sum_{i=1}^n i \\
+f(x) &  x^2 &  & = x^2 & a+b &  f(x) \\
+a+b &   & f(x) &  y_1 & \frac{1}{2} & \leq x^2
+\end{align}
+and text after it, then one pair too wide:
+\begin{align*}
+a_1+a_2+a_3+a_4+a_5+a_6+a_7+a_8+a_9 &= b_1+b_2+b_3+b_4+b_5+b_6+b_7
+\end{align*}
+and one that fits:
+\begin{align}
+\alpha & = f(x) & \sum_{i=1}^n i &  \frac{1}{2} \nonumber \\
+y_1 &  a+b & y_1 & = f(x)
+\end{align}
+The end.
+\end{document}

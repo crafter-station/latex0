@@ -834,6 +834,18 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, k.dimens.lineskiplimit + jot)
       v.nodes.push(penalty(10000), glue(0)) // \interdisplaylinepenalty is \@M in amsmath; \\ adds \vskip\z@
     }
+    // \black@\totwidth@ after the last row: an align wider than the display shows its width in a
+    // \noalign{\nointerlineskip \vskip-\ht\strutbox@ \vskip-\dp\strutbox@ \vbox{\noindent
+    // \hbox to\displaywidth{\hbox to\totwidth@{\strut@\hfill}}} \prevdepth restored}
+    // (\totwidth@ by then has \minalignsep for each space between column pairs)
+    const blackWidth = totwidth + tempcntb * minalignsep
+    if (blackWidth > z) {
+      const wide = hpack([hpack([strutBox(), glue(0, 65536, FILL)], { exactly: blackWidth })], { exactly: z })
+      const par = paragraphInput("", k, "normalsize", doc, { start: [wide], amsmath })
+      const lb = lineBreak(par.list, par.params)
+      decisions.push(lb.trace)
+      v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))
+    }
     v.nodes.push(penalty(k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
   }
 
