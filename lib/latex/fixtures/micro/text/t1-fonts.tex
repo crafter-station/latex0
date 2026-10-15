@@ -1,0 +1,19 @@
+% fixture: text/t1-fonts
+% tier: T3
+% engine: document
+% covers: \usepackage[T1]{fontenc}: the EC fonts for text, headings and footnotes (ecrm, ecbx), their ligatures and kerns, -- and --- dashes, quotes, hyphenation with the T1 fonts, footnote marks at \sf@size, the bold \textendash label
+% issue: #30
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\begin{document}
+\section{Fonts in T1}
+The office staff found a difficult affair: efficient workflows, offline coffee, ``quoted words'' and pages 10--20 --- with an em dash. Hyphenation works with the EC fonts as well: typesetting, composition, paragraphs, demerits.\footnote{A footnote in the T1 encoding, with fluffy waffles.} Math stays the same: $x^2+y^2=z^2$.
+\begin{itemize}
+\item one
+  \begin{itemize}
+  \item a bold en dash label
+  \end{itemize}
+\end{itemize}
+\end{document}

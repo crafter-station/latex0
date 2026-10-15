@@ -126,7 +126,8 @@ const hss = () => glue(0, 65536, FIL, 65536, FIL)
  * \hbox{$^{\mbox{N}}$} with \mathsurround=0pt and N in roman at \sf@size.
  */
 function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
-  const ref = k.sizes[size].math.script[0]
+  // \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size
+  const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
   const digits: Node[] = []
   appendText(digits, String(n), loadFont(dataFont(ref.name), ref.at), { spaceFactor: 1000 }, false)
   const mbox = hpack(digits)

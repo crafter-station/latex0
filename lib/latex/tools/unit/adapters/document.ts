@@ -40,6 +40,12 @@ import { appendToVlist, mathData, mathEnv, paragraphInput, spec, type DocState }
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 type TabularLine = { cells: string[] } | { rule: true }
 
+/** The class with \usepackage[T1]{fontenc}: every size's roman and bold are the EC fonts (math is unchanged). */
+function withT1(k: ClassOptionData): ClassOptionData {
+  const sizes = Object.fromEntries(Object.entries(k.sizes).map(([n, s]) => [n, { ...s, font: s.t1.font, bold: s.t1.bold }])) as ClassOptionData["sizes"]
+  return { ...k, sizes, ints: { ...k.ints, T1: 1 } }
+}
+
 /** How many groups are open at the end of `src` (braces not escaped). */
 const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
 
@@ -326,7 +332,7 @@ export const document: Adapter = (src) => {
 function layout(src: string, notHere: Set<number>): AdapterResult {
   const { cls, option } = documentClass(src)
   if (!["article", "report", "book"].includes(cls)) throw new Unsupported(`class ${cls}`)
-  const k = classData(cls, option)
+  let k = classData(cls, option)
   // \begin{document} and \end{document} outside comments
   const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
@@ -334,16 +340,28 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
   const title: { title?: string; author?: string; date?: string } = {}
+  let t1 = false
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
-    if (line === "\\usepackage{amsmath}") { amsmath = true; continue }
-    if (line === "\\usepackage{graphicx}") continue // nothing to lay out until \includegraphics
+    if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
+    if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
+    const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
+    if (pk) {
+      // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
+      // fonts, amsthm only environments, graphicx only \includegraphics)
+      const names = pk[1].split(",").map((n) => n.trim())
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx"].includes(n))
+      if (unknown.length) throw new Unsupported(`preamble: ${line}`)
+      if (names.includes("amsmath")) amsmath = true
+      continue
+    }
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
     if (m) { pagestyle = m[1]; continue }
     throw new Unsupported(`preamble: ${line}`)
   }
+  if (t1) k = withT1(k)
   const body = src.slice(begin + 16, end)
   const blocks = blocksOf(body)
 
@@ -648,7 +666,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       const label: Node[] = []
       if (given !== null) appendText(label, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false) // \makelabel{label}
       else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
-        if (level === 2) label.push(charBox(bold, 123))
+        if (level === 2) label.push(charBox(bold, k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
         else label.push(charBox(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
       } else { // \labelenumi … iv: 1. (a) i. A.
         const n = ++counter

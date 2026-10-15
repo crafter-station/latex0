@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 83,
-  "exact": 72,
+  "fixtures": 84,
+  "exact": 73,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 55784
+  "glyphs": 56061
  },
  "areas": [
   {
@@ -66,8 +66,8 @@
   },
   {
    "area": "text",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "title",
@@ -963,6 +963,17 @@
    "status": "pass",
    "glyphs": 239,
    "covers": "\\sfcode rules after . ? ! : ; , and after uppercase (NASA. rule), ) and ' leaving the factor unchanged"
+  },
+  {
+   "id": "text/t1-fonts",
+   "file": "micro/text/t1-fonts.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 277,
+   "covers": "\\usepackage[T1]{fontenc}: the EC fonts for text, headings and footnotes (ecrm, ecbx), their ligatures and kerns, -- and --- dashes, quotes, hyphenation with the T1 fonts, footnote marks at \\sf@size, the bold \\textendash label",
+   "issue": "#30"
   },
   {
    "id": "title/maketitle-authors",

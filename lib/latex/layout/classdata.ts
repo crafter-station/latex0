@@ -27,6 +27,8 @@ export interface SizeData {
   bold: FontRef
   /** the text companion font (TS1: \textbullet…) at this size */
   companion: FontRef
+  /** the roman and bold fonts with \usepackage[T1]{fontenc}: the EC fonts */
+  t1: { font: FontRef; bold: FontRef }
   /** \strutbox as \@setfontsize makes it: 0.7 and 0.3 \baselineskip */
   strut: { height: number; depth: number }
   abovedisplayskip: GlueSpec
