@@ -716,6 +716,22 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     const hsize = k.dimens.columnwidth
     const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\begin\{tabular\}\{[^}]*\}[^]*?\\end\{tabular\}|\S+/g) ?? []
     let centered = false
+    /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
+     *  3em), and \centering's flush glue when it came before */
+    const floatParagraph = (start: Node[], body: string, centering = centered) => {
+      const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+      const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : {}
+      const par = paragraphInput(body, k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD] })
+      const lb = lineBreak(par.list, par.params)
+      decisions.push(...par.notes, lb.trace)
+      // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
+      // so does LaTeX's restart of the paragraph
+      if (content.length) content.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+      for (const n of lb.vlist) {
+        if (n.kind === "hlist") pd = appendToVlist(content, n, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+        else content.push(n)
+      }
+    }
     for (const it of items) {
       if (it === "\\centering") { centered = true; continue }
       // a tabular starts a paragraph (\leavevmode): the \parindent box (zero after \@parboxrestore), then
@@ -723,20 +739,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       const tab = it.match(/^\\begin\{tabular\}\{([^}]*)\}([^]*)\\end\{tabular\}$/)
       if (tab) {
         const { cols, lines } = tabularOf(tab[1], tab[2])
-        const box = tabular(lines, cols, "normalsize", "c")
-        const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
-        const shape = centered ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : {}
-        // \@parboxrestore's \sloppy: \tolerance 9999, \emergencystretch 3em
-        const par = paragraphInput("", k, "normalsize", doc, { ...shape, start: [hpack([]), box], amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD] })
-        const lb = lineBreak(par.list, par.params)
-        decisions.push(lb.trace)
-        // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
-        // so does LaTeX's restart of the paragraph
-        if (content.length) content.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
-        for (const n of lb.vlist) {
-          if (n.kind === "hlist") pd = appendToVlist(content, n, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
-          else content.push(n)
-        }
+        floatParagraph([hpack([]), tabular(lines, cols, "normalsize", "c")], "")
         continue
       }
       // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
@@ -761,8 +764,12 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
         l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
         appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
         const cap = hpack(l)
-        if (cap.width > hsize) throw new Unsupported("a caption longer than a line")
-        pd = appendToVlist(content, hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+        if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
+          const start: Node[] = [hpack([])]
+          appendText(start, b.env === "figure" ? "Figure" : "Table", romanFont, { spaceFactor: 1000 }, false)
+          start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
+          floatParagraph(start, `${the(number)}: ${text}`, false) // \@caption's \@parboxrestore undoes \centering
+        } else pd = appendToVlist(content, hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
         content.push(glue(k.dimens.belowcaptionskip))
         continue
       }

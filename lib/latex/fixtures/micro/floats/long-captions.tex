@@ -1,0 +1,20 @@
+% fixture: floats/long-captions
+% tier: T3
+% engine: document
+% covers: a caption wider than the column becomes a paragraph (\@makecaption's #1: #2\par), centered or not, with \sloppy and hyphenation
+% issue: #30
+\documentclass{article}
+\begin{document}
+Some text before the floats.
+
+\begin{figure}[h]
+\centering
+\caption{A long caption that describes the figure in great detail, so long that it cannot fit on a single line and must be broken into a paragraph}
+\end{figure}
+
+\begin{table}[h]
+\caption{Another long caption without centering, describing the table and its columns, with hyphenation of difficult words like typesetting}
+\end{table}
+
+Text after.
+\end{document}

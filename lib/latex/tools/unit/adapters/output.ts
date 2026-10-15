@@ -58,6 +58,7 @@ export class LatexOutput {
 
   constructor(private k: ClassOptionData, private parskip: GlueSpec) {
     this.colroom = k.dimens.textheight
+    this.vsizeNow = k.dimens.textheight
     this.floatplacement()
   }
 
@@ -72,9 +73,18 @@ export class LatexOutput {
   }
 
   /** \vsize after an output: \@colroom (a column left with less than 1.5\baselineskip gets \@emptycol) */
-  vsize(): number {
-    if (this.colroom < xnOverD(this.k.sizes.normalsize.baselineskip.width, 3, 2) && this.colroom < this.colht) throw new OutputUnsupported("a text page with only floats")
-    return this.colroom
+  vsize(): number { return this.vsizeNow }
+  private vsizeNow: number
+
+  /**
+   * The end of \output: \vsize becomes \@colroom, unless less than 1.5\baselineskip is left for text on a
+   * page with floats; then \@emptycol (\vbox{}\penalty-\@M) ships it with no text, and \vsize stays.
+   */
+  private endOutput(): Node[] {
+    const bs = this.k.sizes.normalsize.baselineskip.width
+    if (this.colroom < bs + xnOverD(bs, 32768, 65536) && this.colroom < this.colht) return [emptyBox("vlist"), penalty(-10000)]
+    this.vsizeNow = this.colroom
+    return []
   }
 
   /**
@@ -108,7 +118,7 @@ export class LatexOutput {
       if (f.nobreak) out.push(penalty(10000))
       else this.addpenalty(out)
     }
-    return out
+    return [...out, ...this.endOutput()]
   }
 
   /** \addpenalty\interlinepenalty after \unvbox\@holdpg, where \prevdepth is -1000pt */
@@ -260,19 +270,20 @@ export class LatexOutput {
         for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false)); ) { this.shipped.push({ kind: "floats", floats }); this.opcol() }
         if (this.deferlist.length) throw new OutputUnsupported("floats left after \\clearpage")
         const first = page.nodes.findIndex((n) => n.kind !== "whatsit")
-        return page.nodes.slice(0, first < 0 ? page.nodes.length : first)
+        return [...page.nodes.slice(0, first < 0 ? page.nodes.length : first), ...this.endOutput()]
       }
       // footnotes still held over: \vbox{\box\@cclv\vfil}, \@makecol\@opcol, and \clearpage again
       // (its \newpage falls on an empty page: \write\m@ne{}\vbox{}\penalty-\@Mi)
       this.shipped.push({ kind: "text", page, top, bot })
       this.toplist = []; this.botlist = []; this.midlist = []
       this.opcol()
-      return clearRest()
+      return [...clearRest(), ...this.endOutput()]
     }
     this.shipped.push({ kind: "text", page, top, bot })
     this.toplist = []; this.botlist = []; this.midlist = []
     this.opcol()
     this.startcolumn()
+    return this.endOutput()
   }
 
   /** An assignment from the document: article's \maketitle sets \@topnum to 0 for its page */
