@@ -1,0 +1,25 @@
+% fixture: sections/chapters-report
+% tier: T3
+% engine: document
+% covers: report's \chapter and \chapter* (\clearpage, \@makechapterhead with \vspace*{50pt}, \huge "Chapter N", \Huge title, \@afterheading without indentation), sections numbered within chapters, figures and equations numbered 1.1, footnotes renumbered per chapter, a footnote held over across a chapter's \clearpage
+% issue: #30
+\documentclass{report}
+\begin{document}
+\chapter{Introduction}
+The first chapter starts on its own page, with its number and title set large. Its first paragraph is not indented.\footnote{A first footnote.}
+
+A second paragraph is indented as usual. \begin{equation} E=mc^2 \end{equation}
+\section{A section}
+Sections are numbered within the chapter.
+
+\begin{figure}[h]
+\centering
+\caption{A figure in chapter one}
+\end{figure}
+
+\chapter*{An unnumbered chapter}
+Starred chapters have no number and no entry in the contents.
+
+\chapter{A Longer Chapter Title That Needs More Than One Line Of The Huge Size}
+Footnotes start again at one.\footnote{Renumbered.} The equation counter too: \begin{equation} a+b \end{equation}
+\end{document}
