@@ -26,7 +26,7 @@ import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
 import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../../../layout/display"
-import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../../../mathlayout/mlist"
+import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
 import { hpack, vpack } from "../../../layout/pack"
 import { halign } from "../../../layout/align"
@@ -37,6 +37,9 @@ import type { Adapter } from "./index"
 import { appendToVlist, endDocument, makeColumns, mathData, mathEnv, paragraphInput, spec, type DocState } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
+/** How many groups are open at the end of `src` (braces not escaped). */
+const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
+
 export class Unsupported extends Error {}
 
 const LOW_PENALTY = 51 // \@lowpenalty: \@beginparpenalty, \@itempenalty and \@endparpenalty are its negation
@@ -284,6 +287,8 @@ export const document: Adapter = (src) => {
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   const titleBoxes: BoxNode[] = []
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
+  // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
+  const href = (counter: string, n: number) => (cls === "article" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
   blocks.forEach((b, bi) => {
     if (b.kind === "heading") { heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
@@ -398,14 +403,35 @@ export const document: Adapter = (src) => {
         prevGraf += 3
         return
       }
-      let mlist
-      try { mlist = parseMath(next.src.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) }
+      // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
+      // amsmath keeps it for after the tag (\label@in@display); LaTeX writes it where it stands
+      const labels = [...next.src.matchAll(/\\label\s*\{([^{}]*)\}/g)]
+      if (labels.length && next.kind !== "equation") throw new Unsupported(`\\label in ${next.kind}`)
+      if (labels.length > 1) throw new Unsupported("several \\label in an equation")
+      const label = labels[0]
+      if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
+      const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) } }
+      if (next.kind === "equation") counters.equation++ // \refstepcounter, or amsmath's \incr@eqnum
+      const newlabel: Node | null = label ? { kind: "whatsit", text: `\\write1{\\newlabel{${label[1]}}{{${counters.equation}}{\\thepage }{}{${href("equation", counters.equation)}}{}}}` } : null
+      let mlist: MItem[]
+      if (!label) mlist = parse(next.src)
+      else {
+        const before = next.src.slice(0, label.index), after = next.src.slice(label.index! + label[0].length)
+        if (amsmath) mlist = parse(before + after)
+        else if (depthOf(before) !== 0) throw new Unsupported("\\label inside a group in an equation")
+        else mlist = [...parse(before), newlabel!, ...parse(after)]
+      }
       const env = mathEnv(k, "normalsize", amsmath)
-      if (next.kind === "equation" && amsmath) throw new Unsupported("amsmath's numbered equation (it differs between TeX Live releases)")
       if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
       let eqno: BoxNode | null = null
-      if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
-        counters.equation++
+      if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
+        mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
+        const l: Node[] = []
+        appendText(l, `(${counters.equation}`, romanFont, { spaceFactor: 1000 }, false)
+        l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
+        appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+        eqno = hpack(newlabel ? [hpack(l), newlabel] : [hpack(l)]); eqno.display = true
+      } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
         const l: Node[] = []
         appendText(l, `(${counters.equation})`, romanFont, { spaceFactor: 1000 }, false)
         eqno = hpack([hpack(l)]); eqno.display = true
@@ -576,9 +602,10 @@ export const document: Adapter = (src) => {
         content.push(glue(k.dimens.belowcaptionskip))
         continue
       }
-      // \label writes \newlabel{…}{{n}{\thepage }{}{<link target>}{}}, and the link target is empty in
-      // TeX Live 2023 but figure.n in 2025: left out until the oracle's TeX Live is pinned
-      if (/^\\label\b/.test(it)) throw new Unsupported("\\label in a float (its \\newlabel differs between TeX Live releases)")
+      // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
+      m = it.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
+      if (m && number) { content.push({ kind: "whatsit", text: `\\write1{\\newlabel{${m[1]}}{{${number}}{\\thepage }{}{${href(b.env, number)}}{}}}` }); continue }
+      if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
       throw new Unsupported(`${it} in a ${b.env}`)
     }
     content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip

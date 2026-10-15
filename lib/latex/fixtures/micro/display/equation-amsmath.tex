@@ -1,0 +1,25 @@
+% fixture: display/equation-amsmath
+% tier: T3
+% engine: document
+% covers: amsmath's numbered equation: \mathopen{}, the tag box (\tagform@) and the \label write after it, centring next to it, squeezing, short and regular skips
+% issue: #30
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+The quadratic below is the first numbered formula of the paper, and it sits on a line of its own.
+\begin{equation}
+  f(x) = ax^2 + bx + c \label{eq:quadratic}
+\end{equation}
+A short line.
+\begin{equation}
+  \sum_{i=1}^n i = \frac{n(n+1)}{2}
+\end{equation}
+\begin{equation}
+x
+\end{equation}
+and then a long formula that needs squeezing next to its number:
+\begin{equation}
+a+b+c+d+e+f+g+h+i+j+k+l+m+n+o+p+q+r+s+t+u+v+w+x+y+z+a+b+c+d+e+f+g+h+i+j+k+l+m
+\end{equation}
+and the text goes on after the last display of the page.
+\end{document}

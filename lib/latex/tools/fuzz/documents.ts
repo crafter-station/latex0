@@ -2,7 +2,8 @@
 // lays out — classes and sizes, page styles, paragraphs with inline math and
 // footnotes, \section to \subsubsection (starred or not), itemize and enumerate
 // lists started in or out of a paragraph, with text right after them or after a
-// blank line — each compared with TeX as a fixture is: every glyph, every line
+// blank line, displays (numbered equations, amsmath's too), figures and tables
+// placed here, \label in both — each compared with TeX as a fixture is: every glyph, every line
 // and page decision, every page's box tree.
 //
 //   bun engine fuzz:documents [--n 30] [--seed 1]
@@ -68,7 +69,7 @@ export function makeDocument(r: () => number): string {
       // a float between paragraphs: a caption, mostly allowed here
       const env = pick(["figure", "table"])
       out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]"])}`, r() < 0.7 ? "\\centering" : "",
-        `\\caption{${words(1 + Math.floor(r() * 8))}}`, `\\end{${env}}`)
+        `\\caption{${words(1 + Math.floor(r() * 8))}}`, r() < 0.5 ? `\\label{${env}:${b}}` : "", `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection"])
@@ -98,6 +99,9 @@ export function makeDocument(r: () => number): string {
             return fs.join(" & ") + (r() < 0.2 ? " \\nonumber" : "")
           })
           parts.push(`\\begin{${env}}\n${rows.join(" \\\\\n")}\n\\end{${env}}`)
+        } else if (env === "equation" || (ams && r() < 0.3)) { // numbered, maybe labelled: amsmath writes the label after the tag
+          const label = r() < 0.5 ? ` \\label{eq:${b}-${d}}` : ""
+          parts.push(`\\begin{equation}${r() < 0.5 ? label + " " + f : f + label}\\end{equation}`)
         } else parts.push(env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : `\\begin{${env}} ${f} \\end{${env}}`)
         parts.push(r() < 0.3 ? "" : text(5 + Math.floor(r() * 60)))
       }
