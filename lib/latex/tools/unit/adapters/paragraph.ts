@@ -81,6 +81,8 @@ export interface ParagraphOptions {
   hangIndent?: number; interLinePenalty?: number
   /** \clubpenalty while the paragraph is read, which its footnotes see, when it differs from the one at its \par */
   noteClubPenalty?: number
+  /** \centering and friends */
+  leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode; finalHyphenDemerits?: number
 }
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
@@ -247,6 +249,10 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   if (opts.clubPenalty !== undefined) params.clubPenalty = opts.clubPenalty
   if (opts.hangIndent !== undefined) params.hangIndent = opts.hangIndent
   if (opts.interLinePenalty !== undefined) params.interLinePenalty = opts.interLinePenalty
+  if (opts.leftSkip) params.leftSkip = opts.leftSkip
+  if (opts.rightSkip) params.rightSkip = opts.rightSkip
+  if (opts.parFillSkip) params.parFillSkip = opts.parFillSkip
+  if (opts.finalHyphenDemerits !== undefined) params.finalHyphenDemerits = opts.finalHyphenDemerits
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty })

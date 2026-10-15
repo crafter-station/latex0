@@ -10,11 +10,11 @@ import { parseDvi, type Trace } from "./dvi"
 import { parseDecisions } from "./tracing"
 import { parseShipouts } from "./boxes"
 import type { BoxNode } from "../../trace/schema"
-import { texEnv } from "../tex"
+import { ORACLE_EPOCH, texEnv } from "../tex"
 import { parseTfm, type Tfm } from "./tfm"
 
 // a fixed date, so \today and friends never change a reference (pdfTeX honours SOURCE_DATE_EPOCH)
-const ENV = texEnv({ SOURCE_DATE_EPOCH: "1735689600", FORCE_SOURCE_DATE: "1" })
+const ENV = texEnv({ SOURCE_DATE_EPOCH: String(ORACLE_EPOCH), FORCE_SOURCE_DATE: "1" })
 const CACHE = resolve(process.cwd(), ".cache/oracle")
 
 const tfmCache = new Map<string, Tfm>()
