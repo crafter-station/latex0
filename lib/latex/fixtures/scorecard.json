@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 84,
-  "exact": 73,
+  "fixtures": 85,
+  "exact": 74,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 11,
-  "glyphs": 56061
+  "glyphs": 56514
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "sections",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "templates",
@@ -900,6 +900,17 @@
    "glyphs": 900,
    "covers": "\\Huge lines deeper than \\maxdepth (5pt) over two pages: page_depth is capped and the excess moves into \\pagetotal (§ 1003)",
    "issue": "#115"
+  },
+  {
+   "id": "sections/chapters-report",
+   "file": "micro/sections/chapters-report.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 453,
+   "covers": "report's \\chapter and \\chapter* (\\clearpage, \\@makechapterhead with \\vspace*{50pt}, \\huge \"Chapter N\", \\Huge title, \\@afterheading without indentation), sections numbered within chapters, figures and equations numbered 1.1, footnotes renumbered per chapter, a footnote held over across a chapter's \\clearpage",
+   "issue": "#30"
   },
   {
    "id": "sections/sections-article",

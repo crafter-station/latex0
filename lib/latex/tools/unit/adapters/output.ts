@@ -248,23 +248,26 @@ export class LatexOutput {
   }
 
   /** The output routine at a page break (\outputpenalty ≥ -\@Mi): \@makecol\@opcol\@startcolumn, or \@doclearpage. */
-  output(page: Page) {
+  output(page: Page): Node[] | void {
     const top = this.toplist.map((f) => f.box), bot = this.botlist.map((f) => f.box)
     if (page.outputPenalty === -10001) {
       if (!page.inserts[this.k.ints.footins]?.length) {
-        // the page (\write and \vbox{}) is dropped; every waiting float goes on float pages
+        // the page (\write and \vbox{}) is dropped, all but what \vsplit\@cclv to\z@ splits off, the
+        // whatsits before its first box, which \unvbox puts back; every waiting float goes on float pages
         this.deferlist = [...this.toplist, ...this.botlist, ...this.deferlist]
         this.toplist = []; this.botlist = []; this.midlist = []
         this.colroom = this.colht
         for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false)); ) { this.shipped.push({ kind: "floats", floats }); this.opcol() }
         if (this.deferlist.length) throw new OutputUnsupported("floats left after \\clearpage")
-        return
+        const first = page.nodes.findIndex((n) => n.kind !== "whatsit")
+        return page.nodes.slice(0, first < 0 ? page.nodes.length : first)
       }
       // footnotes still held over: \vbox{\box\@cclv\vfil}, \@makecol\@opcol, and \clearpage again
+      // (its \newpage falls on an empty page: \write\m@ne{}\vbox{}\penalty-\@Mi)
       this.shipped.push({ kind: "text", page, top, bot })
       this.toplist = []; this.botlist = []; this.midlist = []
       this.opcol()
-      return
+      return clearRest()
     }
     this.shipped.push({ kind: "text", page, top, bot })
     this.toplist = []; this.botlist = []; this.midlist = []
@@ -279,20 +282,23 @@ export class LatexOutput {
   done() { if (this.deferlist.length || this.toplist.length || this.botlist.length) throw new OutputUnsupported("floats lost at the end of the document") }
 }
 
+/** The rest of \clearpage after its \newpage: \write\m@ne{}\vbox{}\penalty-\@Mi */
+const clearRest = (): Node[] => [{ kind: "whatsit", text: "\\write-{}" }, emptyBox("vlist"), penalty(-10001)]
+
 /** \end{document} after the main vertical list `contrib`: the pages TeX's page builder cuts and LaTeX's output routine ships. */
 export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSpec = k.glue.parskip) {
   // \clearpage, whose \newpage is \vfil\penalty-10000 (since LaTeX 2025-06-01 the last line's
   // depth is backed up in the output routine, \@outputbox@reinsertbskip, not here)
   contrib.push(glue(0, 65536, FIL), penalty(-10000))
-  // the rest of \clearpage: \write\m@ne{}\vbox{}\penalty-\@Mi. Its output routine (\@doclearpage)
-  // ships a page only for footnotes still held over, and then clears the page again
-  const clear = (): Node[] => [{ kind: "whatsit", text: "\\write-{}" }, emptyBox("vlist"), penalty(-10001)]
+  // the rest of \clearpage. Its output routine (\@doclearpage) ships a page only for footnotes still
+  // held over, and then clears the page again
+  const clear = clearRest
   const out = new LatexOutput(k, parskip)
   const fs = k.glue.footinsskip
   const built = buildPages(contrib, {
     vsize: () => out.vsize(), maxDepth: k.dimens.maxdepth, topSkip: paramGlue("topskip", plain(k.glue.topskip)),
     inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen } },
-    more: (last) => (last?.outputPenalty === -10000 || (last?.outputPenalty === -10001 && last.inserts[k.ints.footins]) ? clear() : null),
+    more: (last) => (last?.outputPenalty === -10000 ? clear() : null),
     float: (held, marker, boxes) => out.float(held, marker, boxes),
     hook: (h) => out.hook(h as OutputHook),
     output: (page) => out.output(page),

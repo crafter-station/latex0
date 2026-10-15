@@ -1,6 +1,6 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
 // lays out — classes and sizes, OT1 or T1 fonts, page styles, paragraphs with inline math and
-// footnotes, \section to \subsubsection (starred or not), itemize and enumerate
+// footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
 // lists (nested, \item[label]) started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
@@ -87,7 +87,7 @@ export function makeDocument(r: () => number): string {
         space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
-      const level = pick(["section", "section", "subsection", "subsubsection"])
+      const level = pick(["section", "section", "subsection", "subsubsection", ...(cls === "report" ? ["chapter"] : [])])
       out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}`)
       afterPar = false
     } else if (x < 0.3) {

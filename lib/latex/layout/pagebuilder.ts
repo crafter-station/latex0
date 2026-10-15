@@ -38,8 +38,9 @@ export interface PageParams {
   float?: (page: Node[], marker: WhatsitNode, boxes: Record<number, Node[]>) => Node[]
   /** An assignment the output routine sees, made when the page builder reaches it (a whatsit with a hook). */
   hook?: (hook: unknown) => void
-  /** The output routine for each page cut at a break: called after the page is added to the result. */
-  output?: (page: Page) => void
+  /** The output routine for each page cut at a break, called after the page is added to the result:
+   *  what it returns goes on the contribution list after held-over insertions, before the rest. */
+  output?: (page: Page) => Node[] | void
 }
 
 export interface Page {
@@ -280,12 +281,13 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
       const out: Page = { nodes, goal: bestSize, outputPenalty, inserts: boxes }
       pages.push(out)
       regs = {} // the output routine empties the insertion boxes
-      p.output?.(out)
-      // § 1026: held-over insertions go back first, then the rest of the contributions
-      queue = [...held, ...rest]
+      const material = p.output?.(out) ?? []
+      // § 1026: held-over insertions go back first, then the output routine's material, then the rest
+      queue = [...held, ...material, ...rest]
     }
     function finish() {
-      if (page.length) pages.push({ nodes: page, goal, outputPenalty: INF_PENALTY, inserts: {} }) // material left without a break
+      // material left without a break (whatsits alone, such as a \write put back at the very end, make no page)
+      if (page.some((n) => n.kind !== "whatsit")) pages.push({ nodes: page, goal, outputPenalty: INF_PENALTY, inserts: {} })
       return { pages, trace }
     }
   }

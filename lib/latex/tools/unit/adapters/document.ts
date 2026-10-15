@@ -60,7 +60,7 @@ const IGNORE_DEPTH = null // \prevdepth = -1000pt
 type Block =
   | { kind: "par"; text: string; noindent: boolean }
   | ListBlock
-  | { kind: "heading"; level: 1 | 2 | 3; star: boolean; title: string }
+  | { kind: "heading"; level: 0 | 1 | 2 | 3; star: boolean; title: string }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
 
@@ -116,7 +116,7 @@ function parseList(env: "itemize" | "enumerate", inner: string, inPar: boolean, 
   return { kind: "list", env, items, inPar, blank }
 }
 
-const HEADINGS = { section: 1, subsection: 2, subsubsection: 3 } as const
+const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
 interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*"; src: string }
@@ -139,7 +139,7 @@ function displaySegments(text: string): (string | Display)[] {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
+  const re = /\\(chapter|section|subsection|subsubsection)\b(\*?)\s*|\\begin\{(itemize|enumerate)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -379,13 +379,15 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   // skips in ex are read in the body font (\@startsection evaluates them before the heading's font)
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
-  const titleBoxes: BoxNode[] = []
+  const titleBoxes: Node[] = [] // nodes whose page gets \thispagestyle{plain}
   let floats = 0 // floats so far
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
   const href = (counter: string, n: number) => (cls === "article" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
+  // \theequation, \thefigure, \thetable: in report and book, prefixed by the chapter once there is one
+  const the = (n: number) => (cls !== "article" && counters[0] > 0 ? `${counters[0]}.${n}` : String(n))
   blocks.forEach((b, bi) => {
-    if (b.kind === "heading") { heading(b); return }
+    if (b.kind === "heading") { if (b.level === 0) chapter(b); else heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
     if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
@@ -485,7 +487,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
       const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData()) } catch (e) { throw new Unsupported((e as Error).message) } }
       if (next.kind === "equation") counters.equation++ // \refstepcounter, or amsmath's \incr@eqnum
-      const newlabel: Node | null = label ? { kind: "whatsit", text: `\\write1{\\newlabel{${label[1]}}{{${counters.equation}}{\\thepage }{}{${href("equation", counters.equation)}}{}}}` } : null
+      const newlabel: Node | null = label ? { kind: "whatsit", text: `\\write1{\\newlabel{${label[1]}}{{${the(counters.equation)}}{\\thepage }{}{${href("equation", counters.equation)}}{}}}` } : null
       let mlist: MItem[]
       if (!label) mlist = parse(next.src)
       else {
@@ -500,13 +502,13 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
         mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
         const l: Node[] = []
-        appendText(l, `(${counters.equation}`, romanFont, { spaceFactor: 1000 }, false)
+        appendText(l, `(${the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
         l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
         appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
         eqno = hpack(newlabel ? [hpack(l), newlabel] : [hpack(l)]); eqno.display = true
       } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
         const l: Node[] = []
-        appendText(l, `(${counters.equation})`, romanFont, { spaceFactor: 1000 }, false)
+        appendText(l, `(${the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
         eqno = hpack([hpack(l)]); eqno.display = true
       }
       const sz = k.sizes.normalsize
@@ -550,7 +552,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       if (!r.numbered) return hpack([strutBox()])
       counters.equation++
       const l: Node[] = []
-      appendText(l, `(${counters.equation}`, romanFont, { spaceFactor: 1000 }, false)
+      appendText(l, `(${the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
       const last = l[l.length - 1] as CharNode
       l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
       appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
@@ -751,13 +753,13 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
         if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
         number = ++counters[b.env]
         const ext = b.env === "figure" ? "lof" : "lot"
-        content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${number}}{\\ignorespaces ${text}}}{\\thepage }{}\\protected@file@percent }}` })
+        content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{}\\protected@file@percent }}` })
         content.push(glue(k.dimens.abovecaptionskip))
         // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
         const l: Node[] = [], state = { spaceFactor: 1000 }
         appendText(l, b.env === "figure" ? "Figure" : "Table", romanFont, state, false)
         l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
-        appendText(l, `${number}: ${text}`, romanFont, state, false)
+        appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
         const cap = hpack(l)
         if (cap.width > hsize) throw new Unsupported("a caption longer than a line")
         pd = appendToVlist(content, hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
@@ -766,7 +768,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
       }
       // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
       m = it.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
-      if (m && number) { content.push({ kind: "whatsit", text: `\\write1{\\newlabel{${m[1]}}{{${number}}{\\thepage }{}{${href(b.env, number)}}{}}}` }); continue }
+      if (m && number) { content.push({ kind: "whatsit", text: `\\write1{\\newlabel{${m[1]}}{{${the(number)}}{\\thepage }{}{${href(b.env, number)}}{}}}` }); continue }
       if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
       throw new Unsupported(`${it} in a ${b.env}`)
     }
@@ -912,6 +914,51 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
     return { cols, lines }
   }
 
+  /**
+   * report's \chapter: \clearpage, \thispagestyle{plain}, \global\@topnum\z@, \@afterindentfalse; then
+   * \@chapter (\refstepcounter, which resets the sections, equations, figures, tables and footnotes; the
+   * toc line; \addvspace{10pt} in the lof and lot) or \@schapter, and \@makechapterhead: \vspace*{50pt},
+   * {\parindent\z@ \raggedright \normalfont \huge\bfseries \@chapapp\space\thechapter \par\nobreak \vskip20pt
+   * \interlinepenalty\@M \Huge\bfseries title\par\nobreak \vskip40pt}, then \@afterheading
+   */
+  function chapter(b: Extract<Block, { kind: "heading" }>) {
+    if (cls !== "report") throw new Unsupported(`\\chapter in ${cls}`)
+    v.par()
+    // \clearpage: \newpage (which ends \if@nobreak), \write\m@ne{}, \vbox{}, \penalty-\@Mi
+    if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
+    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
+    v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
+    v.nodes.push(penalty(-10001), { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
+    if (!b.star) {
+      counters[0]++
+      for (let l = 1; l < counters.length; l++) counters[l] = 0
+      counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
+      v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {chapter}{\\protect \\numberline {${counters[0]}}${b.title}}{\\thepage }{}\\protected@file@percent }}` })
+      for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
+    }
+    // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
+    const pd = v.prevDepth
+    const top: Node = { kind: "rule", width: null, height: 0, depth: 0 }
+    titleBoxes.push(top)
+    v.nodes.push(top, penalty(10000), glue(50 * 65536), glue(0))
+    v.prevDepth = pd
+    // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
+    // (in the head's group)
+    const club = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
+    const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
+    if (!b.star) {
+      typeset(`Chapter ${counters[0]}`, { ...ragged(), font: k.sizes.huge.bold }, outerParskip, "huge")
+      v.nodes.push(penalty(10000))
+      v.vskip(dimen(20 * 65536))
+    }
+    typeset(b.title, { ...ragged(), font: k.sizes.Huge.bold, interLinePenalty: 10000 }, outerParskip, "Huge")
+    v.nodes.push(penalty(10000))
+    v.vskip(dimen(40 * 65536))
+    v.nobreak = true
+    v.afterheadingEverypar = true
+    v.afterindent = false
+  }
+
   /** \@startsection{name}{level}{\z@}{beforeskip}{afterskip}{\normalfont<size>\bfseries} and its starred form */
   function heading(b: Extract<Block, { kind: "heading" }>) {
     const name = (["", "section", "subsection", "subsubsection"] as const)[b.level]
@@ -962,7 +1009,7 @@ function layout(src: string, notHere: Set<number>): AdapterResult {
   }
   const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
-  const special = new Set(pages.flatMap((pg, i) => (pg.kind === "text" && pg.page.nodes.some((n) => titleBoxes.includes(n as BoxNode)) ? [i] : [])))
+  const special = new Set(pages.flatMap((pg, i) => (pg.kind === "text" && pg.page.nodes.some((n) => titleBoxes.includes(n)) ? [i] : [])))
   const shipped = columns.map((c, i) => outputPage(c.outputbox, i + 1, k, special.has(i) ? "plain" : pagestyle))
   return {
     trace: shipOut(shipped),
