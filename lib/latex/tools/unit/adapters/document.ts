@@ -39,7 +39,7 @@ import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, documentStart, labelName, pageAnchor, sectionAnchorBox, tocLink, type Bookmark } from "./hyperref"
-import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, spec, type DocState, type Refs } from "./paragraph"
+import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 type TabularLine = { cells: string[] } | { rule: true }
@@ -64,7 +64,7 @@ const IGNORE_DEPTH = null // \prevdepth = -1000pt
 type Block =
   | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number }
   | ListBlock
-  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string }
+  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[] }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
   | { kind: "toc" }
@@ -347,14 +347,14 @@ function labelBox(label: Node[], k: ClassOptionData, lw = k.dimens.labelwidth): 
 }
 
 /** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
-function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false): BoxNode {
+function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = []): BoxNode {
   const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
   const number = () => { const l: Node[] = []; appendText(l, String(page), font, { spaceFactor: 1000 }, false); return l }
   const hfil = () => glue(0, 65536, FIL)
   const even = k.ints.twoside && page % 2 === 0
   // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
   // \@evenhead{\thepage\hfil\slshape\leftmark}
-  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), hfil()] : [hfil(), ...number()]
+  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), hfil(), ...mark] : [...mark, hfil(), ...number()]
   const footText: Node[] = pagestyle === "plain" ? [hfil(), ...number(), hfil()] : []
   const head = vpack([hfil(), hpack([hpack(headText, { exactly: k.dimens.textwidth })])], { exactly: k.dimens.headheight }) // \vfil, \hb@xt@\textwidth{\@thehead}
   head.depth = 0
@@ -394,6 +394,9 @@ export const document: Adapter = (source) => {
   const first = run(null)
   return first.written ? run(first.written).result : first.result
 }
+
+/** A running head's mark: what \marks holds, and what \leftmark or \rightmark typesets (\MakeUppercase'd) */
+interface MarkValue { print: string; parts: ({ text: string } | { ctrl: true } | { quad: true })[]; upper: boolean }
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
 interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[] }
@@ -488,6 +491,36 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${name}}{${number !== null ? `\\protect \\numberline {${number}}` : ""}${title}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
     tocWrites.push({ node, entry: { level, number, title, anchor } })
     return node
+  }
+  /**
+   * Running heads (\pagestyle{headings}): \markboth and \markright insert \marks of the classes 2e-left (1),
+   * 2e-right (2) and, for a value not empty, 2e-right-nonempty (3), each followed by \nobreak in vertical
+   * mode while \if@nobreak holds; \__mark_value:nn numbers them
+   */
+  let markCount = 0
+  const markNode = (cls: 1 | 2 | 3, value: MarkValue): Node => ({ kind: "whatsit", text: `\\marks${cls}{\\__mark_value:nn {${++markCount}}{${value.print}}}`, mark: { cls, value } })
+  const insertMarks = (marks: [1 | 2 | 3, MarkValue][], nobreak: boolean): Node[] => marks.flatMap(([c, value]) => (nobreak ? [markNode(c, value), penalty(10000)] : [markNode(c, value)]))
+  const markboth = (left: MarkValue, right: MarkValue): [1 | 2 | 3, MarkValue][] => [[1, left], [2, right], ...(right.print ? [[3, right] as [3, MarkValue]] : [])]
+  const markright = (right: MarkValue): [1 | 2 | 3, MarkValue][] => [[2, right], ...(right.print ? [[3, right] as [3, MarkValue]] : [])]
+  const EMPTY_MARK: MarkValue = { print: "", parts: [], upper: false }
+  /** a mark's value: the \protected@xdef'd text (\MakeUppercase prints as itself), and what it typesets */
+  const markValue = (parts: MarkValue["parts"], upper: boolean): MarkValue => {
+    for (const p of parts) if ("text" in p && /[\\{}$^_~%&#]/.test(p.text)) throw new Unsupported(`a running head for "${p.text}"`)
+    const text = parts.map((p) => ("text" in p ? p.text : "quad" in p ? "\\hskip 1em\\relax " : "\\ ")).join("")
+    return { print: upper ? `\\MakeUppercase    []{${text}}` : text, parts, upper }
+  }
+  const headings = pagestyle === "headings"
+  /** \sectionmark and \subsectionmark (article: \thesection\quad title; report two-sided: \thesection. \ title) */
+  const sectionMarks = (level: number, number: string, title: string, nobreak: boolean): Node[] => {
+    if (!headings) return []
+    const twoside = !!k.ints.twoside
+    if (cls === "article" && level === 1) {
+      const v1 = markValue([{ text: number }, { quad: true }, { text: title }], true)
+      return insertMarks(twoside ? markboth(v1, EMPTY_MARK) : markright(v1), nobreak)
+    }
+    if (cls === "article" && level === 2 && twoside) return insertMarks(markright(markValue([{ text: number }, { quad: true }, { text: title }], false)), nobreak)
+    if (cls === "report" && level === 1 && twoside) return insertMarks(markright(markValue([{ text: `${number}. ` }, { ctrl: true }, { text: title }], true)), nobreak)
+    return []
   }
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
    *  \protected@write adds \nobreak while \if@nobreak holds */
@@ -1138,8 +1171,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    */
   function tableOfContents() {
     const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
-    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents", source })
-    else chapter({ kind: "heading", level: 0, star: true, title: "Contents", source })
+    // with running heads, \@mkboth is \markboth: its marks in the title's line, which they leave (§ 655)
+    const contents = markValue([{ text: "Contents" }], true)
+    const end = headings ? insertMarks(markboth(contents, contents), false) : undefined
+    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents", source, end })
+    else chapter({ kind: "heading", level: 0, star: true, title: "Contents", source, end })
     const tocdepth = cls === "article" ? 3 : 2
     for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(e)
     v.nobreak = false
@@ -1396,6 +1432,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       // hyperref: \refstepcounter's anchor, then \addcontentsline's bookmark and toc line
       if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
       v.nodes.push(...contentsWrites(0, String(counters[0]), b.title, refs.href, false))
+      // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
+      if (headings) {
+        const cv = markValue([{ text: "Chapter" }, { ctrl: true }, { text: `${counters[0]}. ` }, { ctrl: true }, { text: b.title }], true)
+        v.nodes.push(...insertMarks(k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
+      }
       for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
     } else if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor
       refs.href = `chapter*.${++linkcounter}`; refs.name = labelName(b.source ?? b.title)
@@ -1415,7 +1456,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       v.nodes.push(penalty(10000))
       v.vskip(dimen(20 * 65536))
     }
-    typeset(b.title, { ...ragged(), font: k.sizes.Huge.bold, interLinePenalty: 10000 }, outerParskip, "Huge")
+    typeset(b.title, { ...ragged(), font: k.sizes.Huge.bold, interLinePenalty: 10000, ...(b.end ? { end: b.end } : {}) }, outerParskip, "Huge")
     v.nodes.push(penalty(10000))
     v.vskip(dimen(40 * 65536))
     v.nobreak = true
@@ -1495,9 +1536,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     if (numbered) { appendText(label, number, bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
     const box = hpack(label)
     const start = hyper && !numbered ? [box, sectionAnchorBox(anchorName, 0, k.sizes[size].baselineskip.width)] : [box]
-    typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub }, outerParskip, size)
-    // \addcontentsline{toc}: \protected@write, a \write after the heading's lines, with \nobreak after it
-    // while \if@nobreak holds (a heading right after a heading)
+    typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub, ...(heading.end ? { end: heading.end } : {}) }, outerParskip, size)
+    // \@sect: \sectionmark, then \addcontentsline{toc}: \protected@write, a \write after the heading's lines,
+    // with \nobreak after it while \if@nobreak holds (a heading right after a heading)
+    if (numbered) v.nodes.push(...sectionMarks(b.level, number, b.title, afterHeading))
     if (!b.star) v.nodes.push(...contentsWrites(b.level, numbered ? number : null, b.title, anchorName, afterHeading))
     // \@xsect: \par \nobreak \vskip afterskip \@afterheading
     v.nodes.push(penalty(10000))
@@ -1507,7 +1549,6 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
 
   if (runIn) runInAlone() // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
-  if (pagestyle === "headings" && blocks.some((b) => b.kind === "heading")) throw new Unsupported("running heads with section marks")
   let built: ReturnType<typeof endDocument>
   try { built = endDocument(v.nodes, k, outerParskip) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
@@ -1516,7 +1557,31 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
   const { pages, pageTrace } = built
   const columns = makeColumns(pages, k)
-  const shipped = columns.map((c, i) => outputPage(c.outputbox, pages[i].count, k, pages[i].special ?? pagestyle, hyper))
+  // \leftmark (the last 2e-left mark on the page) and \rightmark (the first 2e-right), from the marks at the
+  // top level of the page's material, or the value the pages before left (\topmarks); a page of floats has none
+  const carried = new Map<number, MarkValue>()
+  const sl = selectFont(k, "normalsize", { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
+  const markText = (m: MarkValue | undefined): Node[] => {
+    const out: Node[] = [], state = { spaceFactor: 1000 }
+    for (const p of m?.parts ?? []) {
+      if ("text" in p) appendText(out, m!.upper ? p.text.toUpperCase() : p.text, sl, state, false)
+      else if ("ctrl" in p) out.push(glue(sl.params[SPACE], sl.params[SPACE_STRETCH], 0, sl.params[SPACE_SHRINK], 0)) // \
+      else out.push(glue(sl.params[QUAD])) // \hskip 1em
+    }
+    return out
+  }
+  const headMarks = pages.map((pg) => {
+    const marks = pg.kind === "text" ? pg.page.nodes.flatMap((n) => (n.kind === "whatsit" && n.mark ? [n.mark as { cls: number; value: MarkValue }] : [])) : []
+    const first = (c: number) => marks.find((m) => m.cls === c)?.value ?? carried.get(c)
+    const last = (c: number) => marks.findLast((m) => m.cls === c)?.value ?? carried.get(c)
+    const head = { left: last(1), right: first(2) }
+    for (const c of [1, 2, 3]) { const l = last(c); if (l) carried.set(c, l) }
+    return head
+  })
+  const shipped = columns.map((c, i) => {
+    const even = k.ints.twoside && pages[i].count % 2 === 0
+    return outputPage(c.outputbox, pages[i].count, k, pages[i].special ?? pagestyle, hyper, markText(even ? headMarks[i].left : headMarks[i].right))
+  })
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
   if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{/.test(body) || hyper) {

@@ -84,7 +84,9 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.5) out.push(`\\usepackage[${keys.join(",")}]{geometry}`)
     else out.push("\\usepackage{geometry}", `\\geometry{${keys.join(",")}}`)
   }
-  if (r() < 0.25) out.push("\\pagestyle{empty}")
+  const style = r()
+  if (style < 0.2) out.push("\\pagestyle{empty}")
+  else if (style < 0.4) out.push("\\pagestyle{headings}") // running heads from the section marks
   if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))

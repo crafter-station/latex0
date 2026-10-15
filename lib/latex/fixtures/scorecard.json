@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 107,
-  "exact": 99,
+  "fixtures": 111,
+  "exact": 103,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 8,
-  "glyphs": 115759
+  "glyphs": 134239
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "pages",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "sections",
@@ -1036,6 +1036,50 @@
    "status": "pass",
    "glyphs": 6142,
    "covers": "the geometry package: \\usepackage[textwidth=30em,textheight=40\\baselineskip]{geometry} (letter paper): \\textwidth, \\textheight, \\oddsidemargin, \\evensidemargin, \\topmargin as \\Gm@@process sets them",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/headings-article-twoside",
+   "file": "micro/pages/headings-article-twoside.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4088,
+   "covers": "two-sided article headings: \\sectionmark is \\markboth{…}{} (an empty 2e-right mark, no 2e-right-nonempty), \\subsectionmark \\markright without \\MakeUppercase; \\leftmark (the last 2e-left mark) on even pages; \\tableofcontents' \\@mkboth marks in its heading's line, which they leave; \\section* has none",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/headings-article",
+   "file": "micro/pages/headings-article.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5964,
+   "covers": "\\pagestyle{headings} in article: \\sectionmark's \\markright{\\MakeUppercase{\\thesection\\quad title}} (\\marks2 and \\marks3, \\__mark_value:nn numbered), the head {\\slshape\\rightmark}\\hfil\\thepage with the page's first 2e-right mark or the one carried from the pages before",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/headings-report-twoside",
+   "file": "micro/pages/headings-report-twoside.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4209,
+   "covers": "two-sided report headings: \\chaptermark is \\markboth{…}{}, \\sectionmark \\markright{\\MakeUppercase{\\thesection. \\ title}}",
+   "issue": "#30"
+  },
+  {
+   "id": "pages/headings-report",
+   "file": "micro/pages/headings-report.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4219,
+   "covers": "report headings: \\chaptermark's \\markright{\\MakeUppercase{\\@chapapp\\ \\thechapter. \\ title}} (control spaces, the space factor after the period), \\thispagestyle{plain} on chapter pages, the \\chapter* of \\tableofcontents",
    "issue": "#30"
   },
   {

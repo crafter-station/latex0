@@ -115,6 +115,8 @@ export interface ParagraphOptions {
   amsmath?: boolean
   /** lines already in the paragraph (before a display), and the widow penalty in force */
   prevGraf?: number; widowPenalty?: number
+  /** nodes after the text, before the \par (marks from \@mkboth in a heading's title) */
+  end?: Node[]
 }
 
 /**
@@ -459,6 +461,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
   appendPieces(list, ps, font, size, { spaceFactor: 1000 }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, amsmath: opts.amsmath, base })
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
+  if (opts.end) list.push(...opts.end)
   return { list, params, notes }
 }
 

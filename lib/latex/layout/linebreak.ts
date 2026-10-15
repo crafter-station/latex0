@@ -377,11 +377,12 @@ function postLineBreak(list: Node[], breaks: Passive[], bestLine: number, p: Lin
     if (curLine > w.lastSpecialLine) { curWidth = w.secondWidth; curIndent = w.secondIndent }
     else if (p.parShape.length === 0) { curWidth = w.firstWidth; curIndent = w.firstIndent }
     else { curWidth = p.parShape[curLine - 1][1]; curIndent = p.parShape[curLine - 1][0] }
-    // § 889: hpack takes insertions and \vadjust material out of the line (§ 655); they follow it in the vertical list
-    const box = hpack(line.filter((n) => n.kind !== "ins" && n.kind !== "adjust"), { exactly: curWidth })
+    // § 889: hpack takes insertions, marks and \vadjust material out of the line (§ 655); they follow it in the vertical list
+    const migrates = (n: Node) => n.kind === "ins" || n.kind === "adjust" || (n.kind === "whatsit" && n.mark !== undefined)
+    const box = hpack(line.filter((n) => !migrates(n)), { exactly: curWidth })
     box.shift = curIndent
     lines.push(box)
-    vlist.push(box, ...line.flatMap((n) => (n.kind === "ins" ? [n] : n.kind === "adjust" ? n.list : [])))
+    vlist.push(box, ...line.flatMap((n) => (n.kind === "adjust" ? n.list : migrates(n) ? [n] : [])))
     // § 890: interline penalty
     if (curLine + 1 !== bestLine) {
       let pen = p.interLinePenalty

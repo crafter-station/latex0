@@ -49,6 +49,8 @@ export interface WhatsitNode {
   float?: unknown
   /** not a node: an assignment the output routine sees when the page builder gets here (LaTeX's \global\@topnum\z@) */
   hook?: unknown
+  /** a \marks node (§ 141): its class and value, which the output routine reads */
+  mark?: { cls: number; value: unknown }
 }
 /**
  * An insertion (§ 140): \\insert n with its vertical list. `height` is the list's
