@@ -26,7 +26,7 @@ export function parseTfm(buf: Uint8Array, name = ""): Tfm {
   const italicBase = p; p += ni
   const ligBase = p; p += nl
   const kernBase = p; p += nk
-  p += ne
+  const extenBase = p; p += ne
   const paramBase = p
 
   const chars: Tfm["chars"] = new Map()
@@ -51,5 +51,7 @@ export function parseTfm(buf: Uint8Array, name = ""): Tfm {
     ligKern: Array.from({ length: nl }, (_, i) => uword(ligBase + i)),
     kerns: Array.from({ length: nk }, (_, i) => word(kernBase + i)),
     params: [0, ...Array.from({ length: np }, (_, i) => word(paramBase + i))],
+    // extensible recipes (§ 546): top, mid, bot, rep bytes, packed big-endian
+    ...(ne ? { exten: Array.from({ length: ne }, (_, i) => uword(extenBase + i)) } : {}),
   }
 }

@@ -30,6 +30,11 @@ const SYMBOLS = (
   "sum prod coprod intop ointop bigcup bigcap bigsqcup bigvee bigwedge bigodot bigotimes bigoplus biguplus " +
   "ldotp cdotp colon"
 ).split(" ")
+// \delimiter commands (fontmath.ltx): what \left takes, a math character elsewhere
+const DELIMITERS = (
+  "langle rangle lbrace rbrace lfloor rfloor lceil rceil vert Vert backslash uparrow downarrow updownarrow " +
+  "Uparrow Downarrow Updownarrow lgroup rgroup lmoustache rmoustache arrowvert Arrowvert bracevert"
+).split(" ")
 
 export function codegenMath(check: boolean): number {
   const dir = ".cache/mathdata"
@@ -37,6 +42,8 @@ export function codegenMath(check: boolean): number {
   writeFileSync(join(dir, "probe.tex"), [
     "\\documentclass{article}", "\\begin{document}",
     "\\count255=0 \\loop\\immediate\\write16{C:\\the\\count255=\\the\\mathcode\\count255}\\advance\\count255 1 \\ifnum\\count255<128 \\repeat",
+    "\\count255=0 \\loop\\immediate\\write16{L:\\the\\count255=\\the\\delcode\\count255}\\advance\\count255 1 \\ifnum\\count255<128 \\repeat",
+    ...DELIMITERS.map((x) => `\\immediate\\write16{E:${x}=\\meaning\\${x}}`),
     ...INTS.map((x) => `\\immediate\\write16{I:${x}=\\the\\${x}}`),
     ...DIMENS.map((x) => `\\immediate\\write16{D:${x}=\\the\\${x}}`),
     ...MUSKIPS.map((x) => `\\immediate\\write16{M:${x}=\\the\\${x}}`),
@@ -44,16 +51,18 @@ export function codegenMath(check: boolean): number {
     "\\end{document}", "",
   ].join("\n"))
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "probe.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }) })
-  const data: MathData = { mathcodes: [], ints: {}, dimens: {}, muskips: {}, symbols: {} }
+  const data: MathData = { mathcodes: [], delcodes: [], ints: {}, dimens: {}, muskips: {}, symbols: {}, delimiters: {} }
   for (const line of readFileSync(join(dir, "probe.log"), "latin1").split("\n")) {
     let m: RegExpMatchArray | null
     if ((m = line.match(/^C:(\d+)=(\d+)$/))) data.mathcodes[Number(m[1])] = Number(m[2])
+    else if ((m = line.match(/^L:(\d+)=(-?\d+)$/))) data.delcodes[Number(m[1])] = Number(m[2])
+    else if ((m = line.match(/^E:(\w+)=(?:\\protected macro:->)?\\delimiter ?"([0-9A-F]+)\s*$/))) data.delimiters[m[1]] = parseInt(m[2], 16)
     else if ((m = line.match(/^I:(\w+)=(-?\d+)$/))) data.ints[m[1]] = Number(m[2])
     else if ((m = line.match(/^D:(\w+)=(-?[\d.]+)pt$/))) data.dimens[m[1]] = parseScaled(m[2])
     else if ((m = line.match(/^M:(\w+)=(.*)$/))) data.muskips[m[1]] = new Scanner(m[2], { em: 0, ex: 0 }).scanGlue(true)
     else if ((m = line.match(/^S:(\w+)=\\mathchar"([0-9A-F]+)$/))) data.symbols[m[1]] = parseInt(m[2], 16)
   }
-  if (data.mathcodes.length !== 128 || Object.keys(data.muskips).length !== 3) throw new Error("math codegen: TeX did not report every value")
+  if (data.mathcodes.length !== 128 || data.delcodes.length !== 128 || Object.keys(data.delimiters).length !== DELIMITERS.length || Object.keys(data.muskips).length !== 3) throw new Error("math codegen: TeX did not report every value")
   const body = JSON.stringify(data) + "\n"
   const file = join(OUT, "latex.json")
   const same = existsSync(file) && readFileSync(file, "utf8") === body

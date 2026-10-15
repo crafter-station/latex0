@@ -1,0 +1,12 @@
+% fixture: math/delimiters
+% tier: T3
+% engine: document
+% covers: \left and \right (math_left_right, make_left_right with \delimiterfactor 901 and \delimitershortfall 5pt, var_delimiter's small and large variants along the charlist from the current size down, extensible recipes from cmex10, the null delimiter), \delimiter commands as math characters, inline and displayed
+% issue: #30
+\documentclass{article}
+\begin{document}
+Inline: $\left( \frac{a}{b} \right)$, $\left[ x \right]$, $\langle u, v\rangle$, $\left\| y \right\|$ and $\left. \frac{1}{2} \right|_0^1$.
+\[ \left\{ \frac{\frac{a}{b}}{\frac{c}{\frac{d}{e}}} \right\} = \left\langle \sum_{i=1}^n x_i \right\rangle \]
+\[ \left( \frac{1}{\frac{1}{\frac{1}{\frac{1}{\frac{1}{x}}}}} \right) \left\uparrow \frac{a}{\frac{b}{\frac{c}{d}}} \right\Downarrow \left\lfloor x \right\rceil \]
+Text after with $\left/ \frac{x}{y} \right\backslash$ in it.
+\end{document}

@@ -6,13 +6,15 @@
 // operators with and without limits (§§ 749–750); generalized fractions with
 // null delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
 // 18a–f); and the inter-atom spacing and penalties of the second pass
-// (§§ 760–767). Radicals, accents and \left…\right follow in #79–#80.
+// (§§ 760–767); \left and \right with var_delimiter's variants and extensible
+// characters (§§ 706–714, 762). Radicals and accents follow in #79–#80.
 
 import { xnOverD } from "../layout/arith"
 import type { GlueSpec } from "../layout/dimen"
-import { QUAD, SPACE, type Font } from "../layout/font"
+import { QUAD, SPACE, type CharMetrics, type Font } from "../layout/font"
 import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
+import { halign } from "../layout/align"
 
 export const ORD = 0, OP = 1, BIN = 2, REL = 3, OPEN = 4, CLOSE = 5, PUNCT = 6, INNER = 7
 export type NoadType = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
@@ -24,17 +26,30 @@ export type Field =
   | { kind: "char"; fam: number; char: number; /** math_text_char: made by make_ord or a |=:|>> ligature */ text?: boolean }
   | { kind: "box"; box: BoxNode }
   | { kind: "mlist"; list: MItem[] }
+  /** \array{*\c@MaxMatrixCols c} in a \vcenter (amsmath's matrix environments): each cell's formula, and
+   *  whether \\ ended each row (its \@arraycr leaves ${} in the last cell) */
+  | { kind: "array"; rows: MItem[][][]; crs: boolean[] }
   | null
-/** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal. */
-export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits" }
+/** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal;
+ *  `vcenter` makes it a vcenter noad (§ 687), an ord for spacing */
+export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits"; vcenter?: boolean }
+/** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
+export interface ColsepSkip { kind: "colsep" }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
 export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
 /** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
 export interface StyleNode { kind: "style"; style: number }
+/** A delimiter field (§ 683): small and large variants; all zero is the null delimiter. */
+export interface Delimiter { smallFam: number; smallChar: number; largeFam: number; largeChar: number }
+/** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
+export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | StyleNode | Node
+export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | Node
 
-const isNoad = (x: MItem): x is Noad | FractionNoad => "noad" in x
+const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
+const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
+/** A 24-bit \\delcode or a \\delimiter code without its class: small fam, small char, large fam, large char. */
+export const delimiterOf = (d: number): Delimiter => ({ smallFam: (d >> 20) & 15, smallChar: (d >> 12) & 255, largeFam: (d >> 8) & 15, largeChar: d & 255 })
 
 /** set_math_char (§ 1155): a mathcode becomes a noad; class 7 takes \\fam when it is a valid family. */
 export function mathCharNoad(mathcode: number, fam = -1): Noad {
@@ -63,13 +78,19 @@ export interface MathEnv {
   relpenalty: number
   scriptspace: number
   nulldelimiterspace: number
+  /** \\delimiterfactor and \\delimitershortfall (§ 762) */
+  delimiterfactor: number
+  delimitershortfall: number
+  /** \\arraycolsep and the \\@arstrutbox rule (\\strutbox at \\arraystretch 1), for arrays */
+  arraycolsep?: number
+  arstrut?: { height: number; depth: number }
   /** called for a character the font lacks (char_warning) */
   missing?: (fam: number, c: number) => void
 }
 
 // § 764: the spacing table, rows by the preceding noad's type, columns by this one
 const MATH_SPACING = "02340001" + "22*40001" + "33**3**3" + "44*04004" + "00*00000" + "02340001" + "11*11111" + "12341011"
-const LIST_TAG = 2, LIG_TAG = 1
+const LIST_TAG = 2, LIG_TAG = 1, EXT_TAG = 3
 
 /** x_over_n (§ 106): quotient and remainder, truncating toward zero */
 function xOverN(x: number, n: number): [number, number] {
@@ -158,25 +179,36 @@ class Converter {
   }
 
   convert(mlist: MItem[], style: number, penalties: boolean): Node[] {
-    const list = mlist.slice()
+    const list = mlist.map((x) => ("kind" in x && x.kind === "colsep" ? glue(-(this.env.arraycolsep ?? 0)) : x))
     const hl = new Map<object, Node[]>() // new_hlist(q)
     this.setStyle(style)
-    // first pass (§§ 727–759)
-    let r: Noad | FractionNoad | null = null
-    let rType: NoadType | "fraction" = OP
+    // first pass (§§ 727–759); max_h and max_d are the list's height and depth for \left and \right (§ 727)
+    let r: Noad | FractionNoad | FenceNoad | null = null
+    let rType: NoadType | "fraction" | "left" = OP
+    let maxH = 0, maxD = 0
+    const check = (nodes: Node[] | undefined) => { const z = hpack(nodes ?? []); if (z.height > maxH) maxH = z.height; if (z.depth > maxD) maxD = z.depth }
     for (let i = 0; i < list.length; i++) {
       const q = list[i]
       if (!isNoad(q)) { // § 730
         if ("kind" in q && q.kind === "style") this.setStyle(q.style)
+        else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }
         continue
       }
-      if (q.noad === "fraction") { hl.set(q, this.makeFraction(q)); r = q; rType = "fraction"; continue }
+      if (isFence(q)) { // § 733: done_with_noad
+        if (q.noad === "right") { // a final bin becomes an ord; r_type is then left_noad, in the list's style
+          if (rType === BIN && r) (r as Noad).noad = ORD
+          this.setStyle(style)
+        }
+        r = q; rType = "left"
+        continue
+      }
+      if (q.noad === "fraction") { hl.set(q, this.makeFraction(q)); check(hl.get(q)); r = q; rType = "fraction"; continue }
       let delta = 0
-      if (q.noad === BIN && (rType === BIN || rType === OP || rType === REL || rType === OPEN || rType === PUNCT)) q.noad = ORD // § 729
-      if ((q.noad === REL || q.noad === CLOSE || q.noad === PUNCT) && rType === BIN && r) r.noad = ORD
+      if (q.noad === BIN && (rType === BIN || rType === OP || rType === REL || rType === OPEN || rType === PUNCT || rType === "left")) q.noad = ORD // § 729
+      if ((q.noad === REL || q.noad === CLOSE || q.noad === PUNCT) && rType === BIN && r) (r as Noad).noad = ORD
       if (q.noad === OP) {
         delta = this.makeOp(q, hl)
-        if (q.limits === "limits") { r = q; rType = q.noad; continue }
+        if (q.limits === "limits") { check(hl.get(q)); r = q; rType = q.noad; continue }
       } else if (q.noad === ORD) this.makeOrd(list, i)
       // § 754: the nucleus as an hlist
       let p: Node[]
@@ -190,6 +222,12 @@ class Converter {
           if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
         } else p = []
       } else if (!n) p = []
+      else if (n.kind === "array") {
+        const b = this.array(n)
+        if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
+        q.nucleus = { kind: "box", box: b }
+        p = [b]
+      }
       else if (n.kind === "box") p = [n.box]
       else {
         const save = this.curStyle
@@ -199,9 +237,10 @@ class Converter {
       }
       hl.set(q, p)
       if (q.sub || q.sup) this.makeScripts(q, p, delta)
+      check(hl.get(q))
       r = q; rType = q.noad
     }
-    if (rType === BIN && r) r.noad = ORD // § 729: a final bin
+    if (rType === BIN && r) (r as Noad).noad = ORD // § 729: a final bin
 
     // second pass (§§ 760–767)
     const out: Node[] = []
@@ -214,7 +253,8 @@ class Converter {
         else out.push(q as Node)
         continue
       }
-      const t = q.noad === "fraction" ? ORD : q.noad
+      // \left and \right: make_left_right in the list's style, an open and a close (§ 762)
+      const t = isFence(q) ? this.makeLeftRight(q, style, maxD, maxH, hl) : q.noad === "fraction" ? ORD : q.noad
       if (prev >= 0) {
         const code = MATH_SPACING[prev * 8 + t]
         if (code === "*") throw new Error("mlist4: impossible noad sequence")
@@ -229,9 +269,78 @@ class Converter {
         const nx = list[i + 1]
         if (!(!isNoad(nx) && "kind" in nx && nx.kind === "penalty") && !(isNoad(nx) && nx.noad === REL)) out.push(penalty(pen))
       }
-      prev = t
+      prev = isFence(q) && q.noad === "right" ? OPEN : t
     }
     return out
+  }
+
+  /**
+   * \array{*10c} (latex.ltx \@array): \ialign with each row starting with \@arstrut, each cell
+   * \hskip\arraycolsep\hfil$cell$\hfil\hskip\arraycolsep in text style, \tabskip zero, rows stacked with
+   * \baselineskip and \lineskip zero
+   */
+  array(a: Extract<Field, { kind: "array" }>): BoxNode {
+    const colsep = this.env.arraycolsep ?? 0, strut = this.env.arstrut ?? { height: 0, depth: 0 }
+    const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }]
+    const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
+      ...(ci === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth } as Node] : []),
+      glue(colsep), glue(0, 65536, FIL), ...math(cell),
+      ...(a.crs[ri] && ci === row.length - 1 ? math([{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]) : []), // \@arraycr's ${}
+      glue(0, 65536, FIL), glue(colsep),
+    ]))
+    const cols = 10 // \c@MaxMatrixCols
+    if (a.rows.some((r) => r.length > cols)) throw new Error("math: Extra alignment tab has been changed to \\cr")
+    const boxes = halign(rows, Array.from({ length: cols + 1 }, () => paramGlue("tabskip", glue(0))), { additional: 0 })
+    const v: Node[] = []
+    boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
+    return vpack(v)
+  }
+
+  /** make_left_right (§ 762): a delimiter for the list's height and depth around the axis */
+  makeLeftRight(q: FenceNoad, style: number, maxD: number, maxH: number, hl: Map<object, Node[]>): NoadType {
+    this.setStyle(style)
+    let delta2 = maxD + this.axisHeight
+    let delta1 = maxH + maxD - delta2
+    if (delta2 > delta1) delta1 = delta2 // the maximum distance from the axis
+    let delta = Math.trunc(delta1 / 500) * this.env.delimiterfactor
+    delta2 = delta1 + delta1 - this.env.delimitershortfall
+    if (delta < delta2) delta = delta2
+    hl.set(q, [this.varDelimiter(q.delim, this.curSize, delta)])
+    return q.noad === "left" ? OPEN : CLOSE
+  }
+
+  /**
+   * var_delimiter (§§ 706–714): the first variant of the small, then the large character (each family
+   * from size s down to text size, along its charlist) at least v tall, else the tallest; an extensible
+   * recipe is built at once; the box is centered on the axis
+   */
+  varDelimiter(d: Delimiter, s: number, v: number): BoxNode {
+    let f: Font | undefined, c = 0, fq: CharMetrics | undefined, w = 0
+    let large = false, z = d.smallFam, x = d.smallChar
+    search: for (;;) {
+      if (z !== 0 || x !== 0) {
+        for (let size = s; size >= 0; size--) {
+          const g = this.font(z, size)
+          if (!g) continue
+          for (let y = x; ;) {
+            const q = g.chars.get(y)
+            if (!q) break
+            if (q.tag === EXT_TAG) { f = g; c = y; fq = q; break search }
+            const u = q.height + q.depth
+            if (u > w) { f = g; c = y; fq = q; w = u; if (u >= v) break search }
+            if (q.tag !== LIST_TAG) break
+            y = q.remainder
+          }
+        }
+      }
+      if (large) break
+      large = true; z = d.largeFam; x = d.largeChar
+    }
+    let b: BoxNode
+    if (f && fq) b = fq.tag === EXT_TAG ? extensible(f, fq, v) : charBox(f, c)
+    else b = emptyBox("hlist", this.env.nulldelimiterspace) // no delimiter found
+    b.shift = half(b.height - b.depth) - this.mathsy(22, s)
+    return b
   }
 
   /** clean_box (§ 720): a field as a box with zero shift, in style s. */
@@ -241,7 +350,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }
@@ -263,7 +372,7 @@ class Converter {
       const p = list[i + 1]
       const n = q.nucleus
       if (q.sub || q.sup || n?.kind !== "char" || n.text) return
-      if (!p || !isNoad(p) || p.noad === "fraction" || p.noad > PUNCT) return
+      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT) return
       const pn = p.nucleus
       if (pn?.kind !== "char" || pn.text || pn.fam !== n.fam) return
       n.text = true
@@ -424,6 +533,38 @@ class Converter {
 function charNode(f: Font, c: number): CharNode {
   const m = f.chars.get(c)!
   return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text: String.fromCharCode(c) }
+}
+
+/** char_box (§ 709): a character in an hbox whose width includes its italic correction */
+function charBox(f: Font, c: number): BoxNode {
+  const m = f.chars.get(c)!
+  const b = emptyBox("hlist", m.width + m.italic)
+  b.height = m.height; b.depth = m.depth; b.list = [charNode(f, c)]
+  return b
+}
+
+/** An extensible character (§§ 713–714): bottom, repeaters, middle, repeaters, top stacked in a vbox at least v tall */
+function extensible(f: Font, q: CharMetrics, v: number): BoxNode {
+  const r = f.exten![q.remainder] >>> 0
+  const top = r >>> 24, mid = (r >>> 16) & 255, bot = (r >>> 8) & 255, rep = r & 255
+  const hd = (ch: number) => { const m = f.chars.get(ch)!; return m.height + m.depth }
+  const b = emptyBox("vlist")
+  const rm = f.chars.get(rep)!
+  b.width = rm.width + rm.italic
+  const u = hd(rep)
+  let w = 0
+  if (bot) w += hd(bot)
+  if (mid) w += hd(mid)
+  if (top) w += hd(top)
+  let n = 0
+  if (u > 0) while (w < v) { w += u; n++; if (mid) w += u }
+  const stack = (ch: number) => { const p = charBox(f, ch); b.list.unshift(p); b.height = p.height } // stack_into_box (§ 711)
+  if (bot) stack(bot)
+  for (let m = 0; m < n; m++) stack(rep)
+  if (mid) { stack(mid); for (let m = 0; m < n; m++) stack(rep) }
+  if (top) stack(top)
+  b.depth = w - b.height
+  return b
 }
 
 /** rebox (§ 715): center box b in width w with \\hss glue at both ends. */

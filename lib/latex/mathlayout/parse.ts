@@ -10,10 +10,18 @@
 
 import type { MathData } from "./data"
 import { penalty } from "../layout/nodes"
-import { groupField, mathCharField, mathCharNoad, OP, ORD, type Field, type MItem, type Noad } from "./mlist"
+import { delimiterOf, groupField, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
+/** delimiters LaTeX defines through others in math: \{ (\lbrace), \} (\rbrace), \| (\Vert); amsmath's \lvert… */
+const DELIMITER_MACROS: Record<string, string> = { "{": "lbrace", "}": "rbrace", "|": "Vert" }
+const AMS_DELIMITERS: Record<string, string> = { lvert: "vert", rvert: "vert", lVert: "Vert", rVert: "Vert" }
+/** amsmath's matrix environments: their \left and \right */
+const MATRICES: Record<string, [string, string] | null> = { matrix: null, pmatrix: ["(", ")"], bmatrix: ["[", "]"], Bmatrix: ["lbrace", "rbrace"], vmatrix: ["vert", "vert"], Vmatrix: ["Vert", "Vert"] }
+
+/** Options of the document the formula is in. */
+export interface MathOptions { amsmath?: boolean }
 
 type Token = { cs: string; value?: number } | { ch: string }
 
@@ -41,11 +49,12 @@ function tokenize(src: string): Token[] {
 const isCh = (t: Token | undefined, c: string) => !!t && "ch" in t && t.ch === c
 
 /** Parse a formula (the text between $…$) into an mlist. */
-export function parseMath(src: string, data: MathData): MItem[] {
-  return parseTokens(tokenize(src), data)
+export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
+  return parseTokens(tokenize(src), data, opts)
 }
 
-function parseTokens(toks: Token[], data: MathData): MItem[] {
+function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] {
+  const macroOf = (cs: string) => DELIMITER_MACROS[cs] ?? (opts.amsmath ? AMS_DELIMITERS[cs] : undefined) ?? cs
   let pos = 0
   const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && x.noad !== "fraction"
 
@@ -62,7 +71,50 @@ function parseTokens(toks: Token[], data: MathData): MItem[] {
     }
     return toks.slice(start, pos++)
   }
-  const sub = (ts: Token[]) => parseTokens(ts, data)
+  const sub = (ts: Token[]) => parseTokens(ts, data, opts)
+  /** \begin{name}: the environment's name and its body's tokens, to the matching \end */
+  const environment = (): { name: string; body: Token[] } => {
+    const nameToks = argument()
+    const name = nameToks.map((t) => ("ch" in t ? t.ch : "")).join("")
+    const start = pos
+    for (let depth = 0; ; pos++) {
+      const t = toks[pos]
+      if (!t) throw new Error(`math: \\begin{${name}} without its \\end`)
+      if ("cs" in t && (t.cs === "begin" || t.cs === "end")) {
+        if (t.cs === "begin") depth++
+        else if (depth-- === 0) { const body = toks.slice(start, pos); pos++; argument(); return { name, body } }
+      }
+    }
+  }
+  /** an \array body: rows split at \\, cells at &, outside braces and inner environments */
+  const arrayRows = (body: Token[]) => {
+    const rows: MItem[][][] = [], crs: boolean[] = []
+    let row: MItem[][] = [], cell: Token[] = [], depth = 0
+    for (const t of body) {
+      if ("ch" in t && t.ch === "{") depth++
+      else if ("ch" in t && t.ch === "}") depth--
+      else if ("cs" in t && t.cs === "begin") depth++
+      else if ("cs" in t && t.cs === "end") depth--
+      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(sub(cell)); cell = []; continue }
+      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell)); rows.push(row); crs.push(true); row = []; cell = []; continue }
+      cell.push(t)
+    }
+    // \crcr: a last row without \\ (an empty one after a final \\ is no row)
+    if (cell.length || row.length) { row.push(sub(cell)); rows.push(row); crs.push(false) }
+    return { rows, crs }
+  }
+  /** scan_delimiter (§ 1160): a character's \delcode or a \delimiter command */
+  const delimiter = (after: string): Delimiter => {
+    const t = toks[pos++]
+    if (t && "ch" in t) {
+      const d = data.delcodes[t.ch.charCodeAt(0)]
+      if (d !== undefined && d >= 0) return delimiterOf(d)
+    } else if (t) {
+      const name = macroOf(t.cs)
+      if (name in data.delimiters) return delimiterOf(data.delimiters[name] & 0xffffff)
+    }
+    throw new Error(`math: Missing delimiter (. inserted) after \\${after}`)
+  }
   const fraction = (): Field => {
     const num = argument(), den = argument()
     return groupField([{ noad: "fraction", thickness: null, num: sub(num), denom: sub(den) }])
@@ -78,6 +130,8 @@ function parseTokens(toks: Token[], data: MathData): MItem[] {
       return mathCharField(code)
     }
     if (t.cs === "frac") return fraction()
+    const dname = macroOf(t.cs)
+    if (dname in data.delimiters) return mathCharField(data.delimiters[dname] >> 12) // a \delimiter's \mathchar part
     const code = data.symbols[t.cs]
     if (code === undefined) throw new Error(`math: unsupported script \\${t.cs}`)
     return mathCharField(code)
@@ -89,11 +143,31 @@ function parseTokens(toks: Token[], data: MathData): MItem[] {
     tail[which] = field()
   }
 
-  const list = (inGroup: boolean): MItem[] => {
+  const list = (inGroup: boolean, inFence = false): MItem[] => {
     const out: MItem[] = []
     for (;;) {
       const t = toks[pos++]
-      if (!t) { if (inGroup) throw new Error("math: missing }"); return out }
+      if (!t) { if (inGroup || inFence) throw new Error(inFence ? "math: missing \\right" : "math: missing }"); return out }
+      if ("cs" in t && t.cs === "right") { if (!inFence) throw new Error("math: Extra \\right"); return out }
+      if ("cs" in t && t.cs === "begin") { // amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix, Vmatrix
+        const { name, body } = environment()
+        if (!opts.amsmath || !(name in MATRICES)) throw new Error(`math: unsupported environment ${name}`)
+        const fence = MATRICES[name]
+        const center: MItem[] = [{ kind: "colsep" }, { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(body) }, sup: null, sub: null }, { kind: "colsep" }]
+        if (!fence) out.push(...center)
+        else {
+          const d = (x: string) => (x.length === 1 ? delimiterOf(data.delcodes[x.charCodeAt(0)]) : delimiterOf(data.delimiters[x] & 0xffffff))
+          out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: d(fence[0]) }, ...center, { noad: "right", delim: d(fence[1]) }] }, sup: null, sub: null })
+        }
+        continue
+      }
+      if ("cs" in t && t.cs === "left") { // math_left_right (§ 1191): an inner noad whose sub-mlist the fences end
+        const left = delimiter("left")
+        const inner = list(false, true)
+        const right = delimiter("right")
+        out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: left }, ...inner, { noad: "right", delim: right }] }, sup: null, sub: null })
+        continue
+      }
       if ("ch" in t) {
         const c = t.ch
         if (c === "}") { if (!inGroup) throw new Error("math: extra }"); return out }
@@ -113,6 +187,7 @@ function parseTokens(toks: Token[], data: MathData): MItem[] {
         out.push(mathCharNoad(code))
         continue
       }
+      if (opts.amsmath && t.cs === "colon") throw new Error("math: amsmath's \\colon") // \nobreak\mskip2mu\mathpunct{}…
       const cs = OPERATOR_MACROS[t.cs] ?? t.cs
       if (cs in STYLES) out.push({ kind: "style", style: STYLES[cs] })
       else if (cs === "allowbreak" || cs === "nobreak") out.push(penalty(cs === "nobreak" ? 10000 : 0))
@@ -122,6 +197,7 @@ function parseTokens(toks: Token[], data: MathData): MItem[] {
         if (!tail || !("noad" in tail) || tail.noad !== OP) throw new Error("math: Limit controls must follow a math operator")
         tail.limits = cs
       } else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
+      else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {
         out.push(mathCharNoad(data.symbols[cs]))
         if (cs !== t.cs) (out[out.length - 1] as Noad).limits = "nolimits"
