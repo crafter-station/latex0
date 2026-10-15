@@ -1,18 +1,18 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 111,
-  "exact": 103,
+  "fixtures": 113,
+  "exact": 106,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 8,
-  "glyphs": 134239
+  "pending": 7,
+  "glyphs": 145770
  },
  "areas": [
   {
    "area": "classes",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "display",
@@ -67,7 +67,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 10
+   "exact": 11
   },
   {
    "area": "text",
@@ -130,8 +130,8 @@
    "file": "macro/templates/book.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 275,
    "covers": "Full book layout with front matter, chapters, and back matter",
    "issue": "#30"
@@ -322,6 +322,28 @@
    "glyphs": 328,
    "covers": "book [12pt]",
    "issue": "#44"
+  },
+  {
+   "id": "classes/book-matter",
+   "file": "micro/classes/book-matter.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 8656,
+   "covers": "the book class: \\frontmatter (\\cleardoublepage, roman page numbers from i), a title page, \\tableofcontents, an unnumbered front-matter chapter, \\mainmatter (arabic from 1), openright chapters with the blank \\hbox{}\\newpage pages \\cleardoublepage adds before an odd page (their running heads), headings with \\chaptermark and \\sectionmark, \\backmatter",
+   "issue": "#30"
+  },
+  {
+   "id": "classes/book-oneside",
+   "file": "micro/classes/book-oneside.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2600,
+   "covers": "the book class one-sided ([oneside,12pt]): \\cleardoublepage is \\clearpage, \\chaptermark is \\markright and \\sectionmark nothing, \\pagestyle{plain} keeping the class's \\chaptermark",
+   "issue": "#30"
   },
   {
    "id": "classes/report-10pt",

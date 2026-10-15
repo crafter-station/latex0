@@ -115,7 +115,7 @@ export function documentStart(bookmarks: Bookmark[]): Node[] {
  * \AtBeginShipout: the page in a \vbox after the page anchor, \vbox to 0pt{\kern\voffset \kern\topmargin
  * \kern-1bp \hbox to 0pt{\kern\hoffset \kern\oddsidemargin \kern-1bp H.S H.R /DEST page.n \nobreak\hss}\vss}
  */
-export function pageAnchor(page: number, topmargin: number, sidemargin: number): BoxNode {
+export function pageAnchor(page: string, topmargin: number, sidemargin: number): BoxNode {
   const bp = 65781 // 1bp
   const h = hpack([kern(0, true), kern(sidemargin, true), kern(-bp, true), HS(), HR(), dest(`page.${page}`), penalty(10000), glue(0, 65536, FIL, 65536, FIL)], { exactly: 0 })
   return vpack([kern(0, true), kern(topmargin, true), kern(-bp, true), h, glue(0, 65536, FIL, 65536, FIL)], { exactly: 0 })

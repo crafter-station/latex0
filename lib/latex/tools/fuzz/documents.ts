@@ -63,9 +63,9 @@ export function makeDocument(r: () => number): string {
     }
     return ws.join(" ")
   }
-  const cls = pick(["article", "article", "report"])
+  const cls = pick(["article", "article", "report", "book"])
   // class options: the size, sometimes a paper and two-sided printing
-  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 ? "twoside" : ""].filter(Boolean)
+  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 ? (cls === "book" ? "oneside" : "twoside") : ""].filter(Boolean)
   const out = [`\\documentclass${copts.length ? `[${copts.join(",")}]` : ""}{${cls}}`]
   // the geometry package: margins, body sizes, scales, ratios, head and foot, rounding
   if (r() < 0.3) {
@@ -105,8 +105,13 @@ export function makeDocument(r: () => number): string {
   const macros = r() < 0.3
   if (macros) out.push("\\newcounter{thm}", "\\newcommand{\\thm}{\\stepcounter{thm}\\paragraph{Theorem \\thethm.}}")
   out.push("\\begin{document}")
+  // book: front matter (roman page numbers, unnumbered chapters) before the main matter
+  const front = cls === "book" && r() < 0.5
+  if (front) out.push("\\frontmatter")
   if (titled) out.push("\\maketitle")
   if (r() < 0.25) out.push("\\tableofcontents") // laid out from the .toc file the first run writes
+  if (front && r() < 0.3) out.push(`\\chapter{${words(2)}}`, text(30))
+  if (front) out.push("\\mainmatter")
   if (cls === "article" && r() < 0.3) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(10 + Math.floor(r() * 30))] : []), "\\end{abstract}")
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
@@ -131,7 +136,7 @@ export function makeDocument(r: () => number): string {
         space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
-      const level = pick(["section", "section", "subsection", "subsubsection", "paragraph", "subparagraph", ...(cls === "report" ? ["chapter"] : [])])
+      const level = pick(["section", "section", "subsection", "subsubsection", "paragraph", "subparagraph", ...(cls !== "article" ? ["chapter"] : [])])
       if (macros && r() < 0.3) { out.push("", r() < 0.5 ? "\\thm" : `\\thm ${text(5 + Math.floor(r() * 30))}`); afterPar = false; continue }
       out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}${r() < 0.3 && !level.endsWith("paragraph") ? `\\label{${key()}}` : ""}`)
       afterPar = false
@@ -198,6 +203,7 @@ export function makeDocument(r: () => number): string {
       afterPar = true
     }
   }
+  if (cls === "book" && r() < 0.3) out.push("\\backmatter", ...(r() < 0.5 ? [`\\chapter{${words(2)}}`, text(20)] : []))
   out.push("\\end{document}", "")
   return out.join("\n")
 }

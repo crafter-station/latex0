@@ -28,10 +28,12 @@ export interface Float {
 
 /** What the output routine ships: a page of text with its top and bottom floats, or a page of floats. */
 type ShippedContent = { kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }
-export type Shipped = ShippedContent & { /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out */ count: number }
+export type Shipped = ShippedContent & { /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out, and \thepage */ count: number; thepage: string }
 
 /** Assignments the document makes to the output routine's state. */
-export type OutputHook = "notop" | "plain" | "empty" | `page=${number}`
+export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman" | "arabic"
+  /** \cleardoublepage's \ifodd\c@page\else\hbox{}\newpage: the material, put in only when the next page is even */
+  | { cleardouble: Node[] }
 
 /** Thrown for what the output routine does that is not modeled yet. */
 export class OutputUnsupported extends Error {}
@@ -289,22 +291,33 @@ export class LatexOutput {
 
   /** An assignment from the document: article's \maketitle sets \@topnum to 0 for its page */
   /** \global\@topnum\z@; \thispagestyle, which \@outputpage applies to the next page it ships; \setcounter{page} */
-  hook(h: OutputHook) {
+  hook(h: OutputHook): Node[] | void {
+    if (typeof h === "object") return this.page % 2 === 0 ? h.cleardouble : []
     if (h === "notop") this.topnum = 0
     else if (h === "plain" || h === "empty") this.special = h
+    else if (h === "roman" || h === "arabic") { this.page = 1; this.numbering = h } // \pagenumbering
     else this.page = Number(h.slice(5))
   }
+  private numbering: "roman" | "arabic" = "arabic"
   private special: "plain" | "empty" | null = null
   private page = 1
   /** \@outputpage: the page style, then \stepcounter{page} */
   private ship(s: ShippedContent) {
-    const shipped = { ...s, count: this.page++ } as Shipped
+    const shipped = { ...s, count: this.page, thepage: this.numbering === "roman" ? roman(this.page) : String(this.page) } as Shipped
+    this.page++
     if (this.special) { shipped.special = this.special; this.special = null }
     this.shipped.push(shipped)
   }
 
   /** At the end: floats still waiting were never output. */
   done() { if (this.deferlist.length || this.toplist.length || this.botlist.length) throw new OutputUnsupported("floats lost at the end of the document") }
+}
+
+/** \romannumeral */
+export function roman(n: number): string {
+  let out = ""
+  for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (n >= v) { out += r; n -= v }
+  return out
 }
 
 /** The rest of \clearpage after its \newpage: \write\m@ne{}\vbox{}\penalty-\@Mi */
