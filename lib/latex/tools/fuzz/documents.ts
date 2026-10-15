@@ -40,13 +40,15 @@ export function makeDocument(r: () => number): string {
   const math = () => pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$"])
   const display = () => pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
     "\\prod_{k=1}^{m}\\frac{1}{k}", "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
+  // hyperref: its anchors and links for footnotes, items, floats and equations are not laid out yet
+  let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   const text = (n: number) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
-      if (r() < 0.015) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
+      if (r() < 0.015 && !hyper) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
     }
@@ -86,6 +88,8 @@ export function makeDocument(r: () => number): string {
   if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
+  hyper = r() < 0.25
+  if (hyper) out.push("\\usepackage{hyperref}")
   const titled = cls === "article" && r() < 0.5
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
@@ -105,7 +109,7 @@ export function makeDocument(r: () => number): string {
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x = r()
-    if (x < 0.1) {
+    if (x < 0.1 && !hyper) {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
@@ -136,7 +140,7 @@ export function makeDocument(r: () => number): string {
       // text after a nested environment) and \item\relax ones with paragraphs and, where \\ ends a line, lines
       const list = (depth: number, items: number, enums: number) => {
         const env = pick(["itemize", "enumerate", "itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright"]
-          .filter((e) => !(e === "itemize" && items >= 4) && !(e === "enumerate" && enums >= 4) && !(depth >= 6 && !["center", "flushleft", "flushright"].includes(e))))
+          .filter((e) => !(e === "itemize" && items >= 4) && !(e === "enumerate" && (enums >= 4 || hyper)) && !(depth >= 6 && !["center", "flushleft", "flushright"].includes(e))))
         const deeper = ["center", "flushleft", "flushright"].includes(env) ? depth : depth + 1
         const nest = () => {
           if (deeper < 6 && r() < 0.25 / depth) {
@@ -170,7 +174,7 @@ export function makeDocument(r: () => number): string {
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120))]
       for (let d = r() < 0.3 ? 1 + Math.floor(r() * 2) : 0; d > 0; d--) {
         const f = display()
-        const env = ams ? pick(["bracket", "align", "align", "align*", "dollars"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
+        const env = hyper ? pick(ams ? ["bracket", "align*", "dollars"] : ["bracket", "dollars", "displaymath"]) : ams ? pick(["bracket", "align", "align", "align*", "dollars"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
         if (env === "align" || env === "align*") {
           // rows of 1 to 3 column pairs: right-aligned & left-aligned fields, some rows unnumbered
           const pairs = 1 + Math.floor(r() * 3)
@@ -181,7 +185,7 @@ export function makeDocument(r: () => number): string {
             return fs.join(" & ") + (r() < 0.2 ? " \\nonumber" : "")
           })
           parts.push(`\\begin{${env}}\n${rows.join(" \\\\\n")}\n\\end{${env}}`)
-        } else if (env === "equation" || (ams && r() < 0.3)) { // numbered, maybe labelled: amsmath writes the label after the tag
+        } else if (env === "equation" || (ams && r() < 0.3 && !hyper)) { // numbered, maybe labelled: amsmath writes the label after the tag
           const label = r() < 0.5 ? ` \\label{eq:${b}-${d}}` : ""
           parts.push(`\\begin{equation}${r() < 0.5 ? label + " " + f : f + label}\\end{equation}`)
         } else parts.push(env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : `\\begin{${env}} ${f} \\end{${env}}`)

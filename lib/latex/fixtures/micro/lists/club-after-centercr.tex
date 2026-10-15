@@ -1,0 +1,17 @@
+% fixture: lists/club-after-centercr
+% tier: T3
+% engine: document
+% covers: a list right after \\ in an environment that follows a heading: no paragraph starts in between, so \@item's \everypar never resets \clubpenalty, and a footnote read after the inner list sees \@M
+% issue: #30
+\documentclass{report}
+\begin{document}
+\subsubsection{fifty}
+
+\begin{flushleft}
+little take \\
+\begin{itemize}
+\item who even
+\end{itemize}
+at like before lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation still\footnote{with who only will life now little Yes! while an may this Plass and more words to make two lines at least in the footnote text here we go more more more} lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation
+\end{flushleft}
+\end{document}

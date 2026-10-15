@@ -1,0 +1,16 @@
+% fixture: hyperref/links
+% tier: T3
+% engine: document
+% covers: hyperref links: \ref and \pageref through \pdf@rect (H.S, the text in an hbox, \raise\ht H.R, /ANN; H.S \lower\dp in an hbox when the text has depth), the space factor kept from the text, no link for an empty label, undefined references as ?? without a link
+% issue: #30
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\begin{document}
+Before any section\label{b}, a reference to it: (\ref{b}) and its page \pageref{b}.
+\section{One}\label{one}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. See \emph{\ref{one}} and \textit{\pageref{two}}, \ref{nowhere}, \textbf{\ref{two}}.
+
+\section{Two}\label{two}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\end{document}
