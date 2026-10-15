@@ -319,6 +319,102 @@
   {
    "name": "tcrm2488",
    "checksum": 494110587
+  },
+  {
+   "name": "ecrm0500",
+   "checksum": 4176816954
+  },
+  {
+   "name": "ecbx0500",
+   "checksum": 3040396441
+  },
+  {
+   "name": "ecrm0600",
+   "checksum": 3124203596
+  },
+  {
+   "name": "ecbx0600",
+   "checksum": 837119871
+  },
+  {
+   "name": "ecrm0700",
+   "checksum": 1422275202
+  },
+  {
+   "name": "ecbx0700",
+   "checksum": 2470998548
+  },
+  {
+   "name": "ecrm0800",
+   "checksum": 2801250850
+  },
+  {
+   "name": "ecbx0800",
+   "checksum": 1503335445
+  },
+  {
+   "name": "ecrm0900",
+   "checksum": 3643710604
+  },
+  {
+   "name": "ecbx0900",
+   "checksum": 2341893580
+  },
+  {
+   "name": "ecrm1000",
+   "checksum": 204597937
+  },
+  {
+   "name": "ecbx1000",
+   "checksum": 39675532
+  },
+  {
+   "name": "ecrm1095",
+   "checksum": 613763172
+  },
+  {
+   "name": "ecbx1095",
+   "checksum": 3989069149
+  },
+  {
+   "name": "ecrm1200",
+   "checksum": 3541219301
+  },
+  {
+   "name": "ecbx1200",
+   "checksum": 2770444878
+  },
+  {
+   "name": "ecrm1440",
+   "checksum": 639634314
+  },
+  {
+   "name": "ecbx1440",
+   "checksum": 642544676
+  },
+  {
+   "name": "ecrm1728",
+   "checksum": 1437234121
+  },
+  {
+   "name": "ecbx1728",
+   "checksum": 1940479588
+  },
+  {
+   "name": "ecrm2074",
+   "checksum": 3322932970
+  },
+  {
+   "name": "ecbx2074",
+   "checksum": 3644806725
+  },
+  {
+   "name": "ecrm2488",
+   "checksum": 119551238
+  },
+  {
+   "name": "ecbx2488",
+   "checksum": 3473663177
   }
  ]
 }

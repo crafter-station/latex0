@@ -84,6 +84,10 @@ function texData(cls: string, option: string): ClassOptionData {
   writeFileSync(join(dir, "ams.tex"), probe(cls, option, "\\usepackage{amsmath}"))
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "ams.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
   const amsLog = readFileSync(join(dir, "ams.log"), "latin1").split("\n")
+  // and with \usepackage[T1]{fontenc}: only its text fonts are kept
+  writeFileSync(join(dir, "t1.tex"), probe(cls, option, "\\usepackage[T1]{fontenc}"))
+  execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "t1.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
+  const t1Log = readFileSync(join(dir, "t1.log"), "latin1").split("\n")
   const data: ClassOptionData = { dimens: {}, glue: {}, ints: {}, sizes: {} as ClassOptionData["sizes"] }
   const mathFonts = new Map<string, SizeData["math"]>()
   const struts = new Map<string, SizeData["strut"]>()
@@ -107,6 +111,7 @@ function texData(cls: string, option: string): ClassOptionData {
         strut: { height: 0, depth: 0 },
         companion: { name: "", at: 0 },
         bold: { name: "", at: 0 },
+        t1: { font: { name: "", at: 0 }, bold: { name: "", at: 0 } },
       }
       data.sizes[m[1] as keyof ClassOptionData["sizes"]] = s
     } else if ((m = line.match(/^([CB]):(\w+):(\w+)(?: at ([\d.]+)pt)?$/))) {
@@ -125,10 +130,17 @@ function texData(cls: string, option: string): ClassOptionData {
     const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
     data.sizes[m[1] as keyof ClassOptionData["sizes"]].mathAms = { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) }
   }
+  const ref = (name: string, at?: string) => ({ name, at: at ? parseScaled(at) : designSize(name) })
+  for (const line of t1Log) {
+    let m: RegExpMatchArray | null
+    const sz = (x: string) => data.sizes[x as keyof ClassOptionData["sizes"]]
+    if ((m = line.match(/^S:(\w+):[\d.]+:[\d.]+:[\d.]+:(\w+)(?: at ([\d.]+)pt)?:/)) && sz(m[1])) sz(m[1]).t1.font = ref(m[2], m[3])
+    else if ((m = line.match(/^B:(\w+):(\w+)(?: at ([\d.]+)pt)?$/)) && sz(m[1])) sz(m[1]).t1.bold = ref(m[2], m[3])
+  }
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4)]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name)]
   if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
   return data
 }

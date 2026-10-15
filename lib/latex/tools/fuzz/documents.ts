@@ -1,5 +1,5 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
-// lays out — classes and sizes, page styles, paragraphs with inline math and
+// lays out — classes and sizes, OT1 or T1 fonts, page styles, paragraphs with inline math and
 // footnotes, \section to \subsubsection (starred or not), itemize and enumerate
 // lists (nested, \item[label]) started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
@@ -50,8 +50,9 @@ export function makeDocument(r: () => number): string {
   const cls = pick(["article", "article", "report"])
   const out = [`\\documentclass${pick(["", "[11pt]", "[12pt]"])}{${cls}}`]
   if (r() < 0.25) out.push("\\pagestyle{empty}")
+  if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
-  if (ams) out.push("\\usepackage{amsmath}")
+  if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
   const titled = cls === "article" && r() < 0.5
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))

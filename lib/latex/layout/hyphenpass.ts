@@ -3,8 +3,9 @@
 // (hyphenate.ts), and reconstituting ligatures and kerns around each
 // discretionary hyphen (§§ 903–918). Integer-exact, node-for-node.
 //
-// Fonts with a boundary character (bchar_label, font_bchar) are not supported
-// yet; Computer Modern text fonts have none. Such a font throws.
+// Fonts with boundary characters (the EC fonts) are handled as TeX does: the
+// font's right boundary after the word and the hyphen, its left boundary program
+// at the start of a post-break, and ligatures that remember both (§§ 903–918).
 
 import type { Font } from "./font"
 import { lcCode, type Hyphenator } from "./hyphenate"
@@ -22,7 +23,7 @@ export interface HyphenContext {
   ucHyph: number
 }
 
-const isLigature = (n: CharNode) => n.text.length !== 1 || n.text.charCodeAt(0) !== n.char
+const isLigature = (n: CharNode) => n.ligature === true || n.text.length !== 1 || n.text.charCodeAt(0) !== n.char
 const odd = (x: number) => (x & 1) === 1
 const fontKey = (n: CharNode) => `${n.font}@${n.size}`
 
@@ -56,7 +57,6 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
   // done2
   const hyfChar = HYPHEN_CHAR
   const font = hf!
-  if (font.chars.size && boundaryChar(font) !== null) throw new Error(`${font.name}: fonts with a boundary character are not supported yet`)
   const ha = prevS
 
   // § 896: collect letters into hu/hc up to hb
@@ -84,8 +84,9 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
         j++; hu[j] = c; hc[j] = lc
       }
       if (!ok) break
-      hb = s; hn = j; hyfBchar = NON_CHAR // no right boundary in fonts without bchar
-    } else if (n && n.kind === "kern" && !n.explicit) { hb = s; hyfBchar = NON_CHAR }
+      hb = s; hn = j
+      hyfBchar = odd(n.ligHits ?? 0) ? font.bchar : NON_CHAR
+    } else if (n && n.kind === "kern" && !n.explicit) { hb = s; hyfBchar = font.bchar }
     else break
     s++
   }
@@ -106,22 +107,34 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
   for (let j = ctx.lHyf; j <= hn - ctx.rHyf; j++) if (odd(hyf[j])) { any = true; break }
   if (!any) return
 
-  // § 903: replace nodes ha..hb with the reconstituted word
+  // § 903: replace nodes ha..hb with the reconstituted word; hu[0] holds the punctuation before it
+  // or a left boundary (256), and bchar a right boundary
   const haNode = list[ha]
+  const bchar0 = hyfBchar
   let start: number, j0: number
-  let initList: number[] = [], initLig = false
+  let initList: number[] = [], initLig = false, initLft = false
+  const found2 = () => { start = ha + 1; j0 = 0; hu[0] = NON_CHAR; initLig = false; initList = [] }
   if (haNode.kind === "char" && !isLigature(haNode)) {
-    if (fontKey(haNode) !== hfKey) { start = ha + 1; j0 = 0; hu[0] = NON_CHAR }
+    if (fontKey(haNode) !== hfKey) found2()
     else { initList = [haNode.char]; hu[0] = haNode.char; start = ha; j0 = 0 }
   } else if (haNode.kind === "char") {
-    if (fontKey(haNode) !== hfKey) { start = ha + 1; j0 = 0; hu[0] = NON_CHAR }
-    else { initList = [...haNode.text].map((c) => c.charCodeAt(0)); initLig = true; hu[0] = haNode.char; start = ha; j0 = 0 }
-  } else { start = ha + 1; j0 = 1 }
+    if (fontKey(haNode) !== hfKey) found2()
+    else {
+      initList = [...haNode.text].map((c) => c.charCodeAt(0)); initLig = true; initLft = (haNode.ligHits ?? 0) > 1
+      hu[0] = haNode.char
+      if (!initList.length && initLft) { hu[0] = NON_CHAR; initLig = false } // a ligature made from scratch
+      start = ha; j0 = 0
+    }
+  } else { // no punctuation: a left boundary ligature right after it is rebuilt from the boundary
+    const r = list[ha + 1]
+    if (r && r.kind === "char" && isLigature(r) && (r.ligHits ?? 0) > 1) found2()
+    else { start = ha + 1; j0 = 1 }
+  }
 
-  const r = new Reconstitutor(font, hu, hyf, initList, initLig)
-  const bchar = hyfBchar
+  const r = new Reconstitutor(font, hu, hyf, initList, initLig, initLft)
+  const bchar = bchar0
   const result: Node[] = []
-  let j = j0, l: number
+  let j = j0!, l: number
   do {
     l = j
     j = r.run(j, hn, bchar, hyfChar) + 1
@@ -136,17 +149,24 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
         let rCount = major.length
         let i = r.hyphenPassed
         hyf[i] = 0
-        // § 915: pre-break: hu[l..i] and a hyphen
+        // § 915: pre-break: hu[l..i] and a hyphen, with the font's right boundary after it
         const pre: Node[] = []
         const hasHyf = font.chars.has(hyfChar)
         let saved = 0
         if (hasHyf) { i++; saved = hu[i]; hu[i] = hyfChar }
-        while (l <= i) { l = r.run(l, i, NON_CHAR, NON_CHAR) + 1; pre.push(...r.hold) }
+        while (l <= i) { l = r.run(l, i, font.bchar, NON_CHAR) + 1; pre.push(...r.hold) }
         if (hasHyf) { hu[i] = saved; l = i; i-- }
-        // § 916: post-break: hu[i+1..], until synchronized with the main branch
+        // § 916: post-break: hu[i+1..], with a left boundary at the start of the new line, until
+        // synchronized with the main branch
         const post: Node[] = []
+        let c = 0, cLoc = 0
+        if (font.bcharLabel !== null) { l--; c = hu[l]; cLoc = l; hu[l] = NON_CHAR }
         while (l < j) {
-          do { l = r.run(l, hn, bchar, NON_CHAR) + 1; post.push(...r.hold) } while (l < j)
+          do {
+            l = r.run(l, hn, bchar, NON_CHAR) + 1
+            if (cLoc > 0) { hu[cLoc] = c; cLoc = 0 }
+            post.push(...r.hold)
+          } while (l < j)
           while (l > j) { // § 917
             j = r.run(j, hn, bchar, NON_CHAR) + 1
             major.push(...r.hold); rCount += r.hold.length
@@ -159,14 +179,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
       } while (odd(hyf[j - 1]))
     }
   } while (j <= hn)
-  list.splice(start, hb - start + 1, ...result)
-}
-
-function boundaryChar(f: Font): number | null {
-  // A TFM boundary character is declared by a first lig/kern instruction with skip_byte = 255 (§ 545).
-  if (!f.ligKern.length) return null
-  const first = f.ligKern[0]
-  return first >>> 24 === 255 ? (first >>> 16) & 255 : null
+  list.splice(start!, hb - start! + 1, ...result)
 }
 
 interface LigItem { char: number; ptr: number | null }
@@ -175,7 +188,10 @@ interface LigItem { char: number; ptr: number | null }
 class Reconstitutor {
   hyphenPassed = 0
   hold: Node[] = []
-  constructor(private f: Font, private hu: number[], private hyf: number[], private initList: number[], private initLig: boolean) {}
+  /** lft_hit and rt_hit: global in TeX, so they carry from one call to the next */
+  private lftHit = false
+  private rtHit = false
+  constructor(private f: Font, private hu: number[], private hyf: number[], private initList: number[], private initLig: boolean, private initLft: boolean) {}
 
   run(jIn: number, n: number, bcharIn: number, hcharIn: number): number {
     const { f, hu, hyf } = this
@@ -190,10 +206,13 @@ class Reconstitutor {
     const lig: LigItem[] = [] // top = last
     const append = (c: number) => out.push(charNode(f, c))
     const setCurR = () => { curR = j < n ? hu[j + 1] : bchar; curRh = odd(hyf[j]) ? hchar : NON_CHAR }
-    const wrapLig = () => {
+    const wrapLig = (rt: boolean) => {
       if (!ligaturePresent) return
       const chars = out.splice(curQ) as CharNode[]
-      out.push(charNode(f, curL, chars.map((c) => c.text).join("")))
+      const node: CharNode = { ...charNode(f, curL, chars.map((c) => c.text).join("")), ligature: true, ligHits: 0 }
+      if (this.lftHit) { node.ligHits = 2; this.lftHit = false }
+      if (rt && lig.length === 0) { node.ligHits!++; this.rtHit = false }
+      out.push(node)
       ligaturePresent = false
     }
     const popLig = () => {
@@ -204,19 +223,28 @@ class Reconstitutor {
 
     // § 908
     curQ = out.length
-    if (j === 0) { ligaturePresent = this.initLig; for (const c of this.initList) append(c) }
-    else if (curL < NON_CHAR) append(curL)
+    if (j === 0) {
+      ligaturePresent = this.initLig
+      if (ligaturePresent) this.lftHit = this.initLft
+      for (const c of this.initList) append(c)
+    } else if (curL < NON_CHAR) append(curL)
     setCurR()
 
     main: for (;;) {
       // § 909
       done: {
-        if (curL === NON_CHAR) break done // no boundary-char program
-        const ci = f.chars.get(curL)
-        if (!ci || ci.tag !== 1) break done
-        let k = ci.remainder
-        let q = decode(f.ligKern[k])
-        if (q.skip > STOP_FLAG) { k = 256 * q.op + q.rem; q = decode(f.ligKern[k]) }
+        let k: number
+        let q: ReturnType<typeof decode>
+        if (curL === NON_CHAR) { // the left boundary's program
+          if (f.bcharLabel === null) break done
+          k = f.bcharLabel; q = decode(f.ligKern[k])
+        } else {
+          const ci = f.chars.get(curL)
+          if (!ci || ci.tag !== 1) break done
+          k = ci.remainder
+          q = decode(f.ligKern[k])
+          if (q.skip > STOP_FLAG) { k = 256 * q.op + q.rem; q = decode(f.ligKern[k]) }
+        }
         const test = curRh < NON_CHAR ? curRh : curR
         for (;;) {
           if (q.next === test && q.skip <= STOP_FLAG) {
@@ -224,7 +252,8 @@ class Reconstitutor {
             if (hchar < NON_CHAR && odd(hyf[j])) { this.hyphenPassed = j; hchar = NON_CHAR }
             if (q.op < KERN_FLAG) {
               // § 911: ligature replacement
-              if (j === n && lig.length === 0) { /* rt_hit: only matters with boundary chars */ }
+              if (curL === NON_CHAR) this.lftHit = true
+              if (j === n && lig.length === 0) this.rtHit = true
               switch (q.op) {
                 case 1: case 5: curL = q.rem; ligaturePresent = true; break
                 case 2: case 6:
@@ -233,7 +262,7 @@ class Reconstitutor {
                   else { lig.push({ char: curR, ptr: j === n ? null : hu[j + 1] }); if (j === n) bchar = NON_CHAR }
                   break
                 case 3: curR = q.rem; lig.push({ char: curR, ptr: null }); break
-                case 7: case 11: wrapLig(); curQ = out.length; curL = q.rem; ligaturePresent = true; break
+                case 7: case 11: wrapLig(false); curQ = out.length; curL = q.rem; ligaturePresent = true; break
                 default:
                   curL = q.rem; ligaturePresent = true
                   if (lig.length) popLig()
@@ -255,7 +284,7 @@ class Reconstitutor {
         }
       }
       // § 910
-      wrapLig()
+      wrapLig(this.rtHit)
       if (w !== 0) { const kn: KernNode = { kind: "kern", width: w }; out.push(kn); w = 0 }
       if (lig.length) { curQ = out.length; curL = lig[lig.length - 1].char; ligaturePresent = true; popLig(); continue main }
       break
