@@ -354,7 +354,7 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
  * \vbox to\@colht{\unvbox the output box, \vskip-its depth, \@textbottom}. `column` is that box's
  * list from \topskip on, or null for a page of floats.
  */
-export function makeColumns(pages: Shipped[], k: ClassOptionData): { outputbox: BoxNode; column: Node[] | null }[] {
+export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false): { outputbox: BoxNode; column: Node[] | null }[] {
   const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
   const rule: Node = { kind: "rule", width: xnOverD(k.dimens.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 }
   const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth, { floatsep, textfloatsep, fptop, fpsep, fpbot } = k.glue
@@ -382,7 +382,8 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData): { outputbox: 
     if (sh.top.length) list = [...sh.top.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep)), plain(textfloatsep), ...list]
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)
-    const col = [...list, glue(-out.depth), ...textbottom]
+    // letter.cls's \@texttop: \vskip\z@ plus.00006fil on page 1
+    const col = [...(letter && sh.count === 1 ? [glue(0, 4, FIL)] : []), ...list, glue(-out.depth), ...textbottom]
     const column = first === box255 ? col : first.list
     // a column with no box (only \write nodes and glue, before a chapter's float pages) has no \topskip
     const top = column.findIndex((n) => n.kind === "glue" && n.param === "topskip")

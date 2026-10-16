@@ -1,0 +1,31 @@
+% fixture: classes/letter-t1
+% tier: T3
+% engine: document
+% covers: letter with T1 (\@listI's em in the EC font), \setlength{\parskip} (\vspace{\parskip} in \closing, \medskipamount kept)
+\documentclass[12pt]{letter}
+\usepackage[T1]{fontenc}
+\setlength{\parskip}{6pt plus 2pt}
+\signature{Jane Doe}
+\address{1 Main Street \\ Springfield}
+\begin{document}
+\begin{letter}{Dr. Recipient \\ City}
+\opening{Dear Dr. Recipient,}
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\begin{itemize}
+\item First Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+\begin{enumerate}
+\item nested one
+\begin{itemize}
+\item deeper one
+\item deeper two
+\end{itemize}
+\item nested two
+\end{enumerate}
+\item Second
+\end{itemize}
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\closing{Best regards,}
+\end{letter}
+\end{document}

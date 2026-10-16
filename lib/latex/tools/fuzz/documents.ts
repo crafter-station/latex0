@@ -44,6 +44,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
+  let isLetter = false
   const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -52,7 +53,7 @@ export function makeDocument(r: () => number): string {
       if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
-      if (r() < 0.015) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
+      if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
@@ -68,9 +69,11 @@ export function makeDocument(r: () => number): string {
     }
     return ws.join(" ")
   }
-  const cls = pick(["article", "article", "report", "book"])
+  // letters (letter.cls: no headings, floats or bibliography; footnotes not laid out here yet)
+  const cls = r() < 0.08 ? "letter" : pick(["article", "article", "report", "book"])
+  isLetter = cls === "letter"
   // class options: the size, sometimes a paper and two-sided printing
-  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 ? (cls === "book" ? "oneside" : "twoside") : ""].filter(Boolean)
+  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 && cls !== "letter" ? (cls === "book" ? "oneside" : "twoside") : ""].filter(Boolean)
   const out = [`\\documentclass${copts.length ? `[${copts.join(",")}]` : ""}{${cls}}`]
   // the geometry package: margins, body sizes, scales, ratios, head and foot, rounding
   if (r() < 0.3) {
@@ -91,7 +94,7 @@ export function makeDocument(r: () => number): string {
   }
   const style = r()
   if (style < 0.2) out.push("\\pagestyle{empty}")
-  else if (style < 0.4) out.push("\\pagestyle{headings}") // running heads from the section marks
+  else if (style < 0.4 && !isLetter) out.push("\\pagestyle{headings}") // running heads from the section marks
   if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
@@ -99,9 +102,10 @@ export function makeDocument(r: () => number): string {
   const enumitem = r() < 0.15
   if (enumitem) out.push("\\usepackage{enumitem}")
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
-  hyper = r() < 0.25
+  hyper = r() < 0.25 && !isLetter
   if (hyper) out.push("\\usepackage{hyperref}")
-  const titled = r() < 0.5 // report: a title page
+  const titled = r() < 0.5 && !isLetter // report: a title page
+  if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
     out.push(`\\title{${words(r() < 0.2 ? 15 + Math.floor(r() * 15) : 2 + Math.floor(r() * 6))}}`)
@@ -111,20 +115,21 @@ export function makeDocument(r: () => number): string {
     else if (d < 0.6) out.push(`\\date{${words(3)}}`)
   }
   // a counter and a macro that steps it and makes a run-in heading, as homework templates do
-  const macros = r() < 0.3
+  const macros = r() < 0.3 && !isLetter
   if (macros) out.push("\\newcounter{thm}", "\\newcommand{\\thm}{\\stepcounter{thm}\\paragraph{Theorem \\thethm.}}")
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter
   const front = cls === "book" && r() < 0.5
   if (front) out.push("\\frontmatter")
   if (titled) out.push("\\maketitle")
-  if (r() < 0.25) out.push("\\tableofcontents") // laid out from the .toc file the first run writes
+  if (r() < 0.25 && !isLetter) out.push("\\tableofcontents") // laid out from the .toc file the first run writes
+  if (isLetter) out.push(`\\begin{letter}{${words(2)} \\\\ ${words(3)}}`, `\\opening{${words(3)},}`)
   if (front && r() < 0.3) out.push(`\\chapter{${words(2)}}`, text(30))
   if (front) out.push("\\mainmatter")
   if (cls === "article" && r() < 0.3) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(10 + Math.floor(r() * 30))] : []), "\\end{abstract}")
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
-    const x = r()
+    const x0 = r(), x = isLetter && x0 < 0.2 ? 0.5 : x0 // (a letter has no floats or headings)
     if (x < 0.1) {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
@@ -215,7 +220,8 @@ export function makeDocument(r: () => number): string {
     }
   }
   // a bibliography: \section*{References} (\chapter*{Bibliography}) and its numbered list
-  if (r() < 0.2 && !hyper) {
+  if (isLetter) out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []), "\\end{letter}")
+  if (r() < 0.2 && !hyper && !isLetter) {
     const n = 1 + Math.floor(r() * (r() < 0.2 ? 12 : 4))
     out.push("", `\\begin{thebibliography}{${n < 10 ? "9" : "99"}}`)
     for (let i = 1; i <= n; i++) out.push(`\\bibitem{b${i}} ${text(5 + Math.floor(r() * 40))}`)

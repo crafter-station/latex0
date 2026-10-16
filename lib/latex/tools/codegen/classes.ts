@@ -13,7 +13,7 @@ import { loadTfm } from "../oracle/oracle"
 import { texEnv } from "../tex"
 
 const OUT = "lib/latex/data/classes"
-const CLASSES = ["article", "report", "book"]
+const CLASSES = ["article", "report", "book", "letter"]
 const OPTIONS = ["10pt", "11pt", "12pt"]
 
 const DIMENS = [
@@ -44,7 +44,7 @@ function probe(cls: string, option: string, packages = ""): string {
   return [
     `\\documentclass[${option}]{${cls}}`, packages,
     "\\makeatletter",
-    "\\def\\P#1#2{\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}}",
+    "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", // (letter lacks some)
     `\\def\\S#1{{#1\\check@mathfonts\\immediate\\write16{S:\\expandafter\\@gobble\\string#1:\\f@size:\\sf@size:\\ssf@size:\\fontname\\font:\\the\\baselineskip${DISPLAY.map((d) => `:\\the\\${d}`).join("")}}` +
       // the math families 0–3 at text, script and scriptscript size
       `\\immediate\\write16{T:\\expandafter\\@gobble\\string#1:\\the\\ht\\strutbox:\\the\\dp\\strutbox}` +
@@ -157,7 +157,10 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
   const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
-  if (missing.length) throw new Error(`${cls} [${option}]: TeX did not report ${missing.join(", ")}`)
+  // letter has no floats' captions
+  const absent = cls === "letter" ? ["abovecaptionskip", "belowcaptionskip"] : []
+  const lacking = missing.filter((x) => !absent.includes(x))
+  if (lacking.length) throw new Error(`${cls} [${option}]: TeX did not report ${lacking.join(", ")}`)
   return data
 }
 
@@ -177,7 +180,7 @@ function variants(cls: string, option: string, base: ClassOptionData): ClassOpti
     const v = `${paper},${side}`
     const dir = join(".cache/classes", `${cls}-${option}-${paper}-${side}`)
     mkdirSync(dir, { recursive: true })
-    const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}}", "\\begin{document}",
+    const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}",
       ...DIMENS.map((d) => `\\P D\\${d}`), "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}", "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}", "\\end{document}", ""].join("\n")
     writeFileSync(join(dir, "v.tex"), src)
     execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "v.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
