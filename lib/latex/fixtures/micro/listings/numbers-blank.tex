@@ -1,0 +1,25 @@
+% fixture: listings/numbers-blank
+% tier: T3
+% engine: document
+% covers: lstlisting: numberblanklines=false, numberfirstline=true, stepnumber=3, numbersep in em
+\documentclass{article}
+\usepackage{listings}
+
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[numbers=left,stepnumber=3,numberblanklines=false,numberfirstline=true,numbersep=1em]
+ab
+
+cd ef
+  x = 1
+
+
+y
+z
+w
+last
+
+\end{lstlisting}
+Text after.
+
+\end{document}

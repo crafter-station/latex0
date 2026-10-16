@@ -1,0 +1,18 @@
+% fixture: listings/java
+% tier: T3
+% engine: document
+% covers: lstlisting: Java ([l]// and [s]/* */ comments, each delimiter its own mode, escapes)
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+Text.
+\begin{lstlisting}[language=Java]
+public class Hello { // a "comment" */ here
+  /* block "x" // not
+     still comment */ int x = 0; /*/ odd */
+  String s = "a /* b */ c\" d"; char c = '"'; char e = '\'';
+  // line with /* inside
+  void f() { return; } /* unclosed
+  goes on
+\end{lstlisting}
+\end{document}

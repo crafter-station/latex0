@@ -9,21 +9,39 @@ import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../../../la
 
 export class LstUnsupported extends Error {}
 
-/** A language: its keyword classes, line comments and backslash strings (lstlang1.sty) */
-export interface LstLanguage { name: string; keywords: string[][]; sensitive: boolean; lineComments: string[]; bStrings: string[] }
+/** A comment or string delimiter: [l] line comment, [s] comment from open to close, [b] string with backslash escapes */
+export interface LstDelim { kind: "l" | "s" | "b"; open: string; close?: string }
+/** A language: its keyword classes and its delimiters in the order they are defined (lstlang1.sty) */
+export interface LstLanguage { name: string; keywords: string[][]; sensitive: boolean; delims: LstDelim[]; /** C's directives (moredelim=*[directive]\#), not modeled */ directives?: boolean }
 
 const PY2_K1 = "and as assert break class continue def del elif else except exec finally for from global if import in is lambda not or pass print raise return try while with yield".split(" ")
 const PY2_K2 = ("abs all any basestring bin bool bytearray callable chr classmethod cmp compile complex delattr dict dir divmod enumerate eval execfile file filter float format " +
   "frozenset getattr globals hasattr hash help hex id input int isinstance issubclass iter len list locals long map max memoryview min next object oct open ord pow property range " +
   "raw_input reduce reload repr reversed round set setattr slice sorted staticmethod str sum super tuple type unichr unicode vars xrange zip __import__ apply buffer coerce intern").split(" ")
 /** \lst@definelanguage[2]{Python}: its [s] strings of three quotes never begin (the [b] ones take the quote first) */
-const PYTHON2: LstLanguage = { name: "Python", keywords: [PY2_K1, PY2_K2], sensitive: true, lineComments: ["#"], bStrings: ["'", '"'] }
+const PYTHON2: LstLanguage = { name: "Python", keywords: [PY2_K1, PY2_K2], sensitive: true, delims: [{ kind: "l", open: "#" }, { kind: "b", open: "'" }, { kind: "b", open: '"' }] }
+const JAVA: LstLanguage = {
+  name: "Java", sensitive: true, delims: [{ kind: "l", open: "//" }, { kind: "s", open: "/*", close: "*/" }, { kind: "b", open: '"' }, { kind: "b", open: "'" }],
+  keywords: [("abstract boolean break byte case catch char class const continue default do double else extends false final finally float for goto if implements import " +
+    "instanceof int interface label long native new null package private protected public return short static super switch synchronized this throw throws transient true try void volatile while").split(" ")],
+}
+const C_K = "auto break case char const continue default do double else enum extern float for goto if int long register return short signed sizeof static struct switch typedef union unsigned void volatile while".split(" ")
+const C_DELIMS: LstDelim[] = [{ kind: "s", open: "/*", close: "*/" }, { kind: "l", open: "//" }, { kind: "b", open: '"' }, { kind: "b", open: "'" }]
+const C_ANSI: LstLanguage = { name: "C", keywords: [C_K], sensitive: true, delims: C_DELIMS, directives: true }
+const CPP_ISO_K = ("and and_eq asm bad_cast bad_typeid bitand bitor bool catch class compl const_cast delete dynamic_cast explicit export false friend inline mutable namespace new not " +
+  "not_eq operator or or_eq private protected public reinterpret_cast static_cast template this throw true try typeid type_info typename using virtual wchar_t xor xor_eq").split(" ")
+const CPP_ISO: LstLanguage = { name: "C++", keywords: [[...C_K, ...CPP_ISO_K]], sensitive: true, delims: C_DELIMS, directives: true }
+const CPP_11: LstLanguage = { ...CPP_ISO, keywords: [[...C_K, ...CPP_ISO_K, ..."alignas alignof char16_t char32_t constexpr decltype noexcept nullptr static_assert thread_local".split(" ")]] }
 
 /** language=…: the name, with listings.cfg's default dialect */
 export function lstLanguage(value: string): LstLanguage | null {
   const v = value.replace(/[{}\s]/g, "")
   if (v === "") return null
   if (/^(\[2\])?python$/i.test(v)) return PYTHON2
+  if (/^java$/i.test(v)) return JAVA
+  if (/^(\[ansi\])?c$/i.test(v)) return C_ANSI
+  if (/^(\[(iso|ansi)\])?c\+\+$/i.test(v)) return CPP_ISO
+  if (/^\[11\]c\+\+$/i.test(v)) return CPP_11
   throw new LstUnsupported(`language=${value}`)
 }
 
@@ -33,14 +51,23 @@ export interface LstOptions {
   /** keywordstyle=[n]: index n-1 */
   keywordstyle: (string | undefined)[]
   columns: "fixed" | "flexible" | "fullflexible"
+  /** \lst@leftinsert and \lst@rightinsert (half the lost space before a box, the rest after): columns=[c]… sets them,
+   *  fullflexible empties them, and no other columns= brings them back */
+  lostInserts: boolean
   showstringspaces: boolean
   tabsize: number
   caption: string | null; label: string | null
+  /** numbers=, numberstyle=, numbersep=, stepnumber=, firstnumber= (null: auto), numberblanklines=, numberfirstline= */
+  numbers: "none" | "left" | "right"; numberstyle: string; numbersep: string; stepnumber: number; firstnumber: number | null; numberblanklines: boolean; numberfirstline: boolean
+  /** frame= and the dimensions (as written: the caller reads them in the listing's font) */
+  frame: string; framerule: string; framesep: string; rulesep: string; framexleftmargin: string; framexrightmargin: string; xleftmargin: string; xrightmargin: string
 }
 
 export const LST_DEFAULTS: LstOptions = {
   language: null, basicstyle: "", identifierstyle: "", commentstyle: "\\itshape", stringstyle: "", keywordstyle: ["\\bfseries"],
-  columns: "fixed", showstringspaces: true, tabsize: 8, caption: null, label: null,
+  columns: "fixed", lostInserts: true, showstringspaces: true, tabsize: 8, caption: null, label: null,
+  numbers: "none", numberstyle: "", numbersep: "10pt", stepnumber: 1, firstnumber: null, numberblanklines: true, numberfirstline: false,
+  frame: "none", framerule: ".4pt", framesep: "3pt", rulesep: "2pt", framexleftmargin: "0pt", framexrightmargin: "0pt", xleftmargin: "0pt", xrightmargin: "0pt",
 }
 
 /** key=value pairs at brace depth 0 */
@@ -83,18 +110,31 @@ export function lstOptions(src: string, base: LstOptions): LstOptions {
         break
       }
       case "columns": {
-        const c = (v ?? "").replace(/^\[c\]/, "")
-        if (c !== "fixed" && c !== "flexible" && c !== "fullflexible") throw new LstUnsupported(`columns=${v}`)
+        const m = (v ?? "").match(/^(?:\[(c?)\])?(\w+)$/)
+        const c = m?.[2]
+        if (!m || (c !== "fixed" && c !== "flexible" && c !== "fullflexible")) throw new LstUnsupported(`columns=${v}`)
+        if (m[1] === "c") o.lostInserts = true // \lst@outputpos c
         o.columns = c
+        if (c === "fullflexible") o.lostInserts = false
         break
       }
-      case "flexiblecolumns": o.columns = bool(v) ? "flexible" : "fixed"; break
+      case "flexiblecolumns": throw new LstUnsupported("flexiblecolumns")
       case "showstringspaces": o.showstringspaces = bool(v); break
       case "tabsize": if (!/^\d+$/.test(v ?? "") || Number(v) < 1) throw new LstUnsupported(`tabsize=${v}`); o.tabsize = Number(v); break
       case "caption": if (v === null || /^\[/.test(v)) throw new LstUnsupported(`caption=${v}`); o.caption = v; break
       case "label": o.label = v; break
-      case "numbers": if (v !== "none") throw new LstUnsupported(`numbers=${v}`); break
-      case "frame": if (v !== "none") throw new LstUnsupported(`frame=${v}`); break
+      case "numbers": if (v !== "none" && v !== "left" && v !== "right") throw new LstUnsupported(`numbers=${v}`); o.numbers = v; break
+      case "numberstyle": o.numberstyle = style(v); break
+      case "numbersep": if (!/^-?(\d+(\.\d*)?|\.\d+)\s*(pt|em|ex|mm|cm|in|bp)$/.test(v ?? "")) throw new LstUnsupported(`numbersep=${v}`); o.numbersep = v!; break
+      case "stepnumber": if (!/^\d+$/.test(v ?? "")) throw new LstUnsupported(`stepnumber=${v}`); o.stepnumber = Number(v); break
+      case "firstnumber": if (v === "auto") o.firstnumber = null; else if (/^\d+$/.test(v ?? "")) o.firstnumber = Number(v); else throw new LstUnsupported(`firstnumber=${v}`); break
+      case "numberblanklines": o.numberblanklines = bool(v); break
+      case "numberfirstline": o.numberfirstline = bool(v); break
+      case "frame": lstFrameShapes(v ?? ""); o.frame = v ?? ""; break
+      case "framerule": case "framesep": case "rulesep": case "framexleftmargin": case "framexrightmargin": case "xleftmargin": case "xrightmargin":
+        if (!/^-?(\d+(\.\d*)?|\.\d+)\s*(pt|em|ex|mm|cm|in|bp)$/.test(v ?? "")) throw new LstUnsupported(`${key}=${v}`)
+        o[key] = v!
+        break
       case "breaklines": if (bool(v)) throw new LstUnsupported("breaklines"); break
       default: throw new LstUnsupported(`listings key ${key}`)
     }
@@ -116,7 +156,7 @@ export interface LstFonts {
 
 /** Output: a new line (\lst@NewLine: \par\noindent\hbox{}), a node of the line, or \lst@@discretionary (its
  *  post-break text has the line's frame box, which the caller makes) */
-export type LstEvent = { newline: true; /** in \lst@DeInit's box that is thrown away */ discarded?: true } | { node: Node } | { disc: true }
+export type LstEvent = { newline: true; /** after \lsthk@OnEmptyLine */ empty?: true; /** in \lst@DeInit's box that is thrown away */ discarded?: true } | { node: Node } | { disc: true }
 
 const hss = () => glue(0, 65536, FIL, 65536, FIL)
 function charNode(f: Font, c: number): Node {
@@ -150,8 +190,11 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   const stack: Local[] = []
   // global state
   let lostspace = 0, pos = 0, newlines = 0, whitespace = true, gobbledws = false, ifnewline = false
-  const NOMODE = 0, COMMENT = 1
-  const stringMode = (d: string) => 10 + (lang?.bStrings.indexOf(d) ?? 0)
+  const NOMODE = 0
+  /** each delimiter has a mode of its own (\lst@UseDynamicMode) */
+  const delims = lang?.delims ?? []
+  const modeOf = (d: LstDelim) => 10 + delims.indexOf(d)
+  const bstrings = delims.some((d) => d.kind === "b")
 
   const fontOf = (style: string) => fonts.font(o.basicstyle + style)
   /** an element's nodes in a font (listings' \lst@um… macros and LaTeX's text symbols): a character that
@@ -205,8 +248,8 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   // ---- output (listings.sty: \lst@OutputToken, \lst@CalcLostSpaceAndOutput, \lst@Kern) ----
   const out = (n: Node) => events.push({ node: n })
   const lstKern = (w: number) => out(hpack([kern(w, true)]))
-  const newLine = () => { events.push({ newline: true }); newlines--; ifnewline = true }
-  const doNewLines = () => { while (newlines > 1) newLine(); if (newlines > 0) newLine() }
+  const newLine = (empty = false) => { events.push(empty ? { newline: true, empty: true } : { newline: true }); newlines--; ifnewline = true }
+  const doNewLines = () => { while (newlines > 1) newLine(true); if (newlines > 0) newLine() }
   const trackNewLines = () => { if (newlines > 0) doNewLines() }
   const useLostSpace = () => { if (lostspace > 0) { lstKern(lostspace); lostspace = 0 } }
   const flexible = o.columns !== "fixed"
@@ -215,7 +258,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
     lostspace += length * W - box.width
     pos -= length
     const inner: Node[] = []
-    const full = o.columns === "fullflexible"
+    const full = !o.lostInserts
     if (lostspace > 0 && !full) { lostspace = Math.trunc(lostspace / 2); inner.push(hpack([kern(lostspace, true)])) } // \lst@InsertHalfLostSpace
     inner.push(box)
     if (lostspace > 0 && !full) { inner.push(hpack([kern(lostspace, true)])); lostspace = 0 } // \lst@InsertLostSpace
@@ -294,10 +337,11 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   }
   const leaveMode = () => { if (L.mode !== NOMODE) { L = stack.pop()!; L.token = []; L.length = 0; L.lastother = "" } }
   /** \lst@DelimPrint: the delimiter as its own token, in the mode's style */
-  const delimPrint = (ch: string) => {
+  const delimPrint = (text: string) => {
     const saved = { ...L, token: [...L.token] }
     L.mode = NOMODE; L.ifmode = true; L.keywords = false
-    plain(ch); xPrintToken()
+    for (const c of text) plain(c)
+    xPrintToken()
     L = { ...saved, token: [], length: 0 }
   }
   const delimOpen = (ch: string, mode: number, style: string, extra: Partial<Local>) => {
@@ -307,22 +351,27 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   }
   const delimClose = (ch: string) => { trackNewLines(); xPrintToken(); delimPrint(ch); leaveMode() }
 
-  const processChar = (ch: string) => {
-    if (ch === " ") return processSpace()
-    if (ch === "\t") return processTab()
+  /** a character and the rest of the line from it; how many characters it took */
+  const processChar = (ch: string, rest: string): number => {
+    if (ch === " ") { processSpace(); return 1 }
+    if (ch === "\t") { processTab(); return 1 }
     if (!LETTERS.test(ch) && !DIGITS.test(ch) && !OTHERS.test(ch)) throw new LstUnsupported(`character ${JSON.stringify(ch)} in a listing`)
-    if (lang?.bStrings.includes(ch)) { // \lst@StringDM@b
-      if (L.letter) { output(); L.letter = false }
-      if (L.mode === stringMode(ch)) { if (L.lastother === "\\") plain(ch); else delimClose(ch) }
-      else if (!L.ifmode) delimOpen(ch, stringMode(ch), o.stringstyle, o.showstringspaces ? { keepspaces: true, visible: true } : {})
-      else plain(ch)
-      return
-    }
-    if (lang?.lineComments.includes(ch)) { // \lst@CommentDM@l
-      if (!L.ifmode) delimOpen(ch, COMMENT, o.commentstyle, { Lmode: true }); else plain(ch)
-      return
+    // the character's handlers, the one defined last first; each either acts or hands the character on
+    // (\lst@CArgEmpty) to the one before, and the last to the character's own meaning
+    for (let h = delims.length - 1; h >= 0; h--) {
+      const d = delims[h]
+      if (d.kind === "b" && d.open === ch) { // \lst@StringDM@b: a letter token goes out first
+        if (L.letter) { output(); L.letter = false }
+        if (L.mode === modeOf(d)) { if (L.lastother !== "\\") { delimClose(ch); return 1 } }
+        else if (!L.ifmode) { delimOpen(ch, modeOf(d), o.stringstyle, o.showstringspaces ? { keepspaces: true, visible: true } : {}); return 1 }
+      } else if (d.kind === "s" && d.close![0] === ch && rest.startsWith(d.close!)) { // \lst@DefDelimE
+        if (L.mode === modeOf(d)) { delimClose(d.close!); return d.close!.length }
+      } else if ((d.kind === "l" || d.kind === "s") && d.open[0] === ch && rest.startsWith(d.open)) { // \lst@DefDelimB
+        if (!L.ifmode) { delimOpen(d.open, modeOf(d), o.commentstyle, d.kind === "l" ? { Lmode: true } : {}); return d.open.length }
+      }
     }
     plain(ch)
+    return 1
   }
 
   newlines = 1 // \lsthk@InitVarsBOL
@@ -332,17 +381,114 @@ export function lstScan(p: LstScanParams): LstEvent[] {
       while (L.Lmode) leaveMode()
       newlines++; lostspace = 0; L.token = []; L.length = 0; L.lastother = ""; whitespace = true; pos = 0
     }
-    for (let i = 0; i < line.length; i++) {
+    for (let i = 0; i < line.length; ) {
       const ch = line[i]
       // with backslash strings, \\ is two backslashes and no \lst@lastother
-      if (lang?.bStrings.length && ch === "\\" && line[i + 1] === "\\") { plain("\\"); plain("\\"); L.lastother = null; i++; continue }
-      processChar(ch)
+      if (bstrings && ch === "\\" && line[i + 1] === "\\") { plain("\\"); plain("\\"); L.lastother = null; i += 2; continue }
+      i += processChar(ch, line.slice(i))
     }
   })
   // \lst@DeInit: the last token; empty lines at the end go into a box that is thrown away
   xPrintToken()
-  for (newlines--; newlines > 0; newlines--) events.push({ newline: true, discarded: true })
+  for (newlines--; newlines > 0; newlines--) events.push(newlines > 1 ? { newline: true, empty: true, discarded: true } : { newline: true, discarded: true })
   return events
 }
 
 export { hss as lstHss }
+
+// ---- frames (lstmisc.sty's frames aspect) ----
+
+/** frame= and its dimensions: the shapes as \lstframe@ makes them (Y a rule, N none; corners in the top and bottom shapes) */
+export interface LstFrame { tshape: string; bshape: string; lshape: string; rshape: string; rule: number; sep: number; rulesep: number; xleft: number; xright: number }
+
+/** frame=none|leftline|topline|bottomline|lines|single or letters trbl (frameround ffff) */
+export function lstFrameShapes(frame: string): { t: string; b: string; l: string; r: string } {
+  const f = { none: "", leftline: "l", topline: "t", bottomline: "b", lines: "tb", single: "trbl" }[frame] ?? frame
+  if (!/^[trbl]*$/.test(f)) throw new LstUnsupported(`frame=${frame}`)
+  const has = (c: string) => f.includes(c)
+  const corner = (c: string) => (has(c) ? "Y" : "N")
+  return { t: has("t") ? `${corner("l")}Y${corner("r")}` : "", b: has("b") ? `${corner("l")}Y${corner("r")}` : "", l: has("l") ? "Y" : "", r: has("r") ? "Y" : "" }
+}
+
+const lstRule = (width: number | null, height: number | null, depth: number | null): Node => ({ kind: "rule", width, height, depth })
+const llap = (nodes: Node[]) => hpack([hss(), ...nodes], { exactly: 0 })
+const rlap = (nodes: Node[]) => hpack([...nodes, hss()], { exactly: 0 })
+/** \lst@frameBlock with no colour: \hbox{\vrule\@height h\@depth d\@width\z@ \kern w} */
+const block = (w: number, h: number, d: number) => hpack([lstRule(0, h, d), kern(w, true)])
+const shifted = (b: BoxNode, down: number) => { b.shift = down; return b }
+
+/** \lst@frameMakeBoxV: the box \everypar puts at each line's start (and \lst@@discretionary after a break) */
+export function lstFrameBoxV(f: LstFrame, lineWidth: number, h: number, d: number): BoxNode {
+  const out: Node[] = []
+  if (f.lshape) out.push(llap([block(f.sep, h, d), kern(f.xleft, true)]))
+  // \lst@frameL: \kern-\lst@rulesep, then \kern\lst@rulesep and a rule (Y) or its width (N) for each
+  const frameL: Node[] = f.lshape ? [kern(-f.rulesep, true), ...[...f.lshape].flatMap((c) => [kern(f.rulesep, true), c === "Y" ? lstRule(f.rule, null, null) : kern(f.rule, true)])] : []
+  const zl = hpack([lstRule(0, h, d), ...frameL])
+  out.push(llap([rlap([block(zl.width, zl.height, zl.depth)]), zl, kern(f.sep, true), kern(f.xleft, true)]))
+  // \lst@frameR: a rule or its width and \kern\lst@rulesep for each, then \kern-\lst@rulesep
+  const frameR: Node[] = f.rshape ? [...[...f.rshape].flatMap((c) => [c === "Y" ? lstRule(f.rule, null, null) : kern(f.rule, true), kern(f.rulesep, true)]), kern(-f.rulesep, true)] : []
+  const zr = hpack([lstRule(0, h, d), ...frameR])
+  out.push(rlap([kern(-f.xleft, true), block(lineWidth + f.xleft + f.xright, h, d), f.rshape ? block(f.sep, h, d) : kern(f.sep, true), rlap([block(zr.width, zr.height, zr.depth)]), zr]))
+  return hpack(out)
+}
+
+/** \lst@frameH T|B: the top or bottom of the frame (null: no shape) */
+export function lstFrameH(f: LstFrame, lineWidth: number, which: "T" | "B"): BoxNode | null {
+  const shape = which === "T" ? f.tshape : f.bshape
+  if (!shape) return null
+  let framediml = 0, framedimr = 0
+  let z = hpack([])
+  const R = f.rule
+  for (let cnt = 0; cnt * 3 < shape.length; cnt++) { // \lst@frameh for each three letters
+    const [lc, mid, rc] = shape.slice(cnt * 3, cnt * 3 + 3)
+    const a = ((f.rulesep + R) * cnt + f.sep + R) * 2 // \lst@frameCalcDimA
+    const half = Math.trunc(a / 2)
+    const cornerBox = (corner: "TL" | "TR" | "BL" | "BR"): BoxNode => {
+      const down = (b: BoxNode, x: number) => shifted(b, x)
+      switch (corner) {
+        case "TL": return hpack([down(hpack([lstRule(R, 0, half)]), -R), kern(-R, true), lstRule(half, R, 0)])
+        case "TR": return hpack([lstRule(half, R, 0), kern(-R, true), down(hpack([lstRule(R, 0, half)]), -R)])
+        case "BL": return hpack([lstRule(R, half, 0), kern(-R, true), lstRule(half, R, 0)])
+        case "BR": return hpack([lstRule(half, R, 0), kern(-R, true), lstRule(R, half, 0)])
+      }
+    }
+    // \lst@frameCornerX: the corner (Y) in \llap or \rlap, or (N) a \vphantom of it, which is zero wide
+    const corner = (side: "L" | "R", yn: string): { node: Node; width: number } => {
+      const b = cornerBox(`${which}${side}` as "TL")
+      if (yn === "Y") return { node: side === "L" ? llap([b]) : rlap([b]), width: b.width }
+      const ph = hpack([]); ph.height = b.height; ph.depth = b.depth // \vphantom: \null with the box's height and depth
+      return { node: ph, width: 0 }
+    }
+    const left = corner("L", lc), right = corner("R", rc)
+    if (framediml < left.width) framediml = left.width
+    if (framedimr < right.width) framedimr = right.width
+    const inner = hpack([kern(-f.xleft, true), left.node, lstRule(f.xleft + f.xright + lineWidth, mid === "Y" ? R : 0, 0), right.node])
+    z = hpack([rlap([shifted(inner, which === "T" ? -inner.depth : inner.height)]), z])
+  }
+  let tempdimb = f.sep + R
+  const tempdimc = -tempdimb + z.height + z.depth
+  /** \lst@frameHBkg with no colours: #3 is \@firstoftwo (first) or \@secondoftwo */
+  const bkg = (h: number, first: boolean): BoxNode => {
+    const nodes: Node[] = [kern(-f.xleft, true)]
+    let a = 0
+    if (first) nodes.push(kern(-framediml, true))
+    if (framediml > tempdimb) {
+      if (first) nodes.push(block(framediml - tempdimb, tempdimb, 0))
+      else { nodes.push(kern(-framediml, true)); a += framediml }
+    }
+    if (first) { a = 0; if (f.lshape) a += tempdimb; if (f.rshape) a += tempdimb }
+    else if (framedimr > tempdimb) a += framedimr
+    a += lineWidth + f.xleft + f.xright
+    nodes.push(block(a, h, 0))
+    if (first && framedimr > tempdimb) nodes.push(block(-tempdimb + framedimr, tempdimb, 0))
+    return hpack(nodes)
+  }
+  const out: Node[] = []
+  const b1 = bkg(tempdimb, true)
+  out.push(rlap([which === "T" ? shifted(b1, -b1.depth) : shifted(b1, b1.height)]))
+  const b2 = bkg(tempdimc, false)
+  tempdimb += b2.height
+  out.push(rlap([which === "T" ? shifted(b2, -f.sep) : shifted(b2, tempdimb)]))
+  out.push(rlap([z]))
+  return hpack(out)
+}

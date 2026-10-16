@@ -1,0 +1,25 @@
+% fixture: listings/numbers-step
+% tier: T3
+% engine: document
+% covers: lstlisting: stepnumber=2 from firstnumber=7, a small typewriter basicstyle
+\documentclass{article}
+\usepackage{listings}
+\lstset{basicstyle=\small\ttfamily,numbers=left,stepnumber=2,numberstyle=\footnotesize\itshape}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[firstnumber=7]
+ab
+
+cd ef
+  x = 1
+
+
+y
+z
+w
+last
+
+\end{lstlisting}
+Text after.
+
+\end{document}

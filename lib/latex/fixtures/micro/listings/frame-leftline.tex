@@ -1,0 +1,18 @@
+% fixture: listings/frame-leftline
+% tier: T3
+% engine: document
+% covers: lstlisting: frame=leftline with numbers and xleftmargin (\parshape)
+\documentclass{article}
+\usepackage{listings}
+\lstset{frame=leftline,numbers=left,xleftmargin=2em}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}
+ab  cd
+
+  x = 1
+last
+\end{lstlisting}
+Text after.
+
+\end{document}

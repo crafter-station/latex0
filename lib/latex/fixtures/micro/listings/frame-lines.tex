@@ -1,0 +1,18 @@
+% fixture: listings/frame-lines
+% tier: T3
+% engine: document
+% covers: lstlisting: frame=lines (corner phantoms), gobbled whitespace under a frame
+\documentclass{article}
+\usepackage{listings}
+
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[frame=lines]
+ab  cd
+
+  x = 1
+last
+\end{lstlisting}
+Text after.
+
+\end{document}

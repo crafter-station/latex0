@@ -1,0 +1,25 @@
+% fixture: listings/numbers-right
+% tier: T3
+% engine: document
+% covers: lstlisting: numbers=right with numberstyle=\tiny and numbersep
+\documentclass{article}
+\usepackage{listings}
+\lstset{numbers=right,numberstyle=\tiny,numbersep=5pt}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}
+ab
+
+cd ef
+  x = 1
+
+
+y
+z
+w
+last
+
+\end{lstlisting}
+Text after.
+
+\end{document}
