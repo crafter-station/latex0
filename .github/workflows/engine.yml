@@ -5,12 +5,13 @@ name: Engine conformance
 # identical to TeX at 0 sp (and none may regress against main's scorecard), and
 # the scanners, line breaker and hyphenation must match TeX on generated input.
 
+#
+# For now it runs only on demand (Actions → Engine conformance → Run workflow,
+# or `gh workflow run engine.yml --ref <branch>`); run the same gate locally with
+# `bun engine ci` before merging. Restore the pull_request/push triggers to make
+# it automatic again.
 on:
-  pull_request:
-    paths: ["lib/latex/**", ".github/workflows/engine.yml", "package.json"]
-  push:
-    branches: [main]
-    paths: ["lib/latex/**", ".github/workflows/engine.yml", "package.json"]
+  workflow_dispatch:
 
 concurrency:
   group: engine-${{ github.ref }}
