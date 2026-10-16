@@ -1,14 +1,19 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 172,
-  "exact": 170,
+  "fixtures": 174,
+  "exact": 172,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 182398
+  "glyphs": 182588
  },
  "areas": [
+  {
+   "area": "amsthm",
+   "fixtures": 2,
+   "exact": 2
+  },
   {
    "area": "bibliography",
    "fixtures": 2,
@@ -293,6 +298,26 @@
    "glyphs": 40,
    "covers": "snippet in a minimal article: Simple TikZ diagram with nodes and arrows",
    "issue": "#30"
+  },
+  {
+   "id": "amsthm/styles",
+   "file": "micro/amsthm/styles.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 119,
+   "covers": "amsthm: plain, definition and remark styles, \\newtheorem*, a counter within the section and a shared one, \\label right after a heading, a proof titled with \\ref"
+  },
+  {
+   "id": "amsthm/theorem-proof",
+   "file": "micro/amsthm/theorem-proof.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 71,
+   "covers": "amsthm: a theorem with a note (the head \\unhbox'ed by \\dth@everypar, \\textup's italic corrections, \\itshape body) and a proof (\\item[\\hskip\\labelsep\\itshape Proof.], \\qed with \\openbox)"
   },
   {
    "id": "bibliography/thebibliography-article",

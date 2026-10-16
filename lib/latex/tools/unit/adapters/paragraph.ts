@@ -116,6 +116,8 @@ export interface ParagraphOptions {
   start?: Node[]; parShape?: [number, number][]; clubPenalty?: number
   /** the text font, when not the size's roman (a heading's \bfseries) */
   font?: FontRef
+  /** the text font's attributes, when not the size's roman (amsthm's \itshape body): \emph and friends work from them */
+  attrs?: FontAttrs
   hangIndent?: number; interLinePenalty?: number
   /** \clubpenalty while the paragraph is read, which its footnotes see, when it differs from the one at its \par */
   noteClubPenalty?: number
@@ -539,7 +541,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
  */
 export function paragraphInput(body: string, k: ClassOptionData = classData("article", "10pt"), size: SizeCommand = "normalsize", doc: DocState = { footnote: 0 }, opts: ParagraphOptions = {}): { list: Node[]; params: LineBreakParams; notes: ParagraphTrace[] } {
   const params = classParams(k)
-  const font = opts.font ? loadFont(dataFont(opts.font.name), opts.font.at) : sizeFont(k, size)
+  const font = opts.attrs ? selectFont(k, size, opts.attrs) : opts.font ? loadFont(dataFont(opts.font.name), opts.font.at) : sizeFont(k, size)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   let indent = true
   let mathSurround = mathData().dimens.mathsurround
@@ -580,7 +582,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   if (opts.widowPenalty !== undefined) params.widowPenalty = opts.widowPenalty
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
-  const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
+  const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
   appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base })
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   if (opts.end) list.push(...opts.end)
