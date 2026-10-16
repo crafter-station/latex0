@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 186,
-  "exact": 184,
+  "fixtures": 187,
+  "exact": 185,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 185946
+  "glyphs": 186251
  },
  "areas": [
   {
@@ -61,8 +61,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 33,
-   "exact": 33
+   "fixtures": 34,
+   "exact": 34
   },
   {
    "area": "lists",
@@ -1032,6 +1032,16 @@
    "status": "pass",
    "glyphs": 202,
    "covers": "lstlisting right after headings: \\@afterheading's \\everypar replaced (or run by a top frame), \\end{lstlisting}'s \\@nobreakfalse"
+  },
+  {
+   "id": "listings/after-run-in",
+   "file": "micro/listings/after-run-in.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 305,
+   "covers": "a listing right after a run-in heading: the listing's \\everypar (then \\lst@doendpe's) replaces the heading's, so the heading is lost and \\@noskipsec stays true (and \\@esphack adds \\nobreak after a \\label in vertical mode); each later \\@startsection and \\@trivlist starts an empty paragraph (\\if@noskipsec\\leavevmode), until a run-in heading's \\everypar or \\newpage ends it"
   },
   {
    "id": "listings/breaklines",
