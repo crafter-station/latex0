@@ -1,0 +1,18 @@
+% fixture: text/newlines-and-spaces
+% tier: T3
+% engine: document
+% covers: \\ in a paragraph (\@gnewline: \unskip, \nobreak\hfil\break), \\* and \\[skip] (\vadjust after the line; the space after ] stays), \hfill, \hfil, \quad, \qquad, a size group {\large …} in a paragraph, \setlength{\parindent}{0pt} in the preamble, \vspace (\vskip skip \vskip\z@skip) and \hrule (no interline glue after it) between paragraphs
+% issue: #30
+\documentclass{article}
+\setlength{\parindent}{0pt}
+\begin{document}
+First line \hfill right\\ \hfil x\\[3pt] after the skip
+Second {\large big \textbf{bold} text} line \quad x \qquad y\\[6pt]
+Third line\\*
+Fourth.
+
+\vspace{8pt}
+\hrule
+\vspace{8pt}
+After rule.
+\end{document}
