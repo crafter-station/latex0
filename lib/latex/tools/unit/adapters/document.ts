@@ -37,8 +37,9 @@ import type { Adapter, AdapterResult } from "./index"
 import { geometry, GeometryUnsupported } from "./geometry"
 import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
-import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
+import { endDocument, outputOptions, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
+import { Colors, ColorUnsupported } from "./xcolor"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstFrame, type LstOptions } from "./listings"
 import { fontAt, fontDeclaration, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
@@ -85,7 +86,7 @@ type Block =
   | ListBlock
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[] }
   | { kind: "maketitle" }
-  | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
+  | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
   | { kind: "matter"; which: "front" | "main" | "back" }
   /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
@@ -263,7 +264,7 @@ function blocksOf(body: string): Block[] {
     }
     if (m[6]) {
       const inPar = inParagraph(before)
-      out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar })
+      out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
       at = re.lastIndex; endpe = false; continue
     }
     if (m[1]) { // a heading: its argument in braces
@@ -288,7 +289,8 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+    if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }
@@ -398,9 +400,19 @@ function charBox(f: Font, c: number): CharNode {
 const hss = () => glue(0, 65536, FIL, 65536, FIL)
 
 /** \@item's \@labels box: \hskip\itemindent \hskip-\labelwidth \hskip-\labelsep \hbox to\labelwidth{\makelabel{label}} \hskip\labelsep */
+/** \color[model]{spec} in a style */
+const COLOR_CMD = /\\color\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}/g
+
+/** xcolor (dvips driver): \set@color's push and \reset@color's pop; the document's color while it is loaded */
+const xcolor = { on: false }
+const colorPush = (spec = "gray 0"): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` })
+const colorPop = (): Node => ({ kind: "whatsit", text: "\\special{color pop}" })
+/** with xcolor, \color@setgroup (\sbox, \mbox): the current color pushed in the box and popped at its end */
+const setgroup = (nodes: Node[]): Node[] => (xcolor.on ? [colorPush(), ...nodes, colorPop()] : nodes)
+
 function labelBox(label: Node[], k: ClassOptionData, lw = k.dimens.labelwidth): BoxNode {
   const llap = hpack([hss(), ...label], { exactly: 0 }) // \makelabel = \hss\llap{#1}
-  const tempbox = hpack([hss(), llap])
+  const tempbox = hpack(setgroup([hss(), llap])) // \sbox\@tempboxa{\makelabel{…}}
   const ls = k.dimens.labelsep
   const boxed = tempbox.width > lw ? tempbox : hpack(tempbox.list, { exactly: lw })
   return hpack([glue(0), glue(-lw), glue(-ls), boxed, glue(ls)])
@@ -416,9 +428,10 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
   // \@evenhead{\thepage\hfil\slshape\leftmark}
   const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), hfil(), ...mark] : [...mark, hfil(), ...number()]
   const footText: Node[] = pagestyle === "plain" ? [hfil(), ...number(), hfil()] : []
-  const head = vpack([hfil(), hpack([hpack(headText, { exactly: k.dimens.textwidth })])], { exactly: k.dimens.headheight }) // \vfil, \hb@xt@\textwidth{\@thehead}
+  // \vfil, \hb@xt@\textwidth{\@thehead} (\color@hbox\normalcolor with a color package)
+  const head = vpack([hfil(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })
   head.depth = 0
-  const foot = hpack([hpack(footText, { exactly: k.dimens.textwidth })])
+  const foot = hpack(setgroup([hpack(footText, { exactly: k.dimens.textwidth })]))
   // \baselineskip\z@skip \lineskip\z@skip \lineskiplimit\z@ until \baselineskip\footskip before the foot
   const inner: Node[] = [head, glue(k.dimens.headsep), glue(0), column]
   const d = k.dimens.footskip - column.depth - foot.height
@@ -455,7 +468,8 @@ export const document: Adapter = (source) => {
       const c = source[i]
       if (c === "\\") { i++; continue }
       if (c === "%") { while (i < at && source[i] !== "\n") i++; continue }
-      if (c === "{") stack.push(/\\[A-Za-z]+\*?\s*(\[[^\]]*\]\s*)?$/.test(source.slice(Math.max(0, i - 80), i)))
+      // (an argument after a command and its earlier arguments: \textcolor{c}{…})
+      if (c === "{") stack.push(/\\[A-Za-z]+\*?\s*(?:(?:\[[^\]]*\]|\{[^{}]*\})\s*)*$/.test(source.slice(Math.max(0, i - 200), i)))
       else if (c === "}") stack.pop()
     }
     return stack.includes(true)
@@ -515,7 +529,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
-  let usesListings = false
+  let usesListings = false, usesXcolor = false
+  const colorDefs: [string, string, string][] = [] // \definecolor
   for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
     let depth = 0, j = i + 7
     for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
@@ -552,15 +567,18 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor"].includes(n))
       if (names.includes("hyperref")) hyper = true
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
+      if (names.includes("xcolor")) usesXcolor = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
       continue
     }
     // letter's \signature, \address and \name
+    const dc = line.match(/^\\definecolor\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}$/)
+    if (dc) { colorDefs.push([dc[1], dc[2], dc[3]]); continue }
     const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
     if (lt) { letterInfo[lt[1] as keyof typeof letterInfo] = lt[2].trim(); continue }
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
@@ -588,6 +606,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
+  xcolor.on = usesXcolor
+  outputOptions.xcolor = usesXcolor
+  if (usesXcolor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
   /** \Hy@linkcounter (anchors of unnumbered headings) and \Hy@writebookmark's state */
   let linkcounter = 0, items = 0
@@ -599,7 +620,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
     v.nodes.push(...anchor("Doc-Start", k.sizes.normalsize.baselineskip.width, "v", lastNode()))
   }
-  const doc: DocState = { footnote: 0, refs }
+  if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
+  const colors = new Colors()
+  try { for (const [n, m, x] of colorDefs) colors.define(n, m, x) } catch (e) { if (e instanceof ColorUnsupported) throw new Unsupported(e.message); throw e }
+  const colorSpec = (spec: string, model?: string) => {
+    if (!usesXcolor) throw new Unsupported("a color without xcolor")
+    try { return colors.spec(spec, model) } catch (e) { if (e instanceof ColorUnsupported) throw new Unsupported(e.message); throw e }
+  }
+  const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec }
   const decisions: ParagraphTrace[] = []
   const outerParskip = k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
@@ -684,7 +712,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     let events
     try { events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: lstCarry }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
     lstLineno = 1 // InitVars, and no end of line
-    return events.map((e) => { if ("node" in e) return e.node; throw new Unsupported("\\lstinline with a line break") })
+    const nodes = events.map((e) => { if ("node" in e) return e.node; throw new Unsupported("\\lstinline with a line break") })
+    const basicColors = styleColors(o.basicstyle) // basicstyle in \lst@Init: its pushes before the tokens
+    nodes.unshift(...basicColors.map((c) => colorPush(c)))
+    if (xcolor.on) nodes.push(colorPush()) // \lst@DeInit's \normalcolor; then the group's end pops them all
+    nodes.push(...basicColors.map(() => colorPop()), ...(xcolor.on ? [colorPop()] : []))
+    return nodes
   }
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
@@ -799,6 +832,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       }
       // counter commands in vertical mode make no paragraph
       if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
+      // a group that starts with \color before the paragraph does: the push goes on the vertical list
+      const cg = /^\s*\{\\color(?![A-Za-z])/.test(b.text)
+      if (cg) {
+        if (runIn) throw new Unsupported("a color group right after a run-in heading")
+        if (b.noindent) throw new Unsupported("a color group starting the paragraph after a list")
+        b.text = leadingColor(b.text)
+      }
       // a run-in heading goes in place first: its title sees the counters as the paragraph starts
       const head = runIn ? runIn() : null
       const text = counted(b.text, true)
@@ -834,7 +874,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // a display environment (or amsmath's \[, which is \begin{equation*}) that starts the paragraph
       // starts it inside the environment's group: \everypar's assignments there do not last
       const segs = displaySegments(text)
-      const grouped = !(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath))
+      // (so does a {\color …} group: the paragraph starts inside it)
+      const grouped = !!cg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
         if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000 }
@@ -945,7 +986,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         }
         const l: Node[] = []
         appendText(l, `(${the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
-        eqno = hpack([hpack(l)]); eqno.display = true
+        eqno = hpack([hpack(setgroup(l))]); eqno.display = true // {\normalfont\normalcolor (n)}
       }
       const sz = k.sizes.normalsize
       const items = finishDisplay(mlistToHlist(mlist, env, DISPLAY_STYLE, false), eqno, {
@@ -1230,8 +1271,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
         if (b.env === "thebibliography") { refs.label = String(i + 1); refs.href = `enumiv.${i + 1}` } // \refstepcounter{enumiv}
       }
-      const temp = hpack(content.slice())
-      const boxed = temp.width > labelwidth ? temp : hpack(content.slice(), { exactly: labelwidth })
+      const temp = hpack(setgroup(content.slice()))
+      const boxed = temp.width > labelwidth ? temp : hpack(setgroup(content.slice()), { exactly: labelwidth })
       const labels = hpack([glue(itemindent), glue(-labelwidth), glue(-ls), boxed, glue(ls)])
       // \clubpenalty in the item: \@M from its first paragraph right after a heading, until a later paragraph's
       // \everypar (still \@item's) or \@doendpe's \par sets \@clubpenalty
@@ -1244,6 +1285,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
         // drops it; later paragraphs are indented by \parindent
         const un = p.unskip ? { unskip: p.unskip } : {}
+        // a {\color …} group that starts the paragraph: its push on the vertical list (the paragraph starts in the group)
+        const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text)
+        if (colorStart && (p.start === "doendpe" || club)) throw new Unsupported("a color group starting an item's paragraph here")
+        if (colorStart && p.start === "label") p.text = leadingColor(p.text)
         if (p.start === "label") typeset(p.text, { start: [labels, penalty(0), ...(p.nodes ?? [])], ...shape, ...un, ...(club ? { clubPenalty: club } : {}) }, parsep, ctx.size)
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
@@ -1256,6 +1301,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
             v.addvspace(negate(parsep))
             if (p.crSkip !== undefined) { try { v.vskip(parseGlue(p.crSkip, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] })) } catch { throw new Unsupported(`\\\\[${p.crSkip}]`) } }
           }
+          if (colorStart) p.text = leadingColor(p.text) // (after the \@centercr skip)
           if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un }, parsep, ctx.size)
         }
       })
@@ -1303,7 +1349,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // a style: font declarations and size commands, from the font where the listing is
     const styleOf = (style: string) => {
       let size: SizeCommand = size0, a: FontAttrs = attrs0
-      for (const m of style.matchAll(/\\([a-zA-Z]+)/g)) {
+      for (const m of style.replace(COLOR_CMD, "").matchAll(/\\([a-zA-Z]+)/g)) {
         if ((SIZE_COMMANDS as readonly string[]).includes(m[1])) { size = m[1] as SizeCommand; continue }
         const next = fontDeclaration(m[1], a, k, size, doc)
         if (!next) throw new Unsupported(`listings style \\${m[1]}`)
@@ -1312,6 +1358,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       return { size, a }
     }
     const fonts = {
+      colors: (style: string) => styleColors(style),
       font(style: string) { const { size, a } = styleOf(style); return { font: selectFont(k, size, a), tt: a.fam === "cmtt", bold: a.ser === "bx", italicShape: a.shape !== "n", size } },
       /** TS1 from the class's table; OML and OMS by omlcmm.fd and omscmsy.fd (bold: cmmib, cmbsy, 10pt from 10 up) */
       other(style: string, enc: "TS1" | "OML" | "OMS") {
@@ -1326,6 +1373,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     return { styleOf, fonts }
   }
+  /** a listings style's \color commands, as their \special texts */
+  /** a group that starts with \color before its paragraph does: the push on the vertical list, and the text that knows it */
+  function leadingColor(text: string): string {
+    const m = text.match(/^\s*\{\\color(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}/)!
+    v.nodes.push(colorPush(colorSpec(m[2], m[1])))
+    return text.replace(/^(\s*\{\\)color/, "$1LXcolorpushed")
+  }
+  function styleColors(style: string) { return [...style.matchAll(COLOR_CMD)].map((m) => colorSpec(m[2], m[1])) }
 
   function listing(b: Extract<Block, { kind: "listing" }>) {
     if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
@@ -1376,7 +1431,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       appendText(l, "Listing", romanFont, state, false)
       l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // ~
       appendText(l, `${n}: ${text}`, romanFont, state, false)
-      const cap = hpack(l)
+      const cap = hpack(setgroup(l)) // \sbox
       if (cap.width > hsize) throw new Unsupported("a listing caption wider than the line")
       v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), k.sizes.normalsize.baselineskip)
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
@@ -1391,17 +1446,20 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const fr: LstFrame = { tshape: shapes.t, bshape: shapes.b, lshape: shapes.l, rshape: shapes.r, rule: dim("framerule"), sep: dim("framesep"), rulesep: dim("rulesep"), xleft: dim("framexleftmargin"), xright: dim("framexrightmargin") }
     const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
     let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
-    const frameParagraph = (box: BoxNode) => {
+    const frameParagraph = (box: BoxNode, end: Node[] = []) => {
       // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
       if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
       else if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
-      const p = paragraphInput("", k, "normalsize", doc, { start: [box], parShape, ...breaks, amsmath, clubPenalty: v.club })
+      const p = paragraphInput("", k, "normalsize", doc, { start: [box], parShape, ...breaks, amsmath, clubPenalty: v.club, end })
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       v.paragraph(lb.vlist, dimen(0), sz.baselineskip, lineskip, lineskiplimit)
     }
     // \lst@frameInit's top: \par\lst@parshape, \vskip\@tempdima\vskip\lineskip if \@tempdima = \ht - \baselineskip is
     // negative (\prevdepth would count only from 256pt), \noindent\box\z@\par; then \lineskiplimit\maxdimen \lineskip\z@
+    // \lsthk@Init: basicstyle (its \color pushes on the vertical list), … \lst@frameInit
+    const basicColors = styleColors(o.basicstyle)
+    for (const c of basicColors) v.nodes.push(colorPush(c))
     const top = lstFrameH(fr, lw, "T")
     if (top) {
       const t = top.height - sz.baselineskip.width
@@ -1433,7 +1491,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const digits: Node[] = []
       appendText(digits, String(lstnumber), numberFont, { spaceFactor: 1000 }, false)
       const hss = glue(0, 65536, FIL, 65536, FIL)
-      return [...a, o.numbers === "left" ? hpack([hss, ...digits, kern(numbersep, true)], { exactly: 0 }) : hpack([kern(lw, true), kern(numbersep, true), ...digits, hss], { exactly: 0 })]
+      // numberstyle's \color: pushed in the box, popped after it (\aftergroup at the box's end)
+      const nc = styleColors(o.numberstyle), push = nc.map((c) => colorPush(c)), pops = nc.map(() => colorPop())
+      return [...a, o.numbers === "left" ? hpack([hss, ...push, ...digits, kern(numbersep, true)], { exactly: 0 }) : hpack([kern(lw, true), kern(numbersep, true), ...push, ...digits, hss], { exactly: 0 }), ...pops]
     }
     // each line: \par\noindent (\everypar: \lst@parshape, the frame box, the number) \hbox{}, its boxes
     let line: Node[] | null = null, lineCount = 0
@@ -1460,9 +1520,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (last.width !== 0) v.vskip(negate(last))
     // \lst@frameExit: \everypar{}\par\lst@parshape\nointerlineskip\noindent\box\z@ (ended by the \par below)
     const bottom = lstFrameH(fr, lw, "B")
-    if (bottom) { v.prevDepth = IGNORE_DEPTH; frameParagraph(bottom) }
+    // \lst@DeInit's \normalcolor: in the bottom frame's paragraph, which the \par below ends
+    if (bottom) { v.prevDepth = IGNORE_DEPTH; frameParagraph(bottom, xcolor.on ? [colorPush()] : []) }
+    else if (xcolor.on) v.nodes.push(colorPush())
     v.nodes.push(penalty(-50))
     vspace(medskip)
+    if (xcolor.on) v.nodes.push(colorPop()) // the group's end
+    for (const _ of basicColors) v.nodes.push(colorPop())
     v.endpePar = true
     v.afterheadingEverypar = false // \lst@doendpe's \everypar replaces it
     v.nobreak = false // \end{lstlisting}: \@nobreakfalse
@@ -1470,6 +1534,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
 
   function floatBlock(b: Extract<Block, { kind: "float" }>) {
     if (b.inPar) throw new Unsupported("a float inside a paragraph")
+    if (b.blank) v.par() // (after \@doendpe, its \par resets \clubpenalty)
     // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !
     let fps = 16
     for (const c of b.fps ?? "tbp") { // \fps@figure and \fps@table are tbp
@@ -1536,7 +1601,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
         if (hyper) { appendText(l, `${the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1))); appendText(l, text, romanFont, state, false) }
         else appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
-        const cap = hpack(l)
+        const cap = hpack(setgroup(l)) // \sbox
         if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
           const start: Node[] = [hpack([])]
           appendText(start, b.env === "figure" ? "Figure" : "Table", romanFont, { spaceFactor: 1000 }, false)
@@ -1554,7 +1619,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       throw new Unsupported(`${it} in a ${b.env}`)
     }
     content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
-    const box = vpack([vpack(content)]) // \color@vbox\normalcolor\vbox{…}
+    const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
     if (box.height > k.dimens.textheight) box.height = k.dimens.textheight // \@largefloatcheck
     const index = floats++
     v.nodes.push({ kind: "whatsit", text: "", float: { box, count: fps + 32 * (b.env === "figure" ? 1 : 2), nobreak: v.nobreak, index, here: !notHere.has(index) } satisfies Float }) // \ftype@figure 1, \ftype@table 2
@@ -1690,8 +1755,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       return [hpack([...l, glue(0, 65536, FIL)], { exactly: width })]
     }
     // the page number: \hb@xt@\@pnumwidth (in the line's font) {\hss or \hfil, #2, \kern-\p@\kern\p@}
-    const pageBox = (fill: Node): BoxNode => {
+    const pageBox = (fill: Node, normalcolor = false): BoxNode => {
       const l: Node[] = [fill]
+      if (normalcolor && xcolor.on) l.push(colorPush()) // \@dottedtocline's \normalcolor
       appendText(l, String(e.page), f, { spaceFactor: 1000 }, false)
       l.push(kern(-65536, true), kern(65536, true))
       return hpack(l, { exactly: dims("1.55em", fUnits) })
@@ -1724,7 +1790,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const leader = hpack([{ kind: "math", on: true, width: 0 }, kern(mk, true), hpack(dot), kern(mk, true), { kind: "math", on: false, width: 0 }])
       start = [emptyBox("hlist", indent), hpack([]), penalty(10000), glue(-(indent + numwidth))]
       nl = numberline(numwidth)
-      tail = [penalty(10000), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(glue(0, 65536, FIL))]
+      tail = [penalty(10000), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(glue(0, 65536, FIL), true), ...(xcolor.on ? [colorPop()] : [])] // (\aftergroup: after the box)
       params = { leftSkip: spec("leftskip", dimen(indent + numwidth)), rightSkip: spec("rightskip", dimen(rmarg)), parFillSkip: spec("parfillskip", dimen(-rmarg)), interLinePenalty: 10000 }
     }
     // hyperref (linktoc=section): the number and the title in a link to the heading's anchor
@@ -1769,7 +1835,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const topsepadd = addGlue(k.glue.topsep, k.glue.partopsep)
     v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
     const labelsep = k.dimens.labelsep
-    const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack([], { exactly: 0 }), glue(labelsep)])
+    const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
     const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
     const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
     const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }

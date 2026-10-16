@@ -28,6 +28,10 @@ export interface Float {
 
 /** What the output routine ships: a page of text with its top and bottom floats, or a page of floats. */
 type ShippedContent = { kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }
+/** what the document loads that the output routine sees: xcolor's \normalcolor */
+export const outputOptions = { xcolor: false }
+const colorSpecial = (what: string): Node => ({ kind: "whatsit", text: `\\special{color ${what}}` })
+
 export type Shipped = ShippedContent & { /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out, and \thepage */ count: number; thepage: string }
 
 /** Assignments the document makes to the output routine's state. */
@@ -378,7 +382,8 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
       if (!foot && !sh.bot.length && d > 0) list.push(glue(-Math.min(d, maxDepth)))
       list.push(plain(last))
     }
-    if (foot) list.push(plain(fs), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list)
+    // \color@begingroup\normalcolor\footnoterule\unvbox\footins\color@endgroup
+    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial("push gray 0")] : []), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
     if (sh.top.length) list = [...sh.top.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep)), plain(textfloatsep), ...list]
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)

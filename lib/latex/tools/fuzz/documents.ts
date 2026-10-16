@@ -44,7 +44,10 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false
+  let isLetter = false, lstOn = false, colorOn = false
+  // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
+  const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
+  const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
   const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -58,6 +61,13 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
       if (lstOn && r() < 0.008) ws[i] += pick([" \\lstinline|x = y + 1|", " \\lstinline{print('a  b')}", " \\lstinline[basicstyle=\\ttfamily]!for i in range(n):!", " \\lstinline|a_b->c|", "~\\lstinline{def f(x): return x}", " \\lstinline[columns=fixed]|q  r|"])
+    }
+    // runs of words in color: \textcolor and {\color …} groups
+    for (let i = 0; colorOn && i < ws.length; i++) {
+      if (r() >= 0.02) continue
+      const len = 1 + Math.floor(r() * 4)
+      const inner = ws.slice(i, i + len).join(" ")
+      ws.splice(i, len, r() < 0.6 ? `\\textcolor${colorArg()}{${inner}}` : `{\\color${colorArg()} ${inner}}`)
     }
     // runs of words in other fonts (\textbf, \emph, …), sometimes nested, sometimes before , or .
     const font = () => pick(["textbf", "textit", "emph", "emph", "textsl", "textsc", "texttt", "textsf", "textmd", "textup"])
@@ -105,8 +115,12 @@ export function makeDocument(r: () => number): string {
   if (enumitem) out.push("\\usepackage{enumitem}")
   // listings: code with keywords, comments, strings, spaces and tabulators, in the styles and columns it offers
   const lst = r() < 0.2 && !t1
-  const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])])
+  colorOn = r() < 0.25
+  const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])]) +
+    (colorOn && r() < 0.4 ? `\\color${lstEnv ? `{${color()}}` : colorArg()}` : "") // (no [ ] in the environment's options)
+  let lstEnv = false
   const lstKeys = (env: boolean) => { // (no [ ] in a value of the environment's [options])
+    lstEnv = env
     const keys: string[] = []
     if (r() < 0.6) keys.push(pick(["language=Python", "language=Python", env ? "language=Python" : "language={[2]Python}", "language=", "language=Java", "language=C", "language=C++", env ? "language=C++" : "language={[11]C++}"]))
     if (r() < 0.4) keys.push(`basicstyle=${lstStyle(true)}`)
@@ -139,6 +153,8 @@ export function makeDocument(r: () => number): string {
   const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",").replace(/breaklines=true/, "breaklines=false") : "" // (\lstinline has no breaklines yet)
   lstOn = lst
   if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
+  if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
+  if (colorOn) out.push(`\\definecolor{fz}${pick(["{rgb}{0.1,0.5,0.9}", "{RGB}{255,136,0}", "{HTML}{2CA02C}", "{gray}{.35}", "{cmyk}{0,.5,1,0}", "{rgb}{1.0,0.25,.5}"])}`)
   const code = (hash: boolean) => { // (C's directives are not laid out yet)
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",
       "0", "42", "3.14", "=", "==", "+", "-", "*", "/", "<", ">", "(", ")", "[", "]", "{", "}", ":", ",", ".", ";", "!", "?", "@", "$", "%", "&", "|", "^", "~", "`", "\\", "\\\\", "_",

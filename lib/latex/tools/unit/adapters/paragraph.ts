@@ -77,6 +77,10 @@ export function classParams(k: ClassOptionData): LineBreakParams {
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
 export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
+  /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
+  xcolor?: boolean
+  /** a color expression as its \special text */
+  color?: (spec: string, model?: string) => string
   /** \lstinline number n (taken out of the source before expansion) at a size in a font */
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
 }
@@ -151,6 +155,8 @@ type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number }
+  /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
+  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \hfill, \hfil, \quad, \qquad */
@@ -271,6 +277,15 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (nl) { flushText(); out.push({ kind: "newline", star: !!nl[1], skip: nl[2] ?? null }); i += nl[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
+    const tc = body.slice(i).match(/^\\textcolor(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{/) ?? body.slice(i).match(/^\{\\(?:color|LXcolorpushed)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
+    if (tc) {
+      const open = i + tc[0].length - (tc[0].startsWith("{") ? tc[0].length : 1)
+      let depth = 0, j = open
+      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
+      if (j >= body.length) throw new Error("paragraph adapter: unbalanced color group")
+      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
+    }
     const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
     if (sz) {
       let depth = 0, j = i
@@ -399,7 +414,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
@@ -457,7 +472,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
         const text: Node[] = []
         appendText(text, p.kind === "ref" ? known.label : known.page, font, state)
-        list.push(...refLink(text, known.href))
+        list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
         continue
       }
       if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state); list.push(hpack([])) }
@@ -469,6 +484,16 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       state.spaceFactor = 1000
     }
     // \textdollar: in T1 the text font's own; otherwise the TS1 font of the same family, series and shape
+    else if (p.kind === "color") {
+      if (!doc.color) throw new Error("paragraph adapter: color without xcolor")
+      const spec = doc.color(p.spec, p.model), outer = ctx.color
+      if (!p.pushed) list.push({ kind: "whatsit", text: `\\special{color push ${spec}}` })
+      ctx.color = spec
+      appendPieces(list, p.inner, font, size, state, ctx, attrs)
+      ctx.color = outer
+      ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
+      list.push({ kind: "whatsit", text: "\\special{color pop}" })
+    }
     else if (p.kind === "lstinline") {
       if (!doc.lstinline) throw new Error("paragraph adapter: \\lstinline outside a document")
       list.push(...doc.lstinline(p.n, size, attrs))

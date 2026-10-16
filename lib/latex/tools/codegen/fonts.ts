@@ -21,6 +21,7 @@ export const FONTS = [
   // math
   ...["5", "6", "7", "8", "9", "10", "12"].map((s) => `cmmi${s}`),
   ...["5", "6", "7", "8", "9", "10"].map((s) => `cmsy${s}`),
+  ...["5", "6", "7", "8", "9"].flatMap((s) => [`cmmib${s}`, `cmbsy${s}`]), // (listings' bold OML and OMS symbols at small sizes)
   "cmex7", "cmex8", "cmex9", "cmex10", "cmmib10", "cmbsy10",
   // AMS and friends
   ...["5", "7", "10"].flatMap((s) => [`msam${s}`, `msbm${s}`, `eufm${s}`]),

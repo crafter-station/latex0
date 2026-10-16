@@ -201,6 +201,46 @@
    "checksum": 555887770
   },
   {
+   "name": "cmmib5",
+   "checksum": 1083900063
+  },
+  {
+   "name": "cmbsy5",
+   "checksum": 91128742
+  },
+  {
+   "name": "cmmib6",
+   "checksum": 835721960
+  },
+  {
+   "name": "cmbsy6",
+   "checksum": 565139544
+  },
+  {
+   "name": "cmmib7",
+   "checksum": 2807763
+  },
+  {
+   "name": "cmbsy7",
+   "checksum": 3516048287
+  },
+  {
+   "name": "cmmib8",
+   "checksum": 2721393966
+  },
+  {
+   "name": "cmbsy8",
+   "checksum": 2042927564
+  },
+  {
+   "name": "cmmib9",
+   "checksum": 1472870093
+  },
+  {
+   "name": "cmbsy9",
+   "checksum": 1730424146
+  },
+  {
    "name": "cmex7",
    "checksum": 388214957
   },

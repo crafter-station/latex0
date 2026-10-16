@@ -52,8 +52,9 @@ export function sectionAnchorBox(name: string, shift: number, baselineskip: numb
  * A \ref or \pageref link (\hyper@link through \pdf@rect): H.S, the text in an hbox, \raise\ht H.R in an
  * empty hbox, and the /ANN pdfmark with the anchor
  */
-export function refLink(text: Node[], name: string): Node[] {
-  const box = hpack(text)
+export function refLink(text: Node[], name: string, color?: string): Node[] {
+  // (with a color package the text's box is a \color@setgroup: the current color pushed and popped)
+  const box = hpack(color ? [{ kind: "whatsit", text: `\\special{color push ${color}}` }, ...text, { kind: "whatsit", text: "\\special{color pop}" }] : text)
   // H.S at the box's bottom, \lower\dp in an hbox unless the depth is zero; H.R at its top likewise
   let start: Node = HS(), end: Node = HR()
   if (box.depth) { start = hpack([HS()]); start.shift = box.depth }

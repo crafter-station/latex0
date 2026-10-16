@@ -1,0 +1,20 @@
+% fixture: xcolor/listings
+% tier: T3
+% engine: document
+% covers: listings styles with \color: keywords, comments, strings, basicstyle (on the vertical list), numbers, \lstinline, frames
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstset{language=Python,keywordstyle=\color{blue}\bfseries,commentstyle=\color{codegreen},stringstyle=\color{red!70!black},basicstyle=\ttfamily\color{darkgray}\small,numbers=left,numberstyle=\tiny\color{gray},breaklines=true,frame=single}
+\begin{document}
+Text with \lstinline[breaklines=false]|for x in y: "a b"  # c| inline.
+\begin{lstlisting}
+for x in range(10):	# a "comment"
+    s = "a  b	c"   + 'q'   # tail
+\end{lstlisting}
+\begin{lstlisting}[basicstyle=\color{blue},columns=flexible]
+x = 1 # c
+\end{lstlisting}
+\end{document}
