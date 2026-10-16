@@ -44,7 +44,13 @@ export function hpack(list: Node[], spec: PackSpec = NATURAL): BoxNode {
         if (dp + s > d) d = dp + s
         break
       }
-      case "glue": x += p.width; stretch[p.stretchOrder] += p.stretch; shrink[p.shrinkOrder] += p.shrink; break
+      case "glue": {
+        x += p.width; stretch[p.stretchOrder] += p.stretch; shrink[p.shrinkOrder] += p.shrink
+        const g = p.leaders?.box // § 656: leaders count with their height and depth (a running rule's are -2^30)
+        if (g && g.height !== null && g.height > h) h = g.height
+        if (g && g.depth !== null && g.depth > d) d = g.depth
+        break
+      }
       case "kern": case "math": x += p.width; break
       case "penalty": case "disc": case "whatsit": case "ins": case "adjust": break // a discretionary's no-break text is already in the list; insertions migrate (post_line_break)
     }

@@ -40,14 +40,15 @@ import { isKnownCommand } from "../../../parser"
 import { endDocument, outputOptions, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
 import { Colors, ColorUnsupported } from "./xcolor"
+import { preamble, tabularBox, tabularLines, TabularUnsupported, type TabCol, type TabLine, type TabularEnv } from "./tabular"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstFrame, type LstOptions } from "./listings"
-import { fontAt, fontDeclaration, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
+import { fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
-/** a tabular row (and the skip of a \\[skip] or \\*[skip] ending it), or an \hline */
-type TabularLine = { cells: string[]; skip?: number } | { rule: true }
-/** a tabular column: its alignment, and @{} before or after it (no \tabcolsep there) */
-type TabularCol = "l" | "c" | "r" | { align: "l" | "c" | "r"; noLeft: boolean; noRight: boolean }
+/** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
+interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
+/** a paragraph that a tabular starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
+const tabularStart = (text: string) => /^\s*\\LXtabular\{/.test(text)
 
 /** The class with \usepackage[T1]{fontenc}: every size's roman and bold are the EC fonts (math is unchanged). */
 function withT1(k: ClassOptionData, cls: string): ClassOptionData {
@@ -318,7 +319,7 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|LXtabular|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
@@ -518,11 +519,20 @@ export const document: Adapter = (source) => {
   source = inlineMathParens(source)
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
-  const src = expanded.text
+  // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
+  const tabulars: TabularSource[] = []
+  const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
+  const src = expanded.text.replace(/\\begin\{tabular\}\s*(?:\[([tbc])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}([^]*?)\\end\{tabular\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
+    if (commented(text, offset)) return all
+    if (/\\begin\{tabular\}/.test(body)) throw new Unsupported("a tabular in a tabular")
+    tabulars.push({ pos: (pos ?? "c") as "c", spec, body })
+    return `\\LXtabular{${tabulars.length - 1}}`
+  })
+  if ([...src.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a tabular not read")
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
-      try { return layout(src, notHere, aux, listings) } catch (e) {
+      try { return layout(src, notHere, aux, listings, tabulars) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
       }
@@ -546,7 +556,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
 /** an lstlisting environment's [options] and lines */
 interface Listing { options: string; lines: string[]; inline?: true }
 
-function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[]): { result: AdapterResult; written: Aux | null } {
+function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[]): { result: AdapterResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
@@ -751,6 +761,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    * \lstinline: \leavevmode\bgroup\lstset{flexiblecolumns,options}, \lsthk@TextStyle (no skips, frame or margins, an
    * empty \everypar and \lst@NewLine), \lst@Init and \lst@DeInit with no \par: the token boxes go into the paragraph
    */
+  const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
+  doc.tabular = (n, size, attrs) => {
+    const t = tabulars[n]
+    let lines: TabLine[], cols: TabCol[]
+    try { lines = tabularLines(t.body); cols = preamble(t.spec) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
+    return tabular(lines, cols, size, t.pos, attrs)
+  }
   doc.lstinline = (n, size, attrs) => {
     if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
     if (t1) throw new Unsupported("listings with T1")
@@ -852,7 +869,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
-    if (runIn && b.kind === "list") { const club = v.club; runInAlone(); v.club = club; list({ ...b, inPar: true, blank: false }, topCtx()); v.afterheadingEverypar = false; v.endpePar = true; return }
+    if (runIn && b.kind === "list") { const club = v.club; runInAlone(); list({ ...b, inPar: true, blank: false }, topCtx()); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
     if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
     if (b.kind === "heading") { if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
     if (b.kind === "maketitle") { maketitle(); return }
@@ -901,7 +918,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (v.nobreak) throw new Unsupported("a run-in heading right after a heading")
         // a display environment that starts the paragraph starts it in its own group: \clubpenalty\@M ends there
         const segs0 = displaySegments(text)
-        const grouped = !(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath))
+        const grouped = tabularStart(text) || (!(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath)))
         const outer = v.club
         // (the heading's own lines, before the first display, are inside that group)
         paragraphWithDisplays(text, false, grouped ? outer : 10000, grouped ? outer : 10000, start, b.unskip, 10000)
@@ -926,8 +943,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // a display environment (or amsmath's \[, which is \begin{equation*}) that starts the paragraph
       // starts it inside the environment's group: \everypar's assignments there do not last
       const segs = displaySegments(text)
-      // (so does a {\color …} group: the paragraph starts inside it)
-      const grouped = !!cg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
+      // (so do a {\color …} group and a tabular: the paragraph starts inside it)
+      const grouped = !!cg || tabularStart(text) || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
       // (footnotes read in such a color group see its \clubpenalty, which the group's end takes back)
       if (cg && v.afterheadingEverypar && /\\footnote\b/.test(text)) throw new Unsupported("a footnote in a color group that starts the paragraph after a heading")
       if (v.afterheadingEverypar) {
@@ -1350,6 +1367,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const box = hpack([glue(0, 65536, FIL), vrule(), vb, vrule(), glue(0, 65536, FIL)], { exactly: frac(".77778em") })
       return [penalty(9999), hpack([]), penalty(10000), glue(0, 65536, FILL), glue(sizeFont.params[QUAD]), hpack([box])]
     }
+    // the \clubpenalty in force when an item's paragraph starts in a group (where \@item's \everypar sets its own):
+    // thebibliography's, the outer one before the first item, then what the last item's \everypar set
+    let groupClub = b.env === "thebibliography" ? 4000 : depth <= 1 ? v.club : k.ints.clubpenalty
     b.items.forEach(({ label: given, parts }, i) => {
       // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
       // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
@@ -1424,6 +1444,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text)
         if (colorStart && (p.start === "doendpe" || club)) throw new Unsupported("a color group starting an item's paragraph here")
         if (colorStart && p.start === "label") p.text = leadingColor(p.text)
+        // (so does a tabular: \begin{tabular}'s group, then \leavevmode)
+        const groupStart = colorStart || tabularStart(p.text)
+        if (groupStart && !colorStart && (p.start !== "label" || (club && depth > 1))) throw new Unsupported("a tabular starting an item's paragraph here")
         // (in a {\color …} group the \everypar's \clubpenalty\@clubpenalty ends with the group: the one in force stays,
         // the outer one for a first item, else what the item before set)
         // a \label before a theorem's text: its write on the vertical list (\nobreak's while \if@nobreak holds)
@@ -1438,7 +1461,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
         const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
         const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) ? { end: qed() } : {}) }
-        if (p.start === "label") typeset(p.text, { start, ...shape, ...un, ...body, ...(club ? { clubPenalty: club } : colorStart ? { clubPenalty: i === 0 && depth === 1 ? v.club : k.ints.clubpenalty } : {}) }, parsep, ctx.size)
+        if (p.start === "label") {
+          typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub } : {}) }, parsep, ctx.size)
+          if (!groupStart) groupClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
+        }
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
         else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
@@ -1702,7 +1728,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const content: Node[] = []
     let pd: number | null = IGNORE_DEPTH, number = 0, captionName = ""
     const hsize = k.dimens.columnwidth
-    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\begin\{tabular\}\{[^}]*\}[^]*?\\end\{tabular\}|\S+/g) ?? []
+    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\S+/g) ?? []
     let centered = false
     /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
      *  3em), and \centering's flush glue when it came before */
@@ -1726,10 +1752,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (it === "\\centering") { centered = true; continue }
       // a tabular starts a paragraph (\leavevmode): the \parindent box (zero after \@parboxrestore), then
       // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
-      const tab = it.match(/^\\begin\{tabular\}\{([^}]*)\}([^]*)\\end\{tabular\}$/)
+      const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
       if (tab) {
-        const { cols, lines } = tabularOf(tab[1], tab[2])
-        floatParagraph([hpack([]), tabular(lines, cols, "normalsize", "c")], "")
+        floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs)], "")
         continue
       }
       // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
@@ -1820,9 +1845,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const from = letterInfo.address.split(/\\\\/).map((x) => x.trim())
     const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today()).trim()
     check(date)
-    const lines: TabularLine[] = from.map((r, i) => ({ cells: [r], ...(i === from.length - 1 ? { skip: 2 * parskip } : {}) }))
-    lines.push({ cells: [date] })
-    typeset("", { ...raggedleft, start: [emptyBox("hlist", 0), tabular(lines, [{ align: "l", noLeft: false, noRight: true }], "normalsize", "c")] }, outerParskip)
+    const lines: TabLine[] = from.map((r, i) => ({ cells: [{ text: r }], ...(i === from.length - 1 ? { skip: 2 * parskip } : {}) }))
+    lines.push({ cells: [{ text: date }] })
+    typeset("", { ...raggedleft, start: [emptyBox("hlist", 0), tabular(lines, preamble("l@{}"), "normalsize", "c")] }, outerParskip)
     vspace(dimen(2 * parskip))
     b.to.split(/\\\\/).map((x) => x.trim()).forEach((line, i) => { // \@centercr between the lines
       if (i) v.addvspace(negate(outerParskip))
@@ -2005,7 +2030,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const start: Node[] = [hpack([])] // \parindent is zero in center
     authors.forEach((rows, i) => {
       if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
-      start.push(tabular(rows.map((r) => ({ cells: [r] })), ["c"], "large"))
+      start.push(tabular(rows.map((r) => ({ cells: [{ text: r }] })), preamble("c"), "large", "t"))
     })
     const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty, amsmath })
     const ab = lineBreak(authorPar.list, authorPar.params)
@@ -2038,92 +2063,22 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     doc.footnote = 0 // \setcounter{footnote}{0}
   }
 
-  /** \begin{tabular}[t]{cols}: \leavevmode\hbox{$\vtop{\ialign{\@arstrut ...\cr ...}}$} (latex.ltx \@tabular, \@array) */
-  /**
-   * \begin{tabular}[pos]{cols} (latex.ltx \@tabular, \@array): \hbox{$\vtop or \vcenter{\halign…}$}, each
-   * row starting with \@arstrut, each cell \hskip\tabcolsep, the entry (\hfil around it as the column
-   * says), \hskip\tabcolsep; \hline is \noalign{\hrule height\arrayrulewidth}, and a second one right
-   * after it adds \vskip\doublerulesep \vskip-\arrayrulewidth. A cell is text or \textbf{text}.
-   */
-  function tabular(lines: TabularLine[], cols: TabularCol[], size: SizeCommand, pos: "t" | "c" = "t"): BoxNode {
-    const f = k.sizes[size].font, font = loadFont(dataFont(f.name), f.at)
-    const bf = loadFont(dataFont(k.sizes[size].bold.name), k.sizes[size].bold.at)
-    const strut = k.sizes[size].strut
-    const sep = k.dimens.tabcolsep
-    const rows = lines.filter((l): l is { cells: string[]; skip?: number } => "cells" in l)
-    const cells = rows.map((row) => row.cells.map((text, j) => {
-      const col = cols[j], align = typeof col === "string" ? col : col.align
-      const l: Node[] = j === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }] : [] // \@arstrut
-      if (typeof col === "string" || !col.noLeft) l.push(glue(sep)) // \@acol: \hskip\tabcolsep
-      const hfil = () => glue(0, 65536, FIL)
-      const body: Node[] = []
-      const t = text.replace(/\s+/g, " ").trim()
-      const bold = t.match(/^\\textbf\s*\{([^{}\\]*)\}$/)
-      if (/[\\{}$%&#^_~]/.test(bold ? bold[1] : t)) throw new Unsupported(`tabular cell "${t}"`)
-      appendText(body, (bold ? bold[1] : t).trim(), bold ? bf : font, { spaceFactor: 1000 }, false) // \ignorespaces # \unskip
-      // \textbf's \check@icr: an italic correction after it (the outer font is upright, and what follows is no , or .)
-      const lastChar = body[body.length - 1]
-      if (bold && lastChar?.kind === "char") body.push(kern(bf.chars.get(lastChar.char)!.italic, true))
-      // \\[skip] with a positive skip (\@xargarraycr): \unskip, \vrule height0pt depth skip+\dp\@arstrutbox width0pt
-      if (j === row.cells.length - 1 && row.skip !== undefined && row.skip > 0) {
-        if (body.at(-1)?.kind === "glue") body.pop()
-        body.push({ kind: "rule", width: 0, height: 0, depth: row.skip + strut.depth })
-      }
-      if (align === "c") l.push(hfil(), glue(1), ...body, hfil())
-      else if (align === "l") l.push(glue(1), ...body, hfil())
-      else l.push(hfil(), glue(1), ...body)
-      if (typeof col === "string" || !col.noRight) l.push(glue(sep))
-      return l
-    }))
-    const tabskip = Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0)))
-    const rowBoxes = halign(cells, tabskip, { additional: 0 })
-    // the alignment's list: rows with interline glue (\baselineskip and \lineskip are zero in \@array), rules
-    const list: Node[] = []
-    let pd: number | null = null, r = 0
-    lines.forEach((l, i) => {
-      if ("cells" in l) { pd = appendToVlist(list, rowBoxes[r++], pd, dimen(0), dimen(0), k.dimens.lineskiplimit); return }
-      if (i > 0 && "rule" in lines[i - 1]) list.push(glue(k.dimens.doublerulesep), glue(-k.dimens.arrayrulewidth))
-      list.push({ kind: "rule", width: rowBoxes[0]?.width ?? 0, height: k.dimens.arrayrulewidth, depth: 0 }) // fin_align sets a running width (§ 805)
-      pd = null // a rule leaves \prevdepth at -1000pt
-    })
-    const box = vpack(list)
-    const first = list[0]
-    if (pos === "t") { // \vtop (§ 1087)
-      const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
-      box.depth = box.depth - h + box.height; box.height = h
-    } else { // \vcenter: make_vcenter (§ 736), about the axis of the text size
-      const delta = box.height + box.depth
-      box.height = mathEnv(k, size, amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
-      box.depth = delta - box.height
+  /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
+  function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs): BoxNode {
+    const font = selectFont(k, size, attrs)
+    const env: TabularEnv = {
+      strut: k.sizes[size].strut, tabcolsep: k.dimens.tabcolsep, arrayrulewidth: k.dimens.arrayrulewidth, doublerulesep: k.dimens.doublerulesep,
+      lineskiplimit: k.dimens.lineskiplimit, axis: mathEnv(k, size, amsmath).fonts[0][2]!.params[22],
+      cell: (text, state) => {
+        if (/\\(?:footnote|label)(?![A-Za-z])/.test(text)) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
+        try { return hlistInput(text, k, size, doc, attrs, state, amsmath) } catch (e) {
+          if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
+          throw e
+        }
+      },
+      skip: (text) => { try { return parseGlue(text, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).width } catch { throw new Unsupported(`\\\\[${text}] in a tabular`) } },
     }
-    return hpack([{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }])
-  }
-
-  /** \begin{tabular}{cols}…\end{tabular}: its lines, or Unsupported */
-  function tabularOf(spec: string, body: string): { cols: TabularCol[]; lines: TabularLine[] } {
-    if (!/^(?:@\{\})?(?:[lcr](?:@\{\})?)+$/.test(spec)) throw new Unsupported(`tabular columns {${spec}}`)
-    const cols: TabularCol[] = [...spec.matchAll(/(@\{\})?([lcr])(?=(@\{\})?)/g)].map((m) => (m[1] || m[3] ? { align: m[2] as "l", noLeft: !!m[1], noRight: !!m[3] } : (m[2] as "l")))
-    const lines: TabularLine[] = []
-    let rest = body.trim()
-    for (;;) {
-      while (/^\\hline\b/.test(rest)) { lines.push({ rule: true }); rest = rest.replace(/^\\hline\s*/, "") }
-      if (!rest) break
-      const end = rest.indexOf("\\\\")
-      const row = end < 0 ? rest : rest.slice(0, end)
-      rest = end < 0 ? "" : rest.slice(end + 2).trim()
-      // \\* and \\[skip] (\@tabularcr)
-      let skip: number | undefined
-      const opt = rest.match(/^\*?\s*(?:\[([^\]]*)\])?/)
-      if (opt?.[0]) {
-        if (opt[1] !== undefined) { try { skip = parseGlue(opt[1], bodyUnits).width } catch { throw new Unsupported(`\\\\[${opt[1]}] in a tabular`) } }
-        rest = rest.slice(opt[0].length).trim()
-      }
-      if (/\\hline/.test(row)) throw new Unsupported("\\hline inside a row")
-      const cells = row.split("&")
-      if (cells.length > cols.length) throw new Unsupported("more cells than columns")
-      lines.push({ cells, ...(skip !== undefined ? { skip } : {}) })
-    }
-    return { cols, lines }
+    try { return tabularBox(lines, cols, env, pos) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
   }
 
   /**

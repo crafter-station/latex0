@@ -1,0 +1,17 @@
+% fixture: tabular/rules
+% tier: T3
+% engine: document
+% covers: a tabular in center: | and || rules, \hline, \multicolumn with its own rules, \cline, math and \textit entries
+\documentclass{article}
+\begin{document}
+\begin{center}
+\begin{tabular}{|l|c||r|}
+\hline
+\multicolumn{2}{|c|}{Head} & $x^2$ \\
+\hline
+a & \textit{b} & 1 \\ \cline{2-3}
+long cell & c & 22 \\
+\hline
+\end{tabular}
+\end{center}
+\end{document}

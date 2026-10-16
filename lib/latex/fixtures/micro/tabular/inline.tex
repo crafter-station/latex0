@@ -1,0 +1,16 @@
+% fixture: tabular/inline
+% tier: T3
+% engine: document
+% covers: tabulars in a paragraph ([t], [b] and centered), @{text} and *{n}{cols} columns, \\[skip] positive and negative, empty entries
+\documentclass{article}
+\begin{document}
+Text before \begin{tabular}[t]{l@{: }r}
+one & 1 \\
+two & 22
+\end{tabular} and between \begin{tabular}[b]{*{3}{c}}
+a & & c \\[4pt]
+ & b & \\[-2pt]
+x & y & z
+\end{tabular} and \begin{tabular}{@{}l|l@{}} p & q \\ r & s \end{tabular} after it, with more words to fill the line
+and wrap onto a second one.
+\end{document}
