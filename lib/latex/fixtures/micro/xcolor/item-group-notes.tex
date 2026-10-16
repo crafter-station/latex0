@@ -1,0 +1,29 @@
+% fixture: xcolor/item-group-notes
+% tier: T3
+% engine: document
+% covers: an item whose paragraph starts in a {\color …} group after a paragraph right after a heading: footnotes in the group see \@item's \everypar's \@clubpenalty, footnotes after it and the lines the \clubpenalty\@M from before; after a nested list, \@item's \everypar is still in force and footnotes see \@M; a list nested in a list starts with the \clubpenalty in force there
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+\section{Head}
+A paragraph right after the heading, which sets the club penalty for what follows it here.
+
+\begin{itemize}
+\item {\color{gray} colored words\footnote{A note with enough words in it to take two lines at the foot of the page, so that its club penalty shows.} and more} after the group\footnote{A note after the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.}
+\begin{itemize}
+\item nested
+\end{itemize}
+text after the nested list\footnote{Another note with enough words in it to take two lines at the foot of the page, so that its club penalty shows.} with more words to fill out a line or two of the item's text here.
+\end{itemize}
+
+\section{Two}
+A paragraph right after the heading that runs into the quote
+\begin{quote}
+first paragraph of the quote, which sets the club penalty
+
+text before the flushright
+\begin{flushright}
+{\color{blue} colored} words starting a paragraph of the flushright, with enough words in it to run over two lines or three of the quote here.
+\end{flushright}
+\end{quote}
+\end{document}

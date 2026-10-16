@@ -1,0 +1,53 @@
+% fixture: booktabs/rules
+% tier: T3
+% engine: document
+% covers: booktabs: \toprule, \midrule, \bottomrule (and with a width), \cmidrule with trims and widths, consecutive \cmidrule's and \morecmidrules, \addlinespace (default and given), \specialrule, rules in a row, in a float, in a \small table and in text
+\documentclass{article}
+\usepackage{booktabs}
+\begin{document}
+\begin{table}[h]
+\centering
+\begin{tabular}{lcr}
+\toprule
+Item & Qty & Price \\
+\midrule
+Apples & 3 & 1.20 \\
+Pears & 10 & 0.80 \\
+\cmidrule(lr){2-3}
+Total & 13 & 2.00 \\
+\bottomrule
+\end{tabular}
+\caption{Fruit.}
+\end{table}
+
+Text before
+\begin{tabular}[t]{@{}ll@{}}
+\toprule[1pt]
+\multicolumn{2}{c}{Head} \\
+\cmidrule(r){1-1}\cmidrule(l){2-2}
+a & b \\
+\morecmidrules
+\cmidrule[0.8pt]{1-2}
+c & d \\
+\addlinespace
+e & f \\
+\addlinespace[1em]
+\specialrule{.6pt}{2pt}{3pt}
+g & h \\
+\midrule\midrule
+i & j \\
+\bottomrule[2pt]
+\end{tabular} and after, with more words to fill the line and wrap onto the next one.
+
+\begin{center}
+{\small \begin{tabular}{cc}
+\toprule
+\addlinespace
+x & y \\
+\cmidrule{1-1}
+\cmidrule{2-2}
+z & w \\
+\bottomrule
+\end{tabular}}
+\end{center}
+\end{document}

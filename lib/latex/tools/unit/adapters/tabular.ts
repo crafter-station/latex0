@@ -1,8 +1,9 @@
 // The kernel's tabular (latex.ltx \@tabular, \@array, \@mkpream, \multicolumn, \hline, \cline): the column
-// preamble as \@mkpream builds it, the body's rows and rules, and the \halign they make.
+// preamble as \@mkpream builds it, the body's rows and rules, and the \halign they make. With booktabs:
+// \toprule, \midrule, \bottomrule, \cmidrule, \specialrule, \addlinespace and \morecmidrules.
 
 import { halignSpans, type AlignCell } from "../../../layout/align"
-import { emptyBox, FIL, FILL, glue, paramGlue, type BoxNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, FILL, glue, kern, paramGlue, type BoxNode, type Node } from "../../../layout/nodes"
 import { hpack, vpack } from "../../../layout/pack"
 import type { GlueSpec } from "../../../layout/dimen"
 import { appendToVlist } from "./paragraph"
@@ -80,8 +81,14 @@ export function preamble(spec: string): TabCol[] {
 
 /** a cell as typed: its text, or a \multicolumn */
 export type TabCell = { text: string } | { span: number; spec: string; text: string }
-/** a row (and the [skip] of the \\ ending it), an \hline, or a \cline{a-b} */
-export type TabLine = { cells: TabCell[]; skip?: string | number } | { hline: true } | { cline: [number, number] }
+/** a row (and the [skip] of the \\ ending it), an \hline, a \cline{a-b}, or a booktabs rule */
+export type TabLine = { cells: TabCell[]; skip?: string | number } | { hline: true } | { cline: [number, number] } | BooktabsLine
+/** booktabs's rules between rows: \toprule, \midrule, \bottomrule[width], \specialrule{width}{above}{below},
+ *  \addlinespace[space], \cmidrule[width](trim){a-b}, \morecmidrules */
+export type BooktabsLine =
+  | { btrule: "top" | "mid" | "bottom"; width?: string } | { special: [string, string, string] } | { addspace: string | null }
+  | { cmid: [number, number]; width?: string; trim: string } | { morecmid: true }
+const isBooktabs = (l: TabLine | undefined): l is BooktabsLine => !!l && ("btrule" in l || "special" in l || "addspace" in l || "cmid" in l || "morecmid" in l)
 
 /** the text up to `stop` at brace depth 0 (not \stop), and where it ends */
 function upTo(s: string, i: number, stop: string): number {
@@ -117,6 +124,21 @@ export function tabularLines(body: string): TabLine[] {
         if (a < 1 || b < a) throw new TabularUnsupported(`\\cline{${a}-${b}}`)
         lines.push({ cline: [a, b] }); rest = rest.slice(c[0].length); continue
       }
+      // booktabs (\@ifnextchar skips spaces before an optional argument)
+      const r = rest.match(/^\\(toprule|midrule|bottomrule)(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*/)
+      if (r) { lines.push({ btrule: r[1].slice(0, -4) as "top", ...(r[2] !== undefined ? { width: r[2] } : {}) }); rest = rest.slice(r[0].length); continue }
+      const sr = rest.match(/^\\specialrule\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*/)
+      if (sr) { lines.push({ special: [sr[1], sr[2], sr[3]] }); rest = rest.slice(sr[0].length); continue }
+      const as = rest.match(/^\\addlinespace(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*/)
+      if (as) { lines.push({ addspace: as[1] ?? null }); rest = rest.slice(as[0].length); continue }
+      const cm = rest.match(/^\\cmidrule(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*(?:\(([^)]*)\))?\s*\{\s*(\d+)\s*-\s*(\d+)\s*\}\s*/)
+      if (cm) {
+        const a = Number(cm[3]), b = Number(cm[4])
+        if (a < 1 || b < a || !/^[lr]*$/.test(cm[2] ?? "")) throw new TabularUnsupported(`\\cmidrule(${cm[2] ?? ""}){${a}-${b}}`)
+        lines.push({ cmid: [a, b], trim: cm[2] ?? "", ...(cm[1] !== undefined ? { width: cm[1] } : {}) }); rest = rest.slice(cm[0].length); continue
+      }
+      const mc = rest.match(/^\\morecmidrules(?![A-Za-z])\s*/)
+      if (mc) { lines.push({ morecmid: true }); rest = rest.slice(mc[0].length); continue }
       break
     }
     if (!rest) break
@@ -128,7 +150,7 @@ export function tabularLines(body: string): TabLine[] {
     const opt = rest.match(/^\*?\s*(?:\[([^\]]*)\])?/)!
     if (opt[1] !== undefined) skip = opt[1]
     rest = rest.slice(opt[0].length).trim()
-    if (/\\(?:hline|cline)(?![A-Za-z])/.test(row)) throw new TabularUnsupported("\\hline or \\cline inside a row")
+    if (/\\(?:hline|cline|toprule|midrule|bottomrule|cmidrule|specialrule|addlinespace|morecmidrules)(?![A-Za-z])/.test(row)) throw new TabularUnsupported("a rule inside a row")
     const cells: TabCell[] = []
     for (let i = 0; ;) {
       const e = upTo(row, i, "&")
@@ -158,6 +180,8 @@ export interface TabularEnv {
   cell(text: string, state: { spaceFactor: number }): Node[]
   /** a \\[skip]'s dimension */
   skip(text: string): number
+  /** booktabs's dimensions, when the document loads it (set in the font of its \usepackage) */
+  booktabs?: { heavyrulewidth: number; lightrulewidth: number; cmidrulewidth: number; belowrulesep: number; belowbottomsep: number; aboverulesep: number; abovetopsep: number; cmidrulesep: number; cmidrulekern: number; defaultaddspace: number }
 }
 
 /**
@@ -186,7 +210,47 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
   }
   const rows: AlignCell[][] = []
   const vlist: ({ row: number } | Node)[] = []
+  // booktabs: \@lastruleclass (0 after a row; 1 after a rule; 2 after \specialrule or \addlinespace) and \@belowrulesep
+  let lastClass = 0, belowSep = 0
+  /** \@BTendrule: the class the next token makes, and the space below unless a rule of class 1 follows */
+  const endRule = (cls: number, li: number) => {
+    const next = lines[li + 1]
+    lastClass = isBooktabs(next) && !("morecmid" in next) ? cls : 0
+    if (lastClass !== 1) vlist.push(glue(belowSep))
+  }
   lines.forEach((line, li) => {
+    if (isBooktabs(line)) {
+      const bt = env.booktabs
+      if (!bt) throw new TabularUnsupported("booktabs rules without \\usepackage{booktabs}")
+      if ("morecmid" in line) return // \noalign{\relax}
+      if ("addspace" in line) { belowSep = line.addspace === null ? bt.defaultaddspace : env.skip(line.addspace); endRule(2, li); return }
+      if ("cmid" in line) { // \multispan(a-1)&\multispan(b-a+1) \unskip\hskip kern {\leaders\hrule\hfill\kern\z@}\hskip kern \cr
+        const [a, b] = line.cmid
+        if (b > cols.length) throw new TabularUnsupported(`\\cmidrule{${a}-${b}} in ${cols.length} columns`)
+        const w = line.width === undefined ? bt.cmidrulewidth : env.skip(line.width)
+        if (lastClass === 0) vlist.push(glue(bt.aboverulesep))
+        const r: AlignCell[] = a > 1 ? [{ nodes: [], span: a - 1 }] : []
+        r.push({ nodes: [glue(line.trim.includes("l") ? bt.cmidrulekern : 0), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: w, depth: 0 } } }, kern(0, true), glue(line.trim.includes("r") ? bt.cmidrulekern : 0)], span: b - a + 1 })
+        vlist.push({ row: rows.length }); rows.push(r)
+        const next = lines[li + 1] // \@xcmidrule
+        if (next && "cmid" in next) { vlist.push(glue(-w)); lastClass = 1 }
+        else if (next && "morecmid" in next) { vlist.push(glue(bt.cmidrulesep)); lastClass = 1 }
+        else { vlist.push(glue(bt.belowrulesep)); lastClass = 0 }
+        return
+      }
+      // \toprule, \midrule, \bottomrule (class 1) and \specialrule (class 2): \@BTrule, \hrule, \@BTendrule
+      const special = "special" in line
+      const cls = special ? 2 : 1
+      const above = special ? env.skip(line.special[1]) : line.btrule === "top" ? bt.abovetopsep : bt.aboverulesep
+      belowSep = special ? env.skip(line.special[2]) : line.btrule === "bottom" ? bt.belowbottomsep : bt.belowrulesep
+      const w = special ? env.skip(line.special[0]) : line.width !== undefined ? env.skip(line.width) : line.btrule === "mid" ? bt.lightrulewidth : bt.heavyrulewidth
+      if (cls === 2 || lastClass === 0) vlist.push(glue(above))
+      else if (lastClass === 1) vlist.push(glue(env.doublerulesep))
+      vlist.push({ kind: "rule", width: null, height: w, depth: 0 })
+      endRule(cls, li)
+      return
+    }
+    lastClass = 0
     if ("hline" in line) {
       // (fin_align gives the rule the alignment's width, § 806)
       if (li > 0 && "hline" in lines[li - 1]) vlist.push(glue(env.doublerulesep), glue(-arw))
