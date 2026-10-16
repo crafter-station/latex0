@@ -107,7 +107,7 @@ export function makeDocument(r: () => number): string {
   const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])])
   const lstKeys = (env: boolean) => { // (no [ ] in a value of the environment's [options])
     const keys: string[] = []
-    if (r() < 0.6) keys.push(pick(["language=Python", "language=Python", env ? "language=Python" : "language={[2]Python}", "language="]))
+    if (r() < 0.6) keys.push(pick(["language=Python", "language=Python", env ? "language=Python" : "language={[2]Python}", "language=", "language=Java", "language=C", "language=C++", env ? "language=C++" : "language={[11]C++}"]))
     if (r() < 0.4) keys.push(`basicstyle=${lstStyle(true)}`)
     if (r() < 0.2) keys.push(`keywordstyle=${env ? "" : pick(["", "[2]", "[1]"])}${lstStyle(false) || "\\upshape"}`)
     if (r() < 0.2) keys.push(`commentstyle=${lstStyle(false)}`)
@@ -116,13 +116,28 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.25) keys.push(`columns=${pick(["fixed", "flexible", "fullflexible", env ? "fixed" : "[c]fixed"])}`)
     if (r() < 0.2) keys.push(`showstringspaces=${pick(["false", "true"])}`)
     if (r() < 0.1) keys.push(`tabsize=${pick(["2", "4", "8", "3"])}`)
+    if (r() < 0.25) keys.push(`numbers=${pick(["left", "left", "right", "none"])}`)
+    if (r() < 0.1) keys.push(`numberstyle=${pick(["\\tiny", "\\footnotesize", "\\scriptsize\\ttfamily", "\\itshape"])}`)
+    if (r() < 0.1) keys.push(`numbersep=${pick(["5pt", "1em", "12pt"])}`)
+    if (r() < 0.05) keys.push(`stepnumber=${pick(["2", "3", "0"])}`)
+    if (r() < 0.05) keys.push(`firstnumber=${pick(["3", "10", "auto"])}`)
+    if (r() < 0.03) keys.push("numberblanklines=false", ...(r() < 0.5 ? ["numberfirstline=true"] : []))
+    if (r() < 0.3) keys.push(`frame=${pick(["single", "single", "lines", "tb", "leftline", "topline", "bottomline", "none", "trb", "lr", "tbl"])}`)
+    if (r() < 0.08) keys.push(`framerule=${pick(["0.8pt", "1pt", "0.2pt"])}`)
+    if (r() < 0.08) keys.push(`framesep=${pick(["5pt", "1em", "0pt"])}`)
+    if (r() < 0.05) keys.push(`rulesep=${pick(["4pt", "1pt"])}`)
+    if (r() < 0.1) keys.push(`xleftmargin=${pick(["2em", "10pt", "15pt"])}`)
+    if (r() < 0.05) keys.push(`xrightmargin=${pick(["1em", "10pt"])}`)
+    if (r() < 0.05) keys.push(`framexleftmargin=${pick(["3pt", "1em"])}`)
     return keys
   }
-  if (lst) out.push("\\usepackage{listings}", ...(r() < 0.5 ? [`\\lstset{${lstKeys(false).join(",")}}`] : []))
-  const code = () => {
+  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",") : ""
+  if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
+  const code = (hash: boolean) => { // (C's directives are not laid out yet)
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",
       "0", "42", "3.14", "=", "==", "+", "-", "*", "/", "<", ">", "(", ")", "[", "]", "{", "}", ":", ",", ".", ";", "!", "?", "@", "$", "%", "&", "|", "^", "~", "`", "\\", "\\\\", "_",
-      "'abc'", "'a b'", "\"it's\"", "\"x\\\"y\"", "'q\\'s'", "# note", "# a \"comment\" here", "\"\"\"doc\"\"\"", "'''", "fi", "ff", "--", "<<", "''", "``"])
+      "'abc'", "'a b'", "\"it's\"", "\"x\\\"y\"", "'q\\'s'", "# note", "# a \"comment\" here", "\"\"\"doc\"\"\"", "'''", "fi", "ff", "--", "<<", "''", "``",
+      "//", "// line", "/*", "*/", "/* block */", "/*/", "class", "int", "void", "public", "static", "bool", "char", "new", "nullptr", "template<T>", "std::cout"]).replace(/#/g, hash ? "#" : "@")
     const sep = () => pick([" ", " ", " ", "", "", "  ", "\t", "   "])
     const lines: string[] = []
     for (let n = 1 + Math.floor(r() * 12); n > 0; n--) {
@@ -229,7 +244,7 @@ export function makeDocument(r: () => number): string {
       if (!afterPar || r() < 0.5) out.push("")
       const keys = lstKeys(true)
       if (cls === "article" && !hyper && r() < 0.3) keys.push(`caption={${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`label=lst:${b}`] : []))
-      out.push(`\\begin{lstlisting}${keys.length ? `[${keys.join(",")}]` : ""}`, ...code(), "\\end{lstlisting}")
+      out.push(`\\begin{lstlisting}${keys.length ? `[${keys.join(",")}]` : ""}`, ...code(!/language=\{?(\[\w+\])?C/.test(keys.join(",") + lstsetKeys)), "\\end{lstlisting}")
       afterPar = false
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }
     } else {

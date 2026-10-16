@@ -1,0 +1,18 @@
+% fixture: listings/c-cpp
+% tier: T3
+% engine: document
+% covers: lstlisting: C and C++ keywords and comments in typewriter
+\documentclass{article}
+\usepackage{listings}
+\lstset{basicstyle=\ttfamily}
+\begin{document}
+Text.
+\begin{lstlisting}[language=C]
+int main(void) { /* c */ return 0; } // x
+  char *s = "a\\"; /* ** / */ unsigned long y = sizeof(s);
+\end{lstlisting}
+\begin{lstlisting}[language=C++]
+class A { public: virtual void f() const = 0; }; // c++
+template<typename T> using V = T*; bool b = true && !false;
+\end{lstlisting}
+\end{document}

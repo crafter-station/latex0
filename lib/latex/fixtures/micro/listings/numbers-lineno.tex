@@ -1,0 +1,39 @@
+% fixture: listings/numbers-lineno
+% tier: T3
+% engine: document
+% covers: lstlisting: firstnumber=auto's step phase from the last listing's \lst@lineno
+\documentclass{article}
+\usepackage{listings}
+\lstset{numbers=left,stepnumber=3}
+\begin{document}
+\begin{lstlisting}
+a
+b
+c
+d
+e
+\end{lstlisting}
+\begin{lstlisting}
+a
+b
+c
+d
+e
+\end{lstlisting}
+\begin{lstlisting}
+a
+b
+c
+d
+e
+f
+g
+\end{lstlisting}
+\begin{lstlisting}
+a
+b
+c
+d
+e
+\end{lstlisting}
+\end{document}

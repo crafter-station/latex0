@@ -1,0 +1,18 @@
+% fixture: listings/frame-margins
+% tier: T3
+% engine: document
+% covers: lstlisting: frame=trb, xleftmargin, xrightmargin, framexleftmargin, numbers=right
+\documentclass{article}
+\usepackage{listings}
+
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[frame=trb,xleftmargin=10pt,xrightmargin=1em,framexleftmargin=3pt,numbers=right]
+ab  cd
+
+  x = 1
+last
+\end{lstlisting}
+Text after.
+
+\end{document}

@@ -1,0 +1,25 @@
+% fixture: listings/numbers-left
+% tier: T3
+% engine: document
+% covers: lstlisting: numbers=left (\llap, numbersep 10pt), empty lines numbered
+\documentclass{article}
+\usepackage{listings}
+
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[numbers=left]
+ab
+
+cd ef
+  x = 1
+
+
+y
+z
+w
+last
+
+\end{lstlisting}
+Text after.
+
+\end{document}

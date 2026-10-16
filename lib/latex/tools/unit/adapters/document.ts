@@ -39,7 +39,7 @@ import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
-import { lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstOptions } from "./listings"
+import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstFrame, type LstOptions } from "./listings"
 import { fontAt, fontDeclaration, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
@@ -377,14 +377,14 @@ class VerticalList {
   }
 
   /** A paragraph's lines (and what follows them: penalties, insertions) after \parskip. */
-  paragraph(vlist: Node[], parskip: GlueSpec, baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip) {
+  paragraph(vlist: Node[], parskip: GlueSpec, baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip, lineskiplimit = this.k.dimens.lineskiplimit) {
     this.nodes.push(spec("parskip", parskip), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
-    this.lines(vlist, baselineskip, lineskip)
+    this.lines(vlist, baselineskip, lineskip, lineskiplimit)
   }
   /** lines of a paragraph (no \parskip: the part after a display) */
-  lines(vlist: Node[], baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip) {
+  lines(vlist: Node[], baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip, lineskiplimit = this.k.dimens.lineskiplimit) {
     for (const n of vlist) {
-      if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, lineskip, this.k.dimens.lineskiplimit)
+      if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, lineskip, lineskiplimit)
       else this.nodes.push(n)
     }
   }
@@ -640,7 +640,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     return out
   }
   let floats = 0 // floats so far
-  let listingCount = 0, negListing = 0 // \c@lstlisting, \lst@neglisting
+  let listingCount = 0, negListing = 0, lstLineno = 0 // \c@lstlisting, \lst@neglisting, \lst@lineno
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
   const href = (counter: string, n: number) => (cls === "article" || cls === "letter" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
@@ -1272,13 +1272,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     const fonts = {
       font(style: string) { const { size, a } = styleOf(style); return { font: selectFont(k, size, a), tt: a.fam === "cmtt", bold: a.ser === "bx", italicShape: a.shape !== "n", size } },
-      /** TS1 from the class's table; OML and OMS by omlcmm.fd and omscmsy.fd (bold: cmmib, cmbsy) */
+      /** TS1 from the class's table; OML and OMS by omlcmm.fd and omscmsy.fd (bold: cmmib, cmbsy, 10pt from 10 up) */
       other(style: string, enc: "TS1" | "OML" | "OMS") {
         const { size, a } = styleOf(style)
         if (enc === "TS1") return selectFont(k, size, { ...a, enc: "TS1" })
         const at = k.sizes[size].font.at, pt = at / 65536
-        const step = pt < 6 ? 5 : pt < 7 ? 6 : pt < 8 ? 7 : pt < 9 ? 8 : pt < 10 ? 9 : enc === "OML" && a.ser === "m" && pt >= 12 ? 12 : 10
-        return fontAt((enc === "OML" ? (a.ser === "bx" ? "cmmib" : "cmmi") : a.ser === "bx" ? "cmbsy" : "cmsy") + step, at)
+        // omlcmr.fd and omscmr.fd: cmr's bold to cmm/b and cmsy/b; no cmss family: \DeclareFontSubstitution's m series
+        const bold = a.ser === "bx" && a.fam === "cmr"
+        const step = pt < 6 ? 5 : pt < 7 ? 6 : pt < 8 ? 7 : pt < 9 ? 8 : pt < 10 ? 9 : enc === "OML" && !bold && pt >= 12 ? 12 : 10
+        return fontAt((enc === "OML" ? (bold ? "cmmib" : "cmmi") : bold ? "cmbsy" : "cmsy") + step, at)
       },
     }
     const base = styleOf(o.basicstyle), baseFont = selectFont(k, base.size, base.a)
@@ -1320,41 +1322,87 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), k.sizes.normalsize.baselineskip)
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
     } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
-    // \lst@frameMakeBoxV without a frame: \llap{\rlap{block}\vrule\kern\lst@frametextsep\kern\lst@framexleftmargin}
-    // \rlap{\kern-\lst@framexleftmargin block(\linewidth) \kern\lst@frametextsep \rlap{block}\vrule}, the struts' size
-    const frame = (): BoxNode => {
-      const rule = (): Node => ({ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth })
-      const block = (w: number) => hpack([rule(), kern(w, true)])
-      const hss = () => glue(0, 65536, FIL, 65536, FIL)
-      const llap = hpack([hss(), hpack([block(0), hss()], { exactly: 0 }), hpack([rule()]), kern(196608, true), kern(0, true)], { exactly: 0 })
-      const rlap = hpack([kern(0, true), block(hsize), kern(196608, true), hpack([block(0), hss()], { exactly: 0 }), hpack([rule()]), hss()], { exactly: 0 })
-      return hpack([llap, rlap])
+    // the lineshape and frames aspects: \linewidth less xleftmargin and xrightmargin, \@totalleftmargin plus
+    // xleftmargin, \lst@parshape (\parshape 1 for every paragraph); the frame's dimensions in the listing's font
+    const units = { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] }
+    const dim = (key: keyof LstOptions) => { try { return parseDimen(o[key] as string, units) } catch { throw new Unsupported(`${key}=${o[key]}`) } }
+    const xleft = dim("xleftmargin"), lw = hsize - xleft - dim("xrightmargin")
+    const parShape: [number, number][] = [[xleft, lw]]
+    const shapes = lstFrameShapes(o.frame)
+    const fr: LstFrame = { tshape: shapes.t, bshape: shapes.b, lshape: shapes.l, rshape: shapes.r, rule: dim("framerule"), sep: dim("framesep"), rulesep: dim("rulesep"), xleft: dim("framexleftmargin"), xright: dim("framexrightmargin") }
+    const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
+    let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
+    const frameParagraph = (box: BoxNode) => {
+      // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
+      if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
+      const p = paragraphInput("", k, "normalsize", doc, { start: [box], parShape, amsmath, clubPenalty: v.club })
+      const lb = lineBreak(p.list, p.params)
+      decisions.push(...p.notes, lb.trace)
+      v.paragraph(lb.vlist, dimen(0), sz.baselineskip, lineskip, lineskiplimit)
     }
-    // each line: \par\noindent (\everypar: \lst@parshape, the frame box) \hbox{}, its boxes
+    // \lst@frameInit's top: \par\lst@parshape, \vskip\@tempdima\vskip\lineskip if \@tempdima = \ht - \baselineskip is
+    // negative (\prevdepth would count only from 256pt), \noindent\box\z@\par; then \lineskiplimit\maxdimen \lineskip\z@
+    const top = lstFrameH(fr, lw, "T")
+    if (top) {
+      const t = top.height - sz.baselineskip.width
+      if (t < 0) { v.vskip(dimen(t)); v.vskip(k.glue.lineskip) }
+      frameParagraph(top)
+      lineskip = dimen(0); lineskiplimit = 1073741823
+    }
+    // line numbers: \everypar's \refstepcounter{lstnumber} and \lst@SkipOrPrintLabel (every \lst@stepnumber-th from
+    // \lst@firstnumber), \lst@PlaceNumber: \llap{\normalfont numberstyle n \kern numbersep} (right: \rlap after \linewidth)
+    // (the Init hook reads firstnumber=auto's \lst@lineno before InitVars resets it: the last listing's)
+    const F = o.firstnumber ?? 1, S = o.stepnumber, F0 = o.firstnumber ?? lstLineno
+    let lstnumber = F - 1, numberFirst = o.numberfirstline
+    let skip = S > 0 ? F0 - Math.trunc(F0 / S) * S : 0
+    if (S > 0 && skip > 0) skip -= S
+    const sizes = [...o.basicstyle.matchAll(/\\(tiny|scriptsize|footnotesize|small|normalsize|large|Large)(?![a-zA-Z])/g)].map((m) => m[0]).join("")
+    const numberStyle = styleOf(sizes + o.numberstyle), numberFont = selectFont(k, numberStyle.size, numberStyle.a)
+    let numbersep = 0
+    try { numbersep = parseDimen(o.numbersep, { em: numberFont.params[QUAD], ex: numberFont.params[X_HEIGHT] }) } catch { throw new Unsupported(`numbersep=${o.numbersep}`) }
+    const number = (empty: boolean): Node[] => {
+      lstnumber++
+      if (o.numbers === "none" || S === 0) return []
+      if (empty && !o.numberblanklines && skip === 0) skip -= S // \lsthk@OnEmptyLine
+      let place = false
+      if (skip === 0) { skip -= S; place = true; numberFirst = false } else if (numberFirst) { place = true; numberFirst = false }
+      skip++
+      if (!place) return []
+      const digits: Node[] = []
+      appendText(digits, String(lstnumber), numberFont, { spaceFactor: 1000 }, false)
+      const hss = glue(0, 65536, FIL, 65536, FIL)
+      return [o.numbers === "left" ? hpack([hss, ...digits, kern(numbersep, true)], { exactly: 0 }) : hpack([kern(lw, true), kern(numbersep, true), ...digits, hss], { exactly: 0 })]
+    }
+    // each line: \par\noindent (\everypar: \lst@parshape, the frame box, the number) \hbox{}, its boxes
     let line: Node[] | null = null, lineCount = 0
     if (!captioned) negListing--
     const breakLine = (start: Node[]) => {
-      const p = paragraphInput("", k, "normalsize", doc, { start, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
+      const p = paragraphInput("", k, "normalsize", doc, { start, parShape, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       return lb.vlist
     }
-    const endLine = () => { if (line) v.paragraph(breakLine(line), dimen(0), sz.baselineskip); line = null }
+    const endLine = () => { if (line) v.paragraph(breakLine(line), dimen(0), sz.baselineskip, lineskip, lineskiplimit); line = null }
     for (const e of events) {
       // empty lines at the end are paragraphs in a \vbox that is thrown away, while the last line's is still open
-      if ("newline" in e && e.discarded) { breakLine([frame(), emptyBox("hlist", 0)]); lineCount++ }
-      else if ("newline" in e) { endLine(); line = [frame(), emptyBox("hlist", 0)]; lineCount++ }
-      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([glue(0, 65536, FIL, 65536, FIL), frame(), kern(0, true), kern(0, true)], { exactly: 0 })], replaceCount: 0 })
+      if ("newline" in e && e.discarded) { breakLine([frame(), ...number(!!e.empty), emptyBox("hlist", 0)]); lineCount++ }
+      else if ("newline" in e) { endLine(); line = [frame(), ...number(!!e.empty), emptyBox("hlist", 0)]; lineCount++ }
+      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([glue(0, 65536, FIL, 65536, FIL), frame(), kern(0, true), kern(-xleft, true)], { exactly: 0 })], replaceCount: 0 })
       else line!.push(e.node)
     }
     endLine()
-    if (lineCount) refs.href = `lstnumber.${captioned || negListing}.${lineCount}` // \theHlstnumber
+    if (lineCount) refs.href = `lstnumber.${captioned || negListing}.${lstnumber}` // \theHlstnumber
+    lstLineno = listings[b.n].lines.length
     // \lst@DeInit: \par\removelastskip, \par\penalty-50\vspace\lst@belowskip; \lst@doendpe
     const last = v.lastSkip
     if (last.width !== 0) v.vskip(negate(last))
+    // \lst@frameExit: \everypar{}\par\lst@parshape\nointerlineskip\noindent\box\z@ (ended by the \par below)
+    const bottom = lstFrameH(fr, lw, "B")
+    if (bottom) { v.prevDepth = IGNORE_DEPTH; frameParagraph(bottom) }
     v.nodes.push(penalty(-50))
     vspace(medskip)
     v.endpePar = true
+    v.afterheadingEverypar = false // \lst@doendpe's \everypar replaces it
   }
 
   function floatBlock(b: Extract<Block, { kind: "float" }>) {

@@ -1,0 +1,18 @@
+% fixture: listings/frame-tb
+% tier: T3
+% engine: document
+% covers: lstlisting: frame=tb with framerule, framesep, a small basicstyle and a caption
+\documentclass{article}
+\usepackage{listings}
+\lstset{frame=tb,framerule=1pt,framesep=5pt,basicstyle=\small}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[caption={Framed}]
+ab  cd
+
+  x = 1
+last
+\end{lstlisting}
+Text after.
+
+\end{document}

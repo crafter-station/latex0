@@ -1,0 +1,18 @@
+% fixture: listings/frame-bl
+% tier: T3
+% engine: document
+% covers: lstlisting: frame=bl with rulesep
+\documentclass{article}
+\usepackage{listings}
+
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[frame=bl,rulesep=4pt]
+ab  cd
+
+  x = 1
+last
+\end{lstlisting}
+Text after.
+
+\end{document}
