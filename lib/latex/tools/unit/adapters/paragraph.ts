@@ -32,7 +32,7 @@ import { classData, documentClass } from "../../classes"
 import { dataFont } from "../../fonts"
 import type { Adapter } from "./index"
 import { endDocument, makeColumns } from "./output"
-import { refLink } from "./hyperref"
+import { anchor, refLink, spotAnchor, tocLink } from "./hyperref"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -92,6 +92,8 @@ export interface Refs {
   writes: { node: Node; key: string; label: string; href: string }[]
   /** hyperref: \ref and \pageref are links to the label's anchor */
   hyper?: boolean
+  /** hyperref's \c@Hfootnote: footnotes so far, never reset */
+  hfootnotes?: number
 }
 
 /** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
@@ -306,7 +308,7 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, ctx: PieceContext) {
+function footnoteInsert(src: string, n: number, ctx: PieceContext, hn = 0) {
   const { k } = ctx
   const fs: SizeCommand = "footnotesize"
   const font = sizeFont(k, fs)
@@ -323,6 +325,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext) {
   const markBox = hpack([hss(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
+  if (hn) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut)) // hyperref's \hyper@@anchor after the strut
   appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
@@ -360,7 +363,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
     if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state); ctx.ignoreSpaces = false; continue }
-    if (p.kind === "currentlabel") { if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href } continue }
+    if (p.kind === "currentlabel") {
+      if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href }
+      if (doc.refs?.hyper) list.push(...anchor(p.href, k.sizes[size].baselineskip.width, "h", list.at(-1))) // hyperref's anchor where it stands
+      continue
+    }
     ctx.ignoreSpaces = false
     if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
@@ -431,8 +438,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
       const n = ++doc.footnote
-      list.push(penalty(10000), footnoteMark(n, k, size, ctx.amsmath))
-      const { ins, trace } = footnoteInsert(p.src, n, ctx)
+      // hyperref: the mark in a link to the note's anchor (\hyper@linkstart{link}{Hfootnote.n} … \hyper@linkend)
+      const hn = doc.refs?.hyper ? (doc.refs.hfootnotes = (doc.refs.hfootnotes ?? 0) + 1) : 0
+      const mark = footnoteMark(n, k, size, ctx.amsmath)
+      list.push(penalty(10000), hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : mark)
+      const { ins, trace } = footnoteInsert(p.src, n, ctx, hn)
       list.push(ins)
       ctx.notes.push(trace)
     }

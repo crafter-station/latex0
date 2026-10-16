@@ -38,7 +38,7 @@ import { geometry, GeometryUnsupported } from "./geometry"
 import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
-import { anchor, Bookmarks, documentStart, labelName, pageAnchor, sectionAnchorBox, tocLink, type Bookmark } from "./hyperref"
+import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
 import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
@@ -480,14 +480,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const v = new VerticalList(k)
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
   /** \Hy@linkcounter (anchors of unnumbered headings) and \Hy@writebookmark's state */
-  let linkcounter = 0
+  let linkcounter = 0, items = 0
   const bookmarks = new Bookmarks()
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
   if (hyper) {
-    // features whose hyperref anchors and links are not modeled yet
-    const m = body.replace(/(^|[^\\])%.*$/gm, "$1").match(/\\footnote\b|\\begin\{(?:enumerate|figure|table|equation|align)\}|\\refstepcounter\b/)
-    if (m) throw new Unsupported(`${m[0]} with hyperref`)
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
     v.nodes.push(...anchor("Doc-Start", k.sizes.normalsize.baselineskip.width, "v", lastNode()))
@@ -611,6 +608,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         if (cmd === "refstepcounter") { // \@currentlabel and \@currentHref: in text, where the command stands
           if (inText) return `\\LXcurrentlabel{${theCounter(name)}}{${name}.${theCounter(name)}}{}`
           refs.label = theCounter(name); refs.href = `${name}.${theCounter(name)}`
+          if (hyper) v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
         }
         if (arg !== undefined) return `{${arg}}`
       }
@@ -672,7 +670,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         const outer = v.club
         // (the heading's own lines, before the first display, are inside that group)
         paragraphWithDisplays(text, false, grouped ? outer : 10000, grouped ? outer : 10000, start, b.unskip, 10000)
-        if (!grouped) { v.club = 10000; v.afterheadingEverypar = true } // the next paragraph's \everypar sets \@clubpenalty
+        // the next paragraph's \everypar (still the run-in heading's) sets \@clubpenalty; when a display started
+        // this one, its \clubpenalty\@M ended with the display's group
+        if (!grouped) v.club = 10000
+        v.afterheadingEverypar = true
         return
       }
       if (b.noindent) {
@@ -785,12 +786,19 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       let eqno: BoxNode | null = null
       if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
         mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
+        // hyperref: \refstepcounter's anchor in a math group before it (an ord noad)
+        if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
         const l: Node[] = []
         appendText(l, `(${the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
         l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
         appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
         eqno = hpack(newlabel ? [hpack(l), newlabel] : [hpack(l)]); eqno.display = true
       } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
+        // hyperref's \equation: \mathopen{\hyper@anchorstart} at the start, \hyper@anchorend (and \nobreak) at the end
+        if (hyper) {
+          mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: [HS()] }, sup: null, sub: null })
+          mlist.push(HA(k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
+        }
         const l: Node[] = []
         appendText(l, `(${the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
         eqno = hpack([hpack(l)]); eqno.display = true
@@ -841,6 +849,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       const last = l[l.length - 1] as CharNode
       l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
       appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+      // hyperref: the anchor between the strut and the number, at \baselineskip plus \jot
+      if (hyper) { const s = strutBox(); return hpack([s, ...anchor(href("equation", counters.equation), sz.baselineskip.width + k.dimens.jot, "h", s), hpack(l)]) }
       return hpack([strutBox(), hpack(l)])
     })
     // \measure@
@@ -1031,6 +1041,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
           const [v1, v2, v3] = [...ctx.enums, n]
           refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
           refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
+          // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
+          if (hyper) { refs.href = `Item.${++items}`; v.nodes.push(...anchor(refs.href, k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
           if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
           appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
         }
@@ -1120,7 +1132,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       else throw new Unsupported(`float option ${c}`)
     }
     const content: Node[] = []
-    let pd: number | null = IGNORE_DEPTH, number = 0
+    let pd: number | null = IGNORE_DEPTH, number = 0, captionName = ""
     const hsize = k.dimens.columnwidth
     const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\begin\{tabular\}\{[^}]*\}[^]*?\\end\{tabular\}|\S+/g) ?? []
     let centered = false
@@ -1167,26 +1179,30 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         number = ++counters[b.env]
         refs.href = href(b.env, number) // global; \@currentlabel ends with the float's group
         const ext = b.env === "figure" ? "lof" : "lot"
-        content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{}\\protected@file@percent }}` })
+        content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
+        captionName = labelName(text) // nameref drops a final period
         content.push(glue(k.dimens.abovecaptionskip))
         // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
         const l: Node[] = [], state = { spaceFactor: 1000 }
         appendText(l, b.env === "figure" ? "Figure" : "Table", romanFont, state, false)
         l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
-        appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
+        // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
+        if (hyper) { appendText(l, `${the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1))); appendText(l, text, romanFont, state, false) }
+        else appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
         const cap = hpack(l)
         if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
           const start: Node[] = [hpack([])]
           appendText(start, b.env === "figure" ? "Figure" : "Table", romanFont, { spaceFactor: 1000 }, false)
           start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
-          floatParagraph(start, `${the(number)}: ${text}`, false) // \@caption's \@parboxrestore undoes \centering
+          if (hyper) { appendText(start, `${the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1))); floatParagraph(start, text, false) }
+          else floatParagraph(start, `${the(number)}: ${text}`, false) // \@caption's \@parboxrestore undoes \centering
         } else pd = appendToVlist(content, hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
         content.push(glue(k.dimens.belowcaptionskip))
         continue
       }
       // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
       m = it.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
-      if (m && number) { content.push(labelWrite(refs, m[1], the(number))); continue }
+      if (m && number) { content.push(labelWrite(refs, m[1], the(number), refs.href, hyper ? captionName : refs.name)); continue } // nameref: the caption
       if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
       throw new Unsupported(`${it} in a ${b.env}`)
     }
@@ -1561,7 +1577,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       const indent = b.level === 5 ? k.dimens.parindent : 0
       const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, k.sizes.normalsize.baselineskip.width)] : [])]
       const head = paragraphInput(title, k, "normalsize", doc, { start, font: k.sizes.normalsize.bold, amsmath }).list
-      if (!b.star) head.push(...contentsWrites(b.level, null, title, anchorName, false))
+      if (!b.star) head.push(...contentsWrites(b.level, null, title, refs.href, false)) // (\@currentHref when the paragraph starts)
       if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip
       head.push(glue(romanFont.params[QUAD])) // \hskip -\@tempskipa
       return head

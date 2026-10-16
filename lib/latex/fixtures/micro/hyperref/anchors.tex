@@ -1,0 +1,20 @@
+% fixture: hyperref/anchors
+% tier: T3
+% engine: document
+% covers: hyperref anchors beyond headings: enumerate items (Item.n, a counter of its own, on the vertical list), footnote marks in a link to Hfootnote.n and its \hyper@@anchor after the strut, amsmath's equation (the anchor in a math group) and align rows (in the tag box, at \baselineskip plus \jot), \refstepcounter in a paragraph, figure and table captions (H.S H.R after "n: ", the lof and lot lines with the anchor, nameref's caption), \ref links to all of them
+% issue: #30
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\newcounter{thm}
+\begin{document}
+\section{S}
+Word\footnote{Note text.} more.
+\begin{enumerate}\item one\label{i1} \item[x] two \item three\end{enumerate}
+\begin{equation} a=b \label{e1}\end{equation}
+\begin{align} c&=d \\ e&=f \nonumber \\ g&=h \end{align}
+Text \refstepcounter{thm}\label{t1} after \ref{i1} \ref{e1} \ref{f1} \ref{t1}.
+
+\begin{figure}[h]\centering\caption{Cap}\label{f1}\end{figure}
+
+\end{document}

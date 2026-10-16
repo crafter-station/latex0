@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 117,
-  "exact": 112,
+  "fixtures": 120,
+  "exact": 115,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 5,
-  "glyphs": 148634
+  "glyphs": 171015
  },
  "areas": [
   {
@@ -36,8 +36,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "hyphenation",
@@ -66,8 +66,8 @@
   },
   {
    "area": "sections",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "templates",
@@ -591,6 +591,28 @@
    "glyphs": 3807,
    "covers": "footnotes in a two-sided 12pt book: \\skip\\footins and \\footnotesep at 12pt, flush-bottom pages stretching around the notes, several notes on a page, numbering across pages",
    "issue": "#115"
+  },
+  {
+   "id": "hyperref/anchors-plain",
+   "file": "micro/hyperref/anchors-plain.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "hyperref without amsmath: \\equation's \\mathopen{\\hyper@anchorstart} and its \\hyper@anchorend at the formula's end (with \\label's write between), Item.n across nested lists and a \\section*, two footnotes, \\refstepcounter, a table caption",
+   "issue": "#30"
+  },
+  {
+   "id": "hyperref/anchors",
+   "file": "micro/hyperref/anchors.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "hyperref anchors beyond headings: enumerate items (Item.n, a counter of its own, on the vertical list), footnote marks in a link to Hfootnote.n and its \\hyper@@anchor after the strut, amsmath's equation (the anchor in a math group) and align rows (in the tag box, at \\baselineskip plus \\jot), \\refstepcounter in a paragraph, figure and table captions (H.S H.R after \"n: \", the lof and lot lines with the anchor, nameref's caption), \\ref links to all of them",
+   "issue": "#30"
   },
   {
    "id": "hyperref/links",
@@ -1206,6 +1228,17 @@
    "status": "pass",
    "glyphs": 371,
    "covers": "\\paragraph and \\subparagraph (run-in: \\@svsechd in the next paragraph's \\everypar, \\hskip 1em, \\clubpenalty\\@M, the toc line), one followed by another heading or ending the document, \\newcounter with \\stepcounter, \\setcounter, \\addtocounter, \\the and \\roman \\Alph, macros from \\newcommand expanded first, \\# \\% \\& \\$ in text and titles",
+   "issue": "#30"
+  },
+  {
+   "id": "sections/runin-display-club",
+   "file": "micro/sections/runin-display-club.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22237,
+   "covers": "a run-in heading (after \\subsubsection's \\everypar{}) whose paragraph starts with a display: its \\clubpenalty\\@M ends with the display's group, its \\everypar stays and the next paragraph's sets \\@clubpenalty; a random document (fuzz:documents seed 19)",
    "issue": "#30"
   },
   {

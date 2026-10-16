@@ -34,6 +34,14 @@ export function anchor(name: string, baselineskip: number, mode: "v" | "h", last
   return out
 }
 
+/**
+ * \hyper@anchor{name} (\pdfmark[\anchor@spot]: \pdf@rect gives H.S and H.R), the /DEST pdfmark, and
+ * \Hy@RestoreLastskip as for anchor()
+ */
+export function spotAnchor(name: string, mode: "v" | "h", last: Node | undefined): Node[] {
+  return [HS(), HR(), dest(name), ...anchor(name, 0, mode, last).slice(mode === "h" ? 5 : 3)]
+}
+
 /** \Hy@@SectionAnchor: \hbox to 0pt{\kern-\Hy@SectionHShift <anchor> \hss}, at the start of a heading's title */
 export function sectionAnchorBox(name: string, shift: number, baselineskip: number): BoxNode {
   const k = kern(-shift, true)
