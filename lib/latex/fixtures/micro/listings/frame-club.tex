@@ -1,0 +1,17 @@
+% fixture: listings/frame-club
+% tier: T3
+% engine: document
+% covers: a top frame's paragraph runs \@afterheading's \everypar inside the listing's group (\clubpenalty back at its end)
+\documentclass{article}
+\usepackage{listings}
+\lstset{frame=topline}
+\begin{document}
+Some text.
+\section{Head}
+
+
+\begin{lstlisting}
+ab
+\end{lstlisting}
+how were come\footnote{Typesetting paragraphs their can too my were way people sufficient who so own your get who both under people sufficient who so own your get who both under} way Really? good were to great.
+\end{document}

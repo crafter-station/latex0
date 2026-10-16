@@ -1,0 +1,19 @@
+% fixture: xcolor/listings-background-lines
+% tier: T3
+% engine: document
+% covers: listings backgroundcolor, frame=lines, rulecolor, numbers
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\lstset{language=Python,backgroundcolor=\color{yellow!20},frame=lines,rulecolor=\color{blue},numbers=left}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}
+def f(x):   # a comment with a long tail that goes on and on and on past the end of the line here
+    return  x
+
+  last
+\end{lstlisting}
+Text after.
+
+\end{document}

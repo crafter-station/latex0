@@ -63,6 +63,7 @@ export interface LstOptions {
   numbers: "none" | "left" | "right"; numberstyle: string; numbersep: string; stepnumber: number; firstnumber: number | null; numberblanklines: boolean; numberfirstline: boolean
   /** frame= and the dimensions (as written: the caller reads them in the listing's font) */
   frame: string; framerule: string; framesep: string; rulesep: string; framexleftmargin: string; framexrightmargin: string; xleftmargin: string; xrightmargin: string
+  backgroundcolor: string; rulecolor: string; fillcolor: string; rulesepcolor: string
   /** breaklines=, breakatwhitespace=, breakindent=, breakautoindent= */
   breaklines: boolean; breakatwhitespace: boolean; breakindent: string; breakautoindent: boolean
 }
@@ -72,6 +73,7 @@ export const LST_DEFAULTS: LstOptions = {
   columns: "fixed", lostInserts: true, flexibleKind: "flexible", showstringspaces: true, tabsize: 8, caption: null, label: null,
   numbers: "none", numberstyle: "", numbersep: "10pt", stepnumber: 1, firstnumber: null, numberblanklines: true, numberfirstline: false,
   breaklines: false, breakatwhitespace: false, breakindent: "20pt", breakautoindent: true,
+  backgroundcolor: "", rulecolor: "", fillcolor: "", rulesepcolor: "",
   frame: "none", framerule: ".4pt", framesep: "3pt", rulesep: "2pt", framexleftmargin: "0pt", framexrightmargin: "0pt", xleftmargin: "0pt", xrightmargin: "0pt",
 }
 
@@ -137,6 +139,10 @@ export function lstOptions(src: string, base: LstOptions): LstOptions {
       case "numberblanklines": o.numberblanklines = bool(v); break
       case "numberfirstline": o.numberfirstline = bool(v); break
       case "frame": lstFrameShapes(v ?? ""); o.frame = v ?? ""; break
+      case "backgroundcolor": case "rulecolor": case "fillcolor": case "rulesepcolor":
+        if (!/^\s*(\\color\s*(\[[^\]{}]*\])?\s*\{[^{}]*\}\s*)*$/.test(v ?? "")) throw new LstUnsupported(`${key}=${v}`)
+        o[key] = v ?? ""
+        break
       case "framerule": case "framesep": case "rulesep": case "framexleftmargin": case "framexrightmargin": case "xleftmargin": case "xrightmargin":
         if (!/^-?(\d+(\.\d*)?|\.\d+)\s*(pt|em|ex|mm|cm|in|bp)$/.test(v ?? "")) throw new LstUnsupported(`${key}=${v}`)
         o[key] = v!
@@ -452,7 +458,11 @@ export { hss as lstHss }
 // ---- frames (lstmisc.sty's frames aspect) ----
 
 /** frame= and its dimensions: the shapes as \lstframe@ makes them (Y a rule, N none; corners in the top and bottom shapes) */
-export interface LstFrame { tshape: string; bshape: string; lshape: string; rshape: string; rule: number; sep: number; rulesep: number; xleft: number; xright: number }
+export interface LstFrame {
+  tshape: string; bshape: string; lshape: string; rshape: string; rule: number; sep: number; rulesep: number; xleft: number; xright: number
+  /** rulecolor, backgroundcolor, fillcolor and rulesepcolor as the color pushes they make (fill falls back to the background, rulesep to fill) */
+  colors: { rule: string[]; bkg: string[]; fill: string[]; rulesep: string[] }
+}
 
 /** frame=none|leftline|topline|bottomline|lines|single or letters trbl (frameround ffff) */
 export function lstFrameShapes(frame: string): { t: string; b: string; l: string; r: string } {
@@ -466,23 +476,26 @@ export function lstFrameShapes(frame: string): { t: string; b: string; l: string
 const lstRule = (width: number | null, height: number | null, depth: number | null): Node => ({ kind: "rule", width, height, depth })
 const llap = (nodes: Node[]) => hpack([hss(), ...nodes], { exactly: 0 })
 const rlap = (nodes: Node[]) => hpack([...nodes, hss()], { exactly: 0 })
-/** \lst@frameBlock with no colour: \hbox{\vrule\@height h\@depth d\@width\z@ \kern w} */
-const block = (w: number, h: number, d: number) => hpack([lstRule(0, h, d), kern(w, true)])
+const pushes = (cs: string[]): Node[] => cs.map((c) => ({ kind: "whatsit", text: `\\special{color push ${c}}` }))
+const pops = (cs: string[]): Node[] => cs.map(() => ({ kind: "whatsit", text: "\\special{color pop}" }))
+/** \lst@frameBlock: with no color \hbox{\vrule\@height h\@depth d\@width\z@ \kern w}, with one (in a color group) a rule w wide */
+const block = (cs: string[], w: number, h: number, d: number): Node[] =>
+  cs.length ? [...pushes(cs), hpack([lstRule(w, h, d)]), ...pops(cs)] : [hpack([lstRule(0, h, d), kern(w, true)])]
 const shifted = (b: BoxNode, down: number) => { b.shift = down; return b }
 
 /** \lst@frameMakeBoxV: the box \everypar puts at each line's start (and \lst@@discretionary after a break) */
 export function lstFrameBoxV(f: LstFrame, lineWidth: number, h: number, d: number): BoxNode {
-  const out: Node[] = []
-  if (f.lshape) out.push(llap([block(f.sep, h, d), kern(f.xleft, true)]))
+  const out: Node[] = [], c = f.colors
+  if (f.lshape) out.push(llap([...block(c.fill, f.sep, h, d), kern(f.xleft, true)]))
   // \lst@frameL: \kern-\lst@rulesep, then \kern\lst@rulesep and a rule (Y) or its width (N) for each
   const frameL: Node[] = f.lshape ? [kern(-f.rulesep, true), ...[...f.lshape].flatMap((c) => [kern(f.rulesep, true), c === "Y" ? lstRule(f.rule, null, null) : kern(f.rule, true)])] : []
   const zl = hpack([lstRule(0, h, d), ...frameL])
-  out.push(llap([rlap([block(zl.width, zl.height, zl.depth)]), zl, kern(f.sep, true), kern(f.xleft, true)]))
+  out.push(llap([rlap(block(c.rulesep, zl.width, zl.height, zl.depth)), zl, kern(f.sep, true), kern(f.xleft, true)]))
   // \lst@frameR: a rule or its width and \kern\lst@rulesep for each, then \kern-\lst@rulesep
   const frameR: Node[] = f.rshape ? [...[...f.rshape].flatMap((c) => [c === "Y" ? lstRule(f.rule, null, null) : kern(f.rule, true), kern(f.rulesep, true)]), kern(-f.rulesep, true)] : []
   const zr = hpack([lstRule(0, h, d), ...frameR])
-  out.push(rlap([kern(-f.xleft, true), block(lineWidth + f.xleft + f.xright, h, d), f.rshape ? block(f.sep, h, d) : kern(f.sep, true), rlap([block(zr.width, zr.height, zr.depth)]), zr]))
-  return hpack(out)
+  out.push(rlap([kern(-f.xleft, true), ...block(c.bkg, lineWidth + f.xleft + f.xright, h, d), ...(f.rshape ? block(c.fill, f.sep, h, d) : [kern(f.sep, true)]), rlap(block(c.rulesep, zr.width, zr.height, zr.depth)), zr]))
+  return hpack([...pushes(c.rule), ...out, ...pops(c.rule)]) // \color@begingroup \lst@rulecolor … \color@endgroup
 }
 
 /** \lst@frameH T|B: the top or bottom of the frame (null: no shape) */
@@ -515,31 +528,31 @@ export function lstFrameH(f: LstFrame, lineWidth: number, which: "T" | "B"): Box
     const left = corner("L", lc), right = corner("R", rc)
     if (framediml < left.width) framediml = left.width
     if (framedimr < right.width) framedimr = right.width
-    const inner = hpack([kern(-f.xleft, true), left.node, lstRule(f.xleft + f.xright + lineWidth, mid === "Y" ? R : 0, 0), right.node])
+    const inner = hpack([kern(-f.xleft, true), ...pushes(f.colors.rule), left.node, lstRule(f.xleft + f.xright + lineWidth, mid === "Y" ? R : 0, 0), right.node, ...pops(f.colors.rule)])
     z = hpack([rlap([shifted(inner, which === "T" ? -inner.depth : inner.height)]), z])
   }
   let tempdimb = f.sep + R
   const tempdimc = -tempdimb + z.height + z.depth
   /** \lst@frameHBkg with no colours: #3 is \@firstoftwo (first) or \@secondoftwo */
-  const bkg = (h: number, first: boolean): BoxNode => {
+  const bkg = (cs: string[], h: number, first: boolean): BoxNode => {
     const nodes: Node[] = [kern(-f.xleft, true)]
     let a = 0
     if (first) nodes.push(kern(-framediml, true))
     if (framediml > tempdimb) {
-      if (first) nodes.push(block(framediml - tempdimb, tempdimb, 0))
+      if (first) nodes.push(...block(f.colors.rulesep, framediml - tempdimb, tempdimb, 0))
       else { nodes.push(kern(-framediml, true)); a += framediml }
     }
     if (first) { a = 0; if (f.lshape) a += tempdimb; if (f.rshape) a += tempdimb }
     else if (framedimr > tempdimb) a += framedimr
     a += lineWidth + f.xleft + f.xright
-    nodes.push(block(a, h, 0))
-    if (first && framedimr > tempdimb) nodes.push(block(-tempdimb + framedimr, tempdimb, 0))
+    nodes.push(...block(cs, a, h, 0))
+    if (first && framedimr > tempdimb) nodes.push(...block(f.colors.rulesep, -tempdimb + framedimr, tempdimb, 0))
     return hpack(nodes)
   }
   const out: Node[] = []
-  const b1 = bkg(tempdimb, true)
+  const b1 = bkg(f.colors.fill, tempdimb, true)
   out.push(rlap([which === "T" ? shifted(b1, -b1.depth) : shifted(b1, b1.height)]))
-  const b2 = bkg(tempdimc, false)
+  const b2 = bkg(f.colors.rulesep, tempdimc, false)
   tempdimb += b2.height
   out.push(rlap([which === "T" ? shifted(b2, -f.sep) : shifted(b2, tempdimb)]))
   out.push(rlap([z]))

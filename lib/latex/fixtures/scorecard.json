@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 164,
-  "exact": 162,
+  "fixtures": 171,
+  "exact": 169,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 181483
+  "glyphs": 182345
  },
  "areas": [
   {
@@ -51,8 +51,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 30,
-   "exact": 30
+   "fixtures": 32,
+   "exact": 32
   },
   {
    "area": "lists",
@@ -91,8 +91,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 11,
+   "exact": 11
   }
  ],
  "fixtures": [
@@ -999,6 +999,26 @@
    "covers": "lstlisting: frame=bl with rulesep"
   },
   {
+   "id": "listings/frame-club-float",
+   "file": "micro/listings/frame-club-float.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 195,
+   "covers": "the same after a float that goes elsewhere"
+  },
+  {
+   "id": "listings/frame-club",
+   "file": "micro/listings/frame-club.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 179,
+   "covers": "a top frame's paragraph runs \\@afterheading's \\everypar inside the listing's group (\\clubpenalty back at its end)"
+  },
+  {
    "id": "listings/frame-leftline",
    "file": "micro/listings/frame-leftline.tex",
    "area": "listings",
@@ -1815,6 +1835,56 @@
    "status": "pass",
    "glyphs": 168,
    "covers": "a paragraph that starts in a {\\color …} group: the push on the vertical list before \\parskip"
+  },
+  {
+   "id": "xcolor/listings-background-breaklines",
+   "file": "micro/xcolor/listings-background-breaklines.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 120,
+   "covers": "listings backgroundcolor with frame=tb, breaklines, margins"
+  },
+  {
+   "id": "xcolor/listings-background-lines",
+   "file": "micro/xcolor/listings-background-lines.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 124,
+   "covers": "listings backgroundcolor, frame=lines, rulecolor, numbers"
+  },
+  {
+   "id": "xcolor/listings-background-only",
+   "file": "micro/xcolor/listings-background-only.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 120,
+   "covers": "listings backgroundcolor with no frame"
+  },
+  {
+   "id": "xcolor/listings-background",
+   "file": "micro/xcolor/listings-background.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4,
+   "covers": "listings backgroundcolor and rulecolor with frame=single (\\lst@frameBlock in a color group, \\color@begingroup\\lst@rulecolor)"
+  },
+  {
+   "id": "xcolor/listings-fill-rulesep",
+   "file": "micro/xcolor/listings-fill-rulesep.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 120,
+   "covers": "listings fillcolor and rulesepcolor with frame=trb"
   },
   {
    "id": "xcolor/listings",
