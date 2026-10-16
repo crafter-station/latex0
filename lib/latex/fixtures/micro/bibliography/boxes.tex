@@ -1,0 +1,13 @@
+% fixture: bibliography/boxes
+% tier: T3
+% engine: document
+% covers: thebibliography's \sfcode`\.=\@m kept inside \underline's \hbox and tabular entries
+\documentclass{article}
+\begin{document}
+See \cite{a} and \cite{b}.
+\begin{thebibliography}{9}
+\bibitem{a} D. Knuth. \underline{The TeXbook. Vol. A.} Addison-Wesley. Reading, Mass. 1984. More words follow here to fill
+the line and break it.
+\bibitem{b} M. Plass. \begin{tabular}{l@{. }r} Breaking. Paragraphs. & Into. Lines. \end{tabular} Software. Practice. 1981.
+\end{thebibliography}
+\end{document}

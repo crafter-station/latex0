@@ -1,0 +1,20 @@
+% fixture: listings/groups-and-numbersep
+% tier: T3
+% engine: document
+% covers: \lstinline read verbatim in a group after \item or \small (not an argument: spaces in a row kept), and in \textbf's argument (one space); numbersep in em on the right (\normalfont's em) and on the left (numberstyle's)
+\documentclass[11pt]{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\begin{document}
+\begin{itemize}
+\item {\color{blue} time \lstinline{print('a  b')} day} and {\small \lstinline{x   y}} and
+\textbf{bold \lstinline{u  v}} with more words after it to fill out the line.
+\end{itemize}
+\begin{lstlisting}[numbers=right,numbersep=1em,numberstyle=\footnotesize,basicstyle=\ttfamily]
+int x = 1;
+x++;
+\end{lstlisting}
+\begin{lstlisting}[numbers=left,numbersep=1.5em,numberstyle=\tiny,basicstyle=\small\ttfamily]
+y--;
+\end{lstlisting}
+\end{document}

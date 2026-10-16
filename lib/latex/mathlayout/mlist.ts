@@ -3,6 +3,7 @@
 // their size and mu changes (§§ 702–703, rule 17 of Appendix G); mathcode
 // classes (§ 1151), rule 5's bin demotion (§§ 728–729); make_ord's kerns and
 // ligatures (§§ 749–753); characters with their italic corrections (§ 755);
+// \overline and \underline (§§ 734–735);
 // operators with and without limits (§§ 749–750); generalized fractions with
 // null delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
 // 18a–f); and the inter-atom spacing and penalties of the second pass
@@ -31,8 +32,8 @@ export type Field =
   | { kind: "array"; rows: MItem[][][]; crs: boolean[] }
   | null
 /** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal;
- *  `vcenter` makes it a vcenter noad (§ 687), an ord for spacing */
-export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits"; vcenter?: boolean }
+ *  `vcenter` makes it a vcenter noad (§ 687) and `line` an over or under noad (§ 687), ords for spacing */
+export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits"; vcenter?: boolean; line?: "over" | "under" }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
@@ -65,7 +66,7 @@ export function mathCharField(mathcode: number, fam = -1): Field {
 }
 /** A math group {…} as scan_math leaves it (§ 1186): a lone ord without scripts gives up its nucleus. */
 export function groupField(list: MItem[]): Field {
-  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !p.sub && !p.sup) return p.nucleus }
+  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !("vcenter" in p && p.vcenter) && !("line" in p && p.line) && !p.sub && !p.sup) return p.nucleus }
   return { kind: "mlist", list }
 }
 
@@ -209,7 +210,8 @@ class Converter {
       if (q.noad === OP) {
         delta = this.makeOp(q, hl)
         if (q.limits === "limits") { check(hl.get(q)); r = q; rType = q.noad; continue }
-      } else if (q.noad === ORD) this.makeOrd(list, i)
+      } else if (q.line) q.nucleus = { kind: "box", box: q.line === "over" ? this.makeOver(q.nucleus) : this.makeUnder(q.nucleus) }
+      else if (q.noad === ORD) this.makeOrd(list, i)
       // § 754: the nucleus as an hlist
       let p: Node[]
       const n = q.nucleus
@@ -372,7 +374,7 @@ class Converter {
       const p = list[i + 1]
       const n = q.nucleus
       if (q.sub || q.sup || n?.kind !== "char" || n.text) return
-      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT) return
+      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT || p.vcenter || p.line) return
       const pn = p.nucleus
       if (pn?.kind !== "char" || pn.text || pn.fam !== n.fam) return
       n.text = true
@@ -403,6 +405,22 @@ class Converter {
         w = f.ligKern[a] >>> 0
       }
     }
+  }
+
+  /** make_over (§ 734): the nucleus, cramped, under a rule of default thickness θ, 3θ above it and θ clear */
+  makeOver(n: Field): BoxNode {
+    const t = this.ruleThickness
+    return vpack([kern(t), { kind: "rule", width: null, height: t, depth: 0 }, kern(3 * t), this.cleanBox(n, this.curStyle | 1)])
+  }
+
+  /** make_under (§ 735): a rule 3θ below the nucleus, θ clear beneath it; the box keeps the nucleus's height */
+  makeUnder(n: Field): BoxNode {
+    const t = this.ruleThickness
+    const x = this.cleanBox(n, this.curStyle)
+    const y = vpack([x, kern(3 * t), { kind: "rule", width: null, height: t, depth: 0 }])
+    const delta = y.height + y.depth + t
+    y.height = x.height; y.depth = delta - y.height
+    return y
   }
 
   /** make_op (§§ 749–750): returns the italic correction that offsets the superscript. */

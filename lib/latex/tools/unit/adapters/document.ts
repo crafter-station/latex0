@@ -48,6 +48,8 @@ import { fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite
 /** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
 interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
 /** a paragraph that a tabular starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
+/** commands that take no argument: a { after one opens a group */
+const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
 const tabularStart = (text: string) => /^\s*\\LXtabular\{/.test(text)
 
 /** The class with \usepackage[T1]{fontenc}: every size's roman and bold are the EC fonts (math is unchanged). */
@@ -97,7 +99,8 @@ const IGNORE_DEPTH = null // \prevdepth = -1000pt
 /** What a float marker carries to the output routine: the float's box, its placement bits, and \if@nobreak. */
 
 type Block =
-  | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number }
+  | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
+      /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean }
   | ListBlock
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[] }
   | { kind: "maketitle" }
@@ -251,14 +254,15 @@ function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
-  let at = 0, endpe = false
+  let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
     const parts = s.split(/\n[ \t]*\n/)
     parts.forEach((p, i) => {
       const t = squeeze(i < parts.length - 1 ? p + " " : p) // the line end before a blank line is a space
-      if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe })
+      if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe, ...(i === 0 && thmEnd ? { afterThm: true } : {}) })
     })
+    thmEnd = false
   }
   for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
     const before = body.slice(at, m.index)
@@ -316,10 +320,11 @@ function blocksOf(body: string): Block[] {
     re.lastIndex = end.next
     at = end.next
     endpe = m[3] !== "LXtheorem" && m[3] !== "proof" // (amsthm's ends say \@endpefalse)
+    thmEnd = !endpe
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|LXtabular|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|LXtabular|underline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
@@ -365,8 +370,12 @@ class VerticalList {
   afterheadingEverypar = false
   /** \@doendpe has redefined \par: the next \par resets \clubpenalty */
   endpePar = false
+  /** \@doendpe ran at the outer level: its \par is pending */
+  doendpe = false
+  /** and its \everypar (which drops the indent box) has not run yet */
+  endpeEverypar = false
   /** a \par at the outer level */
-  par() { if (this.endpePar) { this.club = this.k.ints.clubpenalty; this.endpePar = false; this.afterheadingEverypar = false } }
+  par() { if (this.endpePar) { this.club = this.k.ints.clubpenalty; this.endpePar = this.doendpe = this.endpeEverypar = false; this.afterheadingEverypar = false } }
   constructor(private k: ClassOptionData) {}
 
   /** \lastskip: the last node's glue, or 0pt (a hook stands for an assignment, not a node) */
@@ -500,7 +509,11 @@ export const document: Adapter = (source) => {
       if (c === "%") { while (i < at && source[i] !== "\n") i++; continue }
       // (an argument after a command and its earlier arguments: \textcolor{c}{…})
       // (not \lstinline's own argument; no space after an earlier argument)
-      if (c === "{") stack.push(/\\(?!lstinline(?![A-Za-z]))[A-Za-z]+\*?\s*(?:\[[^\]]*\]|\{[^{}]*\})*$/.test(source.slice(Math.max(0, i - 200), i)))
+      // (not after a command that takes no argument, \item or \small, or after \color's one: a group)
+      if (c === "{") {
+        const m = source.slice(Math.max(0, i - 200), i).match(/\\(?!lstinline(?![A-Za-z]))([A-Za-z]+)\*?\s*((?:\[[^\]]*\]|\{[^{}]*\})*)$/)
+        stack.push(!!m && !NO_ARGUMENT.has(m[1]) && !(m[1] === "color" && /\}$/.test(m[2])))
+      }
       else if (c === "}") stack.pop()
     }
     return stack.includes(true)
@@ -762,11 +775,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    * empty \everypar and \lst@NewLine), \lst@Init and \lst@DeInit with no \par: the token boxes go into the paragraph
    */
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  doc.tabular = (n, size, attrs) => {
+  doc.tabular = (n, size, attrs, sfcodes) => {
     const t = tabulars[n]
     let lines: TabLine[], cols: TabCol[]
     try { lines = tabularLines(t.body); cols = preamble(t.spec) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
-    return tabular(lines, cols, size, t.pos, attrs)
+    return tabular(lines, cols, size, t.pos, attrs, sfcodes)
   }
   doc.lstinline = (n, size, attrs) => {
     if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
@@ -905,7 +918,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const cg = /^\s*\{\\color(?![A-Za-z])/.test(b.text)
       if (cg) {
         if (runIn) throw new Unsupported("a color group right after a run-in heading")
-        if (b.noindent) throw new Unsupported("a color group starting the paragraph after a list")
+        if (b.noindent || (b.afterThm && v.doendpe)) throw new Unsupported("a color group starting the paragraph after a list")
         b.text = leadingColor(b.text)
       }
       // a run-in heading goes in place first: its title sees the counters as the paragraph starts
@@ -928,14 +941,18 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         v.afterheadingEverypar = true
         return
       }
-      if (b.noindent) {
+      // right after an amsthm environment, an earlier list's \@doendpe (its \everypar and \par) is still in force:
+      // \@trivlist's \par ran inside the environment's group
+      if (b.noindent || (b.afterThm && v.doendpe)) {
+        const noindent = b.noindent || v.endpeEverypar
+        v.endpeEverypar = false
         // right after a list: \@doendpe's \everypar drops the indent box; its \par resets \clubpenalty
         // first, so the lines see \@clubpenalty while footnotes read before it see the value in force
         // (a list that follows at once runs that \par inside its own group, so the reset does not last)
         const noteClub = v.club
         const next = blocks[bi + 1]
-        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(text, true, noteClub, k.ints.clubpenalty, undefined, b.unskip)
-        else { v.par(); paragraphWithDisplays(text, true, noteClub, v.club, undefined, b.unskip) }
+        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(text, noindent, noteClub, k.ints.clubpenalty, undefined, b.unskip)
+        else { v.par(); paragraphWithDisplays(text, noindent, noteClub, v.club, undefined, b.unskip) }
         return
       }
       v.par() // the blank line before it
@@ -962,7 +979,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // after amsthm's environments (\@endpefalse): the \everypar and \clubpenalty from before them are back
     if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
     v.afterheadingEverypar = false
-    v.endpePar = true
+    v.endpePar = v.doendpe = v.endpeEverypar = true
   }
   blocks.forEach(processBlock)
 
@@ -1440,6 +1457,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
         // drops it; later paragraphs are indented by \parindent
         const un = p.unskip ? { unskip: p.unskip } : {}
+        // a \label before a theorem's text: its write on the vertical list, before a color group's push (\nobreak's while \if@nobreak holds)
+        if (thmDef && p.start === "label") {
+          const lead = p.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
+          if (lead) {
+            // (\if@nobreak still holds right after a heading: \@nbitem leaves it, the paragraph's \everypar ends it)
+            for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) { v.nodes.push(labelWrite(refs, m[1])); if (club !== undefined) v.nodes.push(penalty(10000), penalty(10000)) }
+            p.text = p.text.slice(lead[0].length)
+          }
+        }
         // a {\color …} group that starts the paragraph: its push on the vertical list (the paragraph starts in the group)
         const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text)
         if (colorStart && (p.start === "doendpe" || club)) throw new Unsupported("a color group starting an item's paragraph here")
@@ -1449,15 +1475,6 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (groupStart && !colorStart && (p.start !== "label" || (club && depth > 1))) throw new Unsupported("a tabular starting an item's paragraph here")
         // (in a {\color …} group the \everypar's \clubpenalty\@clubpenalty ends with the group: the one in force stays,
         // the outer one for a first item, else what the item before set)
-        // a \label before a theorem's text: its write on the vertical list (\nobreak's while \if@nobreak holds)
-        if (thmDef && p.start === "label") {
-          const lead = p.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
-          if (lead) {
-            // (\if@nobreak still holds right after a heading: \@nbitem leaves it, the paragraph's \everypar ends it)
-            for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) { v.nodes.push(labelWrite(refs, m[1])); if (club !== undefined) v.nodes.push(penalty(10000), penalty(10000)) }
-            p.text = p.text.slice(lead[0].length)
-          }
-        }
         // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
         const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
         const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) ? { end: qed() } : {}) }
@@ -1657,8 +1674,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (S > 0 && skip > 0) skip -= S
     const sizes = [...o.basicstyle.matchAll(/\\(tiny|scriptsize|footnotesize|small|normalsize|large|Large)(?![a-zA-Z])/g)].map((m) => m[0]).join("")
     const numberStyle = styleOf(sizes + o.numberstyle), numberFont = selectFont(k, numberStyle.size, numberStyle.a)
+    // (on the right the \kern comes before \lst@numberstyle: em and ex of \normalfont at the basic style's size)
+    const sepFont = o.numbers === "right" ? selectFont(k, styleOf(sizes).size, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }) : numberFont
     let numbersep = 0
-    try { numbersep = parseDimen(o.numbersep, { em: numberFont.params[QUAD], ex: numberFont.params[X_HEIGHT] }) } catch { throw new Unsupported(`numbersep=${o.numbersep}`) }
+    try { numbersep = parseDimen(o.numbersep, { em: sepFont.params[QUAD], ex: sepFont.params[X_HEIGHT] }) } catch { throw new Unsupported(`numbersep=${o.numbersep}`) }
     const number = (empty: boolean): Node[] => {
       lstnumber++
       // hyperref: the \refstepcounter{lstnumber} anchor, in horizontal mode after the frame box
@@ -1709,7 +1728,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (xcolor.on) v.nodes.push(colorPop()) // the group's end
     for (const _ of basicColors) v.nodes.push(colorPop())
     v.club = clubOutside // (\clubpenalty set in the listing's group ends with it)
-    v.endpePar = true
+    v.endpePar = v.doendpe = v.endpeEverypar = true
     v.afterheadingEverypar = false // \lst@doendpe's \everypar replaces it
     v.nobreak = false // \end{lstlisting}: \@nobreakfalse
   }
@@ -2064,14 +2083,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
 
   /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
-  function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs): BoxNode {
+  function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs, sfcodes?: Record<number, number>): BoxNode {
     const font = selectFont(k, size, attrs)
     const env: TabularEnv = {
       strut: k.sizes[size].strut, tabcolsep: k.dimens.tabcolsep, arrayrulewidth: k.dimens.arrayrulewidth, doublerulesep: k.dimens.doublerulesep,
       lineskiplimit: k.dimens.lineskiplimit, axis: mathEnv(k, size, amsmath).fonts[0][2]!.params[22],
       cell: (text, state) => {
         if (/\\(?:footnote|label)(?![A-Za-z])/.test(text)) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
-        try { return hlistInput(text, k, size, doc, attrs, state, amsmath) } catch (e) {
+        try { return hlistInput(text, k, size, doc, attrs, sfcodes ? Object.assign(state, { sfcodes }) : state, amsmath) } catch (e) {
           if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
           throw e
         }

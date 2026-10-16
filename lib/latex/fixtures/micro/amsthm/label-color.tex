@@ -1,0 +1,15 @@
+% fixture: amsthm/label-color
+% tier: T3
+% engine: document
+% covers: a theorem whose text starts with \label and a {\color …} group: the \write, then the push, on the vertical list before the paragraph
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{amsthm}
+\newtheorem{lemma}{Lemma}
+\begin{document}
+Some text before the lemma.
+\begin{lemma}\label{l:1} {\color{gray!60} colored words at the start} and then plain words to the end of a line that wraps
+onto the next one.
+\end{lemma}
+See Lemma~\ref{l:1}.
+\end{document}

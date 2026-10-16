@@ -1,23 +1,23 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 177,
-  "exact": 175,
+  "fixtures": 182,
+  "exact": 180,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 182797
+  "glyphs": 184202
  },
  "areas": [
   {
    "area": "amsthm",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "bibliography",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "classes",
@@ -56,8 +56,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 32,
-   "exact": 32
+   "fixtures": 33,
+   "exact": 33
   },
   {
    "area": "lists",
@@ -91,8 +91,8 @@
   },
   {
    "area": "text",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "title",
@@ -305,6 +305,26 @@
    "issue": "#30"
   },
   {
+   "id": "amsthm/after-list",
+   "file": "micro/amsthm/after-list.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 831,
+   "covers": "a paragraph right after a theorem or proof while an earlier list's \\@doendpe is in force: \\@trivlist's \\par ran in the environment's group, so footnotes see \\clubpenalty\\@M from \\@afterheading, the lines \\@clubpenalty; the indent box goes only if \\@doendpe's \\everypar has not run; after a run-in heading, its \\everypar sets \\@clubpenalty"
+  },
+  {
+   "id": "amsthm/label-color",
+   "file": "micro/amsthm/label-color.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 119,
+   "covers": "a theorem whose text starts with \\label and a {\\color …} group: the \\write, then the push, on the vertical list before the paragraph"
+  },
+  {
    "id": "amsthm/styles",
    "file": "micro/amsthm/styles.tex",
    "area": "amsthm",
@@ -323,6 +343,16 @@
    "status": "pass",
    "glyphs": 71,
    "covers": "amsthm: a theorem with a note (the head \\unhbox'ed by \\dth@everypar, \\textup's italic corrections, \\itshape body) and a proof (\\item[\\hskip\\labelsep\\itshape Proof.], \\qed with \\openbox)"
+  },
+  {
+   "id": "bibliography/boxes",
+   "file": "micro/bibliography/boxes.tex",
+   "area": "bibliography",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 193,
+   "covers": "thebibliography's \\sfcode`\\.=\\@m kept inside \\underline's \\hbox and tabular entries"
   },
   {
    "id": "bibliography/thebibliography-article",
@@ -1109,6 +1139,16 @@
    "covers": "lstlisting: columns=fullflexible (lost space only at a new line), footnotesize typewriter"
   },
   {
+   "id": "listings/groups-and-numbersep",
+   "file": "micro/listings/groups-and-numbersep.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 88,
+   "covers": "\\lstinline read verbatim in a group after \\item or \\small (not an argument: spaces in a row kept), and in \\textbf's argument (one space); numbersep in em on the right (\\normalfont's em) and on the left (numberstyle's)"
+  },
+  {
    "id": "listings/hyperref",
    "file": "micro/listings/hyperref.tex",
    "area": "listings",
@@ -1841,6 +1881,16 @@
    "glyphs": 277,
    "covers": "\\usepackage[T1]{fontenc}: the EC fonts for text, headings and footnotes (ecrm, ecbx), their ligatures and kerns, -- and --- dashes, quotes, hyphenation with the T1 fonts, footnote marks at \\sf@size, the bold \\textendash label",
    "issue": "#30"
+  },
+  {
+   "id": "text/underline",
+   "file": "micro/text/underline.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 174,
+   "covers": "\\underline in text ($\\@@underline{\\hbox{…}}\\m@th$) with words, descenders, fonts and math; \\underline and \\overline in formulas"
   },
   {
    "id": "title/maketitle-authors",

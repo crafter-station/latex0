@@ -20,7 +20,7 @@ import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
 import { xnOverD } from "../../../layout/arith"
 import { emptyBox, FIL, FILL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
 import type { MathData } from "../../../mathlayout/data"
-import { mlistToHlist, ORD, TEXT, type MathEnv } from "../../../mathlayout/mlist"
+import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
 import { emitBoxes } from "../../../emit/boxes"
 import { hpack, vpack } from "../../../layout/pack"
@@ -84,7 +84,8 @@ export interface DocState {
   /** \lstinline number n (taken out of the source before expansion) at a size in a font */
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
   /** tabular number n (taken out of the source after expansion) at a size in a font: its \hbox */
-  tabular?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node
+  /** (`sfcodes`: the \sfcode changes in force, which the entries keep) */
+  tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>) => Node
 }
 
 /**
@@ -158,7 +159,7 @@ export const squeeze = (t: string): string => {
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "tabular"; n: number }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "tabular"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -303,6 +304,13 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
     const tab = body.slice(i).match(/^\\LXtabular\{(\d+)\}/)
     if (tab) { flushText(); out.push({ kind: "tabular", n: Number(tab[1]) }); i += tab[0].length; continue }
+    if (/^\\underline\s*\{/.test(body.slice(i))) { // the text in an \hbox: no footnotes or labels
+      const open = body.indexOf("{", i)
+      let depth = 0, j = open
+      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
+      if (j >= body.length) throw new Error("paragraph adapter: unbalanced \\underline{")
+      flushText(); out.push({ kind: "underline", inner: pieces(body.slice(open + 1, j), false) }); i = j + 1; continue
+    }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
     if (cur) { flushText(); out.push({ kind: "currentlabel", label: cur[1], href: cur[2] }); i += cur[0].length; continue }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
@@ -423,7 +431,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean }
 
 /** Text, formulas and footnotes into a horizontal list. */
-function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
+function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
     if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
@@ -502,7 +510,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}
       if (!doc.tabular) throw new Error("paragraph adapter: a tabular outside a document")
-      list.push(doc.tabular(p.n, size, attrs))
+      list.push(doc.tabular(p.n, size, attrs, state.sfcodes))
+      state.spaceFactor = 1000
+    }
+    else if (p.kind === "underline") { // $\@@underline{\hbox{#1}}\m@th$: the box as an under noad's nucleus
+      const inner: Node[] = []
+      appendPieces(inner, p.inner, font, size, { ...state, spaceFactor: 1000 }, { ...ctx, restricted: true }, attrs)
+      const noad: MItem = { noad: ORD, line: "under", nucleus: { kind: "box", box: hpack(inner) }, sup: null, sub: null }
+      list.push({ kind: "math", on: true, width: 0 }, ...mlistToHlist([noad], mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: 0 })
+      ctx.ignoreSpaces = false
       state.spaceFactor = 1000
     }
     else if (p.kind === "lstinline") {
