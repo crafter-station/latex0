@@ -75,7 +75,11 @@ export function classParams(k: ClassOptionData): LineBreakParams {
 
 /** Document state that crosses paragraphs: LaTeX's footnote counter, and the font shapes NFSS has
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
-export interface DocState { footnote: number; substituted?: Set<string>; refs?: Refs }
+export interface DocState {
+  footnote: number; substituted?: Set<string>; refs?: Refs
+  /** \lstinline number n (taken out of the source before expansion) at a size in a font */
+  lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
+}
 
 /**
  * Cross-references: \@currentlabel (local: lists, equations and floats restore it), \@currentHref
@@ -116,7 +120,7 @@ export interface ParagraphOptions {
   /** \unskips before the \par (\@item's two, \endtrivlist's one), each taking a final glue */
   unskip?: number
   /** \sloppy (\@parboxrestore in floats and boxes) */
-  tolerance?: number; emergencyStretch?: number
+  tolerance?: number; emergencyStretch?: number; pretolerance?: number
   /** amsmath is loaded: its math fonts */
   amsmath?: boolean
   /** lines already in the paragraph (before a display), and the widow penalty in force */
@@ -146,7 +150,7 @@ export const squeeze = (t: string): string => {
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \hfill, \hfil, \quad, \qquad */
@@ -276,6 +280,8 @@ function pieces(body: string, footnotes = true): Piece[] {
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
+    const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
+    if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
     if (cur) { flushText(); out.push({ kind: "currentlabel", label: cur[1], href: cur[2] }); i += cur[0].length; continue }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
@@ -463,6 +469,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       state.spaceFactor = 1000
     }
     // \textdollar: in T1 the text font's own; otherwise the TS1 font of the same family, series and shape
+    else if (p.kind === "lstinline") {
+      if (!doc.lstinline) throw new Error("paragraph adapter: \\lstinline outside a document")
+      list.push(...doc.lstinline(p.n, size, attrs))
+      state.spaceFactor = 1000
+    }
     else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state)
     else if (p.kind === "font") {
       // \DeclareTextFontCommand: {\text@command{#1}<switch>\check@icl #1\check@icr}; an empty argument (or a
@@ -538,6 +549,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   if (opts.parFillSkip) params.parFillSkip = opts.parFillSkip
   if (opts.finalHyphenDemerits !== undefined) params.finalHyphenDemerits = opts.finalHyphenDemerits
   if (opts.tolerance !== undefined) params.tolerance = opts.tolerance
+  if (opts.pretolerance !== undefined) params.pretolerance = opts.pretolerance
   if (opts.emergencyStretch !== undefined) params.emergencyStretch = opts.emergencyStretch
   if (opts.prevGraf !== undefined) params.prevGraf = opts.prevGraf
   if (opts.widowPenalty !== undefined) params.widowPenalty = opts.widowPenalty

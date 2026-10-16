@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 151,
-  "exact": 149,
+  "fixtures": 158,
+  "exact": 156,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 179824
+  "glyphs": 181047
  },
  "areas": [
   {
@@ -51,8 +51,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 23,
-   "exact": 23
+   "fixtures": 30,
+   "exact": 30
   },
   {
    "area": "lists",
@@ -934,6 +934,26 @@
    "issue": "#112"
   },
   {
+   "id": "listings/after-heading",
+   "file": "micro/listings/after-heading.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 202,
+   "covers": "lstlisting right after headings: \\@afterheading's \\everypar replaced (or run by a top frame), \\end{lstlisting}'s \\@nobreakfalse"
+  },
+  {
+   "id": "listings/breaklines",
+   "file": "micro/listings/breaklines.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 684,
+   "covers": "breaklines: \\parshape 2 from \\lst@breakNewLine, a discretionary after each token, breakatwhitespace, breakindent, breakautoindent, frames and numbers"
+  },
+  {
    "id": "listings/c-cpp",
    "file": "micro/listings/c-cpp.tex",
    "area": "listings",
@@ -1034,6 +1054,16 @@
    "covers": "lstlisting: columns=fullflexible (lost space only at a new line), footnotesize typewriter"
   },
   {
+   "id": "listings/hyperref",
+   "file": "micro/listings/hyperref.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "lstlisting with hyperref: lstlisting.n and lstlisting.-n anchors, each line's lstnumber anchor, nameref caption"
+  },
+  {
    "id": "listings/java",
    "file": "micro/listings/java.tex",
    "area": "listings",
@@ -1042,6 +1072,46 @@
    "status": "pass",
    "glyphs": 182,
    "covers": "lstlisting: Java ([l]// and [s]/* */ comments, each delimiter its own mode, escapes)"
+  },
+  {
+   "id": "listings/lstinline-argument",
+   "file": "micro/listings/lstinline-argument.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 45,
+   "covers": "\\lstinline inside \\emph: the argument already tokenized (spaces in a row are one)"
+  },
+  {
+   "id": "listings/lstinline-spaces",
+   "file": "micro/listings/lstinline-spaces.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "\\lstinline: flexible lost space, \\lst@newlines staying 1, an italic basicstyle"
+  },
+  {
+   "id": "listings/lstinline-symbols",
+   "file": "micro/listings/lstinline-symbols.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "\\lstinline with _ ^ & $ ~ inside an argument and outside"
+  },
+  {
+   "id": "listings/lstinline",
+   "file": "micro/listings/lstinline.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 214,
+   "covers": "\\lstinline: delimited and braced, styles, inside \\textbf, fixed columns, keywords"
   },
   {
    "id": "listings/nolig",

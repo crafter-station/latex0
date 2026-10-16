@@ -1,0 +1,18 @@
+% fixture: listings/hyperref
+% tier: T3
+% engine: document
+% covers: lstlisting with hyperref: lstlisting.n and lstlisting.-n anchors, each line's lstnumber anchor, nameref caption
+\documentclass{article}
+\usepackage{listings}
+\usepackage{hyperref}
+\begin{document}
+Text.
+\begin{lstlisting}[caption={Cap},label=x]
+ab
+cd
+\end{lstlisting}
+\begin{lstlisting}
+ab
+\end{lstlisting}
+See \ref{x}.
+\end{document}

@@ -1,0 +1,11 @@
+% fixture: listings/lstinline-argument
+% tier: T3
+% engine: document
+% covers: \lstinline inside \emph: the argument already tokenized (spaces in a row are one)
+\documentclass[12pt]{article}
+\usepackage{listings}
+\begin{document}
+A \lstinline{def f(x): return x # c} B \lstinline{print('a  b')} C
+
+\emph{x \lstinline{print('a  b')} y}
+\end{document}

@@ -1,0 +1,11 @@
+% fixture: listings/lstinline-symbols
+% tier: T3
+% engine: document
+% covers: \lstinline with _ ^ & $ ~ inside an argument and outside
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+\emph{x \lstinline|a_b->c| y \lstinline|p^q&t$u~v| z}
+
+x \lstinline|a_b->c| y \lstinline|p^q&t$u~v| z
+\end{document}

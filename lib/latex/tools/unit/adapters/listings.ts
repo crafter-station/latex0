@@ -54,6 +54,8 @@ export interface LstOptions {
   /** \lst@leftinsert and \lst@rightinsert (half the lost space before a box, the rest after): columns=[c]… sets them,
    *  fullflexible empties them, and no other columns= brings them back */
   lostInserts: boolean
+  /** \lst@columnsflexible: the last flexible kind columns= named, which flexiblecolumns=true selects */
+  flexibleKind: "flexible" | "fullflexible"
   showstringspaces: boolean
   tabsize: number
   caption: string | null; label: string | null
@@ -61,12 +63,15 @@ export interface LstOptions {
   numbers: "none" | "left" | "right"; numberstyle: string; numbersep: string; stepnumber: number; firstnumber: number | null; numberblanklines: boolean; numberfirstline: boolean
   /** frame= and the dimensions (as written: the caller reads them in the listing's font) */
   frame: string; framerule: string; framesep: string; rulesep: string; framexleftmargin: string; framexrightmargin: string; xleftmargin: string; xrightmargin: string
+  /** breaklines=, breakatwhitespace=, breakindent=, breakautoindent= */
+  breaklines: boolean; breakatwhitespace: boolean; breakindent: string; breakautoindent: boolean
 }
 
 export const LST_DEFAULTS: LstOptions = {
   language: null, basicstyle: "", identifierstyle: "", commentstyle: "\\itshape", stringstyle: "", keywordstyle: ["\\bfseries"],
-  columns: "fixed", lostInserts: true, showstringspaces: true, tabsize: 8, caption: null, label: null,
+  columns: "fixed", lostInserts: true, flexibleKind: "flexible", showstringspaces: true, tabsize: 8, caption: null, label: null,
   numbers: "none", numberstyle: "", numbersep: "10pt", stepnumber: 1, firstnumber: null, numberblanklines: true, numberfirstline: false,
+  breaklines: false, breakatwhitespace: false, breakindent: "20pt", breakautoindent: true,
   frame: "none", framerule: ".4pt", framesep: "3pt", rulesep: "2pt", framexleftmargin: "0pt", framexrightmargin: "0pt", xleftmargin: "0pt", xrightmargin: "0pt",
 }
 
@@ -115,10 +120,11 @@ export function lstOptions(src: string, base: LstOptions): LstOptions {
         if (!m || (c !== "fixed" && c !== "flexible" && c !== "fullflexible")) throw new LstUnsupported(`columns=${v}`)
         if (m[1] === "c") o.lostInserts = true // \lst@outputpos c
         o.columns = c
+        if (c !== "fixed") o.flexibleKind = c
         if (c === "fullflexible") o.lostInserts = false
         break
       }
-      case "flexiblecolumns": throw new LstUnsupported("flexiblecolumns")
+      case "flexiblecolumns": o.columns = bool(v) ? o.flexibleKind : "fixed"; break
       case "showstringspaces": o.showstringspaces = bool(v); break
       case "tabsize": if (!/^\d+$/.test(v ?? "") || Number(v) < 1) throw new LstUnsupported(`tabsize=${v}`); o.tabsize = Number(v); break
       case "caption": if (v === null || /^\[/.test(v)) throw new LstUnsupported(`caption=${v}`); o.caption = v; break
@@ -135,7 +141,11 @@ export function lstOptions(src: string, base: LstOptions): LstOptions {
         if (!/^-?(\d+(\.\d*)?|\.\d+)\s*(pt|em|ex|mm|cm|in|bp)$/.test(v ?? "")) throw new LstUnsupported(`${key}=${v}`)
         o[key] = v!
         break
-      case "breaklines": if (bool(v)) throw new LstUnsupported("breaklines"); break
+      case "breaklines": o.breaklines = bool(v); break
+      case "breakatwhitespace": o.breakatwhitespace = bool(v); break
+      case "breakautoindent": o.breakautoindent = bool(v); break
+      case "breakindent": if (!/^-?(\d+(\.\d*)?|\.\d+)\s*(pt|em|ex|mm|cm|in|bp)$/.test(v ?? "")) throw new LstUnsupported(`breakindent=${v}`); o.breakindent = v!; break
+      case "prebreak": case "postbreak": if (v) throw new LstUnsupported(`${key}=${v}`); break
       default: throw new LstUnsupported(`listings key ${key}`)
     }
   }
@@ -156,7 +166,8 @@ export interface LstFonts {
 
 /** Output: a new line (\lst@NewLine: \par\noindent\hbox{}), a node of the line, or \lst@@discretionary (its
  *  post-break text has the line's frame box, which the caller makes) */
-export type LstEvent = { newline: true; /** after \lsthk@OnEmptyLine */ empty?: true; /** in \lst@DeInit's box that is thrown away */ discarded?: true } | { node: Node } | { disc: true }
+export type LstEvent = { newline: true; /** after \lsthk@OnEmptyLine */ empty?: true; /** in \lst@DeInit's box that is thrown away */ discarded?: true; /** breaklines: \lst@breakshape */ shape?: [number, number] }
+  | { node: Node } | { disc: true; /** \lst@breakcurrindent */ indent: number }
 
 const hss = () => glue(0, 65536, FIL, 65536, FIL)
 function charNode(f: Font, c: number): Node {
@@ -172,7 +183,15 @@ const OTHERS = /^[!"#%&'()*+,\-./:;<=>?[\\\]^`{|}~]$/
 /** \verbatim@nolig@list: \lst@NoLig appends \lst@nolig before the character's own meaning */
 const NOLIG = "`<>,'-"
 
-export interface LstScanParams { width: number; lines: string[]; options: LstOptions; fonts: LstFonts }
+export interface LstScanParams {
+  width: number; lines: string[]; options: LstOptions; fonts: LstFonts
+  /** \lstinline (\lsthk@TextStyle): \lst@NewLine is empty, so \lst@newlines stays 1 */
+  textStyle?: boolean
+  /** what outlives a listing: \lst@ifgobbledws (global, and only an output resets it), \lst@breakcurrindent and \lst@breakshape */
+  carry: { gobbledws: boolean; breakcurrindent: number; breakshape: [number, number] | null }
+  /** breaklines: \lst@breakindent, \linewidth and \@totalleftmargin */
+  breaks?: { indent: number; lineWidth: number; left: number }
+}
 
 /**
  * The listing's lines as events. The state is listings' own: \lst@token and \lst@length (the token
@@ -189,7 +208,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   let L: Local = { token: [], length: 0, letter: false, lastother: "", mode: 0, currstyle: null, ifmode: false, keywords: true, keepspaces: false, visible: false, Lmode: false }
   const stack: Local[] = []
   // global state
-  let lostspace = 0, pos = 0, newlines = 0, whitespace = true, gobbledws = false, ifnewline = false
+  let lostspace = 0, pos = 0, newlines = 0, whitespace = true, gobbledws = p.carry.gobbledws, ifnewline = false
   const NOMODE = 0
   /** each delimiter has a mode of its own (\lst@UseDynamicMode) */
   const delims = lang?.delims ?? []
@@ -248,9 +267,26 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   // ---- output (listings.sty: \lst@OutputToken, \lst@CalcLostSpaceAndOutput, \lst@Kern) ----
   const out = (n: Node) => events.push({ node: n })
   const lstKern = (w: number) => out(hpack([kern(w, true)]))
-  const newLine = (empty = false) => { events.push(empty ? { newline: true, empty: true } : { newline: true }); newlines--; ifnewline = true }
-  const doNewLines = () => { while (newlines > 1) newLine(true); if (newlines > 0) newLine() }
-  const trackNewLines = () => { if (newlines > 0) doNewLines() }
+  const newLine = (empty = false) => {
+    if (p.textStyle) return
+    const e: LstEvent = empty ? { newline: true, empty: true } : { newline: true }
+    if (o.breaklines) e.shape = p.carry.breakshape ?? [p.breaks!.left, p.breaks!.lineWidth]
+    events.push(e); newlines--; ifnewline = true }
+  const doNewLines = () => {
+    if (p.textStyle) return // (\lst@newlines is 1 and \lst@NewLine does nothing)
+    while (newlines > 1) newLine(true)
+    if (newlines > 0) newLine()
+  }
+  const trackNewLines = () => {
+    if (newlines <= 0) return
+    if (o.breaklines) { // \lsthk@OnNewLine: \lst@breakNewLine, from the lost space of the line's start
+      const b = p.breaks!
+      const a = b.indent + (o.breakautoindent ? lostspace : 0)
+      p.carry.breakcurrindent = a + b.left
+      p.carry.breakshape = [p.carry.breakcurrindent, b.lineWidth - a]
+    }
+    doNewLines()
+  }
   const useLostSpace = () => { if (lostspace > 0) { lstKern(lostspace); lostspace = 0 } }
   const flexible = o.columns !== "fixed"
   /** the token box, then \lst@CalcLostSpaceAndOutput with [c] positioning */
@@ -263,14 +299,15 @@ export function lstScan(p: LstScanParams): LstEvent[] {
     inner.push(box)
     if (lostspace > 0 && !full) { inner.push(hpack([kern(lostspace, true)])); lostspace = 0 } // \lst@InsertLostSpace
     out(hpack(inner))
-    ifnewline = false // \lsthk@PostOutput
+    ifnewline = false // \lsthk@PostOutput, then breaklines' \lst@discretionary
+    if (o.breaklines && (!o.breakatwhitespace || whitespace)) events.push({ disc: true, indent: p.carry.breakcurrindent })
   }
   const outputToken = (style: string) => {
     trackNewLines()
     if (o.columns !== "fullflexible" || ifnewline) useLostSpace() // \lst@OutputLostSpace
     if (gobbledws) {
       gobbledws = false
-      events.push({ disc: true })
+      events.push({ disc: true, indent: p.carry.breakcurrindent })
     }
     const nodes = flexible ? typeset(L.token, style, () => null) : [hss(), ...typeset(L.token, style, hss), hss()]
     const box = flexible ? hpack(nodes) : hpack(nodes, { exactly: L.length * W })
@@ -371,6 +408,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
       }
     }
     plain(ch)
+    if (o.breaklines && ch === ")") outputOther() // \lst@breakProcessOther
     return 1
   }
 
@@ -390,6 +428,9 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   })
   // \lst@DeInit: the last token; empty lines at the end go into a box that is thrown away
   xPrintToken()
+  while (L.Lmode) leaveMode()
+  p.carry.gobbledws = gobbledws
+  if (p.textStyle) return events
   for (newlines--; newlines > 0; newlines--) events.push(newlines > 1 ? { newline: true, empty: true, discarded: true } : { newline: true, discarded: true })
   return events
 }
