@@ -1,0 +1,42 @@
+% fixture: xcolor/group-starts
+% tier: T3
+% engine: document
+% covers: paragraphs that start in a {\color …} group after a run-in heading (its \everypar in the group: the heading in place, \clubpenalty\@M for the group's footnotes only), after a list or theorem (\@doendpe's \everypar in the group), in an item right after a heading and after a nested list
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+Text before.
+
+\paragraph{Run-in.} {\color{red} colored words\footnote{A note in the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.}} and more\footnote{A note after the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.} words to fill out the line and wrap it onto another line or two of text.
+
+Next paragraph.
+
+\section{Head}
+Text before the list.
+\begin{itemize}
+\item one
+\end{itemize}
+{\color{red} colored words\footnote{A note in the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.}} and more\footnote{A note after the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.} words to fill out the line and wrap it onto another line or two of text.
+\begin{center}
+c
+\end{center}
+\begin{theorem} T.
+\end{theorem}
+{\color{blue} after the theorem} with words to fill out the line and wrap it onto another line or two of text here.
+
+Next paragraph.
+
+\section{Items}
+\begin{itemize}
+\item {\color{red} first item right after the heading\footnote{A note in the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.}} and more\footnote{A note after the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.} words to fill the line and wrap it onto two.
+
+A second paragraph of the item with words to fill it out to two lines or more of text here in the list.
+\item second item
+\begin{enumerate}
+\item nested
+\end{enumerate}
+{\color{blue} after the nested list\footnote{A third note in the group with enough words in it to take two lines at the foot of the page, so its club penalty shows.}} with words to fill out the line and wrap it onto another.
+\end{itemize}
+\end{document}

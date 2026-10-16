@@ -950,8 +950,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // a group that starts with \color before the paragraph does: the push goes on the vertical list
       const cg = /^\s*\{\\color(?![A-Za-z])/.test(b.text)
       if (cg) {
-        if (runIn) throw new Unsupported("a color group right after a run-in heading")
-        if (b.noindent || (b.afterThm && v.doendpe)) throw new Unsupported("a color group starting the paragraph after a list")
+        // (after a list, \@doendpe's \everypar runs in the group; its \par at the end of the paragraph clears all it set)
         b.text = leadingColor(b.text)
       }
       // a run-in heading goes in place first: its title sees the counters as the paragraph starts
@@ -964,10 +963,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (v.nobreak) throw new Unsupported("a run-in heading right after a heading")
         // a display environment that starts the paragraph starts it in its own group: \clubpenalty\@M ends there
         const segs0 = displaySegments(text)
-        const grouped = tabularStart(text) || (!(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath)))
+        const grouped = !!cg || tabularStart(text) || (!(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath)))
         const outer = v.club
-        // (the heading's own lines, before the first display, are inside that group)
-        paragraphWithDisplays(text, false, grouped ? outer : 10000, grouped ? outer : 10000, start, b.unskip, 10000)
+        // (the heading's own lines, before the first display, are inside that group; in a {\color …} group only
+        // its footnotes are: the lines see the \clubpenalty at the \par, after the group)
+        if (cg) paragraphWithDisplays(text, false, outer, outer, start, b.unskip, outer, 10000)
+        else paragraphWithDisplays(text, false, grouped ? outer : 10000, grouped ? outer : 10000, start, b.unskip, 10000)
         // the next paragraph's \everypar (still the run-in heading's) sets \@clubpenalty; when a display started
         // this one, its \clubpenalty\@M ended with the display's group
         if (!grouped) v.club = 10000
@@ -1011,7 +1012,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \@trivlist's \if@noskipsec\leavevmode (in the environment's group), then \unskip\par and no \partopsep
     if (noskipsec && !b.inPar) {
       if (b.env === "abstract") throw new Unsupported("an abstract after a run-in heading lost to a listing")
+      const club = v.club
       noskipsecPar("a list")
+      v.club = club // (an \everypar's \clubpenalty there is the environment's own)
       b = { ...b, inPar: true }
     }
     list(b, topCtx())
@@ -1514,8 +1517,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         }
         // a {\color …} group that starts the paragraph: its push on the vertical list (the paragraph starts in the group)
         const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text)
-        if (colorStart && (p.start === "doendpe" || club)) throw new Unsupported("a color group starting an item's paragraph here")
-        if (colorStart && p.start === "label") p.text = leadingColor(p.text)
+        if (colorStart && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a color group starting an item's paragraph here")
+        // (after a nested list, \@doendpe's \everypar runs in the group, and its \par clears all it set; after \\ the
+        // push comes after \@centercr's skip, below)
+        if (colorStart && (p.start === "label" || p.start === "doendpe")) p.text = leadingColor(p.text)
         // (so does a tabular: \begin{tabular}'s group, then \leavevmode)
         const groupStart = colorStart || tabularStart(p.text)
         if (groupStart && !colorStart && (p.start !== "label" || (club && depth > 1))) throw new Unsupported("a tabular starting an item's paragraph here")
