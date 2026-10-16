@@ -1,0 +1,19 @@
+% fixture: xcolor/listings-background-breaklines
+% tier: T3
+% engine: document
+% covers: listings backgroundcolor with frame=tb, breaklines, margins
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\definecolor{bk}{rgb}{0.95,0.95,0.92}\lstset{language=Python,backgroundcolor=\color{bk},frame=tb,breaklines=true,commentstyle=\color{green!50!black}}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[xleftmargin=2em,framexleftmargin=1em]
+def f(x):   # a comment with a long tail that goes on and on and on past the end of the line here
+    return  x
+
+  last
+\end{lstlisting}
+Text after.
+
+\end{document}

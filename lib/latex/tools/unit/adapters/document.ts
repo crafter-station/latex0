@@ -876,6 +876,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const segs = displaySegments(text)
       // (so does a {\color …} group: the paragraph starts inside it)
       const grouped = !!cg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
+      // (footnotes read in such a color group see its \clubpenalty, which the group's end takes back)
+      if (cg && v.afterheadingEverypar && /\\footnote\b/.test(text)) throw new Unsupported("a footnote in a color group that starts the paragraph after a heading")
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
         if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000 }
@@ -1289,7 +1291,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text)
         if (colorStart && (p.start === "doendpe" || club)) throw new Unsupported("a color group starting an item's paragraph here")
         if (colorStart && p.start === "label") p.text = leadingColor(p.text)
-        if (p.start === "label") typeset(p.text, { start: [labels, penalty(0), ...(p.nodes ?? [])], ...shape, ...un, ...(club ? { clubPenalty: club } : {}) }, parsep, ctx.size)
+        // (in a {\color …} group the \everypar's \clubpenalty\@clubpenalty ends with the group: the one in force stays,
+        // the outer one for a first item, else what the item before set)
+        if (p.start === "label") typeset(p.text, { start: [labels, penalty(0), ...(p.nodes ?? [])], ...shape, ...un, ...(club ? { clubPenalty: club } : colorStart ? { clubPenalty: i === 0 && depth === 1 ? v.club : k.ints.clubpenalty } : {}) }, parsep, ctx.size)
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
         else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
@@ -1403,6 +1407,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
     // \lst@Init: \par\penalty-50\relax\vspace\lst@aboveskip, \normalbaselines, \lst@MakeCaption t
     v.par()
+    const clubOutside = v.club
     v.nodes.push(penalty(-50))
     vspace(medskip)
     v.nodes.push(penalty(0)) // \allowbreak
@@ -1443,7 +1448,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // breaklines: \pretolerance\@M, \rightskip\@flushglue, \parshape 2 with \lst@breakshape for the lines after the first
     const breaks = o.breaklines ? { pretolerance: 10000, rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)) } : {}
     const shapes = lstFrameShapes(o.frame)
-    const fr: LstFrame = { tshape: shapes.t, bshape: shapes.b, lshape: shapes.l, rshape: shapes.r, rule: dim("framerule"), sep: dim("framesep"), rulesep: dim("rulesep"), xleft: dim("framexleftmargin"), xright: dim("framexrightmargin") }
+    // (the Init hook: fillcolor from backgroundcolor, rulesepcolor from fillcolor)
+    const bkg = styleColors(o.backgroundcolor), fill = o.fillcolor ? styleColors(o.fillcolor) : bkg, rulesep = o.rulesepcolor ? styleColors(o.rulesepcolor) : fill
+    const fr: LstFrame = {
+      tshape: shapes.t, bshape: shapes.b, lshape: shapes.l, rshape: shapes.r, rule: dim("framerule"), sep: dim("framesep"), rulesep: dim("rulesep"), xleft: dim("framexleftmargin"), xright: dim("framexrightmargin"),
+      colors: { rule: styleColors(o.rulecolor), bkg, fill, rulesep },
+    }
     const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
     let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
     const frameParagraph = (box: BoxNode, end: Node[] = []) => {
@@ -1527,6 +1537,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     vspace(medskip)
     if (xcolor.on) v.nodes.push(colorPop()) // the group's end
     for (const _ of basicColors) v.nodes.push(colorPop())
+    v.club = clubOutside // (\clubpenalty set in the listing's group ends with it)
     v.endpePar = true
     v.afterheadingEverypar = false // \lst@doendpe's \everypar replaces it
     v.nobreak = false // \end{lstlisting}: \@nobreakfalse

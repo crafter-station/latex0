@@ -1,0 +1,13 @@
+% fixture: xcolor/listings-background
+% tier: T3
+% engine: document
+% covers: listings backgroundcolor and rulecolor with frame=single (\lst@frameBlock in a color group, \color@begingroup\lst@rulecolor)
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\begin{document}
+X
+\begin{lstlisting}[backgroundcolor=\color{yellow},frame=single,rulecolor=\color{red}]
+ab
+\end{lstlisting}
+\end{document}
