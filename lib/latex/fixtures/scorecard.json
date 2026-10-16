@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 187,
-  "exact": 185,
+  "fixtures": 188,
+  "exact": 186,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 186251
+  "glyphs": 187579
  },
  "areas": [
   {
@@ -106,8 +106,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 13,
-   "exact": 13
+   "fixtures": 14,
+   "exact": 14
   }
  ],
  "fixtures": [
@@ -1040,7 +1040,7 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 305,
+   "glyphs": 429,
    "covers": "a listing right after a run-in heading: the listing's \\everypar (then \\lst@doendpe's) replaces the heading's, so the heading is lost and \\@noskipsec stays true (and \\@esphack adds \\nobreak after a \\label in vertical mode); each later \\@startsection and \\@trivlist starts an empty paragraph (\\if@noskipsec\\leavevmode), until a run-in heading's \\everypar or \\newpage ends it"
   },
   {
@@ -1990,6 +1990,16 @@
    "status": "pass",
    "glyphs": 168,
    "covers": "a paragraph that starts in a {\\color …} group: the push on the vertical list before \\parskip"
+  },
+  {
+   "id": "xcolor/group-starts",
+   "file": "micro/xcolor/group-starts.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1204,
+   "covers": "paragraphs that start in a {\\color …} group after a run-in heading (its \\everypar in the group: the heading in place, \\clubpenalty\\@M for the group's footnotes only), after a list or theorem (\\@doendpe's \\everypar in the group), in an item right after a heading and after a nested list"
   },
   {
    "id": "xcolor/heading-group-notes",
