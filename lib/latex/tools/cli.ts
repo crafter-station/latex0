@@ -15,7 +15,11 @@
 //   bun engine math:check [--n 3000] [--seed 1]       random formulas: mlist_to_hlist vs TeX \showbox (#74)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
-import { spawn } from "node:child_process"
+//   bun engine ci                                      the full conformance gate, locally (what engine.yml runs)
+import { execFileSync, spawn, spawnSync } from "node:child_process"
+import { writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { watch } from "node:fs"
 import { oracleTrace } from "./oracle/oracle"
 import { collectFixtures, report, runFixture } from "./unit/run"
@@ -46,7 +50,44 @@ function watchUnit() {
   run()
 }
 
+// The conformance gate run locally before merging; engine.yml runs the same
+// steps on demand. The scorecard must not regress against origin/main.
+function ci(): number {
+  const base = join(tmpdir(), "latex0-scorecard-base.json")
+  try {
+    execFileSync("git", ["fetch", "-q", "origin", "main"], { stdio: "ignore" })
+    writeFileSync(base, execFileSync("git", ["show", "origin/main:lib/latex/fixtures/scorecard.json"]))
+  } catch {
+    writeFileSync(base, "{}")
+  }
+  const steps = [
+    ["codegen", "--check"],
+    ["oracle:check"],
+    ["unit"],
+    ["scorecard", "--check", "--base", base],
+    ["dimen:check", "--n", "20000"],
+    ["glyph:check", "--n", "10000"],
+    ["expand:check", "--n", "3000"],
+    ["expand:doc", "--n", "300"],
+    ["math:check", "--n", "3000"],
+    ["fuzz:paragraphs", "--n", "1000", "--seed", "1"],
+    ["fuzz:documents", "--n", "30", "--seed", "1"],
+    ["hyphen:check", "--words", "20000"],
+  ]
+  const summary: string[] = []
+  for (const step of steps) {
+    const t = Date.now()
+    console.log(`\n=== bun engine ${step.join(" ")}`)
+    const { status } = spawnSync(process.execPath, [process.argv[1], ...step], { stdio: "inherit" })
+    summary.push(`${status === 0 ? "✓" : "✗"} ${step[0]} (${((Date.now() - t) / 1000).toFixed(0)}s)`)
+  }
+  console.log(`\n${summary.join("\n")}`)
+  return summary.some((l) => l.startsWith("✗")) ? 1 : 0
+}
+
 switch (cmd) {
+  case "ci":
+    process.exit(ci())
   case "unit":
     if (flags.has("--watch")) watchUnit()
     else process.exit(unit())
@@ -131,6 +172,6 @@ switch (cmd) {
     await import("./oracle/selfcheck")
     break
   default:
-    console.log("usage: bun engine <unit|codegen|trace|oracle:check> …")
+    console.log("usage: bun engine <ci|unit|codegen|trace|oracle:check> …")
     process.exit(cmd ? 1 : 0)
 }
