@@ -101,7 +101,7 @@ const depthOk = (s: string) => { let d = 0; for (const c of s) { if (c === "{") 
 export function lstOptions(src: string, base: LstOptions): LstOptions {
   const o: LstOptions = { ...base, keywordstyle: [...base.keywordstyle] }
   const bool = (v: string | null) => { if (v === null || v === "true") return true; if (v === "false") return false; throw new LstUnsupported(`listings value ${v}`) }
-  const style = (v: string | null) => { if (v === null || !/^(\s*\\(bfseries|mdseries|itshape|slshape|upshape|scshape|rmfamily|sffamily|ttfamily|normalfont|tiny|scriptsize|footnotesize|small|normalsize|large|Large))*\s*$/.test(v)) throw new LstUnsupported(`listings style ${v}`); return v }
+  const style = (v: string | null) => { if (v === null || !/^(\s*\\(bfseries|mdseries|itshape|slshape|upshape|scshape|rmfamily|sffamily|ttfamily|normalfont|tiny|scriptsize|footnotesize|small|normalsize|large|Large|color\s*(\[[^\]{}]*\])?\s*\{[^{}]*\}))*\s*$/.test(v)) throw new LstUnsupported(`listings style ${v}`); return v }
   for (const [key, v] of keyvals(src)) {
     switch (key) {
       case "language": o.language = lstLanguage(v ?? ""); break
@@ -162,6 +162,8 @@ export interface LstFonts {
   /** a character in another encoding for \textdollar, \textasteriskcentered, \textminus (TS1), \textless,
    *  \textgreater (OML), \textbackslash, \textbraceleft, \textbar, \textbraceright (OMS) */
   other(style: string, enc: "TS1" | "OML" | "OMS"): Font
+  /** the style's \color commands: what each pushes (each \aftergroup's a pop) */
+  colors(style: string): string[]
 }
 
 /** Output: a new line (\lst@NewLine: \par\noindent\hbox{}), a node of the line, or \lst@@discretionary (its
@@ -259,6 +261,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
       if (Array.isArray(x)) { flush(); nodes.push(...x); return }
       if (runFont && runFont !== x.f) flush()
       runFont = x.f; run.push(x.c)
+      if (typeof e === "string" && "'\"`".includes(e)) flush() // \char39\relax and friends: the \relax ends the main loop
     })
     flush()
     return nodes
@@ -266,7 +269,12 @@ export function lstScan(p: LstScanParams): LstEvent[] {
 
   // ---- output (listings.sty: \lst@OutputToken, \lst@CalcLostSpaceAndOutput, \lst@Kern) ----
   const out = (n: Node) => events.push({ node: n })
-  const lstKern = (w: number) => out(hpack([kern(w, true)]))
+  /** a style's \color pushes and their pops, in a group around nodes */
+  const colored = (style: string | null, nodes: Node[]): Node[] => {
+    const cs = style ? fonts.colors(style) : []
+    return [...cs.map((c): Node => ({ kind: "whatsit", text: `\\special{color push ${c}}` })), ...nodes, ...cs.map((): Node => ({ kind: "whatsit", text: "\\special{color pop}" }))]
+  }
+  const lstKern = (w: number) => out(hpack(colored(L.currstyle, [kern(w, true)]))) // \hbox{{\lst@currstyle{\kern#1}}}
   const newLine = (empty = false) => {
     if (p.textStyle) return
     const e: LstEvent = empty ? { newline: true, empty: true } : { newline: true }
@@ -295,9 +303,9 @@ export function lstScan(p: LstScanParams): LstEvent[] {
     pos -= length
     const inner: Node[] = []
     const full = !o.lostInserts
-    if (lostspace > 0 && !full) { lostspace = Math.trunc(lostspace / 2); inner.push(hpack([kern(lostspace, true)])) } // \lst@InsertHalfLostSpace
+    if (lostspace > 0 && !full) { lostspace = Math.trunc(lostspace / 2); inner.push(hpack(colored(L.currstyle, [kern(lostspace, true)]))) } // \lst@InsertHalfLostSpace
     inner.push(box)
-    if (lostspace > 0 && !full) { inner.push(hpack([kern(lostspace, true)])); lostspace = 0 } // \lst@InsertLostSpace
+    if (lostspace > 0 && !full) { inner.push(hpack(colored(L.currstyle, [kern(lostspace, true)]))); lostspace = 0 } // \lst@InsertLostSpace
     out(hpack(inner))
     ifnewline = false // \lsthk@PostOutput, then breaklines' \lst@discretionary
     if (o.breaklines && (!o.breakatwhitespace || whitespace)) events.push({ disc: true, indent: p.carry.breakcurrindent })
@@ -311,7 +319,11 @@ export function lstScan(p: LstScanParams): LstEvent[] {
     }
     const nodes = flexible ? typeset(L.token, style, () => null) : [hss(), ...typeset(L.token, style, hss), hss()]
     const box = flexible ? hpack(nodes) : hpack(nodes, { exactly: L.length * W })
+    // {\lst@thestyle{…\lst@CalcLostSpaceAndOutput}}: the style's colors pushed before the box, popped when the group ends
+    const cs = fonts.colors(style)
+    for (const c of cs) out({ kind: "whatsit", text: `\\special{color push ${c}}` })
     calcLostSpaceAndOutput(box, L.length)
+    for (let i = 0; i < cs.length; i++) out({ kind: "whatsit", text: "\\special{color pop}" })
     L.token = []; L.length = 0
   }
   const keywordStyle = (): string | null => {
@@ -356,7 +368,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
       const f = fontOf("").font
       const w = L.visible ? (f.chars.get(32)?.width ?? 0) : f.params[SPACE]
       L.length = length
-      calcLostSpaceAndOutput(hpack([hss()], { exactly: w }), length)
+      calcLostSpaceAndOutput(hpack(colored(L.currstyle, [hss()]), { exactly: w }), length) // {\lst@currstyle{\hss}}
       L.length = 0
     } else lostspace += length * W
     L.length = 0; pos = 0

@@ -1,0 +1,17 @@
+% fixture: xcolor/mixes
+% tier: T3
+% engine: document
+% covers: xcolor expressions: base colors, \definecolor'd ones, mixes (\XC@mix, \rrshift) and the complement
+\documentclass{article}
+\usepackage{xcolor}
+\definecolor{c1}{rgb}{0.1,0.2,0.3}
+\definecolor{c2}{RGB}{255,136,0}
+\definecolor{c3}{HTML}{1F77B4}
+\definecolor{c4}{gray}{0.35}
+\definecolor{c5}{cmyk}{0.1,0.2,0.3,0.4}
+\begin{document}
+\textcolor{red}{a}\textcolor{brown}{a}\textcolor{cyan}{a}\textcolor{olive}{a}\textcolor{gray}{a}\textcolor{darkgray}{a}\textcolor{black}{a}\textcolor{white}{a}\textcolor{orange}{a}\textcolor{violet}{a}\textcolor{teal}{a}\textcolor{pink}{a}\textcolor{lime}{a}\textcolor{purple}{a}\textcolor{magenta}{a}\textcolor{yellow}{a}\textcolor{green}{a}\textcolor{lightgray}{a}
+\textcolor{c1}{a}\textcolor{c2}{a}\textcolor{c3}{a}\textcolor{c4}{a}\textcolor{c5}{a}
+\textcolor{blue!50}{a}\textcolor{red!30!black}{a}\textcolor{green!60!blue}{a}\textcolor{c3!20}{a}\textcolor{gray!10}{a}\textcolor{cyan!25}{a}\textcolor{orange!75!white}{a}\textcolor{c2!33}{a}\textcolor{-red}{a}\textcolor{blue!50!}{a}
+\textcolor[RGB]{10,20,30}{a}\textcolor[HTML]{ABCDEF}{a}\textcolor[gray]{0.7}{a}\textcolor[cmyk]{0,1,0,0}{a}\textcolor[rgb]{.5,0.25,1}{a}
+\end{document}

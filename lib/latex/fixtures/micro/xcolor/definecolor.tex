@@ -1,0 +1,15 @@
+% fixture: xcolor/definecolor
+% tier: T3
+% engine: document
+% covers: \definecolor in rgb, gray, HTML, cmyk and RGB (values as \XC@calcN keeps them)
+\documentclass{article}
+\usepackage{xcolor}
+\definecolor{d1}{rgb}{.5,1.0,0.25}
+\definecolor{d2}{rgb}{ 0.1 , 0.2,0.3 }
+\definecolor{d3}{gray}{.35}
+\definecolor{d4}{HTML}{ff8800}
+\definecolor{d5}{cmyk}{0,.5,1,0}
+\definecolor{d6}{RGB}{0,128,255}
+\begin{document}
+\textcolor{d1}{a}\textcolor{d2}{a}\textcolor{d3}{a}\textcolor{d4}{a}\textcolor{d5}{a}\textcolor{d6}{a}\textcolor[rgb]{1, 0.5 ,0}{a}\textcolor[gray]{.5}{a}\textcolor[HTML]{00FF7f}{a}
+\end{document}

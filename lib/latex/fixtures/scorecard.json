@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 158,
-  "exact": 156,
+  "fixtures": 164,
+  "exact": 162,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 181047
+  "glyphs": 181483
  },
  "areas": [
   {
@@ -88,6 +88,11 @@
    "area": "title",
    "fixtures": 4,
    "exact": 4
+  },
+  {
+   "area": "xcolor",
+   "fixtures": 6,
+   "exact": 6
   }
  ],
  "fixtures": [
@@ -1790,6 +1795,66 @@
    "glyphs": 337,
    "covers": "report's \\maketitle: the titlepage environment (\\newpage, \\thispagestyle{empty}, \\setcounter{page}\\@ne), \\null\\vfil\\vskip60\\p@, the centered title, \\vskip3em, the authors with \\lineskip.75em, \\vskip1.5em, {\\large date\\par} with \\large's \\baselineskip, \\vfil\\null, \\newpage; one-sided, the next page is page 1 again",
    "issue": "#30"
+  },
+  {
+   "id": "xcolor/definecolor",
+   "file": "micro/xcolor/definecolor.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 10,
+   "covers": "\\definecolor in rgb, gray, HTML, cmyk and RGB (values as \\XC@calcN keeps them)"
+  },
+  {
+   "id": "xcolor/group-start",
+   "file": "micro/xcolor/group-start.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 168,
+   "covers": "a paragraph that starts in a {\\color …} group: the push on the vertical list before \\parskip"
+  },
+  {
+   "id": "xcolor/listings",
+   "file": "micro/xcolor/listings.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 87,
+   "covers": "listings styles with \\color: keywords, comments, strings, basicstyle (on the vertical list), numbers, \\lstinline, frames"
+  },
+  {
+   "id": "xcolor/loaded",
+   "file": "micro/xcolor/loaded.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 106,
+   "covers": "xcolor loaded: the column's \\normalcolor, \\sbox (item labels, captions), float boxes, the footnote block, equation numbers, toc page numbers"
+  },
+  {
+   "id": "xcolor/mixes",
+   "file": "micro/xcolor/mixes.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "xcolor expressions: base colors, \\definecolor'd ones, mixes (\\XC@mix, \\rrshift) and the complement"
+  },
+  {
+   "id": "xcolor/textcolor",
+   "file": "micro/xcolor/textcolor.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 26,
+   "covers": "\\textcolor and {\\color …} with named colors and [rgb], [RGB] (the driver's \\divide), [HTML] (\\rdivide), [gray], [cmyk]"
   }
  ]
 }
