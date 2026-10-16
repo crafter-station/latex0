@@ -1,0 +1,12 @@
+% fixture: listings/python
+% tier: T3
+% engine: document
+% covers: lstlisting: Python keywords (two classes), a line comment, backslash strings, visible spaces
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+\begin{lstlisting}[language=Python]
+for x2 in range(10): # loop it
+  s = 'a b\'c' + "d"
+\end{lstlisting}
+\end{document}

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 128,
-  "exact": 125,
+  "fixtures": 138,
+  "exact": 136,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 3,
-  "glyphs": 177990
+  "pending": 2,
+  "glyphs": 178931
  },
  "areas": [
   {
@@ -50,6 +50,11 @@
    "exact": 16
   },
   {
+   "area": "listings",
+   "fixtures": 10,
+   "exact": 10
+  },
+  {
    "area": "lists",
    "fixtures": 11,
    "exact": 11
@@ -72,7 +77,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 15
+   "exact": 16
   },
   {
    "area": "text",
@@ -146,8 +151,8 @@
    "file": "macro/templates/code-listing.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 54,
    "covers": "snippet in a minimal article: Code block with syntax highlighting",
    "issue": "#30"
@@ -927,6 +932,106 @@
    "glyphs": 328,
    "covers": "\\pretolerance=-1 skips the first pass; TeX prints no @secondpass marker in that case (§ 863)",
    "issue": "#112"
+  },
+  {
+   "id": "listings/caption",
+   "file": "micro/listings/caption.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 34,
+   "covers": "lstlisting: \\allowbreak, the caption between \\nobreak\\vskip\\smallskipamount, \\lst@doendpe"
+  },
+  {
+   "id": "listings/flexible",
+   "file": "micro/listings/flexible.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 164,
+   "covers": "lstlisting: columns=flexible (ligatures and kerns), showstringspaces=false"
+  },
+  {
+   "id": "listings/fullflexible",
+   "file": "micro/listings/fullflexible.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 167,
+   "covers": "lstlisting: columns=fullflexible (lost space only at a new line), footnotesize typewriter"
+  },
+  {
+   "id": "listings/nolig",
+   "file": "micro/listings/nolig.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "lstlisting: \\verbatim@nolig@list characters after letters and others"
+  },
+  {
+   "id": "listings/python",
+   "file": "micro/listings/python.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "lstlisting: Python keywords (two classes), a line comment, backslash strings, visible spaces"
+  },
+  {
+   "id": "listings/spaces",
+   "file": "micro/listings/spaces.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6,
+   "covers": "lstlisting: lost space, gobbled whitespace (\\lst@@discretionary), tabulators, empty lines"
+  },
+  {
+   "id": "listings/specials",
+   "file": "micro/listings/specials.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 70,
+   "covers": "lstlisting: listings' text symbols in roman (TS1, OML, OMS, \\textunderscore) and typewriter"
+  },
+  {
+   "id": "listings/styles",
+   "file": "micro/listings/styles.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 182,
+   "covers": "lstlisting: \\lstset with language, every style key, caption= and label="
+  },
+  {
+   "id": "listings/tokens",
+   "file": "micro/listings/tokens.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "lstlisting: fixed columns, letter and other tokens, \\lst@nolig, strings of the default language"
+  },
+  {
+   "id": "listings/tt-small",
+   "file": "micro/listings/tt-small.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 167,
+   "covers": "lstlisting: basicstyle=\\ttfamily\\small (struts, baselines, \\lst@width)"
   },
   {
    "id": "lists/club-after-centercr",

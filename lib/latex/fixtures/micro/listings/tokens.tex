@@ -1,0 +1,12 @@
+% fixture: listings/tokens
+% tier: T3
+% engine: document
+% covers: lstlisting: fixed columns, letter and other tokens, \lst@nolig, strings of the default language
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+Hello
+\begin{lstlisting}
+x = "Hello, World!" + "ab,c"
+\end{lstlisting}
+\end{document}

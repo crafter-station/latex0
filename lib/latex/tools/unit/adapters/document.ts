@@ -18,10 +18,10 @@ import { classData, documentClass } from "../../classes"
 import { dataFont } from "../../fonts"
 import { emitBoxes } from "../../../emit/boxes"
 import { shipOut } from "../../../emit/trace"
-import type { ClassOptionData, SizeCommand } from "../../../layout/classdata"
+import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../../../layout/classdata"
 import type { GlueSpec } from "../../../layout/dimen"
 import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
-import { parseGlue, Scanner } from "../../../layout/dimen"
+import { parseDimen, parseGlue, Scanner } from "../../../layout/dimen"
 import { appendText } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
 import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
@@ -39,7 +39,8 @@ import { expandDocument } from "../../../expand/document"
 import { isKnownCommand } from "../../../parser"
 import { endDocument, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
-import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
+import { lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstOptions } from "./listings"
+import { fontAt, fontDeclaration, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 /** a tabular row (and the skip of a \\[skip] or \\*[skip] ending it), or an \hline */
@@ -91,6 +92,8 @@ type Block =
   | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number }
   /** \begin{thebibliography}: its heading and \@mkboth, then the list */
   | { kind: "bib"; keys: string[] }
+  /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
+  | { kind: "listing"; n: number }
 
 /** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{} */
 interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string }
@@ -216,7 +219,7 @@ function inParagraph(before: string): boolean {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -230,6 +233,7 @@ function blocksOf(body: string): Block[] {
     const before = body.slice(at, m.index)
     text(before)
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
+    if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
     if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
@@ -299,7 +303,7 @@ function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter") continue
+    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -434,13 +438,21 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
  */
 export const document: Adapter = (source) => {
   // the document's own macros expanded first, as the renderer does (expand:doc checks this keeps TeX's output)
+  // listings' environments are read verbatim: each becomes \lstplaceholder{n}
+  const listings: Listing[] = []
+  source = source.replace(/^([^%\n]*?)\\begin\{lstlisting\}(?:\[((?:[^\]{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\])?([^\n]*)\n([^]*?)^[ \t]*\\end\{lstlisting\}/gm, (_, before: string, options: string | undefined, rest: string, body: string) => {
+    if (rest.trim()) throw new Unsupported("text after \\begin{lstlisting} on its line")
+    listings.push({ options: options ?? "", lines: body.split("\n").map((l) => l.replace(/ +$/, "")) }) // the last: what comes before \end; TeX drops the spaces that end a line
+    return `${before}\\lstplaceholder{${listings.length - 1}}`
+  })
+  if (/\\(begin|end)\{lstlisting\}/.test(source)) throw new Unsupported("an lstlisting environment not on lines of its own")
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   const src = expanded.text
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
-      try { return layout(src, notHere, aux) } catch (e) {
+      try { return layout(src, notHere, aux, listings) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
       }
@@ -461,7 +473,10 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: AdapterResult; written: Aux | null } {
+/** an lstlisting environment's [options] and lines */
+interface Listing { options: string; lines: string[] }
+
+function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[]): { result: AdapterResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
@@ -472,7 +487,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   // \begin{document} and \end{document} outside comments
   const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
-  const pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
+  let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
+  // \lstset{…}, which may run over lines
+  let lstBase: LstOptions = LST_DEFAULTS
+  let usesListings = false
+  for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
+    let depth = 0, j = i + 7
+    for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
+    try { lstBase = lstOptions(pre.slice(i + 8, j), lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    pre = pre.slice(0, i) + pre.slice(j + 1)
+  }
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
   let mainmatter = true // book's \if@mainmatter
@@ -503,9 +527,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings"].includes(n))
       if (names.includes("hyperref")) hyper = true
       if (names.includes("enumitem")) enumitem = true
+      if (names.includes("listings")) usesListings = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
       continue
@@ -615,6 +640,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     return out
   }
   let floats = 0 // floats so far
+  let listingCount = 0, negListing = 0 // \c@lstlisting, \lst@neglisting
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
   const href = (counter: string, n: number) => (cls === "article" || cls === "letter" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
@@ -692,7 +718,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
   function processBlock(b: Block, bi: number, blocks: Block[]) {
     // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter
-    if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter") throw new Unsupported(`a ${b.kind} in a letter`)
+    if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter" && b.kind !== "listing") throw new Unsupported(`a ${b.kind} in a letter`)
     if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
@@ -705,6 +731,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     if (b.kind === "bib") { if (runIn) runInAlone(); bibliography(); return }
     if (b.kind === "letter") { if (runIn) runInAlone(); letter(b); return }
     if (b.kind === "float") { floatBlock(b); return }
+    if (b.kind === "listing") { if (runIn) throw new Unsupported("a listing right after a run-in heading"); listing(b); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
       // the \nobreak of \protected@write and of \@esphack
@@ -1113,7 +1140,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     const bold = loadFont(dataFont(k.sizes[ctx.size].bold.name), k.sizes[ctx.size].bold.at)
     const companion = loadFont(dataFont(k.sizes[ctx.size].companion.name), k.sizes[ctx.size].companion.at)
     let counter = 0 // \c@enum…: an item with its own label does not step it
-    const alph = (n: number) => String.fromCharCode(96 + n)
+    const alph = (n: number) => (n > 0 && n <= 26 ? String.fromCharCode(96 + n) : "") // \@alph: \ifcase (\@ctrerr past z)
     const roman = (n: number) => { // \@roman (TeX's \romannumeral)
       let out = ""
       for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (n >= v) { out += r; n -= v }
@@ -1226,6 +1253,110 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    * vertical mode: its box is built now, and a marker stands for \penalty-\@Miv\vbox{}\penalty-\@Miii,
    * where the output routine will place it.
    */
+  function listing(b: Extract<Block, { kind: "listing" }>) {
+    if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
+    if (v.nobreak) throw new Unsupported("a listing right after a heading")
+    if (t1) throw new Unsupported("listings with T1")
+    let o: LstOptions
+    try { o = lstOptions(listings[b.n].options, lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    // a style: font declarations and size commands, from the listing's font (\normalfont at the outer level)
+    const styleOf = (style: string) => {
+      let size: SizeCommand = "normalsize", a: FontAttrs = { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }
+      for (const m of style.matchAll(/\\([a-zA-Z]+)/g)) {
+        if ((SIZE_COMMANDS as readonly string[]).includes(m[1])) { size = m[1] as SizeCommand; continue }
+        const next = fontDeclaration(m[1], a, k, size, doc)
+        if (!next) throw new Unsupported(`listings style \\${m[1]}`)
+        a = next
+      }
+      return { size, a }
+    }
+    const fonts = {
+      font(style: string) { const { size, a } = styleOf(style); return { font: selectFont(k, size, a), tt: a.fam === "cmtt", bold: a.ser === "bx", italicShape: a.shape !== "n", size } },
+      /** TS1 from the class's table; OML and OMS by omlcmm.fd and omscmsy.fd (bold: cmmib, cmbsy) */
+      other(style: string, enc: "TS1" | "OML" | "OMS") {
+        const { size, a } = styleOf(style)
+        if (enc === "TS1") return selectFont(k, size, { ...a, enc: "TS1" })
+        const at = k.sizes[size].font.at, pt = at / 65536
+        const step = pt < 6 ? 5 : pt < 7 ? 6 : pt < 8 ? 7 : pt < 9 ? 8 : pt < 10 ? 9 : enc === "OML" && a.ser === "m" && pt >= 12 ? 12 : 10
+        return fontAt((enc === "OML" ? (a.ser === "bx" ? "cmmib" : "cmmi") : a.ser === "bx" ? "cmbsy" : "cmsy") + step, at)
+      },
+    }
+    const base = styleOf(o.basicstyle), baseFont = selectFont(k, base.size, base.a)
+    // \lst@width: basewidth (0.6em, 0.45em for flexible columns) in the listing's font
+    const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
+    let events
+    try { events = lstScan({ width, lines: listings[b.n].lines, options: o, fonts }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    const sz = k.sizes[base.size], hsize = k.dimens.columnwidth
+    const smallskip = glue(196608, 65536, 0, 65536, 0), medskip = cls === "letter" ? dimen(medskipamount) : glue(393216, 131072, 0, 131072, 0)
+    const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
+    // \lst@Init: \par\penalty-50\relax\vspace\lst@aboveskip, \normalbaselines, \lst@MakeCaption t
+    v.par()
+    v.nodes.push(penalty(-50))
+    vspace(medskip)
+    v.nodes.push(penalty(0)) // \allowbreak
+    // \@currentHref after it: \refstepcounter{lstlisting} (a caption) or \lst@HRefStepCounter (\lst@neglisting
+    // goes down), then each line's \refstepcounter{lstnumber}
+    let captioned = 0
+    if (hyper) throw new Unsupported("listings with hyperref")
+    if (o.caption !== null) {
+      if (cls !== "article") throw new Unsupported("a listing caption outside article or with hyperref")
+      const text = o.caption.replace(/\s+/g, " ").trim()
+      if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`listing caption "${text}"`)
+      const n = captioned = ++listingCount // \refstepcounter{lstlisting}
+      refs.href = href("lstlisting", n)
+      if (o.label !== null) {
+        if (!/^[A-Za-z0-9:._-]+$/.test(o.label)) throw new Unsupported(`listing label ${o.label}`)
+        v.nodes.push(labelWrite(refs, o.label, String(n), href("lstlisting", n)))
+      }
+      v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{}\\protected@file@percent }}` })
+      // in a group: \par\@parboxrestore\normalsize\normalfont, \@makecaption with \vskip as \nobreak\vskip…\nobreak
+      v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
+      const l: Node[] = [], state = { spaceFactor: 1000 }
+      appendText(l, "Listing", romanFont, state, false)
+      l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // ~
+      appendText(l, `${n}: ${text}`, romanFont, state, false)
+      const cap = hpack(l)
+      if (cap.width > hsize) throw new Unsupported("a listing caption wider than the line")
+      v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), k.sizes.normalsize.baselineskip)
+      v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
+    } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
+    // \lst@frameMakeBoxV without a frame: \llap{\rlap{block}\vrule\kern\lst@frametextsep\kern\lst@framexleftmargin}
+    // \rlap{\kern-\lst@framexleftmargin block(\linewidth) \kern\lst@frametextsep \rlap{block}\vrule}, the struts' size
+    const frame = (): BoxNode => {
+      const rule = (): Node => ({ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth })
+      const block = (w: number) => hpack([rule(), kern(w, true)])
+      const hss = () => glue(0, 65536, FIL, 65536, FIL)
+      const llap = hpack([hss(), hpack([block(0), hss()], { exactly: 0 }), hpack([rule()]), kern(196608, true), kern(0, true)], { exactly: 0 })
+      const rlap = hpack([kern(0, true), block(hsize), kern(196608, true), hpack([block(0), hss()], { exactly: 0 }), hpack([rule()]), hss()], { exactly: 0 })
+      return hpack([llap, rlap])
+    }
+    // each line: \par\noindent (\everypar: \lst@parshape, the frame box) \hbox{}, its boxes
+    let line: Node[] | null = null, lineCount = 0
+    if (!captioned) negListing--
+    const breakLine = (start: Node[]) => {
+      const p = paragraphInput("", k, "normalsize", doc, { start, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
+      const lb = lineBreak(p.list, p.params)
+      decisions.push(...p.notes, lb.trace)
+      return lb.vlist
+    }
+    const endLine = () => { if (line) v.paragraph(breakLine(line), dimen(0), sz.baselineskip); line = null }
+    for (const e of events) {
+      // empty lines at the end are paragraphs in a \vbox that is thrown away, while the last line's is still open
+      if ("newline" in e && e.discarded) { breakLine([frame(), emptyBox("hlist", 0)]); lineCount++ }
+      else if ("newline" in e) { endLine(); line = [frame(), emptyBox("hlist", 0)]; lineCount++ }
+      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([glue(0, 65536, FIL, 65536, FIL), frame(), kern(0, true), kern(0, true)], { exactly: 0 })], replaceCount: 0 })
+      else line!.push(e.node)
+    }
+    endLine()
+    if (lineCount) refs.href = `lstnumber.${captioned || negListing}.${lineCount}` // \theHlstnumber
+    // \lst@DeInit: \par\removelastskip, \par\penalty-50\vspace\lst@belowskip; \lst@doendpe
+    const last = v.lastSkip
+    if (last.width !== 0) v.vskip(negate(last))
+    v.nodes.push(penalty(-50))
+    vspace(medskip)
+    v.endpePar = true
+  }
+
   function floatBlock(b: Extract<Block, { kind: "float" }>) {
     if (b.inPar) throw new Unsupported("a float inside a paragraph")
     // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !

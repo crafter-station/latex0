@@ -1,0 +1,17 @@
+% fixture: listings/nolig
+% tier: T3
+% engine: document
+% covers: lstlisting: \verbatim@nolig@list characters after letters and others
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+\begin{lstlisting}
+ab,c
+ab.c
+ab;c
+ab!c
+ab:c
+ab-c
+ab"c
+\end{lstlisting}
+\end{document}
