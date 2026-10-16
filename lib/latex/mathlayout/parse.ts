@@ -2,7 +2,7 @@
 // characters by \mathcode (§ 1151), symbol commands by their \mathchar,
 // math groups and their collapse to a lone ord's nucleus (§ 1186), sub_sup
 // with its dummy noads (§§ 1176–1177), \limits and \nolimits (§ 1159),
-// style commands (§ 1169), \penalty, and these LaTeX definitions: \allowbreak
+// style commands (§ 1169), \overline and \underline (§ 1163), \penalty, and these LaTeX definitions: \allowbreak
 // (\penalty0), \nobreak (\penalty10000), \frac
 // ({\begingroup#1\endgroup\over#2}), \int and \oint (\intop\nolimits), and
 // the prime ' (^\bgroup\prime…\egroup, which takes in a superscript that
@@ -196,7 +196,8 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] 
         const tail = out[out.length - 1]
         if (!tail || !("noad" in tail) || tail.noad !== OP) throw new Error("math: Limit controls must follow a math operator")
         tail.limits = cs
-      } else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
+      } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
+      else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
       else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {
         out.push(mathCharNoad(data.symbols[cs]))

@@ -1,0 +1,34 @@
+% fixture: amsthm/after-list
+% tier: T3
+% engine: document
+% covers: a paragraph right after a theorem or proof while an earlier list's \@doendpe is in force: \@trivlist's \par ran in the environment's group, so footnotes see \clubpenalty\@M from \@afterheading, the lines \@clubpenalty; the indent box goes only if \@doendpe's \everypar has not run; after a run-in heading, its \everypar sets \@clubpenalty
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+\section{One}
+First paragraph after the heading, with a note.\footnote{A note with enough words in it to take two lines at the foot of the page, so that its club penalty shows.}
+\begin{center}
+centered
+\end{center}
+text right after the list, which runs its everypar
+\begin{theorem} A theorem.
+\end{theorem}
+\begin{proof} A proof.
+\end{proof}
+A paragraph right after the proof, indented, with a note\footnote{Another note with enough words in it to take two lines at the foot of the page, so that its club penalty shows.} and more words after it to make two lines of text here.
+
+\section{Two}
+Again after a heading.
+\begin{itemize}
+\item one
+\end{itemize}
+\begin{theorem} A theorem right after the list.
+\end{theorem}
+Not indented: the everypar of the list is still in force, with a note\footnote{A third note with enough words in it to take two lines at the foot of the page, so that its club penalty shows.} and more words after it.
+
+\paragraph{Run-in.}
+\begin{theorem} A theorem right after a run-in heading.
+\end{theorem}
+Indented, after the run-in heading's everypar, with a note\footnote{A fourth note with enough words in it to take two lines at the foot of the page, so that its club penalty shows.} and more words after it.
+\end{document}

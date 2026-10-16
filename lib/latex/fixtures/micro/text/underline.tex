@@ -1,0 +1,11 @@
+% fixture: text/underline
+% tier: T3
+% engine: document
+% covers: \underline in text ($\@@underline{\hbox{…}}\m@th$) with words, descenders, fonts and math; \underline and \overline in formulas
+\documentclass{article}
+\begin{document}
+Some \underline{underlined words} in a paragraph, then \underline{\textit{italic} text with descenders gyp}
+and \underline{$x^2$ in math}. In a formula, $\underline{x+y} = \overline{a_1} + \overline{\underline{q}}$
+and $x^{\overline{y}}_{\underline{z}}$ with more words after it to fill out the line and wrap onto a
+second line, \underline{again} and \underline{ spaced }.
+\end{document}

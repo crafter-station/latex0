@@ -89,6 +89,8 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
+      // \underline: words, sometimes a font change or a formula, in an \hbox
+      if (r() < 0.004) ws[i] += ` \\underline{${pick(["", "", " "])}${words(1 + Math.floor(r() * 3))}${pick(["", "", ` \\textit{${words(1)}}`, ` ${math()}`])}}`
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
