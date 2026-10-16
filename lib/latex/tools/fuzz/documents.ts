@@ -190,6 +190,13 @@ export function makeDocument(r: () => number): string {
   // a counter and a macro that steps it and makes a run-in heading, as homework templates do
   const macros = r() < 0.3 && !isLetter
   if (macros) out.push("\\newcounter{thm}", "\\newcommand{\\thm}{\\stepcounter{thm}\\paragraph{Theorem \\thethm.}}")
+  // amsthm: theorem-like environments in the three styles, numbered alone, within sections, sharing a counter, or not at all
+  const thms: string[] = []
+  if (r() < 0.25 && !isLetter && !hyper) {
+    out.push("\\usepackage{amsthm}", `\\newtheorem{theorem}{Theorem}${pick(["", "", "[section]"])}`, "\\newtheorem{lemma}[theorem]{Lemma}", "\\newtheorem*{claim}{Claim}",
+      "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", "\\newtheorem*{remark}{Remark}", "\\newtheorem{note}{Note}")
+    thms.push("theorem", "lemma", "claim", "definition", "remark", "note")
+  }
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter
   const front = cls === "book" && r() < 0.5
@@ -265,6 +272,14 @@ export function makeDocument(r: () => number): string {
       list(1, 0, 0)
       afterPar = false
       if (r() < 0.3) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } // text right after the list
+    } else if (thms.length && x < 0.42 && x >= 0.36) {
+      // a theorem (a [note], a \label), its text in one or two paragraphs; maybe a proof after it
+      if (!afterPar || r() < 0.5) out.push("")
+      const env = pick(thms)
+      out.push(`\\begin{${env}}${r() < 0.3 ? `[${words(1 + Math.floor(r() * 3))}]` : ""}${r() < 0.3 ? `\\label{thm:${b}}` : ""} ${text(10 + Math.floor(r() * 60))}`, ...(r() < 0.3 ? ["", text(5 + Math.floor(r() * 30))] : []), `\\end{${env}}`)
+      if (r() < 0.5) out.push(`\\begin{proof}${r() < 0.3 ? `[${pick(["Sketch", "Proof of the claim", `Proof of Theorem~\\ref{thm:${b}}`, "Idea!"])}]` : ""} ${text(10 + Math.floor(r() * 50))}`, ...(r() < 0.3 ? ["", text(5 + Math.floor(r() * 30))] : []), "\\end{proof}")
+      afterPar = false
+      if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }
     } else if (lst && x < 0.36) {
       // a listing, maybe right after text, maybe with a caption and a label, maybe text right after it
       if (!afterPar || r() < 0.5) out.push("")

@@ -22,7 +22,7 @@ import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../../../
 import type { GlueSpec } from "../../../layout/dimen"
 import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
 import { parseDimen, parseGlue, Scanner } from "../../../layout/dimen"
-import { appendText } from "../../../layout/hmode"
+import { appendText, spaceGlue } from "../../../layout/hmode"
 import { lineBreak } from "../../../layout/linebreak"
 import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../../../layout/display"
@@ -114,11 +114,15 @@ type Block =
 interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string }
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
-const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography"] as const
+const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography", "LXtheorem", "proof"] as const
 type EnvName = typeof ENVS[number]
 const ENV_ALT = ENVS.join("|")
 /** An environment: its items (one, from \item\relax, for all but itemize, enumerate and description). */
-interface ListBlock { kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** enumitem's [options] */ options?: string }
+interface ListBlock {
+  kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** enumitem's [options] */ options?: string
+  /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
+  thm?: { name: string; note: string | null }; proofTitle?: string
+}
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 interface Item { label: string | null; parts: Part[] }
 type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number; /** \\* and \\[skip] before it */ crStar?: boolean; crSkip?: string } | ListBlock
@@ -145,6 +149,15 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
   // enumitem's \begin{itemize}[options]
   const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[([^\]]*)\]/) : null
   if (opts) inner = inner.slice(opts[0].length)
+  // amsthm: \begin{LXtheorem}{name}[note], \begin{proof}[title]
+  let thm: ListBlock["thm"], proofTitle: string | undefined
+  if (env === "LXtheorem") {
+    const m = inner.match(/^\{([A-Za-z]+)\}(?:\s*\[([^\]]*)\])?/)!
+    thm = { name: m[1], note: m[2] ?? null }; inner = inner.slice(m[0].length)
+  } else if (env === "proof") {
+    const m = inner.match(/^\s*\[([^\]]*)\]/)
+    if (m) { proofTitle = m[1]; inner = inner.slice(m[0].length) }
+  }
   const crs = env === "center" || env === "flushleft" || env === "flushright" || env === "verse" // \\ is \@centercr
   // \item at this level only
   const cuts: number[] = []
@@ -201,7 +214,7 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
     if (!parts.length) parts.push({ kind: "text", text: "", start: "label" })
     return { label: opt ? opt[1] : null, parts }
   })
-  return { kind: "list", env, items, inPar, blank, ...(opts ? { options: opts[1] } : {}) }
+  return { kind: "list", env, items, inPar, blank, ...(opts ? { options: opts[1] } : {}), ...(thm ? { thm } : {}), ...(proofTitle !== undefined ? { proofTitle } : {}) }
 }
 
 const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
@@ -236,7 +249,7 @@ function blocksOf(body: string): Block[] {
   // a blank line after it stays one
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -301,7 +314,7 @@ function blocksOf(body: string): Block[] {
     out.push(parseList(m[3] as EnvName, body.slice(re.lastIndex, end.at), inPar, /\n[ \t]*\n\s*$/.test(before)))
     re.lastIndex = end.next
     at = end.next
-    endpe = true
+    endpe = m[3] !== "LXtheorem" && m[3] !== "proof" // (amsthm's ends say \@endpefalse)
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
@@ -316,7 +329,7 @@ function blocksOf(body: string): Block[] {
       const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
         if (p.kind === "list") return walk(p)
         if (DISPLAY.test(p.text)) throw new Unsupported(`a display in ${l.env}`)
-        if (/^\s*\\label\b/.test(p.text)) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
+        if (/^\s*\\label\b/.test(p.text) && !(l.env === "LXtheorem" && p === l.items[0].parts[0])) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
         check(p.text)
       }))
       walk(b)
@@ -485,7 +498,8 @@ export const document: Adapter = (source) => {
       if (c === "\\") { i++; continue }
       if (c === "%") { while (i < at && source[i] !== "\n") i++; continue }
       // (an argument after a command and its earlier arguments: \textcolor{c}{…})
-      if (c === "{") stack.push(/\\[A-Za-z]+\*?\s*(?:(?:\[[^\]]*\]|\{[^{}]*\})\s*)*$/.test(source.slice(Math.max(0, i - 200), i)))
+      // (not \lstinline's own argument; no space after an earlier argument)
+      if (c === "{") stack.push(/\\(?!lstinline(?![A-Za-z]))[A-Za-z]+\*?\s*(?:\[[^\]]*\]|\{[^{}]*\})*$/.test(source.slice(Math.max(0, i - 200), i)))
       else if (c === "}") stack.pop()
     }
     return stack.includes(true)
@@ -546,7 +560,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
-  let usesListings = false, usesXcolor = false
+  let usesListings = false, usesXcolor = false, usesAmsthm = false
+  type ThmStyle = "plain" | "definition" | "remark"
+  let thmStyle: ThmStyle = "plain"
+  const thmDefs = new Map<string, { title: string; style: ThmStyle; counter: string | null; within: string | null }>()
   const colorDefs: [string, string, string][] = [] // \definecolor
   for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
     let depth = 0, j = i + 7
@@ -589,11 +606,25 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
+      if (names.includes("amsthm")) usesAmsthm = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
       continue
     }
     // letter's \signature, \address and \name
+    // amsthm: \theoremstyle{style}, \newtheorem{name}[shared]{Title}, \newtheorem{name}{Title}[within], \newtheorem*{name}{Title}
+    const tst = line.match(/^\\theoremstyle\{(plain|definition|remark)\}$/)
+    if (tst) { thmStyle = tst[1] as ThmStyle; continue }
+    const nt = line.match(/^\\newtheorem(\*)?\{([A-Za-z]+)\}(?:\[([A-Za-z]+)\])?\{([^{}\\]*)\}(?:\[([A-Za-z]+)\])?$/)
+    if (nt) {
+      const [, star, name, shared, title, within] = nt
+      if (star && (shared || within)) throw new Unsupported(`preamble: ${line}`)
+      if (within && !["chapter", "section", "subsection"].includes(within)) throw new Unsupported(`\\newtheorem within ${within}`)
+      if (shared && !thmDefs.get(shared)?.counter) throw new Unsupported(`\\newtheorem sharing ${shared}`)
+      thmDefs.set(name, { title: title.trim(), style: thmStyle, counter: star ? null : shared ? thmDefs.get(shared)!.counter : name, within: shared ? thmDefs.get(shared)!.within : within ?? null })
+      if (!star && !shared) newCounters.push([name, within ?? null])
+      continue
+    }
     const dc = line.match(/^\\definecolor\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}$/)
     if (dc) { colorDefs.push([dc[1], dc[2], dc[3]]); continue }
     const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
@@ -619,7 +650,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
   }
-  const body = src.slice(begin + 16, end)
+  if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
+  let body = src.slice(begin + 16, end)
+  // a theorem environment: \begin{LXtheorem}{name}
+  for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
+  if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
@@ -904,8 +939,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       return
     }
     if (b.blank) v.par() // a blank line before the list
+    const before = { club: v.club, afterheading: v.afterheadingEverypar }
     list(b, topCtx())
-    // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe
+    // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe, except
+    // after amsthm's environments (\@endpefalse): the \everypar and \clubpenalty from before them are back
+    if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
     v.afterheadingEverypar = false
     v.endpePar = true
   }
@@ -1168,7 +1206,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   function list(b: ListBlock, ctx: EnvCtx) {
     if (b.env === "abstract") return abstract(b, ctx)
     const outerLabel = refs.label // \@currentlabel is local to the environment
-    const trivial = b.env === "center" || b.env === "flushleft" || b.env === "flushright"
+    const amsthm = b.env === "LXtheorem" || b.env === "proof"
+    const trivial = b.env === "center" || b.env === "flushleft" || b.env === "flushright" || amsthm
     const sizeFont = loadFont(dataFont(k.sizes[ctx.size].font.name), k.sizes[ctx.size].font.at)
     const ems = (x: string) => new Scanner(x, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
     let depth = ctx.depth, leftmargin = 0, labelwidth = 0, itemindent = 0, listparindent = 0, rightmargin = 0
@@ -1222,8 +1261,55 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         } else throw new Unsupported(`enumitem option ${o}`)
       }
     }
-    const topsepadd = b.inPar ? topsep : addGlue(topsep, partopsep) // \partopsep only from vertical mode
-    const topsepAll = addGlue(topsepadd, ctx.parskip) // \advance\@topsep\parskip, the enclosing \parskip
+    // amsthm's proof: \topsep6\p@\@plus6\p@ before \trivlist
+    if (b.env === "proof") topsep = { width: 6 * 65536, stretch: 6 * 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
+    let topsepadd = b.inPar ? topsep : addGlue(topsep, partopsep) // \partopsep only from vertical mode
+    let topsepAll = addGlue(topsepadd, ctx.parskip) // \advance\@topsep\parskip, the enclosing \parskip
+    // amsthm's theorem: \@topsep \thm@preskip and \@topsepadd \thm@postskip, \topsep (half of it for remark)
+    const thmDef = b.thm ? thmDefs.get(b.thm.name)! : null
+    if (thmDef) {
+      const half = (g: GlueSpec): GlueSpec => ({ ...g, width: Math.trunc(g.width / 2), stretch: Math.trunc(g.stretch / 2), shrink: Math.trunc(g.shrink / 2) }) // \divide…\tw@
+      topsepAll = topsepadd = thmDef.style === "remark" ? half(ctx.topsep) : ctx.topsep
+      if (b.items.some((it) => it.parts.some((p) => p.kind === "list"))) throw new Unsupported("a list in a theorem")
+      if (hyper) throw new Unsupported("amsthm with hyperref")
+    }
+    // \refstepcounter{counter}: \the<counter> (the section's number first, when within it)
+    let thmNumber: string | null = null
+    if (thmDef?.counter) {
+      const c = userCounters.get(thmDef.counter)!
+      c.value++
+      const within = thmDef.within === "chapter" ? String(counters[0]) : thmDef.within === "section" ? (cls === "article" ? String(counters[1]) : `${counters[0]}.${counters[1]}`) : thmDef.within === "subsection" ? (cls === "article" ? `${counters[1]}.${counters[2]}` : `${counters[0]}.${counters[1]}.${counters[2]}`) : null
+      thmNumber = within !== null ? `${within}.${c.value}` : String(c.value)
+      refs.label = thmNumber; refs.href = `${thmDef.counter}.${thmNumber}`
+    }
+    // the body's font: \itshape for plain theorems
+    const bodyAttrs: FontAttrs | undefined = thmDef?.style === "plain" ? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" } : undefined
+    /** \@begintheorem's head, \sbox'ed into \@labels and \unhbox'ed by \dth@everypar: \normalfont, the head font
+     *  (\bfseries, remark \itshape), the name, \@upn{number} (\textup's italic corrections before and after it),
+     *  ( note) in \fontseries\mddefault\upshape, the punctuation, \hskip\thm@headsep (5pt plus1pt minus1pt) */
+    const thmHead = (): Node[] => {
+      const T1 = k.ints.T1 ? "T1" : "OT1"
+      const hf = selectFont(k, ctx.size, thmDef!.style === "remark" ? { enc: T1, fam: "cmr", ser: "m", shape: "it" } : { enc: T1, fam: "cmr", ser: "bx", shape: "n" })
+      const up = selectFont(k, ctx.size, thmDef!.style === "remark" ? { enc: T1, fam: "cmr", ser: "m", shape: "n" } : { enc: T1, fam: "cmr", ser: "bx", shape: "n" })
+      const note = selectFont(k, ctx.size, { enc: T1, fam: "cmr", ser: "m", shape: "n" })
+      const l: Node[] = [], st = { spaceFactor: 1000 }
+      const italic = (f: Font) => { const last = l.at(-1); return last?.kind === "char" ? (f.chars.get(last.char)?.italic ?? 0) : 0 }
+      appendText(l, thmDef!.title, hf, st, false)
+      if (thmNumber !== null) {
+        const sp = spaceGlue(hf, st.spaceFactor); st.spaceFactor = 1000
+        l.push(kern(italic(hf), true), sp) // \sw@slant: the skip off, \/, the skip back
+        appendText(l, thmNumber, up, st, false)
+        if (thmDef!.style !== "remark") l.push(kern(italic(up), true)) // \check@icr: only when the head's font is upright
+      }
+      if (b.thm!.note !== null) {
+        if (/[\\{}$%&#^_~]/.test(b.thm!.note)) throw new Unsupported(`theorem note "${b.thm!.note}"`)
+        l.push(spaceGlue(hf, st.spaceFactor)); st.spaceFactor = 1000
+        appendText(l, `(${b.thm!.note})`, note, st, false)
+      }
+      appendText(l, ".", hf, st, false)
+      l.push(glue(5 * 65536, 65536, 0, 65536, 0))
+      return setgroup(l)
+    }
     const totalLeft = ctx.totalLeft + leftmargin, lineWidth = ctx.lineWidth - leftmargin - rightmargin
     const parShape: [number, number][] | undefined = depth > 0 ? [[totalLeft, lineWidth]] : undefined
     // paragraph settings: \@trivlist's \leftskip\z@skip \rightskip\@rightskip \parfillskip\@flushglue, then
@@ -1231,7 +1317,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const flush = (n: string) => paramGlue(n, glue(0, 65536, FIL))
     let atRightskip = ctx.atRightskip, finalHyph = ctx.finalHyph
     let align: { leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode } = atRightskip ? { rightSkip: paramGlue("rightskip", atRightskip) } : {}
-    let parindent = listparindent
+    let parindent = amsthm ? k.dimens.parindent : listparindent
     if (b.env === "center") { align = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushleft") { atRightskip = glue(0, 65536, FIL); align = { rightSkip: flush("rightskip") }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushright") { align = { leftSkip: flush("leftskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
@@ -1252,6 +1338,18 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       return out
     }
     const ls = k.dimens.labelsep
+    /** the proof's \qed at its end: \leavevmode\unskip\penalty9999 \hbox{}\nobreak\hfill\quad\hbox{\qedsymbol}, \openbox
+     *  (\hbox to.77778em{\hfil\vrule\vbox to.675em{\hrule width.6em\vfil\hrule}\vrule\hfil}) in the body's font */
+    const lastPart = b.items.at(-1)?.parts.at(-1)
+    if (b.env === "proof" && (!lastPart || lastPart.kind !== "text" || !lastPart.text)) throw new Unsupported("a proof that does not end with text")
+    const qedAt = (p: Part) => b.env === "proof" && p === lastPart
+    const qed = (): Node[] => {
+      const frac = (d: string) => new Scanner(d, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
+      const vrule = (): Node => ({ kind: "rule", width: 26214, height: null, depth: null })
+      const vb = vpack([{ kind: "rule", width: frac(".6em"), height: 26214, depth: 0 }, glue(0, 65536, FIL), { kind: "rule", width: null, height: 26214, depth: 0 }], { exactly: frac(".675em") })
+      const box = hpack([glue(0, 65536, FIL), vrule(), vb, vrule(), glue(0, 65536, FIL)], { exactly: frac(".77778em") })
+      return [penalty(9999), hpack([]), penalty(10000), glue(0, 65536, FILL), glue(sizeFont.params[QUAD]), hpack([box])]
+    }
     b.items.forEach(({ label: given, parts }, i) => {
       // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
       // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
@@ -1283,6 +1381,24 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         content = enumitem ? [glue(0), penalty(10000)] : [glue(ls)]
         if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
         if (enumitem) content.push(glue(0, 65536, FIL))
+      } else if (b.env === "proof") { // \item[\hskip\labelsep\itshape title\@addpunct{.}]
+        const title = (b.proofTitle ?? "Proof").replace(/\s+/g, " ").trim()
+        if (/[{}$%&#^_]/.test(title.replace(/\\ref\{[A-Za-z0-9:._-]+\}/g, "")) || /\\(?!ref\{)/.test(title)) throw new Unsupported(`proof title "${title}"`)
+        if (hyper && /\\ref/.test(title)) throw new Unsupported("a \\ref in a proof title with hyperref")
+        const it = selectFont(k, ctx.size, { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" })
+        content = [glue(ls)]
+        const st = { spaceFactor: 1000 }
+        // text, ~ (\nobreak\ ) and \ref{key} (the label's text and \null; ?? in bold when not known)
+        for (const piece of title.split(/(~|\\ref\{[^}]*\})/)) {
+          if (piece === "~") { content.push(penalty(10000), spaceGlue(it, st.spaceFactor)); continue }
+          const ref = piece.match(/^\\ref\{([^}]*)\}$/)
+          if (!ref) { appendText(content, piece, it, st, false); continue }
+          const known = prev?.labels.get(ref[1])
+          if (known) { appendText(content, known.label, it, st, false); content.push(hpack([])) }
+          else { const q: Node[] = []; appendText(q, "??", selectFont(k, ctx.size, { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false); content.push(hpack(q)) }
+          st.spaceFactor = 1000
+        }
+        if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
       } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, given, font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
       else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
         content = [glue(0, 65536, FIL)]
@@ -1310,10 +1426,22 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (colorStart && p.start === "label") p.text = leadingColor(p.text)
         // (in a {\color …} group the \everypar's \clubpenalty\@clubpenalty ends with the group: the one in force stays,
         // the outer one for a first item, else what the item before set)
-        if (p.start === "label") typeset(p.text, { start: [labels, penalty(0), ...(p.nodes ?? [])], ...shape, ...un, ...(club ? { clubPenalty: club } : colorStart ? { clubPenalty: i === 0 && depth === 1 ? v.club : k.ints.clubpenalty } : {}) }, parsep, ctx.size)
+        // a \label before a theorem's text: its write on the vertical list (\nobreak's while \if@nobreak holds)
+        if (thmDef && p.start === "label") {
+          const lead = p.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
+          if (lead) {
+            // (\if@nobreak still holds right after a heading: \@nbitem leaves it, the paragraph's \everypar ends it)
+            for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) { v.nodes.push(labelWrite(refs, m[1])); if (club !== undefined) v.nodes.push(penalty(10000), penalty(10000)) }
+            p.text = p.text.slice(lead[0].length)
+          }
+        }
+        // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
+        const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
+        const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) ? { end: qed() } : {}) }
+        if (p.start === "label") typeset(p.text, { start, ...shape, ...un, ...body, ...(club ? { clubPenalty: club } : colorStart ? { clubPenalty: i === 0 && depth === 1 ? v.club : k.ints.clubpenalty } : {}) }, parsep, ctx.size)
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
-        else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
+        else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
         else {
           // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
           if (p.text) itemClub = undefined
@@ -1323,7 +1451,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
             if (p.crSkip !== undefined) { try { v.vskip(parseGlue(p.crSkip, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] })) } catch { throw new Unsupported(`\\\\[${p.crSkip}]`) } }
           }
           if (colorStart) p.text = leadingColor(p.text) // (after the \@centercr skip)
-          if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un }, parsep, ctx.size)
+          if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un, ...body }, parsep, ctx.size)
         }
       })
     })
@@ -2044,6 +2172,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         counters[0]++
         refs.label = String(counters[0]); refs.href = `chapter.${counters[0]}`
         for (let l = 1; l < counters.length; l++) counters[l] = 0
+        for (const u of userCounters.values()) if (u.within !== null) u.value = 0 // (everything within a chapter or deeper)
         counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
       } else if (hyper) refs.href = `chapter*.${++linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
       // hyperref: the anchor, then \addcontentsline's bookmark and toc line
@@ -2136,6 +2265,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (!b.star) {
       counters[b.level]++
       for (let l = b.level + 1; l < counters.length; l++) counters[l] = 0
+      // counters within this one or a deeper one (\@stpelt steps them, so the reset goes down the chain)
+      const levels = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"].slice(b.level)
+      for (const u of userCounters.values()) if (u.within !== null && levels.includes(u.within)) u.value = 0
       number = (cls === "article" ? counters.slice(1, b.level + 1) : counters.slice(0, b.level + 1)).join(".")
     }
     if (numbered) { refs.label = number; refs.href = `${["", "section", "subsection", "subsubsection"][b.level]}.${number}` } // \refstepcounter

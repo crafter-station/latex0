@@ -1,0 +1,22 @@
+% fixture: amsthm/styles
+% tier: T3
+% engine: document
+% covers: amsthm: plain, definition and remark styles, \newtheorem*, a counter within the section and a shared one, \label right after a heading, a proof titled with \ref
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem*{claim}{Claim}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+\begin{document}
+\section{One}
+\begin{theorem}\label{t}No note.\end{theorem}
+\begin{claim}Unnumbered.\end{claim}
+\begin{definition}[Name] Upright body.\end{definition}
+\begin{remark}A remark.\end{remark}
+\begin{proof}[Proof of \ref{t}]First.
+
+Second paragraph.\end{proof}
+\end{document}

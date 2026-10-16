@@ -1,0 +1,13 @@
+% fixture: amsthm/theorem-proof
+% tier: T3
+% engine: document
+% covers: amsthm: a theorem with a note (the head \unhbox'ed by \dth@everypar, \textup's italic corrections, \itshape body) and a proof (\item[\hskip\labelsep\itshape Proof.], \qed with \openbox)
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+Text before.
+\begin{theorem}[Note] A statement here with \emph{emph} text.\end{theorem}
+\begin{proof}Easy.\end{proof}
+After.
+\end{document}
