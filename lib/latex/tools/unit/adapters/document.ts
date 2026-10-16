@@ -42,12 +42,30 @@ import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, 
 import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
-type TabularLine = { cells: string[] } | { rule: true }
+/** a tabular row (and the skip of a \\[skip] or \\*[skip] ending it), or an \hline */
+type TabularLine = { cells: string[]; skip?: number } | { rule: true }
+/** a tabular column: its alignment, and @{} before or after it (no \tabcolsep there) */
+type TabularCol = "l" | "c" | "r" | { align: "l" | "c" | "r"; noLeft: boolean; noRight: boolean }
 
 /** The class with \usepackage[T1]{fontenc}: every size's roman and bold are the EC fonts (math is unchanged). */
-function withT1(k: ClassOptionData): ClassOptionData {
+function withT1(k: ClassOptionData, cls: string): ClassOptionData {
   const sizes = Object.fromEntries(Object.entries(k.sizes).map(([n, s]) => [n, { ...s, font: s.t1.font, bold: s.t1.bold }])) as ClassOptionData["sizes"]
-  return { ...k, sizes, ints: { ...k.ints, T1: 1 } }
+  let glues = k.glue
+  if (cls === "letter") {
+    // letter.cls's \@listI (\topsep and \itemsep .4em) and \@listiii (.2em) are in em of the font at the list,
+    // an EC font now: \@listii, iv–vi inherit them
+    const quad = (f: { name: string; at: number }) => loadFont(dataFont(f.name), f.at).params[QUAD]
+    glues = { ...glues }
+    for (const key of Object.keys(glues)) {
+      const m = key.match(/^list(\d)(topsep|itemsep)(?:@(\w+))?$/)
+      if (!m) continue
+      const n = (m[3] ?? "normalsize") as SizeCommand, f = Number(m[1]) <= 2 ? 26214 : 13107, g = glues[key]
+      // only the em values: a size command's own \@listi is in pt
+      if (g.stretch || g.shrink || g.width !== xnOverD(quad(k.sizes[n].font), f, 65536)) continue
+      glues[key] = glue(xnOverD(quad(sizes[n].font), f, 65536))
+    }
+  }
+  return { ...k, sizes, glue: glues, ints: { ...k.ints, T1: 1 } }
 }
 
 /** How many groups are open at the end of `src` (braces not escaped). */
@@ -69,6 +87,8 @@ type Block =
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean }
   | { kind: "toc" }
   | { kind: "matter"; which: "front" | "main" | "back" }
+  /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
+  | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number }
   /** \begin{thebibliography}: its heading and \@mkboth, then the list */
   | { kind: "bib"; keys: string[] }
 
@@ -196,7 +216,7 @@ function inParagraph(before: string): boolean {
 function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
   const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}/g
   let at = 0, endpe = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -212,6 +232,18 @@ function blocksOf(body: string): Block[] {
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
+    if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
+      const end = body.indexOf("\\end{letter}", re.lastIndex)
+      if (end < 0) throw new Unsupported("\\begin{letter} without its \\end")
+      const inner = body.slice(re.lastIndex, end)
+      const op = inner.match(/^\s*\\opening\s*\{((?:[^{}]|\{[^{}]*\})*)\}/)
+      const cl = inner.match(/\\closing\s*\{((?:[^{}]|\{[^{}]*\})*)\}(\s*)$/)
+      if (!op || !cl) throw new Unsupported("a letter without \\opening first and \\closing last")
+      out.push({ kind: "letter", to: m[12], opening: op[1], blocks: blocksOf(inner.slice(op[0].length, cl.index)), closing: cl[1], pars: (cl[2].match(/\n[ \t]*\n/g) ?? []).length })
+      re.lastIndex = at = end + "\\end{letter}".length
+      endpe = false
+      continue
+    }
     if (m[11] !== undefined) {
       // \bibitem{key} is \item[\@biblabel{n}] after \refstepcounter{enumiv} (and an immediate \bibcite)
       const end = body.indexOf("\\end{thebibliography}", re.lastIndex)
@@ -267,7 +299,7 @@ function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib") continue
+    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter") continue
     else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
@@ -433,8 +465,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const toc = prev ? prev.toc : null
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
-  if (!["article", "report", "book"].includes(cls)) throw new Unsupported(`class ${cls}`)
+  if (!["article", "report", "book", "letter"].includes(cls)) throw new Unsupported(`class ${cls}`)
   let k = classData(cls, option, extras)
+  // letter.cls sets \longindentation to .5\textwidth and \medskipamount to \parskip when it loads
+  const classTextwidth = k.dimens.textwidth, medskipamount = k.glue.parskip.width
   // \begin{document} and \end{document} outside comments
   const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
@@ -451,6 +485,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   let t1 = false
   const geometryOptions: string[] = []
   const lengths: [string, string][] = [] // \setlength in the preamble
+  const letterInfo: { signature?: string; address?: string; name?: string } = {}
   const newCounters: [string, string | null][] = []
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
@@ -475,13 +510,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       if (names.includes("amsmath")) amsmath = true
       continue
     }
+    // letter's \signature, \address and \name
+    const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
+    if (lt) { letterInfo[lt[1] as keyof typeof letterInfo] = lt[2].trim(); continue }
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
     if (m) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = true; continue }
     throw new Unsupported(`preamble: ${line}`)
   }
-  if (t1) k = withT1(k)
+  if (t1) k = withT1(k, cls)
   if (geometryOptions.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
     try { k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }) } catch (e) { if (e instanceof GeometryUnsupported) throw new Unsupported(e.message); throw e }
@@ -579,7 +617,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   let floats = 0 // floats so far
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
-  const href = (counter: string, n: number) => (cls === "article" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
+  const href = (counter: string, n: number) => (cls === "article" || cls === "letter" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
   // \theequation, \thefigure, \thetable: in report and book, prefixed by the chapter once there is one
   const the = (n: number) => (cls !== "article" && counters[0] > 0 ? `${counters[0]}.${n}` : String(n))
   // counters the document makes (\newcounter), with the counter that resets each, and LaTeX's own
@@ -652,7 +690,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     typeset("", { start, clubPenalty: 10000 }, outerParskip)
     v.afterheadingEverypar = true
   }
-  blocks.forEach((b, bi) => {
+  function processBlock(b: Block, bi: number, blocks: Block[]) {
+    // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter
+    if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter") throw new Unsupported(`a ${b.kind} in a letter`)
+    if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
     if (runIn && b.kind === "list") { const club = v.club; runInAlone(); v.club = club; list({ ...b, inPar: true, blank: false }, topCtx()); v.afterheadingEverypar = false; v.endpePar = true; return }
@@ -662,6 +703,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     if (b.kind === "toc") { if (runIn) runInAlone(); tableOfContents(); return }
     if (b.kind === "matter") { if (runIn) runInAlone(); matter(b.which); return }
     if (b.kind === "bib") { if (runIn) runInAlone(); bibliography(); return }
+    if (b.kind === "letter") { if (runIn) runInAlone(); letter(b); return }
     if (b.kind === "float") { floatBlock(b); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
@@ -734,7 +776,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe
     v.afterheadingEverypar = false
     v.endpePar = true
-  })
+  }
+  blocks.forEach(processBlock)
 
   /**
    * A paragraph that may hold displays (§§ 1145–1206). The text before each display is broken
@@ -1003,10 +1046,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // enumitem's \trivlist: \parsep\parskip, then \@list<depth> again (inside a list), then \@trivlist; its
     // paragraphs keep the enclosing \parskip, and a list inside it inherits the new \parsep
     let childParsep = parsep
+    // what \@list<depth> sets: article, report and book \@listi–iii \topsep \parsep \itemsep, \@listiii also
+    // \partopsep; letter \@listI \parsep \topsep \itemsep, \@listii none of them, \@listiii \topsep \itemsep
+    const listSets = (d: number): string[] => cls === "letter" ? (d === 1 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "itemsep"] : [])
+      : d <= 2 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "parsep", "itemsep", "partopsep"] : []
     if (trivial && enumitem && ctx.depth >= 1) {
       const d = ctx.depth, L = (p: string) => k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
-      if (d <= 3) { topsep = L("topsep"); childParsep = L("parsep"); itemsep = L("itemsep") }
-      if (d === 3) partopsep = L("partopsep")
+      for (const p of listSets(d)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") childParsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
     }
     if (!trivial) {
       depth++
@@ -1014,14 +1060,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       const L = (p: string) => k.glue[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
       const D = (p: string) => k.dimens[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
       leftmargin = D("leftmargin")
-      if (depth <= 3) { topsep = L("topsep"); parsep = L("parsep"); itemsep = L("itemsep") }
-      if (depth === 3) partopsep = L("partopsep")
+      for (const p of listSets(depth)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") parsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
       if (depth >= 2) labelwidth = D("labelwidth")
       // \labelwidth\z@ \itemindent-\leftmargin (enumitem: \labelindent zero, so \itemindent\labelsep-\leftmargin)
       if (b.env === "description") { labelwidth = 0; itemindent = (enumitem ? k.dimens.labelsep : 0) - leftmargin }
       else if (b.env === "quote") rightmargin = leftmargin
-      else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
-      else if (b.env === "verse") { itemsep = dimen(0); itemindent = -ems("1.5em"); listparindent = itemindent; rightmargin = leftmargin; leftmargin += ems("1.5em") }
+      // (letter.cls: quotation keeps \parsep, verse indents 15pt)
+      else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
+      else if (b.env === "verse") { const ind = cls === "letter" ? 15 * 65536 : ems("1.5em"); itemsep = dimen(0); itemindent = -ind; listparindent = itemindent; rightmargin = leftmargin; leftmargin += ind }
       else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
         const w: Node[] = []
         appendText(w, `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
@@ -1279,6 +1325,82 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    * \tableofcontents: \section*{\contentsname} (report: \chapter*), then \@starttoc{toc}, which reads
    * the lines the run before wrote (\contentsline → \l@<name>) and ends with \@nobreakfalse
    */
+  /**
+   * letter.cls's letter environment: \newpage, \c@page\@ne, \interlinepenalty200. \opening (with a return
+   * address): \thispagestyle{empty}, {\raggedleft\begin{tabular}{l@{}}\fromaddress\\*[2\parskip]\@date
+   * \end{tabular}\par}, \vspace{2\parskip}, {\raggedright\toname\\\toaddress\par}, \vspace{2\parskip}, the
+   * opening\par\nobreak; the body; \closing: \par\nobreak\vspace{\parskip}, \stopbreaks (\interlinepenalty\@M,
+   * \par is \@@par\nobreak), \noindent\hspace*{\longindentation}\parbox{\indentedwidth}{\raggedright closing
+   * \\[6\medskipamount] signature\strut}\par; \end{letter}'s \pagebreak
+   */
+  function letter(b: Extract<Block, { kind: "letter" }>) {
+    if (cls !== "letter") throw new Unsupported(`a letter in ${cls}`)
+    if (pagestyle === "headings") throw new Unsupported("letter's \\ps@headings") // To: name, date, Page n
+    // letter.cls's \footnoterule and \@makefntext (a 5pt \hangindent) are its own
+    if (/\\footnote\b/.test(JSON.stringify(b))) throw new Unsupported("a footnote in a letter")
+    if (!letterInfo.address) throw new Unsupported("a letter without \\address (\\ps@firstpage)")
+    if (k.ints.twoside) throw new Unsupported("a two-sided letter")
+    const check = (t: string) => { if (/[\\{}$%&#^_~]/.test(t.replace(/\\\\/g, ""))) throw new Unsupported(`a letter's "${t}"`) }
+    ;[letterInfo.address, b.to, letterInfo.signature ?? letterInfo.name ?? "", b.closing].forEach(check)
+    const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
+    const sz = k.sizes.normalsize
+    v.par()
+    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("page=1"))
+    k = { ...k, ints: { ...k.ints, interlinepenalty: 200 } }
+    const parskip = k.glue.parskip.width // letter.cls: 0.7em; 2\parskip is a dimension
+    const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
+    const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+    const raggedleft = { leftSkip: flush("leftskip"), rightSkip: paramGlue("rightskip", glue(0)), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
+    const raggedright = { rightSkip: flush("rightskip"), finalHyphenDemerits: 0 }
+    // \opening
+    v.nodes.push(hook("empty"))
+    const from = letterInfo.address.split(/\\\\/).map((x) => x.trim())
+    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today()).trim()
+    check(date)
+    const lines: TabularLine[] = from.map((r, i) => ({ cells: [r], ...(i === from.length - 1 ? { skip: 2 * parskip } : {}) }))
+    lines.push({ cells: [date] })
+    typeset("", { ...raggedleft, start: [emptyBox("hlist", 0), tabular(lines, [{ align: "l", noLeft: false, noRight: true }], "normalsize", "c")] }, outerParskip)
+    vspace(dimen(2 * parskip))
+    b.to.split(/\\\\/).map((x) => x.trim()).forEach((line, i) => { // \@centercr between the lines
+      if (i) v.addvspace(negate(outerParskip))
+      typeset(line, { ...raggedright, start: [emptyBox("hlist", 0)] }, outerParskip)
+    })
+    vspace(dimen(2 * parskip))
+    typeset(b.opening, {}, outerParskip)
+    v.nodes.push(penalty(10000))
+    b.blocks.forEach(processBlock)
+    // \closing
+    v.par()
+    v.nodes.push(penalty(10000))
+    vspace(k.glue.parskip)
+    k = { ...k, ints: { ...k.ints, interlinepenalty: 10000 } }
+    const longindentation = xnOverD(classTextwidth, 32768, 65536), width = classTextwidth - longindentation
+    // the \parbox: \@parboxrestore (\parskip and \parindent zero), \raggedright, \\[6\medskipamount] (\@centercr)
+    const pv = new VerticalList(k)
+    pv.nodes = []; pv.prevDepth = IGNORE_DEPTH
+    const inBox = (text: string, end: Node[]) => {
+      const p = paragraphInput(text, k, "normalsize", doc, { ...raggedright, hsize: width, start: [emptyBox("hlist", 0)], amsmath })
+      p.list.push(...end)
+      const lb = lineBreak(p.list, p.params)
+      decisions.push(...p.notes, lb.trace)
+      return lb.vlist
+    }
+    pv.lines(inBox(b.closing, []))
+    pv.addvspace(dimen(0))
+    pv.vskip(dimen(6 * medskipamount))
+    pv.paragraph(inBox(letterInfo.signature ?? letterInfo.name ?? "", [{ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth }]), dimen(0)) // \strut
+    const box = vpack(pv.nodes)
+    const delta = box.height + box.depth // \vcenter (make_vcenter, § 736)
+    box.height = mathEnv(k, "normalsize", amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+    box.depth = delta - box.height
+    const parbox: Node[] = [{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }]
+    // \noindent \hspace*: \vrule width\z@ \nobreak \hskip \hskip\z@skip
+    typeset("", { start: [{ kind: "rule", width: 0, height: null, depth: null }, penalty(10000), glue(longindentation), glue(0), ...parbox] }, outerParskip)
+    v.nodes.push(penalty(10000))
+    for (let i = 0; i < b.pars; i++) v.nodes.push(penalty(10000)) // the \par of a blank line: \@@par\nobreak
+    v.nodes.push(penalty(-10000)) // \end{letter}'s \pagebreak
+  }
+
   /** \thebibliography's start: \section*{\refname} (report, book: \chapter*{\bibname}), then \@mkboth */
   function bibliography() {
     if (hyper) throw new Unsupported("thebibliography with hyperref")
@@ -1459,15 +1581,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
    * says), \hskip\tabcolsep; \hline is \noalign{\hrule height\arrayrulewidth}, and a second one right
    * after it adds \vskip\doublerulesep \vskip-\arrayrulewidth. A cell is text or \textbf{text}.
    */
-  function tabular(lines: TabularLine[], cols: ("l" | "c" | "r")[], size: SizeCommand, pos: "t" | "c" = "t"): BoxNode {
+  function tabular(lines: TabularLine[], cols: TabularCol[], size: SizeCommand, pos: "t" | "c" = "t"): BoxNode {
     const f = k.sizes[size].font, font = loadFont(dataFont(f.name), f.at)
     const bf = loadFont(dataFont(k.sizes[size].bold.name), k.sizes[size].bold.at)
     const strut = k.sizes[size].strut
     const sep = k.dimens.tabcolsep
-    const rows = lines.filter((l): l is { cells: string[] } => "cells" in l)
+    const rows = lines.filter((l): l is { cells: string[]; skip?: number } => "cells" in l)
     const cells = rows.map((row) => row.cells.map((text, j) => {
+      const col = cols[j], align = typeof col === "string" ? col : col.align
       const l: Node[] = j === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }] : [] // \@arstrut
-      l.push(glue(sep)) // \@acol: \hskip\tabcolsep
+      if (typeof col === "string" || !col.noLeft) l.push(glue(sep)) // \@acol: \hskip\tabcolsep
       const hfil = () => glue(0, 65536, FIL)
       const body: Node[] = []
       const t = text.replace(/\s+/g, " ").trim()
@@ -1477,11 +1600,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       // \textbf's \check@icr: an italic correction after it (the outer font is upright, and what follows is no , or .)
       const lastChar = body[body.length - 1]
       if (bold && lastChar?.kind === "char") body.push(kern(bf.chars.get(lastChar.char)!.italic, true))
-      const c = cols[j]
-      if (c === "c") l.push(hfil(), glue(1), ...body, hfil())
-      else if (c === "l") l.push(glue(1), ...body, hfil())
+      // \\[skip] with a positive skip (\@xargarraycr): \unskip, \vrule height0pt depth skip+\dp\@arstrutbox width0pt
+      if (j === row.cells.length - 1 && row.skip !== undefined && row.skip > 0) {
+        if (body.at(-1)?.kind === "glue") body.pop()
+        body.push({ kind: "rule", width: 0, height: 0, depth: row.skip + strut.depth })
+      }
+      if (align === "c") l.push(hfil(), glue(1), ...body, hfil())
+      else if (align === "l") l.push(glue(1), ...body, hfil())
       else l.push(hfil(), glue(1), ...body)
-      l.push(glue(sep))
+      if (typeof col === "string" || !col.noRight) l.push(glue(sep))
       return l
     }))
     const tabskip = Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0)))
@@ -1509,9 +1636,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   }
 
   /** \begin{tabular}{cols}…\end{tabular}: its lines, or Unsupported */
-  function tabularOf(spec: string, body: string): { cols: ("l" | "c" | "r")[]; lines: TabularLine[] } {
-    if (!/^[lcr]+$/.test(spec)) throw new Unsupported(`tabular columns {${spec}}`)
-    const cols = [...spec] as ("l" | "c" | "r")[]
+  function tabularOf(spec: string, body: string): { cols: TabularCol[]; lines: TabularLine[] } {
+    if (!/^(?:@\{\})?(?:[lcr](?:@\{\})?)+$/.test(spec)) throw new Unsupported(`tabular columns {${spec}}`)
+    const cols: TabularCol[] = [...spec.matchAll(/(@\{\})?([lcr])(?=(@\{\})?)/g)].map((m) => (m[1] || m[3] ? { align: m[2] as "l", noLeft: !!m[1], noRight: !!m[3] } : (m[2] as "l")))
     const lines: TabularLine[] = []
     let rest = body.trim()
     for (;;) {
@@ -1520,10 +1647,17 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       const end = rest.indexOf("\\\\")
       const row = end < 0 ? rest : rest.slice(0, end)
       rest = end < 0 ? "" : rest.slice(end + 2).trim()
+      // \\* and \\[skip] (\@tabularcr)
+      let skip: number | undefined
+      const opt = rest.match(/^\*?\s*(?:\[([^\]]*)\])?/)
+      if (opt?.[0]) {
+        if (opt[1] !== undefined) { try { skip = parseGlue(opt[1], bodyUnits).width } catch { throw new Unsupported(`\\\\[${opt[1]}] in a tabular`) } }
+        rest = rest.slice(opt[0].length).trim()
+      }
       if (/\\hline/.test(row)) throw new Unsupported("\\hline inside a row")
       const cells = row.split("&")
       if (cells.length > cols.length) throw new Unsupported("more cells than columns")
-      lines.push({ cells })
+      lines.push({ cells, ...(skip !== undefined ? { skip } : {}) })
     }
     return { cols, lines }
   }
@@ -1703,7 +1837,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     throw e
   }
   const { pages, pageTrace } = built
-  const columns = makeColumns(pages, k)
+  const columns = makeColumns(pages, k, cls === "letter")
   // \leftmark (the last 2e-left mark on the page) and \rightmark (the first 2e-right), from the marks at the
   // top level of the page's material, or the value the pages before left (\topmarks); a page of floats has none
   const carried = new Map<number, MarkValue>()

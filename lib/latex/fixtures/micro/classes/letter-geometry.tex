@@ -1,0 +1,30 @@
+% fixture: classes/letter-geometry
+% tier: T3
+% engine: document
+% covers: letter: geometry after the class (\longindentation), letter.cls nested lists
+\documentclass{letter}
+\usepackage[hscale=0.6,vscale=0.6]{geometry}
+\signature{Jane Doe}
+\address{1 Main Street \\ Springfield}
+\begin{document}
+\begin{letter}{Dr. Recipient \\ City}
+\opening{Dear Dr. Recipient,}
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\begin{enumerate}
+\item First Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+\begin{itemize}
+\item nested one Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+\item nested two
+\begin{itemize}
+\item deeper one
+\item deeper two
+\end{itemize}
+\end{itemize}
+\item Second
+\end{enumerate}
+Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\closing{Best regards,}
+\end{letter}
+\end{document}

@@ -127,6 +127,8 @@ export interface ParagraphOptions {
   sfcodes?: Record<number, number>
   /** \widowpenalty in force, which footnotes see, when not the class's (thebibliography's 4000) */
   noteWidowPenalty?: number
+  /** \hsize, when not \textwidth (a \parbox) */
+  hsize?: number
 }
 
 /**
@@ -511,6 +513,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const ps = pieces(body)
   params.hyphenation = hyphenation(k, font)
   if (opts.parShape) params.parShape = opts.parShape
+  if (opts.hsize !== undefined) params.hsize = opts.hsize
   if (opts.clubPenalty !== undefined) params.clubPenalty = opts.clubPenalty
   if (opts.hangIndent !== undefined) params.hangIndent = opts.hangIndent
   if (opts.interLinePenalty !== undefined) params.interLinePenalty = opts.interLinePenalty

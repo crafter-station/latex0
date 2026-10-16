@@ -3,7 +3,7 @@
 // never the runtime: nothing in this folder is imported by the engine.
 
 import { execFileSync } from "node:child_process"
-import { mkdirSync, readFileSync, copyFileSync } from "node:fs"
+import { mkdirSync, readFileSync, copyFileSync, rmSync } from "node:fs"
 import { basename, join, resolve } from "node:path"
 import type { Decisions } from "../../trace/decisions"
 import { parseDvi, type Trace } from "./dvi"
@@ -51,6 +51,8 @@ export function oracleRun(fixture: string): OracleResult {
   const dir = join(CACHE, name)
   mkdirSync(dir, { recursive: true })
   copyFileSync(fixture, join(dir, `${name}.tex`))
+  // the first run reads what an earlier document of the same name wrote
+  for (const ext of ["aux", "toc", "lof", "lot", "out"]) rmSync(join(dir, `${name}.${ext}`), { force: true })
   const job = `\\AtBeginDocument{\\tracingassigns=1}\\tracingparagraphs=1\\tracingpages=1\\tracingoutput=1\\showboxdepth=10000\\showboxbreadth=100000\\tracingonline=0\\input{${name}}`
   const env = { ...ENV, max_print_line: "100000", error_line: "254", half_error_line: "238" }
   for (let pass = 0; pass < 2; pass++) {

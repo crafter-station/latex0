@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 123,
-  "exact": 119,
+  "fixtures": 128,
+  "exact": 125,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 4,
-  "glyphs": 172948
+  "pending": 3,
+  "glyphs": 177990
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "classes",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 15,
+   "exact": 15
   },
   {
    "area": "display",
@@ -72,7 +72,7 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 14
+   "exact": 15
   },
   {
    "area": "text",
@@ -223,8 +223,8 @@
    "file": "macro/templates/letter.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 134,
    "covers": "Formal letter with sender/recipient addresses",
    "issue": "#30"
@@ -371,6 +371,56 @@
    "glyphs": 2600,
    "covers": "the book class one-sided ([oneside,12pt]): \\cleardoublepage is \\clearpage, \\chaptermark is \\markright and \\sectionmark nothing, \\pagestyle{plain} keeping the class's \\chaptermark",
    "issue": "#30"
+  },
+  {
+   "id": "classes/letter-11pt",
+   "file": "micro/classes/letter-11pt.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 719,
+   "covers": "letter [11pt]: name, date, a list"
+  },
+  {
+   "id": "classes/letter-12pt",
+   "file": "micro/classes/letter-12pt.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 492,
+   "covers": "letter [12pt]"
+  },
+  {
+   "id": "classes/letter-geometry",
+   "file": "micro/classes/letter-geometry.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 454,
+   "covers": "letter: geometry after the class (\\longindentation), letter.cls nested lists"
+  },
+  {
+   "id": "classes/letter-multipage",
+   "file": "micro/classes/letter-multipage.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2857,
+   "covers": "letter: address, signature, opening, closing over pages"
+  },
+  {
+   "id": "classes/letter-t1",
+   "file": "micro/classes/letter-t1.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 386,
+   "covers": "letter with T1 (\\@listI's em in the EC font), \\setlength{\\parskip} (\\vspace{\\parskip} in \\closing, \\medskipamount kept)"
   },
   {
    "id": "classes/report-10pt",
