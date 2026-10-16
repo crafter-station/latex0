@@ -1,0 +1,22 @@
+% fixture: listings/tt-small
+% tier: T3
+% engine: document
+% covers: lstlisting: basicstyle=\ttfamily\small (struts, baselines, \lst@width)
+\documentclass{article}
+\usepackage{listings}
+\lstset{language=Python,basicstyle=\ttfamily\small}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}
+# comment with "quotes" and tabs	here
+def f(a_b, c):
+    """doc string"""
+    return range(10) * 2 - a_b  # done
+  	x = {"k": [1, 2]} | 3 < 4
+
+print('it\'s', "a\\b")   
+last line
+\end{lstlisting}
+Text after.
+
+\end{document}

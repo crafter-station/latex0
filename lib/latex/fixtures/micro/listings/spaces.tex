@@ -1,0 +1,15 @@
+% fixture: listings/spaces
+% tier: T3
+% engine: document
+% covers: lstlisting: lost space, gobbled whitespace (\lst@@discretionary), tabulators, empty lines
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+\begin{lstlisting}
+a   b
+	c	d
+
+  
+e
+\end{lstlisting}
+\end{document}

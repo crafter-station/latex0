@@ -1,0 +1,14 @@
+% fixture: listings/specials
+% tier: T3
+% engine: document
+% covers: lstlisting: listings' text symbols in roman (TS1, OML, OMS, \textunderscore) and typewriter
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+\begin{lstlisting}
+a#b$c%d&e'f*g-h<i>j\k^l_m`n{o|p}q~r
+\end{lstlisting}
+\begin{lstlisting}[basicstyle=\ttfamily]
+a#b$c%d&e'f*g-h<i>j\k^l_m`n{o|p}q~r
+\end{lstlisting}
+\end{document}

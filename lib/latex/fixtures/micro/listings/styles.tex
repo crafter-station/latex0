@@ -1,0 +1,22 @@
+% fixture: listings/styles
+% tier: T3
+% engine: document
+% covers: lstlisting: \lstset with language, every style key, caption= and label=
+\documentclass{article}
+\usepackage{listings}
+\lstset{language=Python,keywordstyle=[2]\ttfamily,identifierstyle=\slshape,tabsize=4}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[caption={A caption},label=lst:x]
+# comment with "quotes" and tabs	here
+def f(a_b, c):
+    """doc string"""
+    return range(10) * 2 - a_b  # done
+  	x = {"k": [1, 2]} | 3 < 4
+
+print('it\'s', "a\\b")   
+last line
+\end{lstlisting}
+Text after.
+
+\end{document}

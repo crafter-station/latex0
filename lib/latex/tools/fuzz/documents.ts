@@ -95,12 +95,44 @@ export function makeDocument(r: () => number): string {
   const style = r()
   if (style < 0.2) out.push("\\pagestyle{empty}")
   else if (style < 0.4 && !isLetter) out.push("\\pagestyle{headings}") // running heads from the section marks
-  if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
+  const t1 = r() < 0.3
+  if (t1) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
   // enumitem; \setlength in the preamble
   const enumitem = r() < 0.15
   if (enumitem) out.push("\\usepackage{enumitem}")
+  // listings: code with keywords, comments, strings, spaces and tabulators, in the styles and columns it offers
+  const lst = r() < 0.2 && !t1
+  const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])])
+  const lstKeys = (env: boolean) => { // (no [ ] in a value of the environment's [options])
+    const keys: string[] = []
+    if (r() < 0.6) keys.push(pick(["language=Python", "language=Python", env ? "language=Python" : "language={[2]Python}", "language="]))
+    if (r() < 0.4) keys.push(`basicstyle=${lstStyle(true)}`)
+    if (r() < 0.2) keys.push(`keywordstyle=${env ? "" : pick(["", "[2]", "[1]"])}${lstStyle(false) || "\\upshape"}`)
+    if (r() < 0.2) keys.push(`commentstyle=${lstStyle(false)}`)
+    if (r() < 0.2) keys.push(`stringstyle=${lstStyle(false)}`)
+    if (r() < 0.1) keys.push(`identifierstyle=${lstStyle(false)}`)
+    if (r() < 0.25) keys.push(`columns=${pick(["fixed", "flexible", "fullflexible", env ? "fixed" : "[c]fixed"])}`)
+    if (r() < 0.2) keys.push(`showstringspaces=${pick(["false", "true"])}`)
+    if (r() < 0.1) keys.push(`tabsize=${pick(["2", "4", "8", "3"])}`)
+    return keys
+  }
+  if (lst) out.push("\\usepackage{listings}", ...(r() < 0.5 ? [`\\lstset{${lstKeys(false).join(",")}}`] : []))
+  const code = () => {
+    const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",
+      "0", "42", "3.14", "=", "==", "+", "-", "*", "/", "<", ">", "(", ")", "[", "]", "{", "}", ":", ",", ".", ";", "!", "?", "@", "$", "%", "&", "|", "^", "~", "`", "\\", "\\\\", "_",
+      "'abc'", "'a b'", "\"it's\"", "\"x\\\"y\"", "'q\\'s'", "# note", "# a \"comment\" here", "\"\"\"doc\"\"\"", "'''", "fi", "ff", "--", "<<", "''", "``"])
+    const sep = () => pick([" ", " ", " ", "", "", "  ", "\t", "   "])
+    const lines: string[] = []
+    for (let n = 1 + Math.floor(r() * 12); n > 0; n--) {
+      if (r() < 0.1) { lines.push(pick(["", "  ", "\t"])); continue }
+      let l = pick(["", "", "    ", "  ", "\t", "\t  ", "        "])
+      for (let t = 1 + Math.floor(r() * (r() < 0.1 ? 40 : 10)); t > 0; t--) l += tok() + sep()
+      lines.push(l)
+    }
+    return lines
+  }
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25 && !isLetter
   if (hyper) out.push("\\usepackage{hyperref}")
@@ -192,6 +224,14 @@ export function makeDocument(r: () => number): string {
       list(1, 0, 0)
       afterPar = false
       if (r() < 0.3) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } // text right after the list
+    } else if (lst && x < 0.36) {
+      // a listing, maybe right after text, maybe with a caption and a label, maybe text right after it
+      if (!afterPar || r() < 0.5) out.push("")
+      const keys = lstKeys(true)
+      if (cls === "article" && !hyper && r() < 0.3) keys.push(`caption={${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`label=lst:${b}`] : []))
+      out.push(`\\begin{lstlisting}${keys.length ? `[${keys.join(",")}]` : ""}`, ...code(), "\\end{lstlisting}")
+      afterPar = false
+      if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }
     } else {
       // a paragraph, maybe with displays in it or opening it
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120), true)]

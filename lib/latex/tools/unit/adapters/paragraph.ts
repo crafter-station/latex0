@@ -187,6 +187,22 @@ function mergeShape(k: ClassOptionData, size: SizeCommand, a: FontAttrs, target:
   if (target === "up") throw new Error(`\\upshape from ${a.shape}: no shape declared`)
   return target
 }
+/** A font declaration (\bfseries, \itshape, \ttfamily …) on the attributes; null for one that is not modeled */
+export function fontDeclaration(name: string, a: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState): FontAttrs | null {
+  switch (name) {
+    case "bfseries": return { ...a, ser: "bx" }
+    case "mdseries": return { ...a, ser: "m" }
+    case "itshape": return { ...a, shape: mergeShape(k, size, a, "it", doc) }
+    case "slshape": return { ...a, shape: mergeShape(k, size, a, "sl", doc) }
+    case "scshape": return { ...a, shape: mergeShape(k, size, a, "sc", doc) }
+    case "upshape": return { ...a, shape: mergeShape(k, size, a, "up", doc) }
+    case "rmfamily": return { ...a, fam: "cmr" }
+    case "sffamily": return { ...a, fam: "cmss" }
+    case "ttfamily": return { ...a, fam: "cmtt" }
+    case "normalfont": return { ...a, fam: "cmr", ser: "m", shape: "n" }
+  }
+  return null
+}
 const fontMemo = new Map<string, Font>()
 /** A font at a size, loaded once */
 export function fontAt(name: string, at: number, hyphenChar?: number): Font {

@@ -1,0 +1,17 @@
+% fixture: listings/caption
+% tier: T3
+% engine: document
+% covers: lstlisting: \allowbreak, the caption between \nobreak\vskip\smallskipamount, \lst@doendpe
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+Hello world.
+\begin{lstlisting}
+ab
+\end{lstlisting}
+After.
+
+\begin{lstlisting}[caption={Cap}]
+ab
+\end{lstlisting}
+\end{document}

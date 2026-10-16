@@ -1,0 +1,22 @@
+% fixture: listings/fullflexible
+% tier: T3
+% engine: document
+% covers: lstlisting: columns=fullflexible (lost space only at a new line), footnotesize typewriter
+\documentclass{article}
+\usepackage{listings}
+\lstset{language=Python,basicstyle=\footnotesize\ttfamily,keywordstyle=\itshape,commentstyle=\slshape,stringstyle=\ttfamily}
+\begin{document}
+Some text before the listing.
+\begin{lstlisting}[columns=fullflexible]
+# comment with "quotes" and tabs	here
+def f(a_b, c):
+    """doc string"""
+    return range(10) * 2 - a_b  # done
+  	x = {"k": [1, 2]} | 3 < 4
+
+print('it\'s', "a\\b")   
+last line
+\end{lstlisting}
+Text after.
+
+\end{document}
