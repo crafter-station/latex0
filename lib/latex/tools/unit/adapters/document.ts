@@ -102,7 +102,8 @@ type Block =
   | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
       /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean }
   | ListBlock
-  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[] }
+  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[]
+      /** a blank line (\par) right before it */ blank?: boolean }
   | { kind: "maketitle" }
   | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
@@ -307,7 +308,7 @@ function blocksOf(body: string): Block[] {
       let depth = 0, j = re.lastIndex
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       const title = body.slice(re.lastIndex + 1, j).replace(/\s+/g, " ").trim()
-      out.push({ kind: "heading", level: HEADINGS[m[1] as keyof typeof HEADINGS], star: m[2] === "*", title })
+      out.push({ kind: "heading", level: HEADINGS[m[1] as keyof typeof HEADINGS], star: m[2] === "*", title, ...(/\n[ \t]*\n\s*$/.test(before) ? { blank: true } : {}) })
       re.lastIndex = j + 1
       at = j + 1
       endpe = false
@@ -876,6 +877,28 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
   let runIn: (() => Node[]) | null = null
+  /**
+   * \@noskipsec left true by a run-in heading whose \everypar never ran (a listing's replaced it, then
+   * \lst@doendpe's): the heading is lost, and the next \@startsection or \@trivlist (\if@noskipsec\leavevmode)
+   * starts an empty paragraph, as \newpage does before it sets \@noskipsecfalse
+   */
+  let noskipsec = false
+  /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
+  const esphackNobreaks = (nobreak: boolean): Node[] => [...(nobreak ? [penalty(10000)] : []), ...(nobreak || noskipsec ? [penalty(10000)] : [])]
+  /** \if@noskipsec \leavevmode: an empty paragraph (the indent box) in the \everypar in force */
+  const noskipsecPar = (what: string) => {
+    if (!noskipsec) return
+    if (v.nobreak) { // \@afterheading's \everypar: \@nobreakfalse\clubpenalty\@M, the indent box gone unless \@afterindent
+      v.nobreak = false; v.club = 10000
+      if (!v.afterindent) { v.paragraph([], outerParskip); return }
+      typeset("", { clubPenalty: v.club }, outerParskip)
+      return
+    }
+    // \@doendpe's \everypar takes the indent box: an empty paragraph makes no line (\parskip is there already)
+    if (v.endpeEverypar) { v.paragraph([], outerParskip); v.endpeEverypar = false; return }
+    if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false } // its \everypar: \@clubpenalty, \everypar{}
+    typeset("", { clubPenalty: v.club }, outerParskip)
+  }
   /** a run-in heading followed by another heading: \@startsection's \leavevmode\par makes it a paragraph of its own */
   const runInAlone = () => {
     const start = runIn!()
@@ -892,15 +915,17 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
     if (runIn && b.kind === "list") { const club = v.club; runInAlone(); list({ ...b, inPar: true, blank: false }, topCtx()); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
-    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
-    if (b.kind === "heading") { if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
+    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+    if (b.kind === "heading") { if (b.blank && !runIn) v.par(); if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
+    if (noskipsec && (b.kind === "maketitle" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
     if (b.kind === "maketitle") { maketitle(); return }
     if (b.kind === "toc") { if (runIn) runInAlone(); tableOfContents(); return }
     if (b.kind === "matter") { if (runIn) runInAlone(); matter(b.which); return }
     if (b.kind === "bib") { if (runIn) runInAlone(); bibliography(); return }
     if (b.kind === "letter") { if (runIn) runInAlone(); letter(b); return }
     if (b.kind === "float") { floatBlock(b); return }
-    if (b.kind === "listing") { if (runIn) throw new Unsupported("a listing right after a run-in heading"); listing(b); return }
+    // a listing right after a run-in heading: its \everypar (then \lst@doendpe's) replaces the heading's, which never runs
+    if (b.kind === "listing") { const lost = !!runIn; if (lost) { runIn = null; noskipsec = true } listing(b, lost); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
       // the \nobreak of \protected@write and of \@esphack
@@ -910,8 +935,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
         for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\{([^{}]*)\}|\\hrule/g)) {
           if (m[1] !== undefined) {
-            v.nodes.push(labelWrite(refs, m[1]))
-            if (v.nobreak) v.nodes.push(penalty(10000), penalty(10000))
+            v.nodes.push(labelWrite(refs, m[1]), ...esphackNobreaks(v.nobreak))
           } else if (m[2] !== undefined) {
             let g: GlueSpec
             try { g = parseGlue(m[2], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[2]}}`) }
@@ -984,6 +1008,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     if (b.blank) v.par() // a blank line before the list
     const before = { club: v.club, afterheading: v.afterheadingEverypar }
+    // \@trivlist's \if@noskipsec\leavevmode (in the environment's group), then \unskip\par and no \partopsep
+    if (noskipsec && !b.inPar) {
+      if (b.env === "abstract") throw new Unsupported("an abstract after a run-in heading lost to a listing")
+      noskipsecPar("a list")
+      b = { ...b, inPar: true }
+    }
     list(b, topCtx())
     // the list's group ends (its \clubpenalty and \everypar settings with it); \end then runs \@doendpe, except
     // after amsthm's environments (\@endpefalse): the \everypar and \clubpenalty from before them are back
@@ -1464,6 +1494,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       parts.forEach((p) => {
         if (p.kind === "list") {
           if (p.blank) v.par()
+          if (noskipsec && !p.inPar) throw new Unsupported("a nested list after a run-in heading lost to a listing")
           // (the \clubpenalty in force: what the item's \everypar left, or before its first paragraph what was there)
           const inForce = started ? itemClub ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty) : groupClub
           return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums, club: inForce })
@@ -1477,7 +1508,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
           const lead = p.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
           if (lead) {
             // (\if@nobreak still holds right after a heading: \@nbitem leaves it, the paragraph's \everypar ends it)
-            for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) { v.nodes.push(labelWrite(refs, m[1])); if (club !== undefined) v.nodes.push(penalty(10000), penalty(10000)) }
+            for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) v.nodes.push(labelWrite(refs, m[1]), ...esphackNobreaks(club !== undefined))
             p.text = p.text.slice(lead[0].length)
           }
         }
@@ -1593,7 +1624,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
   function styleColors(style: string) { return [...style.matchAll(COLOR_CMD)].map((m) => colorSpec(m[2], m[1])) }
 
-  function listing(b: Extract<Block, { kind: "listing" }>) {
+  function listing(b: Extract<Block, { kind: "listing" }>, afterRunIn = false) {
     if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
     // right after a heading the listing's \everypar replaces \@afterheading's (which then never runs: \if@nobreak
     // stays true and \clubpenalty as it was), unless a top frame's paragraph runs it first
@@ -1633,7 +1664,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (o.label !== null) {
         if (!/^[A-Za-z0-9:._-]+$/.test(o.label)) throw new Unsupported(`listing label ${o.label}`)
         v.nodes.push(labelWrite(refs, o.label, String(n), href("lstlisting", n), hyper ? labelName(text) : refs.name)) // nameref: the caption
-        if (v.nobreak) v.nodes.push(penalty(10000), penalty(10000)) // \protected@write's and \@esphack's \nobreak
+        v.nodes.push(...esphackNobreaks(v.nobreak))
       }
       v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
       if (v.nobreak) v.nodes.push(penalty(10000)) // \protected@write's \nobreak
@@ -1664,6 +1695,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
     let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
     const frameParagraph = (box: BoxNode, end: Node[] = []) => {
+      if (afterRunIn) throw new Unsupported("a framed listing right after a run-in heading") // (its \everypar would run there)
       // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
       if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
       else if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
@@ -2129,6 +2161,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    */
   /** \clearpage: \newpage (which ends \if@nobreak), \write\m@ne{}, \vbox{}, \penalty-\@Mi */
   function clearpage() {
+    noskipsecPar("a page break"); noskipsec = false // \newpage: \leavevmode, \global\@noskipsecfalse
     if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
     v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
     v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
@@ -2213,6 +2246,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   function runInHeading(b: Extract<Block, { kind: "heading" }>) {
     const name = b.level === 4 ? "paragraph" : "subparagraph"
     const before = new Scanner("3.25ex plus1ex minus.2ex", bodyUnits).scanGlue()
+    noskipsecPar("a heading")
+    noskipsec = false // (\@xsect: \@noskipsectrue, with its own \everypar)
     v.par()
     if (runIn) throw new Unsupported("two run-in headings in a row")
     if (v.nobreak) v.afterheadingEverypar = false // \everypar{}
@@ -2244,6 +2279,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const glueOf = (x: string) => new Scanner(x, bodyUnits).scanGlue()
     let before = glueOf(b.level === 1 ? "-3.5ex plus -1ex minus -.2ex" : "-3.25ex plus -1ex minus -.2ex")
     const after = glueOf(b.level === 1 ? "2.3ex plus .2ex" : "1.5ex plus .2ex")
+    noskipsecPar("a heading") // \@startsection's \if@noskipsec\leavevmode
     v.par() // \@startsection's \par
     const afterHeading = v.nobreak
     if (afterHeading) v.afterheadingEverypar = false // \if@nobreak \everypar{}
@@ -2292,6 +2328,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
 
   if (runIn) runInAlone() // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
+  if (noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
   let built: ReturnType<typeof endDocument>
   try { built = endDocument(v.nodes, k, outerParskip) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))

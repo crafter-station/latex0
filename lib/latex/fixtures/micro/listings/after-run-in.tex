@@ -1,0 +1,45 @@
+% fixture: listings/after-run-in
+% tier: T3
+% engine: document
+% covers: a listing right after a run-in heading: the listing's \everypar (then \lst@doendpe's) replaces the heading's, so the heading is lost and \@noskipsec stays true (and \@esphack adds \nobreak after a \label in vertical mode); each later \@startsection and \@trivlist starts an empty paragraph (\if@noskipsec\leavevmode), until a run-in heading's \everypar or \newpage ends it
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+Some text before.
+
+\paragraph{Lost.}
+\begin{lstlisting}[caption={A caption},label=lst:a]
+x = 1
+\end{lstlisting}
+After the listing, more words here to fill a line and a bit more to wrap it onto another.
+
+\label{p:a}A paragraph that starts with a label, whose \textit{esphack} adds a nobreak.
+
+\section{Next}
+A paragraph after the heading.
+
+Another one, then a list.
+\begin{itemize}
+\item one
+\end{itemize}
+
+\begin{center}
+centered
+\end{center}
+
+\subparagraph{Kept.} This run-in heading's \textit{everypar} ends it.
+
+\section{Last}
+\paragraph{Lost again.}
+\begin{lstlisting}
+y = 2
+\end{lstlisting}
+\section{Right after}
+\paragraph{And again.}
+\begin{lstlisting}
+z = 3
+\end{lstlisting}
+\begin{itemize}
+\item a list right after it
+\end{itemize}
+\end{document}
