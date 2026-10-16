@@ -70,6 +70,20 @@ function withT1(k: ClassOptionData, cls: string): ClassOptionData {
   return { ...k, sizes, glue: glues, ints: { ...k.ints, T1: 1 } }
 }
 
+/** \( and \): LaTeX's robust \relax\ifmmode…\else$\fi, the same formula as $ (outside comments and \\) */
+function inlineMathParens(src: string): string {
+  let out = ""
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (c === "%") { const j = src.indexOf("\n", i); out += j < 0 ? src.slice(i) : src.slice(i, j); i = j < 0 ? src.length : j - 1; continue }
+    if (c !== "\\") { out += c; continue }
+    const n = src[i + 1]
+    if (n === "(" || n === ")") { out += "$"; i++; continue }
+    out += c + (n ?? ""); i++
+  }
+  return out
+}
+
 /** How many groups are open at the end of `src` (braces not escaped). */
 const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
 
@@ -218,7 +232,9 @@ function inParagraph(before: string): boolean {
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 function blocksOf(body: string): Block[] {
-  body = body.replace(/(^|[^\\])%.*$/gm, "$1") // comments
+  // comments: % takes the rest of the line and its end, and the next line's leading spaces go (TeX's state N);
+  // a blank line after it stays one
+  body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
   let at = 0, endpe = false
@@ -485,6 +501,7 @@ export const document: Adapter = (source) => {
     return `\\LXlstinline{${listings.length - 1}}`
   })
   if (/\\lstinline(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\lstinline not read")
+  source = inlineMathParens(source)
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   const src = expanded.text

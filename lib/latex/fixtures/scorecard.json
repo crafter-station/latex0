@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 171,
-  "exact": 169,
+  "fixtures": 172,
+  "exact": 170,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 182345
+  "glyphs": 182398
  },
  "areas": [
   {
@@ -61,8 +61,8 @@
   },
   {
    "area": "math",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "pages",
@@ -1411,6 +1411,16 @@
    "glyphs": 179,
    "covers": "inline fractions and big operators in text style: \\frac, \\sum and \\prod with scripts beside them, \\int with \\nolimits, \\limits in text style",
    "issue": "#76"
+  },
+  {
+   "id": "math/inline-parens",
+   "file": "micro/math/inline-parens.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 53,
+   "covers": "\\( \\) inline math (the robust $), a comment line inside a paragraph (% takes the line end too)"
   },
   {
    "id": "math/inline-scripts",

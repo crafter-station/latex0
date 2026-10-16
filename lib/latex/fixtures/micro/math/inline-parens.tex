@@ -1,0 +1,11 @@
+% fixture: math/inline-parens
+% tier: T3
+% engine: document
+% covers: \( \) inline math (the robust $), a comment line inside a paragraph (% takes the line end too)
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Let \(x^2 + y^2 = z^2\) hold, and \(\alpha\to\beta\). A line\\(not math) and text.
+% a comment \( here
+Done \(a_i\).
+\end{document}
