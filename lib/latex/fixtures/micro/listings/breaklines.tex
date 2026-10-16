@@ -1,0 +1,24 @@
+% fixture: listings/breaklines
+% tier: T3
+% engine: document
+% covers: breaklines: \parshape 2 from \lst@breakNewLine, a discretionary after each token, breakatwhitespace, breakindent, breakautoindent, frames and numbers
+\documentclass{article}
+\usepackage{listings}
+\lstset{language=Python,breaklines=true}
+\begin{document}
+Text before.
+\begin{lstlisting}
+def a_very_long_function_name(argument_one, argument_two, argument_three, argument_four, argument_five):
+    return some_function(argument_one) + another_function(argument_two) * third_function(argument_three, argument_four)
+x = "a string with spaces that goes on and on and on until it is far too long for a single line of the listing"
+	tabbed  line  with  doubled  spaces  and  a  long  tail  to  break  over  the  line  end  here  and  more  words
+short
+\end{lstlisting}
+\begin{lstlisting}[breakatwhitespace=true,frame=single,numbers=left,breakindent=10pt,basicstyle=\ttfamily\small]
+def a_very_long_function_name(argument_one, argument_two, argument_three, argument_four, argument_five):
+        return some_function(argument_one) + another_function(argument_two) * third_function(argument_three)
+\end{lstlisting}
+\begin{lstlisting}[breakautoindent=false,xleftmargin=2em,columns=flexible]
+    indented_call(alpha, beta, gamma, delta, epsilon, zeta, eta, theta, iota, kappa, lambda_, mu, nu, xi, omicron)
+\end{lstlisting}
+\end{document}

@@ -1,0 +1,10 @@
+% fixture: listings/lstinline-spaces
+% tier: T3
+% engine: document
+% covers: \lstinline: flexible lost space, \lst@newlines staying 1, an italic basicstyle
+\documentclass{article}
+\usepackage{listings}
+\lstset{basicstyle=\itshape,stringstyle=\slshape,columns=fixed}
+\begin{document}
+X \lstinline{print('a  b')} Y
+\end{document}

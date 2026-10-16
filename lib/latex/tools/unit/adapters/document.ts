@@ -288,7 +288,7 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }
@@ -445,7 +445,32 @@ export const document: Adapter = (source) => {
     listings.push({ options: options ?? "", lines: body.split("\n").map((l) => l.replace(/ +$/, "")) }) // the last: what comes before \end; TeX drops the spaces that end a line
     return `${before}\\lstplaceholder{${listings.length - 1}}`
   })
-  if (/\\(begin|end)\{lstlisting\}/.test(source)) throw new Unsupported("an lstlisting environment not on lines of its own")
+  const uncommented = () => source.replace(/(^|[^\\])%.*$/gm, "$1")
+  if (/\\(begin|end)\{lstlisting\}/.test(uncommented())) throw new Unsupported("an lstlisting environment not on lines of its own")
+  // \lstinline[options]{code} or \lstinline[options]<c>code<c>, read verbatim: \LXlstinline{n} (n after the listings)
+  // Inside a command's argument (\emph{…}, \footnote{…}) TeX has already made tokens of it: spaces in a row are one
+  const inArgument = (at: number) => {
+    const stack: boolean[] = []
+    for (let i = 0; i < at; i++) {
+      const c = source[i]
+      if (c === "\\") { i++; continue }
+      if (c === "%") { while (i < at && source[i] !== "\n") i++; continue }
+      if (c === "{") stack.push(/\\[A-Za-z]+\*?\s*(\[[^\]]*\]\s*)?$/.test(source.slice(Math.max(0, i - 80), i)))
+      else if (c === "}") stack.pop()
+    }
+    return stack.includes(true)
+  }
+  source = source.replace(/\\lstinline(?![A-Za-z])(?:\[((?:[^\]{}]|\{[^{}]*\})*)\])?(?:\{([^{}\n]*)\}|([^A-Za-z\s{\[])([^\n]*?)\3)/g, (_, options: string | undefined, braced: string | undefined, _d: string, delimited: string | undefined, offset: number) => {
+    // (a braced argument is read verbatim too, up to the first })
+    let code = braced ?? delimited ?? ""
+    if (inArgument(offset)) {
+      if (/[\\{}#%]/.test(code)) throw new Unsupported(`\\lstinline in an argument: ${code}`)
+      code = code.replace(/ +/g, " ")
+    }
+    listings.push({ options: options ?? "", lines: [code], inline: true })
+    return `\\LXlstinline{${listings.length - 1}}`
+  })
+  if (/\\lstinline(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\lstinline not read")
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   const src = expanded.text
@@ -474,7 +499,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
 /** an lstlisting environment's [options] and lines */
-interface Listing { options: string; lines: string[] }
+interface Listing { options: string; lines: string[]; inline?: true }
 
 function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[]): { result: AdapterResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
@@ -641,6 +666,26 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
   let floats = 0 // floats so far
   let listingCount = 0, negListing = 0, lstLineno = 0 // \c@lstlisting, \lst@neglisting, \lst@lineno
+  const lstCarry: { gobbledws: boolean; breakcurrindent: number; breakshape: [number, number] | null } = { gobbledws: false, breakcurrindent: 0, breakshape: null }
+  /**
+   * \lstinline: \leavevmode\bgroup\lstset{flexiblecolumns,options}, \lsthk@TextStyle (no skips, frame or margins, an
+   * empty \everypar and \lst@NewLine), \lst@Init and \lst@DeInit with no \par: the token boxes go into the paragraph
+   */
+  doc.lstinline = (n, size, attrs) => {
+    if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
+    if (t1) throw new Unsupported("listings with T1")
+    let o: LstOptions
+    try { o = lstOptions(listings[n].options, lstOptions("flexiblecolumns", lstBase)) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    const { styleOf, fonts } = lstFontsAt(size, attrs)
+    const base = styleOf(o.basicstyle), baseFont = selectFont(k, base.size, base.a)
+    const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
+    if (lstCarry.gobbledws) throw new Unsupported("\\lstinline after gobbled whitespace")
+    if (o.breaklines) throw new Unsupported("\\lstinline with breaklines")
+    let events
+    try { events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: lstCarry }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    lstLineno = 1 // InitVars, and no end of line
+    return events.map((e) => { if ("node" in e) return e.node; throw new Unsupported("\\lstinline with a line break") })
+  }
   const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
   // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
   const href = (counter: string, n: number) => (cls === "article" || cls === "letter" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
@@ -1253,15 +1298,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    * vertical mode: its box is built now, and a marker stands for \penalty-\@Miv\vbox{}\penalty-\@Miii,
    * where the output routine will place it.
    */
-  function listing(b: Extract<Block, { kind: "listing" }>) {
-    if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
-    if (v.nobreak) throw new Unsupported("a listing right after a heading")
-    if (t1) throw new Unsupported("listings with T1")
-    let o: LstOptions
-    try { o = lstOptions(listings[b.n].options, lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
-    // a style: font declarations and size commands, from the listing's font (\normalfont at the outer level)
+  /** listings' fonts from a size and font: a style's (font declarations and size commands), and the other encodings' */
+  function lstFontsAt(size0: SizeCommand, attrs0: FontAttrs) {
+    // a style: font declarations and size commands, from the font where the listing is
     const styleOf = (style: string) => {
-      let size: SizeCommand = "normalsize", a: FontAttrs = { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }
+      let size: SizeCommand = size0, a: FontAttrs = attrs0
       for (const m of style.matchAll(/\\([a-zA-Z]+)/g)) {
         if ((SIZE_COMMANDS as readonly string[]).includes(m[1])) { size = m[1] as SizeCommand; continue }
         const next = fontDeclaration(m[1], a, k, size, doc)
@@ -1283,12 +1324,26 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         return fontAt((enc === "OML" ? (bold ? "cmmib" : "cmmi") : bold ? "cmbsy" : "cmsy") + step, at)
       },
     }
+    return { styleOf, fonts }
+  }
+
+  function listing(b: Extract<Block, { kind: "listing" }>) {
+    if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
+    // right after a heading the listing's \everypar replaces \@afterheading's (which then never runs: \if@nobreak
+    // stays true and \clubpenalty as it was), unless a top frame's paragraph runs it first
+    if (t1) throw new Unsupported("listings with T1")
+    let o: LstOptions
+    try { o = lstOptions(listings[b.n].options, lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    const { styleOf, fonts } = lstFontsAt("normalsize", { enc: "OT1", fam: "cmr", ser: "m", shape: "n" })
     const base = styleOf(o.basicstyle), baseFont = selectFont(k, base.size, base.a)
     // \lst@width: basewidth (0.6em, 0.45em for flexible columns) in the listing's font
     const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
-    let events
-    try { events = lstScan({ width, lines: listings[b.n].lines, options: o, fonts }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
     const sz = k.sizes[base.size], hsize = k.dimens.columnwidth
+    const units = { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] }
+    const dim = (key: keyof LstOptions) => { try { return parseDimen(o[key] as string, units) } catch { throw new Unsupported(`${key}=${o[key]}`) } }
+    const xleft = dim("xleftmargin"), lw = hsize - xleft - dim("xrightmargin")
+    let events
+    try { events = lstScan({ width, lines: listings[b.n].lines, options: o, fonts, carry: lstCarry, breaks: { indent: dim("breakindent"), lineWidth: lw, left: xleft } }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
     const smallskip = glue(196608, 65536, 0, 65536, 0), medskip = cls === "letter" ? dimen(medskipamount) : glue(393216, 131072, 0, 131072, 0)
     const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
     // \lst@Init: \par\penalty-50\relax\vspace\lst@aboveskip, \normalbaselines, \lst@MakeCaption t
@@ -1299,18 +1354,22 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \@currentHref after it: \refstepcounter{lstlisting} (a caption) or \lst@HRefStepCounter (\lst@neglisting
     // goes down), then each line's \refstepcounter{lstnumber}
     let captioned = 0
-    if (hyper) throw new Unsupported("listings with hyperref")
+    // hyperref: \hyper@refstepcounter's anchor (\baselineskip H.A) where the counter steps
+    const lstAnchor = (name: string) => { if (hyper) v.nodes.push(...anchor(name, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
     if (o.caption !== null) {
-      if (cls !== "article") throw new Unsupported("a listing caption outside article or with hyperref")
+      if (cls !== "article") throw new Unsupported("a listing caption outside article")
       const text = o.caption.replace(/\s+/g, " ").trim()
       if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`listing caption "${text}"`)
       const n = captioned = ++listingCount // \refstepcounter{lstlisting}
       refs.href = href("lstlisting", n)
+      lstAnchor(refs.href)
       if (o.label !== null) {
         if (!/^[A-Za-z0-9:._-]+$/.test(o.label)) throw new Unsupported(`listing label ${o.label}`)
-        v.nodes.push(labelWrite(refs, o.label, String(n), href("lstlisting", n)))
+        v.nodes.push(labelWrite(refs, o.label, String(n), href("lstlisting", n), hyper ? labelName(text) : refs.name)) // nameref: the caption
+        if (v.nobreak) v.nodes.push(penalty(10000), penalty(10000)) // \protected@write's and \@esphack's \nobreak
       }
-      v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{}\\protected@file@percent }}` })
+      v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
+      if (v.nobreak) v.nodes.push(penalty(10000)) // \protected@write's \nobreak
       // in a group: \par\@parboxrestore\normalsize\normalfont, \@makecaption with \vskip as \nobreak\vskip…\nobreak
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
       const l: Node[] = [], state = { spaceFactor: 1000 }
@@ -1322,20 +1381,21 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), k.sizes.normalsize.baselineskip)
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
     } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
+    else { negListing--; lstAnchor(href("lstlisting", negListing)) } // \lst@HRefStepCounter (\theHlstlisting: the chapter's, then the number)
     // the lineshape and frames aspects: \linewidth less xleftmargin and xrightmargin, \@totalleftmargin plus
     // xleftmargin, \lst@parshape (\parshape 1 for every paragraph); the frame's dimensions in the listing's font
-    const units = { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] }
-    const dim = (key: keyof LstOptions) => { try { return parseDimen(o[key] as string, units) } catch { throw new Unsupported(`${key}=${o[key]}`) } }
-    const xleft = dim("xleftmargin"), lw = hsize - xleft - dim("xrightmargin")
     const parShape: [number, number][] = [[xleft, lw]]
+    // breaklines: \pretolerance\@M, \rightskip\@flushglue, \parshape 2 with \lst@breakshape for the lines after the first
+    const breaks = o.breaklines ? { pretolerance: 10000, rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)) } : {}
     const shapes = lstFrameShapes(o.frame)
     const fr: LstFrame = { tshape: shapes.t, bshape: shapes.b, lshape: shapes.l, rshape: shapes.r, rule: dim("framerule"), sep: dim("framesep"), rulesep: dim("rulesep"), xleft: dim("framexleftmargin"), xright: dim("framexrightmargin") }
     const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
     let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
     const frameParagraph = (box: BoxNode) => {
       // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
-      if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
-      const p = paragraphInput("", k, "normalsize", doc, { start: [box], parShape, amsmath, clubPenalty: v.club })
+      if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
+      else if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
+      const p = paragraphInput("", k, "normalsize", doc, { start: [box], parShape, ...breaks, amsmath, clubPenalty: v.club })
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       v.paragraph(lb.vlist, dimen(0), sz.baselineskip, lineskip, lineskiplimit)
@@ -1362,32 +1422,34 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     try { numbersep = parseDimen(o.numbersep, { em: numberFont.params[QUAD], ex: numberFont.params[X_HEIGHT] }) } catch { throw new Unsupported(`numbersep=${o.numbersep}`) }
     const number = (empty: boolean): Node[] => {
       lstnumber++
-      if (o.numbers === "none" || S === 0) return []
+      // hyperref: the \refstepcounter{lstnumber} anchor, in horizontal mode after the frame box
+      const a = hyper ? anchor(`lstnumber.${captioned || negListing}.${lstnumber}`, sz.baselineskip.width, "h", undefined) : []
+      if (o.numbers === "none" || S === 0) return a
       if (empty && !o.numberblanklines && skip === 0) skip -= S // \lsthk@OnEmptyLine
       let place = false
       if (skip === 0) { skip -= S; place = true; numberFirst = false } else if (numberFirst) { place = true; numberFirst = false }
       skip++
-      if (!place) return []
+      if (!place) return a
       const digits: Node[] = []
       appendText(digits, String(lstnumber), numberFont, { spaceFactor: 1000 }, false)
       const hss = glue(0, 65536, FIL, 65536, FIL)
-      return [o.numbers === "left" ? hpack([hss, ...digits, kern(numbersep, true)], { exactly: 0 }) : hpack([kern(lw, true), kern(numbersep, true), ...digits, hss], { exactly: 0 })]
+      return [...a, o.numbers === "left" ? hpack([hss, ...digits, kern(numbersep, true)], { exactly: 0 }) : hpack([kern(lw, true), kern(numbersep, true), ...digits, hss], { exactly: 0 })]
     }
     // each line: \par\noindent (\everypar: \lst@parshape, the frame box, the number) \hbox{}, its boxes
     let line: Node[] | null = null, lineCount = 0
-    if (!captioned) negListing--
-    const breakLine = (start: Node[]) => {
-      const p = paragraphInput("", k, "normalsize", doc, { start, parShape, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
+    const breakLine = (start: Node[], shape?: [number, number]) => {
+      const p = paragraphInput("", k, "normalsize", doc, { start, parShape: shape ? [...parShape, shape] : parShape, ...breaks, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       return lb.vlist
     }
-    const endLine = () => { if (line) v.paragraph(breakLine(line), dimen(0), sz.baselineskip, lineskip, lineskiplimit); line = null }
+    let shape: [number, number] | undefined
+    const endLine = () => { if (line) v.paragraph(breakLine(line, shape), dimen(0), sz.baselineskip, lineskip, lineskiplimit); line = null }
     for (const e of events) {
       // empty lines at the end are paragraphs in a \vbox that is thrown away, while the last line's is still open
-      if ("newline" in e && e.discarded) { breakLine([frame(), ...number(!!e.empty), emptyBox("hlist", 0)]); lineCount++ }
-      else if ("newline" in e) { endLine(); line = [frame(), ...number(!!e.empty), emptyBox("hlist", 0)]; lineCount++ }
-      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([glue(0, 65536, FIL, 65536, FIL), frame(), kern(0, true), kern(-xleft, true)], { exactly: 0 })], replaceCount: 0 })
+      if ("newline" in e && e.discarded) { breakLine([frame(), ...number(!!e.empty), emptyBox("hlist", 0)], e.shape); lineCount++ }
+      else if ("newline" in e) { endLine(); line = [frame(), ...number(!!e.empty), emptyBox("hlist", 0)]; shape = e.shape; lineCount++ }
+      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([glue(0, 65536, FIL, 65536, FIL), frame(), kern(e.indent, true), kern(-xleft, true)], { exactly: 0 })], replaceCount: 0 })
       else line!.push(e.node)
     }
     endLine()
@@ -1403,6 +1465,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     vspace(medskip)
     v.endpePar = true
     v.afterheadingEverypar = false // \lst@doendpe's \everypar replaces it
+    v.nobreak = false // \end{lstlisting}: \@nobreakfalse
   }
 
   function floatBlock(b: Extract<Block, { kind: "float" }>) {

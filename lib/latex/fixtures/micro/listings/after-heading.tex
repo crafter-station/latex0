@@ -1,0 +1,36 @@
+% fixture: listings/after-heading
+% tier: T3
+% engine: document
+% covers: lstlisting right after headings: \@afterheading's \everypar replaced (or run by a top frame), \end{lstlisting}'s \@nobreakfalse
+\documentclass{article}
+\usepackage{listings}
+\begin{document}
+Some text first.
+\section{Head}
+\begin{lstlisting}
+ab
+cd
+\end{lstlisting}
+After text that is a paragraph.
+
+Next paragraph.
+\section{Second}
+\begin{lstlisting}[frame=single]
+ab
+\end{lstlisting}
+Text after the framed one, long enough to make two lines of text in the paragraph so that the club penalty shows here.
+\subsection{Third}
+\begin{lstlisting}
+ab
+\end{lstlisting}
+\begin{itemize}
+\item one
+\end{itemize}
+\section{Fourth}
+\begin{lstlisting}
+ab
+\end{lstlisting}
+
+\section{Fifth}
+Text.
+\end{document}

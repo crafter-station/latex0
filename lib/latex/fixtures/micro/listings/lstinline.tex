@@ -1,0 +1,15 @@
+% fixture: listings/lstinline
+% tier: T3
+% engine: document
+% covers: \lstinline: delimited and braced, styles, inside \textbf, fixed columns, keywords
+\documentclass{article}
+\usepackage{listings}
+\lstset{language=Python}
+\begin{document}
+Use \lstinline|for x in range(10):| to loop, or \lstinline{print("a  b")} with double spaces; \lstinline!x_1 = y  +  z! also works.
+Inside bold: \textbf{the \lstinline|def f(): return 'x'| code} and \lstinline[basicstyle=\ttfamily]|tt -> <x>| here and a long sentence to wrap the paragraph over more lines with \lstinline|a = b # comment| at the end.
+\begin{lstlisting}
+x = 1
+\end{lstlisting}
+And \lstinline[columns=fixed]|fixed one| after.
+\end{document}

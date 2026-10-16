@@ -44,7 +44,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false
+  let isLetter = false, lstOn = false
   const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -57,6 +57,7 @@ export function makeDocument(r: () => number): string {
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
+      if (lstOn && r() < 0.008) ws[i] += pick([" \\lstinline|x = y + 1|", " \\lstinline{print('a  b')}", " \\lstinline[basicstyle=\\ttfamily]!for i in range(n):!", " \\lstinline|a_b->c|", "~\\lstinline{def f(x): return x}", " \\lstinline[columns=fixed]|q  r|"])
     }
     // runs of words in other fonts (\textbf, \emph, …), sometimes nested, sometimes before , or .
     const font = () => pick(["textbf", "textit", "emph", "emph", "textsl", "textsc", "texttt", "textsf", "textmd", "textup"])
@@ -129,9 +130,14 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.1) keys.push(`xleftmargin=${pick(["2em", "10pt", "15pt"])}`)
     if (r() < 0.05) keys.push(`xrightmargin=${pick(["1em", "10pt"])}`)
     if (r() < 0.05) keys.push(`framexleftmargin=${pick(["3pt", "1em"])}`)
+    if (r() < 0.2) keys.push(`breaklines=${pick(["true", "true", "false"])}`)
+    if (r() < 0.05) keys.push(`breakatwhitespace=${pick(["true", "false"])}`)
+    if (r() < 0.05) keys.push(`breakindent=${pick(["10pt", "0pt", "2em"])}`)
+    if (r() < 0.05) keys.push(`breakautoindent=${pick(["true", "false"])}`)
     return keys
   }
-  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",") : ""
+  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",").replace(/breaklines=true/, "breaklines=false") : "" // (\lstinline has no breaklines yet)
+  lstOn = lst
   if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
   const code = (hash: boolean) => { // (C's directives are not laid out yet)
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",
