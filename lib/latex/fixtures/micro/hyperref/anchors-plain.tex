@@ -1,0 +1,20 @@
+% fixture: hyperref/anchors-plain
+% tier: T3
+% engine: document
+% covers: hyperref without amsmath: \equation's \mathopen{\hyper@anchorstart} and its \hyper@anchorend at the formula's end (with \label's write between), Item.n across nested lists and a \section*, two footnotes, \refstepcounter, a table caption
+% issue: #30
+\documentclass{article}
+\usepackage{hyperref}
+\newcounter{thm}
+\begin{document}
+\begin{enumerate}\item a \item b\begin{enumerate}\item c\end{enumerate}\end{enumerate}
+\section*{S}
+\begin{enumerate}\item d\label{d}\end{enumerate}
+Text\footnote{One.} and\footnote{Two.} more.
+\begin{equation} x \label{eq}\end{equation}
+\refstepcounter{thm}\label{t}
+Para \ref{d} \ref{eq} \ref{t}.
+
+\begin{table}[h]\caption{T}\label{tab}\end{table}
+
+\end{document}
