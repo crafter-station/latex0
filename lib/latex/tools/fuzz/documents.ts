@@ -44,7 +44,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -65,8 +65,15 @@ export function makeDocument(r: () => number): string {
       return x < 0.4 ? `\\${pick(["textbf", "textit", "emph", "texttt"])}{${w}}` : w
     }
     const rows: string[] = []
+    // booktabs: \toprule … \bottomrule, rules between rows (\cmidrule's with trims, \addlinespace, \specialrule)
+    const bt = btOn && r() < 0.6
+    const range = () => { const a = 1 + Math.floor(r() * n); return `{${a}-${a + Math.floor(r() * (n - a + 1))}}` }
+    const btRule = () => pick(["\\midrule", "\\midrule", `\\cmidrule${pick(["", "(lr)", "(l)", "(r)", "[0.8pt]", "[1pt](rl)"])}${range()}`, `\\cmidrule${range()}\\cmidrule(l)${range()}`,
+      `\\cmidrule${range()}\\morecmidrules\\cmidrule${range()}`, "\\addlinespace", "\\addlinespace[2pt]", "\\specialrule{.6pt}{1pt}{2pt}", "\\midrule\\midrule", "\\midrule[1pt]", "\\addlinespace\\midrule"])
+    if (bt && r() < 0.85) rows.push(pick(["\\toprule", "\\toprule", "\\toprule[1.5pt]", "\\toprule\\addlinespace"]))
     for (let i = Math.floor(r() * 6); i >= 0; i--) {
-      if (r() < 0.3) rows.push(r() < 0.2 ? "\\hline\\hline" : "\\hline")
+      if (bt) { if (r() < 0.35 && rows.length) rows.push(btRule()) }
+      else if (r() < 0.3) rows.push(r() < 0.2 ? "\\hline\\hline" : "\\hline")
       else if (r() < 0.1 && i > 0) { const a = 1 + Math.floor(r() * n); rows.push(`\\cline{${a}-${a + Math.floor(r() * (n - a + 1))}}`) }
       const cells: string[] = []
       for (let j = 0; j < n;) {
@@ -76,7 +83,8 @@ export function makeDocument(r: () => number): string {
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
       rows.push(cells.join(" & ") + ` \\\\${end}`)
     }
-    if (r() < 0.5) rows.push("\\hline")
+    if (bt) { if (r() < 0.85) rows.push(pick(["\\bottomrule", "\\bottomrule", "\\bottomrule[0.5pt]"])) }
+    else if (r() < 0.5) rows.push("\\hline")
     else if (r() < 0.3 && rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "").trim()) rows[rows.length - 1] = rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "") // (not a blank line)
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
@@ -152,6 +160,7 @@ export function makeDocument(r: () => number): string {
   // listings: code with keywords, comments, strings, spaces and tabulators, in the styles and columns it offers
   const lst = r() < 0.2 && !t1
   colorOn = r() < 0.25
+  btOn = r() < 0.3
   const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])]) +
     (colorOn && r() < 0.4 ? `\\color${lstEnv ? `{${color()}}` : colorArg()}` : "") // (no [ ] in the environment's options)
   let lstEnv = false
@@ -193,6 +202,7 @@ export function makeDocument(r: () => number): string {
   lstOn = lst
   if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
+  if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (colorOn) out.push(`\\definecolor{fz}${pick(["{rgb}{0.1,0.5,0.9}", "{RGB}{255,136,0}", "{HTML}{2CA02C}", "{gray}{.35}", "{cmyk}{0,.5,1,0}", "{rgb}{1.0,0.25,.5}"])}`)
   const code = (hash: boolean) => { // (C's directives are not laid out yet)
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",

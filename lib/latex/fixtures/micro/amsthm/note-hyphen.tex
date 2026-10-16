@@ -1,0 +1,13 @@
+% fixture: amsthm/note-hyphen
+% tier: T3
+% engine: document
+% covers: a theorem note set in a box (no discretionary after its hyphen) and unboxed into the paragraph: with \lccode`\-=`\- the hyphenation pass takes well-known as one word, and a break before its hyphen makes the -- ligature
+\documentclass{article}
+\usepackage{geometry}
+\geometry{textwidth=327pt}
+\usepackage{amsthm}
+\newtheorem{lemma}{Lemma}
+\begin{document}
+\begin{lemma}[baffled from well-known] those came~[1] under can Typesetting [2, 3] for more other \underline{this used many} how see affluent London. years \(\langle u, v\rangle\) \emph{that \texttt{make}}. first came any against if and fifty~ over no like~ may \emph{old would \emph{before}} since this fluffy Knuth first over before is paragraphs no two hyphenation algorithm well-known $\left(\frac{a}{b}\right)^2$ out
+\end{lemma}
+\end{document}

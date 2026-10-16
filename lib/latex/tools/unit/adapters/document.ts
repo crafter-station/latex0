@@ -133,7 +133,8 @@ type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
-interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined; /** the enclosing enumerate counters (\p@enumii …) */ enums: number[] }
+interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined; /** the enclosing enumerate counters (\p@enumii …) */ enums: number[]
+  /** in an enclosing list: the \clubpenalty in force where this one begins */ club?: number }
 
 /** Where the \end matching an environment's \begin is (environments nest), and where it ends. */
 function listEnd(body: string, from: number, env: string): { at: number; next: number } {
@@ -584,6 +585,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
   let usesListings = false, usesXcolor = false, usesAmsthm = false
+  let booktabsT1: boolean | null = null // booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then
   type ThmStyle = "plain" | "definition" | "remark"
   let thmStyle: ThmStyle = "plain"
   const thmDefs = new Map<string, { title: string; style: ThmStyle; counter: string | null; within: string | null }>()
@@ -624,7 +626,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs"].includes(n))
+      if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) hyper = true
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
@@ -774,6 +777,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    * \lstinline: \leavevmode\bgroup\lstset{flexiblecolumns,options}, \lsthk@TextStyle (no skips, frame or margins, an
    * empty \everypar and \lst@NewLine), \lst@Init and \lst@DeInit with no \par: the token boxes go into the paragraph
    */
+  // booktabs's dimensions, set as it loads, in the class's \normalsize roman (.08em, .05em, .03em, .65ex, .4ex, .5em)
+  const booktabs = booktabsT1 === null ? null : (() => {
+    const f = selectFont(k, "normalsize", { enc: booktabsT1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" })
+    const d = (x: string) => parseDimen(x, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
+    return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: k.dimens.doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
+  })()
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
   doc.tabular = (n, size, attrs, sfcodes) => {
     const t = tabulars[n]
@@ -963,13 +972,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // (so do a {\color …} group and a tabular: the paragraph starts inside it)
       const grouped = !!cg || tabularStart(text) || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
       // (footnotes read in such a color group see its \clubpenalty, which the group's end takes back)
-      if (cg && v.afterheadingEverypar && /\\footnote\b/.test(text)) throw new Unsupported("a footnote in a color group that starts the paragraph after a heading")
+      let leadNoteClub: number | undefined
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
-        if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000 }
+        if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000; else leadNoteClub = 10000 }
         else if (!grouped) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
+        else leadNoteClub = k.ints.clubpenalty
       }
-      paragraphWithDisplays(text, noindent, v.club, v.club, undefined, b.unskip)
+      paragraphWithDisplays(text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg ? leadNoteClub : undefined)
       return
     }
     if (b.blank) v.par() // a blank line before the list
@@ -989,7 +999,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    * it with prev_graf+3, no indentation and no \parskip. `club` is \clubpenalty while the
    * paragraph is read and `parClub` the one its final \par sees.
    */
-  function paragraphWithDisplays(text: string, noindent: boolean, club: number, parClub: number, start?: Node[], unskip = 0, firstClub = club) {
+  function paragraphWithDisplays(text: string, noindent: boolean, club: number, parClub: number, start?: Node[], unskip = 0, firstClub = club, leadNoteClub?: number) {
     const segs = displaySegments(text)
     const quad = romanFont.params[QUAD]
     let prevGraf = 0
@@ -1002,6 +1012,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       let params: ReturnType<typeof paragraphInput>["params"] | null = null
       const opts = {
         clubPenalty: last ? parClub : first ? firstClub : club, noteClubPenalty: first ? firstClub : club, prevGraf,
+        ...(first && leadNoteClub !== undefined ? { leadGroupNoteClubPenalty: leadNoteClub } : {}),
         ...(last ? (unskip ? { unskip } : {}) : { widowPenalty: k.ints.displaywidowpenalty }),
         ...(first ? (start ? { start } : {}) : { start: [] as Node[] }),
       }
@@ -1386,7 +1397,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     // the \clubpenalty in force when an item's paragraph starts in a group (where \@item's \everypar sets its own):
     // thebibliography's, the outer one before the first item, then what the last item's \everypar set
-    let groupClub = b.env === "thebibliography" ? 4000 : depth <= 1 ? v.club : k.ints.clubpenalty
+    let groupClub = b.env === "thebibliography" ? 4000 : ctx.club ?? (depth <= 1 ? v.club : k.ints.clubpenalty)
     b.items.forEach(({ label: given, parts }, i) => {
       // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
       // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
@@ -1449,11 +1460,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // \clubpenalty in the item: \@M from its first paragraph right after a heading, until a later paragraph's
       // \everypar (still \@item's) or \@doendpe's \par sets \@clubpenalty
       let itemClub = club
+      let started = false // a paragraph has started in the item (its \everypar has run)
       parts.forEach((p) => {
         if (p.kind === "list") {
           if (p.blank) v.par()
-          return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums })
+          // (the \clubpenalty in force: what the item's \everypar left, or before its first paragraph what was there)
+          const inForce = started ? itemClub ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty) : groupClub
+          return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums, club: inForce })
         }
+        if (p.text.trim()) started = true
         // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
         // drops it; later paragraphs are indented by \parindent
         const un = p.unskip ? { unskip: p.unskip } : {}
@@ -1479,8 +1494,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
         const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) ? { end: qed() } : {}) }
         if (p.start === "label") {
-          typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub } : {}) }, parsep, ctx.size)
+          // (footnotes read in a color group see what \@item's \everypar set there; after it, the one from before)
+          const everyparClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
+          typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...(colorStart ? { leadGroupNoteClubPenalty: everyparClub } : {}) } : {}) }, parsep, ctx.size)
           if (!groupStart) groupClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
+          // (\@item's \everypar ran in the group: after it, \clubpenalty is the one from before, and \everypar still \@item's)
+          else itemClub = groupClub
         }
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
@@ -2096,6 +2115,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         }
       },
       skip: (text) => { try { return parseGlue(text, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).width } catch { throw new Unsupported(`\\\\[${text}] in a tabular`) } },
+      ...(booktabs ? { booktabs } : {}),
     }
     try { return tabularBox(lines, cols, env, pos) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
   }

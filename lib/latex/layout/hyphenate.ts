@@ -76,10 +76,11 @@ export function buildHyphenator(data: HyphenationData): Hyphenator {
   }
 }
 
-/** lc_code for LaTeX's default catcodes: letters map to lowercase, others to 0. */
+/** lc_code as LaTeX's format sets it: letters map to lowercase, the hyphen to itself (\lccode`\-=`\-), others to 0. */
 export function lcCode(c: number): number {
   if (c >= 97 && c <= 122) return c
   if (c >= 65 && c <= 90) return c + 32
+  if (c === 45) return 45 // (a word like well-known with no discretionary after its hyphen is one word)
   return 0
 }
 

@@ -1,23 +1,28 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 182,
-  "exact": 180,
+  "fixtures": 186,
+  "exact": 184,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 184202
+  "glyphs": 185946
  },
  "areas": [
   {
    "area": "amsthm",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "bibliography",
    "fixtures": 3,
    "exact": 3
+  },
+  {
+   "area": "booktabs",
+   "fixtures": 1,
+   "exact": 1
   },
   {
    "area": "classes",
@@ -101,8 +106,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 11,
-   "exact": 11
+   "fixtures": 13,
+   "exact": 13
   }
  ],
  "fixtures": [
@@ -325,6 +330,16 @@
    "covers": "a theorem whose text starts with \\label and a {\\color …} group: the \\write, then the push, on the vertical list before the paragraph"
   },
   {
+   "id": "amsthm/note-hyphen",
+   "file": "micro/amsthm/note-hyphen.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 269,
+   "covers": "a theorem note set in a box (no discretionary after its hyphen) and unboxed into the paragraph: with \\lccode`\\-=`\\- the hyphenation pass takes well-known as one word, and a break before its hyphen makes the -- ligature"
+  },
+  {
    "id": "amsthm/styles",
    "file": "micro/amsthm/styles.tex",
    "area": "amsthm",
@@ -375,6 +390,16 @@
    "glyphs": 424,
    "covers": "thebibliography in report with running heads: \\chapter*{\\bibname} on a new page, \\@mkboth{\\MakeUppercase\\bibname} after it in vertical mode (\\nobreak after each mark)",
    "issue": "#30"
+  },
+  {
+   "id": "booktabs/rules",
+   "file": "micro/booktabs/rules.tex",
+   "area": "booktabs",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 143,
+   "covers": "booktabs: \\toprule, \\midrule, \\bottomrule (and with a width), \\cmidrule with trims and widths, consecutive \\cmidrule's and \\morecmidrules, \\addlinespace (default and given), \\specialrule, rules in a row, in a float, in a \\small table and in text"
   },
   {
    "id": "classes/article-11pt",
@@ -1955,6 +1980,26 @@
    "status": "pass",
    "glyphs": 168,
    "covers": "a paragraph that starts in a {\\color …} group: the push on the vertical list before \\parskip"
+  },
+  {
+   "id": "xcolor/heading-group-notes",
+   "file": "micro/xcolor/heading-group-notes.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 642,
+   "covers": "a paragraph after a heading that starts in a {\\color …} group: \\@afterheading's \\everypar runs in the group, so footnotes there see \\clubpenalty\\@M (or \\@clubpenalty in the paragraph after), footnotes after it and the lines the one from before"
+  },
+  {
+   "id": "xcolor/item-group-notes",
+   "file": "micro/xcolor/item-group-notes.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 690,
+   "covers": "an item whose paragraph starts in a {\\color …} group after a paragraph right after a heading: footnotes in the group see \\@item's \\everypar's \\@clubpenalty, footnotes after it and the lines the \\clubpenalty\\@M from before; after a nested list, \\@item's \\everypar is still in force and footnotes see \\@M; a list nested in a list starts with the \\clubpenalty in force there"
   },
   {
    "id": "xcolor/listings-background-breaklines",
