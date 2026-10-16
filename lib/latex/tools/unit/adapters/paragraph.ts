@@ -83,6 +83,8 @@ export interface DocState {
   color?: (spec: string, model?: string) => string
   /** \lstinline number n (taken out of the source before expansion) at a size in a font */
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
+  /** tabular number n (taken out of the source after expansion) at a size in a font: its \hbox */
+  tabular?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node
 }
 
 /**
@@ -156,7 +158,7 @@ export const squeeze = (t: string): string => {
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "tabular"; n: number }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -299,6 +301,8 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
+    const tab = body.slice(i).match(/^\\LXtabular\{(\d+)\}/)
+    if (tab) { flushText(); out.push({ kind: "tabular", n: Number(tab[1]) }); i += tab[0].length; continue }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
     if (cur) { flushText(); out.push({ kind: "currentlabel", label: cur[1], href: cur[2] }); i += cur[0].length; continue }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
@@ -416,13 +420,13 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
-    if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state); ctx.ignoreSpaces = false; continue }
+    if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
     if (p.kind === "currentlabel") {
       if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href }
       if (doc.refs?.hyper) list.push(...anchor(p.href, k.sizes[size].baselineskip.width, "h", list.at(-1))) // hyperref's anchor where it stands
@@ -442,10 +446,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
       // ,\penalty\@m\  , then ]
-      appendText(list, "[", font, state)
+      appendText(list, "[", font, state, !ctx.restricted)
       p.keys.forEach((key, i) => {
         if (i) {
-          appendText(list, ",", font, state)
+          appendText(list, ",", font, state, !ctx.restricted)
           list.push(penalty(1000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
         }
         const n = doc.refs?.cites?.get(key), l: Node[] = []
@@ -454,7 +458,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         list.push(hpack(l))
         state.spaceFactor = 1000
       })
-      appendText(list, "]", font, state)
+      appendText(list, "]", font, state, !ctx.restricted)
     }
     else if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
       list.push(penalty(10000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
@@ -473,11 +477,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
         const text: Node[] = []
-        appendText(text, p.kind === "ref" ? known.label : known.page, font, state)
+        appendText(text, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted)
         list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
         continue
       }
-      if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state); list.push(hpack([])) }
+      if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted); list.push(hpack([])) }
       else {
         const qq: Node[] = []
         appendText(qq, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
@@ -496,12 +500,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
       list.push({ kind: "whatsit", text: "\\special{color pop}" })
     }
+    else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}
+      if (!doc.tabular) throw new Error("paragraph adapter: a tabular outside a document")
+      list.push(doc.tabular(p.n, size, attrs))
+      state.spaceFactor = 1000
+    }
     else if (p.kind === "lstinline") {
       if (!doc.lstinline) throw new Error("paragraph adapter: \\lstinline outside a document")
       list.push(...doc.lstinline(p.n, size, attrs))
       state.spaceFactor = 1000
     }
-    else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state)
+    else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state, !ctx.restricted)
     else if (p.kind === "font") {
       // \DeclareTextFontCommand: {\text@command{#1}<switch>\check@icl #1\check@icr}; an empty argument (or a
       // lone space) has no italic corrections; one before the argument if the new font is upright and the
@@ -518,7 +527,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData(), { amsmath: ctx.amsmath }), mathEnv(k, size, ctx.amsmath), TEXT, true), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData(), { amsmath: ctx.amsmath }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
@@ -532,6 +541,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.notes.push(trace)
     }
   }
+}
+
+/**
+ * Material in restricted horizontal mode (a tabular cell): text, formulas, font, size and color
+ * commands, in the font `attrs` at `size`; no footnotes or labels.
+ */
+export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string): Node[] {
+  const list: Node[] = []
+  const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
+  appendPieces(list, pieces(body.replace(/\s+/g, " "), false), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
+  return list
 }
 
 /**

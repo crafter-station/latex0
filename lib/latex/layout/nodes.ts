@@ -19,7 +19,7 @@ export interface GlueNode {
   kind: "glue"; width: number; stretch: number; stretchOrder: GlueOrder; shrink: number; shrinkOrder: GlueOrder
   /** skip parameter this glue came from, e.g. "rightskip" (§ 149 subtype) */ param?: string
   /** \leaders, \cleaders, \xleaders: the box repeated in the glue's space (§ 149 a_leaders…x_leaders) */
-  leaders?: { kind: "leaders" | "cleaders" | "xleaders"; box: BoxNode }
+  leaders?: { kind: "leaders" | "cleaders" | "xleaders"; box: BoxNode | RuleNode }
 }
 export interface KernNode { kind: "kern"; width: number; /** \kern from the source (vs. a font kern); explicit kerns are breakpoints (§ 155, 866) */ explicit?: boolean }
 export interface PenaltyNode { kind: "penalty"; penalty: number }

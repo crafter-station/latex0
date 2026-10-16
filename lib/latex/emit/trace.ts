@@ -42,6 +42,12 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
         }
         ruleWd += curG
         const lb = p.leaders?.box
+        if (lb?.kind === "rule") { // § 626: rule leaders are a rule of the glue's width
+          const ht = lb.height ?? box.height, dp = lb.depth ?? box.depth
+          if (ht + dp > 0 && ruleWd > 0) page.rules.push({ h: cur.h, v: baseLine + dp, width: ruleWd, height: ht + dp })
+          cur.h += ruleWd
+          break
+        }
         if (lb && lb.width > 0 && ruleWd > 0) { // § 626: the box as often as it fits, at multiples of its width from the left edge
           ruleWd += 10 // compensate for floating-point rounding
           const edge = cur.h + ruleWd

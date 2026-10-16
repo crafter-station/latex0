@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 174,
-  "exact": 172,
+  "fixtures": 177,
+  "exact": 175,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 182588
+  "glyphs": 182797
  },
  "areas": [
   {
@@ -78,6 +78,11 @@
    "area": "sections",
    "fixtures": 10,
    "exact": 10
+  },
+  {
+   "area": "tabular",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "templates",
@@ -1732,6 +1737,36 @@
    "glyphs": 5129,
    "covers": "\\tableofcontents in report: \\chapter* Contents, \\l@chapter (\\addpenalty-\\@highpenalty, \\vskip 1em plus 1pt, \\penalty\\@highpenalty after it), sections and subsections as dotted lines, math in a title, subsubsections below tocdepth 2",
    "issue": "#30"
+  },
+  {
+   "id": "tabular/inline",
+   "file": "micro/tabular/inline.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 100,
+   "covers": "tabulars in a paragraph ([t], [b] and centered), @{text} and *{n}{cols} columns, \\\\[skip] positive and negative, empty entries"
+  },
+  {
+   "id": "tabular/rules",
+   "file": "micro/tabular/rules.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 21,
+   "covers": "a tabular in center: | and || rules, \\hline, \\multicolumn with its own rules, \\cline, math and \\textit entries"
+  },
+  {
+   "id": "tabular/spans",
+   "file": "micro/tabular/spans.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 88,
+   "covers": "a table float with a \\multicolumn wider than its columns, \\hline\\hline, a span to the end, \\cline from the first column, \\small entries"
   },
   {
    "id": "text/font-commands",

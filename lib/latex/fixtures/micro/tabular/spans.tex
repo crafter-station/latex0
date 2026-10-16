@@ -1,0 +1,22 @@
+% fixture: tabular/spans
+% tier: T3
+% engine: document
+% covers: a table float with a \multicolumn wider than its columns, \hline\hline, a span to the end, \cline from the first column, \small entries
+\documentclass{article}
+\begin{document}
+Some text first.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline\hline
+\multicolumn{3}{|c|}{A rather long heading across all} \\
+\hline
+1 & \multicolumn{2}{l|}{two columns} \\ \cline{1-2}
+$\alpha$ & {\small small} & \textbf{bold} \\
+\hline
+\end{tabular}
+\caption{Spans}
+\end{table}
+More text after.
+\end{document}

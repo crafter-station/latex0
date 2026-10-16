@@ -48,6 +48,38 @@ export function makeDocument(r: () => number): string {
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
+  // a tabular: l, c, r columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
+  // \multicolumn with rules of its own, \hline (sometimes doubled), \cline, \\[skip]
+  const tabular = (pos = "") => {
+    const n = 1 + Math.floor(r() * 4)
+    const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
+    let spec = r() < 0.2 ? pick(["@{}", "@{~}", "@{: }"]) : rule()
+    for (let j = 0; j < n; j++) spec += pick(["l", "c", "r"]) + (j < n - 1 ? (r() < 0.1 ? pick(["@{}", "@{ -- }", "@{\\quad}"]) : rule()) : "")
+    spec += r() < 0.2 ? "@{}" : rule()
+    if (r() < 0.1) spec = `${rule()}*{${n}}{${pick(["c", "l|", "r"])}}`
+    const cell = () => {
+      const x = r()
+      if (x < 0.15) return ""
+      if (x < 0.25) return math()
+      const w = words(1 + Math.floor(r() * 3)).replace(/[^A-Za-z ]/g, "").trim() || "x"
+      return x < 0.4 ? `\\${pick(["textbf", "textit", "emph", "texttt"])}{${w}}` : w
+    }
+    const rows: string[] = []
+    for (let i = Math.floor(r() * 6); i >= 0; i--) {
+      if (r() < 0.3) rows.push(r() < 0.2 ? "\\hline\\hline" : "\\hline")
+      else if (r() < 0.1 && i > 0) { const a = 1 + Math.floor(r() * n); rows.push(`\\cline{${a}-${a + Math.floor(r() * (n - a + 1))}}`) }
+      const cells: string[] = []
+      for (let j = 0; j < n;) {
+        const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
+        if (span) { cells.push(`\\multicolumn{${span}}{${pick(["c", "|c|", "l", "r|", "|l"])}}{${cell()}}`); j += span } else { cells.push(cell()); j++ }
+      }
+      const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
+      rows.push(cells.join(" & ") + ` \\\\${end}`)
+    }
+    if (r() < 0.5) rows.push("\\hline")
+    else if (r() < 0.3 && rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "").trim()) rows[rows.length - 1] = rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "") // (not a blank line)
+    return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
+  }
   const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -56,6 +88,7 @@ export function makeDocument(r: () => number): string {
       if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
+      if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
@@ -214,16 +247,7 @@ export function makeDocument(r: () => number): string {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
-      // maybe a tabular: l, c, r columns, \hline (sometimes doubled), \textbf cells
-      const cols = Array.from({ length: 1 + Math.floor(r() * 4) }, () => pick(["l", "c", "r"]))
-      const cell = () => { const w = words(1 + Math.floor(r() * 3)).replace(/[^A-Za-z ]/g, "").trim() || "x"; return r() < 0.2 ? `\\textbf{${w}}` : w }
-      const rows: string[] = []
-      for (let i = Math.floor(r() * 6); i >= 0; i--) {
-        if (r() < 0.3) rows.push(r() < 0.2 ? "\\hline\\hline" : "\\hline")
-        rows.push(cols.map(cell).join(" & ") + " \\\\")
-      }
-      if (r() < 0.5) rows.push("\\hline")
-      const table = r() < 0.4 ? `\\begin{tabular}{${cols.join("")}}\n${rows.join("\n")}\n\\end{tabular}` : ""
+      const table = r() < 0.4 ? tabular() : ""
       const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
       const below = table && r() < 0.5
       out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
@@ -288,6 +312,10 @@ export function makeDocument(r: () => number): string {
       out.push(`\\begin{lstlisting}${keys.length ? `[${keys.join(",")}]` : ""}`, ...code(!/language=\{?(\[\w+\])?C/.test(keys.join(",") + lstsetKeys)), "\\end{lstlisting}")
       afterPar = false
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }
+    } else if (x > 0.97 && !isLetter) {
+      // a tabular centered on its own
+      out.push("", "\\begin{center}", tabular(), "\\end{center}")
+      if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } else afterPar = false
     } else {
       // a paragraph, maybe with displays in it or opening it
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120), true)]
