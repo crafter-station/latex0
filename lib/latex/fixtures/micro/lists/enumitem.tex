@@ -1,0 +1,19 @@
+% fixture: lists/enumitem
+% tier: T3
+% engine: document
+% covers: enumitem's lists: \nobreak before \hss\llap{label} in itemize and enumerate labels, description labels \hskip\z@\nobreak label \hfil with \itemindent\labelsep-\leftmargin, and the options nosep, noitemsep, leftmargin=* (the label's width and \labelsep), leftmargin=3em, nested
+% issue: #30
+\documentclass{article}
+\usepackage{enumitem}
+\begin{document}
+Text before.
+\begin{itemize}\item one \item two\end{itemize}
+\begin{enumerate}\item three \item[x] four\end{enumerate}
+\begin{description}\item[Key] value \item[Another key] another value\end{description}
+\begin{itemize}[nosep, leftmargin=*]
+\item Built and deployed features used by many users across the world in production environments every day.
+\item Reduced latency by 40\% through query optimization.
+\begin{itemize}[noitemsep]\item nested one \item nested two\end{itemize}
+\end{itemize}
+\begin{itemize}[leftmargin=3em]\item a margin of 3em\end{itemize}
+\end{document}

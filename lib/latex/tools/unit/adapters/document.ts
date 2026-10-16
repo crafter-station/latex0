@@ -80,10 +80,10 @@ const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "vers
 type EnvName = typeof ENVS[number]
 const ENV_ALT = ENVS.join("|")
 /** An environment: its items (one, from \item\relax, for all but itemize, enumerate and description). */
-interface ListBlock { kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string }
+interface ListBlock { kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** enumitem's [options] */ options?: string }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 interface Item { label: string | null; parts: Part[] }
-type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number } | ListBlock
+type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number; /** \\* and \\[skip] before it */ crStar?: boolean; crSkip?: string } | ListBlock
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
@@ -104,6 +104,9 @@ function listEnd(body: string, from: number, env: string): { at: number; next: n
 /** An environment's body: its items at this level, each split into paragraphs and nested environments. */
 function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean): ListBlock {
   const listy = env === "itemize" || env === "enumerate" || env === "description" || env === "thebibliography"
+  // enumitem's \begin{itemize}[options]
+  const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[([^\]]*)\]/) : null
+  if (opts) inner = inner.slice(opts[0].length)
   const crs = env === "center" || env === "flushleft" || env === "flushright" || env === "verse" // \\ is \@centercr
   // \item at this level only
   const cuts: number[] = []
@@ -130,13 +133,17 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
         const lines = para.split(/\\\\/)
         if (lines.length > 1 && !crs) throw new Unsupported(`\\\\ in ${env}`)
         lines.forEach((line, li) => {
-          if (/^\s*[*[]/.test(line) && li > 0) throw new Unsupported("\\\\* or \\\\[…]")
+          // \@centercr: \par, \nobreak for \\*, \addvspace{-\parskip}, \vskip for \\[skip]
+          let crStar = false, crSkip: string | undefined
+          const opt = li > 0 ? line.match(/^\s*(\*)?\s*(?:\[([^\]]*)\])?/) : null
+          if (opt?.[0]) { crStar = !!opt[1]; crSkip = opt[2]; line = line.slice(opt[0].length) }
           const tx = squeeze(line)
-          if (!tx && li > 0 && parts.length) { parts.push({ kind: "text", text: "", start: "cr" }); return } // a \\ ending the text
+          const cr = { ...(crStar ? { crStar } : {}), ...(crSkip !== undefined ? { crSkip } : {}) }
+          if (!tx && li > 0 && parts.length) { parts.push({ kind: "text", text: "", start: "cr", ...cr }); return } // a \\ ending the text
           if (!tx) return
           const start = !parts.length ? "label" : li > 0 ? "cr" : pi === 0 && afterEnv ? "doendpe" : "par"
           const unskip = li < lines.length - 1 ? 1 : pi < paras.length - 1 ? 0 : endUnskip
-          parts.push({ kind: "text", text: tx, start, unskip })
+          parts.push({ kind: "text", text: tx, start, unskip, ...(start === "cr" ? cr : {}) })
         })
       })
     }
@@ -156,14 +163,14 @@ function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean):
     if (!parts.length) parts.push({ kind: "text", text: "", start: "label" })
     return { label: opt ? opt[1] : null, parts }
   })
-  return { kind: "list", env, items, inPar, blank }
+  return { kind: "list", env, items, inPar, blank, ...(opts ? { options: opts[1] } : {}) }
 }
 
 const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
 interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*"; src: string }
-const DISPLAY = /\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?)\}([^]*?)\\end\{\3\}/
+const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?)\}([^]*?)\\end\{\3\}/
 /** A paragraph's text split at its displays: text, display, text, …, text. */
 function displaySegments(text: string): (string | Display)[] {
   const out: (string | Display)[] = []
@@ -245,7 +252,7 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }
@@ -435,6 +442,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
   let mainmatter = true // book's \if@mainmatter
+  let enumitem = false
   // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
   // keeps them, and only \@mkboth goes back to \@gobbletwo
   let markDefs = cls === "book"
@@ -442,11 +450,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   const geometryOptions: string[] = []
+  const lengths: [string, string][] = [] // \setlength in the preamble
   const newCounters: [string, string | null][] = []
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
     if (line === "{}") continue // a definition the expander took out
+    const sl = line.match(/^\\setlength\{\\(parindent|parskip)\}\{([^{}]*)\}$/)
+    if (sl) { lengths.push([sl[1], sl[2]]); continue }
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
     if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
@@ -457,8 +468,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem"].includes(n))
       if (names.includes("hyperref")) hyper = true
+      if (names.includes("enumitem")) enumitem = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
       continue
@@ -473,6 +485,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
   if (geometryOptions.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
     try { k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }) } catch (e) { if (e instanceof GeometryUnsupported) throw new Unsupported(e.message); throw e }
+  }
+  if (lengths.length) {
+    const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
+    const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
+    for (const [name, value] of lengths) {
+      let g: GlueSpec
+      try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
+      if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
+      else k = { ...k, glue: { ...k.glue, parskip: g } }
+    }
   }
   const body = src.slice(begin + 16, end)
   const blocks = blocksOf(body)
@@ -644,12 +666,19 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
       // the \nobreak of \protected@write and of \@esphack
-      const lead = b.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
+      // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
+      const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
       if (lead) {
-        if (runIn) throw new Unsupported("\\label right after a run-in heading")
-        for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) {
-          v.nodes.push(labelWrite(refs, m[1]))
-          if (v.nobreak) v.nodes.push(penalty(10000), penalty(10000))
+        if (runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
+        for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\{([^{}]*)\}|\\hrule/g)) {
+          if (m[1] !== undefined) {
+            v.nodes.push(labelWrite(refs, m[1]))
+            if (v.nobreak) v.nodes.push(penalty(10000), penalty(10000))
+          } else if (m[2] !== undefined) {
+            let g: GlueSpec
+            try { g = parseGlue(m[2], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[2]}}`) }
+            v.vskip(g); v.vskip(dimen(0))
+          } else { v.nodes.push({ kind: "rule", width: null, height: 26214, depth: 0 }); v.prevDepth = IGNORE_DEPTH } // 0.4pt
         }
         b.text = b.text.slice(lead[0].length)
         if (!b.text) return
@@ -971,6 +1000,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
     // \trivlist: \parsep\parskip; \list: \@listi … \@listvi set some parameters, the others stay as they are
     let topsep = ctx.topsep, partopsep = ctx.partopsep, parsep = trivial ? ctx.parskip : ctx.parsep, itemsep = ctx.itemsep
     labelwidth = trivial ? 0 : ctx.labelwidth
+    // enumitem's \trivlist: \parsep\parskip, then \@list<depth> again (inside a list), then \@trivlist; its
+    // paragraphs keep the enclosing \parskip, and a list inside it inherits the new \parsep
+    let childParsep = parsep
+    if (trivial && enumitem && ctx.depth >= 1) {
+      const d = ctx.depth, L = (p: string) => k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
+      if (d <= 3) { topsep = L("topsep"); childParsep = L("parsep"); itemsep = L("itemsep") }
+      if (d === 3) partopsep = L("partopsep")
+    }
     if (!trivial) {
       depth++
       if (depth > 6) throw new Unsupported("lists nested more than six deep") // LaTeX: Too deeply nested
@@ -980,7 +1017,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       if (depth <= 3) { topsep = L("topsep"); parsep = L("parsep"); itemsep = L("itemsep") }
       if (depth === 3) partopsep = L("partopsep")
       if (depth >= 2) labelwidth = D("labelwidth")
-      if (b.env === "description") { labelwidth = 0; itemindent = -leftmargin } // \labelwidth\z@ \itemindent-\leftmargin
+      // \labelwidth\z@ \itemindent-\leftmargin (enumitem: \labelindent zero, so \itemindent\labelsep-\leftmargin)
+      if (b.env === "description") { labelwidth = 0; itemindent = (enumitem ? k.dimens.labelsep : 0) - leftmargin }
       else if (b.env === "quote") rightmargin = leftmargin
       else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
       else if (b.env === "verse") { itemsep = dimen(0); itemindent = -ems("1.5em"); listparindent = itemindent; rightmargin = leftmargin; leftmargin += ems("1.5em") }
@@ -988,6 +1026,22 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         const w: Node[] = []
         appendText(w, `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
         labelwidth = hpack(w).width; leftmargin = labelwidth + k.dimens.labelsep
+      }
+    }
+    // enumitem's options: nosep, noitemsep, leftmargin=* (the label's width and \labelsep) or leftmargin=<dim>
+    if (b.options !== undefined) {
+      if (!enumitem) throw new Unsupported(`\\begin{${b.env}}[${b.options}] without enumitem`)
+      for (const o of b.options.split(",").map((x) => x.trim()).filter(Boolean)) {
+        if (o === "nosep") { topsep = partopsep = parsep = itemsep = dimen(0) }
+        else if (o === "noitemsep") { itemsep = parsep = dimen(0) }
+        else if (o === "leftmargin=*" && b.env === "itemize") {
+          const lvl = ctx.itemDepth + 1
+          const f = lvl === 2 ? loadFont(dataFont(k.sizes[ctx.size].bold.name), k.sizes[ctx.size].bold.at) : loadFont(dataFont(k.sizes[ctx.size].companion.name), k.sizes[ctx.size].companion.at)
+          labelwidth = f.chars.get(lvl === 2 ? (k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
+          leftmargin = labelwidth + k.dimens.labelsep
+        } else if (o.startsWith("leftmargin=") && o !== "leftmargin=*") {
+          try { leftmargin = parseGlue(o.slice(11), { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).width } catch { throw new Unsupported(`enumitem ${o}`) }
+        } else throw new Unsupported(`enumitem option ${o}`)
       }
     }
     const topsepadd = b.inPar ? topsep : addGlue(topsep, partopsep) // \partopsep only from vertical mode
@@ -1046,10 +1100,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
           if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
           appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
         }
-        content = [hss(), hpack([hss(), ...l], { exactly: 0 })] // \hss\llap{#1}
-      } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1
-        content = [glue(ls)]
+        content = [...(enumitem ? [penalty(10000)] : []), hss(), hpack([hss(), ...l], { exactly: 0 })] // \hss\llap{#1}; enumitem's \nobreak first
+      } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \hskip\z@\nobreak, the label, \hfil)
+        content = enumitem ? [glue(0), penalty(10000)] : [glue(ls)]
         if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
+        if (enumitem) content.push(glue(0, 65536, FIL))
       } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, given, font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
       else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
         content = [glue(0, 65536, FIL)]
@@ -1066,7 +1121,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
       parts.forEach((p) => {
         if (p.kind === "list") {
           if (p.blank) v.par()
-          return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums })
+          return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums })
         }
         // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
         // drops it; later paragraphs are indented by \parindent
@@ -1078,7 +1133,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null): { result: 
         else {
           // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
           if (p.text) itemClub = undefined
-          if (p.start === "cr") v.addvspace(negate(parsep)) // \@centercr: \par \addvspace{-\parskip}
+          if (p.start === "cr") { // \@centercr: \par, (\nobreak), \addvspace{-\parskip}, (\vskip)
+            if (p.crStar) v.nodes.push(penalty(10000))
+            v.addvspace(negate(parsep))
+            if (p.crSkip !== undefined) { try { v.vskip(parseGlue(p.crSkip, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] })) } catch { throw new Unsupported(`\\\\[${p.crSkip}]`) } }
+          }
           if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un }, parsep, ctx.size)
         }
       })

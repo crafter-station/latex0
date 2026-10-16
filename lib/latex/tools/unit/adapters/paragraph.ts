@@ -18,7 +18,7 @@ import { appendText } from "../../../layout/hmode"
 import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
 import { xnOverD } from "../../../layout/arith"
-import { emptyBox, FIL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
+import { emptyBox, FIL, FILL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
 import type { MathData } from "../../../mathlayout/data"
 import { mlistToHlist, ORD, TEXT, type MathEnv } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
@@ -144,7 +144,13 @@ export const squeeze = (t: string): string => {
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string }
+  /** \\ in a paragraph (\@normalcr): its * and [skip] */
+  | { kind: "newline"; star: boolean; skip: string | null }
+  /** \hfill, \hfil, \quad, \qquad */
+  | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
+  /** {\large …}: a size command in a group */
+  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -238,6 +244,18 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "companion", src: "$" }); i += 2; continue }
     if (body[i] === "~") { flushText(); out.push({ kind: "tie" }); i++; continue }
+    // \\ (\@ifnextchar skips the spaces after it, but not after \\[skip]'s ])
+    const nl = body.slice(i).match(/^\\\\(\*)?(?:\s*\[([^\]]*)\]|\s*)/)
+    if (nl) { flushText(); out.push({ kind: "newline", star: !!nl[1], skip: nl[2] ?? null }); i += nl[0].length; continue }
+    const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad)(?![A-Za-z])\s*/)
+    if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
+    if (sz) {
+      let depth = 0, j = i
+      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
+      if (j >= body.length) throw new Error("paragraph adapter: unbalanced {")
+      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes) }); i = j + 1; continue
+    }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
@@ -346,6 +364,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext, hn = 0) {
 }
 
 const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
+const glueOf = (g: GlueSpec): GlueNode => glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)
 
 function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): LineBreakParams["hyphenation"] {
   return {
@@ -369,7 +388,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       continue
     }
     ctx.ignoreSpaces = false
-    if (p.kind === "cite") {
+    if (p.kind === "newline") {
+      // \@gnewline: \unskip, \vadjust{\nobreak \vskip skip} for * and [skip], \nobreak\hfil\break
+      if (list.at(-1)?.kind === "glue") list.pop()
+      const adj: Node[] = [...(p.star ? [penalty(10000)] : []), ...(p.skip ? [glueOf(new Scanner(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).scanGlue())] : [])]
+      if (adj.length) list.push({ kind: "adjust", list: adj })
+      list.push(penalty(10000), glue(0, 65536, FIL), penalty(-10000))
+      if (!p.skip) ctx.ignoreSpaces = true
+    }
+    else if (p.kind === "space") list.push(p.cmd === "hfill" ? glue(0, 65536, FILL) : p.cmd === "hfil" ? glue(0, 65536, FIL) : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
+    else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
+    else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
       // ,\penalty\@m\  , then ]
       appendText(list, "[", font, state)

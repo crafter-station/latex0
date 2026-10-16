@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 120,
-  "exact": 115,
+  "fixtures": 123,
+  "exact": 119,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 5,
-  "glyphs": 171015
+  "pending": 4,
+  "glyphs": 172948
  },
  "areas": [
   {
@@ -51,8 +51,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "math",
@@ -72,12 +72,12 @@
   {
    "area": "templates",
    "fixtures": 18,
-   "exact": 13
+   "exact": 14
   },
   {
    "area": "text",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "title",
@@ -256,8 +256,8 @@
    "file": "macro/templates/resume.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 347,
    "covers": "Clean one-page resume with sections for experience and education",
    "issue": "#30"
@@ -912,6 +912,28 @@
    "issue": "#30"
   },
   {
+   "id": "lists/enumitem-trivlist",
+   "file": "micro/lists/enumitem-trivlist.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1282,
+   "covers": "enumitem's \\trivlist inside a list re-runs \\@list<depth> (\\topsep, \\itemsep and, at depth 3, \\partopsep; the \\parsep a nested list inherits) while its paragraphs keep the enclosing \\parskip: flushleft in a nosep itemize, flushright and center in a quotation, a list in a center",
+   "issue": "#30"
+  },
+  {
+   "id": "lists/enumitem",
+   "file": "micro/lists/enumitem.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 227,
+   "covers": "enumitem's lists: \\nobreak before \\hss\\llap{label} in itemize and enumerate labels, description labels \\hskip\\z@\\nobreak label \\hfil with \\itemindent\\labelsep-\\leftmargin, and the options nosep, noitemsep, leftmargin=* (the label's width and \\labelsep), leftmargin=3em, nested",
+   "issue": "#30"
+  },
+  {
    "id": "lists/environments",
    "file": "micro/lists/environments.tex",
    "area": "lists",
@@ -1327,6 +1349,17 @@
    "status": "pass",
    "glyphs": 171,
    "covers": "f-ligatures, quote ligatures, en and em dashes, Spanish ?` !` ligatures, uppercase kern pairs (AV AW LT Ta To Wa Yo VA)"
+  },
+  {
+   "id": "text/newlines-and-spaces",
+   "file": "micro/text/newlines-and-spaces.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 77,
+   "covers": "\\\\ in a paragraph (\\@gnewline: \\unskip, \\nobreak\\hfil\\break), \\\\* and \\\\[skip] (\\vadjust after the line; the space after ] stays), \\hfill, \\hfil, \\quad, \\qquad, a size group {\\large …} in a paragraph, \\setlength{\\parindent}{0pt} in the preamble, \\vspace (\\vskip skip \\vskip\\z@skip) and \\hrule (no interline glue after it) between paragraphs",
+   "issue": "#30"
   },
   {
    "id": "text/paragraph-basic",

@@ -43,9 +43,13 @@ export function makeDocument(r: () => number): string {
   // hyperref (its anchors and links for a bibliography are not laid out yet)
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
-  const text = (n: number) => {
+  // top: a paragraph at the outer level, where \\ is \newline
+  const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
+      // \hfill, \quad, size groups, and at the outer level \\ (with * or a skip)
+      if (r() < 0.006) ws[i] += pick([" \\hfill", " \\quad", "\\qquad", ` {\\${pick(["small", "large", "Large", "footnotesize"])} ${words(1 + Math.floor(r() * 4))}}`])
+      if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (r() < 0.015) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
@@ -91,6 +95,10 @@ export function makeDocument(r: () => number): string {
   if (r() < 0.3) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
+  // enumitem; \setlength in the preamble
+  const enumitem = r() < 0.15
+  if (enumitem) out.push("\\usepackage{enumitem}")
+  if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25
   if (hyper) out.push("\\usepackage{hyperref}")
   const titled = r() < 0.5 // report: a title page
@@ -156,7 +164,9 @@ export function makeDocument(r: () => number): string {
             if (r() < 0.3) out.push(text(3 + Math.floor(r() * 20)))
           }
         }
-        out.push(`\\begin{${env}}`)
+        // enumitem's options
+        const opts = enumitem && env === "itemize" && r() < 0.5 ? `[${pick(["nosep", "noitemsep", "leftmargin=*", "nosep, leftmargin=*", "leftmargin=2em"])}]` : ""
+        out.push(`\\begin{${env}}${opts}`)
         if (env === "itemize" || env === "enumerate" || env === "description") {
           for (let i = 1 + Math.floor(r() * (env === "enumerate" ? (depth === 1 ? 12 : 5) : 6)); i > 0; i--) {
             const label = env === "description" ? (r() < 0.9 ? `[${words(1 + Math.floor(r() * 3))}]` : "") : r() < 0.1 ? `[${pick(["--", "Note:", "(a)", "", "*", "first one"])}]` : ""
@@ -179,7 +189,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.3) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } // text right after the list
     } else {
       // a paragraph, maybe with displays in it or opening it
-      const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120))]
+      const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120), true)]
       for (let d = r() < 0.3 ? 1 + Math.floor(r() * 2) : 0; d > 0; d--) {
         const f = display()
         const env = ams ? pick(["bracket", "align", "align", "align*", "dollars"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
