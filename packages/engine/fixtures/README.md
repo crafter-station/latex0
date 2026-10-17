@@ -17,7 +17,7 @@ Each fixture starts with `% key: value` comment lines:
 |---|---|
 | `fixture` | Stable id, `<area>/<construct>` |
 | `tier` | Target tier: `T0` structural, `T1` typographic, `T2` layout, `T3` DVI-exact |
-| `engine` | Adapter that renders it with the engine (`tools/unit/adapters`) |
+| `engine` | Layout that renders it: `paragraph` or `document` (`latex/`, wired up in `tools/unit/adapters`) |
 | `covers` | What the fixture exercises |
 | `issue` | Issue that owns it (optional) |
 | `xfail` | Reason it is expected to fail; an unexpected pass fails the run so the marker gets removed |

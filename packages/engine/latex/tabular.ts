@@ -3,10 +3,10 @@
 // \toprule, \midrule, \bottomrule, \cmidrule, \specialrule, \addlinespace and \morecmidrules. A p{width}
 // column's entry is \@classv's \vtop paragraph.
 
-import { halignSpans, type AlignCell } from "../../../layout/align"
-import { emptyBox, FIL, FILL, glue, kern, paramGlue, type BoxNode, type Node } from "../../../layout/nodes"
-import { hpack, vpack } from "../../../layout/pack"
-import type { GlueSpec } from "../../../layout/dimen"
+import { halignSpans, type AlignCell } from "../layout/align"
+import { emptyBox, FIL, FILL, glue, kern, paramGlue, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
+import type { GlueSpec } from "../layout/dimen"
 import { appendToVlist } from "./paragraph"
 
 export class TabularUnsupported extends Error {}

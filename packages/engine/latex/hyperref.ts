@@ -1,9 +1,9 @@
 // hyperref with its dvips driver (pdfmark.def), as LaTeX loads it for `latex`: the pdfmark
 // \special nodes of anchors, links and outlines, and the bookmark lines it writes to the .out file.
 
-import { printScaled } from "../../../layout/arith"
-import { glue, kern, penalty, FIL, type BoxNode, type Node } from "../../../layout/nodes"
-import { hpack, vpack } from "../../../layout/pack"
+import { printScaled } from "../layout/arith"
+import { glue, kern, penalty, FIL, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
 
 const special = (ps: string): Node => ({ kind: "whatsit", text: `\\special{${ps}}` })
 const sdict = (s: string): Node => special(`ps:SDict begin ${s} end`)

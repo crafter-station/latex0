@@ -5,14 +5,14 @@
 // waiting float on float pages (\@doclearpage, \@makefcolumn). \@makecol then builds the column:
 // top floats, the text, footnotes, bottom floats.
 
-import type { ClassOptionData } from "../../../layout/classdata"
-import type { GlueSpec } from "../../../layout/dimen"
-import { xnOverD } from "../../../layout/arith"
-import { roundDecimals } from "../../../layout/dimen"
-import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode } from "../../../layout/nodes"
-import { vpack } from "../../../layout/pack"
-import { buildPages, type Page } from "../../../layout/pagebuilder"
-import { documentPages } from "../../../trace/decisions"
+import type { ClassOptionData } from "../layout/classdata"
+import type { GlueSpec } from "../layout/dimen"
+import { xnOverD } from "../layout/arith"
+import { roundDecimals } from "../layout/dimen"
+import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode } from "../layout/nodes"
+import { vpack } from "../layout/pack"
+import { buildPages, type Page } from "../layout/pagebuilder"
+import { documentPages } from "../trace/decisions"
 
 const MAX_DIMEN = 0o7777777777
 
