@@ -9,7 +9,7 @@ import type { ClassOptionData } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { xnOverD } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
-import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
 import { loadFont } from "../layout/font"
 import { appendText } from "../layout/hmode"
 import { hpack, vpack } from "../layout/pack"
@@ -338,7 +338,7 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
   // up in the output routine, \@outputbox@reinsertbskip, not here), then \write\m@ne{}\vbox{}\penalty-\@Mi,
   // whose output routine (\@doclearpage) ships a page only for footnotes still held over, and then
   // clears the page again
-  contrib.push(glue(0, 65536, FIL), penalty(-10000), ...clearRest())
+  contrib.push(filGlue(), penalty(-10000), ...clearRest())
   const out = new LatexOutput(k, parskip)
   const fs = k.glue.footinsskip
   const built = buildPages(contrib, {
@@ -377,7 +377,7 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     const pg = sh.page
     let box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, maxDepth)
     const first = box255
-    if (pg.outputPenalty === -10001) box255 = vpack([box255, glue(0, 65536, FIL)]) // \@doclearpage: \vbox{\box\@cclv\vfil}
+    if (pg.outputPenalty === -10001) box255 = vpack([box255, filGlue()]) // \@doclearpage: \vbox{\box\@cclv\vfil}
     const foot = pg.inserts[k.ints.footins]
     let list = box255.list.slice()
     const last = list[list.length - 1]
@@ -405,14 +405,13 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
 export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page)): BoxNode {
   const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
   const number = () => { const l: Node[] = []; appendText(l, thepage, font, { spaceFactor: 1000 }, false); return l }
-  const hfil = () => glue(0, 65536, FIL)
   const even = k.ints.twoside && page % 2 === 0
   // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
   // \@evenhead{\thepage\hfil\slshape\leftmark}
-  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), hfil(), ...mark] : [...mark, hfil(), ...number()]
-  const footText: Node[] = pagestyle === "plain" ? [hfil(), ...number(), hfil()] : []
+  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), filGlue(), ...mark] : [...mark, filGlue(), ...number()]
+  const footText: Node[] = pagestyle === "plain" ? [filGlue(), ...number(), filGlue()] : []
   // \vfil, \hb@xt@\textwidth{\@thehead} (\color@hbox\normalcolor with a color package)
-  const head = vpack([hfil(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })
+  const head = vpack([filGlue(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })
   head.depth = 0
   const foot = hpack(setgroup([hpack(footText, { exactly: k.dimens.textwidth })]))
   // \baselineskip\z@skip \lineskip\z@skip \lineskiplimit\z@ until \baselineskip\footskip before the foot

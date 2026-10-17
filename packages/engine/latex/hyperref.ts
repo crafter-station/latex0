@@ -2,7 +2,7 @@
 // \special nodes of anchors, links and outlines, and the bookmark lines it writes to the .out file.
 
 import { printScaled } from "../layout/arith"
-import { glue, kern, penalty, FIL, type BoxNode, type Node } from "../layout/nodes"
+import { glue, kern, penalty, type BoxNode, type Node, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 
 const special = (ps: string): Node => ({ kind: "whatsit", text: `\\special{${ps}}` })
@@ -45,7 +45,7 @@ export function spotAnchor(name: string, mode: "v" | "h", last: Node | undefined
 /** \Hy@@SectionAnchor: \hbox to 0pt{\kern-\Hy@SectionHShift <anchor> \hss}, at the start of a heading's title */
 export function sectionAnchorBox(name: string, shift: number, baselineskip: number): BoxNode {
   const k = kern(-shift, true)
-  return hpack([k, ...anchor(name, baselineskip, "h", k), glue(0, 65536, FIL, 65536, FIL)], { exactly: 0 })
+  return hpack([k, ...anchor(name, baselineskip, "h", k), ssGlue()], { exactly: 0 })
 }
 
 /**
@@ -126,8 +126,8 @@ export function documentStart(bookmarks: Bookmark[]): Node[] {
  */
 export function pageAnchor(page: string, topmargin: number, sidemargin: number): BoxNode {
   const bp = 65781 // 1bp
-  const h = hpack([kern(0, true), kern(sidemargin, true), kern(-bp, true), HS(), HR(), dest(`page.${page}`), penalty(10000), glue(0, 65536, FIL, 65536, FIL)], { exactly: 0 })
-  return vpack([kern(0, true), kern(topmargin, true), kern(-bp, true), h, glue(0, 65536, FIL, 65536, FIL)], { exactly: 0 })
+  const h = hpack([kern(0, true), kern(sidemargin, true), kern(-bp, true), HS(), HR(), dest(`page.${page}`), penalty(10000), ssGlue()], { exactly: 0 })
+  return vpack([kern(0, true), kern(topmargin, true), kern(-bp, true), h, ssGlue()], { exactly: 0 })
 }
 
 /**

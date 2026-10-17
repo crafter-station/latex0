@@ -11,6 +11,7 @@ import type { Font } from "./font"
 import { lcCode, type Hyphenator } from "./hyphenate"
 import { HYPHEN_CHAR } from "./hmode"
 import type { CharNode, DiscNode, KernNode, Node } from "./nodes"
+import { charNode } from "./nodes"
 
 const NON_CHAR = 256
 const STOP_FLAG = 128, KERN_FLAG = 128
@@ -27,11 +28,6 @@ const isLigature = (n: CharNode) => n.ligature === true || n.text.length !== 1 |
 const odd = (x: number) => (x & 1) === 1
 const fontKey = (n: CharNode) => `${n.font}@${n.size}`
 
-function charNode(f: Font, c: number, text = String.fromCharCode(c)): CharNode {
-  const m = f.chars.get(c)
-  if (!m) throw new Error(`char ${c} missing in ${f.name}`)
-  return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text }
-}
 
 /** Hyphenate the word that follows the glue at list[k], in place (§ 894). */
 export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenContext): void {

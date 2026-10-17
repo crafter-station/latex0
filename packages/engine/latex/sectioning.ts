@@ -6,7 +6,7 @@ import { dataFont } from "./data"
 import { loadFont, QUAD } from "../layout/font"
 import { Scanner } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
-import { emptyBox, FIL, glue, paramGlue, penalty, type Node } from "../layout/nodes"
+import { emptyBox, glue, paramGlue, penalty, type Node, filGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import { EMPTY_MARK, markboth, markright, markValue, sectionMarks } from "./marks"
@@ -29,7 +29,7 @@ export function clearpage(cx: Ctx) {
   const { noskipsecPar, run, v } = cx
   noskipsecPar("a page break"); run.noskipsec = false // \newpage: \leavevmode, \global\@noskipsecfalse
   if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
-  v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
+  v.nodes.push(filGlue(), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
   v.box(emptyBox("vlist"), run.k.sizes.normalsize.baselineskip)
   v.nodes.push(penalty(-10001))
 }
@@ -41,7 +41,7 @@ export function cleardoublepage(cx: Ctx) {
   if (!run.k.ints.twoside) return
   const extra: Node[] = []
   appendToVlist(extra, hpack([]), v.prevDepth, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
-  extra.push(glue(0, 65536, FIL), penalty(-10000))
+  extra.push(filGlue(), penalty(-10000))
   v.nodes.push({ kind: "whatsit", text: "", hook: { cleardouble: extra } satisfies OutputHook })
 }
 
@@ -94,7 +94,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
   // (in the head's group)
   const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
-  const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
+  const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", filGlue()), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
   if (numbered) {
     typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
     v.nodes.push(penalty(10000))

@@ -5,7 +5,7 @@
 // the empty discretionary after an explicit hyphen in unrestricted mode.
 
 import type { Font } from "./font"
-import { emptyDisc, type CharNode, type Node } from "./nodes"
+import { emptyDisc, type CharNode, type Node, charNode } from "./nodes"
 
 const NON_CHAR = 256
 const STOP_FLAG = 128, KERN_FLAG = 128
@@ -35,11 +35,6 @@ const at = (f: Font, k: number) => {
 export function appendRun(out: Node[], codes: number[], f: Font, o: RunOptions): void {
   // a missing character is dropped and the loop is entered afresh after it (big_switch)
   for (let start = 0, first = true; start < codes.length; first = false) start = mainLoop(out, codes, start, f, o, first && !!o.noBoundaryBefore)
-}
-
-const charNode = (f: Font, c: number, text = String.fromCharCode(c)): CharNode => {
-  const m = f.chars.get(c)!
-  return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text }
 }
 
 /** One entry into the main loop at codes[start]; returns where the next entry starts (after a missing character) or codes.length. */

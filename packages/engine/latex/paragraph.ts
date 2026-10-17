@@ -17,7 +17,7 @@ import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, ty
 import { appendText } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
-import { emptyBox, FIL, FILL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../layout/nodes"
+import { emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../mathlayout/mlist"
 import { parseMath } from "../mathlayout/parse"
 import { emitBoxes } from "../emit/boxes"
@@ -353,7 +353,6 @@ function pieces(body: string, footnotes = true): Piece[] {
 }
 
 const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[size].font; return loadFont(dataFont(f.name), f.at) }
-const hss = () => glue(0, 65536, FIL, 65536, FIL)
 
 /**
  * \@makefnmark at a size: \hbox{\@textsuperscript{\normalfont N}}, that is
@@ -395,11 +394,11 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext, hn = 0) {
   // (\tolerance 9999, \emergencystretch 3em)
   const params: LineBreakParams = { ...ctx.params, looseness: 0, hangIndent: 0, hangAfter: 1, parShape: [], prevGraf: 0, widowPenalty: ctx.noteWidow ?? k.ints.widowpenalty, ...(ctx.noteClub !== undefined ? { clubPenalty: ctx.noteClub } : {}) }
   Object.assign(params, {
-    hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", glue(0, 65536, FIL)),
+    hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", filGlue()),
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   params.hyphenation = hyphenation(k, font)
-  const markBox = hpack([hss(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const markBox = hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
   if (hn) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut)) // hyperref's \hyper@@anchor after the strut
@@ -452,10 +451,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (list.at(-1)?.kind === "glue") list.pop()
       const adj: Node[] = [...(p.star ? [penalty(10000)] : []), ...(p.skip ? [glueOf(new Scanner(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).scanGlue())] : [])]
       if (adj.length) list.push({ kind: "adjust", list: adj })
-      list.push(penalty(10000), glue(0, 65536, FIL), penalty(-10000))
+      list.push(penalty(10000), filGlue(), penalty(-10000))
       if (!p.skip) ctx.ignoreSpaces = true
     }
-    else if (p.kind === "space") list.push(p.cmd === "hfill" ? glue(0, 65536, FILL) : p.cmd === "hfil" ? glue(0, 65536, FIL) : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
+    else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
     else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after

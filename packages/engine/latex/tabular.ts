@@ -4,7 +4,7 @@
 // column's entry is \@classv's \vtop paragraph.
 
 import { halignSpans, type AlignCell } from "../layout/align"
-import { emptyBox, FIL, FILL, glue, kern, paramGlue, type BoxNode, type Node } from "../layout/nodes"
+import { emptyBox, glue, kern, paramGlue, type BoxNode, type Node, filGlue, fillGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import type { GlueSpec } from "../layout/dimen"
 import { appendToVlist } from "./paragraph"
@@ -211,17 +211,16 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     return [glue(x.skip === "tabcolsep" ? env.tabcolsep : x.skip === "doublerulesep" ? env.doublerulesep : half)]
   })
   const unskip = (l: Node[]) => { if (l.at(-1)?.kind === "glue") l.pop() }
-  const hfil = () => glue(0, 65536, FIL)
   /** {\hfil\hskip1sp\ignorespaces entry\unskip\hfil} as the column aligns it, or \@startpbox{width}\ignorespaces
    *  entry\@endpbox (whose \hfil follows the \vtop); `cr` is what \\[skip] puts before \unskip */
   const entry = (col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }): Node[] => {
     const align = col.align
-    if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr), hfil()] } // (a box: the space factor is 1000)
-    const l: Node[] = align === "l" ? [] : [hfil()]
+    if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr), filGlue()] } // (a box: the space factor is 1000)
+    const l: Node[] = align === "l" ? [] : [filGlue()]
     l.push(glue(1), ...env.cell(text.replace(/^\s+/, ""), st))
     if (cr.length) { unskip(l); l.push(...cr) }
     unskip(l)
-    if (align !== "r") l.push(hfil())
+    if (align !== "r") l.push(filGlue())
     return l
   }
   const rows: AlignCell[][] = []
@@ -246,7 +245,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
         const w = line.width === undefined ? bt.cmidrulewidth : env.skip(line.width)
         if (lastClass === 0) vlist.push(glue(bt.aboverulesep))
         const r: AlignCell[] = a > 1 ? [{ nodes: [], span: a - 1 }] : []
-        r.push({ nodes: [glue(line.trim.includes("l") ? bt.cmidrulekern : 0), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: w, depth: 0 } } }, kern(0, true), glue(line.trim.includes("r") ? bt.cmidrulekern : 0)], span: b - a + 1 })
+        r.push({ nodes: [glue(line.trim.includes("l") ? bt.cmidrulekern : 0), { ...fillGlue(), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: w, depth: 0 } } }, kern(0, true), glue(line.trim.includes("r") ? bt.cmidrulekern : 0)], span: b - a + 1 })
         vlist.push({ row: rows.length }); rows.push(r)
         const next = lines[li + 1] // \@xcmidrule
         if (next && "cmid" in next) { vlist.push(glue(-w)); lastClass = 1 }
@@ -277,7 +276,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       const [a, b] = line.cline
       if (b > cols.length) throw new TabularUnsupported(`\\cline{${a}-${b}} in ${cols.length} columns`)
       const r: AlignCell[] = a > 1 ? [{ nodes: [], span: a - 1 }] : []
-      r.push({ nodes: [{ ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: arw, depth: 0 } } }], span: b - a + 1 })
+      r.push({ nodes: [{ ...fillGlue(), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: arw, depth: 0 } } }], span: b - a + 1 })
       vlist.push({ row: rows.length }); rows.push(r)
       vlist.push(glue(-arw))
       return
