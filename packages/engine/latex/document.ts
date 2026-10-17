@@ -61,6 +61,9 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
   return first.written ? run(first.written).result : first.result
 }
 
+/** The commands that read what the run before wrote to the .aux file: with one, LaTeX runs twice. */
+const READS_AUX = /\\(?:ref|pageref|eqref|cite)\{/
+
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
 interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string> }
 
@@ -182,7 +185,7 @@ function layout({ src, listings, tabulars, minipages, urls }: DocumentSource, no
   })
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc") || /\\(?:page)?ref\{|\\cite\{/.test(body) || hyper) {
+  if (blocks.some((b) => b.kind === "toc") || READS_AUX.test(body) || hyper) {
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>()
     const walk = (n: Node, page: string) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
     shipped.forEach((b, i) => walk(b, pages[i].thepage))

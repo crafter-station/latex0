@@ -1,0 +1,17 @@
+% fixture: amsmath/eqref
+% tier: T3
+% engine: document
+% covers: amsmath's \eqref: \textup{\tagform@{\ref{key}}}, the reference in parentheses in an \hbox in \normalfont (with \@@italiccorr), before and after its equation, an undefined key, in italic and bold text, followed by punctuation
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+As \eqref{eq:later} shows, and as we prove below, the sum is finite.
+\begin{equation}
+  a^2 + b^2 = c^2 \label{eq:pyth}
+\end{equation}
+By \eqref{eq:pyth}, and also \eqref{eq:missing}, we get
+\begin{equation}
+  e^{i\pi} + 1 = 0. \label{eq:later}
+\end{equation}
+\textit{In italics: \eqref{eq:pyth} and} \textbf{in bold \eqref{eq:later}}. See \eqref{eq:pyth}.
+\end{document}

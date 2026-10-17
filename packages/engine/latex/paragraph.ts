@@ -187,6 +187,8 @@ type Piece =
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
   /** {\large …}: a size command in a group */
   | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
+  /** amsmath's \tagform@ around \ref{key} (in \eqref) */
+  | { kind: "tagref"; key: string }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -273,13 +275,17 @@ function applyFontCommand(cmd: FontCommand, a: FontAttrs, cur: Font, base: FontA
  * \sw@slant (latex.ltx): the italic correction of the character before, with a skip at the end of
  * the list taken off first (\unskip … \hskip) and a penalty too (\fix@penalty)
  */
+/** \/ (append_italic_correction, § 1113): an explicit kern of the last character's italic correction, if the list ends with one */
+function italicCorrection(list: Node[]) {
+  const tail = list[list.length - 1]
+  if (tail?.kind === "char") list.push(kern(fontAt(tail.font, tail.size).chars.get(tail.char)!.italic, true))
+}
 function swSlant(list: Node[]) {
   const last = list[list.length - 1]
   const skip = last?.kind === "glue" && last.width !== 0 ? (list.pop() as GlueNode) : null
   const l2 = list[list.length - 1]
   const pen = l2?.kind === "penalty" && l2.penalty !== 0 ? list.pop() : null
-  const tail = list[list.length - 1]
-  if (tail?.kind === "char") list.push(kern(fontAt(tail.font, tail.size).chars.get(tail.char)!.italic, true)) // \/
+  italicCorrection(list)
   if (pen) list.push(pen)
   if (skip) list.push(glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder))
 }
@@ -338,6 +344,11 @@ function pieces(body: string, footnotes = true): Piece[] {
     }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
     if (cur) { flushText(); out.push({ kind: "currentlabel", label: cur[1], href: cur[2] }); i += cur[0].length; continue }
+    // amsmath's \eqref{key}: \textup{\tagform@{\ref{key}}}
+    const eqref = body.slice(i).match(/^\\eqref\{([A-Za-z0-9:._-]+)\}/)
+    if (eqref) {
+      flushText(); out.push({ kind: "font", cmd: "textup", src: "\\tagform@", inner: [{ kind: "tagref", key: eqref[1] }], next: body[i + eqref[0].length] ?? "" }); i += eqref[0].length; continue
+    }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
     if (ref) {
       if (ref[1] === "label" && !footnotes) throw new Error("paragraph adapter: \\label in a footnote")
@@ -351,10 +362,7 @@ function pieces(body: string, footnotes = true): Piece[] {
       flushText(); out.push({ kind: "math", src: body.slice(i + 1, j) }); i = j + 1
     } else if (body[i] === "\\" && FONT_COMMANDS.some((c) => body.startsWith(`\\${c}{`, i) || body.startsWith(`\\${c} {`, i))) {
       const cmd = body.slice(i + 1).match(/^[a-z]+/)![0] as FontCommand
-      const open = body.indexOf("{", i)
-      let depth = 0, j = open
-      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
-      if (j >= body.length) throw new Error(`paragraph adapter: unbalanced \\${cmd}{`)
+      const open = body.indexOf("{", i), j = closingBrace(body, open)
       const src = body.slice(open + 1, j)
       flushText(); out.push({ kind: "font", cmd, src, inner: pieces(src, footnotes), next: body[j + 1] ?? "" }); i = j + 1
     } else if (footnotes && body.startsWith("\\footnote{", i)) {
@@ -502,6 +510,18 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push(labelWrite(doc.refs, p.key))
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+    }
+    else if (p.kind === "tagref") {
+      // \tagform@: \maketag@@@{(\ignorespaces\ref{key}\unskip\@@italiccorr)}, \maketag@@@: \hbox{\m@th\normalfont#1}
+      if (!ctx.amsmath) throw new Error("paragraph adapter: \\eqref without amsmath")
+      const nf: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }, f = selectFont(k, size, nf)
+      const inner: Node[] = [], st = { spaceFactor: 1000 }
+      appendText(inner, "(", f, st, false)
+      appendPieces(inner, [{ kind: "ref", key: p.key }], f, size, st, { ...ctx, restricted: true }, nf)
+      italicCorrection(inner)
+      appendText(inner, ")", f, st, false)
+      list.push(hpack(inner))
+      state.spaceFactor = 1000
     }
     else if (p.kind === "ref" || p.kind === "pageref") {
       // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}

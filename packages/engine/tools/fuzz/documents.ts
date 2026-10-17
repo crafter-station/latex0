@@ -44,7 +44,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -122,6 +122,7 @@ export function makeDocument(r: () => number): string {
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
+      if (amsOn && r() < 0.005) ws[i] += pick([" \\eqref{eq:3-1}", "~\\eqref{eq:6-1}", " \\eqref{eq:10-1}", " (\\eqref{eq:15-1})", " \\eqref{eq:2-1}", " \\eqref{nowhere}"])
       // addresses: \url (url.sty or hyperref), \nolinkurl and \href (hyperref)
       if ((urlOn || hyper) && r() < 0.006) ws[i] += pick([" ", "~", " see "]) + `\\url{${address()}}`
       if (hyper && r() < 0.004) ws[i] += r() < 0.5 ? ` \\nolinkurl{${address()}}` : ` \\href{${address()}}{${words(1 + Math.floor(r() * 4))}}`
@@ -175,6 +176,7 @@ export function makeDocument(r: () => number): string {
   const t1 = r() < 0.3
   if (t1) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35
+  amsOn = ams
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
   // enumitem; \setlength in the preamble
   const enumitem = r() < 0.15

@@ -1,14 +1,19 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 203,
-  "exact": 201,
+  "fixtures": 205,
+  "exact": 203,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 191709
+  "glyphs": 191953
  },
  "areas": [
+  {
+   "area": "amsmath",
+   "fixtures": 2,
+   "exact": 2
+  },
   {
    "area": "amsthm",
    "fixtures": 5,
@@ -318,6 +323,26 @@
    "glyphs": 40,
    "covers": "snippet in a minimal article: Simple TikZ diagram with nodes and arrows",
    "issue": "#30"
+  },
+  {
+   "id": "amsmath/eqref-hyperref",
+   "file": "micro/amsmath/eqref-hyperref.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "\\eqref with hyperref: the reference a link in \\tagform@'s box (no italic correction after the link's special), an undefined key unlinked"
+  },
+  {
+   "id": "amsmath/eqref",
+   "file": "micro/amsmath/eqref.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "amsmath's \\eqref: \\textup{\\tagform@{\\ref{key}}}, the reference in parentheses in an \\hbox in \\normalfont (with \\@@italiccorr), before and after its equation, an undefined key, in italic and bold text, followed by punctuation"
   },
   {
    "id": "amsthm/after-list",

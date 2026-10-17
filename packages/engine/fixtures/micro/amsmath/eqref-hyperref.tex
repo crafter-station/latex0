@@ -1,0 +1,18 @@
+% fixture: amsmath/eqref-hyperref
+% tier: T3
+% engine: document
+% covers: \eqref with hyperref: the reference a link in \tagform@'s box (no italic correction after the link's special), an undefined key unlinked
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\begin{document}
+As \eqref{eq:later} shows, and as we prove below, the sum is finite.
+\begin{equation}
+  a^2 + b^2 = c^2 \label{eq:pyth}
+\end{equation}
+By \eqref{eq:pyth}, and also \eqref{eq:missing}, we get
+\begin{equation}
+  e^{i\pi} + 1 = 0. \label{eq:later}
+\end{equation}
+\textit{In italics: \eqref{eq:pyth} and} \textbf{in bold \eqref{eq:later}}. See \eqref{eq:pyth}.
+\end{document}
