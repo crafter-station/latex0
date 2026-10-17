@@ -6,8 +6,9 @@ import { glue, kern, type BoxNode, type Node, charNode, ssGlue } from "../layout
 import { hpack, vpack } from "../layout/pack"
 import { appendRun } from "../layout/mainloop"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../layout/font"
+import { Unsupported } from "./unsupported"
 
-export class LstUnsupported extends Error {}
+export class LstUnsupported extends Unsupported {}
 
 /** A comment or string delimiter: [l] line comment, [s] comment from open to close, [b] string with backslash escapes */
 export interface LstDelim { kind: "l" | "s" | "b"; open: string; close?: string }

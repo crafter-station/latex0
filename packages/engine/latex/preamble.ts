@@ -8,8 +8,8 @@ import { parseGlue, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 import { classData, documentClass, withT1 } from "./classes"
 import { dataFont } from "./data"
-import { geometry, GeometryUnsupported } from "./geometry"
-import { lstOptions, LstUnsupported, LST_DEFAULTS, type LstOptions } from "./listings"
+import { geometry } from "./geometry"
+import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { Unsupported } from "./unsupported"
 
 export type ThmStyle = "plain" | "definition" | "remark"
@@ -73,7 +73,7 @@ export function readPreamble(src: string): Preamble {
   for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
     let depth = 0, j = i + 7
     for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
-    try { lstBase = lstOptions(pre.slice(i + 8, j), lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+    lstBase = lstOptions(pre.slice(i + 8, j), lstBase)
     pre = pre.slice(0, i) + pre.slice(j + 1)
   }
   let pagestyle = cls === "book" ? "headings" : "plain"
@@ -143,7 +143,7 @@ export function readPreamble(src: string): Preamble {
   if (t1) k = withT1(k, cls)
   if (geometryOptions.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-    try { k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }) } catch (e) { if (e instanceof GeometryUnsupported) throw new Unsupported(e.message); throw e }
+    k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
   }
   if (lengths.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
