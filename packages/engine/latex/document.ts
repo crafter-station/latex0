@@ -25,7 +25,7 @@ import { appendText, spaceGlue } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
-import { DISPLAY as DISPLAY_STYLE, groupField, mathGlue, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
+import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
 import { parseMath } from "../mathlayout/parse"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
@@ -39,14 +39,16 @@ import { EMPTY_MARK, markboth, markright, markText, markValue, MarkWriter, pageM
 import { TocWriter, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
 import { runState } from "./run"
+import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, plain, VerticalList } from "./vlist"
 import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
-import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
+import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, sectionAnchorBox, spotAnchor, type Bookmark } from "./hyperref"
 import { Colors, ColorUnsupported, COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularBox, tabularLines, TabularUnsupported, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, type LstFrame, type LstOptions } from "./listings"
 import { classParams, fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs, type TabularOuter } from "./paragraph"
+import { bibliography, maketitle, tableOfContents, today } from "./frontmatter"
 
 /** a paragraph that a tabular starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
 const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text)
@@ -55,7 +57,6 @@ const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(tex
 const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
 
 const TEXTBULLET = 136 // \textbullet in TS1
-
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
@@ -92,7 +93,6 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
   const first = run(null)
   return first.written ? run(first.written).result : first.result
 }
-
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
 interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string> }
@@ -333,10 +333,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
     if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
     if (run.noskipsec && (b.kind === "maketitle" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
-    if (b.kind === "maketitle") { maketitle(); return }
-    if (b.kind === "toc") { if (run.runIn) runInAlone(); tableOfContents(); return }
+    if (b.kind === "maketitle") { maketitle(cx); return }
+    if (b.kind === "toc") { if (run.runIn) runInAlone(); tableOfContents(cx); return }
     if (b.kind === "matter") { if (run.runIn) runInAlone(); matter(b.which); return }
-    if (b.kind === "bib") { if (run.runIn) runInAlone(); bibliography(); return }
+    if (b.kind === "bib") { if (run.runIn) runInAlone(); bibliography(cx); return }
     if (b.kind === "letter") { if (run.runIn) runInAlone(); letter(b); return }
     if (b.kind === "float") { floatBlock(b); return }
     // a listing right after a run-in heading: its \everypar (then \lst@doendpe's) replaces the heading's, which never runs
@@ -441,6 +441,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.afterheadingEverypar = false
     v.endpePar = v.doendpe = v.endpeEverypar = true
   }
+  const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, tabular, heading, chapter }
   blocks.forEach(processBlock)
 
   /**
@@ -1406,180 +1407,6 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.nodes.push(penalty(-10000)) // \end{letter}'s \pagebreak
   }
 
-  /** \thebibliography's start: \section*{\refname} (report, book: \chapter*{\bibname}), then \@mkboth */
-  function bibliography() {
-    if (hyper) throw new Unsupported("thebibliography with hyperref")
-    const [name, macro] = cls === "article" ? ["References", "refname"] : ["Bibliography", "bibname"]
-    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
-    else chapter({ kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
-    const value = markValue([{ text: name }], true)
-    if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
-  }
-
-  function tableOfContents() {
-    const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
-    // with running heads, \@mkboth is \markboth: its marks in the title's line, which they leave (§ 655)
-    const contents = markValue([{ text: "Contents" }], true)
-    const end = mkboth ? marks.insert(markboth(contents, contents), false) : undefined
-    if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents", source, end })
-    else chapter({ kind: "heading", level: 0, star: true, title: "Contents", source, end })
-    const tocdepth = cls === "article" ? 3 : 2
-    for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(e)
-    v.nobreak = false
-  }
-
-  /**
-   * One toc line. The top level (article's \l@section, report's \l@chapter): \addpenalty, the skip,
-   * then in a group \parindent\z@ \rightskip\@pnumwidth \parfillskip-\@pnumwidth \leavevmode\bfseries
-   * \advance\leftskip\@tempdima \hskip-\leftskip #1\nobreak\hfil\nobreak\hb@xt@\@pnumwidth{\hss #2\kern-\p@\kern\p@}\par.
-   * Below it, \@dottedtocline{level}{indent}{numwidth}: \vskip\z@\@plus.2\p@, and in a group \leftskip
-   * indent, \rightskip\@tocrmarg, \parfillskip-\rightskip, \parindent indent, \@afterindenttrue,
-   * \interlinepenalty\@M, \leavevmode \advance\leftskip numwidth \null\nobreak\hskip-\leftskip {#4}\nobreak
-   * \leaders\hbox{$\m@th\mkern\@dotsep mu\hbox{.}\mkern\@dotsep mu$}\hfill\nobreak
-   * \hb@xt@\@pnumwidth{\hfil\normalfont\normalcolor #5\kern-\p@\kern\p@}\par
-   */
-  function tocLine(e: TocEntry) {
-    const top = cls === "article" ? 1 : 0
-    const dims = (x: string, units = bodyUnits) => new Scanner(x, units).scanDimen().value
-    const bold = run.k.sizes.normalsize.bold
-    const font = e.level === top ? bold : roman
-    const f = loadFont(dataFont(font.name), font.at)
-    const fUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-    // \numberline{n}: \hb@xt@\@tempdima{n\hfil}
-    const numberline = (width: number): Node[] => {
-      if (e.number === null) return []
-      const l: Node[] = []
-      appendText(l, e.number, f, { spaceFactor: 1000 }, false)
-      return [hpack([...l, glue(0, 65536, FIL)], { exactly: width })]
-    }
-    // the page number: \hb@xt@\@pnumwidth (in the line's font) {\hss or \hfil, #2, \kern-\p@\kern\p@}
-    const pageBox = (fill: Node, normalcolor = false): BoxNode => {
-      const l: Node[] = [fill]
-      if (normalcolor && xcolor.on) l.push(colorPush()) // \@dottedtocline's \normalcolor
-      appendText(l, String(e.page), f, { spaceFactor: 1000 }, false)
-      l.push(kern(-65536, true), kern(65536, true))
-      return hpack(l, { exactly: dims("1.55em", fUnits) })
-    }
-    if (e.level === top) {
-      if (cls === "article") { v.addpenalty(-300); v.addvspace({ width: dims("1.0em"), stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }) }
-      else { v.addpenalty(-301); v.vskip({ width: dims("1.0em"), stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }) } // \@highpenalty
-    } else v.vskip({ width: 0, stretch: 13107, stretchOrder: 0, shrink: 0, shrinkOrder: 0 })
-    // the paragraph's \everypar: \@afterheading's, which is reset only inside the line's group
-    let club = v.club, keepIndent = true
-    if (v.afterheadingEverypar) {
-      if (v.nobreak) { v.nobreak = false; club = 10000; keepIndent = e.level !== top || v.afterindent }
-      else club = run.k.ints.clubpenalty
-    }
-    let start: Node[], nl: Node[], tail: Node[], params: Parameters<typeof paragraphInput>[4]
-    if (e.level === top) {
-      const tempdima = dims("1.5em"), pnum = dims("1.55em")
-      start = [...(keepIndent ? [emptyBox("hlist", 0)] : []), glue(-tempdima)]
-      nl = numberline(tempdima)
-      tail = [penalty(10000), glue(0, 65536, FIL), penalty(10000), pageBox(glue(0, 65536, FIL, 65536, FIL))]
-      params = { leftSkip: spec("leftskip", dimen(tempdima)), rightSkip: spec("rightskip", dimen(pnum)), parFillSkip: spec("parfillskip", dimen(-pnum)) }
-    } else {
-      const [indent, numwidth] = (cls === "article" ? [["", ""], ["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]] : [["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]])[e.level].map((x) => dims(x))
-      const rmarg = dims("2.55em")
-      // \mkern\@dotsep mu: math_kern (§ 717) in the text size's mu
-      const mu = Math.trunc(mathEnv(run.k, "normalsize", amsmath).fonts[0][2]!.params[6] / 18)
-      const mk = mathGlue(dimen(dims("4.5pt")), mu).width
-      const dot: Node[] = []
-      appendText(dot, ".", f, { spaceFactor: 1000 }, false)
-      const leader = hpack([{ kind: "math", on: true, width: 0 }, kern(mk, true), hpack(dot), kern(mk, true), { kind: "math", on: false, width: 0 }])
-      start = [emptyBox("hlist", indent), hpack([]), penalty(10000), glue(-(indent + numwidth))]
-      nl = numberline(numwidth)
-      tail = [penalty(10000), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(glue(0, 65536, FIL), true), ...(xcolor.on ? [colorPop()] : [])] // (\aftergroup: after the box)
-      params = { leftSkip: spec("leftskip", dimen(indent + numwidth)), rightSkip: spec("rightskip", dimen(rmarg)), parFillSkip: spec("parfillskip", dimen(-rmarg)), interLinePenalty: 10000 }
-    }
-    // hyperref (linktoc=section): the number and the title in a link to the heading's anchor
-    let body = e.title
-    if (hyper && e.anchor) {
-      const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath }).list
-      start.push(tocLink([...nl, ...title], e.anchor, run.k.sizes.normalsize.baselineskip.width))
-      body = ""
-    } else start.push(...nl)
-    const { list, params: ps, notes } = paragraphInput(body, run.k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })
-    list.push(...tail)
-    const lb = lineBreak(list, ps)
-    decisions.push(...notes, lb.trace)
-    v.paragraph(lb.vlist, outerParskip)
-    if (e.level === top && cls !== "article") v.nodes.push(penalty(301)) // \penalty\@highpenalty
-  }
-
-  /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
-   *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
-   *  {\large date}, then \vskip 1.5em */
-  function maketitle() {
-    if (!title.title) throw new Unsupported("\\maketitle without \\title")
-    const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
-    // report: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), then
-    // \null\vfil\vskip60\p@; article: \newpage, \global\@topnum\z@ (no float at the top of this page), and
-    // \@maketitle's \newpage, \null, \vskip2em
-    const titlepage = cls !== "article"
-    v.par()
-    v.nobreak = false
-    const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
-    if (titlepage) {
-      v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("empty"), hook("page=1"))
-      v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-      v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
-      v.vskip(dimen(60 * 65536))
-    } else {
-      v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("notop"), glue(0, 65536, FIL), penalty(-10000))
-      v.box(hpack([]), run.k.sizes.normalsize.baselineskip) // \null
-      v.vskip(dimen(em("2em", romanFont)))
-    }
-    // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
-    const topsepadd = addGlue(run.k.glue.topsep, run.k.glue.partopsep)
-    v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
-    const labelsep = run.k.dimens.labelsep
-    const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
-    const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
-    const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
-    const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
-    check(title.title, "\\title")
-    typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: run.k.ints.clubpenalty }, outerParskip, "LARGE")
-    v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
-    // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
-    const large = loadFont(dataFont(run.k.sizes.large.font.name), run.k.sizes.large.font.at)
-    const authors = (title.author ?? "").split(/\\and\b/).map((a) => a.split(/\\\\/).map((r) => r.trim()))
-    authors.flat().forEach((r) => check(r, "\\author"))
-    const start: Node[] = [hpack([])] // \parindent is zero in center
-    authors.forEach((rows, i) => {
-      if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
-      start.push(tabular(rows.map((r) => ({ cells: [{ text: r }] })), preamble("c"), "large", "t"))
-    })
-    const authorPar = paragraphInput("", run.k, "large", doc, { ...centering, start, clubPenalty: run.k.ints.clubpenalty, amsmath })
-    const ab = lineBreak(authorPar.list, authorPar.params)
-    decisions.push(ab.trace)
-    v.paragraph(ab.vlist, outerParskip, run.k.sizes.large.baselineskip, dimen(em(titlepage ? ".75em" : ".5em", large)))
-    v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
-    // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
-    // {\large \@date \par}, with \large's)
-    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch))
-    check(date, "\\date")
-    if (date) {
-      const dp = paragraphInput("", run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath })
-      appendText(dp.list, date, large, { spaceFactor: 1000 })
-      const db = lineBreak(dp.list, dp.params)
-      decisions.push(db.trace)
-      v.paragraph(db.vlist, outerParskip, titlepage ? run.k.sizes.large.baselineskip : run.k.sizes.normalsize.baselineskip)
-    }
-    v.endtrivlist(outerParskip, outerParskip, topsepadd)
-    if (titlepage) {
-      // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
-      v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
-      v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-      v.nodes.push(glue(0, 65536, FIL), penalty(-10000))
-      if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
-    } else {
-      // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}
-      v.vskip(dimen(em("1.5em", romanFont)))
-      v.nodes.push(hook("plain"))
-    }
-    doc.footnote = 0 // \setcounter{footnote}{0}
-  }
-
   /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
   function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
     const font = selectFont(run.k, size, attrs)
@@ -1846,11 +1673,4 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     },
     written,
   }
-}
-
-/** \today: "January 1, 2025" */
-function today(epoch: number): string {
-  const d = new Date(epoch * 1000)
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
 }
