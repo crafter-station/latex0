@@ -10,9 +10,14 @@ import type { GlueSpec } from "../layout/dimen"
 import { xnOverD } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
 import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode } from "../layout/nodes"
-import { vpack } from "../layout/pack"
+import { loadFont } from "../layout/font"
+import { appendText } from "../layout/hmode"
+import { hpack, vpack } from "../layout/pack"
 import { buildPages, type Page } from "../layout/pagebuilder"
 import { documentPages } from "../trace/decisions"
+import { dataFont } from "./data"
+import { pageAnchor } from "./hyperref"
+import { setgroup } from "./xcolor"
 
 const MAX_DIMEN = 0o7777777777
 
@@ -394,4 +399,30 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     const top = column.findIndex((n) => n.kind === "glue" && n.param === "topskip")
     return { outputbox: vpack(col, { exactly: k.dimens.textheight }), column: top < 0 ? null : column.slice(top) }
   })
+}
+
+/** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
+export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page)): BoxNode {
+  const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
+  const number = () => { const l: Node[] = []; appendText(l, thepage, font, { spaceFactor: 1000 }, false); return l }
+  const hfil = () => glue(0, 65536, FIL)
+  const even = k.ints.twoside && page % 2 === 0
+  // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
+  // \@evenhead{\thepage\hfil\slshape\leftmark}
+  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), hfil(), ...mark] : [...mark, hfil(), ...number()]
+  const footText: Node[] = pagestyle === "plain" ? [hfil(), ...number(), hfil()] : []
+  // \vfil, \hb@xt@\textwidth{\@thehead} (\color@hbox\normalcolor with a color package)
+  const head = vpack([hfil(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })
+  head.depth = 0
+  const foot = hpack(setgroup([hpack(footText, { exactly: k.dimens.textwidth })]))
+  // \baselineskip\z@skip \lineskip\z@skip \lineskiplimit\z@ until \baselineskip\footskip before the foot
+  const inner: Node[] = [head, glue(k.dimens.headsep), glue(0), column]
+  const d = k.dimens.footskip - column.depth - foot.height
+  inner.push(d < 0 ? glue(0) : glue(d), foot)
+  const box = vpack(inner)
+  box.shift = k.ints.twoside && page % 2 === 0 ? k.dimens.evensidemargin : k.dimens.oddsidemargin
+  const shipped = vpack([glue(k.dimens.topmargin), box])
+  // hyperref's \AtBeginShipout: the page anchor before the page, with \lineskip between
+  if (hyper) return vpack([pageAnchor(thepage, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
+  return shipped
 }

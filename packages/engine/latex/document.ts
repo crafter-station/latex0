@@ -14,11 +14,11 @@
 // through \@makecol and \@outputpage: the head box, \headsep, the text, and the
 // foot at \footskip with the page number.
 
-import { classData, documentClass } from "./classes"
+import { classData, documentClass, withT1 } from "./classes"
 import { dataFont } from "./data"
 import { emitBoxes } from "../emit/boxes"
 import { shipOut } from "../emit/trace"
-import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../layout/classdata"
+import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { parseDimen, parseGlue, Scanner } from "../layout/dimen"
@@ -34,407 +34,32 @@ import { xnOverD } from "../layout/arith"
 import type { ParagraphTrace } from "../trace/decisions"
 import type { LayoutResult } from "./result"
 import { geometry, GeometryUnsupported } from "./geometry"
-import { expandDocument } from "../expand/document"
-import { isKnownCommand } from "../parser"
-import { endDocument, outputOptions, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
-import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
-import { Colors, ColorUnsupported } from "./xcolor"
+import { blocksOf, displaySegments, type Block, type Display, type ListBlock, type Part } from "./blocks"
+import { prepareSource, type Listing, type MinipageSource, type TabularSource } from "./source"
+import { Unsupported } from "./unsupported"
+import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, plain, VerticalList } from "./vlist"
+import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
+import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
+import { Colors, ColorUnsupported, COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularBox, tabularLines, TabularUnsupported, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstFrame, type LstOptions } from "./listings"
 import { classParams, fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs, type TabularOuter } from "./paragraph"
 
-/** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
-/** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
-interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
 /** a paragraph that a tabular starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
-/** commands that take no argument: a { after one opens a group */
-const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
 const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text)
-/** a minipage environment as typed (taken out of the source after expansion: \LXminipage{n}) */
-interface MinipageSource { pos: "t" | "b" | "c"; height: string | null; width: string; body: string }
-
-/** The class with \usepackage[T1]{fontenc}: every size's roman and bold are the EC fonts (math is unchanged). */
-function withT1(k: ClassOptionData, cls: string): ClassOptionData {
-  const sizes = Object.fromEntries(Object.entries(k.sizes).map(([n, s]) => [n, { ...s, font: s.t1.font, bold: s.t1.bold }])) as ClassOptionData["sizes"]
-  let glues = k.glue
-  if (cls === "letter") {
-    // letter.cls's \@listI (\topsep and \itemsep .4em) and \@listiii (.2em) are in em of the font at the list,
-    // an EC font now: \@listii, iv–vi inherit them
-    const quad = (f: { name: string; at: number }) => loadFont(dataFont(f.name), f.at).params[QUAD]
-    glues = { ...glues }
-    for (const key of Object.keys(glues)) {
-      const m = key.match(/^list(\d)(topsep|itemsep)(?:@(\w+))?$/)
-      if (!m) continue
-      const n = (m[3] ?? "normalsize") as SizeCommand, f = Number(m[1]) <= 2 ? 26214 : 13107, g = glues[key]
-      // only the em values: a size command's own \@listi is in pt
-      if (g.stretch || g.shrink || g.width !== xnOverD(quad(k.sizes[n].font), f, 65536)) continue
-      glues[key] = glue(xnOverD(quad(sizes[n].font), f, 65536))
-    }
-  }
-  return { ...k, sizes, glue: glues, ints: { ...k.ints, T1: 1 } }
-}
-
-/** \( and \): LaTeX's robust \relax\ifmmode…\else$\fi, the same formula as $ (outside comments and \\) */
-function inlineMathParens(src: string): string {
-  let out = ""
-  for (let i = 0; i < src.length; i++) {
-    const c = src[i]
-    if (c === "%") { const j = src.indexOf("\n", i); out += j < 0 ? src.slice(i) : src.slice(i, j); i = j < 0 ? src.length : j - 1; continue }
-    if (c !== "\\") { out += c; continue }
-    const n = src[i + 1]
-    if (n === "(" || n === ")") { out += "$"; i++; continue }
-    out += c + (n ?? ""); i++
-  }
-  return out
-}
 
 /** How many groups are open at the end of `src` (braces not escaped). */
 const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
 
-export class Unsupported extends Error {}
-
-const LOW_PENALTY = 51 // \@lowpenalty: \@beginparpenalty, \@itempenalty and \@endparpenalty are its negation
 const TEXTBULLET = 136 // \textbullet in TS1
-const IGNORE_DEPTH = null // \prevdepth = -1000pt
-
-/** What a float marker carries to the output routine: the float's box, its placement bits, and \if@nobreak. */
-
-type Block =
-  | { kind: "par"; text: string; noindent: boolean; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
-      /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean }
-  | ListBlock
-  | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[]
-      /** a blank line (\par) right before it */ blank?: boolean }
-  | { kind: "maketitle" }
-  | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
-  | { kind: "toc" }
-  | { kind: "matter"; which: "front" | "main" | "back" }
-  /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
-  | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number }
-  /** \begin{thebibliography}: its heading and \@mkboth, then the list */
-  | { kind: "bib"; keys: string[] }
-  /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
-  | { kind: "listing"; n: number }
 
 /** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{} */
 interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string }
-
-/** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
-const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography", "LXtheorem", "proof"] as const
-type EnvName = typeof ENVS[number]
-const ENV_ALT = ENVS.join("|")
-/** An environment: its items (one, from \item\relax, for all but itemize, enumerate and description). */
-interface ListBlock {
-  kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** enumitem's [options] */ options?: string
-  /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
-  thm?: { name: string; note: string | null }; proofTitle?: string
-}
-/** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
-interface Item { label: string | null; parts: Part[] }
-type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number; /** \\* and \\[skip] before it */ crStar?: boolean; crSkip?: string } | ListBlock
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
 interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined; /** the enclosing enumerate counters (\p@enumii …) */ enums: number[]
   /** in an enclosing list: the \clubpenalty in force where this one begins */ club?: number }
-
-/** Where the \end matching an environment's \begin is (environments nest), and where it ends. */
-function listEnd(body: string, from: number, env: string): { at: number; next: number } {
-  const re = new RegExp(`\\\\(begin|end)\\{(${ENV_ALT})\\}`, "g")
-  re.lastIndex = from
-  let depth = 1
-  for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
-    depth += m[1] === "begin" ? 1 : -1
-    if (depth === 0) { if (m[2] !== env) throw new Unsupported(`\\end{${m[2]}} for \\begin{${env}}`); return { at: m.index, next: re.lastIndex } }
-  }
-  throw new Unsupported(`\\begin{${env}} without its \\end`)
-}
-
-/** An environment's body: its items at this level, each split into paragraphs and nested environments. */
-function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean): ListBlock {
-  const listy = env === "itemize" || env === "enumerate" || env === "description" || env === "thebibliography"
-  // enumitem's \begin{itemize}[options]
-  const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[([^\]]*)\]/) : null
-  if (opts) inner = inner.slice(opts[0].length)
-  // amsthm: \begin{LXtheorem}{name}[note], \begin{proof}[title]
-  let thm: ListBlock["thm"], proofTitle: string | undefined
-  if (env === "LXtheorem") {
-    const m = inner.match(/^\{([A-Za-z]+)\}(?:\s*\[([^\]]*)\])?/)!
-    thm = { name: m[1], note: m[2] ?? null }; inner = inner.slice(m[0].length)
-  } else if (env === "proof") {
-    const m = inner.match(/^\s*\[([^\]]*)\]/)
-    if (m) { proofTitle = m[1]; inner = inner.slice(m[0].length) }
-  }
-  const crs = env === "center" || env === "flushleft" || env === "flushright" || env === "verse" // \\ is \@centercr
-  // \item at this level only
-  const cuts: number[] = []
-  const re = new RegExp(`\\\\item\\b|\\\\begin\\{(${ENV_ALT})\\}`, "g")
-  for (let m: RegExpExecArray | null; (m = re.exec(inner)); ) {
-    if (m[1]) { re.lastIndex = listEnd(inner, re.lastIndex, m[1]).next; continue }
-    cuts.push(m.index)
-  }
-  if (!listy && cuts.length) throw new Unsupported(`\\item in ${env}`)
-  if (listy && inner.slice(0, cuts[0] ?? inner.length).trim()) throw new Unsupported("text before the first \\item")
-  const bodies = listy ? cuts.map((c, i) => inner.slice(c + 5, cuts[i + 1] ?? inner.length)) : [inner]
-  const items = bodies.map((x, bi) => {
-    const opt = listy ? x.match(/^\s*\[([^\]]*)\]/) : null // \item[label]
-    if (opt && /[\\{}$%&#^_~[]/.test(opt[1])) throw new Unsupported(`\\item[${opt[1]}]`)
-    if (opt) x = x.slice(opt[0].length)
-    const parts: Part[] = []
-    // text: paragraphs at blank lines and, where \\ is \@centercr, at \\
-    // what ends the last paragraph of a stretch of text: \@item's \unskip\unskip\par, \endtrivlist's and
-    // \@trivlist's \unskip\par; a blank line or \@centercr's \par after its \unskip
-    const text = (t: string, afterEnv: boolean, endUnskip: number) => {
-      const paras = t.split(/\n[ \t]*\n/)
-      paras.forEach((para0, pi) => {
-        const para = pi < paras.length - 1 ? para0 + " " : para0 // the line end before a blank line is a space
-        const lines = para.split(/\\\\/)
-        if (lines.length > 1 && !crs) throw new Unsupported(`\\\\ in ${env}`)
-        lines.forEach((line, li) => {
-          // \@centercr: \par, \nobreak for \\*, \addvspace{-\parskip}, \vskip for \\[skip]
-          let crStar = false, crSkip: string | undefined
-          const opt = li > 0 ? line.match(/^\s*(\*)?\s*(?:\[([^\]]*)\])?/) : null
-          if (opt?.[0]) { crStar = !!opt[1]; crSkip = opt[2]; line = line.slice(opt[0].length) }
-          const tx = squeeze(line)
-          const cr = { ...(crStar ? { crStar } : {}), ...(crSkip !== undefined ? { crSkip } : {}) }
-          if (!tx && li > 0 && parts.length) { parts.push({ kind: "text", text: "", start: "cr", ...cr }); return } // a \\ ending the text
-          if (!tx) return
-          const start = !parts.length ? "label" : li > 0 ? "cr" : pi === 0 && afterEnv ? "doendpe" : "par"
-          const unskip = li < lines.length - 1 ? 1 : pi < paras.length - 1 ? 0 : endUnskip
-          parts.push({ kind: "text", text: tx, start, unskip, ...(start === "cr" ? cr : {}) })
-        })
-      })
-    }
-    const nested = new RegExp(`\\\\begin\\{(${ENV_ALT})\\}`, "g")
-    let at = 0
-    for (let m: RegExpExecArray | null; (m = nested.exec(x)); ) {
-      const before = x.slice(at, m.index)
-      text(before, at > 0, 1)
-      if (!parts.length) throw new Unsupported(`an environment right at the start of ${listy ? "an \\item" : env}`)
-      // in a paragraph unless a blank line or a \\ (\@centercr's \par) ended it
-      const inP = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/\\\\\s*$/.test(before)
-      const end = listEnd(x, nested.lastIndex, m[1])
-      parts.push(parseList(m[1] as EnvName, x.slice(nested.lastIndex, end.at), inP, /\n[ \t]*\n\s*$/.test(before)))
-      at = nested.lastIndex = end.next
-    }
-    text(x.slice(at), at > 0, listy && bi < bodies.length - 1 ? 2 : 1)
-    if (!parts.length) parts.push({ kind: "text", text: "", start: "label" })
-    return { label: opt ? opt[1] : null, parts }
-  })
-  return { kind: "list", env, items, inPar, blank, ...(opts ? { options: opts[1] } : {}), ...(thm ? { thm } : {}), ...(proofTitle !== undefined ? { proofTitle } : {}) }
-}
-
-const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
-
-/** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
-interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*"; src: string }
-const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?)\}([^]*?)\\end\{\3\}/
-/** A paragraph's text split at its displays: text, display, text, …, text. */
-function displaySegments(text: string): (string | Display)[] {
-  const out: (string | Display)[] = []
-  const re = new RegExp(DISPLAY.source, "g")
-  let at = 0
-  for (let m: RegExpExecArray | null; (m = re.exec(text)); ) {
-    out.push(text.slice(at, m.index))
-    out.push(m[1] !== undefined ? { kind: "bracket", src: m[1] } : m[2] !== undefined ? { kind: "dollars", src: m[2] } : { kind: m[3] as Display["kind"], src: m[4] })
-    at = m.index + m[0].length
-  }
-  out.push(text.slice(at))
-  return out
-}
-
-/** Whether the text before an environment leaves TeX in a paragraph: text right before it, not
- *  only \label commands, which do not start one */
-function inParagraph(before: string): boolean {
-  const last = before.split(/\n[ \t]*\n/).pop()!
-  return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*\\label\{[^{}]*\})+\s*$/.test(last)
-}
-
-/** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
-function blocksOf(body: string): Block[] {
-  // comments: % takes the rest of the line and its end, and the next line's leading spaces go (TeX's state N);
-  // a blank line after it stays one
-  body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
-  const out: Block[] = []
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
-  let at = 0, endpe = false, thmEnd = false
-  const text = (s: string) => {
-    // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
-    const parts = s.split(/\n[ \t]*\n/)
-    parts.forEach((p, i) => {
-      const t = squeeze(i < parts.length - 1 ? p + " " : p) // the line end before a blank line is a space
-      if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe, ...(i === 0 && thmEnd ? { afterThm: true } : {}) })
-    })
-    thmEnd = false
-  }
-  for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
-    const before = body.slice(at, m.index)
-    text(before)
-    if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
-    if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
-    if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
-    if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
-    if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
-      const end = body.indexOf("\\end{letter}", re.lastIndex)
-      if (end < 0) throw new Unsupported("\\begin{letter} without its \\end")
-      const inner = body.slice(re.lastIndex, end)
-      const op = inner.match(/^\s*\\opening\s*\{((?:[^{}]|\{[^{}]*\})*)\}/)
-      const cl = inner.match(/\\closing\s*\{((?:[^{}]|\{[^{}]*\})*)\}(\s*)$/)
-      if (!op || !cl) throw new Unsupported("a letter without \\opening first and \\closing last")
-      out.push({ kind: "letter", to: m[12], opening: op[1], blocks: blocksOf(inner.slice(op[0].length, cl.index)), closing: cl[1], pars: (cl[2].match(/\n[ \t]*\n/g) ?? []).length })
-      re.lastIndex = at = end + "\\end{letter}".length
-      endpe = false
-      continue
-    }
-    if (m[11] !== undefined) {
-      // \bibitem{key} is \item[\@biblabel{n}] after \refstepcounter{enumiv} (and an immediate \bibcite)
-      const end = body.indexOf("\\end{thebibliography}", re.lastIndex)
-      if (end < 0) throw new Unsupported("\\begin{thebibliography} without its \\end")
-      const inner = body.slice(re.lastIndex, end)
-      if (/\\bibitem\s*\[/.test(inner)) throw new Unsupported("\\bibitem[label]")
-      const bib = parseList("thebibliography", inner.replace(/\\bibitem\s*\{[^{}]*\}/g, "\\item "), false, true)
-      bib.widest = m[11]
-      out.push({ kind: "bib", keys: [...inner.matchAll(/\\bibitem\s*\{([^{}]*)\}/g)].map((x) => x[1].trim()) }, bib)
-      re.lastIndex = at = end + "\\end{thebibliography}".length
-      endpe = true
-      continue
-    }
-    if (m[6]) {
-      const inPar = inParagraph(before)
-      out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
-      at = re.lastIndex; endpe = false; continue
-    }
-    if (m[1]) { // a heading: its argument in braces
-      if (body[re.lastIndex] !== "{") throw new Unsupported(`\\${m[1]} without a {title}${body[re.lastIndex] === "[" ? " (or with a short title)" : ""}`)
-      let depth = 0, j = re.lastIndex
-      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
-      const title = body.slice(re.lastIndex + 1, j).replace(/\s+/g, " ").trim()
-      // (counter commands between the blank line and the heading start no paragraph)
-      const blank = /\n[ \t]*\n\s*$/.test(before.replace(/(?:\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?\s*)+$/, ""))
-      out.push({ kind: "heading", level: HEADINGS[m[1] as keyof typeof HEADINGS], star: m[2] === "*", title, ...(blank ? { blank: true } : {}) })
-      re.lastIndex = j + 1
-      at = j + 1
-      endpe = false
-      continue
-    }
-    const inPar = inParagraph(before)
-    const end = listEnd(body, re.lastIndex, m[3])
-    const prev = out[out.length - 1]
-    if (inPar && prev?.kind === "par") prev.unskip = 1
-    out.push(parseList(m[3] as EnvName, body.slice(re.lastIndex, end.at), inPar, /\n[ \t]*\n\s*$/.test(before)))
-    re.lastIndex = end.next
-    at = end.next
-    endpe = m[3] !== "LXtheorem" && m[3] !== "proof" // (amsthm's ends say \@endpefalse)
-    thmEnd = !endpe
-  }
-  text(body.slice(at))
-  // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|LXtabular|LXminipage|underline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
-    if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
-    if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
-    if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
-  }
-  for (const b of out) {
-    if (b.kind === "par") displaySegments(b.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
-    else if (b.kind === "list") {
-      const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
-        if (p.kind === "list") return walk(p)
-        if (DISPLAY.test(p.text)) throw new Unsupported(`a display in ${l.env}`)
-        if (/^\s*\\label\b/.test(p.text) && !(l.env === "LXtheorem" && p === l.items[0].parts[0])) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
-        check(p.text)
-      }))
-      walk(b)
-    }
-    else if (b.kind === "maketitle" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing") continue
-    else if (/[\\{}%&#^_~]/.test(b.title.replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
-  }
-  return out
-}
-
-/** Glue arithmetic as \advance does it, for finite glue (§ 1239). */
-const addGlue = (a: GlueSpec, b: GlueSpec): GlueSpec => {
-  if (a.stretchOrder || b.stretchOrder || a.shrinkOrder || b.shrinkOrder) throw new Unsupported("infinite glue in \\addvspace")
-  return { width: a.width + b.width, stretch: a.stretch + b.stretch, stretchOrder: 0, shrink: a.shrink + b.shrink, shrinkOrder: 0 }
-}
-const negate = (g: GlueSpec): GlueSpec => ({ ...g, width: -g.width, stretch: -g.stretch, shrink: -g.shrink })
-const plain = (g: GlueSpec): GlueNode => glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)
-const dimen = (w: number): GlueSpec => ({ width: w, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 })
-
-/** The main vertical list, with what LaTeX's vertical-mode macros look at. */
-class VerticalList {
-  nodes: Node[] = [{ kind: "whatsit", text: "\\write-{}" }] // \begin{document}'s \write
-  /** \prevdepth is 0pt when the document begins (the first line's interline glue goes at the top of the page) */
-  prevDepth: number | null = 0
-  /** \if@nobreak: right after a heading (\@afterheading), until the next paragraph starts */
-  nobreak = false
-  /** \if@afterindent: whether that paragraph keeps its indentation */
-  afterindent = true
-  /** \clubpenalty at the outer level: \@afterheading's \everypar sets \@M, which lasts until a later paragraph resets it */
-  club = 150
-  /** \@afterheading's \everypar is still in force (it clears itself in the first paragraph after the one it set up) */
-  afterheadingEverypar = false
-  /** \@doendpe has redefined \par: the next \par resets \clubpenalty */
-  endpePar = false
-  /** \@doendpe ran at the outer level: its \par is pending */
-  doendpe = false
-  /** and its \everypar (which drops the indent box) has not run yet */
-  endpeEverypar = false
-  /** a \par at the outer level */
-  par() { if (this.endpePar) { this.club = this.k.ints.clubpenalty; this.endpePar = this.doendpe = this.endpeEverypar = false; this.afterheadingEverypar = false } }
-  constructor(private k: ClassOptionData) {}
-
-  /** \lastskip: the last node's glue, or 0pt (a hook stands for an assignment, not a node) */
-  get lastSkip(): GlueSpec {
-    const n = this.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
-    return n?.kind === "glue" ? n : dimen(0)
-  }
-  vskip(g: GlueSpec) { this.nodes.push(plain(g)) }
-  /** \endtrivlist in vertical mode: a skip at the end is redone with the list's \parskip taken out,
-   *  then \@endparenv: \addpenalty\@endparpenalty \addvspace\@topsepadd */
-  endtrivlist(parskip: GlueSpec, outerParskip: GlueSpec, topsepadd: GlueSpec) {
-    const last = this.lastSkip
-    if (last.width > 0) { this.vskip(negate(last)); this.vskip(addGlue(addGlue(last, parskip), negate(outerParskip))) }
-    this.addpenalty(-LOW_PENALTY)
-    this.addvspace(topsepadd)
-  }
-  /** a box appended in vertical mode, after interline glue */
-  box(b: BoxNode, baselineskip: GlueSpec) { this.prevDepth = appendToVlist(this.nodes, b, this.prevDepth, baselineskip, this.k.glue.lineskip, this.k.dimens.lineskiplimit) }
-
-  /** \addvspace (latex.ltx): the larger of the skip and the one already there */
-  addvspace(g: GlueSpec) {
-    const last = this.lastSkip
-    if (last.width === 0) { this.vskip(g); return }
-    if (last.width < g.width) { this.vskip(negate(last)); this.vskip(g); return } // \@xaddvskip
-    if (g.width < 0 && last.width >= 0) { const b = addGlue(g, last); this.vskip(negate(last)); this.vskip(b) }
-  }
-
-  /** \addpenalty (latex.ltx): a penalty placed before the skip that ends the list */
-  addpenalty(p: number) {
-    if (this.nobreak) return
-    const last = this.lastSkip
-    if (last.width === 0) { this.nodes.push(penalty(p)); return }
-    const a = last
-    const pd = this.prevDepth === IGNORE_DEPTH ? 0 : this.prevDepth > this.k.dimens.maxdepth ? this.k.dimens.maxdepth : this.prevDepth
-    const b = addGlue(a, dimen(pd))
-    this.vskip(negate(b))
-    this.nodes.push(penalty(p))
-    if (a.width !== b.width) this.vskip(addGlue(b, negate(a)))
-    this.vskip(a)
-  }
-
-  /** A paragraph's lines (and what follows them: penalties, insertions) after \parskip. */
-  paragraph(vlist: Node[], parskip: GlueSpec, baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip, lineskiplimit = this.k.dimens.lineskiplimit) {
-    this.nodes.push(spec("parskip", parskip), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
-    this.lines(vlist, baselineskip, lineskip, lineskiplimit)
-  }
-  /** lines of a paragraph (no \parskip: the part after a display) */
-  lines(vlist: Node[], baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip, lineskiplimit = this.k.dimens.lineskiplimit) {
-    for (const n of vlist) {
-      if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, lineskip, lineskiplimit)
-      else this.nodes.push(n)
-    }
-  }
-}
 
 function charBox(f: Font, c: number): CharNode {
   const m = f.chars.get(c)
@@ -443,124 +68,16 @@ function charBox(f: Font, c: number): CharNode {
 }
 const hss = () => glue(0, 65536, FIL, 65536, FIL)
 
-/** \@item's \@labels box: \hskip\itemindent \hskip-\labelwidth \hskip-\labelsep \hbox to\labelwidth{\makelabel{label}} \hskip\labelsep */
-/** \color[model]{spec} in a style */
-const COLOR_CMD = /\\color\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}/g
-
-/** xcolor (dvips driver): \set@color's push and \reset@color's pop; the document's color while it is loaded */
-const xcolor = { on: false }
-const colorPush = (spec = "gray 0"): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` })
-const colorPop = (): Node => ({ kind: "whatsit", text: "\\special{color pop}" })
-/** with xcolor, \color@setgroup (\sbox, \mbox): the current color pushed in the box and popped at its end */
-const setgroup = (nodes: Node[]): Node[] => (xcolor.on ? [colorPush(), ...nodes, colorPop()] : nodes)
-
-function labelBox(label: Node[], k: ClassOptionData, lw = k.dimens.labelwidth): BoxNode {
-  const llap = hpack([hss(), ...label], { exactly: 0 }) // \makelabel = \hss\llap{#1}
-  const tempbox = hpack(setgroup([hss(), llap])) // \sbox\@tempboxa{\makelabel{…}}
-  const ls = k.dimens.labelsep
-  const boxed = tempbox.width > lw ? tempbox : hpack(tempbox.list, { exactly: lw })
-  return hpack([glue(0), glue(-lw), glue(-ls), boxed, glue(ls)])
-}
-
-/** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
-function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page)): BoxNode {
-  const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-  const number = () => { const l: Node[] = []; appendText(l, thepage, font, { spaceFactor: 1000 }, false); return l }
-  const hfil = () => glue(0, 65536, FIL)
-  const even = k.ints.twoside && page % 2 === 0
-  // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
-  // \@evenhead{\thepage\hfil\slshape\leftmark}
-  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), hfil(), ...mark] : [...mark, hfil(), ...number()]
-  const footText: Node[] = pagestyle === "plain" ? [hfil(), ...number(), hfil()] : []
-  // \vfil, \hb@xt@\textwidth{\@thehead} (\color@hbox\normalcolor with a color package)
-  const head = vpack([hfil(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })
-  head.depth = 0
-  const foot = hpack(setgroup([hpack(footText, { exactly: k.dimens.textwidth })]))
-  // \baselineskip\z@skip \lineskip\z@skip \lineskiplimit\z@ until \baselineskip\footskip before the foot
-  const inner: Node[] = [head, glue(k.dimens.headsep), glue(0), column]
-  const d = k.dimens.footskip - column.depth - foot.height
-  inner.push(d < 0 ? glue(0) : glue(d), foot)
-  const box = vpack(inner)
-  box.shift = k.ints.twoside && page % 2 === 0 ? k.dimens.evensidemargin : k.dimens.oddsidemargin
-  const shipped = vpack([glue(k.dimens.topmargin), box])
-  // hyperref's \AtBeginShipout: the page anchor before the page, with \lineskip between
-  if (hyper) return vpack([pageAnchor(thepage, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
-  return shipped
-}
-
-/**
- * Whether a float right after a heading goes here decides \if@nobreak for the text after it,
- * which is laid out before the output routine places the float: the document is laid out again,
- * with the float not placed here, until every such guess holds.
- */
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
   epoch?: number
 }
 
 export function document(source: string, { epoch = Math.floor(Date.now() / 1000) }: DocumentOptions = {}): LayoutResult {
-  // the document's own macros expanded first, as the renderer does (expand:doc checks this keeps TeX's output)
-  // listings' environments are read verbatim: each becomes \lstplaceholder{n}
-  const listings: Listing[] = []
-  source = source.replace(/^([^%\n]*?)\\begin\{lstlisting\}(?:\[((?:[^\]{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\])?([^\n]*)\n([^]*?)^[ \t]*\\end\{lstlisting\}/gm, (_, before: string, options: string | undefined, rest: string, body: string) => {
-    if (rest.trim()) throw new Unsupported("text after \\begin{lstlisting} on its line")
-    listings.push({ options: options ?? "", lines: body.split("\n").map((l) => l.replace(/ +$/, "")) }) // the last: what comes before \end; TeX drops the spaces that end a line
-    return `${before}\\lstplaceholder{${listings.length - 1}}`
-  })
-  const uncommented = () => source.replace(/(^|[^\\])%.*$/gm, "$1")
-  if (/\\(begin|end)\{lstlisting\}/.test(uncommented())) throw new Unsupported("an lstlisting environment not on lines of its own")
-  // \lstinline[options]{code} or \lstinline[options]<c>code<c>, read verbatim: \LXlstinline{n} (n after the listings)
-  // Inside a command's argument (\emph{…}, \footnote{…}) TeX has already made tokens of it: spaces in a row are one
-  const inArgument = (at: number) => {
-    const stack: boolean[] = []
-    for (let i = 0; i < at; i++) {
-      const c = source[i]
-      if (c === "\\") { i++; continue }
-      if (c === "%") { while (i < at && source[i] !== "\n") i++; continue }
-      // (an argument after a command and its earlier arguments: \textcolor{c}{…})
-      // (not \lstinline's own argument; no space after an earlier argument)
-      // (not after a command that takes no argument, \item or \small, or after \color's one: a group)
-      if (c === "{") {
-        const m = source.slice(Math.max(0, i - 200), i).match(/\\(?!lstinline(?![A-Za-z]))([A-Za-z]+)\*?\s*((?:\[[^\]]*\]|\{[^{}]*\})*)$/)
-        stack.push(!!m && !NO_ARGUMENT.has(m[1]) && !(m[1] === "color" && /\}$/.test(m[2])))
-      }
-      else if (c === "}") stack.pop()
-    }
-    return stack.includes(true)
-  }
-  source = source.replace(/\\lstinline(?![A-Za-z])(?:\[((?:[^\]{}]|\{[^{}]*\})*)\])?(?:\{([^{}\n]*)\}|([^A-Za-z\s{\[])([^\n]*?)\3)/g, (_, options: string | undefined, braced: string | undefined, _d: string, delimited: string | undefined, offset: number) => {
-    // (a braced argument is read verbatim too, up to the first })
-    let code = braced ?? delimited ?? ""
-    if (inArgument(offset)) {
-      if (/[\\{}#%]/.test(code)) throw new Unsupported(`\\lstinline in an argument: ${code}`)
-      code = code.replace(/ +/g, " ")
-    }
-    listings.push({ options: options ?? "", lines: [code], inline: true })
-    return `\\LXlstinline{${listings.length - 1}}`
-  })
-  if (/\\lstinline(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\lstinline not read")
-  source = inlineMathParens(source)
-  const expanded = expandDocument(source, { known: isKnownCommand })
-  if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
-  // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
-  const tabulars: TabularSource[] = []
-  const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
-  const src0 = expanded.text.replace(/\\begin\{tabular\}\s*(?:\[([tbc])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}([^]*?)\\end\{tabular\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
-    if (commented(text, offset)) return all
-    if (/\\begin\{tabular\}/.test(body)) throw new Unsupported("a tabular in a tabular")
-    tabulars.push({ pos: (pos ?? "c") as "c", spec, body })
-    return `\\LXtabular{${tabulars.length - 1}}`
-  })
-  if ([...src0.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
-  // minipages: \LXminipage{n}, laid out where they stand
-  const minipages: MinipageSource[] = []
-  const src = src0.replace(/\\begin\{minipage\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{minipage\}/g, (all: string, pos: string | undefined, height: string | undefined, _inner: string | undefined, width: string, body: string, offset: number, text: string) => {
-    if (commented(text, offset)) return all
-    if (/\\begin\{minipage\}/.test(body)) throw new Unsupported("a minipage in a minipage")
-    minipages.push({ pos: (pos ?? "c") as "c", height: height ?? null, width, body })
-    return `\\LXminipage{${minipages.length - 1}}`
-  })
-  if ([...src.matchAll(/\\(?:begin|end)\{minipage\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
+  const { src, listings, tabulars, minipages } = prepareSource(source)
+  // Whether a float right after a heading goes here decides \if@nobreak for the text after it,
+  // which is laid out before the output routine places the float: the document is laid out again,
+  // with the float not placed here, until every such guess holds.
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
@@ -585,8 +102,6 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-/** an lstlisting environment's [options] and lines */
-interface Listing { options: string; lines: string[]; inline?: true }
 
 function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[], minipages: MinipageSource[], epoch: number): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
@@ -971,7 +486,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       else {
         if (!userCounters.has(name)) throw new Unsupported(`\\${cmd}{${name}}`)
         setCounter(name, counterValue(name) + 1)
-        for (const [n2, u] of userCounters) if (u.within === name) u.value = 0
+        for (const u of userCounters.values()) if (u.within === name) u.value = 0
         if (cmd === "refstepcounter") { // \@currentlabel and \@currentHref: in text, where the command stands
           if (inText) return `\\LXcurrentlabel{${theCounter(name)}}{${name}.${theCounter(name)}}{}`
           refs.label = theCounter(name); refs.href = `${name}.${theCounter(name)}`
@@ -1690,8 +1205,6 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.afterheadingEverypar = false
     list({ kind: "list", env: "quotation", items: b.items, inPar: false, blank: false }, small)
   }
-
-
 
   function typesetList(list: Node[], opts: Parameters<typeof paragraphInput>[4], withParskip: boolean) {
     const { params } = paragraphInput("", k, "normalsize", doc, { ...opts, amsmath })

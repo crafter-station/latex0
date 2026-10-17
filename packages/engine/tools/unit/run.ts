@@ -7,7 +7,7 @@ import { compareBoxLists, compareTraces, validateTrace, type BoxDivergence, type
 import { findColumn } from "../oracle/boxes"
 import { compareParagraphs, comparePages, documentPages, type DecisionDivergence } from "../../trace/decisions"
 import { cachedOracle } from "../oracle/oracle"
-import { Unsupported } from "../../latex/document"
+import { Unsupported } from "../../latex/unsupported"
 import { ADAPTERS } from "./adapters"
 import { parseHeader, type Tier } from "./header"
 

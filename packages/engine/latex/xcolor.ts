@@ -4,6 +4,7 @@
 
 import { printScaled } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
+import type { Node } from "../layout/nodes"
 
 export class ColorUnsupported extends Error {}
 
@@ -127,3 +128,13 @@ export class Colors {
     return `${c.model} ${c.v.join(" ")}`
   }
 }
+
+/** \color[model]{spec} in a style */
+export const COLOR_CMD = /\\color\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}/g
+
+/** xcolor (dvips driver): \set@color's push and \reset@color's pop; the document's color while it is loaded */
+export const xcolor = { on: false }
+export const colorPush = (spec = "gray 0"): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` })
+export const colorPop = (): Node => ({ kind: "whatsit", text: "\\special{color pop}" })
+/** with xcolor, \color@setgroup (\sbox, \mbox): the current color pushed in the box and popped at its end */
+export const setgroup = (nodes: Node[]): Node[] => (xcolor.on ? [colorPush(), ...nodes, colorPop()] : nodes)
