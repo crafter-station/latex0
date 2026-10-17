@@ -876,7 +876,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   })
   const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
-  let runIn: (() => Node[]) | null = null
+  /** (`em`: of the font where its \everypar runs, which reads \hskip -\@tempskipa's -1em) */
+  let runIn: ((em?: number) => Node[]) | null = null
   /**
    * \@noskipsec left true by a run-in heading whose \everypar never ran (a listing's replaced it, then
    * \lst@doendpe's): the heading is lost, and the next \@startsection or \@trivlist (\if@noskipsec\leavevmode)
@@ -925,7 +926,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (b.kind === "letter") { if (runIn) runInAlone(); letter(b); return }
     if (b.kind === "float") { floatBlock(b); return }
     // a listing right after a run-in heading: its \everypar (then \lst@doendpe's) replaces the heading's, which never runs
-    if (b.kind === "listing") { const lost = !!runIn; if (lost) { runIn = null; noskipsec = true } listing(b, lost); return }
+    // (unless a top frame's paragraph runs it first: the heading goes in place there)
+    if (b.kind === "listing") { const head = runIn; if (head) { runIn = null; noskipsec = true } listing(b, head); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
       // the \nobreak of \protected@write and of \@esphack
@@ -1629,7 +1631,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
   function styleColors(style: string) { return [...style.matchAll(COLOR_CMD)].map((m) => colorSpec(m[2], m[1])) }
 
-  function listing(b: Extract<Block, { kind: "listing" }>, afterRunIn = false) {
+  function listing(b: Extract<Block, { kind: "listing" }>, runInHead: ((em?: number) => Node[]) | null = null) {
     if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
     // right after a heading the listing's \everypar replaces \@afterheading's (which then never runs: \if@nobreak
     // stays true and \clubpenalty as it was), unless a top frame's paragraph runs it first
@@ -1699,12 +1701,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
     let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
-    const frameParagraph = (box: BoxNode, end: Node[] = []) => {
-      if (afterRunIn) throw new Unsupported("a framed listing right after a run-in heading") // (its \everypar would run there)
+    const frameParagraph = (box: BoxNode, end: Node[] = [], top = false) => {
       // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
-      if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
+      const start: Node[] = [box]
+      if (runInHead && top) { // a run-in heading's: \global\@noskipsecfalse, \clubpenalty\@M, the heading in place
+        start.unshift(...runInHead(baseFont.params[QUAD])); runInHead = null; noskipsec = false; v.club = 10000
+      } else if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
       else if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
-      const p = paragraphInput("", k, "normalsize", doc, { start: [box], parShape, ...breaks, amsmath, clubPenalty: v.club, end })
+      const p = paragraphInput("", k, "normalsize", doc, { start, parShape, ...breaks, amsmath, clubPenalty: v.club, end })
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       v.paragraph(lb.vlist, dimen(0), sz.baselineskip, lineskip, lineskiplimit)
@@ -1718,7 +1722,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (top) {
       const t = top.height - sz.baselineskip.width
       if (t < 0) { v.vskip(dimen(t)); v.vskip(k.glue.lineskip) }
-      frameParagraph(top)
+      frameParagraph(top, [], true)
       lineskip = dimen(0); lineskiplimit = 1073741823
     }
     // line numbers: \everypar's \refstepcounter{lstnumber} and \lst@SkipOrPrintLabel (every \lst@stepnumber-th from
@@ -2264,14 +2268,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const anchorName = hyper ? `section*.${++linkcounter}` : ""
     if (hyper) { refs.href = anchorName; refs.name = labelName(b.title) }
     // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
-    runIn = () => {
+    runIn = (em = romanFont.params[QUAD]) => {
       const title = counted(b.title)
       const indent = b.level === 5 ? k.dimens.parindent : 0
       const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, k.sizes.normalsize.baselineskip.width)] : [])]
       const head = paragraphInput(title, k, "normalsize", doc, { start, font: k.sizes.normalsize.bold, amsmath }).list
       if (!b.star) head.push(...contentsWrites(b.level, null, title, refs.href, false)) // (\@currentHref when the paragraph starts)
       if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip
-      head.push(glue(romanFont.params[QUAD])) // \hskip -\@tempskipa
+      head.push(glue(em)) // \hskip -\@tempskipa
       return head
     }
   }
