@@ -1,9 +1,9 @@
 #!/bin/sh
 # Install the TeX Live every reference comes from: the final, frozen 2025 edition
 # (tlnet-final never changes), with the collections the oracles and fixtures use.
-# CI runs this; locally it puts TeX where lib/latex/tools/tex.ts looks first.
+# CI runs this; locally it puts TeX where packages/engine/tools/tex.ts looks first.
 #
-#   sh lib/latex/tools/install-tex.sh [dir]     (default .cache/texlive/2025)
+#   sh packages/engine/tools/install-tex.sh [dir]     (default .cache/texlive/2025)
 set -eu
 REPO=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/2025/tlnet-final
 DIR=$(mkdir -p "${1:-.cache/texlive/2025}" && cd "${1:-.cache/texlive/2025}" && pwd)

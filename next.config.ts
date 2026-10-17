@@ -1,7 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // the engine ships as TypeScript source
+  transpilePackages: ["@latex0/engine"],
 };
 
 export default nextConfig;

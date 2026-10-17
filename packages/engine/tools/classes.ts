@@ -1,10 +1,10 @@
-// Class data for dev tooling: committed data only (lib/latex/data/classes).
+// Class data for dev tooling: committed data only (packages/engine/data/classes).
 
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import type { ClassData, ClassOptionData } from "../layout/classdata"
 
-const DIR = join(process.cwd(), "lib/latex/data/classes")
+const DIR = join(process.cwd(), "packages/engine/data/classes")
 const memo = new Map<string, ClassData>()
 
 export function classData(cls: string, option = "10pt", extras: string[] = []): ClassOptionData {

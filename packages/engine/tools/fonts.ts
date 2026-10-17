@@ -6,7 +6,7 @@ import { join } from "node:path"
 import { decodeFontData, type FontData } from "../layout/fontdata"
 import type { FixWordFont } from "../layout/font"
 
-const DIR = join(process.cwd(), "lib/latex/data/fonts")
+const DIR = join(process.cwd(), "packages/engine/data/fonts")
 const memo = new Map<string, FixWordFont>()
 
 export function dataFont(name: string): FixWordFont {

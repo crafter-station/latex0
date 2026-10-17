@@ -1,4 +1,4 @@
-// Public ledger for the engine roadmap (lib/latex/ROADMAP.md).
+// Public ledger for the engine roadmap (packages/engine/ROADMAP.md).
 // Edit this file, then run `bun scripts/issues/sync-issues.ts [--dry-run]`.
 // The sync is idempotent: issues are matched by exact title and updated in place.
 
@@ -22,7 +22,7 @@ export const AREAS: Area[] = [
 ]
 
 export const EXTRA_LABELS = [
-  { label: "engine",   color: "000000", description: "Zero-dependency LaTeX engine (lib/latex)" },
+  { label: "engine",   color: "000000", description: "Zero-dependency LaTeX engine (packages/engine)" },
   { label: "binding",  color: "E99695", description: "A package or class binding" },
   { label: "tracking", color: "EDEDED", description: "Tracking issue with a task list" },
 ]
@@ -117,7 +117,7 @@ export const ISSUES: Issue[] = [
   i("Engine CLI: latex0 render | trace | diff | census | scorecard", "tooling", 0,
     "A small CLI over the public API and tools so everything is scriptable and the future npm package is useful standalone.",
     ["render <file> [--html|--pdf|--trace]", "diff <fixture> (ours vs oracle)", "census <dir>", "scorecard"],
-    "CLI documented in lib/latex/README.md and used by CI."),
+    "CLI documented in packages/engine/README.md and used by CI."),
   i("Release pipeline: changesets, CHANGELOG, tagged releases, npm publish dry-run", "tooling", 0,
     "Versioning and release automation so shipping the package later is a switch, not a project.",
     ["Changesets configured for the engine package", "Release workflow with provenance (publish gated/dry-run until go-live)", "CHANGELOG generated"],

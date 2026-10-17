@@ -1,5 +1,5 @@
 // Liang's hyphenation algorithm exactly as TeX applies it, §§ 919–934.
-// Patterns and exceptions are data (lib/latex/data/hyphenation/*.json,
+// Patterns and exceptions are data (packages/engine/data/hyphenation/*.json,
 // generated from the pattern files LaTeX's format loads).
 
 export interface HyphenationData {

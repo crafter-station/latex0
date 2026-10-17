@@ -15,16 +15,18 @@
 //   bun engine math:check [--n 3000] [--seed 1]       random formulas: mlist_to_hlist vs TeX \showbox (#74)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
+//   bun engine boundary                                imports stay inside the package (#38)
 //   bun engine ci                                      the full conformance gate, locally (what engine.yml runs)
 import { execFileSync, spawn, spawnSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { watch } from "node:fs"
+import { boundaryCheck } from "./boundary"
 import { oracleTrace } from "./oracle/oracle"
 import { collectFixtures, report, runFixture } from "./unit/run"
 
-const FIXTURES = "lib/latex/fixtures"
+const FIXTURES = "packages/engine/fixtures"
 const [cmd, ...rest] = process.argv.slice(2)
 const flags = new Set(rest.filter((a) => a.startsWith("-")))
 const args = rest.filter((a) => !a.startsWith("-"))
@@ -41,9 +43,9 @@ function watchUnit() {
   const run = () => {
     process.stdout.write("\x1bc")
     spawn(process.execPath, [process.argv[1], "unit", ...rest.filter((a) => a !== "--watch")], { stdio: "inherit" })
-      .on("exit", () => console.log(`\nwatching lib/latex for changes… (ctrl-c to stop)`))
+      .on("exit", () => console.log(`\nwatching packages/engine for changes… (ctrl-c to stop)`))
   }
-  watch("lib/latex", { recursive: true }, (_e, file) => {
+  watch("packages/engine", { recursive: true }, (_e, file) => {
     if (!file || file.includes(".cache") || !/\.(ts|tex)$/.test(String(file))) return
     clearTimeout(timer); timer = setTimeout(run, 150)
   })
@@ -56,11 +58,16 @@ function ci(): number {
   const base = join(tmpdir(), "latex0-scorecard-base.json")
   try {
     execFileSync("git", ["fetch", "-q", "origin", "main"], { stdio: "ignore" })
-    writeFileSync(base, execFileSync("git", ["show", "origin/main:lib/latex/fixtures/scorecard.json"]))
+    // lib/latex until the move to packages/engine is on main
+    const at = (p: string) => execFileSync("git", ["show", `origin/main:${p}/fixtures/scorecard.json`], { stdio: ["ignore", "pipe", "ignore"] })
+    let json: Buffer
+    try { json = at("packages/engine") } catch { json = at("lib/latex") }
+    writeFileSync(base, json)
   } catch {
     writeFileSync(base, "{}")
   }
   const steps = [
+    ["boundary"],
     ["codegen", "--check"],
     ["oracle:check"],
     ["unit"],
@@ -88,6 +95,8 @@ function ci(): number {
 switch (cmd) {
   case "ci":
     process.exit(ci())
+  case "boundary":
+    process.exit(boundaryCheck())
   case "unit":
     if (flags.has("--watch")) watchUnit()
     else process.exit(unit())

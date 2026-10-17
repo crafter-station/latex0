@@ -12,7 +12,7 @@ import { parseScaled } from "../oracle/tracing"
 import { loadTfm } from "../oracle/oracle"
 import { texEnv } from "../tex"
 
-const OUT = "lib/latex/data/classes"
+const OUT = "packages/engine/data/classes"
 const CLASSES = ["article", "report", "book", "letter"]
 const OPTIONS = ["10pt", "11pt", "12pt"]
 

@@ -45,9 +45,9 @@ const INT_PARAMS = {
 const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStretch" } as const
 
 let memoHyphenator: ReturnType<typeof buildHyphenator> | undefined
-const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("lib/latex/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
+const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("packages/engine/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
 let memoMath: MathData | undefined
-export const mathData = () => (memoMath ??= JSON.parse(readFileSync("lib/latex/data/math/latex.json", "utf8")) as MathData)
+export const mathData = () => (memoMath ??= JSON.parse(readFileSync("packages/engine/data/math/latex.json", "utf8")) as MathData)
 
 /** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {

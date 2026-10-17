@@ -5,7 +5,7 @@ import { useFileStore } from "@/lib/file-store"
 import { bundleLatexFiles } from "@/lib/latex-bundler"
 import { findMainFile } from "@/lib/file-utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { render, LATEX_CSS } from "@/lib/latex"
+import { render, LATEX_CSS } from "@latex0/engine"
 
 interface HtmlPreviewProps {
   zoom?: number

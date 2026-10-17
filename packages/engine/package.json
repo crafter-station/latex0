@@ -1,0 +1,15 @@
+{
+  "name": "@latex0/engine",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Zero-dependency LaTeX engine: identical output to TeX, checked against TeX Live 2025",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./index.ts",
+    "./scorecard.json": "./fixtures/scorecard.json"
+  },
+  "scripts": {
+    "engine": "bun tools/cli.ts"
+  }
+}

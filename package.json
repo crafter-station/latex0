@@ -2,6 +2,9 @@
   "name": "latex0",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/engine"
+  ],
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,7 +13,7 @@
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "engine": "bun lib/latex/tools/cli.ts"
+    "engine": "bun packages/engine/tools/cli.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.21",
@@ -46,6 +49,7 @@
     "@upstash/redis": "^1.36.1",
     "@vercel/analytics": "^1.6.1",
     "@vercel/blob": "^2.2.0",
+    "@latex0/engine": "workspace:*",
     "@xyflow/react": "^12.10.0",
     "ai": "^6.0.57",
     "ansi-to-react": "^6.2.6",

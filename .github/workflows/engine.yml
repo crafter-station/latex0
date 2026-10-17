@@ -34,12 +34,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/texlive/2025
-          key: texlive-2025-final-${{ runner.os }}-${{ hashFiles('lib/latex/tools/install-tex.sh') }}
+          key: texlive-2025-final-${{ runner.os }}-${{ hashFiles('packages/engine/tools/install-tex.sh') }}
       - name: Install TeX (TeX Live 2025, final and frozen, the same everywhere)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends poppler-utils wamerican
-          sh lib/latex/tools/install-tex.sh
+          sh packages/engine/tools/install-tex.sh
           echo "$(echo "$PWD"/.cache/texlive/2025/bin/*)" >> "$GITHUB_PATH"
       - name: Committed font and hyphenation data match TeX
         run: bun engine codegen --check
@@ -51,7 +51,7 @@ jobs:
         if: always()
         run: |
           git fetch -q --depth=1 origin main
-          git show origin/main:lib/latex/fixtures/scorecard.json > "$RUNNER_TEMP/base.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/base.json"
+          git show origin/main:packages/engine/fixtures/scorecard.json > "$RUNNER_TEMP/base.json" 2>/dev/null || echo '{}' > "$RUNNER_TEMP/base.json"
           bun engine scorecard --check --base "$RUNNER_TEMP/base.json" --markdown "$RUNNER_TEMP/scorecard.md"
       - name: Post the scorecard on the PR
         if: always() && github.event_name == 'pull_request'
