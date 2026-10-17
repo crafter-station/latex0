@@ -1,0 +1,36 @@
+\documentclass[11pt]{article}
+\usepackage[margin=0.8in]{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\pagestyle{empty}
+
+\begin{document}
+\begin{center}
+  {\LARGE \textbf{Jordan Lee}}\\[4pt]
+  \href{mailto:jordan@example.com}{jordan@example.com} \quad
+  \href{https://github.com/jlee}{github.com/jlee}
+\end{center}
+
+\section{Experience}
+\textbf{Software Engineer}, Acme Corp. \hfill 2021--present
+\begin{itemize}[leftmargin=*,noitemsep]
+  \item Built the billing service handling 2M requests per day.
+  \item Cut deploy time from 40 to 6 minutes.
+\end{itemize}
+
+\textbf{Intern}, Beta Labs \hfill 2020
+\begin{itemize}[leftmargin=*,noitemsep]
+  \item Prototyped a search ranking model.
+\end{itemize}
+
+\section{Education}
+\textbf{B.Sc. Computer Science}, State University \hfill 2017--2021
+
+\section{Skills}
+\begin{tabular}{@{}ll}
+  Languages: & Go, Python, TypeScript \\
+  Tools: & PostgreSQL, Docker, Kubernetes \\
+\end{tabular}
+\end{document}

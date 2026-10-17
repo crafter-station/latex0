@@ -16,6 +16,7 @@
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 //   bun engine boundary                                imports stay inside the package (#38)
+//   bun engine gaps [paths…]                           constructs not laid out yet, ranked by documents stopped (engine only, no TeX)
 //   bun engine ci                                      the full conformance gate, locally (what engine.yml runs)
 import { execFileSync, spawn, spawnSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
@@ -30,6 +31,9 @@ const FIXTURES = "packages/engine/fixtures"
 const [cmd, ...rest] = process.argv.slice(2)
 const flags = new Set(rest.filter((a) => a.startsWith("-")))
 const args = rest.filter((a) => !a.startsWith("-"))
+/** `--name value` options */
+const strOpt = (k: string) => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : undefined }
+const numOpt = (k: string, d: number) => Number(strOpt(k) ?? d)
 
 function unit(): number {
   const results = collectFixtures(args.length ? args : [FIXTURES]).map(runFixture)
@@ -68,6 +72,7 @@ function ci(): number {
   }
   const steps = [
     ["boundary"],
+    ["gaps"], // no engine errors on the fixtures and the starter corpus
     ["codegen", "--check"],
     ["oracle:check"],
     ["unit"],
@@ -130,48 +135,43 @@ switch (cmd) {
   }
   case "hyphen:check": {
     const { hyphenCheck } = await import("./oracle/showhyphens")
-    const i = rest.indexOf("--words")
-    process.exit(hyphenCheck(i >= 0 ? Number(rest[i + 1]) : 10000))
+    process.exit(hyphenCheck(numOpt("--words", 10000)))
   }
   case "fuzz:paragraphs": {
     const { fuzzParagraphs } = await import("./fuzz/paragraphs")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(fuzzParagraphs(opt("--n", 200), opt("--seed", 1)))
+    process.exit(fuzzParagraphs(numOpt("--n", 200), numOpt("--seed", 1)))
   }
   case "fuzz:documents": {
     const { fuzzDocuments } = await import("./fuzz/documents")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(fuzzDocuments(opt("--n", 30), opt("--seed", 1)))
+    process.exit(fuzzDocuments(numOpt("--n", 30), numOpt("--seed", 1)))
   }
   case "dimen:check": {
     const { dimenCheck } = await import("./oracle/dimencheck")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(dimenCheck(opt("--n", 5000), opt("--seed", 1)))
+    process.exit(dimenCheck(numOpt("--n", 5000), numOpt("--seed", 1)))
+  }
+  case "gaps": {
+    const { gaps } = await import("./gaps")
+    process.exit(gaps(args.length ? args : [FIXTURES, "packages/engine/corpus"]))
   }
   case "scorecard": {
     const { scorecard } = await import("./scorecard")
-    const opt = (k: string) => { const i = rest.indexOf(k); return i >= 0 ? rest[i + 1] : undefined }
-    process.exit(scorecard({ check: flags.has("--check"), base: opt("--base"), markdownOut: opt("--markdown") }))
+    process.exit(scorecard({ check: flags.has("--check"), base: strOpt("--base"), markdownOut: strOpt("--markdown") }))
   }
   case "glyph:check": {
     const { glyphCheck } = await import("./oracle/glyphcheck")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(glyphCheck(opt("--n", 4000), opt("--seed", 1)))
+    process.exit(glyphCheck(numOpt("--n", 4000), numOpt("--seed", 1)))
   }
   case "expand:check": {
     const { expandCheck } = await import("./oracle/expandcheck")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(expandCheck(opt("--n", 3000), opt("--seed", 1)))
+    process.exit(expandCheck(numOpt("--n", 3000), numOpt("--seed", 1)))
   }
   case "expand:doc": {
     const { expandDocCheck } = await import("./oracle/expanddoc")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(expandDocCheck(opt("--n", 300), opt("--seed", 1)))
+    process.exit(expandDocCheck(numOpt("--n", 300), numOpt("--seed", 1)))
   }
   case "math:check": {
     const { mathCheck } = await import("./oracle/mathcheck")
-    const opt = (k: string, d: number) => { const i = rest.indexOf(k); return i >= 0 ? Number(rest[i + 1]) : d }
-    process.exit(mathCheck(opt("--n", 3000), opt("--seed", 1)))
+    process.exit(mathCheck(numOpt("--n", 3000), numOpt("--seed", 1)))
   }
   case "trace":
     if (!args[0]) throw new Error("usage: bun engine trace <fixture.tex>")

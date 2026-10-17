@@ -340,6 +340,7 @@ Developer workflow for one unit of work (one rule or one binding):
 bun engine new binding booktabs        # scaffolds src/bindings/booktabs.ts, fixtures, test, links issue
 bun engine unit fixtures/micro/tables/booktabs-*.tex   # latex → oracle refs, render → compare, report
 bun engine scorecard                   # full corpus; must not regress; CI runs the same command
+bun engine gaps                        # what stops documents (fixtures + corpus/), ranked: pick the next feature
 ```
 
 Rules:
