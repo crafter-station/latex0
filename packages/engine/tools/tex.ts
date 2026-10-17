@@ -2,13 +2,15 @@
 // that packages/engine/tools/install-tex.sh puts in .cache/texlive (what CI uses); otherwise
 // MacTeX's location if present; otherwise whatever is on PATH.
 
-import { existsSync, readdirSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 const MACTEX = "/Library/TeX/texbin"
 
-/** Where install-tex.sh puts the TeX Live every reference comes from: the final, frozen 2025 edition. */
-const PINNED = resolve(process.cwd(), ".cache/texlive/2025")
+/** The TeX Live every reference comes from: the final, frozen edition of this year (tools/TEXLIVE). */
+export const TEXLIVE = readFileSync(resolve(process.cwd(), "packages/engine/tools/TEXLIVE"), "utf8").trim()
+/** Where install-tex.sh puts it. */
+const PINNED = resolve(process.cwd(), `.cache/texlive/${TEXLIVE}`)
 
 function pinned(): string {
   const bin = join(PINNED, "bin")

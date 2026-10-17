@@ -1,13 +1,15 @@
 #!/bin/sh
-# Install the TeX Live every reference comes from: the final, frozen 2025 edition
-# (tlnet-final never changes), with the collections the oracles and fixtures use.
-# CI runs this; locally it puts TeX where packages/engine/tools/tex.ts looks first.
+# Install the TeX Live every reference comes from: the final, frozen edition of
+# the year in tools/TEXLIVE (tlnet-final never changes), with the collections the
+# oracles and fixtures use. CI runs this; locally it puts TeX where
+# packages/engine/tools/tex.ts looks first.
 #
-#   sh packages/engine/tools/install-tex.sh [dir]     (default .cache/texlive/2025)
+#   sh packages/engine/tools/install-tex.sh [dir]     (default .cache/texlive/<year>)
 set -eu
-REPO=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/2025/tlnet-final
-DIR=$(mkdir -p "${1:-.cache/texlive/2025}" && cd "${1:-.cache/texlive/2025}" && pwd)
-if [ -x "$DIR"/bin/*/latex ] 2>/dev/null; then echo "TeX Live 2025 already in $DIR"; exit 0; fi
+YEAR=$(cat "$(dirname "$0")/TEXLIVE")
+REPO=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/$YEAR/tlnet-final
+DIR=$(mkdir -p "${1:-.cache/texlive/$YEAR}" && cd "${1:-.cache/texlive/$YEAR}" && pwd)
+if [ -x "$DIR"/bin/*/latex ] 2>/dev/null; then echo "TeX Live $YEAR already in $DIR"; exit 0; fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 curl -fsSL "$REPO/install-tl-unx.tar.gz" | tar -xz -C "$WORK"

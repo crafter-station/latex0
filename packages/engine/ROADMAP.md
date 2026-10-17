@@ -115,9 +115,19 @@ Deliverables:
   surfaced in Monaco gutters like TeX's log.
 - **Determinism guard** — Node and headless Chromium produce byte-identical
   output for the whole corpus.
-- **CI** — TeX Live 2025, final and frozen (`packages/engine/tools/install-tex.sh`, the
-  same TeX locally and in CI); scorecard must not regress; scorecard page
-  deployed with the app.
+- **CI** — TeX Live, final and frozen, of the year in `tools/TEXLIVE` (2025;
+  `packages/engine/tools/install-tex.sh`, the same TeX locally and in CI);
+  scorecard must not regress; scorecard page deployed with the app.
+- **New LaTeX releases** — LaTeX changes twice a year; the engine follows a
+  frozen TeX Live, one year at a time:
+  1. put the new year in `tools/TEXLIVE` and run `install-tex.sh`;
+  2. `bun engine codegen` regenerates the font, class, hyphenation and math
+     data from it (`codegen --check` holds again);
+  3. `bun engine ci`: the oracle cache is keyed by the TeX version and package
+     database, so every reference is recomputed, and each fixture or fuzz check
+     that moves points at a kernel change;
+  4. port each change in the module that cites that macro (`latex/kernel.ts`,
+     `latex/sectioning.ts`, …), one PR per change with its fixture.
 
 ---
 
