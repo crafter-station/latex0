@@ -11,15 +11,14 @@ import type { Ctx } from "./context"
 import { caption } from "./floats"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
-import { preamble, tabularBox, tabularLines, TabularUnsupported, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
+import { preamble, tabularBox, tabularLines, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
 import { hlistInput, appendToVlist, labelWrite, mathEnv, paragraphInput, selectFont, type FontAttrs, type TabularOuter } from "./paragraph"
 
 /** tabular number n where it stands in text (DocState.tabular) */
 export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
   const { tabulars } = cx
   const t = tabulars[n]
-  let lines: TabLine[], cols: TabCol[]
-  try { lines = tabularLines(t.body); cols = preamble(t.spec) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
+  const lines = tabularLines(t.body), cols = preamble(t.spec)
   return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer)
 }
 
@@ -162,7 +161,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     },
     ...(booktabs ? { booktabs } : {}),
   }
-  try { return tabularBox(lines, cols, env, pos) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
+  return tabularBox(lines, cols, env, pos)
 }
 
 /** \textwidth, \columnwidth and \linewidth in a width (`lineWidth`: \linewidth where it stands) */

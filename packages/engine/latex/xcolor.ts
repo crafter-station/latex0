@@ -5,8 +5,9 @@
 import { printScaled } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
 import type { Node } from "../layout/nodes"
+import { Unsupported } from "./unsupported"
 
-export class ColorUnsupported extends Error {}
+export class ColorUnsupported extends Unsupported {}
 
 /** xcolor's base colors (\definecolorset … in xcolor.sty), in the model the driver gets */
 const BASE: Record<string, string> = {

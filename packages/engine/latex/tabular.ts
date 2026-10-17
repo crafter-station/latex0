@@ -8,8 +8,9 @@ import { emptyBox, glue, kern, paramGlue, type BoxNode, type Node, filGlue, fill
 import { hpack, vpack } from "../layout/pack"
 import type { GlueSpec } from "../layout/dimen"
 import { appendToVlist } from "./paragraph"
+import { Unsupported } from "./unsupported"
 
-export class TabularUnsupported extends Error {}
+export class TabularUnsupported extends Unsupported {}
 
 /** what a preamble puts around a column's entry: a rule (|), a skip, or @-text */
 export type TabItem = { rule: true } | { skip: "tabcolsep" | "doublerulesep" | "halfrule" } | { text: string }

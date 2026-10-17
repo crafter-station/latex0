@@ -7,8 +7,9 @@
 import type { ClassOptionData } from "../layout/classdata"
 import { Scanner, type ScanEnv } from "../layout/dimen"
 import { printScaled, xnOverD } from "../layout/arith"
+import { Unsupported } from "./unsupported"
 
-export class GeometryUnsupported extends Error {}
+export class GeometryUnsupported extends Unsupported {}
 
 const PAPERS: Record<string, [string, string]> = {
   a0paper: ["841mm", "1189mm"], a1paper: ["594mm", "841mm"], a2paper: ["420mm", "594mm"], a3paper: ["297mm", "420mm"],

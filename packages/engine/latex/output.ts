@@ -18,6 +18,7 @@ import { documentPages } from "../trace/decisions"
 import { dataFont } from "./data"
 import { pageAnchor } from "./hyperref"
 import { setgroup } from "./xcolor"
+import { Unsupported } from "./unsupported"
 
 const MAX_DIMEN = 0o7777777777
 
@@ -45,7 +46,7 @@ export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman
   | { cleardouble: Node[] }
 
 /** Thrown for what the output routine does that is not modeled yet. */
-export class OutputUnsupported extends Error {}
+export class OutputUnsupported extends Unsupported {}
 
 /** A float right after a heading went elsewhere than the text after it assumed. */
 export class NobreakFloat extends Error { constructor(readonly index: number) { super(`float ${index} placed elsewhere than assumed`) } }

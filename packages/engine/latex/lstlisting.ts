@@ -16,7 +16,7 @@ import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH, negate } from "./vlist"
 import { anchor, labelName } from "./hyperref"
 import { COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
-import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, type LstFrame, type LstOptions } from "./listings"
+import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, type LstFrame, type LstOptions } from "./listings"
 import { fontAt, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs } from "./paragraph"
 import { styleColors } from "./colors"
 
@@ -63,8 +63,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   // right after a heading the listing's \everypar replaces \@afterheading's (which then never runs: \if@nobreak
   // stays true and \clubpenalty as it was), unless a top frame's paragraph runs it first
   if (t1) throw new Unsupported("listings with T1")
-  let o: LstOptions
-  try { o = lstOptions(listings[b.n].options, lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+  const o = lstOptions(listings[b.n].options, lstBase)
   const { styleOf, fonts } = lstFontsAt(cx, "normalsize", { enc: "OT1", fam: "cmr", ser: "m", shape: "n" })
   const base = styleOf(o.basicstyle), baseFont = selectFont(run.k, base.size, base.a)
   // \lst@width: basewidth (0.6em, 0.45em for flexible columns) in the listing's font
@@ -73,8 +72,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   const units = { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] }
   const dim = (key: keyof LstOptions) => { try { return parseDimen(o[key] as string, units) } catch { throw new Unsupported(`${key}=${o[key]}`) } }
   const xleft = dim("xleftmargin"), lw = hsize - xleft - dim("xrightmargin")
-  let events
-  try { events = lstScan({ width, lines: listings[b.n].lines, options: o, fonts, carry: run.lstCarry, breaks: { indent: dim("breakindent"), lineWidth: lw, left: xleft } }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+  const events = lstScan({ width, lines: listings[b.n].lines, options: o, fonts, carry: run.lstCarry, breaks: { indent: dim("breakindent"), lineWidth: lw, left: xleft } })
   const smallskip = glue(196608, 65536, 0, 65536, 0), medskip = cls === "letter" ? dimen(medskipamount) : glue(393216, 131072, 0, 131072, 0)
   const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
   // \lst@Init: \par\penalty-50\relax\vspace\lst@aboveskip, \normalbaselines, \lst@MakeCaption t
@@ -231,15 +229,13 @@ export function lstinlineAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAt
   const { listings, run } = cx
   if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
   if (t1) throw new Unsupported("listings with T1")
-  let o: LstOptions
-  try { o = lstOptions(listings[n].options, lstOptions("flexiblecolumns", lstBase)) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+  const o = lstOptions(listings[n].options, lstOptions("flexiblecolumns", lstBase))
   const { styleOf, fonts } = lstFontsAt(cx, size, attrs)
   const base = styleOf(o.basicstyle), baseFont = selectFont(run.k, base.size, base.a)
   const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
   if (run.lstCarry.gobbledws) throw new Unsupported("\\lstinline after gobbled whitespace")
   if (o.breaklines) throw new Unsupported("\\lstinline with breaklines")
-  let events
-  try { events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: run.lstCarry }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
+  const events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: run.lstCarry })
   run.lstLineno = 1 // InitVars, and no end of line
   const nodes = events.map((e) => { if ("node" in e) return e.node; throw new Unsupported("\\lstinline with a line break") })
   const basicColors = styleColors(cx, o.basicstyle) // basicstyle in \lst@Init: its pushes before the tokens

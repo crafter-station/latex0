@@ -28,9 +28,9 @@ import { runState } from "./run"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { VerticalList } from "./vlist"
-import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat, OutputUnsupported } from "./output"
+import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, type Bookmark } from "./hyperref"
-import { Colors, ColorUnsupported, colorPush, xcolor } from "./xcolor"
+import { Colors, colorPush, xcolor } from "./xcolor"
 import { paragraphInput, selectFont, type DocState, type FontAttrs, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
@@ -90,10 +90,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
-  try { for (const [n, m, x] of colorDefs) colors.define(n, m, x) } catch (e) { if (e instanceof ColorUnsupported) throw new Unsupported(e.message); throw e }
+  for (const [n, m, x] of colorDefs) colors.define(n, m, x)
   const colorSpec = (spec: string, model?: string) => {
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
-    try { return colors.spec(spec, model) } catch (e) { if (e instanceof ColorUnsupported) throw new Unsupported(e.message); throw e }
+    return colors.spec(spec, model)
   }
   const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec }
   const decisions: ParagraphTrace[] = []
@@ -167,7 +167,6 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   let built: ReturnType<typeof endDocument>
   try { built = endDocument(v.nodes, run.k, outerParskip) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
-    if (e instanceof OutputUnsupported) throw new Unsupported(e.message)
     throw e
   }
   const { pages, pageTrace } = built
