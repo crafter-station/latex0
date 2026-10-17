@@ -15,11 +15,11 @@ import { emitBoxes } from "../../emit/boxes"
 import { loadFont } from "../../layout/font"
 import { hpack } from "../../layout/pack"
 import type { Node } from "../../layout/nodes"
-import type { MathData } from "../../mathlayout/data"
 import { mlistToHlist, TEXT } from "../../mathlayout/mlist"
 import { parseMath } from "../../mathlayout/parse"
 import { compareBoxLists, type BoxNode } from "../../trace/schema"
 import { classData } from "../classes"
+import { mathData } from "../../latex/data"
 import { dataFont } from "../fonts"
 import { texEnv } from "../tex"
 import { parseBoxDump } from "./boxes"
@@ -121,7 +121,7 @@ function print(items: Item[]): string {
 
 export function mathCheck(n: number, seed: number): number {
   mkdirSync(DIR, { recursive: true })
-  const data = JSON.parse(readFileSync("packages/engine/data/math/latex.json", "utf8")) as MathData
+  const data = mathData()
   const pool = Array.from({ length: 94 }, (_, i) => 33 + i).filter((c) => !SPECIAL.has(c) && data.mathcodes[c] < 0x8000)
   const r = rng(seed)
   // operators and punctuation weigh more, so spacing and rule 5 come up often

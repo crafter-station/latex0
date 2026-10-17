@@ -15,11 +15,10 @@ import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } f
 import { Scanner, type GlueSpec } from "../../../layout/dimen"
 import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
 import { appendText } from "../../../layout/hmode"
-import { buildHyphenator, type HyphenationData } from "../../../layout/hyphenate"
+import { buildHyphenator } from "../../../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
 import { xnOverD } from "../../../layout/arith"
 import { emptyBox, FIL, FILL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
-import type { MathData } from "../../../mathlayout/data"
 import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../../../mathlayout/mlist"
 import { parseMath } from "../../../mathlayout/parse"
 import { emitBoxes } from "../../../emit/boxes"
@@ -27,9 +26,9 @@ import { hpack, vpack } from "../../../layout/pack"
 import { roundDecimals } from "../../../layout/dimen"
 import { documentPages, type ParagraphTrace } from "../../../trace/decisions"
 import { shipOut } from "../../../emit/trace"
-import { readFileSync } from "node:fs"
 import { classData, documentClass } from "../../classes"
 import { dataFont } from "../../fonts"
+import { hyphenationData, mathData } from "../../../latex/data"
 import type { Adapter } from "./index"
 import { endDocument, makeColumns } from "./output"
 import { anchor, refLink, spotAnchor, tocLink } from "./hyperref"
@@ -45,9 +44,8 @@ const INT_PARAMS = {
 const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStretch" } as const
 
 let memoHyphenator: ReturnType<typeof buildHyphenator> | undefined
-const hyphenator = () => (memoHyphenator ??= buildHyphenator(JSON.parse(readFileSync("packages/engine/data/hyphenation/en-us.json", "utf8")) as HyphenationData))
-let memoMath: MathData | undefined
-export const mathData = () => (memoMath ??= JSON.parse(readFileSync("packages/engine/data/math/latex.json", "utf8")) as MathData)
+const hyphenator = () => (memoHyphenator ??= buildHyphenator(hyphenationData("en-us")))
+export { mathData }
 
 /** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {

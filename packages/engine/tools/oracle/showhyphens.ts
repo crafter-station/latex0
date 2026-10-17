@@ -7,9 +7,10 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { loadFont } from "../../layout/font"
 import { appendText } from "../../layout/hmode"
-import { buildHyphenator, type HyphenationData, type Hyphenator } from "../../layout/hyphenate"
+import { buildHyphenator, type Hyphenator } from "../../layout/hyphenate"
 import { hyphenateFollowingWord } from "../../layout/hyphenpass"
 import { glue, type Node } from "../../layout/nodes"
+import { hyphenationData } from "../../latex/data"
 import { dataFont } from "../fonts"
 import { texEnv } from "../tex"
 
@@ -62,7 +63,7 @@ export function hyphenCheck(n: number): number {
   const all = readFileSync("/usr/share/dict/words", "utf8").split("\n").filter((w) => /^[A-Za-z]+$/.test(w))
   const step = Math.max(1, Math.floor(all.length / n))
   const words = all.filter((_, i) => i % step === 0).slice(0, n)
-  const data = JSON.parse(readFileSync("packages/engine/data/hyphenation/en-us.json", "utf8")) as HyphenationData
+  const data = hyphenationData("en-us")
   const h = buildHyphenator(data)
   const tex = texShowHyphens(words)
   // Compare what the engine actually builds (discretionaries after reconstitute),
