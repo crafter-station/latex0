@@ -6,7 +6,7 @@ import { loadFont, QUAD, X_HEIGHT, type Font } from "../layout/font"
 import { Scanner } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mathGlue } from "../mathlayout/mlist"
 import { hpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
@@ -38,12 +38,12 @@ export function maketitle(cx: Ctx) {
   v.nobreak = false
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
   if (titlepage) {
-    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("empty"), hook("page=1"))
+    v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
     v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
     v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
     v.vskip(dimen(60 * 65536))
   } else {
-    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("notop"), glue(0, 65536, FIL), penalty(-10000))
+    v.nodes.push(filGlue(), penalty(-10000), hook("notop"), filGlue(), penalty(-10000))
     v.box(hpack([]), run.k.sizes.normalsize.baselineskip) // \null
     v.vskip(dimen(em("2em", romanFont)))
   }
@@ -52,7 +52,7 @@ export function maketitle(cx: Ctx) {
   v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
   const labelsep = run.k.dimens.labelsep
   const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
-  const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+  const flush = (p: string) => paramGlue(p, filGlue())
   const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
   const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
   check(title.title, "\\title")
@@ -88,7 +88,7 @@ export function maketitle(cx: Ctx) {
     // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
     v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
     v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-    v.nodes.push(glue(0, 65536, FIL), penalty(-10000))
+    v.nodes.push(filGlue(), penalty(-10000))
     if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
   } else {
     // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}
@@ -136,7 +136,7 @@ export function tocLine(cx: Ctx, e: TocEntry) {
     if (e.number === null) return []
     const l: Node[] = []
     appendText(l, e.number, f, { spaceFactor: 1000 }, false)
-    return [hpack([...l, glue(0, 65536, FIL)], { exactly: width })]
+    return [hpack([...l, filGlue()], { exactly: width })]
   }
   // the page number: \hb@xt@\@pnumwidth (in the line's font) {\hss or \hfil, #2, \kern-\p@\kern\p@}
   const pageBox = (fill: Node, normalcolor = false): BoxNode => {
@@ -161,7 +161,7 @@ export function tocLine(cx: Ctx, e: TocEntry) {
     const tempdima = dims("1.5em"), pnum = dims("1.55em")
     start = [...(keepIndent ? [emptyBox("hlist", 0)] : []), glue(-tempdima)]
     nl = numberline(tempdima)
-    tail = [penalty(10000), glue(0, 65536, FIL), penalty(10000), pageBox(glue(0, 65536, FIL, 65536, FIL))]
+    tail = [penalty(10000), filGlue(), penalty(10000), pageBox(ssGlue())]
     params = { leftSkip: spec("leftskip", dimen(tempdima)), rightSkip: spec("rightskip", dimen(pnum)), parFillSkip: spec("parfillskip", dimen(-pnum)) }
   } else {
     const [indent, numwidth] = (cls === "article" ? [["", ""], ["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]] : [["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]])[e.level].map((x) => dims(x))
@@ -174,7 +174,7 @@ export function tocLine(cx: Ctx, e: TocEntry) {
     const leader = hpack([{ kind: "math", on: true, width: 0 }, kern(mk, true), hpack(dot), kern(mk, true), { kind: "math", on: false, width: 0 }])
     start = [emptyBox("hlist", indent), hpack([]), penalty(10000), glue(-(indent + numwidth))]
     nl = numberline(numwidth)
-    tail = [penalty(10000), { ...glue(0, 65536, FILL), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(glue(0, 65536, FIL), true), ...(xcolor.on ? [colorPop()] : [])] // (\aftergroup: after the box)
+    tail = [penalty(10000), { ...fillGlue(), leaders: { kind: "leaders", box: leader } }, penalty(10000), pageBox(filGlue(), true), ...(xcolor.on ? [colorPop()] : [])] // (\aftergroup: after the box)
     params = { leftSkip: spec("leftskip", dimen(indent + numwidth)), rightSkip: spec("rightskip", dimen(rmarg)), parFillSkip: spec("parfillskip", dimen(-rmarg)), interLinePenalty: 10000 }
   }
   // hyperref (linktoc=section): the number and the title in a link to the heading's anchor

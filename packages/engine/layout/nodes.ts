@@ -1,6 +1,8 @@
 // Layout tree: TeX's node types (§§ 133–160), dimensions in integer sp.
 // Every renderer projection (trace, box tree, HTML, PDF) is computed from this.
 
+import type { Font } from "./font"
+
 export const NORMAL = 0, FIL = 1, FILL = 2, FILLL = 3
 export type GlueOrder = 0 | 1 | 2 | 3
 export const SIGN_NORMAL = 0, STRETCHING = 1, SHRINKING = 2
@@ -64,10 +66,20 @@ export type Node = CharNode | GlueNode | KernNode | PenaltyNode | RuleNode | Box
 
 export const glue = (width: number, stretch = 0, stretchOrder: GlueOrder = NORMAL, shrink = 0, shrinkOrder: GlueOrder = NORMAL): GlueNode =>
   ({ kind: "glue", width, stretch, stretchOrder, shrink, shrinkOrder })
+/** fil_glue, fill_glue and ss_glue (§ 162): \hfil and \vfil, \hfill and \vfill, \hss and \vss */
+export const filGlue = (): GlueNode => glue(0, 65536, FIL)
+export const fillGlue = (): GlueNode => glue(0, 65536, FILL)
+export const ssGlue = (): GlueNode => glue(0, 65536, FIL, 65536, FIL)
 /** Glue taken from a skip parameter (TeX shows it as \glue(\name)). */
 export const paramGlue = (param: string, g: GlueNode): GlueNode => ({ ...g, param })
 export const kern = (width: number, explicit = false): KernNode => (explicit ? { kind: "kern", width, explicit } : { kind: "kern", width })
 export const penalty = (p: number): PenaltyNode => ({ kind: "penalty", penalty: p })
+/** A character of a font as a char node (new_character, § 582, for a character the font has). */
+export function charNode(f: Font, c: number, text = String.fromCharCode(c)): CharNode {
+  const m = f.chars.get(c)
+  if (!m) throw new Error(`${f.name} has no character ${c}`)
+  return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text }
+}
 export const emptyDisc = (): DiscNode => ({ kind: "disc", pre: [], post: [], replaceCount: 0 })
 export const emptyBox = (kind: "hlist" | "vlist", width = 0): BoxNode =>
   ({ kind, width, height: 0, depth: 0, shift: 0, glueSet: 0, glueSign: SIGN_NORMAL, glueOrder: NORMAL, list: [] })

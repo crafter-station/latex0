@@ -2,7 +2,7 @@
 // others, spaces and tabulators; a language's keywords, comments and strings) and the boxes it outputs,
 // as listings.sty and lstmisc.sty define them. Each line is a paragraph: listings' \lst@NewLine.
 
-import { glue, kern, FIL, type BoxNode, type Node } from "../layout/nodes"
+import { glue, kern, type BoxNode, type Node, charNode, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { appendRun } from "../layout/mainloop"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../layout/font"
@@ -176,12 +176,10 @@ export interface LstFonts {
  *  post-break text has the line's frame box, which the caller makes) */
 export type LstEvent = { newline: true; /** after \lsthk@OnEmptyLine */ empty?: true; /** in \lst@DeInit's box that is thrown away */ discarded?: true; /** breaklines: \lst@breakshape */ shape?: [number, number] }
   | { node: Node } | { disc: true; /** \lst@breakcurrindent */ indent: number }
-
-const hss = () => glue(0, 65536, FIL, 65536, FIL)
-function charNode(f: Font, c: number): Node {
-  const m = f.chars.get(c)
-  if (!m) throw new LstUnsupported(`${f.name} has no character ${c}`)
-  return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text: String.fromCharCode(c) }
+/** a character, or LstUnsupported for one the font lacks */
+function lstChar(f: Font, c: number): Node {
+  if (!f.chars.has(c)) throw new LstUnsupported(`${f.name} has no character ${c}`)
+  return charNode(f, c)
 }
 
 /** listings' character classes: \lst@CCPut and \lst@CCPutMacro (the active character table) */
@@ -252,7 +250,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
         return [kern(Math.floor((em * 3932) / 65536), true), vpack([rule])]
       }
     }
-    if (e === "^" || e === "~") return [charNode(f, c)] // \^{} and \~{}: an accent with nothing to go on
+    if (e === "^" || e === "~") return [lstChar(f, c)] // \^{} and \~{}: an accent with nothing to go on
     return { f, c }
   }
   /** elements typeset in order: runs of characters through the main loop (restricted horizontal mode) */
@@ -323,7 +321,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
       gobbledws = false
       events.push({ disc: true, indent: p.carry.breakcurrindent })
     }
-    const nodes = flexible ? typeset(L.token, style, () => null) : [hss(), ...typeset(L.token, style, hss), hss()]
+    const nodes = flexible ? typeset(L.token, style, () => null) : [ssGlue(), ...typeset(L.token, style, ssGlue), ssGlue()]
     const box = flexible ? hpack(nodes) : hpack(nodes, { exactly: L.length * W })
     // {\lst@thestyle{…\lst@CalcLostSpaceAndOutput}}: the style's colors pushed before the box, popped when the group ends
     const cs = fonts.colors(style)
@@ -374,7 +372,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
       const f = fontOf("").font
       const w = L.visible ? (f.chars.get(32)?.width ?? 0) : f.params[SPACE]
       L.length = length
-      calcLostSpaceAndOutput(hpack(colored(L.currstyle, [hss()]), { exactly: w }), length) // {\lst@currstyle{\hss}}
+      calcLostSpaceAndOutput(hpack(colored(L.currstyle, [ssGlue()]), { exactly: w }), length) // {\lst@currstyle{\hss}}
       L.length = 0
     } else lostspace += length * W
     L.length = 0; pos = 0
@@ -453,7 +451,6 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   return events
 }
 
-export { hss as lstHss }
 
 // ---- frames (lstmisc.sty's frames aspect) ----
 
@@ -474,8 +471,8 @@ export function lstFrameShapes(frame: string): { t: string; b: string; l: string
 }
 
 const lstRule = (width: number | null, height: number | null, depth: number | null): Node => ({ kind: "rule", width, height, depth })
-const llap = (nodes: Node[]) => hpack([hss(), ...nodes], { exactly: 0 })
-const rlap = (nodes: Node[]) => hpack([...nodes, hss()], { exactly: 0 })
+const llap = (nodes: Node[]) => hpack([ssGlue(), ...nodes], { exactly: 0 })
+const rlap = (nodes: Node[]) => hpack([...nodes, ssGlue()], { exactly: 0 })
 const pushes = (cs: string[]): Node[] => cs.map((c) => ({ kind: "whatsit", text: `\\special{color push ${c}}` }))
 const pops = (cs: string[]): Node[] => cs.map(() => ({ kind: "whatsit", text: "\\special{color pop}" }))
 /** \lst@frameBlock: with no color \hbox{\vrule\@height h\@depth d\@width\z@ \kern w}, with one (in a color group) a rule w wide */

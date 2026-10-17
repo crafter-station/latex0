@@ -23,7 +23,7 @@ import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font
 import { parseDimen, parseGlue, Scanner } from "../layout/dimen"
 import { appendText, spaceGlue } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../layout/nodes"
+import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node, charNode, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
 import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
 import { parseMath } from "../mathlayout/parse"
@@ -64,12 +64,6 @@ const TEXTBULLET = 136 // \textbullet in TS1
 interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined; /** the enclosing enumerate counters (\p@enumii …) */ enums: number[]
   /** in an enclosing list: the \clubpenalty in force where this one begins */ club?: number }
 
-function charBox(f: Font, c: number): CharNode {
-  const m = f.chars.get(c)
-  if (!m) throw new Error(`${f.name} has no character ${c}`)
-  return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text: String.fromCharCode(c) }
-}
-const hss = () => glue(0, 65536, FIL, 65536, FIL)
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -200,7 +194,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \centering in vertical mode (first, or after a caption): \leftskip and \rightskip \@flushglue, \parfillskip zero,
     // \finalhyphendemerits zero, from there on
     let centering = false
-    const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+    const flush = (p: string) => paramGlue(p, filGlue())
     const shape = () => centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : { finalHyphenDemerits: outer.finalHyph }
     const odd = body.match(/\\(?:footnote|begin|item|raggedright|raggedleft|vspace|noindent|LXlstinline)(?![A-Za-z])|\\\[|\$\$/) ?? (/\\centering(?![A-Za-z])/.test(body) ? body.match(/\\\\/) : null)
     if (odd) throw new Unsupported(`${odd[0]} in a minipage`)
@@ -474,7 +468,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (next!.kind === "bracket" && !amsmath || next!.kind === "displaymath" && !amsmath) {
           v.prevDepth = IGNORE_DEPTH
           const lw = run.k.dimens.textwidth
-          const mb = hpack([hss(), hss()], { exactly: xnOverD(lw, 39322, 65536) })
+          const mb = hpack([ssGlue(), ssGlue()], { exactly: xnOverD(lw, 39322, 65536) })
           const r = typesetList([...(start ?? (noindent ? [] : [emptyBox("hlist", run.k.dimens.parindent)])), mb], opts, true)
           justBox = r.just; params = r.params; nlines = r.lines
         } else if (!noindent || start) { // a run-in heading takes the indent box's place
@@ -635,13 +629,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     const tagshift = totwidth + tempcntb * alignsep + eqnshift - z
     // the main \halign: cells, then the \omit column with \kern-\alignsep@ and \place@tag
-    const hfil = () => glue(0, 65536, FIL)
     const cells = rows.map((r, ri) => {
       const row: Node[][] = []
       for (let j = 0; j < maxfields; j++) {
         const f = r.fields[j]
-        if (!f) { row.push(j % 2 ? [hfil()] : [hfil(), strutBox()]); continue } // \add@amps: empty fields
-        row.push(j % 2 ? [f, hfil()] : [hfil(), strutBox(), f])
+        if (!f) { row.push(j % 2 ? [filGlue()] : [filGlue(), strutBox()]); continue } // \add@amps: empty fields
+        row.push(j % 2 ? [f, filGlue()] : [filGlue(), strutBox(), f])
       }
       const tagCol: Node[] = [kern(-alignsep, true)]
       if (r.numbered && shifted[ri]) {
@@ -654,8 +647,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         appendToVlist(list, tags[ri], lineht, run.k.sizes.normalsize.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
         const vt = vpack(list)
         vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
-        tagCol.push(kern(-tagshift, true), hpack([hss(), vt], { exactly: 0 }))
-      } else if (r.numbered) tagCol.push(kern(-tagshift, true), hpack([hss(), tags[ri]], { exactly: 0 }))
+        tagCol.push(kern(-tagshift, true), hpack([ssGlue(), vt], { exactly: 0 }))
+      } else if (r.numbered) tagCol.push(kern(-tagshift, true), hpack([ssGlue(), tags[ri]], { exactly: 0 }))
       row.push(tagCol)
       return row
     })
@@ -678,7 +671,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // (\totwidth@ by then has \minalignsep for each space between column pairs)
     const blackWidth = totwidth + tempcntb * minalignsep
     if (blackWidth > z) {
-      const wide = hpack([hpack([strutBox(), glue(0, 65536, FILL)], { exactly: blackWidth })], { exactly: z })
+      const wide = hpack([hpack([strutBox(), fillGlue()], { exactly: blackWidth })], { exactly: z })
       const par = paragraphInput("", run.k, "normalsize", doc, { start: [wide], amsmath })
       const lb = lineBreak(par.list, par.params)
       decisions.push(lb.trace)
@@ -808,12 +801,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const parShape: [number, number][] | undefined = depth > 0 ? [[totalLeft, lineWidth]] : undefined
     // paragraph settings: \@trivlist's \leftskip\z@skip \rightskip\@rightskip \parfillskip\@flushglue, then
     // \centering, \raggedright or \raggedleft (\parindent\z@)
-    const flush = (n: string) => paramGlue(n, glue(0, 65536, FIL))
+    const flush = (n: string) => paramGlue(n, filGlue())
     let atRightskip = ctx.atRightskip, finalHyph = ctx.finalHyph
     let align: { leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode } = atRightskip ? { rightSkip: paramGlue("rightskip", atRightskip) } : {}
     let parindent = amsthm ? run.k.dimens.parindent : listparindent
     if (b.env === "center") { align = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
-    else if (b.env === "flushleft") { atRightskip = glue(0, 65536, FIL); align = { rightSkip: flush("rightskip") }; finalHyph = 0; parindent = 0 }
+    else if (b.env === "flushleft") { atRightskip = filGlue(); align = { rightSkip: flush("rightskip") }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushright") { align = { leftSkip: flush("leftskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
     // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m
     const bib = b.env === "thebibliography" ? { tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: 4000, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
@@ -840,9 +833,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const qed = (): Node[] => {
       const frac = (d: string) => new Scanner(d, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
       const vrule = (): Node => ({ kind: "rule", width: 26214, height: null, depth: null })
-      const vb = vpack([{ kind: "rule", width: frac(".6em"), height: 26214, depth: 0 }, glue(0, 65536, FIL), { kind: "rule", width: null, height: 26214, depth: 0 }], { exactly: frac(".675em") })
-      const box = hpack([glue(0, 65536, FIL), vrule(), vb, vrule(), glue(0, 65536, FIL)], { exactly: frac(".77778em") })
-      return [penalty(9999), hpack([]), penalty(10000), glue(0, 65536, FILL), glue(sizeFont.params[QUAD]), hpack([box])]
+      const vb = vpack([{ kind: "rule", width: frac(".6em"), height: 26214, depth: 0 }, filGlue(), { kind: "rule", width: null, height: 26214, depth: 0 }], { exactly: frac(".675em") })
+      const box = hpack([filGlue(), vrule(), vb, vrule(), filGlue()], { exactly: frac(".77778em") })
+      return [penalty(9999), hpack([]), penalty(10000), fillGlue(), glue(sizeFont.params[QUAD]), hpack([box])]
     }
     // the \clubpenalty in force when an item's paragraph starts in a group (where \@item's \everypar sets its own):
     // thebibliography's, the outer one before the first item, then what the last item's \everypar set
@@ -860,8 +853,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const l: Node[] = []
         if (given !== null) appendText(l, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false)
         else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
-          if (level === 2) l.push(charBox(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
-          else l.push(charBox(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
+          if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
+          else l.push(charNode(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
         } else { // \labelenumi … iv: 1. (a) i. A.
           const n = ++counter
           // \refstepcounter{enum…}: \p@enum… \theenum… (1, 1a, 1(a)i, 1(a)iA), and \@currentHref enum….n
@@ -873,11 +866,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
           if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
           appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
         }
-        content = [...(enumitem ? [penalty(10000)] : []), hss(), hpack([hss(), ...l], { exactly: 0 })] // \hss\llap{#1}; enumitem's \nobreak first
+        content = [...(enumitem ? [penalty(10000)] : []), ssGlue(), hpack([ssGlue(), ...l], { exactly: 0 })] // \hss\llap{#1}; enumitem's \nobreak first
       } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \hskip\z@\nobreak, the label, \hfil)
         content = enumitem ? [glue(0), penalty(10000)] : [glue(ls)]
         if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
-        if (enumitem) content.push(glue(0, 65536, FIL))
+        if (enumitem) content.push(filGlue())
       } else if (b.env === "proof") { // \item[\hskip\labelsep\itshape title\@addpunct{.}]
         const title = (b.proofTitle ?? "Proof").replace(/\s+/g, " ").trim()
         if (/[{}$%&#^_]/.test(title.replace(/\\ref\{[A-Za-z0-9:._-]+\}/g, "")) || /\\(?!ref\{)/.test(title)) throw new Unsupported(`proof title "${title}"`)
@@ -898,7 +891,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
       } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, given, font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
       else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
-        content = [glue(0, 65536, FIL)]
+        content = [filGlue()]
         const l = b.env === "thebibliography" ? `[${i + 1}]` : given
         if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
         if (b.env === "thebibliography") { refs.label = String(i + 1); refs.href = `enumiv.${i + 1}` } // \refstepcounter{enumiv}
@@ -1096,7 +1089,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       appendText(l, `${n}: ${text}`, romanFont, state, false)
       const cap = hpack(setgroup(l)) // \sbox
       if (cap.width > hsize) throw new Unsupported("a listing caption wider than the line")
-      v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), run.k.sizes.normalsize.baselineskip)
+      v.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }), run.k.sizes.normalsize.baselineskip)
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
     } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
     // \lst@HRefStepCounter (\theHlstlisting: the chapter's, then the number); its \@currentHref is global
@@ -1105,7 +1098,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // xleftmargin, \lst@parshape (\parshape 1 for every paragraph); the frame's dimensions in the listing's font
     const parShape: [number, number][] = [[xleft, lw]]
     // breaklines: \pretolerance\@M, \rightskip\@flushglue, \parshape 2 with \lst@breakshape for the lines after the first
-    const breaks = o.breaklines ? { pretolerance: 10000, rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)) } : {}
+    const breaks = o.breaklines ? { pretolerance: 10000, rightSkip: paramGlue("rightskip", filGlue()) } : {}
     const shapes = lstFrameShapes(o.frame)
     // (the Init hook: fillcolor from backgroundcolor, rulesepcolor from fillcolor)
     const bkg = styleColors(o.backgroundcolor), fill = o.fillcolor ? styleColors(o.fillcolor) : bkg, rulesep = o.rulesepcolor ? styleColors(o.rulesepcolor) : fill
@@ -1164,7 +1157,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (!place) return a
       const digits: Node[] = []
       appendText(digits, String(lstnumber), numberFont, { spaceFactor: 1000 }, false)
-      const hss = glue(0, 65536, FIL, 65536, FIL)
+      const hss = ssGlue()
       // numberstyle's \color: pushed in the box, popped after it (\aftergroup at the box's end)
       const nc = styleColors(o.numberstyle), push = nc.map((c) => colorPush(c)), pops = nc.map(() => colorPop())
       return [...a, o.numbers === "left" ? hpack([hss, ...push, ...digits, kern(numbersep, true)], { exactly: 0 }) : hpack([kern(lw, true), kern(numbersep, true), ...push, ...digits, hss], { exactly: 0 }), ...pops]
@@ -1183,7 +1176,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // empty lines at the end are paragraphs in a \vbox that is thrown away, while the last line's is still open
       if ("newline" in e && e.discarded) { breakLine([frame(), ...number(!!e.empty), emptyBox("hlist", 0)], e.shape); lineCount++ }
       else if ("newline" in e) { endLine(); line = [frame(), ...number(!!e.empty), emptyBox("hlist", 0)]; shape = e.shape; lineCount++ }
-      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([glue(0, 65536, FIL, 65536, FIL), frame(), kern(e.indent, true), kern(-xleft, true)], { exactly: 0 })], replaceCount: 0 })
+      else if ("disc" in e) line!.push({ kind: "disc", pre: [], post: [hpack([ssGlue(), frame(), kern(e.indent, true), kern(-xleft, true)], { exactly: 0 })], replaceCount: 0 })
       else line!.push(e.node)
     }
     endLine()
@@ -1234,7 +1227,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
       if (hyper) { appendText(start, `${the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1))); out.paragraph(start, text) }
       else out.paragraph(start, `${the(number)}: ${text}`)
-    } else out.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }))
+    } else out.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }))
     out.push(glue(run.k.dimens.belowcaptionskip))
     return { number, name: labelName(text) } // (nameref drops a final period)
   }
@@ -1259,7 +1252,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
      *  3em), and \centering's flush glue when it came before */
     const floatParagraph = (start: Node[], body: string, centering = centered) => {
-      const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+      const flush = (p: string) => paramGlue(p, filGlue())
       // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
       const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : centered ? { finalHyphenDemerits: 0 } : {}
       // (\clubpenalty is the one in force: \@parboxrestore leaves it, and \@setminipage's \everypar replaces \@afterheading's)
@@ -1352,11 +1345,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
     const sz = run.k.sizes.normalsize
     v.par()
-    v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("page=1"))
+    v.nodes.push(filGlue(), penalty(-10000), hook("page=1"))
     run.k = { ...run.k, ints: { ...run.k.ints, interlinepenalty: 200 } }
     const parskip = run.k.glue.parskip.width // letter.cls: 0.7em; 2\parskip is a dimension
     const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
-    const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+    const flush = (p: string) => paramGlue(p, filGlue())
     const raggedleft = { leftSkip: flush("leftskip"), rightSkip: paramGlue("rightskip", glue(0)), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
     const raggedright = { rightSkip: flush("rightskip"), finalHyphenDemerits: 0 }
     // \opening

@@ -12,8 +12,8 @@
 
 import { xnOverD } from "../layout/arith"
 import type { GlueSpec } from "../layout/dimen"
-import { QUAD, SPACE, type CharMetrics, type Font } from "../layout/font"
-import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type Node } from "../layout/nodes"
+import { SPACE, type CharMetrics, type Font } from "../layout/font"
+import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, charNode, filGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
 
@@ -286,9 +286,9 @@ class Converter {
     const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }]
     const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
       ...(ci === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth } as Node] : []),
-      glue(colsep), glue(0, 65536, FIL), ...math(cell),
+      glue(colsep), filGlue(), ...math(cell),
       ...(a.crs[ri] && ci === row.length - 1 ? math([{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]) : []), // \@arraycr's ${}
-      glue(0, 65536, FIL), glue(colsep),
+      filGlue(), glue(colsep),
     ]))
     const cols = 10 // \c@MaxMatrixCols
     if (a.rows.some((r) => r.length > cols)) throw new Error("math: Extra alignment tab has been changed to \\cr")
@@ -548,10 +548,6 @@ class Converter {
   }
 }
 
-function charNode(f: Font, c: number): CharNode {
-  const m = f.chars.get(c)!
-  return { kind: "char", font: f.name, size: f.size, char: c, width: m.width, height: m.height, depth: m.depth, text: String.fromCharCode(c) }
-}
 
 /** char_box (§ 709): a character in an hbox whose width includes its italic correction */
 function charBox(f: Font, c: number): BoxNode {
@@ -594,8 +590,7 @@ function rebox(b: BoxNode, w: number): BoxNode {
       const v = p[0].width
       if (v !== b.width) p.push(kern(b.width - v))
     }
-    const ss = () => glue(0, 65536, FIL, 65536, FIL)
-    return hpack([ss(), ...p, ss()], { exactly: w })
+    return hpack([ssGlue(), ...p, ssGlue()], { exactly: w })
   }
   b.width = w
   return b
