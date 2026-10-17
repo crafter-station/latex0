@@ -98,3 +98,9 @@ export function prepareSource(source: string): DocumentSource {
   if ([...src.matchAll(/\\(?:begin|end)\{minipage\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
   return { src, listings, tabulars, minipages }
 }
+
+/** How many groups are open at the end of `src` (braces not escaped). */
+export const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
+
+/** a paragraph that a tabular (or a minipage) starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
+export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text)

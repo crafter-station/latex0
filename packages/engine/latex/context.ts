@@ -54,6 +54,10 @@ export interface Ctx {
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
    *  \protected@write adds \nobreak while \if@nobreak holds */
   contentsWrites(level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[]
+  /** a color (xcolor's \color[model]{spec}) as the driver's \special gets it */
+  colorSpec(spec: string, model?: string): string
+  /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
+  esphackNobreaks(nobreak: boolean): Node[]
   /** \if@noskipsec \leavevmode: an empty paragraph (the indent box) in the \everypar in force */
   noskipsecPar(what: string): void
 }
