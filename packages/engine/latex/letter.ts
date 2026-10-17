@@ -3,11 +3,12 @@
 
 import type { GlueSpec } from "../layout/dimen"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, glue, paramGlue, penalty, type Node, filGlue } from "../layout/nodes"
+import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
 import { vpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
+import { raggedleft as raggedleftShape, raggedright as raggedrightShape } from "./kernel"
 import { processBlock } from "./body"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH, negate, VerticalList } from "./vlist"
@@ -47,9 +48,7 @@ export function letter(cx: Ctx, b: Extract<Block, { kind: "letter" }>) {
   run.k = { ...run.k, ints: { ...run.k.ints, interlinepenalty: 200 } }
   const parskip = run.k.glue.parskip.width // letter.cls: 0.7em; 2\parskip is a dimension
   const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
-  const flush = (p: string) => paramGlue(p, filGlue())
-  const raggedleft = { leftSkip: flush("leftskip"), rightSkip: paramGlue("rightskip", glue(0)), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
-  const raggedright = { rightSkip: flush("rightskip"), finalHyphenDemerits: 0 }
+  const raggedleft = raggedleftShape(), raggedright = raggedrightShape()
   // \opening
   v.nodes.push(hook("empty"))
   const from = letterInfo.address.split(/\\\\/).map((x) => x.trim())

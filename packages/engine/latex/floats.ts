@@ -10,6 +10,7 @@ import { glue, paramGlue, penalty, type BoxNode, type Node, filGlue } from "../l
 import { hpack, vpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
+import { centering as centeringShape, sloppy } from "./kernel"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, plain } from "./vlist"
 import { type Float } from "./output"
@@ -74,11 +75,10 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
    *  3em), and \centering's flush glue when it came before */
   const floatParagraph = (start: Node[], body: string, centering = centered) => {
-    const flush = (p: string) => paramGlue(p, filGlue())
     // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
-    const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : centered ? { finalHyphenDemerits: 0 } : {}
+    const shape = centering ? centeringShape() : centered ? { finalHyphenDemerits: 0 } : {}
     // (\clubpenalty is the one in force: \@parboxrestore leaves it, and \@setminipage's \everypar replaces \@afterheading's)
-    const par = paragraphInput(body, run.k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: v.club })
+    const par = paragraphInput(body, run.k, "normalsize", doc, { ...shape, start, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: v.club })
     const lb = lineBreak(par.list, par.params)
     decisions.push(...par.notes, lb.trace)
     // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and

@@ -6,11 +6,12 @@ import { dataFont } from "./data"
 import { loadFont, QUAD } from "../layout/font"
 import { Scanner } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
-import { emptyBox, glue, paramGlue, penalty, type Node, filGlue } from "../layout/nodes"
+import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import { EMPTY_MARK, markboth, markright, markValue, sectionMarks } from "./marks"
 import type { Ctx } from "./context"
+import { raggedright } from "./kernel"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import { type OutputHook } from "./output"
@@ -94,7 +95,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
   // (in the head's group)
   const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
-  const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", filGlue()), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
+  const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club }) // \parindent\z@ \raggedright
   if (numbered) {
     typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
     v.nodes.push(penalty(10000))

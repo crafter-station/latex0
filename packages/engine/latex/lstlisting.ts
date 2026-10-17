@@ -8,10 +8,11 @@ import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT } from "../layout/fo
 import { parseDimen } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, filGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, glue, kern, penalty, type BoxNode, type Node, filGlue, ssGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
+import { flushglue } from "./kernel"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH, negate } from "./vlist"
 import { anchor, labelName } from "./hyperref"
@@ -117,7 +118,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   // xleftmargin, \lst@parshape (\parshape 1 for every paragraph); the frame's dimensions in the listing's font
   const parShape: [number, number][] = [[xleft, lw]]
   // breaklines: \pretolerance\@M, \rightskip\@flushglue, \parshape 2 with \lst@breakshape for the lines after the first
-  const breaks = o.breaklines ? { pretolerance: 10000, rightSkip: paramGlue("rightskip", filGlue()) } : {}
+  const breaks = o.breaklines ? { pretolerance: 10000, rightSkip: flushglue("rightskip") } : {}
   const shapes = lstFrameShapes(o.frame)
   // (the Init hook: fillcolor from backgroundcolor, rulesepcolor from fillcolor)
   const bkg = styleColors(cx, o.backgroundcolor), fill = o.fillcolor ? styleColors(cx, o.fillcolor) : bkg, rulesep = o.rulesepcolor ? styleColors(cx, o.rulesepcolor) : fill

@@ -13,6 +13,7 @@ import { hpack, vpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
 import { type ListBlock, type Part } from "./blocks"
 import type { Ctx } from "./context"
+import { flushglue, sloppy, zeroskip } from "./kernel"
 import { tabularStart } from "./source"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
@@ -156,15 +157,14 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const parShape: [number, number][] | undefined = depth > 0 ? [[totalLeft, lineWidth]] : undefined
   // paragraph settings: \@trivlist's \leftskip\z@skip \rightskip\@rightskip \parfillskip\@flushglue, then
   // \centering, \raggedright or \raggedleft (\parindent\z@)
-  const flush = (n: string) => paramGlue(n, filGlue())
   let atRightskip = ctx.atRightskip, finalHyph = ctx.finalHyph
   let align: { leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode } = atRightskip ? { rightSkip: paramGlue("rightskip", atRightskip) } : {}
   let parindent = amsthm ? run.k.dimens.parindent : listparindent
-  if (b.env === "center") { align = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
-  else if (b.env === "flushleft") { atRightskip = filGlue(); align = { rightSkip: flush("rightskip") }; finalHyph = 0; parindent = 0 }
-  else if (b.env === "flushright") { align = { leftSkip: flush("leftskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
+  if (b.env === "center") { align = { leftSkip: flushglue("leftskip"), rightSkip: flushglue("rightskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
+  else if (b.env === "flushleft") { atRightskip = filGlue(); align = { rightSkip: flushglue("rightskip") }; finalHyph = 0; parindent = 0 }
+  else if (b.env === "flushright") { align = { leftSkip: flushglue("leftskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
   // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m
-  const bib = b.env === "thebibliography" ? { tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: 4000, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
+  const bib = b.env === "thebibliography" ? { ...sloppy(romanFont.params[QUAD]), clubPenalty: 4000, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
   const shape = { ...align, ...(parShape ? { parShape } : {}), ...(finalHyph !== undefined ? { finalHyphenDemerits: finalHyph } : {}), ...bib }
   const itemDepth = ctx.itemDepth + (b.env === "itemize" ? 1 : 0), enumDepth = ctx.enumDepth + (b.env === "enumerate" ? 1 : 0)
   const level = b.env === "itemize" ? itemDepth : enumDepth
