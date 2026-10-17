@@ -1,0 +1,36 @@
+% fixture: tabular/p-columns
+% tier: T3
+% engine: document
+% covers: p{width} columns (\@classv's \vtop paragraph with \@arrayparboxrestore and \sloppy, \@endpbox's \@finalstrut): one and several lines, an empty cell, next to l/c/r and rules, a \\[skip] ending a p cell, @-text around one (the box resets the space factor), in a float, in a \small table, in text and with [t] and [b]
+\documentclass{article}
+\begin{document}
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|p{3cm}|}
+\hline
+Name & Description of the thing that is rather long and wraps onto lines \\
+\hline
+Other & Short \\
+Blank & \\
+Empty & \\[4pt]
+Last & A second long cell that should break into a few lines of text here \\
+\hline
+\end{tabular}
+\caption{Things.}
+\end{table}
+
+Text before
+\begin{tabular}[t]{@{: }p{2cm}@{ -- }c}
+one two three four five six seven & x \\
+eight & y
+\end{tabular}
+and after the table, with some more words to fill a line or two of the paragraph.
+
+{\small
+\begin{tabular}[b]{rp{25mm}@{}}
+1 & small text in a small table set in lines \\
+2 & \textbf{bold} and \emph{emphasis} here
+\end{tabular}
+}
+
+\end{document}

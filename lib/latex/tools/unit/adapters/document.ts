@@ -40,9 +40,9 @@ import { isKnownCommand } from "../../../parser"
 import { endDocument, outputOptions, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
 import { Colors, ColorUnsupported } from "./xcolor"
-import { preamble, tabularBox, tabularLines, TabularUnsupported, type TabCol, type TabLine, type TabularEnv } from "./tabular"
+import { preamble, tabularBox, tabularLines, TabularUnsupported, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstFrame, type LstOptions } from "./listings"
-import { fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs } from "./paragraph"
+import { classParams, fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs, type TabularOuter } from "./paragraph"
 
 /** A construct the adapter does not lay out yet: the fixture is reported pending, not failed. */
 /** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
@@ -308,7 +308,9 @@ function blocksOf(body: string): Block[] {
       let depth = 0, j = re.lastIndex
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       const title = body.slice(re.lastIndex + 1, j).replace(/\s+/g, " ").trim()
-      out.push({ kind: "heading", level: HEADINGS[m[1] as keyof typeof HEADINGS], star: m[2] === "*", title, ...(/\n[ \t]*\n\s*$/.test(before) ? { blank: true } : {}) })
+      // (counter commands between the blank line and the heading start no paragraph)
+      const blank = /\n[ \t]*\n\s*$/.test(before.replace(/(?:\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?\s*)+$/, ""))
+      out.push({ kind: "heading", level: HEADINGS[m[1] as keyof typeof HEADINGS], star: m[2] === "*", title, ...(blank ? { blank: true } : {}) })
       re.lastIndex = j + 1
       at = j + 1
       endpe = false
@@ -785,11 +787,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: k.dimens.doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
   })()
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  doc.tabular = (n, size, attrs, sfcodes) => {
+  doc.tabular = (n, size, attrs, sfcodes, outer) => {
     const t = tabulars[n]
     let lines: TabLine[], cols: TabCol[]
     try { lines = tabularLines(t.body); cols = preamble(t.spec) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
-    return tabular(lines, cols, size, t.pos, attrs, sfcodes)
+    return tabular(lines, cols, size, t.pos, attrs, sfcodes, outer)
   }
   doc.lstinline = (n, size, attrs) => {
     if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
@@ -998,7 +1000,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const segs = displaySegments(text)
       // (so do a {\color …} group and a tabular: the paragraph starts inside it)
       const grouped = !!cg || tabularStart(text) || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
-      // (footnotes read in such a color group see its \clubpenalty, which the group's end takes back)
+      // (footnotes read in such a color group, and a leading tabular's p{width} entries, see its \clubpenalty, which the
+      // group's end takes back)
       let leadNoteClub: number | undefined
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
@@ -1006,7 +1009,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         else if (!grouped) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
         else leadNoteClub = k.ints.clubpenalty
       }
-      paragraphWithDisplays(text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg ? leadNoteClub : undefined)
+      paragraphWithDisplays(text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined)
       return
     }
     if (b.blank) v.par() // a blank line before the list
@@ -1532,9 +1535,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
         const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) ? { end: qed() } : {}) }
         if (p.start === "label") {
-          // (footnotes read in a color group see what \@item's \everypar set there; after it, the one from before)
+          // (footnotes read in a color group, and a leading tabular's p{width} entries, see what \@item's \everypar set
+          // there; after it, the one from before)
           const everyparClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
-          typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...(colorStart ? { leadGroupNoteClubPenalty: everyparClub } : {}) } : {}) }, parsep, ctx.size)
+          typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...{ leadGroupNoteClubPenalty: everyparClub } } : {}) }, parsep, ctx.size)
           if (!groupStart) groupClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
           // (\@item's \everypar ran in the group: after it, \clubpenalty is the one from before, and \everypar still \@item's)
           else itemClub = groupClub
@@ -1686,7 +1690,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), k.sizes.normalsize.baselineskip)
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
     } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
-    else { negListing--; lstAnchor(href("lstlisting", negListing)) } // \lst@HRefStepCounter (\theHlstlisting: the chapter's, then the number)
+    // \lst@HRefStepCounter (\theHlstlisting: the chapter's, then the number); its \@currentHref is global
+    else { negListing--; lstAnchor(href("lstlisting", negListing)); if (hyper) refs.href = href("lstlisting", negListing) }
     // the lineshape and frames aspects: \linewidth less xleftmargin and xrightmargin, \@totalleftmargin plus
     // xleftmargin, \lst@parshape (\parshape 1 for every paragraph); the frame's dimensions in the listing's font
     const parShape: [number, number][] = [[xleft, lw]]
@@ -1833,7 +1838,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
       const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
       if (tab) {
-        floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs)], "")
+        floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club: v.club, widow: k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(k).finalHyphenDemerits })], "")
         continue
       }
       // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
@@ -2143,8 +2148,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
 
   /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
-  function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs, sfcodes?: Record<number, number>): BoxNode {
+  function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
     const font = selectFont(k, size, attrs)
+    const sz = k.sizes[size]
     const env: TabularEnv = {
       strut: k.sizes[size].strut, tabcolsep: k.dimens.tabcolsep, arrayrulewidth: k.dimens.arrayrulewidth, doublerulesep: k.dimens.doublerulesep,
       lineskiplimit: k.dimens.lineskiplimit, axis: mathEnv(k, size, amsmath).fonts[0][2]!.params[22],
@@ -2156,6 +2162,38 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         }
       },
       skip: (text) => { try { return parseGlue(text, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).width } catch { throw new Unsupported(`\\\\[${text}] in a tabular`) } },
+      // \vtop\bgroup \hsize width \@arrayparboxrestore (\parindent and \parskip zero, \leftskip and \rightskip zero,
+      // \parfillskip \@flushglue, the normal \baselineskip, \lineskip and \lineskiplimit, \sloppy) \ignorespaces entry,
+      // then \@finalstrut\@arstrutbox (\unskip, then \nobreak in a paragraph and \vskip-\baselineskip out of one, and
+      // \vrule depth \dp\@arstrutbox) \par\egroup
+      pbox: (text, width, cr) => {
+        if (!outer) throw new Unsupported("a p{width} column here")
+        if (/\\(?:footnote|label|par|newline|linebreak)(?![A-Za-z])|\n\s*\n/.test(text)) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
+        let hsize: number
+        const internal = (name: string) => name === "textwidth" ? { level: "dimen" as const, value: k.dimens.textwidth } : name === "columnwidth" ? { level: "dimen" as const, value: k.dimens.columnwidth } : undefined
+        try { hsize = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal }) } catch { throw new Unsupported(`p{${width}}`) }
+        const list: Node[] = []
+        const strut: Node = { kind: "rule", width: 0, height: 0, depth: sz.strut.depth }
+        let end: Node[] = [...cr, penalty(10000), strut]
+        // (an empty entry: the \vrule starts a paragraph after the \vskip, and new_graf and LaTeX's restart of it each
+        // add \parskip, zero here)
+        if (!text.trim() && !cr.length) { list.push(glue(-sz.baselineskip.width), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))); end = [strut] }
+        let p: ReturnType<typeof paragraphInput>
+        try {
+          p = paragraphInput(text, k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, unskip: 1, end })
+        } catch (e) {
+          if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
+          throw e
+        }
+        const lb = lineBreak(p.list, p.params)
+        outer.notes.push(...p.notes, lb.trace)
+        let pd: number | null = IGNORE_DEPTH
+        for (const n of lb.vlist) {
+          if (n.kind === "hlist") pd = appendToVlist(list, n, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+          else list.push(n)
+        }
+        return vtop(list)
+      },
       ...(booktabs ? { booktabs } : {}),
     }
     try { return tabularBox(lines, cols, env, pos) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
