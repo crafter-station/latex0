@@ -87,10 +87,12 @@ export interface DocState {
   /** (`sfcodes`: the \sfcode changes in force, which the entries keep; `outer`: the paragraph it is in, whose
    *  footnote traces the p{width} entries' paragraphs join and whose \clubpenalty and \finalhyphendemerits they keep) */
   tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter) => Node
+  /** minipage number n (taken out of the source after expansion) at a size in a font: what \@iiiparbox appends */
+  minipage?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes: Record<number, number> | undefined, outer: TabularOuter) => Node[]
 }
 
 /** where a tabular stands: the traces its p{width} entries' paragraphs join, and the parameters they keep */
-export interface TabularOuter { notes: ParagraphTrace[]; club: number; widow: number; finalHyph: number }
+export interface TabularOuter { notes: ParagraphTrace[]; club: number; widow: number; finalHyph: number; /** \linewidth there (a list's \parshape width) */ lineWidth?: number }
 
 /**
  * Cross-references: \@currentlabel (local: lists, equations and floats restore it), \@currentHref
@@ -165,7 +167,7 @@ export const squeeze = (t: string): string => {
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "tabular"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "tabular"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -310,6 +312,8 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
     const tab = body.slice(i).match(/^\\LXtabular\{(\d+)\}/)
     if (tab) { flushText(); out.push({ kind: "tabular", n: Number(tab[1]) }); i += tab[0].length; continue }
+    const mp = body.slice(i).match(/^\\LXminipage\{(\d+)\}/)
+    if (mp) { flushText(); out.push({ kind: "minipage", n: Number(mp[1]) }); i += mp[0].length; continue }
     if (/^\\underline\s*\{/.test(body.slice(i))) { // the text in an \hbox: no footnotes or labels
       const open = body.indexOf("{", i)
       let depth = 0, j = open
@@ -521,7 +525,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!doc.tabular) throw new Error("paragraph adapter: a tabular outside a document")
       // (a tabular that starts the paragraph starts it in its group: the \everypar's \clubpenalty there is its own)
       const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
-      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits }))
+      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize }))
+      state.spaceFactor = 1000
+    }
+    else if (p.kind === "minipage") { // \leavevmode, then \@iiiparbox's box (in its group, like a tabular's)
+      if (!doc.minipage) throw new Error("paragraph adapter: a minipage outside a document")
+      const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
+      list.push(...doc.minipage(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize }))
       state.spaceFactor = 1000
     }
     else if (p.kind === "underline") { // $\@@underline{\hbox{#1}}\m@th$: the box as an under noad's nucleus

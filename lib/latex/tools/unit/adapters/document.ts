@@ -50,7 +50,9 @@ interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
 /** a paragraph that a tabular starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
 /** commands that take no argument: a { after one opens a group */
 const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
-const tabularStart = (text: string) => /^\s*\\LXtabular\{/.test(text)
+const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text)
+/** a minipage environment as typed (taken out of the source after expansion: \LXminipage{n}) */
+interface MinipageSource { pos: "t" | "b" | "c"; height: string | null; width: string; body: string }
 
 /** The class with \usepackage[T1]{fontenc}: every size's roman and bold are the EC fonts (math is unchanged). */
 function withT1(k: ClassOptionData, cls: string): ClassOptionData {
@@ -328,7 +330,7 @@ function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|LXtabular|underline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|pageref|cite|LXlstinline|LXtabular|LXminipage|underline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
@@ -539,17 +541,26 @@ export const document: Adapter = (source) => {
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
   const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
-  const src = expanded.text.replace(/\\begin\{tabular\}\s*(?:\[([tbc])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}([^]*?)\\end\{tabular\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
+  const src0 = expanded.text.replace(/\\begin\{tabular\}\s*(?:\[([tbc])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}([^]*?)\\end\{tabular\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
     if (commented(text, offset)) return all
     if (/\\begin\{tabular\}/.test(body)) throw new Unsupported("a tabular in a tabular")
     tabulars.push({ pos: (pos ?? "c") as "c", spec, body })
     return `\\LXtabular{${tabulars.length - 1}}`
   })
-  if ([...src.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a tabular not read")
+  if ([...src0.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
+  // minipages: \LXminipage{n}, laid out where they stand
+  const minipages: MinipageSource[] = []
+  const src = src0.replace(/\\begin\{minipage\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{minipage\}/g, (all: string, pos: string | undefined, height: string | undefined, _inner: string | undefined, width: string, body: string, offset: number, text: string) => {
+    if (commented(text, offset)) return all
+    if (/\\begin\{minipage\}/.test(body)) throw new Unsupported("a minipage in a minipage")
+    minipages.push({ pos: (pos ?? "c") as "c", height: height ?? null, width, body })
+    return `\\LXminipage{${minipages.length - 1}}`
+  })
+  if ([...src.matchAll(/\\(?:begin|end)\{minipage\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
-      try { return layout(src, notHere, aux, listings, tabulars) } catch (e) {
+      try { return layout(src, notHere, aux, listings, tabulars, minipages) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
       }
@@ -573,7 +584,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
 /** an lstlisting environment's [options] and lines */
 interface Listing { options: string; lines: string[]; inline?: true }
 
-function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[]): { result: AdapterResult; written: Aux | null } {
+function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[], minipages: MinipageSource[]): { result: AdapterResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
@@ -792,6 +803,66 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     let lines: TabLine[], cols: TabCol[]
     try { lines = tabularLines(t.body); cols = preamble(t.spec) } catch (e) { if (e instanceof TabularUnsupported) throw new Unsupported(e.message); throw e }
     return tabular(lines, cols, size, t.pos, attrs, sfcodes, outer)
+  }
+  /**
+   * \begin{minipage}[pos]{width}: \setbox\@tempboxa\vbox{\hsize width \@parboxrestore (\parindent and \parskip zero,
+   * \sloppy, the normal baselines) \@setminipage body \par\unskip}, then \@iiiparbox: \vbox{\unvbox\@tempboxa} as
+   * $\vcenter{…}\m@th$ for c, a \vtop for t, a \vbox for b
+   */
+  /** \textwidth, \columnwidth and \linewidth in a width (`lineWidth`: \linewidth where it stands) */
+  const widthRegisters = (lineWidth?: number) => (name: string) => {
+    const value = name === "textwidth" ? minipageWidth ?? k.dimens.textwidth : name === "columnwidth" ? minipageWidth ?? k.dimens.columnwidth : name === "linewidth" ? lineWidth : undefined
+    return value === undefined ? undefined : { level: "dimen" as const, value }
+  }
+  let minipageWidth: number | null = null
+  doc.minipage = (n, size, attrs, sfcodes, outer) => {
+    const m = minipages[n]
+    if (m.height !== null) throw new Unsupported("a minipage with a height")
+    const font = selectFont(k, size, attrs), sz = k.sizes[size]
+    let hsize: number
+    try { hsize = parseDimen(m.width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(outer.lineWidth) }) } catch { throw new Unsupported(`a minipage {${m.width}}`) }
+    let body = m.body.replace(/(^|[^\\])%.*\n[ \t]*/g, "$1")
+    // a leading \centering: \leftskip and \rightskip \@flushglue, \parfillskip zero, \finalhyphendemerits zero
+    const centering = /^\s*\\centering(?![A-Za-z])/.test(body)
+    if (centering) body = body.replace(/^\s*\\centering\s*/, "")
+    const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
+    const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : { finalHyphenDemerits: outer.finalHyph }
+    const odd = body.match(/\\(?:footnote|begin|item|label|centering|raggedright|raggedleft|vspace|noindent|LXlstinline)(?![A-Za-z])|\\\[|\$\$/) ?? (centering ? body.match(/\\\\/) : null)
+    if (odd) throw new Unsupported(`${odd[0]} in a minipage`)
+    const list: Node[] = []
+    let pd: number | null = IGNORE_DEPTH
+    // (in it, \textwidth and \columnwidth are its \hsize, and so is \linewidth after \@parboxrestore)
+    const outerWidth = minipageWidth
+    minipageWidth = hsize
+    try {
+    for (const text of body.split(/\n[ \t]*\n|\\par(?![A-Za-z])/)) {
+      if (!text.trim()) continue
+      // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
+      // LaTeX's restart of the paragraph
+      if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+      let p: ReturnType<typeof paragraphInput>
+      try {
+        p = paragraphInput(text, k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, ...shape })
+      } catch (e) {
+        if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a minipage paragraph "${text.trim().slice(0, 40)}"`)
+        throw e
+      }
+      const lb = lineBreak(p.list, p.params)
+      outer.notes.push(...p.notes, lb.trace)
+      for (const x of lb.vlist) {
+        if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+        else list.push(x)
+      }
+    }
+    } finally { minipageWidth = outerWidth }
+    if (list.at(-1)?.kind === "glue") list.pop() // \unskip
+    if (m.pos === "t") return [vtop(list)]
+    const box = vpack(list)
+    if (m.pos === "b") return [box]
+    const delta = box.height + box.depth // \vcenter: make_vcenter (§ 736), about the axis
+    box.height = mathEnv(k, size, amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+    box.depth = delta - box.height
+    return [{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }]
   }
   doc.lstinline = (n, size, attrs) => {
     if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
@@ -1812,7 +1883,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const content: Node[] = []
     let pd: number | null = IGNORE_DEPTH, number = 0, captionName = ""
     const hsize = k.dimens.columnwidth
-    const items = b.body.trim().match(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\S+/g) ?? []
+    const fbody = b.body.trim()
+    const tokens = [...fbody.matchAll(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LXminipage\{\d+\}|\S+/g)]
+    const items = tokens.map((t) => t[0])
     let centered = false
     /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
      *  3em), and \centering's flush glue when it came before */
@@ -1832,8 +1905,17 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         else content.push(n)
       }
     }
-    for (const it of items) {
+    for (let ii = 0; ii < items.length; ii++) {
+      const it = items[ii]
       if (it === "\\centering") { centered = true; continue }
+      // minipages start a paragraph (\leavevmode): with what joins them on the line (\hfill, \quad, ~), up to a blank line
+      if (/^\\LXminipage\{\d+\}$/.test(it)) {
+        let jj = ii
+        while (jj + 1 < items.length && /^(?:\\LXminipage\{\d+\}|\\hfill|\\hfil|\\quad|\\qquad|~)$/.test(items[jj + 1]) && !/\n[ \t]*\n/.test(fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!))) jj++
+        floatParagraph([hpack([])], fbody.slice(tokens[ii].index!, tokens[jj].index! + items[jj].length))
+        ii = jj
+        continue
+      }
       // a tabular starts a paragraph (\leavevmode): the \parindent box (zero after \@parboxrestore), then
       // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
       const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
@@ -2170,8 +2252,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (!outer) throw new Unsupported("a p{width} column here")
         if (/\\(?:footnote|label|par|newline|linebreak)(?![A-Za-z])|\n\s*\n/.test(text)) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
         let hsize: number
-        const internal = (name: string) => name === "textwidth" ? { level: "dimen" as const, value: k.dimens.textwidth } : name === "columnwidth" ? { level: "dimen" as const, value: k.dimens.columnwidth } : undefined
-        try { hsize = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal }) } catch { throw new Unsupported(`p{${width}}`) }
+        try { hsize = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(outer.lineWidth) }) } catch { throw new Unsupported(`p{${width}}`) }
         const list: Node[] = []
         const strut: Node = { kind: "rule", width: 0, height: 0, depth: sz.strut.depth }
         let end: Node[] = [...cr, penalty(10000), strut]

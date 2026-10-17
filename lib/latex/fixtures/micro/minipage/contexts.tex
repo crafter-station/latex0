@@ -1,0 +1,36 @@
+% fixture: minipage/contexts
+% tier: T3
+% engine: document
+% covers: minipages where they stand (widths in \linewidth there): starting the paragraph right after a heading (its group's \clubpenalty), in an item, in center, a leading \centering, a tabular inside (\textwidth and \linewidth are the minipage's there), a narrow one with hyphenation, and in a T1 document
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+\section{Head}
+\begin{minipage}{3cm}
+right after a heading, a minipage with several lines of words
+\end{minipage}
+and the paragraph goes on after it with more words to make lines.
+
+\begin{itemize}
+\item An item with \begin{minipage}[t]{0.4\linewidth}a top-aligned minipage in an item with lines\end{minipage} in it.
+\end{itemize}
+
+\begin{center}
+\begin{minipage}{.5\linewidth}
+\centering
+A centered minipage whose lines are centered, with a few more words.
+
+And a second centered paragraph.
+\end{minipage}
+\end{center}
+
+\begin{minipage}[b]{4cm}
+A table inside: \begin{tabular}{|l|p{1.5cm}|}\hline a & characteristically long \\\hline\end{tabular} done.
+\end{minipage}
+\begin{minipage}[t]{5cm}
+In it the text width is its own: \begin{tabular}{p{0.3\textwidth}p{.4\linewidth}}a third of the minipage & and some of its line width\end{tabular}
+\end{minipage}
+\begin{minipage}{1.4cm}
+incomprehensibilities notwithstanding unquestionably
+\end{minipage}
+\end{document}

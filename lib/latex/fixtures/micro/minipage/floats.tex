@@ -1,0 +1,32 @@
+% fixture: minipage/floats
+% tier: T3
+% engine: document
+% covers: minipages in floats: side by side with \hfill and \quad in a centered figure (a paragraph of their own, \parindent zero), tabulars inside them, widths in \linewidth, stacked ones after a blank line, and a caption after
+\documentclass{article}
+\begin{document}
+Some text before the figure, long enough to fill a line of the paragraph here.
+
+\begin{figure}[h]
+\centering
+\begin{minipage}{0.45\linewidth}
+\centering
+\begin{tabular}{lr}
+a & 1 \\
+b & 2
+\end{tabular}
+\end{minipage}\hfill
+\begin{minipage}{0.45\linewidth}
+The right half holds a short paragraph of text set in narrow lines.
+\end{minipage}
+
+\begin{minipage}[t]{3cm}
+stacked below
+\end{minipage}\quad
+\begin{minipage}[t]{3cm}
+and next to it, with two lines
+\end{minipage}
+\caption{Side by side.}
+\end{figure}
+
+Text after.
+\end{document}

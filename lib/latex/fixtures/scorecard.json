@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 193,
-  "exact": 191,
+  "fixtures": 196,
+  "exact": 194,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 188606
+  "glyphs": 189530
  },
  "areas": [
   {
@@ -73,6 +73,11 @@
    "area": "math",
    "fixtures": 8,
    "exact": 8
+  },
+  {
+   "area": "minipage",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "pages",
@@ -1600,6 +1605,36 @@
    "glyphs": 136,
    "covers": "a word touching a formula is not hyphenated (§ 899), the space factor is 1000 after a formula, and \\mathoff is a breakpoint, at 12pt",
    "issue": "#86"
+  },
+  {
+   "id": "minipage/contexts",
+   "file": "micro/minipage/contexts.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 408,
+   "covers": "minipages where they stand (widths in \\linewidth there): starting the paragraph right after a heading (its group's \\clubpenalty), in an item, in center, a leading \\centering, a tabular inside (\\textwidth and \\linewidth are the minipage's there), a narrow one with hyphenation, and in a T1 document"
+  },
+  {
+   "id": "minipage/floats",
+   "file": "micro/minipage/floats.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 188,
+   "covers": "minipages in floats: side by side with \\hfill and \\quad in a centered figure (a paragraph of their own, \\parindent zero), tabulars inside them, widths in \\linewidth, stacked ones after a blank line, and a caption after"
+  },
+  {
+   "id": "minipage/text",
+   "file": "micro/minipage/text.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 328,
+   "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
   },
   {
    "id": "pages/article-multipage",
