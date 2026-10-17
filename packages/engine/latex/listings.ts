@@ -2,10 +2,10 @@
 // others, spaces and tabulators; a language's keywords, comments and strings) and the boxes it outputs,
 // as listings.sty and lstmisc.sty define them. Each line is a paragraph: listings' \lst@NewLine.
 
-import { glue, kern, FIL, type BoxNode, type Node } from "../../../layout/nodes"
-import { hpack, vpack } from "../../../layout/pack"
-import { appendRun } from "../../../layout/mainloop"
-import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../../../layout/font"
+import { glue, kern, FIL, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
+import { appendRun } from "../layout/mainloop"
+import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../layout/font"
 
 export class LstUnsupported extends Error {}
 

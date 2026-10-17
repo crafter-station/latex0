@@ -1,4 +1,4 @@
-// Adapter "document": whole documents in a growing subset of LaTeX, laid out
+// Layout "document": whole documents in a growing subset of LaTeX, laid out
 // end to end. Today: a standard class at 10pt, 11pt or 12pt; \pagestyle plain,
 // empty or headings (the class's default; with no sectioning yet the marks are
 // empty, so a running head is the page number at the outer edge); paragraphs of text, inline math and footnotes (as
@@ -14,29 +14,28 @@
 // through \@makecol and \@outputpage: the head box, \headsep, the text, and the
 // foot at \footskip with the page number.
 
-import { classData, documentClass } from "../../classes"
-import { dataFont } from "../../fonts"
-import { emitBoxes } from "../../../emit/boxes"
-import { shipOut } from "../../../emit/trace"
-import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../../../layout/classdata"
-import type { GlueSpec } from "../../../layout/dimen"
-import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
-import { parseDimen, parseGlue, Scanner } from "../../../layout/dimen"
-import { appendText, spaceGlue } from "../../../layout/hmode"
-import { lineBreak } from "../../../layout/linebreak"
-import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../../../layout/nodes"
-import { displayLine, finishDisplay, preDisplaySize } from "../../../layout/display"
-import { DISPLAY as DISPLAY_STYLE, groupField, mathGlue, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../../../mathlayout/mlist"
-import { parseMath } from "../../../mathlayout/parse"
-import { hpack, vpack } from "../../../layout/pack"
-import { halign } from "../../../layout/align"
-import { xnOverD } from "../../../layout/arith"
-import { ORACLE_EPOCH } from "../../tex"
-import type { ParagraphTrace } from "../../../trace/decisions"
-import type { Adapter, AdapterResult } from "./index"
+import { classData, documentClass } from "./classes"
+import { dataFont } from "./data"
+import { emitBoxes } from "../emit/boxes"
+import { shipOut } from "../emit/trace"
+import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../layout/classdata"
+import type { GlueSpec } from "../layout/dimen"
+import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
+import { parseDimen, parseGlue, Scanner } from "../layout/dimen"
+import { appendText, spaceGlue } from "../layout/hmode"
+import { lineBreak } from "../layout/linebreak"
+import { emptyBox, FIL, FILL, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type GlueNode, type Node } from "../layout/nodes"
+import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
+import { DISPLAY as DISPLAY_STYLE, groupField, mathGlue, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
+import { parseMath } from "../mathlayout/parse"
+import { hpack, vpack } from "../layout/pack"
+import { halign } from "../layout/align"
+import { xnOverD } from "../layout/arith"
+import type { ParagraphTrace } from "../trace/decisions"
+import type { LayoutResult } from "./result"
 import { geometry, GeometryUnsupported } from "./geometry"
-import { expandDocument } from "../../../expand/document"
-import { isKnownCommand } from "../../../parser"
+import { expandDocument } from "../expand/document"
+import { isKnownCommand } from "../parser"
 import { endDocument, outputOptions, makeColumns, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, pageAnchor, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
 import { Colors, ColorUnsupported } from "./xcolor"
@@ -494,7 +493,12 @@ function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle
  * which is laid out before the output routine places the float: the document is laid out again,
  * with the float not placed here, until every such guess holds.
  */
-export const document: Adapter = (source) => {
+export interface DocumentOptions {
+  /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
+  epoch?: number
+}
+
+export function document(source: string, { epoch = Math.floor(Date.now() / 1000) }: DocumentOptions = {}): LayoutResult {
   // the document's own macros expanded first, as the renderer does (expand:doc checks this keeps TeX's output)
   // listings' environments are read verbatim: each becomes \lstplaceholder{n}
   const listings: Listing[] = []
@@ -560,7 +564,7 @@ export const document: Adapter = (source) => {
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
-      try { return layout(src, notHere, aux, listings, tabulars, minipages) } catch (e) {
+      try { return layout(src, notHere, aux, listings, tabulars, minipages, epoch) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
       }
@@ -584,7 +588,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
 /** an lstlisting environment's [options] and lines */
 interface Listing { options: string; lines: string[]; inline?: true }
 
-function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[], minipages: MinipageSource[]): { result: AdapterResult; written: Aux | null } {
+function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[], minipages: MinipageSource[], epoch: number): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
@@ -2058,7 +2062,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \opening
     v.nodes.push(hook("empty"))
     const from = letterInfo.address.split(/\\\\/).map((x) => x.trim())
-    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today()).trim()
+    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch)).trim()
     check(date)
     const lines: TabLine[] = from.map((r, i) => ({ cells: [{ text: r }], ...(i === from.length - 1 ? { skip: 2 * parskip } : {}) }))
     lines.push({ cells: [{ text: date }] })
@@ -2254,7 +2258,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
     // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
     // {\large \@date \par}, with \large's)
-    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today())
+    const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch))
     check(date, "\\date")
     if (date) {
       const dp = paragraphInput("", k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: k.ints.clubpenalty, amsmath })
@@ -2571,9 +2575,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
 }
 
-/** \today on the oracle's fixed date (SOURCE_DATE_EPOCH): "January 1, 2025" */
-function today(): string {
-  const d = new Date(ORACLE_EPOCH * 1000)
+/** \today: "January 1, 2025" */
+function today(epoch: number): string {
+  const d = new Date(epoch * 1000)
   const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
   return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
 }

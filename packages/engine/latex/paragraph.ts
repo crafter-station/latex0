@@ -1,4 +1,4 @@
-// Adapter "paragraph": a fixture whose body is paragraphs of plain text and
+// Layout "paragraph": a fixture whose body is paragraphs of plain text and
 // inline math ($…$, as mathlayout/parse.ts reads it) in a standard class at
 // 10pt, 11pt or 12pt. Paragraphs are separated by blank lines;
 // one may be set in a size group, {\large … \par}. Each may start with
@@ -11,25 +11,25 @@
 // \@outputpage: \topmargin, a \headheight box and \headsep above the text box,
 // shifted right by \oddsidemargin.
 
-import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../../../layout/classdata"
-import { Scanner, type GlueSpec } from "../../../layout/dimen"
-import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../../layout/font"
-import { appendText } from "../../../layout/hmode"
-import { buildHyphenator } from "../../../layout/hyphenate"
-import { lineBreak, type LineBreakParams } from "../../../layout/linebreak"
-import { xnOverD } from "../../../layout/arith"
-import { emptyBox, FIL, FILL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../../../layout/nodes"
-import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../../../mathlayout/mlist"
-import { parseMath } from "../../../mathlayout/parse"
-import { emitBoxes } from "../../../emit/boxes"
-import { hpack, vpack } from "../../../layout/pack"
-import { roundDecimals } from "../../../layout/dimen"
-import { documentPages, type ParagraphTrace } from "../../../trace/decisions"
-import { shipOut } from "../../../emit/trace"
-import { classData, documentClass } from "../../classes"
-import { dataFont } from "../../fonts"
-import { hyphenationData, mathData } from "../../../latex/data"
-import type { Adapter } from "./index"
+import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../layout/classdata"
+import { Scanner, type GlueSpec } from "../layout/dimen"
+import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
+import { appendText } from "../layout/hmode"
+import { buildHyphenator } from "../layout/hyphenate"
+import { lineBreak, type LineBreakParams } from "../layout/linebreak"
+import { xnOverD } from "../layout/arith"
+import { emptyBox, FIL, FILL, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node } from "../layout/nodes"
+import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../mathlayout/mlist"
+import { parseMath } from "../mathlayout/parse"
+import { emitBoxes } from "../emit/boxes"
+import { hpack, vpack } from "../layout/pack"
+import { roundDecimals } from "../layout/dimen"
+import { documentPages, type ParagraphTrace } from "../trace/decisions"
+import { shipOut } from "../emit/trace"
+import { classData, documentClass } from "./classes"
+import { dataFont } from "./data"
+import { hyphenationData, mathData } from "./data"
+import type { LayoutResult } from "./result"
 import { endDocument, makeColumns } from "./output"
 import { anchor, refLink, spotAnchor, tocLink } from "./hyperref"
 
@@ -691,7 +691,7 @@ export function typesetBody(paras: { size: SizeCommand; text: string }[], k: Cla
   return { decisions, pages, pageTrace, lineCount }
 }
 
-export const paragraph: Adapter = (src) => {
+export function paragraph(src: string): LayoutResult {
   const { cls, option, extras, unknown } = documentClass(src)
   if (unknown.length) throw new Error(`class option ${unknown.join(",")} is not laid out`)
   const k = classData(cls, option, extras)

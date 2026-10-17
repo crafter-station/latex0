@@ -4,9 +4,9 @@
 // TeX's integer \divide). Lengths are scanned as \setlength scans them; geometry keeps every result
 // as \the<dimen> text, which TeX reads back to the same value.
 
-import type { ClassOptionData } from "../../../layout/classdata"
-import { Scanner, type ScanEnv } from "../../../layout/dimen"
-import { printScaled, xnOverD } from "../../../layout/arith"
+import type { ClassOptionData } from "../layout/classdata"
+import { Scanner, type ScanEnv } from "../layout/dimen"
+import { printScaled, xnOverD } from "../layout/arith"
 
 export class GeometryUnsupported extends Error {}
 

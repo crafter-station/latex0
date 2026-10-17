@@ -2,8 +2,8 @@
 // Named colors are xcolor's base set; \definecolor normalizes its numbers (\XC@calcN); RGB goes through
 // the driver's \divide (truncating), HTML through xcolor's \rdivide (five digits, rounded by the sixth).
 
-import { printScaled } from "../../../layout/arith"
-import { roundDecimals } from "../../../layout/dimen"
+import { printScaled } from "../layout/arith"
+import { roundDecimals } from "../layout/dimen"
 
 export class ColorUnsupported extends Error {}
 
