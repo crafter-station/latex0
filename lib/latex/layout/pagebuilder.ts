@@ -146,7 +146,9 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
           if (box.length && b.height + b.depth + w.height > insClass(w.n).dimen) throw new Error("page builder: a float's insertion split again")
           box.push(...w.list)
         }
-        if (pageTrace) trace.pop()
+        // (TeX's trace of this output stays when the break cost awful_bad, as the first break of a page already too
+        // full: documentPages keeps such pages)
+        if (pageTrace && trace[trace.length - 1]?.candidates.at(-1)?.cost !== null) trace.pop()
         queue = [...p.float(held, n, regs), { kind: "penalty", penalty: INF_PENALTY }, ...queue.slice(i + 1)]
         restarted = true
         break

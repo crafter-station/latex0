@@ -1,7 +1,7 @@
 % fixture: minipage/contexts
 % tier: T3
 % engine: document
-% covers: minipages where they stand (widths in \linewidth there): starting the paragraph right after a heading (its group's \clubpenalty), in an item, in center, a leading \centering, a tabular inside (\textwidth and \linewidth are the minipage's there), a narrow one with hyphenation, and in a T1 document
+% covers: minipages where they stand (widths in \linewidth there): starting the paragraph right after a heading (its group's \clubpenalty), in an item, in center, a leading \centering, a tabular inside (\textwidth and \linewidth are the minipage's there), a narrow one with hyphenation, in a bibliography item (a p{} entry inside keeps its \widowpenalty), and in a T1 document
 \documentclass{article}
 \usepackage[T1]{fontenc}
 \begin{document}
@@ -33,4 +33,7 @@ In it the text width is its own: \begin{tabular}{p{0.3\textwidth}p{.4\linewidth}
 \begin{minipage}{1.4cm}
 incomprehensibilities notwithstanding unquestionably
 \end{minipage}
+\begin{thebibliography}{9}
+\bibitem{a} An entry with \begin{minipage}{4cm}a minipage holding \begin{tabular}{p{1.2cm}}several words in a narrow cell of a table\end{tabular}\end{minipage} in it.
+\end{thebibliography}
 \end{document}

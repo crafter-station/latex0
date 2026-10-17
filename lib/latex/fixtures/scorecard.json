@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 196,
-  "exact": 194,
+  "fixtures": 198,
+  "exact": 196,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 189530
+  "glyphs": 190195
  },
  "areas": [
   {
@@ -36,8 +36,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "footnotes",
@@ -76,8 +76,8 @@
   },
   {
    "area": "minipage",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "pages",
@@ -688,6 +688,16 @@
    "issue": "#30"
   },
   {
+   "id": "floats/overfull-float-break",
+   "file": "micro/floats/overfull-float-break.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 319,
+   "covers": "a float's \\penalty-\\@Miv as the first break of a page already too full: a [!b] table deferred from page 1 takes the bottom of page 2 (\\@startcolumn, a goal of a few points), the tall line carried there overflows it, and the figure's -\\@Miv costs awful_bad and is the best break; TeX's \\tracingpages keeps that output's page"
+  },
+  {
    "id": "floats/tabulars",
    "file": "micro/floats/tabulars.tex",
    "area": "floats",
@@ -1095,8 +1105,8 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 150,
-   "covers": "a framed listing right after a run-in heading: the top frame's paragraph runs the heading's \\everypar (the heading in place before the frame, \\@noskipsecfalse, \\clubpenalty\\@M in the listing's group, -1em read in the basic style's font); with no top frame the heading is lost"
+   "glyphs": 177,
+   "covers": "a framed listing right after a run-in heading: the top frame's paragraph runs the heading's \\everypar (the heading in place before the frame, \\@noskipsecfalse, \\clubpenalty\\@M in the listing's group, -1em read in the basic style's font; a \\subparagraph's \\hskip\\parindent read there, zero with breaklines); with no top frame the heading is lost"
   },
   {
    "id": "listings/frame-bl",
@@ -1607,14 +1617,24 @@
    "issue": "#86"
   },
   {
+   "id": "minipage/captions",
+   "file": "micro/minipage/captions.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 241,
+   "covers": "\\caption in minipages in floats: side by side tables each with its caption and \\label (numbered in turn, the lot lines), a caption first in a minipage, one too wide for the minipage (a paragraph at its \\hsize, \\@parboxrestore undoing \\centering), text after a caption, \\centering after a caption, and a float caption after the minipages; \\ref to them"
+  },
+  {
    "id": "minipage/contexts",
    "file": "micro/minipage/contexts.tex",
    "area": "minipage",
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 408,
-   "covers": "minipages where they stand (widths in \\linewidth there): starting the paragraph right after a heading (its group's \\clubpenalty), in an item, in center, a leading \\centering, a tabular inside (\\textwidth and \\linewidth are the minipage's there), a narrow one with hyphenation, and in a T1 document"
+   "glyphs": 486,
+   "covers": "minipages where they stand (widths in \\linewidth there): starting the paragraph right after a heading (its group's \\clubpenalty), in an item, in center, a leading \\centering, a tabular inside (\\textwidth and \\linewidth are the minipage's there), a narrow one with hyphenation, in a bibliography item (a p{} entry inside keeps its \\widowpenalty), and in a T1 document"
   },
   {
    "id": "minipage/floats",

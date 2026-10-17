@@ -1,7 +1,7 @@
 % fixture: listings/frame-after-run-in
 % tier: T3
 % engine: document
-% covers: a framed listing right after a run-in heading: the top frame's paragraph runs the heading's \everypar (the heading in place before the frame, \@noskipsecfalse, \clubpenalty\@M in the listing's group, -1em read in the basic style's font); with no top frame the heading is lost
+% covers: a framed listing right after a run-in heading: the top frame's paragraph runs the heading's \everypar (the heading in place before the frame, \@noskipsecfalse, \clubpenalty\@M in the listing's group, -1em read in the basic style's font; a \subparagraph's \hskip\parindent read there, zero with breaklines); with no top frame the heading is lost
 \documentclass{article}
 \usepackage{listings}
 \begin{document}
@@ -21,6 +21,17 @@ y = 2
 \paragraph{Bottom only.}
 \begin{lstlisting}[frame=b]
 z = 3
+\end{lstlisting}
+\subparagraph{Indented}
+
+\begin{lstlisting}[frame=tb,breaklines=true]
+w = 4
+\end{lstlisting}
+
+\subparagraph{Indented again}
+
+\begin{lstlisting}[frame=tb]
+v = 5
 \end{lstlisting}
 \section{Next}
 More text.
