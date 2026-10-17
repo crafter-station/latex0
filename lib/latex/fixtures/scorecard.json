@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 189,
-  "exact": 187,
+  "fixtures": 193,
+  "exact": 191,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 187729
+  "glyphs": 188606
  },
  "areas": [
   {
@@ -61,8 +61,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 35,
-   "exact": 35
+   "fixtures": 37,
+   "exact": 37
   },
   {
    "area": "lists",
@@ -86,8 +86,8 @@
   },
   {
    "area": "tabular",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "templates",
@@ -1324,6 +1324,26 @@
    "covers": "lstlisting: Python keywords (two classes), a line comment, backslash strings, visible spaces"
   },
   {
+   "id": "listings/run-in-counter",
+   "file": "micro/listings/run-in-counter.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 66,
+   "covers": "a heading after a listing that lost a run-in heading, with a counter command (a macro's \\stepcounter) between the blank line and the heading: the blank line's \\par is still \\@doendpe's, which empties \\everypar, so the heading's \\if@noskipsec\\leavevmode makes a line; and the same without the blank line"
+  },
+  {
+   "id": "listings/run-in-href",
+   "file": "micro/listings/run-in-href.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 32,
+   "covers": "hyperref: an uncaptioned listing's \\lst@HRefStepCounter sets \\@currentHref globally, so a run-in heading put in place in the listing's top frame paragraph writes the listing's anchor in its toc line"
+  },
+  {
    "id": "listings/spaces",
    "file": "micro/listings/spaces.tex",
    "area": "listings",
@@ -1832,6 +1852,26 @@
    "status": "pass",
    "glyphs": 100,
    "covers": "tabulars in a paragraph ([t], [b] and centered), @{text} and *{n}{cols} columns, \\\\[skip] positive and negative, empty entries"
+  },
+  {
+   "id": "tabular/p-columns",
+   "file": "micro/tabular/p-columns.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 315,
+   "covers": "p{width} columns (\\@classv's \\vtop paragraph with \\@arrayparboxrestore and \\sloppy, \\@endpbox's \\@finalstrut): one and several lines, an empty cell, next to l/c/r and rules, a \\\\[skip] ending a p cell, @-text around one (the box resets the space factor), in a float, in a \\small table, in text and with [t] and [b]"
+  },
+  {
+   "id": "tabular/p-contexts",
+   "file": "micro/tabular/p-contexts.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 464,
+   "covers": "p{width} entries where they stand: right after a heading (the tabular starts the paragraph in its group, with \\@afterheading's \\clubpenalty), a \\multicolumn into p, in an item, in center and a centered float (\\finalhyphendemerits zero), hyphenation, math, a negative \\\\[skip], and a center right after a heading and after a run-in heading (\\@item's \\clubpenalty in the tabular's group)"
   },
   {
    "id": "tabular/rules",

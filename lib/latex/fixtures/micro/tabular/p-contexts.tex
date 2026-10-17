@@ -1,0 +1,55 @@
+% fixture: tabular/p-contexts
+% tier: T3
+% engine: document
+% covers: p{width} entries where they stand: right after a heading (the tabular starts the paragraph in its group, with \@afterheading's \clubpenalty), a \multicolumn into p, in an item, in center and a centered float (\finalhyphendemerits zero), hyphenation, math, a negative \\[skip], and a center right after a heading and after a run-in heading (\@item's \clubpenalty in the tabular's group)
+\documentclass{article}
+\begin{document}
+\section{Head}
+\begin{tabular}{p{1.5cm}p{2cm}}
+international organizations & representatives \\
+\multicolumn{2}{p{4cm}}{a spanning cell with enough words to wrap around} \\
+\multicolumn{1}{c}{x} & incomprehensibilities
+\end{tabular}
+
+\begin{itemize}
+\item An item with \begin{tabular}{lp{2cm}} a & three lines of text in this cell \end{tabular} inline.
+\end{itemize}
+
+\begin{center}
+\begin{tabular}{p{1cm}p{.2\textwidth}}
+characteristically hyphenated & a fifth of the text width
+\end{tabular}
+\end{center}
+
+\begin{figure}[h]
+\centering
+\begin{tabular}{p{1.2cm}|p{1.2cm}}
+unquestionably & notwithstanding \\[-2pt]
+$x^2+y$ math & \textit{italic text}
+\end{tabular}
+\caption{P.}
+\end{figure}
+
+\begin{figure}[h]
+\centering
+\begin{tabular}{p{1.6cm}}
+unquestionably notwithstanding characteristically incomprehensibilities representatives organizations internationalization
+\end{tabular}
+\end{figure}
+\section{Centered}
+
+\begin{center}
+\begin{tabular}{rp{2cm}}
+1 & a centered table right after a heading \\
+2 & \\
+\end{tabular}
+\end{center}
+
+\paragraph{Run in}
+
+\begin{center}
+\begin{tabular}{|p{2cm}l@{}}
+after a run-in heading in a center & x
+\end{tabular}
+\end{center}
+\end{document}

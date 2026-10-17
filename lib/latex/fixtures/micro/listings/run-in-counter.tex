@@ -1,0 +1,23 @@
+% fixture: listings/run-in-counter
+% tier: T3
+% engine: document
+% covers: a heading after a listing that lost a run-in heading, with a counter command (a macro's \stepcounter) between the blank line and the heading: the blank line's \par is still \@doendpe's, which empties \everypar, so the heading's \if@noskipsec\leavevmode makes a line; and the same without the blank line
+\documentclass{article}
+\usepackage{listings}
+\newcounter{thm}
+\newcommand{\thm}{\stepcounter{thm}\paragraph{Theorem \thethm.}}
+\begin{document}
+\paragraph{A}
+
+\begin{lstlisting}
+x = 1
+\end{lstlisting}
+
+\thm Text of the first theorem.
+
+\paragraph{B}
+
+\begin{lstlisting}
+\end{lstlisting}
+\thm Text of the second theorem.
+\end{document}

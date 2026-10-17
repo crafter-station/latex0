@@ -84,9 +84,13 @@ export interface DocState {
   /** \lstinline number n (taken out of the source before expansion) at a size in a font */
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
   /** tabular number n (taken out of the source after expansion) at a size in a font: its \hbox */
-  /** (`sfcodes`: the \sfcode changes in force, which the entries keep) */
-  tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>) => Node
+  /** (`sfcodes`: the \sfcode changes in force, which the entries keep; `outer`: the paragraph it is in, whose
+   *  footnote traces the p{width} entries' paragraphs join and whose \clubpenalty and \finalhyphendemerits they keep) */
+  tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter) => Node
 }
+
+/** where a tabular stands: the traces its p{width} entries' paragraphs join, and the parameters they keep */
+export interface TabularOuter { notes: ParagraphTrace[]; club: number; widow: number; finalHyph: number }
 
 /**
  * Cross-references: \@currentlabel (local: lists, equations and floats restore it), \@currentHref
@@ -430,7 +434,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean }
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
@@ -515,7 +519,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}
       if (!doc.tabular) throw new Error("paragraph adapter: a tabular outside a document")
-      list.push(doc.tabular(p.n, size, attrs, state.sfcodes))
+      // (a tabular that starts the paragraph starts it in its group: the \everypar's \clubpenalty there is its own)
+      const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
+      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits }))
       state.spaceFactor = 1000
     }
     else if (p.kind === "underline") { // $\@@underline{\hbox{#1}}\m@th$: the box as an under noad's nucleus
@@ -624,7 +630,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, { k, params, mathSurround, doc, notes, noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base })
+  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, { k, params, mathSurround, doc, notes, lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base })
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   if (opts.end) list.push(...opts.end)
   return { list, params, notes }

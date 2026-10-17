@@ -1,0 +1,16 @@
+% fixture: listings/run-in-href
+% tier: T3
+% engine: document
+% covers: hyperref: an uncaptioned listing's \lst@HRefStepCounter sets \@currentHref globally, so a run-in heading put in place in the listing's top frame paragraph writes the listing's anchor in its toc line
+\documentclass{article}
+\usepackage{listings}
+\usepackage{hyperref}
+\begin{document}
+\paragraph{Heading.}
+
+\begin{lstlisting}[frame=lines]
+x = 1
+\end{lstlisting}
+
+Text after the listing.
+\end{document}

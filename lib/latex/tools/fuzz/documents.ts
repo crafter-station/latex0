@@ -48,20 +48,21 @@ export function makeDocument(r: () => number): string {
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
-  // a tabular: l, c, r columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
+  // a tabular: l, c, r and p{width} columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
   // \multicolumn with rules of its own, \hline (sometimes doubled), \cline, \\[skip]
   const tabular = (pos = "") => {
     const n = 1 + Math.floor(r() * 4)
     const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
     let spec = r() < 0.2 ? pick(["@{}", "@{~}", "@{: }"]) : rule()
-    for (let j = 0; j < n; j++) spec += pick(["l", "c", "r"]) + (j < n - 1 ? (r() < 0.1 ? pick(["@{}", "@{ -- }", "@{\\quad}"]) : rule()) : "")
+    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `p{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : pick(["l", "c", "r"]))
+    for (let j = 0; j < n; j++) spec += kinds[j] + (j < n - 1 ? (r() < 0.1 ? pick(["@{}", "@{ -- }", "@{\\quad}"]) : rule()) : "")
     spec += r() < 0.2 ? "@{}" : rule()
     if (r() < 0.1) spec = `${rule()}*{${n}}{${pick(["c", "l|", "r"])}}`
-    const cell = () => {
+    const cell = (long = false) => {
       const x = r()
       if (x < 0.15) return ""
       if (x < 0.25) return math()
-      const w = words(1 + Math.floor(r() * 3)).replace(/[^A-Za-z ]/g, "").trim() || "x"
+      const w = words(1 + Math.floor(r() * (long ? 12 : 3))).replace(/[^A-Za-z ]/g, "").trim() || "x"
       return x < 0.4 ? `\\${pick(["textbf", "textit", "emph", "texttt"])}{${w}}` : w
     }
     const rows: string[] = []
@@ -78,7 +79,7 @@ export function makeDocument(r: () => number): string {
       const cells: string[] = []
       for (let j = 0; j < n;) {
         const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
-        if (span) { cells.push(`\\multicolumn{${span}}{${pick(["c", "|c|", "l", "r|", "|l"])}}{${cell()}}`); j += span } else { cells.push(cell()); j++ }
+        if (span) { cells.push(`\\multicolumn{${span}}{${pick(["c", "|c|", "l", "r|", "|l", "p{3cm}"])}}{${cell()}}`); j += span } else { cells.push(cell(kinds[j].startsWith("p"))); j++ }
       }
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
       rows.push(cells.join(" & ") + ` \\\\${end}`)

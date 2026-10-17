@@ -1,6 +1,7 @@
 // The kernel's tabular (latex.ltx \@tabular, \@array, \@mkpream, \multicolumn, \hline, \cline): the column
 // preamble as \@mkpream builds it, the body's rows and rules, and the \halign they make. With booktabs:
-// \toprule, \midrule, \bottomrule, \cmidrule, \specialrule, \addlinespace and \morecmidrules.
+// \toprule, \midrule, \bottomrule, \cmidrule, \specialrule, \addlinespace and \morecmidrules. A p{width}
+// column's entry is \@classv's \vtop paragraph.
 
 import { halignSpans, type AlignCell } from "../../../layout/align"
 import { emptyBox, FIL, FILL, glue, kern, paramGlue, type BoxNode, type Node } from "../../../layout/nodes"
@@ -12,8 +13,8 @@ export class TabularUnsupported extends Error {}
 
 /** what a preamble puts around a column's entry: a rule (|), a skip, or @-text */
 export type TabItem = { rule: true } | { skip: "tabcolsep" | "doublerulesep" | "halfrule" } | { text: string }
-/** a column's template: u, the entry aligned l, c or r, v */
-export interface TabCol { align: "l" | "c" | "r"; u: TabItem[]; v: TabItem[] }
+/** a column's template: u, the entry aligned l, c or r or in a p{width} box, v */
+export interface TabCol { align: "l" | "c" | "r" | "p"; width?: string; u: TabItem[]; v: TabItem[] }
 
 /** the spec's tokens: characters and the contents of braced groups (\@tfor), after \@expast's *{n}{cols} */
 function specTokens(spec: string): string[] {
@@ -47,18 +48,19 @@ function specTokens(spec: string): string[] {
 
 /** \@mkpream with \@tabclassz: the columns' templates */
 export function preamble(spec: string): TabCol[] {
-  const flat: (TabItem | "&" | { align: "l" | "c" | "r" })[] = []
+  const flat: (TabItem | "&" | { align: "l" | "c" | "r" | "p"; width?: string })[] = []
   let last = 6, firstAmp = true
   const acol = () => flat.push({ skip: "tabcolsep" })
   const amp = () => { if (firstAmp) firstAmp = false; else flat.push("&") }
   const rule = () => flat.push({ rule: true })
   for (const t of specTokens(spec)) {
     const ch = last === 2 ? 4 : last === 3 ? 5 : t === "l" || t === "c" || t === "r" ? 0 : t === "|" ? 1 : t === "@" ? 2 : t === "p" ? 3 : -1
-    if (ch < 0 || ch === 3 || ch === 5) throw new TabularUnsupported(`tabular column ${t.replace(/^\{/, "")} in {${spec}}`)
-    if (ch === 0) {
+    if (ch < 0) throw new TabularUnsupported(`tabular column ${t.replace(/^\{/, "")} in {${spec}}`)
+    if (ch === 0 || ch === 3) { // \@tabclassz, and \@classiii for p: the same separators
       if (last === 0 || last === 5) { acol(); amp(); acol() } else if (last === 1) { amp(); acol() } else if (last === 4) amp(); else { firstAmp = false; acol() }
-      flat.push({ align: t as "l" })
-    } else if (ch === 1) {
+      if (ch === 0) flat.push({ align: t as "l" })
+    } else if (ch === 5) flat.push({ align: "p", width: t.replace(/^\{/, "") }) // \@classv: \@startpbox{width}\ignorespaces#\@endpbox
+    else if (ch === 1) {
       if (last === 0 || last === 5) acol(); else if (last === 1) flat.push({ skip: "doublerulesep" })
       rule()
     } else if (ch === 2) { if (last === 1) flat.push({ skip: "halfrule" }) }
@@ -68,12 +70,12 @@ export function preamble(spec: string): TabCol[] {
   if (last === 0 || last === 5) acol()
   else if (last === 2 || last === 3) throw new TabularUnsupported(`tabular columns {${spec}}`)
   const cols: TabCol[] = []
-  let cur: { align?: "l" | "c" | "r"; u: TabItem[]; v: TabItem[] } = { u: [], v: [] }
+  let cur: { align?: "l" | "c" | "r" | "p"; width?: string; u: TabItem[]; v: TabItem[] } = { u: [], v: [] }
   for (const x of [...flat, "&" as const]) {
     if (x === "&") {
       if (!cur.align) throw new TabularUnsupported(`tabular columns {${spec}}`)
       cols.push(cur as TabCol); cur = { u: [], v: [] }
-    } else if ("align" in x) { if (cur.align) throw new TabularUnsupported(`tabular columns {${spec}}`); cur.align = x.align }
+    } else if ("align" in x) { if (cur.align) throw new TabularUnsupported(`tabular columns {${spec}}`); cur.align = x.align; if (x.width !== undefined) cur.width = x.width }
     else (cur.align ? cur.v : cur.u).push(x)
   }
   return cols
@@ -169,6 +171,15 @@ export function tabularLines(body: string): TabLine[] {
   return lines
 }
 
+/** \vtop (§ 1087): the vbox's height is its first item's if that is a box or a rule, else zero */
+export function vtop(list: Node[]): BoxNode {
+  const box = vpack(list)
+  const first = list[0]
+  const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
+  box.depth = box.depth - h + box.height; box.height = h
+  return box
+}
+
 /** what a tabular is built with where it stands */
 export interface TabularEnv {
   /** \@arstrutbox's height and depth */
@@ -178,6 +189,8 @@ export interface TabularEnv {
   axis: number
   /** an entry or @-text in restricted horizontal mode, with the cell's space factor */
   cell(text: string, state: { spaceFactor: number }): Node[]
+  /** a p{width} column's \vtop (\@startpbox … \@endpbox) around an entry; `cr` is what \\[skip] puts at its end */
+  pbox(text: string, width: string, cr: Node[]): BoxNode
   /** a \\[skip]'s dimension */
   skip(text: string): number
   /** booktabs's dimensions, when the document loads it (set in the font of its \usepackage) */
@@ -199,8 +212,11 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
   })
   const unskip = (l: Node[]) => { if (l.at(-1)?.kind === "glue") l.pop() }
   const hfil = () => glue(0, 65536, FIL)
-  /** {\hfil\hskip1sp\ignorespaces entry\unskip\hfil} as the column aligns it; `cr` is what \\[skip] puts before \unskip */
-  const entry = (align: "l" | "c" | "r", text: string, cr: Node[], st: { spaceFactor: number }): Node[] => {
+  /** {\hfil\hskip1sp\ignorespaces entry\unskip\hfil} as the column aligns it, or \@startpbox{width}\ignorespaces
+   *  entry\@endpbox (whose \hfil follows the \vtop); `cr` is what \\[skip] puts before \unskip */
+  const entry = (col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }): Node[] => {
+    const align = col.align
+    if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr), hfil()] } // (a box: the space factor is 1000)
     const l: Node[] = align === "l" ? [] : [hfil()]
     l.push(glue(1), ...env.cell(text.replace(/^\s+/, ""), st))
     if (cr.length) { unskip(l); l.push(...cr) }
@@ -278,13 +294,13 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
         const own = preamble(c.spec)
         if (own.length !== 1 || c.span < 1) throw new TabularUnsupported(`\\multicolumn{${c.span}}{${c.spec}}`)
         if (j + c.span > cols.length) throw new TabularUnsupported("a \\multicolumn past the last column")
-        const nodes = [strut(), ...items(own[0].u, st), ...entry(own[0].align, c.text, [], st), ...items(own[0].v, st), emptyBox("hlist", 0)]
+        const nodes = [strut(), ...items(own[0].u, st), ...entry(own[0], c.text, [], st), ...items(own[0].v, st), emptyBox("hlist", 0)]
         if (last && cr.length) { unskip(nodes); nodes.push(...cr) }
         j += c.span
         return { nodes, span: c.span }
       }
       const col = cols[j++]
-      return { nodes: [...(j === 1 ? [strut()] : []), ...items(col.u, st), ...entry(col.align, c.text, last ? cr : [], st), ...items(col.v, st)], span: 1 }
+      return { nodes: [...(j === 1 ? [strut()] : []), ...items(col.u, st), ...entry(col, c.text, last ? cr : [], st), ...items(col.v, st)], span: 1 }
     })
     vlist.push({ row: rows.length }); rows.push(r)
     if (skip !== undefined && skip <= 0) vlist.push(glue(skip))
@@ -300,12 +316,8 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     if (x.kind === "rule") { list.push({ ...x, width }); pd = null } // a rule leaves \prevdepth at -1000pt
     else list.push(x)
   }
-  const box = vpack(list)
-  if (pos === "t") { // \vtop (§ 1087)
-    const first = list[0]
-    const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
-    box.depth = box.depth - h + box.height; box.height = h
-  } else if (pos === "c") { // \vcenter: make_vcenter (§ 736), about the axis
+  const box = pos === "t" ? vtop(list) : vpack(list)
+  if (pos === "c") { // \vcenter: make_vcenter (§ 736), about the axis
     const delta = box.height + box.depth
     box.height = env.axis + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
     box.depth = delta - box.height
