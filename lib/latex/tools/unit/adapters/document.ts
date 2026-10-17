@@ -815,6 +815,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     return value === undefined ? undefined : { level: "dimen" as const, value }
   }
   let minipageWidth: number | null = null
+  /** the float being read (\@captype), for a \caption in a minipage */
+  let captype: "figure" | "table" | null = null
   doc.minipage = (n, size, attrs, sfcodes, outer) => {
     const m = minipages[n]
     if (m.height !== null) throw new Unsupported("a minipage with a height")
@@ -823,11 +825,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     try { hsize = parseDimen(m.width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(outer.lineWidth) }) } catch { throw new Unsupported(`a minipage {${m.width}}`) }
     let body = m.body.replace(/(^|[^\\])%.*\n[ \t]*/g, "$1")
     // a leading \centering: \leftskip and \rightskip \@flushglue, \parfillskip zero, \finalhyphendemerits zero
-    const centering = /^\s*\\centering(?![A-Za-z])/.test(body)
-    if (centering) body = body.replace(/^\s*\\centering\s*/, "")
+    // \centering in vertical mode (first, or after a caption): \leftskip and \rightskip \@flushglue, \parfillskip zero,
+    // \finalhyphendemerits zero, from there on
+    let centering = false
     const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
-    const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : { finalHyphenDemerits: outer.finalHyph }
-    const odd = body.match(/\\(?:footnote|begin|item|label|centering|raggedright|raggedleft|vspace|noindent|LXlstinline)(?![A-Za-z])|\\\[|\$\$/) ?? (centering ? body.match(/\\\\/) : null)
+    const shape = () => centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : { finalHyphenDemerits: outer.finalHyph }
+    const odd = body.match(/\\(?:footnote|begin|item|raggedright|raggedleft|vspace|noindent|LXlstinline)(?![A-Za-z])|\\\[|\$\$/) ?? (/\\centering(?![A-Za-z])/.test(body) ? body.match(/\\\\/) : null)
     if (odd) throw new Unsupported(`${odd[0]} in a minipage`)
     const list: Node[] = []
     let pd: number | null = IGNORE_DEPTH
@@ -835,24 +838,55 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const outerWidth = minipageWidth
     minipageWidth = hsize
     try {
-    for (const text of body.split(/\n[ \t]*\n|\\par(?![A-Za-z])/)) {
+    const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit); else list.push(x) } }
+    // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
+    // LaTeX's restart of the paragraph
+    const parskips = () => { if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) }
+    // \caption (\par first) and a \label right after it, in vertical mode; paragraphs between
+    let cap: { number: number; name: string } | null = null
+    for (const part of body.split(/(\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^{}]*\})/)) {
+      const cm = part.match(/^\\caption\s*\{([^]*)\}$/)
+      if (cm) {
+        if (!captype) throw new Unsupported("\\caption in a minipage outside a float")
+        if (size !== "normalsize" || attrs.ser !== "m" || attrs.shape !== "n" || attrs.fam !== "cmr") throw new Unsupported("a minipage caption in another font")
+        cap = caption(captype, cm[1], hsize, {
+          push: (x) => list.push(x),
+          box: (x) => { pd = appendToVlist(list, x, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit) },
+          // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits)
+          paragraph: (start, text) => {
+            parskips()
+            const p = paragraphInput(text, k, "normalsize", doc, { start, hsize, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph })
+            const lb = lineBreak(p.list, p.params)
+            outer.notes.push(...p.notes, lb.trace)
+            lines(lb.vlist)
+          },
+        })
+        continue
+      }
+      const lm = part.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
+      if (lm) {
+        if (!cap) throw new Unsupported("a \\label in a minipage")
+        list.push(labelWrite(refs, lm[1], the(cap.number), refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
+        continue
+      }
+      if (/^\\label/.test(part)) throw new Unsupported(`${part} in a minipage`)
+      if (part.trim()) cap = null // (a \label after text is in a paragraph)
+    for (let text of part.split(/\n[ \t]*\n|\\par(?![A-Za-z])/)) {
+      if (/^\s*\\centering(?![A-Za-z])/.test(text)) { centering = true; text = text.replace(/^\s*\\centering\s*/, "") }
+      if (/\\centering(?![A-Za-z])/.test(text)) throw new Unsupported("\\centering in a minipage's paragraph")
       if (!text.trim()) continue
-      // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
-      // LaTeX's restart of the paragraph
-      if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+      parskips()
       let p: ReturnType<typeof paragraphInput>
       try {
-        p = paragraphInput(text, k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, ...shape })
+        p = paragraphInput(text, k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape() })
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a minipage paragraph "${text.trim().slice(0, 40)}"`)
         throw e
       }
       const lb = lineBreak(p.list, p.params)
       outer.notes.push(...p.notes, lb.trace)
-      for (const x of lb.vlist) {
-        if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
-        else list.push(x)
-      }
+      lines(lb.vlist)
+    }
     }
     } finally { minipageWidth = outerWidth }
     if (list.at(-1)?.kind === "glue") list.pop() // \unskip
@@ -950,7 +984,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
   /** (`em`: of the font where its \everypar runs, which reads \hskip -\@tempskipa's -1em) */
-  let runIn: ((em?: number) => Node[]) | null = null
+  let runIn: ((em?: number, parindent?: number) => Node[]) | null = null
   /**
    * \@noskipsec left true by a run-in heading whose \everypar never ran (a listing's replaced it, then
    * \lst@doendpe's): the heading is lost, and the next \@startsection or \@trivlist (\if@noskipsec\leavevmode)
@@ -1706,7 +1740,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
   function styleColors(style: string) { return [...style.matchAll(COLOR_CMD)].map((m) => colorSpec(m[2], m[1])) }
 
-  function listing(b: Extract<Block, { kind: "listing" }>, runInHead: ((em?: number) => Node[]) | null = null) {
+  function listing(b: Extract<Block, { kind: "listing" }>, runInHead: ((em?: number, parindent?: number) => Node[]) | null = null) {
     if (!usesListings) throw new Unsupported("lstlisting without \\usepackage{listings}")
     // right after a heading the listing's \everypar replaces \@afterheading's (which then never runs: \if@nobreak
     // stays true and \clubpenalty as it was), unless a top frame's paragraph runs it first
@@ -1781,7 +1815,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
       const start: Node[] = [box]
       if (runInHead && top) { // a run-in heading's: \global\@noskipsecfalse, \clubpenalty\@M, the heading in place
-        start.unshift(...runInHead(baseFont.params[QUAD])); runInHead = null; noskipsec = false; v.club = 10000
+        start.unshift(...runInHead(baseFont.params[QUAD], o.breaklines ? 0 : k.dimens.parindent)); runInHead = null; noskipsec = false; v.club = 10000 // (breaklines: \parindent\z@)
       } else if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
       else if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
       const p = paragraphInput("", k, "normalsize", doc, { start, parShape, ...breaks, amsmath, clubPenalty: v.club, end })
@@ -1869,6 +1903,37 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.nobreak = false // \end{lstlisting}: \@nobreakfalse
   }
 
+  /**
+   * \caption{text} in a float of type `env` at \hsize `hsize`: \refstepcounter, the lof/lot line, then in a group
+   * \@parboxrestore\normalsize\@makecaption: \vskip\abovecaptionskip, the caption centered in an \hbox to \hsize
+   * or, wider than that, a paragraph, then \vskip\belowcaptionskip. Its number and nameref's name come back.
+   */
+  function caption(env: "figure" | "table", source: string, hsize: number, out: { push(n: Node): void; box(b: BoxNode): void; paragraph(start: Node[], text: string): void }): { number: number; name: string } {
+    const text = source.replace(/\s+/g, " ").trim()
+    if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
+    const number = ++counters[env]
+    refs.href = href(env, number) // global; \@currentlabel ends with the float's group
+    const ext = env === "figure" ? "lof" : "lot"
+    out.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
+    out.push(glue(k.dimens.abovecaptionskip))
+    // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
+    const l: Node[] = [], state = { spaceFactor: 1000 }
+    appendText(l, env === "figure" ? "Figure" : "Table", romanFont, state, false)
+    l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
+    // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
+    if (hyper) { appendText(l, `${the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1))); appendText(l, text, romanFont, state, false) }
+    else appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
+    const cap = hpack(setgroup(l)) // \sbox
+    if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
+      const start: Node[] = [hpack([])]
+      appendText(start, env === "figure" ? "Figure" : "Table", romanFont, { spaceFactor: 1000 }, false)
+      start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
+      if (hyper) { appendText(start, `${the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1))); out.paragraph(start, text) }
+      else out.paragraph(start, `${the(number)}: ${text}`)
+    } else out.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }))
+    out.push(glue(k.dimens.belowcaptionskip))
+    return { number, name: labelName(text) } // (nameref drops a final period)
+  }
   function floatBlock(b: Extract<Block, { kind: "float" }>) {
     if (b.inPar) throw new Unsupported("a float inside a paragraph")
     if (b.blank) v.par() // (after \@doendpe, its \par resets \clubpenalty)
@@ -1905,6 +1970,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         else content.push(n)
       }
     }
+    captype = b.env
+    try {
     for (let ii = 0; ii < items.length; ii++) {
       const it = items[ii]
       if (it === "\\centering") { centered = true; continue }
@@ -1933,30 +2000,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       }
       m = it.match(/^\\caption\s*\{([^]*)\}$/)
       if (m) {
-        const text = m[1].replace(/\s+/g, " ").trim()
-        if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
-        number = ++counters[b.env]
-        refs.href = href(b.env, number) // global; \@currentlabel ends with the float's group
-        const ext = b.env === "figure" ? "lof" : "lot"
-        content.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${b.env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
-        captionName = labelName(text) // nameref drops a final period
-        content.push(glue(k.dimens.abovecaptionskip))
-        // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
-        const l: Node[] = [], state = { spaceFactor: 1000 }
-        appendText(l, b.env === "figure" ? "Figure" : "Table", romanFont, state, false)
-        l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
-        // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
-        if (hyper) { appendText(l, `${the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1))); appendText(l, text, romanFont, state, false) }
-        else appendText(l, `${the(number)}: ${text}`, romanFont, state, false)
-        const cap = hpack(setgroup(l)) // \sbox
-        if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
-          const start: Node[] = [hpack([])]
-          appendText(start, b.env === "figure" ? "Figure" : "Table", romanFont, { spaceFactor: 1000 }, false)
-          start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
-          if (hyper) { appendText(start, `${the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1))); floatParagraph(start, text, false) }
-          else floatParagraph(start, `${the(number)}: ${text}`, false) // \@caption's \@parboxrestore undoes \centering
-        } else pd = appendToVlist(content, hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
-        content.push(glue(k.dimens.belowcaptionskip))
+        ({ number, name: captionName } = caption(b.env, m[1], hsize, {
+          push: (n) => content.push(n),
+          box: (x) => { pd = appendToVlist(content, x, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit) },
+          paragraph: (start, text) => floatParagraph(start, text, false), // \@caption's \@parboxrestore undoes \centering
+        }))
         continue
       }
       // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
@@ -1965,6 +2013,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
       throw new Unsupported(`${it} in a ${b.env}`)
     }
+    } finally { captype = null }
     content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
     const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
     if (box.height > k.dimens.textheight) box.height = k.dimens.textheight // \@largefloatcheck
@@ -2387,9 +2436,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const anchorName = hyper ? `section*.${++linkcounter}` : ""
     if (hyper) { refs.href = anchorName; refs.name = labelName(b.title) }
     // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
-    runIn = (em = romanFont.params[QUAD]) => {
+    runIn = (em = romanFont.params[QUAD], parindent = k.dimens.parindent) => {
       const title = counted(b.title)
-      const indent = b.level === 5 ? k.dimens.parindent : 0
+      const indent = b.level === 5 ? parindent : 0 // (\hskip #3, read where it is put in place)
       const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, k.sizes.normalsize.baselineskip.width)] : [])]
       const head = paragraphInput(title, k, "normalsize", doc, { start, font: k.sizes.normalsize.bold, amsmath }).list
       if (!b.star) head.push(...contentsWrites(b.level, null, title, refs.href, false)) // (\@currentHref when the paragraph starts)

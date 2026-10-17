@@ -1,0 +1,45 @@
+% fixture: minipage/captions
+% tier: T3
+% engine: document
+% covers: \caption in minipages in floats: side by side tables each with its caption and \label (numbered in turn, the lot lines), a caption first in a minipage, one too wide for the minipage (a paragraph at its \hsize, \@parboxrestore undoing \centering), text after a caption, \centering after a caption, and a float caption after the minipages; \ref to them
+\documentclass{article}
+\begin{document}
+See tables \ref{t:a} and \ref{t:b}, and figure~\ref{f:c}.
+
+\begin{table}[h]
+\centering
+\begin{minipage}{0.45\linewidth}
+\centering
+\begin{tabular}{lr}
+a & 1 \\
+b & 2
+\end{tabular}
+\caption{Left.}
+\label{t:a}
+\end{minipage}\hfill
+\begin{minipage}{0.45\linewidth}
+\centering
+\caption{A right caption that is far too long to fit on one line of this half}
+\label{t:b}
+\begin{tabular}{c}
+x
+\end{tabular}
+\end{minipage}
+\end{table}
+
+\begin{figure}[h]
+\begin{minipage}[t]{5cm}
+Some text first.
+\caption{Below text.}\label{f:c}
+And text after the caption.
+\end{minipage}
+\begin{minipage}[t]{4cm}
+\caption{First.}
+\centering
+then centered text with a few more words to wrap
+\end{minipage}
+\caption{The whole figure.}
+\end{figure}
+
+Text after.
+\end{document}

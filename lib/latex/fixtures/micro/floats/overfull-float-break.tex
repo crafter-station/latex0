@@ -1,0 +1,108 @@
+% fixture: floats/overfull-float-break
+% tier: T3
+% engine: document
+% covers: a float's \penalty-\@Miv as the first break of a page already too full: a [!b] table deferred from page 1 takes the bottom of page 2 (\@startcolumn, a goal of a few points), the tall line carried there overflows it, and the figure's -\@Miv costs awful_bad and is the best break; TeX's \tracingpages keeps that output's page
+\documentclass{article}
+\begin{document}
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+\begin{table}[!b]
+\vspace{490pt}
+\caption{Tall.}
+\end{table}
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+A line.
+
+Tall \begin{minipage}[b]{3cm}a\\b\\c\\d\end{minipage}
+
+\begin{figure}[tb]
+\vspace{100pt}
+\caption{Next.}
+\end{figure}
+
+Text after the figures.
+\end{document}
