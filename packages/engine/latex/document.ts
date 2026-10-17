@@ -38,6 +38,7 @@ import { COUNTER_COMMANDS, Counters } from "./counters"
 import { EMPTY_MARK, markboth, markright, markText, markValue, MarkWriter, pageMarks, sectionMarks } from "./marks"
 import { TocWriter, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
+import { runState } from "./run"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, plain, VerticalList } from "./vlist"
 import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
@@ -105,24 +106,22 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   const { cls, option, classTextwidth, medskipamount, lstBase, usesListings, usesXcolor, amsmath, enumitem, hyper, t1, booktabsT1, thmDefs, colorDefs, pagestyle, title, letterInfo, newCounters, body } = pre
-  let k = pre.k
-  let mainmatter = true // book's \if@mainmatter
+  const run = runState(pre.k)
   const blocks = blocksOf(body)
 
-  const v = new VerticalList(k)
+  const v = new VerticalList(run.k)
   xcolor.on = usesXcolor
   outputOptions.xcolor = usesXcolor
   if (usesXcolor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
-  /** \Hy@linkcounter (anchors of unnumbered headings) and \Hy@writebookmark's state */
-  let linkcounter = 0, items = 0
+  /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
   if (hyper) {
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
-    v.nodes.push(...anchor("Doc-Start", k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+    v.nodes.push(...anchor("Doc-Start", run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
   }
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
@@ -133,14 +132,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
   const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec }
   const decisions: ParagraphTrace[] = []
-  const outerParskip = k.glue.parskip
+  const outerParskip = run.k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
-    const { list, params, notes } = paragraphInput(counted(text, true), k, size, doc, { ...opts, amsmath })
+    const { list, params, notes } = paragraphInput(counted(text, true), run.k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
-    v.paragraph(vlist, parskip, k.sizes[size].baselineskip)
+    v.paragraph(vlist, parskip, run.k.sizes[size].baselineskip)
   }
-  const roman = k.sizes.normalsize.font
+  const roman = run.k.sizes.normalsize.font
   // skips in ex are read in the body font (\@startsection evaluates them before the heading's font)
   const romanFont = loadFont(dataFont(roman.name), roman.at)
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
@@ -161,8 +160,6 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (nobreak) out.push(penalty(10000))
     return out
   }
-  let floats = 0 // floats so far
-  let listingCount = 0, negListing = 0, lstLineno = 0 // \c@lstlisting, \lst@neglisting, \lst@lineno
   const lstCarry: { gobbledws: boolean; breakcurrindent: number; breakshape: [number, number] | null } = { gobbledws: false, breakcurrindent: 0, breakshape: null }
   /**
    * \lstinline: \leavevmode\bgroup\lstset{flexiblecolumns,options}, \lsthk@TextStyle (no skips, frame or margins, an
@@ -170,9 +167,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    */
   // booktabs's dimensions, set as it loads, in the class's \normalsize roman (.08em, .05em, .03em, .65ex, .4ex, .5em)
   const booktabs = booktabsT1 === null ? null : (() => {
-    const f = selectFont(k, "normalsize", { enc: booktabsT1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" })
+    const f = selectFont(run.k, "normalsize", { enc: booktabsT1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" })
     const d = (x: string) => parseDimen(x, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
-    return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: k.dimens.doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
+    return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: run.k.dimens.doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
   })()
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
   doc.tabular = (n, size, attrs, sfcodes, outer) => {
@@ -188,16 +185,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    */
   /** \textwidth, \columnwidth and \linewidth in a width (`lineWidth`: \linewidth where it stands) */
   const widthRegisters = (lineWidth?: number) => (name: string) => {
-    const value = name === "textwidth" ? minipageWidth ?? k.dimens.textwidth : name === "columnwidth" ? minipageWidth ?? k.dimens.columnwidth : name === "linewidth" ? lineWidth : undefined
+    const value = name === "textwidth" ? run.minipageWidth ?? run.k.dimens.textwidth : name === "columnwidth" ? run.minipageWidth ?? run.k.dimens.columnwidth : name === "linewidth" ? lineWidth : undefined
     return value === undefined ? undefined : { level: "dimen" as const, value }
   }
-  let minipageWidth: number | null = null
-  /** the float being read (\@captype), for a \caption in a minipage */
-  let captype: "figure" | "table" | null = null
   doc.minipage = (n, size, attrs, sfcodes, outer) => {
     const m = minipages[n]
     if (m.height !== null) throw new Unsupported("a minipage with a height")
-    const font = selectFont(k, size, attrs), sz = k.sizes[size]
+    const font = selectFont(run.k, size, attrs), sz = run.k.sizes[size]
     let hsize: number
     try { hsize = parseDimen(m.width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(outer.lineWidth) }) } catch { throw new Unsupported(`a minipage {${m.width}}`) }
     let body = m.body.replace(/(^|[^\\])%.*\n[ \t]*/g, "$1")
@@ -212,10 +206,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const list: Node[] = []
     let pd: number | null = IGNORE_DEPTH
     // (in it, \textwidth and \columnwidth are its \hsize, and so is \linewidth after \@parboxrestore)
-    const outerWidth = minipageWidth
-    minipageWidth = hsize
+    const outerWidth = run.minipageWidth
+    run.minipageWidth = hsize
     try {
-    const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit); else list.push(x) } }
+    const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
     // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
     // LaTeX's restart of the paragraph
     const parskips = () => { if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) }
@@ -224,15 +218,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     for (const part of body.split(/(\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^{}]*\})/)) {
       const cm = part.match(/^\\caption\s*\{([^]*)\}$/)
       if (cm) {
-        if (!captype) throw new Unsupported("\\caption in a minipage outside a float")
+        if (!run.captype) throw new Unsupported("\\caption in a minipage outside a float")
         if (size !== "normalsize" || attrs.ser !== "m" || attrs.shape !== "n" || attrs.fam !== "cmr") throw new Unsupported("a minipage caption in another font")
-        cap = caption(captype, cm[1], hsize, {
+        cap = caption(run.captype, cm[1], hsize, {
           push: (x) => list.push(x),
-          box: (x) => { pd = appendToVlist(list, x, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit) },
+          box: (x) => { pd = appendToVlist(list, x, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit) },
           // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits)
           paragraph: (start, text) => {
             parskips()
-            const p = paragraphInput(text, k, "normalsize", doc, { start, hsize, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph })
+            const p = paragraphInput(text, run.k, "normalsize", doc, { start, hsize, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph })
             const lb = lineBreak(p.list, p.params)
             outer.notes.push(...p.notes, lb.trace)
             lines(lb.vlist)
@@ -255,7 +249,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       parskips()
       let p: ReturnType<typeof paragraphInput>
       try {
-        p = paragraphInput(text, k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape() })
+        p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape() })
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a minipage paragraph "${text.trim().slice(0, 40)}"`)
         throw e
@@ -265,13 +259,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       lines(lb.vlist)
     }
     }
-    } finally { minipageWidth = outerWidth }
+    } finally { run.minipageWidth = outerWidth }
     if (list.at(-1)?.kind === "glue") list.pop() // \unskip
     if (m.pos === "t") return [vtop(list)]
     const box = vpack(list)
     if (m.pos === "b") return [box]
     const delta = box.height + box.depth // \vcenter: make_vcenter (§ 736), about the axis
-    box.height = mathEnv(k, size, amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+    box.height = mathEnv(run.k, size, amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
     box.depth = delta - box.height
     return [{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }]
   }
@@ -281,13 +275,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     let o: LstOptions
     try { o = lstOptions(listings[n].options, lstOptions("flexiblecolumns", lstBase)) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
     const { styleOf, fonts } = lstFontsAt(size, attrs)
-    const base = styleOf(o.basicstyle), baseFont = selectFont(k, base.size, base.a)
+    const base = styleOf(o.basicstyle), baseFont = selectFont(run.k, base.size, base.a)
     const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
     if (lstCarry.gobbledws) throw new Unsupported("\\lstinline after gobbled whitespace")
     if (o.breaklines) throw new Unsupported("\\lstinline with breaklines")
     let events
     try { events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: lstCarry }) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
-    lstLineno = 1 // InitVars, and no end of line
+    run.lstLineno = 1 // InitVars, and no end of line
     const nodes = events.map((e) => { if ("node" in e) return e.node; throw new Unsupported("\\lstinline with a line break") })
     const basicColors = styleColors(o.basicstyle) // basicstyle in \lst@Init: its pushes before the tokens
     nodes.unshift(...basicColors.map((c) => colorPush(c)))
@@ -301,23 +295,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
   const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h
-    if (hyper) v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
+    if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
   })
-  const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
-  /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
-  /** (`em`: of the font where its \everypar runs, which reads \hskip -\@tempskipa's -1em) */
-  let runIn: ((em?: number, parindent?: number) => Node[]) | null = null
-  /**
-   * \@noskipsec left true by a run-in heading whose \everypar never ran (a listing's replaced it, then
-   * \lst@doendpe's): the heading is lost, and the next \@startsection or \@trivlist (\if@noskipsec\leavevmode)
-   * starts an empty paragraph, as \newpage does before it sets \@noskipsecfalse
-   */
-  let noskipsec = false
+  const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: run.k.dimens.textwidth, parskip: outerParskip, parsep: run.k.glue.parsep, itemsep: run.k.glue.itemsep, topsep: run.k.glue.topsep, partopsep: run.k.glue.partopsep, labelwidth: run.k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
   /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
-  const esphackNobreaks = (nobreak: boolean): Node[] => [...(nobreak ? [penalty(10000)] : []), ...(nobreak || noskipsec ? [penalty(10000)] : [])]
+  const esphackNobreaks = (nobreak: boolean): Node[] => [...(nobreak ? [penalty(10000)] : []), ...(nobreak || run.noskipsec ? [penalty(10000)] : [])]
   /** \if@noskipsec \leavevmode: an empty paragraph (the indent box) in the \everypar in force */
   const noskipsecPar = (what: string) => {
-    if (!noskipsec) return
+    if (!run.noskipsec) return
     if (v.nobreak) { // \@afterheading's \everypar: \@nobreakfalse\clubpenalty\@M, the indent box gone unless \@afterindent
       v.nobreak = false; v.club = 10000
       if (!v.afterindent) { v.paragraph([], outerParskip); return }
@@ -326,13 +311,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     // \@doendpe's \everypar takes the indent box: an empty paragraph makes no line (\parskip is there already)
     if (v.endpeEverypar) { v.paragraph([], outerParskip); v.endpeEverypar = false; return }
-    if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false } // its \everypar: \@clubpenalty, \everypar{}
+    if (v.afterheadingEverypar) { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false } // its \everypar: \@clubpenalty, \everypar{}
     typeset("", { clubPenalty: v.club }, outerParskip)
   }
   /** a run-in heading followed by another heading: \@startsection's \leavevmode\par makes it a paragraph of its own */
   const runInAlone = () => {
-    const start = runIn!()
-    runIn = null
+    const start = run.runIn!()
+    run.runIn = null
     v.par()
     v.club = 10000
     typeset("", { start, clubPenalty: 10000 }, outerParskip)
@@ -344,26 +329,26 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
     // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
     // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
-    if (runIn && b.kind === "list") { const club = v.club; runInAlone(); list({ ...b, inPar: true, blank: false }, topCtx()); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
-    if (runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
-    if (b.kind === "heading") { if (b.blank && !runIn) v.par(); if (runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
-    if (noskipsec && (b.kind === "maketitle" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+    if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(); list({ ...b, inPar: true, blank: false }, topCtx()); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
+    if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+    if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(); if (b.level === 0) chapter(b); else heading(b); return }
+    if (run.noskipsec && (b.kind === "maketitle" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
     if (b.kind === "maketitle") { maketitle(); return }
-    if (b.kind === "toc") { if (runIn) runInAlone(); tableOfContents(); return }
-    if (b.kind === "matter") { if (runIn) runInAlone(); matter(b.which); return }
-    if (b.kind === "bib") { if (runIn) runInAlone(); bibliography(); return }
-    if (b.kind === "letter") { if (runIn) runInAlone(); letter(b); return }
+    if (b.kind === "toc") { if (run.runIn) runInAlone(); tableOfContents(); return }
+    if (b.kind === "matter") { if (run.runIn) runInAlone(); matter(b.which); return }
+    if (b.kind === "bib") { if (run.runIn) runInAlone(); bibliography(); return }
+    if (b.kind === "letter") { if (run.runIn) runInAlone(); letter(b); return }
     if (b.kind === "float") { floatBlock(b); return }
     // a listing right after a run-in heading: its \everypar (then \lst@doendpe's) replaces the heading's, which never runs
     // (unless a top frame's paragraph runs it first: the heading goes in place there)
-    if (b.kind === "listing") { const head = runIn; if (head) { runIn = null; noskipsec = true } listing(b, head); return }
+    if (b.kind === "listing") { const head = run.runIn; if (head) { run.runIn = null; run.noskipsec = true } listing(b, head); return }
     if (b.kind === "par") {
       // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
       // the \nobreak of \protected@write and of \@esphack
       // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
       const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
       if (lead) {
-        if (runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
+        if (run.runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
         for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\{([^{}]*)\}|\\hrule/g)) {
           if (m[1] !== undefined) {
             v.nodes.push(labelWrite(refs, m[1]), ...esphackNobreaks(v.nobreak))
@@ -385,11 +370,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         b.text = leadingColor(b.text)
       }
       // a run-in heading goes in place first: its title sees the counters as the paragraph starts
-      const head = runIn ? runIn() : null
+      const head = run.runIn ? run.runIn() : null
       const text = counted(b.text, true)
       if (head) { // \@xsect's \everypar: the indent box gives way to the heading, \clubpenalty\@M
         const start = head
-        runIn = null
+        run.runIn = null
         v.par()
         if (v.nobreak) throw new Unsupported("a run-in heading right after a heading")
         // a display environment that starts the paragraph starts it in its own group: \clubpenalty\@M ends there
@@ -416,7 +401,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // (a list that follows at once runs that \par inside its own group, so the reset does not last)
         const noteClub = v.club
         const next = blocks[bi + 1]
-        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(text, noindent, noteClub, k.ints.clubpenalty, undefined, b.unskip)
+        if (next?.kind === "list" && next.inPar) paragraphWithDisplays(text, noindent, noteClub, run.k.ints.clubpenalty, undefined, b.unskip)
         else { v.par(); paragraphWithDisplays(text, noindent, noteClub, v.club, undefined, b.unskip) }
         return
       }
@@ -433,8 +418,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (v.afterheadingEverypar) {
         // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
         if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000; else leadNoteClub = 10000 }
-        else if (!grouped) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
-        else leadNoteClub = k.ints.clubpenalty
+        else if (!grouped) { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
+        else leadNoteClub = run.k.ints.clubpenalty
       }
       paragraphWithDisplays(text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined)
       return
@@ -442,7 +427,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (b.blank) v.par() // a blank line before the list
     const before = { club: v.club, afterheading: v.afterheadingEverypar }
     // \@trivlist's \if@noskipsec\leavevmode (in the environment's group), then \unskip\par and no \partopsep
-    if (noskipsec && !b.inPar) {
+    if (run.noskipsec && !b.inPar) {
       if (b.env === "abstract") throw new Unsupported("an abstract after a run-in heading lost to a listing")
       const club = v.club
       noskipsecPar("a list")
@@ -478,7 +463,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const opts = {
         clubPenalty: last ? parClub : first ? firstClub : club, noteClubPenalty: first ? firstClub : club, prevGraf,
         ...(first && leadNoteClub !== undefined ? { leadGroupNoteClubPenalty: leadNoteClub } : {}),
-        ...(last ? (unskip ? { unskip } : {}) : { widowPenalty: k.ints.displaywidowpenalty }),
+        ...(last ? (unskip ? { unskip } : {}) : { widowPenalty: run.k.ints.displaywidowpenalty }),
         ...(first ? (start ? { start } : {}) : { start: [] as Node[] }),
       }
       if (first && !t) {
@@ -486,16 +471,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // indent box; LaTeX's own \[ first sets \nointerlineskip\makebox[.6\linewidth]{}
         if (next!.kind === "bracket" && !amsmath || next!.kind === "displaymath" && !amsmath) {
           v.prevDepth = IGNORE_DEPTH
-          const lw = k.dimens.textwidth
+          const lw = run.k.dimens.textwidth
           const mb = hpack([hss(), hss()], { exactly: xnOverD(lw, 39322, 65536) })
-          const r = typesetList([...(start ?? (noindent ? [] : [emptyBox("hlist", k.dimens.parindent)])), mb], opts, true)
+          const r = typesetList([...(start ?? (noindent ? [] : [emptyBox("hlist", run.k.dimens.parindent)])), mb], opts, true)
           justBox = r.just; params = r.params; nlines = r.lines
         } else if (!noindent || start) { // a run-in heading takes the indent box's place
-          const r = typesetList(start ?? [emptyBox("hlist", k.dimens.parindent)], opts, true)
+          const r = typesetList(start ?? [emptyBox("hlist", run.k.dimens.parindent)], opts, true)
           justBox = r.just; params = r.params; nlines = r.lines
         } else v.nodes.push(spec("parskip", outerParskip), paramGlue("parskip", glue(0))) // \noindent$$: an empty paragraph
       } else if (t || !last) {
-        const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, k, "normalsize", doc, { ...opts, amsmath })
+        const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, run.k, "normalsize", doc, { ...opts, amsmath })
         if (list.length || first) {
           const lb = lineBreak(list, ps)
           decisions.push(...notes, lb.trace)
@@ -507,7 +492,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       prevGraf += nlines
       if (!next) return
       // the display
-      const ps = params ?? paragraphInput("", k, "normalsize", doc, { amsmath }).params
+      const ps = params ?? paragraphInput("", run.k, "normalsize", doc, { amsmath }).params
       const line = displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape)
       if (next.kind === "align" || next.kind === "align*") {
         if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
@@ -533,13 +518,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         else if (depthOf(before) !== 0) throw new Unsupported("\\label inside a group in an equation")
         else mlist = [...parse(before), newlabel!, ...parse(after)]
       }
-      const env = mathEnv(k, "normalsize", amsmath)
+      const env = mathEnv(run.k, "normalsize", amsmath)
       if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
       let eqno: BoxNode | null = null
       if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
         mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
         // hyperref: \refstepcounter's anchor in a math group before it (an ord noad)
-        if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
+        if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
         const l: Node[] = []
         appendText(l, `(${the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
         l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
@@ -549,16 +534,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         // hyperref's \equation: \mathopen{\hyper@anchorstart} at the start, \hyper@anchorend (and \nobreak) at the end
         if (hyper) {
           mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: [HS()] }, sup: null, sub: null })
-          mlist.push(HA(k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
+          mlist.push(HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
         }
         const l: Node[] = []
         appendText(l, `(${the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
         eqno = hpack([hpack(setgroup(l))]); eqno.display = true // {\normalfont\normalcolor (n)}
       }
-      const sz = k.sizes.normalsize
+      const sz = run.k.sizes.normalsize
       const items = finishDisplay(mlistToHlist(mlist, env, DISPLAY_STYLE, false), eqno, {
         width: line.width, indent: line.indent, preSize: preDisplaySize(justBox, quad), mathQuad: env.fonts[0][2]!.params[QUAD],
-        preDisplayPenalty: k.ints.predisplaypenalty, postDisplayPenalty: k.ints.postdisplaypenalty,
+        preDisplayPenalty: run.k.ints.predisplaypenalty, postDisplayPenalty: run.k.ints.postdisplaypenalty,
         aboveDisplaySkip: sz.abovedisplayskip, belowDisplaySkip: sz.belowdisplayskip, aboveDisplayShortSkip: sz.abovedisplayshortskip, belowDisplayShortSkip: sz.belowdisplayshortskip,
       })
       for (const it of items) { if ("box" in it) v.box(it.box, sz.baselineskip); else v.nodes.push(it.node) }
@@ -576,7 +561,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     let src = d.src.trim()
     if (/\\\\\s*$/.test(src)) throw new Unsupported("align ending with \\\\")
     if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
-    const env = mathEnv(k, "normalsize", true)
+    const env = mathEnv(run.k, "normalsize", true)
     const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
     const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData(), { amsmath }) } catch (e) { throw new Unsupported((e as Error).message) } }
     const rows = src.split(/\\\\/).map((r) => {
@@ -589,8 +574,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       return { fields, numbered }
     })
     const z = line.width
-    const sz = k.sizes.normalsize, strut = sz.strut
-    const strutBox = () => hpack([vpack([kern(-k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+    const sz = run.k.sizes.normalsize, strut = sz.strut
+    const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
     // tags: \strut@ and (n) in \maketag@@@, numbered in row order
     const tags = rows.map((r) => {
       if (!r.numbered) return hpack([strutBox()])
@@ -602,7 +587,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
       appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
       // hyperref: the anchor between the strut and the number, at \baselineskip plus \jot
-      if (hyper) { const s = strutBox(); return hpack([s, ...anchor(href("equation", counters.equation), sz.baselineskip.width + k.dimens.jot, "h", s), hpack(l)]) }
+      if (hyper) { const s = strutBox(); return hpack([s, ...anchor(href("equation", counters.equation), sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
       return hpack([strutBox(), hpack(l)])
     })
     // \measure@
@@ -664,7 +649,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const lineht = Math.max(0, ...(ri === 0 ? rows.flatMap((x) => x.fields) : r.fields).map((f) => f.depth))
         const nul = hpack([]); nul.depth = lineht
         const list: Node[] = [nul]
-        appendToVlist(list, tags[ri], lineht, k.sizes.normalsize.baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
+        appendToVlist(list, tags[ri], lineht, run.k.sizes.normalsize.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
         const vt = vpack(list)
         vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
         tagCol.push(kern(-tagshift, true), hpack([hss(), vt], { exactly: 0 }))
@@ -676,13 +661,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     for (let j = 0; j <= maxfields; j++) tabskip.push(paramGlue("tabskip", glue(j % 2 ? alignsep : 0)))
     const rowBoxes = halign(cells.map((r) => r.map((c) => c)), tabskip, { additional: 0 })
     // § 1206, with \openup\jot and amsmath's \everycr
-    v.nodes.push(penalty(k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
+    v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
     const jot = 196608
-    v.nodes.push(glue(-(k.dimens.lineskiplimit + jot)), glue(k.dimens.normallineskiplimit))
-    const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(k.glue.lineskip, dimen(jot))
+    v.nodes.push(glue(-(run.k.dimens.lineskiplimit + jot)), glue(run.k.dimens.normallineskiplimit))
+    const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
     for (const rb of rowBoxes) {
       rb.display = true; rb.shift = line.indent
-      v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, k.dimens.lineskiplimit + jot)
+      v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
       v.nodes.push(penalty(10000), glue(0)) // \interdisplaylinepenalty is \@M in amsmath; \\ adds \vskip\z@
     }
     // \black@\totwidth@ after the last row: an align wider than the display shows its width in a
@@ -692,12 +677,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const blackWidth = totwidth + tempcntb * minalignsep
     if (blackWidth > z) {
       const wide = hpack([hpack([strutBox(), glue(0, 65536, FILL)], { exactly: blackWidth })], { exactly: z })
-      const par = paragraphInput("", k, "normalsize", doc, { start: [wide], amsmath })
+      const par = paragraphInput("", run.k, "normalsize", doc, { start: [wide], amsmath })
       const lb = lineBreak(par.list, par.params)
       decisions.push(lb.trace)
       v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))
     }
-    v.nodes.push(penalty(k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+    v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
   }
 
   /** a paragraph from a ready horizontal list (the display's opening line) */
@@ -718,7 +703,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const outerLabel = refs.label // \@currentlabel is local to the environment
     const amsthm = b.env === "LXtheorem" || b.env === "proof"
     const trivial = b.env === "center" || b.env === "flushleft" || b.env === "flushright" || amsthm
-    const sizeFont = loadFont(dataFont(k.sizes[ctx.size].font.name), k.sizes[ctx.size].font.at)
+    const sizeFont = loadFont(dataFont(run.k.sizes[ctx.size].font.name), run.k.sizes[ctx.size].font.at)
     const ems = (x: string) => new Scanner(x, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
     let depth = ctx.depth, leftmargin = 0, labelwidth = 0, itemindent = 0, listparindent = 0, rightmargin = 0
     // \trivlist: \parsep\parskip; \list: \@listi … \@listvi set some parameters, the others stay as they are
@@ -732,19 +717,19 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const listSets = (d: number): string[] => cls === "letter" ? (d === 1 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "itemsep"] : [])
       : d <= 2 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "parsep", "itemsep", "partopsep"] : []
     if (trivial && enumitem && ctx.depth >= 1) {
-      const d = ctx.depth, L = (p: string) => k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
+      const d = ctx.depth, L = (p: string) => run.k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
       for (const p of listSets(d)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") childParsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
     }
     if (!trivial) {
       depth++
       if (depth > 6) throw new Unsupported("lists nested more than six deep") // LaTeX: Too deeply nested
-      const L = (p: string) => k.glue[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
-      const D = (p: string) => k.dimens[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
+      const L = (p: string) => run.k.glue[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
+      const D = (p: string) => run.k.dimens[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
       leftmargin = D("leftmargin")
       for (const p of listSets(depth)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") parsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
       if (depth >= 2) labelwidth = D("labelwidth")
       // \labelwidth\z@ \itemindent-\leftmargin (enumitem: \labelindent zero, so \itemindent\labelsep-\leftmargin)
-      if (b.env === "description") { labelwidth = 0; itemindent = (enumitem ? k.dimens.labelsep : 0) - leftmargin }
+      if (b.env === "description") { labelwidth = 0; itemindent = (enumitem ? run.k.dimens.labelsep : 0) - leftmargin }
       else if (b.env === "quote") rightmargin = leftmargin
       // (letter.cls: quotation keeps \parsep, verse indents 15pt)
       else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
@@ -752,7 +737,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
         const w: Node[] = []
         appendText(w, `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
-        labelwidth = hpack(w).width; leftmargin = labelwidth + k.dimens.labelsep
+        labelwidth = hpack(w).width; leftmargin = labelwidth + run.k.dimens.labelsep
       }
     }
     // enumitem's options: nosep, noitemsep, leftmargin=* (the label's width and \labelsep) or leftmargin=<dim>
@@ -763,9 +748,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         else if (o === "noitemsep") { itemsep = parsep = dimen(0) }
         else if (o === "leftmargin=*" && b.env === "itemize") {
           const lvl = ctx.itemDepth + 1
-          const f = lvl === 2 ? loadFont(dataFont(k.sizes[ctx.size].bold.name), k.sizes[ctx.size].bold.at) : loadFont(dataFont(k.sizes[ctx.size].companion.name), k.sizes[ctx.size].companion.at)
-          labelwidth = f.chars.get(lvl === 2 ? (k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
-          leftmargin = labelwidth + k.dimens.labelsep
+          const f = lvl === 2 ? loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at) : loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
+          labelwidth = f.chars.get(lvl === 2 ? (run.k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
+          leftmargin = labelwidth + run.k.dimens.labelsep
         } else if (o.startsWith("leftmargin=") && o !== "leftmargin=*") {
           try { leftmargin = parseGlue(o.slice(11), { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).width } catch { throw new Unsupported(`enumitem ${o}`) }
         } else throw new Unsupported(`enumitem option ${o}`)
@@ -790,15 +775,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       refs.label = thmNumber; refs.href = `${thmDef.counter}.${thmNumber}`
     }
     // the body's font: \itshape for plain theorems
-    const bodyAttrs: FontAttrs | undefined = thmDef?.style === "plain" ? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" } : undefined
+    const bodyAttrs: FontAttrs | undefined = thmDef?.style === "plain" ? { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" } : undefined
     /** \@begintheorem's head, \sbox'ed into \@labels and \unhbox'ed by \dth@everypar: \normalfont, the head font
      *  (\bfseries, remark \itshape), the name, \@upn{number} (\textup's italic corrections before and after it),
      *  ( note) in \fontseries\mddefault\upshape, the punctuation, \hskip\thm@headsep (5pt plus1pt minus1pt) */
     const thmHead = (): Node[] => {
-      const T1 = k.ints.T1 ? "T1" : "OT1"
-      const hf = selectFont(k, ctx.size, thmDef!.style === "remark" ? { enc: T1, fam: "cmr", ser: "m", shape: "it" } : { enc: T1, fam: "cmr", ser: "bx", shape: "n" })
-      const up = selectFont(k, ctx.size, thmDef!.style === "remark" ? { enc: T1, fam: "cmr", ser: "m", shape: "n" } : { enc: T1, fam: "cmr", ser: "bx", shape: "n" })
-      const note = selectFont(k, ctx.size, { enc: T1, fam: "cmr", ser: "m", shape: "n" })
+      const T1 = run.k.ints.T1 ? "T1" : "OT1"
+      const hf = selectFont(run.k, ctx.size, thmDef!.style === "remark" ? { enc: T1, fam: "cmr", ser: "m", shape: "it" } : { enc: T1, fam: "cmr", ser: "bx", shape: "n" })
+      const up = selectFont(run.k, ctx.size, thmDef!.style === "remark" ? { enc: T1, fam: "cmr", ser: "m", shape: "n" } : { enc: T1, fam: "cmr", ser: "bx", shape: "n" })
+      const note = selectFont(run.k, ctx.size, { enc: T1, fam: "cmr", ser: "m", shape: "n" })
       const l: Node[] = [], st = { spaceFactor: 1000 }
       const italic = (f: Font) => { const last = l.at(-1); return last?.kind === "char" ? (f.chars.get(last.char)?.italic ?? 0) : 0 }
       appendText(l, thmDef!.title, hf, st, false)
@@ -824,7 +809,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const flush = (n: string) => paramGlue(n, glue(0, 65536, FIL))
     let atRightskip = ctx.atRightskip, finalHyph = ctx.finalHyph
     let align: { leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode } = atRightskip ? { rightSkip: paramGlue("rightskip", atRightskip) } : {}
-    let parindent = amsthm ? k.dimens.parindent : listparindent
+    let parindent = amsthm ? run.k.dimens.parindent : listparindent
     if (b.env === "center") { align = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushleft") { atRightskip = glue(0, 65536, FIL); align = { rightSkip: flush("rightskip") }; finalHyph = 0; parindent = 0 }
     else if (b.env === "flushright") { align = { leftSkip: flush("leftskip"), parFillSkip: paramGlue("parfillskip", glue(0)) }; finalHyph = 0; parindent = 0 }
@@ -835,8 +820,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const level = b.env === "itemize" ? itemDepth : enumDepth
     if (level > 4) throw new Unsupported(`${b.env} nested more than four deep`)
     const font = sizeFont
-    const bold = loadFont(dataFont(k.sizes[ctx.size].bold.name), k.sizes[ctx.size].bold.at)
-    const companion = loadFont(dataFont(k.sizes[ctx.size].companion.name), k.sizes[ctx.size].companion.at)
+    const bold = loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at)
+    const companion = loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
     let counter = 0 // \c@enum…: an item with its own label does not step it
     const alph = (n: number) => (n > 0 && n <= 26 ? String.fromCharCode(96 + n) : "") // \@alph: \ifcase (\@ctrerr past z)
     const roman = (n: number) => { // \@roman (TeX's \romannumeral)
@@ -844,7 +829,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (n >= v) { out += r; n -= v }
       return out
     }
-    const ls = k.dimens.labelsep
+    const ls = run.k.dimens.labelsep
     /** the proof's \qed at its end: \leavevmode\unskip\penalty9999 \hbox{}\nobreak\hfill\quad\hbox{\qedsymbol}, \openbox
      *  (\hbox to.77778em{\hfil\vrule\vbox to.675em{\hrule width.6em\vfil\hrule}\vrule\hfil}) in the body's font */
     const lastPart = b.items.at(-1)?.parts.at(-1)
@@ -859,7 +844,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     // the \clubpenalty in force when an item's paragraph starts in a group (where \@item's \everypar sets its own):
     // thebibliography's, the outer one before the first item, then what the last item's \everypar set
-    let groupClub = b.env === "thebibliography" ? 4000 : ctx.club ?? (depth <= 1 ? v.club : k.ints.clubpenalty)
+    let groupClub = b.env === "thebibliography" ? 4000 : ctx.club ?? (depth <= 1 ? v.club : run.k.ints.clubpenalty)
     b.items.forEach(({ label: given, parts }, i) => {
       // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
       // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
@@ -873,7 +858,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const l: Node[] = []
         if (given !== null) appendText(l, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false)
         else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
-          if (level === 2) l.push(charBox(bold, k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
+          if (level === 2) l.push(charBox(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
           else l.push(charBox(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
         } else { // \labelenumi … iv: 1. (a) i. A.
           const n = ++counter
@@ -882,7 +867,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
           refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
           refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
           // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
-          if (hyper) { refs.href = `Item.${++items}`; v.nodes.push(...anchor(refs.href, k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
+          if (hyper) { refs.href = `Item.${++run.items}`; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
           if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
           appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
         }
@@ -895,7 +880,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         const title = (b.proofTitle ?? "Proof").replace(/\s+/g, " ").trim()
         if (/[{}$%&#^_]/.test(title.replace(/\\ref\{[A-Za-z0-9:._-]+\}/g, "")) || /\\(?!ref\{)/.test(title)) throw new Unsupported(`proof title "${title}"`)
         if (hyper && /\\ref/.test(title)) throw new Unsupported("a \\ref in a proof title with hyperref")
-        const it = selectFont(k, ctx.size, { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" })
+        const it = selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" })
         content = [glue(ls)]
         const st = { spaceFactor: 1000 }
         // text, ~ (\nobreak\ ) and \ref{key} (the label's text and \null; ?? in bold when not known)
@@ -905,7 +890,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
           if (!ref) { appendText(content, piece, it, st, false); continue }
           const known = prev?.labels.get(ref[1])
           if (known) { appendText(content, known.label, it, st, false); content.push(hpack([])) }
-          else { const q: Node[] = []; appendText(q, "??", selectFont(k, ctx.size, { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false); content.push(hpack(q)) }
+          else { const q: Node[] = []; appendText(q, "??", selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false); content.push(hpack(q)) }
           st.spaceFactor = 1000
         }
         if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
@@ -926,9 +911,9 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       parts.forEach((p) => {
         if (p.kind === "list") {
           if (p.blank) v.par()
-          if (noskipsec && !p.inPar) throw new Unsupported("a nested list after a run-in heading lost to a listing")
+          if (run.noskipsec && !p.inPar) throw new Unsupported("a nested list after a run-in heading lost to a listing")
           // (the \clubpenalty in force: what the item's \everypar left, or before its first paragraph what was there)
-          const inForce = started ? itemClub ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty) : groupClub
+          const inForce = started ? itemClub ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty) : groupClub
           return list(p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums, club: inForce })
         }
         if (p.text.trim()) started = true
@@ -961,15 +946,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (p.start === "label") {
           // (footnotes read in a color group, and a leading tabular's p{width} entries, see what \@item's \everypar set
           // there; after it, the one from before)
-          const everyparClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
+          const everyparClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
           typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...{ leadGroupNoteClubPenalty: everyparClub } } : {}) }, parsep, ctx.size)
-          if (!groupStart) groupClub = club ?? (b.env === "thebibliography" ? 4000 : k.ints.clubpenalty)
+          if (!groupStart) groupClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
           // (\@item's \everypar ran in the group: after it, \clubpenalty is the one from before, and \everypar still \@item's)
           else itemClub = groupClub
         }
         // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
         // heading); \@doendpe's \par sets \@clubpenalty for the lines
-        else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, noteClubPenalty: itemClub ?? k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
+        else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
         else {
           // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
           if (p.text) itemClub = undefined
@@ -995,7 +980,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   function abstract(b: ListBlock, ctx: EnvCtx) {
     if (cls !== "article") throw new Unsupported(`abstract in ${cls}`)
     const small = { ...ctx, size: "small" as SizeCommand }
-    const bf = loadFont(dataFont(k.sizes.small.bold.name), k.sizes.small.bold.at)
+    const bf = loadFont(dataFont(run.k.sizes.small.bold.name), run.k.sizes.small.bold.at)
     const head: Node[] = []
     appendText(head, "Abstract", bf, { spaceFactor: 1000 }, false)
     const em = bf.params[QUAD]
@@ -1007,7 +992,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   }
 
   function typesetList(list: Node[], opts: Parameters<typeof paragraphInput>[4], withParskip: boolean) {
-    const { params } = paragraphInput("", k, "normalsize", doc, { ...opts, amsmath })
+    const { params } = paragraphInput("", run.k, "normalsize", doc, { ...opts, amsmath })
     const lb = lineBreak(list, params)
     decisions.push(lb.trace)
     if (withParskip) v.paragraph(lb.vlist, outerParskip); else v.lines(lb.vlist)
@@ -1026,7 +1011,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       let size: SizeCommand = size0, a: FontAttrs = attrs0
       for (const m of style.replace(COLOR_CMD, "").matchAll(/\\([a-zA-Z]+)/g)) {
         if ((SIZE_COMMANDS as readonly string[]).includes(m[1])) { size = m[1] as SizeCommand; continue }
-        const next = fontDeclaration(m[1], a, k, size, doc)
+        const next = fontDeclaration(m[1], a, run.k, size, doc)
         if (!next) throw new Unsupported(`listings style \\${m[1]}`)
         a = next
       }
@@ -1034,12 +1019,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     const fonts = {
       colors: (style: string) => styleColors(style),
-      font(style: string) { const { size, a } = styleOf(style); return { font: selectFont(k, size, a), tt: a.fam === "cmtt", bold: a.ser === "bx", italicShape: a.shape !== "n", size } },
+      font(style: string) { const { size, a } = styleOf(style); return { font: selectFont(run.k, size, a), tt: a.fam === "cmtt", bold: a.ser === "bx", italicShape: a.shape !== "n", size } },
       /** TS1 from the class's table; OML and OMS by omlcmm.fd and omscmsy.fd (bold: cmmib, cmbsy, 10pt from 10 up) */
       other(style: string, enc: "TS1" | "OML" | "OMS") {
         const { size, a } = styleOf(style)
-        if (enc === "TS1") return selectFont(k, size, { ...a, enc: "TS1" })
-        const at = k.sizes[size].font.at, pt = at / 65536
+        if (enc === "TS1") return selectFont(run.k, size, { ...a, enc: "TS1" })
+        const at = run.k.sizes[size].font.at, pt = at / 65536
         // omlcmr.fd and omscmr.fd: cmr's bold to cmm/b and cmsy/b; no cmss family: \DeclareFontSubstitution's m series
         const bold = a.ser === "bx" && a.fam === "cmr"
         const step = pt < 6 ? 5 : pt < 7 ? 6 : pt < 8 ? 7 : pt < 9 ? 8 : pt < 10 ? 9 : enc === "OML" && !bold && pt >= 12 ? 12 : 10
@@ -1065,10 +1050,10 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     let o: LstOptions
     try { o = lstOptions(listings[b.n].options, lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
     const { styleOf, fonts } = lstFontsAt("normalsize", { enc: "OT1", fam: "cmr", ser: "m", shape: "n" })
-    const base = styleOf(o.basicstyle), baseFont = selectFont(k, base.size, base.a)
+    const base = styleOf(o.basicstyle), baseFont = selectFont(run.k, base.size, base.a)
     // \lst@width: basewidth (0.6em, 0.45em for flexible columns) in the listing's font
     const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
-    const sz = k.sizes[base.size], hsize = k.dimens.columnwidth
+    const sz = run.k.sizes[base.size], hsize = run.k.dimens.columnwidth
     const units = { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] }
     const dim = (key: keyof LstOptions) => { try { return parseDimen(o[key] as string, units) } catch { throw new Unsupported(`${key}=${o[key]}`) } }
     const xleft = dim("xleftmargin"), lw = hsize - xleft - dim("xrightmargin")
@@ -1086,12 +1071,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // goes down), then each line's \refstepcounter{lstnumber}
     let captioned = 0
     // hyperref: \hyper@refstepcounter's anchor (\baselineskip H.A) where the counter steps
-    const lstAnchor = (name: string) => { if (hyper) v.nodes.push(...anchor(name, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
+    const lstAnchor = (name: string) => { if (hyper) v.nodes.push(...anchor(name, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
     if (o.caption !== null) {
       if (cls !== "article") throw new Unsupported("a listing caption outside article")
       const text = o.caption.replace(/\s+/g, " ").trim()
       if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`listing caption "${text}"`)
-      const n = captioned = ++listingCount // \refstepcounter{lstlisting}
+      const n = captioned = ++run.listingCount // \refstepcounter{lstlisting}
       refs.href = href("lstlisting", n)
       lstAnchor(refs.href)
       if (o.label !== null) {
@@ -1109,11 +1094,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       appendText(l, `${n}: ${text}`, romanFont, state, false)
       const cap = hpack(setgroup(l)) // \sbox
       if (cap.width > hsize) throw new Unsupported("a listing caption wider than the line")
-      v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), k.sizes.normalsize.baselineskip)
+      v.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }), run.k.sizes.normalsize.baselineskip)
       v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
     } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
     // \lst@HRefStepCounter (\theHlstlisting: the chapter's, then the number); its \@currentHref is global
-    else { negListing--; lstAnchor(href("lstlisting", negListing)); if (hyper) refs.href = href("lstlisting", negListing) }
+    else { run.negListing--; lstAnchor(href("lstlisting", run.negListing)); if (hyper) refs.href = href("lstlisting", run.negListing) }
     // the lineshape and frames aspects: \linewidth less xleftmargin and xrightmargin, \@totalleftmargin plus
     // xleftmargin, \lst@parshape (\parshape 1 for every paragraph); the frame's dimensions in the listing's font
     const parShape: [number, number][] = [[xleft, lw]]
@@ -1127,15 +1112,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       colors: { rule: styleColors(o.rulecolor), bkg, fill, rulesep },
     }
     const frame = () => lstFrameBoxV(fr, lw, sz.strut.height, sz.strut.depth)
-    let lineskip = k.glue.lineskip, lineskiplimit = k.dimens.lineskiplimit
+    let lineskip = run.k.glue.lineskip, lineskiplimit = run.k.dimens.lineskiplimit
     const frameParagraph = (box: BoxNode, end: Node[] = [], top = false) => {
       // the \everypar in force: a heading's, which resets \clubpenalty in the paragraph after its own
       const start: Node[] = [box]
       if (runInHead && top) { // a run-in heading's: \global\@noskipsecfalse, \clubpenalty\@M, the heading in place
-        start.unshift(...runInHead(baseFont.params[QUAD], o.breaklines ? 0 : k.dimens.parindent)); runInHead = null; noskipsec = false; v.club = 10000 // (breaklines: \parindent\z@)
+        start.unshift(...runInHead(baseFont.params[QUAD], o.breaklines ? 0 : run.k.dimens.parindent)); runInHead = null; run.noskipsec = false; v.club = 10000 // (breaklines: \parindent\z@)
       } else if (v.nobreak) { v.nobreak = false; v.club = 10000 } // \@nobreakfalse\clubpenalty\@M (no indent box to take off)
-      else if (v.afterheadingEverypar) { v.club = k.ints.clubpenalty; v.afterheadingEverypar = false }
-      const p = paragraphInput("", k, "normalsize", doc, { start, parShape, ...breaks, amsmath, clubPenalty: v.club, end })
+      else if (v.afterheadingEverypar) { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
+      const p = paragraphInput("", run.k, "normalsize", doc, { start, parShape, ...breaks, amsmath, clubPenalty: v.club, end })
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       v.paragraph(lb.vlist, dimen(0), sz.baselineskip, lineskip, lineskiplimit)
@@ -1148,27 +1133,27 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const top = lstFrameH(fr, lw, "T")
     if (top) {
       const t = top.height - sz.baselineskip.width
-      if (t < 0) { v.vskip(dimen(t)); v.vskip(k.glue.lineskip) }
+      if (t < 0) { v.vskip(dimen(t)); v.vskip(run.k.glue.lineskip) }
       frameParagraph(top, [], true)
       lineskip = dimen(0); lineskiplimit = 1073741823
     }
     // line numbers: \everypar's \refstepcounter{lstnumber} and \lst@SkipOrPrintLabel (every \lst@stepnumber-th from
     // \lst@firstnumber), \lst@PlaceNumber: \llap{\normalfont numberstyle n \kern numbersep} (right: \rlap after \linewidth)
     // (the Init hook reads firstnumber=auto's \lst@lineno before InitVars resets it: the last listing's)
-    const F = o.firstnumber ?? 1, S = o.stepnumber, F0 = o.firstnumber ?? lstLineno
+    const F = o.firstnumber ?? 1, S = o.stepnumber, F0 = o.firstnumber ?? run.lstLineno
     let lstnumber = F - 1, numberFirst = o.numberfirstline
     let skip = S > 0 ? F0 - Math.trunc(F0 / S) * S : 0
     if (S > 0 && skip > 0) skip -= S
     const sizes = [...o.basicstyle.matchAll(/\\(tiny|scriptsize|footnotesize|small|normalsize|large|Large)(?![a-zA-Z])/g)].map((m) => m[0]).join("")
-    const numberStyle = styleOf(sizes + o.numberstyle), numberFont = selectFont(k, numberStyle.size, numberStyle.a)
+    const numberStyle = styleOf(sizes + o.numberstyle), numberFont = selectFont(run.k, numberStyle.size, numberStyle.a)
     // (on the right the \kern comes before \lst@numberstyle: em and ex of \normalfont at the basic style's size)
-    const sepFont = o.numbers === "right" ? selectFont(k, styleOf(sizes).size, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }) : numberFont
+    const sepFont = o.numbers === "right" ? selectFont(run.k, styleOf(sizes).size, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }) : numberFont
     let numbersep = 0
     try { numbersep = parseDimen(o.numbersep, { em: sepFont.params[QUAD], ex: sepFont.params[X_HEIGHT] }) } catch { throw new Unsupported(`numbersep=${o.numbersep}`) }
     const number = (empty: boolean): Node[] => {
       lstnumber++
       // hyperref: the \refstepcounter{lstnumber} anchor, in horizontal mode after the frame box
-      const a = hyper ? anchor(`lstnumber.${captioned || negListing}.${lstnumber}`, sz.baselineskip.width, "h", undefined) : []
+      const a = hyper ? anchor(`lstnumber.${captioned || run.negListing}.${lstnumber}`, sz.baselineskip.width, "h", undefined) : []
       if (o.numbers === "none" || S === 0) return a
       if (empty && !o.numberblanklines && skip === 0) skip -= S // \lsthk@OnEmptyLine
       let place = false
@@ -1185,7 +1170,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // each line: \par\noindent (\everypar: \lst@parshape, the frame box, the number) \hbox{}, its boxes
     let line: Node[] | null = null, lineCount = 0
     const breakLine = (start: Node[], shape?: [number, number]) => {
-      const p = paragraphInput("", k, "normalsize", doc, { start, parShape: shape ? [...parShape, shape] : parShape, ...breaks, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
+      const p = paragraphInput("", run.k, "normalsize", doc, { start, parShape: shape ? [...parShape, shape] : parShape, ...breaks, amsmath, clubPenalty: v.club }) // (the listing's \everypar leaves \clubpenalty)
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
       return lb.vlist
@@ -1200,8 +1185,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       else line!.push(e.node)
     }
     endLine()
-    if (lineCount) refs.href = `lstnumber.${captioned || negListing}.${lstnumber}` // \theHlstnumber
-    lstLineno = listings[b.n].lines.length
+    if (lineCount) refs.href = `lstnumber.${captioned || run.negListing}.${lstnumber}` // \theHlstnumber
+    run.lstLineno = listings[b.n].lines.length
     // \lst@DeInit: \par\removelastskip, \par\penalty-50\vspace\lst@belowskip; \lst@doendpe
     const last = v.lastSkip
     if (last.width !== 0) v.vskip(negate(last))
@@ -1232,7 +1217,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     refs.href = href(env, number) // global; \@currentlabel ends with the float's group
     const ext = env === "figure" ? "lof" : "lot"
     out.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${env}}{\\protect \\numberline {${the(number)}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
-    out.push(glue(k.dimens.abovecaptionskip))
+    out.push(glue(run.k.dimens.abovecaptionskip))
     // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
     const l: Node[] = [], state = { spaceFactor: 1000 }
     appendText(l, env === "figure" ? "Figure" : "Table", romanFont, state, false)
@@ -1248,7 +1233,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (hyper) { appendText(start, `${the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1))); out.paragraph(start, text) }
       else out.paragraph(start, `${the(number)}: ${text}`)
     } else out.box(hpack([glue(0, 65536, FIL), cap, glue(0, 65536, FIL)], { exactly: hsize }))
-    out.push(glue(k.dimens.belowcaptionskip))
+    out.push(glue(run.k.dimens.belowcaptionskip))
     return { number, name: labelName(text) } // (nameref drops a final period)
   }
   function floatBlock(b: Extract<Block, { kind: "float" }>) {
@@ -1264,7 +1249,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     }
     const content: Node[] = []
     let pd: number | null = IGNORE_DEPTH, number = 0, captionName = ""
-    const hsize = k.dimens.columnwidth
+    const hsize = run.k.dimens.columnwidth
     const fbody = b.body.trim()
     const tokens = [...fbody.matchAll(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LXminipage\{\d+\}|\S+/g)]
     const items = tokens.map((t) => t[0])
@@ -1276,18 +1261,18 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
       const shape = centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : centered ? { finalHyphenDemerits: 0 } : {}
       // (\clubpenalty is the one in force: \@parboxrestore leaves it, and \@setminipage's \everypar replaces \@afterheading's)
-      const par = paragraphInput(body, k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: v.club })
+      const par = paragraphInput(body, run.k, "normalsize", doc, { ...shape, start, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: v.club })
       const lb = lineBreak(par.list, par.params)
       decisions.push(...par.notes, lb.trace)
       // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
       // so does LaTeX's restart of the paragraph
       if (content.length) content.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
       for (const n of lb.vlist) {
-        if (n.kind === "hlist") pd = appendToVlist(content, n, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+        if (n.kind === "hlist") pd = appendToVlist(content, n, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
         else content.push(n)
       }
     }
-    captype = b.env
+    run.captype = b.env
     try {
     for (let ii = 0; ii < items.length; ii++) {
       const it = items[ii]
@@ -1304,7 +1289,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
       const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
       if (tab) {
-        floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club: v.club, widow: k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(k).finalHyphenDemerits })], "")
+        floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club: v.club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits })], "")
         continue
       }
       // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
@@ -1319,7 +1304,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (m) {
         ({ number, name: captionName } = caption(b.env, m[1], hsize, {
           push: (n) => content.push(n),
-          box: (x) => { pd = appendToVlist(content, x, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit) },
+          box: (x) => { pd = appendToVlist(content, x, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit) },
           paragraph: (start, text) => floatParagraph(start, text, false), // \@caption's \@parboxrestore undoes \centering
         }))
         continue
@@ -1330,11 +1315,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
       throw new Unsupported(`${it} in a ${b.env}`)
     }
-    } finally { captype = null }
+    } finally { run.captype = null }
     content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
     const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
-    if (box.height > k.dimens.textheight) box.height = k.dimens.textheight // \@largefloatcheck
-    const index = floats++
+    if (box.height > run.k.dimens.textheight) box.height = run.k.dimens.textheight // \@largefloatcheck
+    const index = run.floats++
     v.nodes.push({ kind: "whatsit", text: "", float: { box, count: fps + 32 * (b.env === "figure" ? 1 : 2), nobreak: v.nobreak, index, here: !notHere.has(index) } satisfies Float }) // \ftype@figure 1, \ftype@table 2
     // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
     // elsewhere \nobreak alone, and the text after it is still right after the heading
@@ -1359,15 +1344,15 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // letter.cls's \footnoterule and \@makefntext (a 5pt \hangindent) are its own
     if (/\\footnote\b/.test(JSON.stringify(b))) throw new Unsupported("a footnote in a letter")
     if (!letterInfo.address) throw new Unsupported("a letter without \\address (\\ps@firstpage)")
-    if (k.ints.twoside) throw new Unsupported("a two-sided letter")
+    if (run.k.ints.twoside) throw new Unsupported("a two-sided letter")
     const check = (t: string) => { if (/[\\{}$%&#^_~]/.test(t.replace(/\\\\/g, ""))) throw new Unsupported(`a letter's "${t}"`) }
     ;[letterInfo.address, b.to, letterInfo.signature ?? letterInfo.name ?? "", b.closing].forEach(check)
     const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
-    const sz = k.sizes.normalsize
+    const sz = run.k.sizes.normalsize
     v.par()
     v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("page=1"))
-    k = { ...k, ints: { ...k.ints, interlinepenalty: 200 } }
-    const parskip = k.glue.parskip.width // letter.cls: 0.7em; 2\parskip is a dimension
+    run.k = { ...run.k, ints: { ...run.k.ints, interlinepenalty: 200 } }
+    const parskip = run.k.glue.parskip.width // letter.cls: 0.7em; 2\parskip is a dimension
     const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode
     const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
     const raggedleft = { leftSkip: flush("leftskip"), rightSkip: paramGlue("rightskip", glue(0)), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
@@ -1392,14 +1377,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \closing
     v.par()
     v.nodes.push(penalty(10000))
-    vspace(k.glue.parskip)
-    k = { ...k, ints: { ...k.ints, interlinepenalty: 10000 } }
+    vspace(run.k.glue.parskip)
+    run.k = { ...run.k, ints: { ...run.k.ints, interlinepenalty: 10000 } }
     const longindentation = xnOverD(classTextwidth, 32768, 65536), width = classTextwidth - longindentation
     // the \parbox: \@parboxrestore (\parskip and \parindent zero), \raggedright, \\[6\medskipamount] (\@centercr)
-    const pv = new VerticalList(k)
+    const pv = new VerticalList(run.k)
     pv.nodes = []; pv.prevDepth = IGNORE_DEPTH
     const inBox = (text: string, end: Node[]) => {
-      const p = paragraphInput(text, k, "normalsize", doc, { ...raggedright, hsize: width, start: [emptyBox("hlist", 0)], amsmath })
+      const p = paragraphInput(text, run.k, "normalsize", doc, { ...raggedright, hsize: width, start: [emptyBox("hlist", 0)], amsmath })
       p.list.push(...end)
       const lb = lineBreak(p.list, p.params)
       decisions.push(...p.notes, lb.trace)
@@ -1411,7 +1396,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     pv.paragraph(inBox(letterInfo.signature ?? letterInfo.name ?? "", [{ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth }]), dimen(0)) // \strut
     const box = vpack(pv.nodes)
     const delta = box.height + box.depth // \vcenter (make_vcenter, § 736)
-    box.height = mathEnv(k, "normalsize", amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+    box.height = mathEnv(run.k, "normalsize", amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
     box.depth = delta - box.height
     const parbox: Node[] = [{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }]
     // \noindent \hspace*: \vrule width\z@ \nobreak \hskip \hskip\z@skip
@@ -1456,7 +1441,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   function tocLine(e: TocEntry) {
     const top = cls === "article" ? 1 : 0
     const dims = (x: string, units = bodyUnits) => new Scanner(x, units).scanDimen().value
-    const bold = k.sizes.normalsize.bold
+    const bold = run.k.sizes.normalsize.bold
     const font = e.level === top ? bold : roman
     const f = loadFont(dataFont(font.name), font.at)
     const fUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
@@ -1483,7 +1468,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     let club = v.club, keepIndent = true
     if (v.afterheadingEverypar) {
       if (v.nobreak) { v.nobreak = false; club = 10000; keepIndent = e.level !== top || v.afterindent }
-      else club = k.ints.clubpenalty
+      else club = run.k.ints.clubpenalty
     }
     let start: Node[], nl: Node[], tail: Node[], params: Parameters<typeof paragraphInput>[4]
     if (e.level === top) {
@@ -1496,7 +1481,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       const [indent, numwidth] = (cls === "article" ? [["", ""], ["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]] : [["", ""], ["1.5em", "2.3em"], ["3.8em", "3.2em"]])[e.level].map((x) => dims(x))
       const rmarg = dims("2.55em")
       // \mkern\@dotsep mu: math_kern (§ 717) in the text size's mu
-      const mu = Math.trunc(mathEnv(k, "normalsize", amsmath).fonts[0][2]!.params[6] / 18)
+      const mu = Math.trunc(mathEnv(run.k, "normalsize", amsmath).fonts[0][2]!.params[6] / 18)
       const mk = mathGlue(dimen(dims("4.5pt")), mu).width
       const dot: Node[] = []
       appendText(dot, ".", f, { spaceFactor: 1000 }, false)
@@ -1509,11 +1494,11 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // hyperref (linktoc=section): the number and the title in a link to the heading's anchor
     let body = e.title
     if (hyper && e.anchor) {
-      const title = paragraphInput(e.title, k, "normalsize", doc, { start: [], font, amsmath }).list
-      start.push(tocLink([...nl, ...title], e.anchor, k.sizes.normalsize.baselineskip.width))
+      const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath }).list
+      start.push(tocLink([...nl, ...title], e.anchor, run.k.sizes.normalsize.baselineskip.width))
       body = ""
     } else start.push(...nl)
-    const { list, params: ps, notes } = paragraphInput(body, k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })
+    const { list, params: ps, notes } = paragraphInput(body, run.k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })
     list.push(...tail)
     const lb = lineBreak(list, ps)
     decisions.push(...notes, lb.trace)
@@ -1536,27 +1521,27 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
     if (titlepage) {
       v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("empty"), hook("page=1"))
-      v.box(hpack([]), k.sizes.normalsize.baselineskip)
+      v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
       v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
       v.vskip(dimen(60 * 65536))
     } else {
       v.nodes.push(glue(0, 65536, FIL), penalty(-10000), hook("notop"), glue(0, 65536, FIL), penalty(-10000))
-      v.box(hpack([]), k.sizes.normalsize.baselineskip) // \null
+      v.box(hpack([]), run.k.sizes.normalsize.baselineskip) // \null
       v.vskip(dimen(em("2em", romanFont)))
     }
     // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
-    const topsepadd = addGlue(k.glue.topsep, k.glue.partopsep)
+    const topsepadd = addGlue(run.k.glue.topsep, run.k.glue.partopsep)
     v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
-    const labelsep = k.dimens.labelsep
+    const labelsep = run.k.dimens.labelsep
     const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
     const flush = (p: string) => paramGlue(p, glue(0, 65536, FIL))
     const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
     const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
     check(title.title, "\\title")
-    typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: k.ints.clubpenalty }, outerParskip, "LARGE")
+    typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: run.k.ints.clubpenalty }, outerParskip, "LARGE")
     v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
     // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
-    const large = loadFont(dataFont(k.sizes.large.font.name), k.sizes.large.font.at)
+    const large = loadFont(dataFont(run.k.sizes.large.font.name), run.k.sizes.large.font.at)
     const authors = (title.author ?? "").split(/\\and\b/).map((a) => a.split(/\\\\/).map((r) => r.trim()))
     authors.flat().forEach((r) => check(r, "\\author"))
     const start: Node[] = [hpack([])] // \parindent is zero in center
@@ -1564,29 +1549,29 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
       if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
       start.push(tabular(rows.map((r) => ({ cells: [{ text: r }] })), preamble("c"), "large", "t"))
     })
-    const authorPar = paragraphInput("", k, "large", doc, { ...centering, start, clubPenalty: k.ints.clubpenalty, amsmath })
+    const authorPar = paragraphInput("", run.k, "large", doc, { ...centering, start, clubPenalty: run.k.ints.clubpenalty, amsmath })
     const ab = lineBreak(authorPar.list, authorPar.params)
     decisions.push(ab.trace)
-    v.paragraph(ab.vlist, outerParskip, k.sizes.large.baselineskip, dimen(em(titlepage ? ".75em" : ".5em", large)))
+    v.paragraph(ab.vlist, outerParskip, run.k.sizes.large.baselineskip, dimen(em(titlepage ? ".75em" : ".5em", large)))
     v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
     // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
     // {\large \@date \par}, with \large's)
     const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch))
     check(date, "\\date")
     if (date) {
-      const dp = paragraphInput("", k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: k.ints.clubpenalty, amsmath })
+      const dp = paragraphInput("", run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath })
       appendText(dp.list, date, large, { spaceFactor: 1000 })
       const db = lineBreak(dp.list, dp.params)
       decisions.push(db.trace)
-      v.paragraph(db.vlist, outerParskip, titlepage ? k.sizes.large.baselineskip : k.sizes.normalsize.baselineskip)
+      v.paragraph(db.vlist, outerParskip, titlepage ? run.k.sizes.large.baselineskip : run.k.sizes.normalsize.baselineskip)
     }
     v.endtrivlist(outerParskip, outerParskip, topsepadd)
     if (titlepage) {
       // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
       v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
-      v.box(hpack([]), k.sizes.normalsize.baselineskip)
+      v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
       v.nodes.push(glue(0, 65536, FIL), penalty(-10000))
-      if (!k.ints.twoside) v.nodes.push(hook("page=1"))
+      if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
     } else {
       // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}
       v.vskip(dimen(em("1.5em", romanFont)))
@@ -1597,14 +1582,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
 
   /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
   function tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
-    const font = selectFont(k, size, attrs)
-    const sz = k.sizes[size]
+    const font = selectFont(run.k, size, attrs)
+    const sz = run.k.sizes[size]
     const env: TabularEnv = {
-      strut: k.sizes[size].strut, tabcolsep: k.dimens.tabcolsep, arrayrulewidth: k.dimens.arrayrulewidth, doublerulesep: k.dimens.doublerulesep,
-      lineskiplimit: k.dimens.lineskiplimit, axis: mathEnv(k, size, amsmath).fonts[0][2]!.params[22],
+      strut: run.k.sizes[size].strut, tabcolsep: run.k.dimens.tabcolsep, arrayrulewidth: run.k.dimens.arrayrulewidth, doublerulesep: run.k.dimens.doublerulesep,
+      lineskiplimit: run.k.dimens.lineskiplimit, axis: mathEnv(run.k, size, amsmath).fonts[0][2]!.params[22],
       cell: (text, state) => {
         if (/\\(?:footnote|label)(?![A-Za-z])/.test(text)) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
-        try { return hlistInput(text, k, size, doc, attrs, sfcodes ? Object.assign(state, { sfcodes }) : state, amsmath) } catch (e) {
+        try { return hlistInput(text, run.k, size, doc, attrs, sfcodes ? Object.assign(state, { sfcodes }) : state, amsmath) } catch (e) {
           if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
           throw e
         }
@@ -1627,7 +1612,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         if (!text.trim() && !cr.length) { list.push(glue(-sz.baselineskip.width), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))); end = [strut] }
         let p: ReturnType<typeof paragraphInput>
         try {
-          p = paragraphInput(text, k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, unskip: 1, end })
+          p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, unskip: 1, end })
         } catch (e) {
           if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
           throw e
@@ -1636,7 +1621,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
         outer.notes.push(...p.notes, lb.trace)
         let pd: number | null = IGNORE_DEPTH
         for (const n of lb.vlist) {
-          if (n.kind === "hlist") pd = appendToVlist(list, n, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+          if (n.kind === "hlist") pd = appendToVlist(list, n, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
           else list.push(n)
         }
         return vtop(list)
@@ -1655,18 +1640,18 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
    */
   /** \clearpage: \newpage (which ends \if@nobreak), \write\m@ne{}, \vbox{}, \penalty-\@Mi */
   function clearpage() {
-    noskipsecPar("a page break"); noskipsec = false // \newpage: \leavevmode, \global\@noskipsecfalse
+    noskipsecPar("a page break"); run.noskipsec = false // \newpage: \leavevmode, \global\@noskipsecfalse
     if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
     v.nodes.push(glue(0, 65536, FIL), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
-    v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
+    v.box(emptyBox("vlist"), run.k.sizes.normalsize.baselineskip)
     v.nodes.push(penalty(-10001))
   }
   /** \cleardoublepage: \clearpage, then, two-sided, \ifodd\c@page\else\hbox{}\newpage\fi (the output decides) */
   function cleardoublepage() {
     clearpage()
-    if (!k.ints.twoside) return
+    if (!run.k.ints.twoside) return
     const extra: Node[] = []
-    appendToVlist(extra, hpack([]), v.prevDepth, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+    appendToVlist(extra, hpack([]), v.prevDepth, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
     extra.push(glue(0, 65536, FIL), penalty(-10000))
     v.nodes.push({ kind: "whatsit", text: "", hook: { cleardouble: extra } satisfies OutputHook })
   }
@@ -1675,7 +1660,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (cls !== "book") throw new Unsupported(`\\${which}matter in ${cls}`)
     v.par()
     cleardoublepage() // \backmatter's when openright, as book is
-    mainmatter = which === "main"
+    run.mainmatter = which === "main"
     if (which !== "back") v.nodes.push({ kind: "whatsit", text: "", hook: which === "front" ? "roman" : "arabic" })
   }
 
@@ -1687,25 +1672,25 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \thispagestyle{plain}, \global\@topnum\z@
     v.nodes.push({ kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }, { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
     // book's \@chapter numbers only in the main matter
-    const numbered = !b.star && (cls !== "book" || mainmatter)
+    const numbered = !b.star && (cls !== "book" || run.mainmatter)
     if (!b.star) {
       if (numbered) {
         counters.stepSectional(0)
         refs.label = counters.theSectional(0); refs.href = `chapter.${refs.label}`
         doc.footnote = 0
-      } else if (hyper) refs.href = `chapter*.${++linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
+      } else if (hyper) refs.href = `chapter*.${++run.linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
       // hyperref: the anchor, then \addcontentsline's bookmark and toc line
-      if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
+      if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
       v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
       // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
       if (headings) {
         const cv = markValue(numbered ? [{ text: "Chapter" }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
-        v.nodes.push(...marks.insert(k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
+        v.nodes.push(...marks.insert(run.k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
       }
       for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
     } else if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor
-      refs.href = `chapter*.${++linkcounter}`; refs.name = labelName(b.source ?? b.title)
-      v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+      refs.href = `chapter*.${++run.linkcounter}`; refs.name = labelName(b.source ?? b.title)
+      v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     }
     // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
     const pd = v.prevDepth
@@ -1714,14 +1699,14 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.prevDepth = pd
     // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
     // (in the head's group)
-    const club = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
+    const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
     const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
     if (numbered) {
-      typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: k.sizes.huge.bold }, outerParskip, "huge")
+      typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
       v.nodes.push(penalty(10000))
       v.vskip(dimen(20 * 65536))
     }
-    typeset(b.title, { ...ragged(), font: k.sizes.Huge.bold, interLinePenalty: 10000, ...(b.end ? { end: b.end } : {}) }, outerParskip, "Huge")
+    typeset(b.title, { ...ragged(), font: run.k.sizes.Huge.bold, interLinePenalty: 10000, ...(b.end ? { end: b.end } : {}) }, outerParskip, "Huge")
     v.nodes.push(penalty(10000))
     v.vskip(dimen(40 * 65536))
     v.nobreak = true
@@ -1739,23 +1724,23 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const name = b.level === 4 ? "paragraph" : "subparagraph"
     const before = new Scanner("3.25ex plus1ex minus.2ex", bodyUnits).scanGlue()
     noskipsecPar("a heading")
-    noskipsec = false // (\@xsect: \@noskipsectrue, with its own \everypar)
+    run.noskipsec = false // (\@xsect: \@noskipsectrue, with its own \everypar)
     v.par()
-    if (runIn) throw new Unsupported("two run-in headings in a row")
+    if (run.runIn) throw new Unsupported("two run-in headings in a row")
     if (v.nobreak) v.afterheadingEverypar = false // \everypar{}
     else { v.addpenalty(-300); v.addvspace(before) }
     v.afterindent = true
-    if (!b.star && b.level <= k.ints.secnumdepth) throw new Unsupported(`numbered \\${name}`)
+    if (!b.star && b.level <= run.k.ints.secnumdepth) throw new Unsupported(`numbered \\${name}`)
     v.nobreak = false // \@nobreakfalse
     // hyperref: \Hy@MakeCurrentHrefAuto now, its anchor box at the start of the title
-    const anchorName = hyper ? `section*.${++linkcounter}` : ""
+    const anchorName = hyper ? `section*.${++run.linkcounter}` : ""
     if (hyper) { refs.href = anchorName; refs.name = labelName(b.title) }
     // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
-    runIn = (em = romanFont.params[QUAD], parindent = k.dimens.parindent) => {
+    run.runIn = (em = romanFont.params[QUAD], parindent = run.k.dimens.parindent) => {
       const title = counted(b.title)
       const indent = b.level === 5 ? parindent : 0 // (\hskip #3, read where it is put in place)
-      const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, k.sizes.normalsize.baselineskip.width)] : [])]
-      const head = paragraphInput(title, k, "normalsize", doc, { start, font: k.sizes.normalsize.bold, amsmath }).list
+      const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, run.k.sizes.normalsize.baselineskip.width)] : [])]
+      const head = paragraphInput(title, run.k, "normalsize", doc, { start, font: run.k.sizes.normalsize.bold, amsmath }).list
       if (!b.star) head.push(...contentsWrites(b.level, null, title, refs.href, false)) // (\@currentHref when the paragraph starts)
       if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip
       head.push(glue(em)) // \hskip -\@tempskipa
@@ -1777,12 +1762,12 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     if (afterHeading) v.afterheadingEverypar = false // \if@nobreak \everypar{}
     // the heading's \noindent starts its paragraph in the heading's group: an \@afterheading \everypar
     // still in force sets \@clubpenalty there (locally); otherwise the \clubpenalty in force holds
-    const headingClub = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
+    const headingClub = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
     v.afterindent = true
     if (before.width < 0) { before = negate(before); v.afterindent = false }
     if (!v.nobreak) { v.addpenalty(-300); v.addvspace(before) } // \@secpenalty
     // \@sect: the number and the space after it (\@seccntformat: \the<name>\quad) in a box the title hangs from
-    const numbered = !b.star && b.level <= k.ints.secnumdepth
+    const numbered = !b.star && b.level <= run.k.ints.secnumdepth
     let number = ""
     if (!b.star) {
       counters.stepSectional(b.level)
@@ -1793,20 +1778,20 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // in an \hbox to 0pt at the start of its title; nameref's \@currentlabelname is the title
     let anchorName = ""
     if (hyper) {
-      if (numbered) { anchorName = refs.href; v.nodes.push(...anchor(anchorName, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
-      else { anchorName = `section*.${++linkcounter}`; refs.href = anchorName }
+      if (numbered) { anchorName = refs.href; v.nodes.push(...anchor(anchorName, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
+      else { anchorName = `section*.${++run.linkcounter}`; refs.href = anchorName }
       refs.name = labelName(heading.source ?? heading.title)
     }
-    const bold = k.sizes[size].bold
+    const bold = run.k.sizes[size].bold
     const bf = loadFont(dataFont(bold.name), bold.at)
     const label: Node[] = [glue(0)] // \hskip #3 (\z@)
     if (numbered) { appendText(label, number, bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
     const box = hpack(label)
-    const start = hyper && !numbered ? [box, sectionAnchorBox(anchorName, 0, k.sizes[size].baselineskip.width)] : [box]
+    const start = hyper && !numbered ? [box, sectionAnchorBox(anchorName, 0, run.k.sizes[size].baselineskip.width)] : [box]
     typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub, ...(heading.end ? { end: heading.end } : {}) }, outerParskip, size)
     // \@sect: \sectionmark, then \addcontentsline{toc}: \protected@write, a \write after the heading's lines,
     // with \nobreak after it while \if@nobreak holds (a heading right after a heading)
-    if (numbered && headings) v.nodes.push(...marks.insert(sectionMarks(cls, !!k.ints.twoside, b.level, number, b.title), afterHeading))
+    if (numbered && headings) v.nodes.push(...marks.insert(sectionMarks(cls, !!run.k.ints.twoside, b.level, number, b.title), afterHeading))
     if (!b.star) v.nodes.push(...contentsWrites(b.level, numbered ? number : null, b.title, anchorName, afterHeading))
     // \@xsect: \par \nobreak \vskip afterskip \@afterheading
     v.nodes.push(penalty(10000))
@@ -1815,21 +1800,21 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     v.afterheadingEverypar = true
   }
 
-  if (runIn) runInAlone() // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
-  if (noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
+  if (run.runIn) runInAlone() // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
+  if (run.noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
   let built: ReturnType<typeof endDocument>
-  try { built = endDocument(v.nodes, k, outerParskip) } catch (e) {
+  try { built = endDocument(v.nodes, run.k, outerParskip) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
     if (e instanceof OutputUnsupported) throw new Unsupported(e.message)
     throw e
   }
   const { pages, pageTrace } = built
-  const columns = makeColumns(pages, k, cls === "letter")
-  const sl = selectFont(k, "normalsize", { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
+  const columns = makeColumns(pages, run.k, cls === "letter")
+  const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
   const heads = pageMarks(pages)
   const shipped = columns.map((c, i) => {
-    const even = k.ints.twoside && pages[i].count % 2 === 0
-    return outputPage(c.outputbox, pages[i].count, k, pages[i].special ?? pagestyle, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage)
+    const even = run.k.ints.twoside && pages[i].count % 2 === 0
+    return outputPage(c.outputbox, pages[i].count, run.k, pages[i].special ?? pagestyle, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage)
   })
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
