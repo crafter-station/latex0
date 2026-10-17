@@ -6,14 +6,15 @@
 import type { SizeCommand } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import type { Font } from "../layout/font"
-import type { BoxNode, Node } from "../layout/nodes"
+import type { Node } from "../layout/nodes"
 import type { ParagraphTrace } from "../trace/decisions"
 import type { Counters } from "./counters"
 import type { MarkWriter } from "./marks"
-import type { DocState, FontAttrs, ParagraphOptions, Refs, TabularOuter } from "./paragraph"
+import type { DocState, FontAttrs, ParagraphOptions, Refs } from "./paragraph"
 import type { Preamble } from "./preamble"
 import type { RunState } from "./run"
-import type { TabCol, TabLine } from "./tabular"
+import type { Listing, MinipageSource, TabularSource } from "./source"
+import type { TabularEnv } from "./tabular"
 import type { TocEntry } from "./toc"
 import type { VerticalList } from "./vlist"
 
@@ -24,6 +25,16 @@ export interface Ctx {
   v: VerticalList
   /** what paragraphs read and write: footnotes, references, colors, tabulars and minipages in text */
   doc: DocState
+  /** what was taken out of the source (prepareSource): listings, tabulars and minipages by number */
+  listings: Listing[]
+  tabulars: TabularSource[]
+  minipages: MinipageSource[]
+  /** floats right after a heading that this layout does not place where they stand (see document()) */
+  notHere: Set<number>
+  /** the body font's attributes (\normalfont) */
+  normalAttrs: FontAttrs
+  /** booktabs's dimensions, when the document loads it */
+  booktabs: TabularEnv["booktabs"] | null
   /** the line-breaking decisions so far, compared with TeX's */
   decisions: ParagraphTrace[]
   /** the .toc file the run before wrote (null: none yet) */
@@ -41,7 +52,6 @@ export interface Ctx {
   outerParskip: GlueSpec
   /** a paragraph of text on the main vertical list, after \parskip */
   typeset(text: string, opts: ParagraphOptions, parskip: GlueSpec, size?: SizeCommand): void
-  tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs?: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode
   counters: Counters
   /** \label, \ref and the .aux values the run before wrote */
   refs: Refs
