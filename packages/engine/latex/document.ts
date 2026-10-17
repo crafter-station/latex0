@@ -36,6 +36,7 @@ import type { LayoutResult } from "./result"
 import { geometry, GeometryUnsupported } from "./geometry"
 import { blocksOf, displaySegments, type Block, type Display, type ListBlock, type Part } from "./blocks"
 import { prepareSource, type Listing, type MinipageSource, type TabularSource } from "./source"
+import { COUNTER_COMMANDS, Counters } from "./counters"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, plain, VerticalList } from "./vlist"
 import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
@@ -437,68 +438,13 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     nodes.push(...basicColors.map(() => colorPop()), ...(xcolor.on ? [colorPop()] : []))
     return nodes
   }
-  const counters = Object.assign([0, 0, 0, 0], { equation: 0, figure: 0, table: 0 }) // chapter (never stepped yet), section, subsection, subsubsection
-  // \@currentHref after \refstepcounter: \theH<counter>, which report and book number within the chapter
-  const href = (counter: string, n: number) => (cls === "article" || cls === "letter" ? `${counter}.${n}` : `${counter}.${counters[0]}.${n}`)
-  // \theequation, \thefigure, \thetable: in report and book, prefixed by the chapter once there is one
-  const the = (n: number) => (cls !== "article" && counters[0] > 0 ? `${counters[0]}.${n}` : String(n))
-  // counters the document makes (\newcounter), with the counter that resets each, and LaTeX's own
-  const userCounters = new Map<string, { value: number; within: string | null }>()
-  for (const [name, within] of newCounters) userCounters.set(name, { value: 0, within })
-  const counterValue = (name: string): number => {
-    const u = userCounters.get(name)
-    if (u) return u.value
-    const i = ["chapter", "section", "subsection", "subsubsection"].indexOf(name)
-    if (i >= 0) return counters[i]
-    if (name === "equation" || name === "figure" || name === "table") return counters[name]
-    if (name === "footnote") return doc.footnote
-    throw new Unsupported(`counter ${name}`)
-  }
-  const setCounter = (name: string, value: number) => {
-    const u = userCounters.get(name)
-    if (u) { u.value = value; return }
-    throw new Unsupported(`\\setcounter of LaTeX's ${name}`)
-  }
-  const representation = (style: string, n: number) => {
-    if (style === "arabic") return String(n)
-    if (style === "roman" || style === "Roman") {
-      let out = "", x = n
-      for (const [v2, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (x >= v2) { out += r; x -= v2 }
-      return style === "Roman" ? out.toUpperCase() : out
-    }
-    if (n === 0) return "" // \ifcase 0: nothing
-    if (n < 0 || n > 26) throw new Unsupported(`\\${style} of ${n}`) // LaTeX: Counter too large
-    return String.fromCharCode((style === "alph" ? 96 : 64) + n)
-  }
-  /** \the<counter>: \arabic (\newcounter{c}[parent] only resets it; \counterwithin would change \the) */
-  const theCounter = (name: string): string => {
-    const u = userCounters.get(name)
-    if (!u) throw new Unsupported(`\\the${name}`)
-    return String(u.value)
-  }
-  const COUNTER_COMMANDS = /\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?|\{\}/g
-  /** Counter commands in text, in order: \stepcounter and friends act (resetting the counters within), \the… and \arabic… print */
-  const counted = (text: string, inText = false): string => text.replace(/\\(setcounter|addtocounter|stepcounter|refstepcounter)\s*\{([^{}]*)\}(?:\s*\{([^{}]*)\})?|\\(arabic|roman|Roman|alph|Alph)\s*\{([^{}]*)\}|\\the([a-zA-Z]+)\b\s*/g, (_m, cmd, name, arg, style, cname, tname) => {
-    if (cmd) {
-      const val = (x: string | undefined) => { const vm = x?.match(/^\s*\\value\s*\{([^{}]*)\}\s*$/); if (vm) return counterValue(vm[1]); if (x === undefined || !/^\s*-?\d+\s*$/.test(x)) throw new Unsupported(`\\${cmd} value "${x}"`); return Number(x) }
-      if (cmd === "setcounter") setCounter(name, val(arg))
-      else if (cmd === "addtocounter") setCounter(name, counterValue(name) + val(arg))
-      else {
-        if (!userCounters.has(name)) throw new Unsupported(`\\${cmd}{${name}}`)
-        setCounter(name, counterValue(name) + 1)
-        for (const u of userCounters.values()) if (u.within === name) u.value = 0
-        if (cmd === "refstepcounter") { // \@currentlabel and \@currentHref: in text, where the command stands
-          if (inText) return `\\LXcurrentlabel{${theCounter(name)}}{${name}.${theCounter(name)}}{}`
-          refs.label = theCounter(name); refs.href = `${name}.${theCounter(name)}`
-          if (hyper) v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
-        }
-        if (arg !== undefined) return `{${arg}}`
-      }
-      return "{}" // no node, but the spaces around it stay apart
-    }
-    if (style) return representation(style, counterValue(cname))
-    if (userCounters.has(tname)) return theCounter(tname)
-    return _m
+  const counters = new Counters(cls, newCounters, () => doc.footnote)
+  const href = (counter: string, n: number) => counters.href(counter, n)
+  const the = (n: number) => counters.the(n)
+  /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
+  const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
+    refs.label = label; refs.href = h
+    if (hyper) v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
   })
   const topCtx = (): EnvCtx => ({ depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: k.dimens.textwidth, parskip: outerParskip, parsep: k.glue.parsep, itemsep: k.glue.itemsep, topsep: k.glue.topsep, partopsep: k.glue.partopsep, labelwidth: k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] })
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box */
@@ -983,10 +929,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     // \refstepcounter{counter}: \the<counter> (the section's number first, when within it)
     let thmNumber: string | null = null
     if (thmDef?.counter) {
-      const c = userCounters.get(thmDef.counter)!
-      c.value++
-      const within = thmDef.within === "chapter" ? String(counters[0]) : thmDef.within === "section" ? (cls === "article" ? String(counters[1]) : `${counters[0]}.${counters[1]}`) : thmDef.within === "subsection" ? (cls === "article" ? `${counters[1]}.${counters[2]}` : `${counters[0]}.${counters[1]}.${counters[2]}`) : null
-      thmNumber = within !== null ? `${within}.${c.value}` : String(c.value)
+      thmNumber = counters.stepNumbered(thmDef.counter)
       refs.label = thmNumber; refs.href = `${thmDef.counter}.${thmNumber}`
     }
     // the body's font: \itshape for plain theorems
@@ -1890,18 +1833,16 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const numbered = !b.star && (cls !== "book" || mainmatter)
     if (!b.star) {
       if (numbered) {
-        counters[0]++
-        refs.label = String(counters[0]); refs.href = `chapter.${counters[0]}`
-        for (let l = 1; l < counters.length; l++) counters[l] = 0
-        for (const u of userCounters.values()) if (u.within !== null) u.value = 0 // (everything within a chapter or deeper)
-        counters.equation = 0; counters.figure = 0; counters.table = 0; doc.footnote = 0
+        counters.stepSectional(0)
+        refs.label = counters.theSectional(0); refs.href = `chapter.${refs.label}`
+        doc.footnote = 0
       } else if (hyper) refs.href = `chapter*.${++linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
       // hyperref: the anchor, then \addcontentsline's bookmark and toc line
       if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
-      v.nodes.push(...contentsWrites(0, numbered ? String(counters[0]) : null, b.title, refs.href, false))
+      v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
       // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
       if (headings) {
-        const cv = markValue(numbered ? [{ text: "Chapter" }, { ctrl: true }, { text: `${counters[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
+        const cv = markValue(numbered ? [{ text: "Chapter" }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
         v.nodes.push(...insertMarks(k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
       }
       for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
@@ -1919,7 +1860,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const club = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
     const ragged = () => ({ start: [hpack([])], rightSkip: paramGlue("rightskip", glue(0, 65536, FIL)), finalHyphenDemerits: 0, clubPenalty: club }) // \parindent\z@ \raggedright
     if (numbered) {
-      typeset(`Chapter ${counters[0]}`, { ...ragged(), font: k.sizes.huge.bold }, outerParskip, "huge")
+      typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: k.sizes.huge.bold }, outerParskip, "huge")
       v.nodes.push(penalty(10000))
       v.vskip(dimen(20 * 65536))
     }
@@ -1987,12 +1928,8 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
     const numbered = !b.star && b.level <= k.ints.secnumdepth
     let number = ""
     if (!b.star) {
-      counters[b.level]++
-      for (let l = b.level + 1; l < counters.length; l++) counters[l] = 0
-      // counters within this one or a deeper one (\@stpelt steps them, so the reset goes down the chain)
-      const levels = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"].slice(b.level)
-      for (const u of userCounters.values()) if (u.within !== null && levels.includes(u.within)) u.value = 0
-      number = (cls === "article" ? counters.slice(1, b.level + 1) : counters.slice(0, b.level + 1)).join(".")
+      counters.stepSectional(b.level)
+      number = counters.theSectional(b.level)
     }
     if (numbered) { refs.label = number; refs.href = `${["", "section", "subsection", "subsubsection"][b.level]}.${number}` } // \refstepcounter
     // hyperref: \refstepcounter's anchor on the vertical list; an unnumbered heading's (\Hy@MakeCurrentHrefAuto)
