@@ -5,9 +5,10 @@ import { type SizeCommand } from "../layout/classdata"
 import { QUAD, X_HEIGHT } from "../layout/font"
 import { parseDimen, parseGlue } from "../layout/dimen"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, glue, paramGlue, penalty, type BoxNode, type Node, filGlue } from "../layout/nodes"
+import { emptyBox, glue, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
 import { vpack } from "../layout/pack"
 import type { Ctx } from "./context"
+import { centering as centeringShape, sloppy } from "./kernel"
 import { caption } from "./floats"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
@@ -40,8 +41,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   // \centering in vertical mode (first, or after a caption): \leftskip and \rightskip \@flushglue, \parfillskip zero,
   // \finalhyphendemerits zero, from there on
   let centering = false
-  const flush = (p: string) => paramGlue(p, filGlue())
-  const shape = () => centering ? { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 } : { finalHyphenDemerits: outer.finalHyph }
+  const shape = () => (centering ? centeringShape() : { finalHyphenDemerits: outer.finalHyph })
   const odd = body.match(/\\(?:footnote|begin|item|raggedright|raggedleft|vspace|noindent|LXlstinline)(?![A-Za-z])|\\\[|\$\$/) ?? (/\\centering(?![A-Za-z])/.test(body) ? body.match(/\\\\/) : null)
   if (odd) throw new Unsupported(`${odd[0]} in a minipage`)
   const list: Node[] = []
@@ -67,7 +67,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
         // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits)
         paragraph: (start, text) => {
           parskips()
-          const p = paragraphInput(text, run.k, "normalsize", doc, { start, hsize, amsmath, tolerance: 9999, emergencyStretch: 3 * romanFont.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph })
+          const p = paragraphInput(text, run.k, "normalsize", doc, { start, hsize, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph })
           const lb = lineBreak(p.list, p.params)
           outer.notes.push(...p.notes, lb.trace)
           lines(lb.vlist)
@@ -90,7 +90,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     parskips()
     let p: ReturnType<typeof paragraphInput>
     try {
-      p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape() })
+      p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape() })
     } catch (e) {
       if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a minipage paragraph "${text.trim().slice(0, 40)}"`)
       throw e
@@ -145,7 +145,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
       if (!text.trim() && !cr.length) { list.push(glue(-sz.baselineskip.width), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))); end = [strut] }
       let p: ReturnType<typeof paragraphInput>
       try {
-        p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, tolerance: 9999, emergencyStretch: 3 * font.params[QUAD], clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, unskip: 1, end })
+        p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, unskip: 1, end })
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
         throw e

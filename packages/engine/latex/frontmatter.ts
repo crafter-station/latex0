@@ -6,13 +6,14 @@ import { loadFont, QUAD, X_HEIGHT, type Font } from "../layout/font"
 import { Scanner } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, FIL, glue, kern, paramGlue, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mathGlue } from "../mathlayout/mlist"
 import { hpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
 import { markboth, markValue } from "./marks"
 import { type TocEntry } from "./toc"
 import type { Ctx } from "./context"
+import { centering as centeringShape } from "./kernel"
 import { tabular } from "./boxes"
 import { chapter, heading } from "./sectioning"
 import { Unsupported } from "./unsupported"
@@ -53,8 +54,7 @@ export function maketitle(cx: Ctx) {
   v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
   const labelsep = run.k.dimens.labelsep
   const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
-  const flush = (p: string) => paramGlue(p, filGlue())
-  const centering = { leftSkip: flush("leftskip"), rightSkip: flush("rightskip"), parFillSkip: paramGlue("parfillskip", glue(0)), finalHyphenDemerits: 0 }
+  const centering = centeringShape()
   const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
   check(title.title, "\\title")
   typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: run.k.ints.clubpenalty }, outerParskip, "LARGE")
