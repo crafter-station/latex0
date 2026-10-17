@@ -1,0 +1,29 @@
+% fixture: minipage/text
+% tier: T3
+% engine: document
+% covers: minipage (\@iiiminipage, \endminipage, \@iiiparbox): one and several paragraphs at its \hsize with \@parboxrestore (\parindent and \parskip zero, \sloppy), [c] as $\vcenter$, [t] as \vtop, [b] as \vbox, side by side in a paragraph, starting a paragraph, in a \small group, an empty one, with fonts, math and \\
+\documentclass{article}
+\begin{document}
+Text before
+\begin{minipage}{4cm}
+A minipage with enough words to wrap onto a few lines of its own text.
+\end{minipage}
+and text after it, with some more words to fill out the paragraph a little.
+
+\begin{minipage}[t]{0.45\textwidth}
+First column, a top-aligned minipage with \textbf{bold} and $x^2+y$ math.
+
+Its second paragraph.
+\end{minipage}\hfill
+\begin{minipage}[b]{0.45\textwidth}
+Second column, bottom aligned,\\ with a line break and an \emph{emphasis}.
+\end{minipage}
+
+{\small Small text
+\begin{minipage}[c]{3cm}
+in a small minipage set in several narrow lines here
+\end{minipage}
+done.} And more.
+
+Empty \begin{minipage}{2cm}\end{minipage} one.
+\end{document}

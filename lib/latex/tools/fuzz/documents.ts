@@ -89,6 +89,13 @@ export function makeDocument(r: () => number): string {
     else if (r() < 0.3 && rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "").trim()) rows[rows.length - 1] = rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "") // (not a blank line)
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
+  // a minipage: one or two paragraphs (words, formulas, fonts), sometimes \centering first or a tabular inside
+  const minipage = (pos = "", inline = false) => {
+    const par = () => words(3 + Math.floor(r() * 25)).split(" ").map((w) => r() < 0.04 ? `${w} ${math()}` : r() < 0.03 ? `\\textbf{${w}}` : w).join(" ")
+    const body = [(r() < 0.3 ? "\\centering\n" : "") + par() + (r() < 0.12 ? ` ${tabular()}` : "")]
+    if (!inline && r() < 0.3) body.push("", par()) // (in text, perhaps a command's argument: no \\par)
+    return `\\begin{minipage}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{minipage}`
+  }
   const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -98,6 +105,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
+      if (r() < 0.0015) ws[i] += " " + minipage(pick(["", "[t]", "[b]", "[c]"]), true)
       // \underline: words, sometimes a font change or a formula, in an \hbox
       if (r() < 0.004) ws[i] += ` \\underline{${pick(["", "", " "])}${words(1 + Math.floor(r() * 3))}${pick(["", "", ` \\textit{${words(1)}}`, ` ${math()}`])}}`
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
@@ -260,7 +268,7 @@ export function makeDocument(r: () => number): string {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
-      const table = r() < 0.4 ? tabular() : ""
+      const table = r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]))}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]))}` : ""
       const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
       const below = table && r() < 0.5
       out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
