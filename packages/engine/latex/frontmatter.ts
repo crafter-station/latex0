@@ -13,6 +13,7 @@ import { xnOverD } from "../layout/arith"
 import { markboth, markValue } from "./marks"
 import { type TocEntry } from "./toc"
 import type { Ctx } from "./context"
+import { chapter, heading } from "./sectioning"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { type OutputHook } from "./output"
@@ -99,13 +100,13 @@ export function maketitle(cx: Ctx) {
 
 export function tableOfContents(cx: Ctx) {
   const { cls } = cx.pre
-  const { chapter, heading, marks, mkboth, toc, v } = cx
+  const { marks, mkboth, toc, v } = cx
   const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
   // with running heads, \@mkboth is \markboth: its marks in the title's line, which they leave (§ 655)
   const contents = markValue([{ text: "Contents" }], true)
   const end = mkboth ? marks.insert(markboth(contents, contents), false) : undefined
-  if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: "Contents", source, end })
-  else chapter({ kind: "heading", level: 0, star: true, title: "Contents", source, end })
+  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: "Contents", source, end })
+  else chapter(cx, { kind: "heading", level: 0, star: true, title: "Contents", source, end })
   const tocdepth = cls === "article" ? 3 : 2
   for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(cx, e)
   v.nobreak = false
@@ -194,11 +195,11 @@ export function tocLine(cx: Ctx, e: TocEntry) {
 /** \thebibliography's start: \section*{\refname} (report, book: \chapter*{\bibname}), then \@mkboth */
 export function bibliography(cx: Ctx) {
   const { cls, hyper } = cx.pre
-  const { chapter, heading, marks, mkboth, v } = cx
+  const { marks, mkboth, v } = cx
   if (hyper) throw new Unsupported("thebibliography with hyperref")
   const [name, macro] = cls === "article" ? ["References", "refname"] : ["Bibliography", "bibname"]
-  if (cls === "article") heading({ kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
-  else chapter({ kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
+  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
+  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
   const value = markValue([{ text: name }], true)
   if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
 }
