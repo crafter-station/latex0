@@ -53,13 +53,28 @@ export function sectionAnchorBox(name: string, shift: number, baselineskip: numb
  * empty hbox, and the /ANN pdfmark with the anchor
  */
 export function refLink(text: Node[], name: string, color?: string): Node[] {
+  return linkBox(text, color, `[/Color [1 0 0]/H /I/Border [0 0 1]BorderArrayPatch/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`)
+}
+
+/** \hyper@linkurl (hdvips.def): a link to a URI around the typeset text, as for \ref */
+export function uriLink(text: Node[], uri: string, color?: string): Node[] {
+  return linkBox(text, color, `[/H /I/Border [0 0 1]BorderArrayPatch/Color [0 1 1]/Action <</Subtype/URI/URI(${uri})>>/Subtype /Link H.B /ANN pdfmark`)
+}
+
+/** \hyper@linkfile (pdfmark.def): a link to page 1 of another PDF file, in \@filecolor */
+export function fileLink(text: Node[], file: string, color?: string): Node[] {
+  return linkBox(text, color, `[/Subtype /Link/H /I/Border [0 0 1]BorderArrayPatch/Color [0 .5 .5]/Action <</S/GoToR/F(${file})/D[0/Fit]>> H.B /ANN pdfmark`)
+}
+
+/** The text in an \hbox between H.S and H.R, then the link's pdfmark */
+function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node[] {
   // (with a color package the text's box is a \color@setgroup: the current color pushed and popped)
   const box = hpack(color ? [{ kind: "whatsit", text: `\\special{color push ${color}}` }, ...text, { kind: "whatsit", text: "\\special{color pop}" }] : text)
   // H.S at the box's bottom, \lower\dp in an hbox unless the depth is zero; H.R at its top likewise
   let start: Node = HS(), end: Node = HR()
   if (box.depth) { start = hpack([HS()]); start.shift = box.depth }
   if (box.height) { end = hpack([HR()]); end.shift = -box.height }
-  return [start, box, end, sdict(`[/Color [1 0 0]/H /I/Border [0 0 1]BorderArrayPatch/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`)]
+  return [start, box, end, sdict(pdfmark)]
 }
 
 /** A toc line's link (\hyper@linkstart … \hyper@linkend): an hbox with H.S, \Hy@AllowHyphens, the entry, H.L, the /ANN pdfmark */

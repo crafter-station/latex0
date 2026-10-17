@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 198,
-  "exact": 196,
+  "fixtures": 203,
+  "exact": 201,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 190195
+  "glyphs": 191709
  },
  "areas": [
   {
@@ -108,6 +108,11 @@
    "area": "title",
    "fixtures": 4,
    "exact": 4
+  },
+  {
+   "area": "url",
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "xcolor",
@@ -2075,6 +2080,56 @@
    "glyphs": 337,
    "covers": "report's \\maketitle: the titlepage environment (\\newpage, \\thispagestyle{empty}, \\setcounter{page}\\@ne), \\null\\vfil\\vskip60\\p@, the centered title, \\vskip3em, the authors with \\lineskip.75em, \\vskip1.5em, {\\large date\\par} with \\large's \\baselineskip, \\vfil\\null, \\newpage; one-sided, the next page is page 1 again",
    "issue": "#30"
+  },
+  {
+   "id": "url/contexts",
+   "file": "micro/url/contexts.tex",
+   "area": "url",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 299,
+   "covers": "\\url and \\href with hyperref and xcolor where they stand: in a footnote, a list item, \\small, a colored group (the link's box pushes the current color), \\emph in \\href's text, an address ending a sentence (the space factor after the box)"
+  },
+  {
+   "id": "url/hyperref",
+   "file": "micro/url/hyperref.tex",
+   "area": "url",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 224,
+   "covers": "hyperref's \\url and \\href (dvips driver): the link's pdfmark specials around the typeset address or text; \\nolinkurl"
+  },
+  {
+   "id": "url/links-and-shapes",
+   "file": "micro/url/links-and-shapes.tex",
+   "area": "url",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 247,
+   "covers": "\\href's target: no scheme before a colon is a file (\\filename@parse, .pdf added without an extension, \\hyper@linkfile's GoToR for a PDF, a URI otherwise); the space factor its text ends with lasts after the link (\\Hy@SaveSpaceFactor); \\url in \\textit, \\textsl, \\textsc and \\textbf (\\ttfamily keeps the shape: cmitt, cmsltt, cmtcsc; bold falls back to cmtt)"
+  },
+  {
+   "id": "url/t1-sizes",
+   "file": "micro/url/t1-sizes.tex",
+   "area": "url",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 305,
+   "covers": "url.sty's \\url with T1 fonts (\\UrlFont is ectt) and in other sizes: \\small, \\footnotesize, \\large; \\url<c>…<c> with a delimiter; \\url {…} after a space"
+  },
+  {
+   "id": "url/url-package",
+   "file": "micro/url/url-package.tex",
+   "area": "url",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 439,
+   "covers": "\\url (url.sty): the address in math mode in \\ttfamily, \\fam0 the typewriter font, its characters ordinary, binary (\\UrlBreaks: a break after them at \\binoppenalty), relations (:, at \\relpenalty) or openings, no math spacing; long addresses broken across lines"
   },
   {
    "id": "xcolor/definecolor",

@@ -1,0 +1,19 @@
+% fixture: url/contexts
+% tier: T3
+% engine: document
+% covers: \url and \href with hyperref and xcolor where they stand: in a footnote, a list item, \small, a colored group (the link's box pushes the current color), \emph in \href's text, an address ending a sentence (the space factor after the box)
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\begin{document}
+Sources are listed online.\footnote{See \url{https://example.org/sources} for the list.} The
+data comes from \href{https://data.example.org}{the \emph{open} data portal}. Read more at
+\url{https://example.org}. Then continue.
+
+\begin{itemize}
+  \item Mirror: \url{https://mirror.example.net/pub/}
+  \item {\small Small: \url{https://example.org/small} and \href{https://example.org/x}{small text}.}
+\end{itemize}
+
+{\color{blue}A blue group with \url{https://example.org/blue} inside it, which runs on to fill the line.}
+\end{document}

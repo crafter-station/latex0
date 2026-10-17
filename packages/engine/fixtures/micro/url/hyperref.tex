@@ -1,0 +1,13 @@
+% fixture: url/hyperref
+% tier: T3
+% engine: document
+% covers: hyperref's \url and \href (dvips driver): the link's pdfmark specials around the typeset address or text; \nolinkurl
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+See \url{https://example.org/docs/getting-started} for details, or read the
+\href{https://example.org/faq}{frequently asked questions} first.
+
+A long one: \url{http://archive.example.com/projects/2024/reports/annual-summary_final.pdf} breaks
+across lines, and \nolinkurl{example.org/plain} is not a link.
+\end{document}

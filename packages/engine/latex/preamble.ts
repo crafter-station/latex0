@@ -27,6 +27,8 @@ export interface Preamble {
   /** \lstset's options */
   lstBase: LstOptions
   usesListings: boolean
+  /** url.sty (hyperref loads it too) */
+  usesUrl: boolean
   usesXcolor: boolean
   usesAmsthm: boolean
   amsmath: boolean
@@ -65,7 +67,7 @@ export function readPreamble(src: string): Preamble {
   let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
-  let usesListings = false, usesXcolor = false, usesAmsthm = false
+  let usesListings = false, usesUrl = false, usesXcolor = false, usesAmsthm = false
   let booktabsT1: boolean | null = null // booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then
   let thmStyle: ThmStyle = "plain"
   const thmDefs = new Map<string, TheoremDef>()
@@ -105,13 +107,14 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) hyper = true
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
       if (names.includes("amsthm")) usesAmsthm = true
+      if (names.includes("url")) usesUrl = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
       continue
@@ -160,5 +163,5 @@ export function readPreamble(src: string): Preamble {
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, title, letterInfo, newCounters, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, title, letterInfo, newCounters, body }
 }

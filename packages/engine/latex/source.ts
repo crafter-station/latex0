@@ -1,7 +1,7 @@
 // The document source before it is read into blocks: verbatim material
 // (listings, \lstinline) taken out first, the document's own macros expanded,
 // then tabulars and minipages taken out, each replaced by a placeholder
-// (\lstplaceholder{n}, \LXlstinline{n}, \LXtabular{n}, \LXminipage{n}) that the
+// (\lstplaceholder{n}, \LXlstinline{n}, \LXurl{n}, \LXhref{n}, \LXtabular{n}, \LXminipage{n}) that the
 // layout replaces with the laid-out material where it stands.
 
 import { expandDocument } from "../expand/document"
@@ -31,7 +31,10 @@ export function inlineMathParens(src: string): string {
   return out
 }
 
-export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; minipages: MinipageSource[] }
+/** a URL as typed (verbatim), and whether it is a link (\url and \href with hyperref; not \nolinkurl) */
+export interface UrlSource { address: string; link: boolean }
+
+export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[] }
 
 export function prepareSource(source: string): DocumentSource {
   // the document's own macros expanded first, as the renderer does (expand:doc checks this keeps TeX's output)
@@ -74,6 +77,26 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXlstinline{${listings.length - 1}}`
   })
   if (/\\lstinline(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\lstinline not read")
+  // \url{address} or \url<c>address<c> (and hyperref's \nolinkurl), read verbatim with url.sty's catcodes:
+  // \LXurl{n}; \href{address}{text}'s address likewise: \LXhref{n}{text}
+  const urls: UrlSource[] = []
+  const commentedAt = (text: string, at: number) => /(^|[^\\])%/.test(text.slice(text.lastIndexOf("\n", at) + 1, at))
+  // (in an argument, TeX has made tokens of it already: spaces, %, # and \ are no longer what url.sty reads)
+  const verbatim = (address: string, at: number) => { if (inArgument(at) && /[\\{}#%~ ]/.test(address)) throw new Unsupported(`a URL in an argument: ${address}`) }
+  source = source.replace(/\\(url|nolinkurl)(?![A-Za-z])\s*(?:\{([^{}\n]*)\}|([^A-Za-z\s{])([^\n]*?)\3)/g, (all: string, cmd: string, braced: string | undefined, _d: string, delimited: string | undefined, offset: number, text: string) => {
+    if (commentedAt(text, offset)) return all
+    const address = braced ?? delimited ?? ""
+    verbatim(address, offset)
+    urls.push({ address, link: cmd === "url" })
+    return `\\LXurl{${urls.length - 1}}`
+  })
+  source = source.replace(/\\href(?![A-Za-z])\s*\{([^{}\n]*)\}/g, (all: string, address: string, offset: number, text: string) => {
+    if (commentedAt(text, offset)) return all
+    verbatim(address, offset)
+    urls.push({ address, link: true })
+    return `\\LXhref{${urls.length - 1}}`
+  })
+  if (/\\(?:url|nolinkurl|href)(?![A-Za-z])/.test(uncommented())) throw new Unsupported("a URL not read")
   source = inlineMathParens(source)
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
@@ -96,7 +119,7 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXminipage{${minipages.length - 1}}`
   })
   if ([...src.matchAll(/\\(?:begin|end)\{minipage\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
-  return { src, listings, tabulars, minipages }
+  return { src, listings, tabulars, minipages, urls }
 }
 
 /** How many groups are open at the end of `src` (braces not escaped). */
