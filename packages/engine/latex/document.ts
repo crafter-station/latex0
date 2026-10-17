@@ -14,7 +14,6 @@
 // through \@makecol and \@outputpage: the head box, \headsep, the text, and the
 // foot at \footskip with the page number.
 
-import { classData, documentClass, withT1 } from "./classes"
 import { dataFont } from "./data"
 import { emitBoxes } from "../emit/boxes"
 import { shipOut } from "../emit/trace"
@@ -33,19 +32,19 @@ import { halign } from "../layout/align"
 import { xnOverD } from "../layout/arith"
 import type { ParagraphTrace } from "../trace/decisions"
 import type { LayoutResult } from "./result"
-import { geometry, GeometryUnsupported } from "./geometry"
 import { blocksOf, displaySegments, type Block, type Display, type ListBlock, type Part } from "./blocks"
 import { prepareSource, type Listing, type MinipageSource, type TabularSource } from "./source"
 import { COUNTER_COMMANDS, Counters } from "./counters"
 import { EMPTY_MARK, markboth, markright, markText, markValue, MarkWriter, pageMarks, sectionMarks } from "./marks"
 import { TocWriter, type TocEntry } from "./toc"
+import { readPreamble } from "./preamble"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, plain, VerticalList } from "./vlist"
 import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat, OutputUnsupported, type Float, type OutputHook } from "./output"
 import { anchor, Bookmarks, dest, documentStart, HA, HS, labelName, sectionAnchorBox, spotAnchor, tocLink, type Bookmark } from "./hyperref"
 import { Colors, ColorUnsupported, COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularBox, tabularLines, TabularUnsupported, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
-import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, LST_DEFAULTS, type LstFrame, type LstOptions } from "./listings"
+import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, LstUnsupported, type LstFrame, type LstOptions } from "./listings"
 import { classParams, fontAt, fontDeclaration, hlistInput, squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type Refs, type TabularOuter } from "./paragraph"
 
 /** a paragraph that a tabular starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
@@ -104,115 +103,10 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
 
 function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: Listing[], tabulars: TabularSource[], minipages: MinipageSource[], epoch: number): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
-  const { cls, option, extras, unknown } = documentClass(src)
-  if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
-  if (!["article", "report", "book", "letter"].includes(cls)) throw new Unsupported(`class ${cls}`)
-  let k = classData(cls, option, extras)
-  // letter.cls sets \longindentation to .5\textwidth and \medskipamount to \parskip when it loads
-  const classTextwidth = k.dimens.textwidth, medskipamount = k.glue.parskip.width
-  // \begin{document} and \end{document} outside comments
-  const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
-  const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
-  let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
-  // \lstset{…}, which may run over lines
-  let lstBase: LstOptions = LST_DEFAULTS
-  let usesListings = false, usesXcolor = false, usesAmsthm = false
-  let booktabsT1: boolean | null = null // booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then
-  type ThmStyle = "plain" | "definition" | "remark"
-  let thmStyle: ThmStyle = "plain"
-  const thmDefs = new Map<string, { title: string; style: ThmStyle; counter: string | null; within: string | null }>()
-  const colorDefs: [string, string, string][] = [] // \definecolor
-  for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
-    let depth = 0, j = i + 7
-    for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
-    try { lstBase = lstOptions(pre.slice(i + 8, j), lstBase) } catch (e) { if (e instanceof LstUnsupported) throw new Unsupported(e.message); throw e }
-    pre = pre.slice(0, i) + pre.slice(j + 1)
-  }
-  let pagestyle = cls === "book" ? "headings" : "plain"
-  let amsmath = false
+  const pre = readPreamble(src)
+  const { cls, option, classTextwidth, medskipamount, lstBase, usesListings, usesXcolor, amsmath, enumitem, hyper, t1, booktabsT1, thmDefs, colorDefs, pagestyle, title, letterInfo, newCounters, body } = pre
+  let k = pre.k
   let mainmatter = true // book's \if@mainmatter
-  let enumitem = false
-  // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
-  // keeps them, and only \@mkboth goes back to \@gobbletwo
-  let markDefs = cls === "book"
-  let hyper = false // hyperref, with the dvips driver
-  const title: { title?: string; author?: string; date?: string } = {}
-  let t1 = false
-  const geometryOptions: string[] = []
-  const lengths: [string, string][] = [] // \setlength in the preamble
-  const letterInfo: { signature?: string; address?: string; name?: string } = {}
-  const newCounters: [string, string | null][] = []
-  for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
-    if (/^\\documentclass\b/.test(line)) continue
-    if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
-    if (line === "{}") continue // a definition the expander took out
-    const sl = line.match(/^\\setlength\{\\(parindent|parskip)\}\{([^{}]*)\}$/)
-    if (sl) { lengths.push([sl[1], sl[2]]); continue }
-    const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
-    if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
-    if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
-    const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
-    if (geo) { geometryOptions.push(geo[1] ?? ""); continue }
-    const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
-    if (pk) {
-      // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
-      // fonts, amsthm only environments, graphicx only \includegraphics)
-      const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs"].includes(n))
-      if (names.includes("booktabs")) booktabsT1 = t1
-      if (names.includes("hyperref")) hyper = true
-      if (names.includes("enumitem")) enumitem = true
-      if (names.includes("listings")) usesListings = true
-      if (names.includes("xcolor")) usesXcolor = true
-      if (names.includes("amsthm")) usesAmsthm = true
-      if (unknown.length) throw new Unsupported(`preamble: ${line}`)
-      if (names.includes("amsmath")) amsmath = true
-      continue
-    }
-    // letter's \signature, \address and \name
-    // amsthm: \theoremstyle{style}, \newtheorem{name}[shared]{Title}, \newtheorem{name}{Title}[within], \newtheorem*{name}{Title}
-    const tst = line.match(/^\\theoremstyle\{(plain|definition|remark)\}$/)
-    if (tst) { thmStyle = tst[1] as ThmStyle; continue }
-    const nt = line.match(/^\\newtheorem(\*)?\{([A-Za-z]+)\}(?:\[([A-Za-z]+)\])?\{([^{}\\]*)\}(?:\[([A-Za-z]+)\])?$/)
-    if (nt) {
-      const [, star, name, shared, title, within] = nt
-      if (star && (shared || within)) throw new Unsupported(`preamble: ${line}`)
-      if (within && !["chapter", "section", "subsection"].includes(within)) throw new Unsupported(`\\newtheorem within ${within}`)
-      if (shared && !thmDefs.get(shared)?.counter) throw new Unsupported(`\\newtheorem sharing ${shared}`)
-      thmDefs.set(name, { title: title.trim(), style: thmStyle, counter: star ? null : shared ? thmDefs.get(shared)!.counter : name, within: shared ? thmDefs.get(shared)!.within : within ?? null })
-      if (!star && !shared) newCounters.push([name, within ?? null])
-      continue
-    }
-    const dc = line.match(/^\\definecolor\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}$/)
-    if (dc) { colorDefs.push([dc[1], dc[2], dc[3]]); continue }
-    const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
-    if (lt) { letterInfo[lt[1] as keyof typeof letterInfo] = lt[2].trim(); continue }
-    const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
-    if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
-    const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
-    if (m) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = true; continue }
-    throw new Unsupported(`preamble: ${line}`)
-  }
-  if (t1) k = withT1(k, cls)
-  if (geometryOptions.length) {
-    const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-    try { k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }) } catch (e) { if (e instanceof GeometryUnsupported) throw new Unsupported(e.message); throw e }
-  }
-  if (lengths.length) {
-    const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-    const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-    for (const [name, value] of lengths) {
-      let g: GlueSpec
-      try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
-      if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
-      else k = { ...k, glue: { ...k.glue, parskip: g } }
-    }
-  }
-  if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
-  let body = src.slice(begin + 16, end)
-  // a theorem environment: \begin{LXtheorem}{name}
-  for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
-  if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   const blocks = blocksOf(body)
 
   const v = new VerticalList(k)
@@ -252,7 +146,7 @@ function layout(src: string, notHere: Set<number>, prev: Aux | null, listings: L
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   const tocFile = new TocWriter()
   const marks = new MarkWriter()
-  const headings = markDefs, mkboth = pagestyle === "headings"
+  const headings = pre.markDefs, mkboth = pagestyle === "headings"
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
    *  \protected@write adds \nobreak while \if@nobreak holds */
   const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[] => {
