@@ -79,6 +79,10 @@ export interface DocState {
   color?: (spec: string, model?: string) => string
   /** \lstinline number n (taken out of the source before expansion) at a size in a font */
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
+  /** \url number n (taken out of the source before expansion) at a size in a font */
+  url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
+  /** \href number n around its typeset text */
+  href?: (n: number, text: Node[], color: string | undefined) => Node[]
   /** tabular number n (taken out of the source after expansion) at a size in a font: its \hbox */
   /** (`sfcodes`: the \sfcode changes in force, which the entries keep; `outer`: the paragraph it is in, whose
    *  footnote traces the p{width} entries' paragraphs join and whose \clubpenalty and \finalhyphendemerits they keep) */
@@ -159,11 +163,22 @@ export const squeeze = (t: string): string => {
   return /[}~] $/.test(s) ? s : s.replace(/ $/, "")
 }
 
+/** Where the group opened at `open` closes (braces nest, \{ and \} do not count). */
+function closingBrace(body: string, open: number): number {
+  let depth = 0
+  for (let j = open; j < body.length; j++) {
+    if (body[j] === "\\") j++
+    else if (body[j] === "{") depth++
+    else if (body[j] === "}" && --depth === 0) return j
+  }
+  throw new Error(`paragraph adapter: unbalanced { in "${body.slice(open, open + 40)}"`)
+}
+
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece =
   | { kind: "text" | "math" | "footnote" | "companion"; src: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "tabular"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -306,15 +321,19 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
+    const url = body.slice(i).match(/^\\LXurl\{(\d+)\}/) // \url, taken out before expansion
+    if (url) { flushText(); out.push({ kind: "url", n: Number(url[1]) }); i += url[0].length; continue }
+    const href = body.slice(i).match(/^\\LXhref\{(\d+)\}\s*\{/) // \href{address}{text}: the text in an \hbox, no footnotes or labels
+    if (href) {
+      const open = i + href[0].length - 1, j = closingBrace(body, open)
+      flushText(); out.push({ kind: "href", n: Number(href[1]), inner: pieces(body.slice(open + 1, j), false) }); i = j + 1; continue
+    }
     const tab = body.slice(i).match(/^\\LXtabular\{(\d+)\}/)
     if (tab) { flushText(); out.push({ kind: "tabular", n: Number(tab[1]) }); i += tab[0].length; continue }
     const mp = body.slice(i).match(/^\\LXminipage\{(\d+)\}/)
     if (mp) { flushText(); out.push({ kind: "minipage", n: Number(mp[1]) }); i += mp[0].length; continue }
     if (/^\\underline\s*\{/.test(body.slice(i))) { // the text in an \hbox: no footnotes or labels
-      const open = body.indexOf("{", i)
-      let depth = 0, j = open
-      for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
-      if (j >= body.length) throw new Error("paragraph adapter: unbalanced \\underline{")
+      const open = body.indexOf("{", i), j = closingBrace(body, open)
       flushText(); out.push({ kind: "underline", inner: pieces(body.slice(open + 1, j), false) }); i = j + 1; continue
     }
     const cur = body.slice(i).match(/^\\LXcurrentlabel\{([^{}]*)\}\{([^{}]*)\}/) // a \refstepcounter's, where it stands
@@ -541,6 +560,20 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!doc.lstinline) throw new Error("paragraph adapter: \\lstinline outside a document")
       list.push(...doc.lstinline(p.n, size, attrs))
       state.spaceFactor = 1000
+    }
+    else if (p.kind === "href") {
+      if (!doc.href) throw new Error("paragraph adapter: \\href outside a document")
+      // the text in the link's box, which starts with the space factor before it and leaves its own after it
+      // (\Hy@SaveSpaceFactor, \Hy@RestoreSpaceFactor)
+      const inner: Node[] = []
+      appendPieces(inner, p.inner, font, size, state, { ...ctx, restricted: true }, attrs)
+      list.push(...doc.href(p.n, inner, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
+      ctx.ignoreSpaces = false
+    }
+    else if (p.kind === "url") {
+      if (!doc.url) throw new Error("paragraph adapter: \\url outside a document")
+      list.push(...doc.url(p.n, size, attrs, !ctx.restricted, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
+      state.spaceFactor = 1000 // after \mathoff
     }
     else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state, !ctx.restricted)
     else if (p.kind === "font") {

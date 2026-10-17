@@ -44,7 +44,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -98,6 +98,14 @@ export function makeDocument(r: () => number): string {
     if (cap && r() < 0.6) { const c = `\\caption{${words(1 + Math.floor(r() * (r() < 0.3 ? 14 : 4)))}}${r() < 0.5 ? `\\label{${cap}}` : ""}`; if (r() < 0.75) body.push(c); else body.unshift(c) }
     return `\\begin{minipage}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{minipage}`
   }
+  // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)
+  const address = () => {
+    const seg = () => pick(["docs", "a", "2024", "reports", "file_name", "x-y", "v1.2", "index.html", "Path", "q"])
+    let a = pick(["https://", "http://", "ftp://", "", "www."]) + pick(["example.org", "data.example.com", "host.example.net:8080", "user@mail.example.org"])
+    for (let k = Math.floor(r() * (r() < 0.2 ? 9 : 4)); k > 0; k--) a += "/" + seg()
+    if (r() < 0.2) a += pick(["?a=1&b=2", "?q=x+y", "/", ";p=3", "!"])
+    return a
+  }
   const text = (n: number, top = false) => {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
@@ -114,6 +122,9 @@ export function makeDocument(r: () => number): string {
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
+      // addresses: \url (url.sty or hyperref), \nolinkurl and \href (hyperref)
+      if ((urlOn || hyper) && r() < 0.006) ws[i] += pick([" ", "~", " see "]) + `\\url{${address()}}`
+      if (hyper && r() < 0.004) ws[i] += r() < 0.5 ? ` \\nolinkurl{${address()}}` : ` \\href{${address()}}{${words(1 + Math.floor(r() * 4))}}`
       if (lstOn && r() < 0.008) ws[i] += pick([" \\lstinline|x = y + 1|", " \\lstinline{print('a  b')}", " \\lstinline[basicstyle=\\ttfamily]!for i in range(n):!", " \\lstinline|a_b->c|", "~\\lstinline{def f(x): return x}", " \\lstinline[columns=fixed]|q  r|"])
     }
     // runs of words in color: \textcolor and {\color …} groups
@@ -233,6 +244,8 @@ export function makeDocument(r: () => number): string {
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25 && !isLetter
   if (hyper) out.push("\\usepackage{hyperref}")
+  urlOn = !hyper && r() < 0.15
+  if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page
   if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {

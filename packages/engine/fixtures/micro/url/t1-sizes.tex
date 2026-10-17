@@ -1,0 +1,15 @@
+% fixture: url/t1-sizes
+% tier: T3
+% engine: document
+% covers: url.sty's \url with T1 fonts (\UrlFont is ectt) and in other sizes: \small, \footnotesize, \large; \url<c>…<c> with a delimiter; \url {…} after a space
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{url}
+\begin{document}
+In T1 the address \url{https://example.org/t1-fonts/path_name} is in ectt, as is
+\url|http://example.com/delimited?a=1|, and \url {https://example.org/spaced} too.
+
+A small one: {\small \url{https://example.org/small/address/that-is-long_enough.html}} in text that
+wraps around, then {\footnotesize \url{https://example.org/footnotesize}} and
+{\large \url{https://example.org/large}} in the same paragraph.
+\end{document}

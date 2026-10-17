@@ -1,0 +1,15 @@
+% fixture: url/links-and-shapes
+% tier: T3
+% engine: document
+% covers: \href's target: no scheme before a colon is a file (\filename@parse, .pdf added without an extension, \hyper@linkfile's GoToR for a PDF, a URI otherwise); the space factor its text ends with lasts after the link (\Hy@SaveSpaceFactor); \url in \textit, \textsl, \textsc and \textbf (\ttfamily keeps the shape: cmitt, cmsltt, cmtcsc; bold falls back to cmtt)
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+Files: \href{notes/chapter-one}{the first chapter}, \href{report.pdf}{the report},
+\href{data/table.csv}{a table}, \href{file:docs/manual}{the manual} and
+\href{host.example.net:8080/x}{a port}. The text \href{https://example.org}{ends here.} Then a
+new sentence starts, and \href{https://example.org/b}{this one too!} And on.
+
+Shapes: \textit{see \url{https://example.org/italic}}, \textsl{see \url{https://example.org/slanted}},
+\textsc{see \url{https://example.org/caps}} and \textbf{see \url{https://example.org/bold}} end it.
+\end{document}

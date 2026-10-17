@@ -13,7 +13,7 @@ import type { MarkWriter } from "./marks"
 import type { DocState, FontAttrs, ParagraphOptions, Refs } from "./paragraph"
 import type { Preamble } from "./preamble"
 import type { RunState } from "./run"
-import type { Listing, MinipageSource, TabularSource } from "./source"
+import type { Listing, MinipageSource, TabularSource, UrlSource } from "./source"
 import type { TabularEnv } from "./tabular"
 import type { TocEntry } from "./toc"
 import type { VerticalList } from "./vlist"
@@ -29,6 +29,8 @@ export interface Ctx {
   listings: Listing[]
   tabulars: TabularSource[]
   minipages: MinipageSource[]
+  /** \url, \nolinkurl and \href addresses */
+  urls: UrlSource[]
   /** floats right after a heading that this layout does not place where they stand (see document()) */
   notHere: Set<number>
   /** the body font's attributes (\normalfont) */

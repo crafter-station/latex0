@@ -1,0 +1,16 @@
+% fixture: url/url-package
+% tier: T3
+% engine: document
+% covers: \url (url.sty): the address in math mode in \ttfamily, \fam0 the typewriter font, its characters ordinary, binary (\UrlBreaks: a break after them at \binoppenalty), relations (:, at \relpenalty) or openings, no math spacing; long addresses broken across lines
+\documentclass{article}
+\usepackage{url}
+\begin{document}
+The project page is \url{https://example.org/} and the archive lives at
+\url{http://archive.example.com/projects/2024/reports/annual-summary_final.pdf}, which is long
+enough that it has to break somewhere near the end of a line in this paragraph.
+
+Mixed punctuation: \url{ftp://user@host.example.net:21/a;b,c?x=1&y=2+3#frag} and a path
+\url{/usr/local/share/texmf-dist/tex/latex/url/url.sty} after some words that fill the line up nicely.
+
+An address with brackets \url{http://example.org/list[0](x)<y>|z!w'v} ends the text.
+\end{document}
