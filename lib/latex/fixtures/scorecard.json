@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 188,
-  "exact": 186,
+  "fixtures": 189,
+  "exact": 187,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 187579
+  "glyphs": 187729
  },
  "areas": [
   {
@@ -61,8 +61,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 34,
-   "exact": 34
+   "fixtures": 35,
+   "exact": 35
   },
   {
    "area": "lists",
@@ -1082,6 +1082,16 @@
    "status": "pass",
    "glyphs": 164,
    "covers": "lstlisting: columns=flexible (ligatures and kerns), showstringspaces=false"
+  },
+  {
+   "id": "listings/frame-after-run-in",
+   "file": "micro/listings/frame-after-run-in.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 150,
+   "covers": "a framed listing right after a run-in heading: the top frame's paragraph runs the heading's \\everypar (the heading in place before the frame, \\@noskipsecfalse, \\clubpenalty\\@M in the listing's group, -1em read in the basic style's font); with no top frame the heading is lost"
   },
   {
    "id": "listings/frame-bl",
