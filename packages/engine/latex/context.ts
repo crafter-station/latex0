@@ -6,18 +6,16 @@
 import type { SizeCommand } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import type { Font } from "../layout/font"
-import type { BoxNode } from "../layout/nodes"
+import type { BoxNode, Node } from "../layout/nodes"
 import type { ParagraphTrace } from "../trace/decisions"
-import type { Block } from "./blocks"
+import type { Counters } from "./counters"
 import type { MarkWriter } from "./marks"
-import type { DocState, FontAttrs, ParagraphOptions, TabularOuter } from "./paragraph"
+import type { DocState, FontAttrs, ParagraphOptions, Refs, TabularOuter } from "./paragraph"
 import type { Preamble } from "./preamble"
 import type { RunState } from "./run"
 import type { TabCol, TabLine } from "./tabular"
 import type { TocEntry } from "./toc"
 import type { VerticalList } from "./vlist"
-
-export type Heading = Extract<Block, { kind: "heading" }>
 
 export interface Ctx {
   pre: Preamble
@@ -44,6 +42,18 @@ export interface Ctx {
   /** a paragraph of text on the main vertical list, after \parskip */
   typeset(text: string, opts: ParagraphOptions, parskip: GlueSpec, size?: SizeCommand): void
   tabular(lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs?: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode
-  heading(b: Heading): void
-  chapter(b: Heading): void
+  counters: Counters
+  /** \label, \ref and the .aux values the run before wrote */
+  refs: Refs
+  /** the class defines \chaptermark and \sectionmark (\ps@headings ran) */
+  headings: boolean
+  /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
+  lastNode(): Node | undefined
+  /** counter commands in text (Counters.counted); a \refstepcounter outside text sets \@currentlabel and \@currentHref */
+  counted(text: string, inText?: boolean): string
+  /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
+   *  \protected@write adds \nobreak while \if@nobreak holds */
+  contentsWrites(level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[]
+  /** \if@noskipsec \leavevmode: an empty paragraph (the indent box) in the \everypar in force */
+  noskipsecPar(what: string): void
 }
