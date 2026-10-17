@@ -30,17 +30,19 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.2.11
-      - name: Cache TeX Live 2025
+      - name: TeX Live year (packages/engine/tools/TEXLIVE)
+        run: echo "TEXLIVE=$(cat packages/engine/tools/TEXLIVE)" >> "$GITHUB_ENV"
+      - name: Cache TeX Live
         uses: actions/cache@v4
         with:
-          path: .cache/texlive/2025
-          key: texlive-2025-final-${{ runner.os }}-${{ hashFiles('packages/engine/tools/install-tex.sh') }}
-      - name: Install TeX (TeX Live 2025, final and frozen, the same everywhere)
+          path: .cache/texlive/${{ env.TEXLIVE }}
+          key: texlive-${{ env.TEXLIVE }}-final-${{ runner.os }}-${{ hashFiles('packages/engine/tools/install-tex.sh', 'packages/engine/tools/TEXLIVE') }}
+      - name: Install TeX (TeX Live, final and frozen, the same everywhere)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq --no-install-recommends poppler-utils wamerican
           sh packages/engine/tools/install-tex.sh
-          echo "$(echo "$PWD"/.cache/texlive/2025/bin/*)" >> "$GITHUB_PATH"
+          echo "$(echo "$PWD"/.cache/texlive/$TEXLIVE/bin/*)" >> "$GITHUB_PATH"
       - name: Committed font and hyphenation data match TeX
         run: bun engine codegen --check
       - name: Oracles agree with pdflatex
