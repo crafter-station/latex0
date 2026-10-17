@@ -13,6 +13,7 @@ import { xnOverD } from "../layout/arith"
 import { markboth, markValue } from "./marks"
 import { type TocEntry } from "./toc"
 import type { Ctx } from "./context"
+import { tabular } from "./boxes"
 import { chapter, heading } from "./sectioning"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
@@ -27,7 +28,7 @@ import { mathEnv, paragraphInput, spec } from "./paragraph"
  *  {\large date}, then \vskip 1.5em */
 export function maketitle(cx: Ctx) {
   const { amsmath, cls, title } = cx.pre
-  const { decisions, doc, epoch, outerParskip, romanFont, run, tabular, typeset, v } = cx
+  const { decisions, doc, epoch, outerParskip, romanFont, run, typeset, v } = cx
   if (!title.title) throw new Unsupported("\\maketitle without \\title")
   const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
   // report: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), then
@@ -65,7 +66,7 @@ export function maketitle(cx: Ctx) {
   const start: Node[] = [hpack([])] // \parindent is zero in center
   authors.forEach((rows, i) => {
     if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
-    start.push(tabular(rows.map((r) => ({ cells: [{ text: r }] })), preamble("c"), "large", "t"))
+    start.push(tabular(cx, rows.map((r) => ({ cells: [{ text: r }] })), preamble("c"), "large", "t"))
   })
   const authorPar = paragraphInput("", run.k, "large", doc, { ...centering, start, clubPenalty: run.k.ints.clubpenalty, amsmath })
   const ab = lineBreak(authorPar.list, authorPar.params)

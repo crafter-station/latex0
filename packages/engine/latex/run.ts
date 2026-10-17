@@ -30,8 +30,10 @@ export interface RunState {
    *  \lst@doendpe's): the heading is lost, and the next \@startsection or \@trivlist (\if@noskipsec\leavevmode)
    *  starts an empty paragraph, as \newpage does before it sets \@noskipsecfalse */
   noskipsec: boolean
+  /** what listings carries from one listing to the next: gobbled whitespace, \lst@breakcurrindent and the break shape */
+  lstCarry: { gobbledws: boolean; breakcurrindent: number; breakshape: [number, number] | null }
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, runIn: null, noskipsec: false }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null } }
 }
