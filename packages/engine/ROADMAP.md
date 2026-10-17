@@ -1,7 +1,7 @@
 # latex0 engine — coverage map & roadmap
 
 **Target: the exact same result as real LaTeX.** The zero-dependency engine in
-`lib/latex/` must typeset every document pdflatex typesets, with the same glyphs
+`packages/engine/` must typeset every document pdflatex typesets, with the same glyphs
 at the same positions, the same line breaks and the same page breaks. No TeX
 binary, no WASM TeX, no remote compile. If it takes two years, it takes two
 years. Progress is measured, never felt.
@@ -115,7 +115,7 @@ Deliverables:
   surfaced in Monaco gutters like TeX's log.
 - **Determinism guard** — Node and headless Chromium produce byte-identical
   output for the whole corpus.
-- **CI** — TeX Live 2025, final and frozen (`lib/latex/tools/install-tex.sh`, the
+- **CI** — TeX Live 2025, final and frozen (`packages/engine/tools/install-tex.sh`, the
   same TeX locally and in CI); scorecard must not regress; scorecard page
   deployed with the app.
 
@@ -312,11 +312,12 @@ the scorecard. Order within a phase is `census × telemetry` frequency.
 
 ## 9. The machine: package layout and developer tooling
 
-The engine is extracted to npm later, so it is organised as a package now.
-`lib/latex/` already imports nothing from the app; keep it that way.
+The engine is the workspace package `@latex0/engine` in `packages/engine/`,
+extracted to npm later. It imports nothing from the app (`bun engine ci` checks
+this); the app imports only its public exports.
 
 ```
-lib/latex/                      → future packages/engine (@latex0/engine)
+packages/engine/                (@latex0/engine)
   package.json                  name, exports, "sideEffects": false, zero deps
   src/
     lexer.ts  expand/  parser.ts  registry/  bindings/<pkg>.ts  classes/<cls>.ts

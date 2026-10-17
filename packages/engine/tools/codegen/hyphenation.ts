@@ -7,7 +7,7 @@ import { join } from "node:path"
 import type { HyphenationData } from "../../layout/hyphenate"
 import { texEnv } from "../tex"
 
-const OUT = "lib/latex/data/hyphenation"
+const OUT = "packages/engine/data/hyphenation"
 
 function block(src: string, cmd: string): string[] {
   const start = src.indexOf(`\\${cmd}{`)

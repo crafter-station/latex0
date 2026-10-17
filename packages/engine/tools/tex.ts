@@ -1,5 +1,5 @@
 // Where the dev tooling finds TeX. $TEXBIN wins; otherwise the pinned TeX Live
-// that lib/latex/tools/install-tex.sh puts in .cache/texlive (what CI uses); otherwise
+// that packages/engine/tools/install-tex.sh puts in .cache/texlive (what CI uses); otherwise
 // MacTeX's location if present; otherwise whatever is on PATH.
 
 import { existsSync, readdirSync } from "node:fs"

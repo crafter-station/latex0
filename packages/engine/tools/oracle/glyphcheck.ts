@@ -120,7 +120,7 @@ const csName = (i: number) => "F" + i.toString(26).split("").map((d) => String.f
 
 export function glyphCheck(n: number, seed: number): number {
   mkdirSync(DIR, { recursive: true })
-  const real = (JSON.parse(readFileSync("lib/latex/data/fonts/index.json", "utf8")) as { fonts: { name: string }[] }).fonts.map((f) => f.name)
+  const real = (JSON.parse(readFileSync("packages/engine/data/fonts/index.json", "utf8")) as { fonts: { name: string }[] }).fonts.map((f) => f.name)
   const synthNames: string[] = []
   const fonts = new Map<string, Font>()
   const decl: string[] = []

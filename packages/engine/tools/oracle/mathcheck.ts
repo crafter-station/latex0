@@ -121,7 +121,7 @@ function print(items: Item[]): string {
 
 export function mathCheck(n: number, seed: number): number {
   mkdirSync(DIR, { recursive: true })
-  const data = JSON.parse(readFileSync("lib/latex/data/math/latex.json", "utf8")) as MathData
+  const data = JSON.parse(readFileSync("packages/engine/data/math/latex.json", "utf8")) as MathData
   const pool = Array.from({ length: 94 }, (_, i) => 33 + i).filter((c) => !SPECIAL.has(c) && data.mathcodes[c] < 0x8000)
   const r = rng(seed)
   // operators and punctuation weigh more, so spacing and rule 5 come up often

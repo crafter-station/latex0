@@ -1,13 +1,13 @@
 import { readFileSync } from "node:fs"
 // Oracle self-check: the DVI trace must agree with pdflatex + pdftotext -bbox,
-// an independent path through TeX. Run: bun lib/latex/tools/oracle/selfcheck.ts
+// an independent path through TeX. Run: bun packages/engine/tools/oracle/selfcheck.ts
 import { execFileSync } from "node:child_process"
 import { join } from "node:path"
 import { oracleTrace, loadTfm, texVersion } from "./oracle"
 import { scaled } from "./tfm"
 import { texEnv } from "../tex"
 
-const fx = join(process.cwd(), "lib/latex/fixtures/micro/text/paragraph-basic.tex")
+const fx = join(process.cwd(), "packages/engine/fixtures/micro/text/paragraph-basic.tex")
 console.log(texVersion())
 
 // 1. TFM sanity: known tftopl values for cmr10 ('a' = 0.500002 design units, design size 10pt)
@@ -68,7 +68,7 @@ console.log(`scaled round-trip: ${rtFail === 0 ? "exact" : rtFail + " failures"}
 // shipped pages have line boxes, the hboxes with characters in vertical lists (whole
 // documents also have titles, displays and pages that no paragraph accounts for)
 let pathFail = 0
-for (const fx of collectFixtures(["lib/latex/fixtures"]).filter((f) => /% engine: paragraph/.test(readFileSync(f, "utf8")))) {
+for (const fx of collectFixtures(["packages/engine/fixtures"]).filter((f) => /% engine: paragraph/.test(readFileSync(f, "utf8")))) {
   const { pages, decisions } = cachedOracle(fx)
   const boxLines = pages.reduce((n, pg) => n + lineBoxes(pg), 0)
   const chosen = decisions.paragraphs.reduce((n, p) => n + p.chosen.length, 0)
@@ -93,7 +93,7 @@ const walk = (ns: BoxNode[]) => ns.forEach((n) => {
   else if (n.type === "disc") { walk(n.pre); walk(n.post) }
   else if (n.type === "other") { if (!KNOWN_OPAQUE.test(n.text)) opaque.push(n.text); walk(n.children ?? []) }
 })
-for (const fx of collectFixtures(["lib/latex/fixtures"])) walk(cachedOracle(fx).pages)
+for (const fx of collectFixtures(["packages/engine/fixtures"])) walk(cachedOracle(fx).pages)
 console.log(`box dumps: ${nodes} nodes parsed, ${opaque.length} unrecognized${opaque.length ? ": " + [...new Set(opaque)].slice(0, 5).join(" | ") : ""}`)
 if (opaque.length) { console.log("BOX ORACLE CHECK FAILED"); process.exit(1) }
 console.log("BOX ORACLE CHECK PASSED")

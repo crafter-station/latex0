@@ -8,7 +8,7 @@ import { AREAS, EXTRA_LABELS, ISSUES, MILESTONES, type Issue } from "./engine-is
 
 const DRY = process.argv.includes("--dry-run")
 const REPO = "crafter-station/latex0"
-const ROADMAP = `https://github.com/${REPO}/blob/main/lib/latex/ROADMAP.md`
+const ROADMAP = `https://github.com/${REPO}/blob/main/packages/engine/ROADMAP.md`
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 function gh(args: string[]): string {

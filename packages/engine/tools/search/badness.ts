@@ -34,7 +34,7 @@ export function searchBadness(targets: number[], seed = 7, tries = 200): Record<
   return found
 }
 
-export function writeBadnessFixtures(found: Record<number, string>, dir = "lib/latex/fixtures/micro/linebreak"): string[] {
+export function writeBadnessFixtures(found: Record<number, string>, dir = "packages/engine/fixtures/micro/linebreak"): string[] {
   const written: string[] = []
   for (const [b, body] of Object.entries(found)) {
     const lines: string[] = []

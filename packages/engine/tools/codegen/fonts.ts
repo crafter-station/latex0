@@ -1,4 +1,4 @@
-// Codegen (#42): TeX font metrics → committed data in lib/latex/data/fonts.
+// Codegen (#42): TeX font metrics → committed data in packages/engine/data/fonts.
 //   bun engine codegen          regenerate
 //   bun engine codegen --check  fail if committed data differs from the TFMs (CI)
 // Every file is verified to decode back to exactly the parsed TFM before it is written.
@@ -32,7 +32,7 @@ export const FONTS = [
   ...["0500", "0600", "0700", "0800", "0900", "1000", "1095", "1200", "1440", "1728", "2074", "2488"].flatMap((s) => [`ecrm${s}`, `ecbx${s}`]),
 ]
 
-const OUT = "lib/latex/data/fonts"
+const OUT = "packages/engine/data/fonts"
 
 const sameFont = (a: FixWordFont, b: FixWordFont) => JSON.stringify(encodeFontData(a)) === JSON.stringify(encodeFontData(b)) &&
   a.chars.size === b.chars.size && [...a.chars].every(([c, m]) => JSON.stringify(m) === JSON.stringify(b.chars.get(c)))
@@ -44,7 +44,7 @@ function classFonts(): string[] {
     if (Array.isArray(x)) x.forEach(walk)
     else if (x && typeof x === "object") { const o = x as Record<string, unknown>; if (typeof o.name === "string" && typeof o.at === "number") names.add(o.name); else Object.values(o).forEach(walk) }
   }
-  for (const f of readdirSync("lib/latex/data/classes")) if (f.endsWith(".json")) walk(JSON.parse(readFileSync(join("lib/latex/data/classes", f), "utf8")))
+  for (const f of readdirSync("packages/engine/data/classes")) if (f.endsWith(".json")) walk(JSON.parse(readFileSync(join("packages/engine/data/classes", f), "utf8")))
   return [...names].sort()
 }
 

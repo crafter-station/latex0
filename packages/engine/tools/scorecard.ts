@@ -1,5 +1,5 @@
 // Conformance scorecard (#37): every fixture's status against TeX, committed as
-// lib/latex/fixtures/scorecard.json (plus a shields.io badge.json) and shown at
+// packages/engine/fixtures/scorecard.json (plus a shields.io badge.json) and shown at
 // /scorecard. CI regenerates it and fails if a fixture regressed against main
 // or if the committed file is stale.
 //   bun engine scorecard                         run fixtures, write scorecard + badge
@@ -10,13 +10,13 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { collectFixtures, runFixture, type UnitResult } from "./unit/run"
 import { parseHeader, type Tier } from "./unit/header"
 
-const FIXTURES = "lib/latex/fixtures"
+const FIXTURES = "packages/engine/fixtures"
 const FILE = `${FIXTURES}/scorecard.json`
 const BADGE = `${FIXTURES}/badge.json`
 
 export interface ScoreFixture {
   id: string
-  /** path from lib/latex/fixtures */
+  /** path from packages/engine/fixtures */
   file: string
   area: string
   /** target tier from the header */

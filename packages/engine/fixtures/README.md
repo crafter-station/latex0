@@ -35,8 +35,8 @@ changes a reference.
 
 ```
 bun engine unit                         all fixtures
-bun engine unit lib/latex/fixtures/micro/text/space-factor.tex
-bun engine unit <paths> --watch         rerun on every save under lib/latex
+bun engine unit packages/engine/fixtures/micro/text/space-factor.tex
+bun engine unit <paths> --watch         rerun on every save under packages/engine
 bun engine unit --json                  machine-readable results
 bun engine fuzz:paragraphs --n 1000     random paragraphs, line-break decisions vs TeX
 bun engine dimen:check --n 20000        numbers, dimensions and glue vs TeX's scanners

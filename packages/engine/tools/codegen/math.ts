@@ -11,7 +11,7 @@ import type { MathData } from "../../mathlayout/data"
 import { parseScaled } from "../oracle/tracing"
 import { texEnv } from "../tex"
 
-const OUT = "lib/latex/data/math"
+const OUT = "packages/engine/data/math"
 const INTS = ["binoppenalty", "relpenalty", "delimiterfactor"]
 const DIMENS = ["mathsurround", "delimitershortfall", "nulldelimiterspace", "scriptspace"]
 const MUSKIPS = ["thinmuskip", "medmuskip", "thickmuskip"]
