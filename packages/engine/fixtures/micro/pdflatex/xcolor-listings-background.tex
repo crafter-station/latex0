@@ -1,0 +1,14 @@
+% fixture: pdflatex/xcolor-listings-background
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: under pdflatex (\pdfcolorstack for dvips color specials): listings backgroundcolor and rulecolor with frame=single (\lst@frameBlock in a color group, \color@begingroup\lst@rulecolor)
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\begin{document}
+X
+\begin{lstlisting}[backgroundcolor=\color{yellow},frame=single,rulecolor=\color{red}]
+ab
+\end{lstlisting}
+\end{document}

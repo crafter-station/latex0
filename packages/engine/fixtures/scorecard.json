@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 225,
-  "exact": 223,
+  "fixtures": 228,
+  "exact": 226,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 231113
+  "glyphs": 231153
  },
  "areas": [
   {
@@ -106,8 +106,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "sections",
@@ -2018,6 +2018,36 @@
    "glyphs": 343,
    "covers": "under pdflatex (PDF, positions from its box dumps): \\textbf \\textit \\emph (nested: upright inside italic) \\textsl \\textsc \\texttt \\textsf \\textmd \\textup \\textrm \\textnormal, the italic corrections of \\check@icl and \\check@icr (\\sw@slant, \\fix@penalty; none before , or .), interword spaces in each font, hyphenation of words in other fonts, a footnote with \\emph",
    "issue": "#30"
+  },
+  {
+   "id": "pdflatex/xcolor-definecolor",
+   "file": "micro/pdflatex/xcolor-definecolor.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 10,
+   "covers": "under pdflatex (\\pdfcolorstack for dvips color specials): \\definecolor in rgb, gray, HTML, cmyk and RGB (values as \\XC@calcN keeps them)"
+  },
+  {
+   "id": "pdflatex/xcolor-listings-background",
+   "file": "micro/pdflatex/xcolor-listings-background.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4,
+   "covers": "under pdflatex (\\pdfcolorstack for dvips color specials): listings backgroundcolor and rulecolor with frame=single (\\lst@frameBlock in a color group, \\color@begingroup\\lst@rulecolor)"
+  },
+  {
+   "id": "pdflatex/xcolor-textcolor",
+   "file": "micro/pdflatex/xcolor-textcolor.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 26,
+   "covers": "under pdflatex (\\pdfcolorstack for dvips color specials): \\textcolor and {\\color …} with named colors and [rgb], [RGB] (the driver's \\divide), [HTML] (\\rdivide), [gray], [cmyk]"
   },
   {
    "id": "sections/chapters-report",
