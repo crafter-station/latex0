@@ -27,8 +27,16 @@ export function markValue(parts: MarkValue["parts"], upper: boolean): MarkValue 
 export const markboth = (left: MarkValue, right: MarkValue): Mark[] => [[1, left], [2, right], ...(right.print ? [[3, right] as Mark] : [])]
 export const markright = (right: MarkValue): Mark[] => [[2, right], ...(right.print ? [[3, right] as Mark] : [])]
 
-/** \sectionmark and \subsectionmark (article: \thesection\quad title; report two-sided: \thesection. \ title) */
-export function sectionMarks(cls: string, twoside: boolean, level: number, number: string, title: string): Mark[] {
+/**
+ * \sectionmark and \subsectionmark (article: \thesection\quad title; report two-sided: \thesection. \ title);
+ * fancyhdr's in article: \markboth{\MakeUppercase{\thesection\hskip 1em\relax title}}{} and
+ * \markright{\thesubsection\hskip 1em\relax title}, one- or two-sided
+ */
+export function sectionMarks(cls: string, twoside: boolean, level: number, number: string, title: string, by: "headings" | "fancyhdr" = "headings"): Mark[] {
+  if (by === "fancyhdr") {
+    if (level === 1) return markboth(markValue([{ text: number }, { quad: true }, { text: title }], true), EMPTY_MARK)
+    return level === 2 ? markright(markValue([{ text: number }, { quad: true }, { text: title }], false)) : []
+  }
   if (cls === "article" && level === 1) {
     const v = markValue([{ text: number }, { quad: true }, { text: title }], true)
     return twoside ? markboth(v, EMPTY_MARK) : markright(v)

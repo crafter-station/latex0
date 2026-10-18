@@ -166,7 +166,8 @@ export function makeDocument(r: () => number): string {
     out.push("\\usepackage{graphicx}")
   }
   // the geometry package: margins, body sizes, scales, ratios, head and foot, rounding
-  if (r() < 0.3) {
+  const geo = r() < 0.3
+  if (geo) {
     const len = () => pick([`${(0.5 + Math.floor(r() * 12) / 8).toFixed(3).replace(/0+$/, "")}in`, `${1 + Math.floor(r() * 30) / 10}cm`, `${20 + Math.floor(r() * 50)}mm`, `${40 + Math.floor(r() * 60)}pt`])
     const keys = pick([
       () => [`margin=${len()}`],
@@ -185,6 +186,20 @@ export function makeDocument(r: () => number): string {
   const style = r()
   if (style < 0.2) out.push("\\pagestyle{empty}")
   else if (style < 0.4 && !isLetter) out.push("\\pagestyle{headings}") // running heads from the section marks
+  else if (style < 0.6 && cls === "article" && !geo) { // fancyhdr: its fields, rules and \sectionmark
+    const field = () => pick(["MATH 201", "Problem Set 3", "\\textbf{Notes}", "\\emph{Draft} copy", "Page \\thepage", "\\thepage", "\\leftmark", "\\rightmark", "\\slshape\\rightmark",
+      "\\rmfamily\\thepage", "A. Student -- \\today", "Lecture notes on typesetting, line breaking and the many ways a running head can grow too long for one line", ""])
+    out.push("\\usepackage{fancyhdr}")
+    if (r() < 0.85) out.push("\\pagestyle{fancy}")
+    if (r() < 0.5) out.push("\\fancyhf{}")
+    for (const hf of ["head", "foot"]) for (const pos of ["L", "C", "R"]) {
+      if (r() < 0.4) out.push(`\\fancy${hf}[${r() < 0.3 ? pick([`${pos}E,${pos === "L" ? "R" : pos === "R" ? "L" : "C"}O`, `${pos}O`, pos.toLowerCase()]) : pos}]{${field()}}`)
+    }
+    if (r() < 0.2) out.push(`\\${pick(["l", "c", "r"])}${pick(["head", "foot"])}{${field()}}`)
+    if (r() < 0.3) out.push(`\\renewcommand{\\headrulewidth}{${pick(["0pt", "1pt", "0.8pt"])}}`)
+    if (r() < 0.2) out.push(`\\renewcommand{\\footrulewidth}{${pick(["0.4pt", "2pt"])}}`)
+    if (r() < 0.2) out.push(`\\setlength{\\headheight}{${pick(["14pt", "24pt"])}}`)
+  }
   const t1 = r() < 0.3
   if (t1) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
   const ams = r() < 0.35

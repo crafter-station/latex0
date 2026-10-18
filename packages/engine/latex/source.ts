@@ -121,6 +121,9 @@ export function prepareSource(source: string): DocumentSource {
   })
   if (/\\(?:url|nolinkurl|href)(?![A-Za-z])/.test(uncommented())) throw new Unsupported("a URL not read")
   source = inlineMathParens(source)
+  // fancyhdr's \headrulewidth and \footrulewidth are macros its rules read: \renewcommand'd, \LXfancyrule{name}{width}
+  source = source.replace(/\\renewcommand\s*(?:\{\\(headrulewidth|footrulewidth)\}|\\(headrulewidth|footrulewidth)(?![A-Za-z]))\s*\{([^{}]*)\}/g, (all: string, a: string | undefined, b: string | undefined, width: string, offset: number, text: string) =>
+    commentedAt(text, offset) ? all : `\\LXfancyrule{${a ?? b}}{${width}}`)
   const expanded = expandDocument(source, { known: isKnownCommand })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)

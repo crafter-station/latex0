@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 214,
-  "exact": 212,
+  "fixtures": 219,
+  "exact": 217,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 193501
+  "glyphs": 218230
  },
  "areas": [
   {
@@ -38,6 +38,11 @@
    "area": "display",
    "fixtures": 7,
    "exact": 7
+  },
+  {
+   "area": "fancyhdr",
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "floats",
@@ -687,6 +692,56 @@
    "glyphs": 102,
    "covers": "\\label in LaTeX's equation: the \\newlabel write stays where it stands in the formula",
    "issue": "#30"
+  },
+  {
+   "id": "fancyhdr/custom",
+   "file": "micro/fancyhdr/custom.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5260,
+   "covers": "fancyhdr's \\fancyhf{}, \\fancyhead[L], [C], [R] and \\fancyfoot[R] with text, \\today, \\textbf, \\emph, \\thepage and \\rightmark; \\headrulewidth 0pt and \\footrulewidth 0.4pt; \\maketitle's \\thispagestyle{plain} on the first page; page breaks inside paragraphs and between them"
+  },
+  {
+   "id": "fancyhdr/default",
+   "file": "micro/fancyhdr/default.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6131,
+   "covers": "fancyhdr's default fields with \\pagestyle{fancy}: {\\slshape\\rightmark} left and {\\slshape\\leftmark} right in the head, \\rmfamily\\thepage in the foot, each a \\parbox of \\headwidth with a \\strut (\\f@nch@def), the 0.4pt head rule; its \\sectionmark (\\markboth{\\MakeUppercase{\\thesection\\hskip 1em\\relax title}}{}) and \\subsectionmark (\\markright); \\@mkboth is \\markboth (the contents); the fields' paragraphs traced as each page ships, among the document's"
+  },
+  {
+   "id": "fancyhdr/float-page-break",
+   "file": "micro/fancyhdr/float-page-break.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2978,
+   "covers": "the output routine firing at a float's marker, which TeX contributes after reading the float's contents: fancyhdr's field paragraphs are traced after the float's, not before (a paragraph's \\parskip, by contrast, is contributed before its text is read); reduced from a random document"
+  },
+  {
+   "id": "fancyhdr/twoside",
+   "file": "micro/fancyhdr/twoside.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4079,
+   "covers": "two-sided fancyhdr: the even fields on even pages, \\lhead and \\rhead (the even field is \\f@nch@olh and another \\strut), \\fancyhead[LE,RO]{\\thepage} and an emptied \\fancyfoot[C]; \\hss before the head's box on even pages (\\f@nch@Oelh); a head shorter than \\headheight 20pt, so the \\vskip-\\headrulewidth after the 2pt rule shows; \\renewcommand\\footrulewidth without braces"
+  },
+  {
+   "id": "fancyhdr/wrap-11pt",
+   "file": "micro/fancyhdr/wrap-11pt.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6281,
+   "covers": "fancyhdr at 11pt: head fields taller than \\headheight (13.6pt struts, a field wrapping to two lines in its \\raggedleft parbox), the \\vbox cut to \\headheight (\\f@nch@vbox); a \\setlength{\\headheight} in the preamble"
   },
   {
    "id": "floats/float-pages",

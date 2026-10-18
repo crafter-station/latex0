@@ -61,8 +61,8 @@ export interface Ctx {
   counters: Counters
   /** \label, \ref and the .aux values the run before wrote */
   refs: Refs
-  /** the class defines \chaptermark and \sectionmark (\ps@headings ran) */
-  headings: boolean
+  /** who defined \chaptermark and \sectionmark: \ps@headings, fancyhdr, or no one (they gobble) */
+  headings: "headings" | "fancyhdr" | null
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   lastNode(): Node | undefined
   /** counter commands in text (Counters.counted); a \refstepcounter outside text sets \@currentlabel and \@currentHref */
