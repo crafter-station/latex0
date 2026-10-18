@@ -1,0 +1,50 @@
+% fixture: amsmath/gather
+% tier: T3
+% engine: document
+% covers: amsmath's gather and gather*: each row centred alone in an \halign to \displaywidth (\strut@, \kern\eqnshift@ half what the width leaves, the formula, \hfil, \tabskip\@centering), the number \llap'ed at the right edge, \eqnshift@ less the tag's width when it is under four tags wide; \nonumber and \notag; rows of different widths; a row too wide for its tag beside it, whose tag goes below (\vtop with \lineht@ the row's depth); a gather in a proof and in an item; one wider than the line in a flush-left list, whose \black@ paragraph keeps \rightskip
+% issue: #76
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\begin{document}
+\section{Gathered}
+Some text before the display:
+\begin{gather}
+a = b \\
+\sum_{i=1}^n i = \frac{n(n+1)}{2} \nonumber \\
+x^2 + y^2 = z^2
+\end{gather}
+and between them
+\begin{gather*}
+E = mc^2 \\
+\int_0^1 f(x)\,dx = F(1) - F(0)
+\end{gather*}
+then a wide row:
+\begin{gather}
+a_1 + a_2 + a_3 + a_4 + a_5 + a_6 + a_7 + a_8 + a_9 + a_{10} + a_{11} + a_{12} + a_{13} + a_{14} + a_{15} + a_{16} + b_{17} \\
+c \notag
+\end{gather}
+and one with a long row beside a short tag
+\begin{gather}
+f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 + a_7 x^7 + a_8 x^8
+\end{gather}
+\begin{proof}
+By \begin{gather}
+  P^{-1}AP = A \\
+  = B.
+\end{gather}
+\end{proof}
+\begin{itemize}
+\item An item \begin{gather} u = v \end{gather} after.
+\end{itemize}
+\begin{flushleft}
+A flush-left paragraph.
+
+\begin{itemize}
+\item Wider than the line, in a flush-left list:
+\begin{gather*}
+a_1 + a_2 + a_3 + a_4 + a_5 + a_6 + a_7 + a_8 + a_9 + a_{10} + a_{11} + a_{12} + a_{13} + a_{14} + a_{15} + b \\
+c
+\end{gather*}
+\end{itemize}
+\end{flushleft}
+\end{document}

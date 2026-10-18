@@ -111,17 +111,21 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
     }
     const nested = new RegExp(`\\\\begin\\{(${ENV_ALT})\\}`, "g")
     let at = 0
+    // after a nested environment, \@doendpe (amsthm's say \@endpefalse: the next paragraph is indented)
+    let endpe = false
     for (let m: RegExpExecArray | null; (m = nested.exec(x)); ) {
       const before = x.slice(at, m.index)
-      text(before, at > 0, 1)
+      text(before, endpe, 1)
       if (!parts.length) throw new Unsupported(`an environment right at the start of ${listy ? "an \\item" : env}`)
       // in a paragraph unless a blank line or a \\ (\@centercr's \par) ended it
-      const inP = /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/\\\\\s*$/.test(before)
+      // (amsthm's \proof starts with \par)
+      const inP = m[1] !== "proof" && /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/\\\\\s*$/.test(before)
       const end = listEnd(x, nested.lastIndex, m[1])
       parts.push(parseList(m[1] as EnvName, x.slice(nested.lastIndex, end.at), inP, /\n[ \t]*\n\s*$/.test(before)))
       at = nested.lastIndex = end.next
+      endpe = m[1] !== "proof" && m[1] !== "LXtheorem"
     }
-    text(x.slice(at), at > 0, listy && bi < bodies.length - 1 ? 2 : 1)
+    text(x.slice(at), endpe, listy && bi < bodies.length - 1 ? 2 : 1)
     if (!parts.length) parts.push({ kind: "text", text: "", start: "label" })
     return { label: opt ? opt[1] : null, parts }
   })
@@ -131,8 +135,8 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
 export const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
-export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*"; src: string }
-export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?)\}([^]*?)\\end\{\3\}/
+export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "gather" | "gather*"; src: string }
+export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|gather\*?)\}([^]*?)\\end\{\3\}/
 /** A paragraph's text split at its displays: text, display, text, …, text. */
 export function displaySegments(text: string): (string | Display)[] {
   const out: (string | Display)[] = []
@@ -234,7 +238,7 @@ export function blocksOf(body: string): Block[] {
       endpe = false
       continue
     }
-    const inPar = inParagraph(before)
+    const inPar = m[3] !== "proof" && inParagraph(before) // (amsthm's \proof starts with \par: its \trivlist always gets \partopsep)
     const end = listEnd(body, re.lastIndex, m[3])
     const prev = out[out.length - 1]
     if (inPar && prev?.kind === "par") prev.unskip = 1

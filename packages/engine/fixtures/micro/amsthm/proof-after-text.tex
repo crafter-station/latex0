@@ -1,0 +1,20 @@
+% fixture: amsthm/proof-after-text
+% tier: T3
+% engine: document
+% covers: a proof right after a paragraph's text (no blank line): amsthm's \proof starts with \par, so its \trivlist is in vertical mode and \@topsepadd has \partopsep, at its start and at its end; then a list right after it, and a proof nested in an item after text
+\documentclass{article}
+\usepackage{amsthm}
+\begin{document}
+Some text before the proof, with no blank line after it.
+\begin{proof}
+The argument.
+\end{proof}
+\begin{itemize}
+\item An item with text
+\begin{proof}
+A proof in the item.
+\end{proof}
+and text after it.
+\end{itemize}
+Text after.
+\end{document}
