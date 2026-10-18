@@ -18,7 +18,9 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, spec, parseFormula } from "./paragraph"
+import { squeeze, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, spec, parseFormula, type ParagraphOptions } from "./paragraph"
+import type { GlueSpec } from "../layout/dimen"
+import type { SizeCommand } from "../layout/classdata"
 
 /**
  * A paragraph that may hold displays (§§ 1145–1206). The text before each display is broken
@@ -72,68 +74,125 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (!next) return
     // the display
     const ps = params ?? paragraphInput("", run.k, "normalsize", doc, { amsmath }).params
-    const line = displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape)
-    if (next.kind === "align" || next.kind === "align*") {
-      if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
-      alignDisplay(cx, next, line, ps)
+    displayMath(cx, next, displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape), justBox, quad)
+    prevGraf += 3
+  })
+}
+
+/** \@currentHref after a display's \refstepcounter: \theH<counter>, or under hyperref in an \item of a numbered list that
+ *  stepped none (\if@hyper@item), Item.n; the \@hyper@itemfalse that goes with it is local to the display's group
+ *  (to an alignment's cell), so the next one is an Item.n again. Only amsmath's \incr@eqnum goes through hyperref's
+ *  \refstepcounter: without it, hyperref's equation steps the counter with the kernel's */
+function stepHref(cx: Ctx, counter: string, n: number): string {
+  return cx.run.hyperItem && cx.pre.amsmath ? `Item.${++cx.run.items}` : cx.counters.href(counter, n)
+}
+
+/**
+ * A paragraph with displays in a list (an item, a theorem, a proof): broken as `typeset` breaks one, with the list's
+ * \parshape, font and penalties, before each display with \displaywidowpenalty; the display takes line prev_graf+2
+ * of the \parshape (§ 1149), and the paragraph resumes with prev_graf+3, no indentation, the same \parshape (only
+ * \par resets it). What starts the paragraph goes with its first part, what ends it (\@item's \unskip, a proof's
+ * \qed) with its last, even when that is empty (TeX resumes in horizontal mode after the display).
+ */
+export function listParagraphWithDisplays(cx: Ctx, text: string, opts: ParagraphOptions, parskip: GlueSpec, size: SizeCommand) {
+  const { amsmath } = cx.pre
+  const { decisions, doc, run, v, counted } = cx
+  if (size !== "normalsize") throw new Unsupported(`a display in a list in \\${size}`)
+  if (opts.leadGroupNoteClubPenalty !== undefined) throw new Unsupported("a display in a paragraph that starts with a group")
+  const segs = displaySegments(text)
+  const quad = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs).params[QUAD]
+  let prevGraf = 0
+  segs.forEach((seg, i) => {
+    if (typeof seg !== "string") return
+    const first = i === 0, last = i === segs.length - 1
+    const t = squeeze(seg) // a display ends with \ignorespaces
+    if (first && !t) throw new Unsupported("a display starting a paragraph in a list")
+    const next = segs[i + 1] as Display | undefined
+    const { start, end, unskip, noteClubPenalty, ...rest } = opts
+    const o: ParagraphOptions = { ...rest, prevGraf,
+      ...(first ? { start, ...(noteClubPenalty !== undefined ? { noteClubPenalty } : {}) } : { start: [] }),
+      ...(last ? { ...(end ? { end } : {}), ...(unskip ? { unskip } : {}) } : { widowPenalty: run.k.ints.displaywidowpenalty }) }
+    if (last && !t && !end) return // (an empty paragraph after the display makes no line)
+    if (!first && !last && !t) { // two displays in a row: the second starts with an empty list (§ 1145: no line break)
+      displayMath(cx, next!, displayLine(prevGraf, run.k.dimens.textwidth, 0, 1, opts.parShape ?? []), null, quad)
       prevGraf += 3
       return
     }
-    // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
-    // amsmath keeps it for after the tag (\label@in@display); LaTeX writes it where it stands
-    const labels = [...next.src.matchAll(/\\label\s*\{([^{}]*)\}/g)]
-    if (labels.length && next.kind !== "equation") throw new Unsupported(`\\label in ${next.kind}`)
-    if (labels.length > 1) throw new Unsupported("several \\label in an equation")
-    const label = labels[0]
-    if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
-    const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, romanFont.params[QUAD])
-    if (next.kind === "equation") { counters.equation++; refs.href = counters.href("equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
-    const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the(counters.equation) }
-    const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the(counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
-    let mlist: MItem[]
-    if (!label) mlist = parse(next.src)
-    else {
-      const before = next.src.slice(0, label.index), after = next.src.slice(label.index! + label[0].length)
-      if (amsmath) mlist = parse(before + after)
-      else if (depthOf(before) !== 0) throw new Unsupported("\\label inside a group in an equation")
-      else mlist = [...parse(before), ...newlabel!, ...parse(after)]
+    const { list, params, notes } = paragraphInput(counted(t, true), run.k, size, doc, { ...o, amsmath })
+    const lb = lineBreak(list, params)
+    decisions.push(...notes, lb.trace)
+    if (first) v.paragraph(lb.vlist, parskip, run.k.sizes[size].baselineskip); else v.lines(lb.vlist)
+    prevGraf += lb.lines.length
+    if (next) {
+      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, quad)
+      prevGraf += 3
     }
-    const env = mathEnv(run.k, "normalsize", amsmath)
-    if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
-    let eqno: BoxNode | null = null
-    if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
-      mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
-      // hyperref: \refstepcounter's anchor in a math group before it (an ord noad)
-      if (hyper && hyperDriver.pdftex) mlist.unshift(...mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width))
-      else if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
-      const l: Node[] = []
-      appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
-      l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
-      appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
-      eqno = hpack(newlabel ? [hpack(l), ...newlabel] : [hpack(l)]); eqno.display = true
-    } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
-      // hyperref's \equation: \mathopen{\hyper@anchorstart} at the start, \hyper@anchorend (and \nobreak) at the end
-      if (hyper && hyperDriver.pdftex) { // \endequation: \mathclose{\Hy@raisedlink{\hyper@anchorend}}, its box empty (\pdf@endanchor)
-        mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width) }, sup: null, sub: null })
-        mlist.push({ noad: CLOSE_NOAD, nucleus: { kind: "mlist", list: mathAnchor(null, run.k.sizes.normalsize.baselineskip.width) }, sup: null, sub: null })
-      }
-      else if (hyper) {
-        mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: [HS()] }, sup: null, sub: null })
-        mlist.push(HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
-      }
-      const l: Node[] = []
-      appendText(l, `(${counters.the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
-      eqno = hpack([hpack(setgroup(l))]); eqno.display = true // {\normalfont\normalcolor (n)}
-    }
-    const sz = run.k.sizes.normalsize
-    const items = finishDisplay(mlistToHlist(mlist, env, DISPLAY_STYLE, false), eqno, {
-      width: line.width, indent: line.indent, preSize: preDisplaySize(justBox, quad), mathQuad: env.fonts[0][2]!.params[QUAD],
-      preDisplayPenalty: run.k.ints.predisplaypenalty, postDisplayPenalty: run.k.ints.postdisplaypenalty,
-      aboveDisplaySkip: sz.abovedisplayskip, belowDisplaySkip: sz.belowdisplayskip, aboveDisplayShortSkip: sz.abovedisplayshortskip, belowDisplayShortSkip: sz.belowdisplayshortskip,
-    })
-    for (const it of items) { if ("box" in it) v.box(it.box, sz.baselineskip); else v.nodes.push(it.node) }
-    prevGraf += 3
   })
+}
+
+/** A display (§§ 1145–1206) on line prev_graf+2 of the paragraph (`line`), after `justBox`, its last line so far;
+ *  `quad`: \fontdimen6 of the font then, which \predisplaysize allows for */
+function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, quad: number) {
+  const { amsmath, hyper } = cx.pre
+  const { counters, refs, romanFont, run, v } = cx
+  if (next.kind === "align" || next.kind === "align*") {
+    if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
+    alignDisplay(cx, next, line, quad)
+    return
+  }
+  // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
+  // amsmath keeps it for after the tag (\label@in@display); LaTeX writes it where it stands
+  const labels = [...next.src.matchAll(/\\label\s*\{([^{}]*)\}/g)]
+  if (labels.length && next.kind !== "equation") throw new Unsupported(`\\label in ${next.kind}`)
+  if (labels.length > 1) throw new Unsupported("several \\label in an equation")
+  const label = labels[0]
+  if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, quad) // (\quad: 1em of the text font then)
+  if (next.kind === "equation") { counters.equation++; refs.href = stepHref(cx, "equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
+  const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the(counters.equation) }
+  const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the(counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
+  let mlist: MItem[]
+  if (!label) mlist = parse(next.src)
+  else {
+    const before = next.src.slice(0, label.index), after = next.src.slice(label.index! + label[0].length)
+    if (amsmath) mlist = parse(before + after)
+    else if (depthOf(before) !== 0) throw new Unsupported("\\label inside a group in an equation")
+    else mlist = [...parse(before), ...newlabel!, ...parse(after)]
+  }
+  const env = mathEnv(run.k, "normalsize", amsmath)
+  if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
+  let eqno: BoxNode | null = null
+  if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
+    mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
+    // hyperref: \refstepcounter's anchor in a math group before it (an ord noad)
+    if (hyper && hyperDriver.pdftex) mlist.unshift(...mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width))
+    else if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
+    const l: Node[] = []
+    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
+    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+    eqno = hpack(newlabel ? [hpack(l), ...newlabel] : [hpack(l)]); eqno.display = true
+  } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
+    // hyperref's \equation: \mathopen{\hyper@anchorstart} at the start, \hyper@anchorend (and \nobreak) at the end
+    if (hyper && hyperDriver.pdftex) { // \endequation: \mathclose{\Hy@raisedlink{\hyper@anchorend}}, its box empty (\pdf@endanchor)
+      mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width) }, sup: null, sub: null })
+      mlist.push({ noad: CLOSE_NOAD, nucleus: { kind: "mlist", list: mathAnchor(null, run.k.sizes.normalsize.baselineskip.width) }, sup: null, sub: null })
+    }
+    else if (hyper) {
+      mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: [HS()] }, sup: null, sub: null })
+      mlist.push(HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
+    }
+    const l: Node[] = []
+    appendText(l, `(${counters.the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
+    eqno = hpack([hpack(setgroup(l))]); eqno.display = true // {\normalfont\normalcolor (n)}
+  }
+  const sz = run.k.sizes.normalsize
+  const items = finishDisplay(mlistToHlist(mlist, env, DISPLAY_STYLE, false), eqno, {
+    width: line.width, indent: line.indent, preSize: preDisplaySize(justBox, quad), mathQuad: env.fonts[0][2]!.params[QUAD],
+    preDisplayPenalty: run.k.ints.predisplaypenalty, postDisplayPenalty: run.k.ints.postdisplaypenalty,
+    aboveDisplaySkip: sz.abovedisplayskip, belowDisplaySkip: sz.belowdisplayskip, aboveDisplayShortSkip: sz.abovedisplayshortskip, belowDisplayShortSkip: sz.belowdisplayshortskip,
+  })
+  for (const it of items) { if ("box" in it) v.box(it.box, sz.baselineskip); else v.nodes.push(it.node) }
 }
 
 /**
@@ -142,7 +201,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
  * by \eqnshift@ with \alignsep@ between column pairs, and each row's number is set off at the
  * right edge. TeX finishes it as an alignment in a display (§ 1206).
  */
-export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, _ps: unknown) {
+export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number) {
   const { amsmath, hyper } = cx.pre
   const { counters, decisions, doc, refs, romanFont, run, v } = cx
   const starred = d.kind === "align*"
@@ -151,7 +210,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
   const env = mathEnv(run.k, "normalsize", true)
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, romanFont.params[QUAD])
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em)
   const rows = src.split(/\\\\/).map((r) => {
     const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
     const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {
@@ -168,14 +227,14 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   const tags = rows.map((r) => {
     if (!r.numbered) return hpack([strutBox()])
     counters.equation++
-    refs.href = counters.href("equation", counters.equation)
+    refs.href = stepHref(cx, "equation", counters.equation)
     const l: Node[] = []
     appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
     const last = l[l.length - 1] as CharNode
     l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
     appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
     // hyperref: the anchor between the strut and the number, at \baselineskip plus \jot
-    if (hyper) { const s = strutBox(); return hpack([s, ...anchor(counters.href("equation", counters.equation), sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
+    if (hyper) { const s = strutBox(); return hpack([s, ...anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
     return hpack([strutBox(), hpack(l)])
   })
   // \measure@

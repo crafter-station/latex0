@@ -1,0 +1,15 @@
+% fixture: hyperref/item-displays-plain
+% tier: T3
+% engine: document
+% covers: an equation in an enumerate's \item[] under hyperref without amsmath: hyperref's equation steps the counter with the kernel's \refstepcounter, so \if@hyper@item does not apply and the anchor is equation.n
+% issue: #76
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\begin{enumerate}
+\item one
+\item[] text with a note\footnote{a note} and more
+\begin{equation}\label{eq:p} a=b \end{equation}
+after \ref{eq:p}.
+\end{enumerate}
+\end{document}

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 241,
-  "exact": 239,
+  "fixtures": 247,
+  "exact": 245,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 240894
+  "glyphs": 242426
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "amsthm",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "bibliography",
@@ -36,8 +36,8 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "display",
@@ -71,8 +71,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "hyphenation",
@@ -91,8 +91,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 11,
-   "exact": 11
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "math",
@@ -421,6 +421,16 @@
    "covers": "a theorem note set in a box (no discretionary after its hyphen) and unboxed into the paragraph: with \\lccode`\\-=`\\- the hyphenation pass takes well-known as one word, and a break before its hyphen makes the -- ligature"
   },
   {
+   "id": "amsthm/qed-own-line",
+   "file": "micro/amsthm/qed-own-line.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 164,
+   "covers": "a proof whose last paragraph a blank line ends (after text, or after a display): \\qed's \\leavevmode starts a paragraph of its own, indented, with \\parskip, holding \\penalty9999, \\hbox{}, \\nobreak\\hfill\\quad and the box"
+  },
+  {
    "id": "amsthm/styles",
    "file": "micro/amsthm/styles.tex",
    "area": "amsthm",
@@ -429,6 +439,16 @@
    "status": "pass",
    "glyphs": 119,
    "covers": "amsthm: plain, definition and remark styles, \\newtheorem*, a counter within the section and a shared one, \\label right after a heading, a proof titled with \\ref"
+  },
+  {
+   "id": "amsthm/theorem-displays",
+   "file": "micro/amsthm/theorem-displays.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 292,
+   "covers": "displays in theorems and proofs: the italic body's quad in \\predisplaysize (which picks \\abovedisplayshortskip or not, here at the margin), equation and equation* with amsmath, align in a proof, text resumed after a display in the body font; a proof ending with a display, whose \\qed goes on a line of its own (the paragraph resumed after the display); a display mid-proof then text and the \\qed"
   },
   {
    "id": "amsthm/theorem-proof",
@@ -682,8 +702,19 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 317,
-   "covers": "cleveref's \\cref and \\Cref of one label: the type \\refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \\crefformat's name~number; each \\label writes a second \\newlabel{key@cref} in its own \\@bsphack…\\@esphack; an undefined label prints ?? in bold; \\cref@currentlabel is local to an environment, as \\@currentlabel is",
+   "glyphs": 348,
+   "covers": "cleveref's \\cref and \\Cref of one label: the type \\refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \\crefformat's name~number; each \\label writes a second \\newlabel{key@cref} in its own \\@bsphack…\\@esphack; an undefined label prints ?? in bold; \\cref@currentlabel is local to an environment, as \\@currentlabel is; a \\bibitem's prefix is the values \\c@enumi … \\c@enumiii keep after their lists",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/enum-prefix",
+   "file": "micro/cleveref/enum-prefix.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "cleveref's prefix of an item and a \\bibitem: the values of the enumerate counters before it in \\cref@resetby's fixed chain (enumi, enumii, enumiii), which LaTeX never resets one from another (\\@definecounter): a deeper counter keeps its value when a shallower one steps; a list's \\usecounter zeroes only its own",
    "issue": "#66"
   },
   {
@@ -1027,6 +1058,28 @@
    "glyphs": 448,
    "covers": "thebibliography with hyperref: \\bibitem's \\@bibitem (\\H@item with \\@skiphyperreftrue: no Item anchor, then a raised cite.<key> anchor at the item's text), \\cite numbers in \\hyper@@link[cite] links to cite.<key> (an undefined one unlinked), and a \\label in an item, whose \\ref goes to the heading's anchor (\\refstepcounter{enumiv} keeps \\@currentHref)",
    "issue": "#30"
+  },
+  {
+   "id": "hyperref/item-displays-plain",
+   "file": "micro/hyperref/item-displays-plain.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 46,
+   "covers": "an equation in an enumerate's \\item[] under hyperref without amsmath: hyperref's equation steps the counter with the kernel's \\refstepcounter, so \\if@hyper@item does not apply and the anchor is equation.n",
+   "issue": "#76"
+  },
+  {
+   "id": "hyperref/item-displays",
+   "file": "micro/hyperref/item-displays.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 182,
+   "covers": "displays in enumerate items under hyperref: an \\item sets \\if@hyper@item and the next \\refstepcounter takes it (its anchor Item.n, hyperref's own counter); after an \\item[label], which steps no counter, each equation and each numbered align row in that item is an Item.n anchor (the \\@hyper@itemfalse is local to the display's group, to an alignment cell), its number still the equation's; in a numbered item the item's own step took it",
+   "issue": "#76"
   },
   {
    "id": "hyperref/links",
@@ -1727,6 +1780,16 @@
    "glyphs": 967,
    "covers": "abstract (\\small, center with \\vspace in the paragraph as \\vadjust, quotation), center, flushleft, flushright (\\trivlist with \\centering, \\raggedright, \\raggedleft; \\\\ as \\@centercr), quote, quotation with several paragraphs (\\listparindent), verse (\\\\, negative \\itemindent), description (\\descriptionlabel, wide labels), environments nested in lists and lists in environments",
    "issue": "#30"
+  },
+  {
+   "id": "lists/item-displays",
+   "file": "micro/lists/item-displays.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 716,
+   "covers": "displays in list items: \\[ \\], $$ $$ and equation on line prev_graf+2 of the item's \\parshape (\\displaywidth \\linewidth, \\displayindent \\@totalleftmargin), \\predisplaysize from the shifted last line, the paragraph resumed after it with no indentation and the same \\parshape, an item or a quote ending with a display, two displays in a row, nested lists; the text before a display broken with \\displaywidowpenalty"
   },
   {
    "id": "lists/item-labels",

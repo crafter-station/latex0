@@ -1,0 +1,27 @@
+% fixture: cleveref/enum-prefix
+% tier: T3
+% engine: document
+% covers: cleveref's prefix of an item and a \bibitem: the values of the enumerate counters before it in \cref@resetby's fixed chain (enumi, enumii, enumiii), which LaTeX never resets one from another (\@definecounter): a deeper counter keeps its value when a shallower one steps; a list's \usecounter zeroes only its own
+% issue: #66
+\documentclass{article}
+\usepackage{cleveref}
+\begin{document}
+\begin{enumerate}
+\item One.
+\begin{enumerate}
+\item Two.
+\begin{enumerate}
+\item Three.\label{it:three}
+\end{enumerate}
+\item Four.\label{it:four}
+\end{enumerate}
+\item Five.\label{it:five}
+\begin{enumerate}
+\item Six.\label{it:six}
+\end{enumerate}
+\end{enumerate}
+See \cref{it:three}, \cref{it:four}, \cref{it:five} and \cref{it:six}.
+\begin{thebibliography}{9}
+\bibitem{k} An author.\label{bib:k}
+\end{thebibliography}
+\end{document}

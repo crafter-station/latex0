@@ -13,6 +13,12 @@ export interface RunState {
   linkcounter: number
   /** \item's so far (each an anchor with hyperref) */
   items: number
+  /** \c@enumi … \c@enumiv: an item steps one, a list's \usecounter zeroes its own, none resets another; they keep
+   *  their values after the list (cleveref's prefix reads them) */
+  enums: number[]
+  /** hyperref's \if@hyper@item: an \item of a numbered list sets it (local to the list), and the next \refstepcounter
+   *  takes it: its anchor is Item.n then, a step of hyperref's own Item counter (`items`) */
+  hyperItem: boolean
   /** floats so far */
   floats: number
   /** \c@lstlisting, \lst@neglisting, \lst@lineno */
@@ -35,5 +41,5 @@ export interface RunState {
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null } }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null } }
 }

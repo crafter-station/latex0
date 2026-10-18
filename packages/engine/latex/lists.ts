@@ -174,6 +174,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const bold = loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at)
   const companion = loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
   let counter = 0 // \c@enum…: an item with its own label does not step it
+  const outerHyperItem = run.hyperItem
+  if (b.env === "enumerate") run.enums[level - 1] = 0 // \usecounter
+  if (b.env === "thebibliography") run.enums[3] = 0
   const alph = (n: number) => (n > 0 && n <= 26 ? String.fromCharCode(96 + n) : "") // \@alph: \ifcase (\@ctrerr past z)
   const roman = (n: number) => { // \@roman (TeX's \romannumeral)
     let out = ""
@@ -197,6 +200,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   // thebibliography's, the outer one before the first item, then what the last item's \everypar set
   let groupClub = b.env === "thebibliography" ? 4000 : ctx.club ?? (depth <= 1 ? v.club : run.k.ints.clubpenalty)
   b.items.forEach(({ label: given, parts }, i) => {
+    run.hyperItem = hyper && (b.env === "enumerate" || b.env === "thebibliography") // hyperref's \item: \if@nmbrlist
     // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
     // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
     let club: number | undefined
@@ -217,9 +221,10 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         const [v1, v2, v3] = [...ctx.enums, n]
         refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
         refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
-        if (refs.cleveref) refs.cleveref.current = { type: `enum${["i", "ii", "iii", "iv"][level - 1]}`, arabic: n, prefix: ctx.enums.join(","), label: refs.label }
+        run.enums[level - 1] = n // (no counter resets another: \@definecounter; cleveref's prefix only names the chain)
+        if (refs.cleveref) refs.cleveref.current = { type: `enum${["i", "ii", "iii", "iv"][level - 1]}`, arabic: n, prefix: run.enums.slice(0, level - 1).join(","), label: refs.label }
         // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
-        if (hyper) { refs.href = `Item.${++run.items}`; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
+        if (hyper) { refs.href = `Item.${++run.items}`; run.hyperItem = false; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
         appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
       }
@@ -254,7 +259,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       // \refstepcounter{enumiv}; with hyperref (\@skiphyperreftrue) \@currentHref stays what it was
       if (b.env === "thebibliography") {
         refs.label = String(i + 1); if (!hyper) refs.href = `enumiv.${i + 1}`
-        if (refs.cleveref) refs.cleveref.current = { type: "enumiv", arabic: i + 1, prefix: "", label: refs.label }
+        run.enums[3] = i + 1
+        if (refs.cleveref) refs.cleveref.current = { type: "enumiv", arabic: i + 1, prefix: run.enums.slice(0, 3).join(","), label: refs.label }
       }
       // hyperref's \@bibitem: \H@item with no anchor of its own (\@skiphyperreftrue), then \Hy@raisedlink{\hyper@anchorstart{cite.<key>}…}, still in vertical mode
       if (b.env === "thebibliography" && hyper) v.nodes.push(...anchor(`cite.${b.keys![i]}`, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode()))
@@ -300,7 +306,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       // the outer one for a first item, else what the item before set)
       // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
       const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
-      const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) ? { end: qed() } : {}) }
+      const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) && !p.parEnd ? { end: qed() } : {}) }
       if (p.start === "label") {
         // (footnotes read in a color group, and a leading tabular's p{width} entries, see what \@item's \everypar set
         // there; after it, the one from before)
@@ -324,11 +330,14 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         if (colorStart) p.text = leadingColor(cx, p.text) // (after the \@centercr skip)
         if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un, ...body }, parsep, ctx.size)
       }
+      // a proof whose last paragraph a blank line ended: \qed's \leavevmode starts one of its own
+      if (qedAt(p) && p.parEnd) typeset("", { start: [emptyBox("hlist", parindent)], ...shape, ...(bodyAttrs ? { attrs: bodyAttrs } : {}), end: qed() }, parsep, ctx.size)
     })
   })
   // \endtrivlist: the last item's \par, then \@endparenv
   v.endtrivlist(parsep, ctx.parskip, topsepadd)
   refs.label = outerLabel
+  run.hyperItem = outerHyperItem
   if (refs.cleveref) refs.cleveref.current = outerCref
 }
 

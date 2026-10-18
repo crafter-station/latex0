@@ -1,0 +1,38 @@
+% fixture: amsthm/theorem-displays
+% tier: T3
+% engine: document
+% covers: displays in theorems and proofs: the italic body's quad in \predisplaysize (which picks \abovedisplayshortskip or not, here at the margin), equation and equation* with amsmath, align in a proof, text resumed after a display in the body font; a proof ending with a display, whose \qed goes on a line of its own (the paragraph resumed after the display); a display mid-proof then text and the \qed
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+\section{Results}
+\begin{theorem}\label{thm:a}
+For every integer $n$ we have
+\begin{equation}\label{eq:sum}
+\sum_{i=1}^n i = \frac{n(n+1)}{2},
+\end{equation}
+and the sum of squares is given by the next formula, which is a little longer:
+\begin{equation*}
+\sum_{i=1}^n i^2 = \frac{n(n+1)(2n+1)}{6}.
+\end{equation*}
+\end{theorem}
+\begin{theorem}
+One
+\[ a\quad\quad\quad\quad\quad\quad\quad\quad\quad\quad\quad\quad\quad\;\;\;\:\!b \]
+after.
+\end{theorem}
+\begin{proof}
+By induction on $n$, using
+\begin{align}
+a &= b + c \\
+  &= d
+\end{align}
+and \eqref{eq:sum}, the claim follows for all cases.
+\end{proof}
+\begin{proof}
+It is enough to compute
+\[ \sum_{i=1}^{n+1} i = \frac{n(n+1)}{2} + n + 1. \]
+\end{proof}
+Text after.
+\end{document}

@@ -1,7 +1,7 @@
 % fixture: cleveref/cref
 % tier: T3
 % engine: document
-% covers: cleveref's \cref and \Cref of one label: the type \refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \crefformat's name~number; each \label writes a second \newlabel{key@cref} in its own \@bsphack…\@esphack; an undefined label prints ?? in bold; \cref@currentlabel is local to an environment, as \@currentlabel is
+% covers: cleveref's \cref and \Cref of one label: the type \refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \crefformat's name~number; each \label writes a second \newlabel{key@cref} in its own \@bsphack…\@esphack; an undefined label prints ?? in bold; \cref@currentlabel is local to an environment, as \@currentlabel is; a \bibitem's prefix is the values \c@enumi … \c@enumiii keep after their lists
 % issue: #66
 \documentclass{article}
 \usepackage{amsmath,amsthm}
@@ -39,4 +39,7 @@ a = b
 \centering
 \caption{A caption.}\label{fig:one}
 \end{figure}
+\begin{thebibliography}{9}
+\bibitem{k} An author.\label{bib:k} See \cref{bib:k}.
+\end{thebibliography}
 \end{document}

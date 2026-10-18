@@ -1,0 +1,39 @@
+% fixture: lists/item-displays
+% tier: T3
+% engine: document
+% covers: displays in list items: \[ \], $$ $$ and equation on line prev_graf+2 of the item's \parshape (\displaywidth \linewidth, \displayindent \@totalleftmargin), \predisplaysize from the shifted last line, the paragraph resumed after it with no indentation and the same \parshape, an item or a quote ending with a display, two displays in a row, nested lists; the text before a display broken with \displaywidowpenalty
+\documentclass{article}
+\begin{document}
+\section{Lists}
+Some text before the list, long enough to make a full line or two of text in this paragraph here.
+\begin{itemize}
+\item First item with some words before the display
+\[ x^2 + y^2 = z^2 \]
+and some text after it that goes on for a while so that it fills more than one line of the item.
+\item A longer item, whose text before the display runs over two lines or more, so that the penalty between its last two lines is the display widow penalty rather than the widow penalty
+\[ a + b = c \]
+\item A short one $$ a = b $$ ending here.
+\item An item ending with a display
+\[ \sum_{i=1}^n i = \frac{n(n+1)}{2} \]
+\item Two displays \[ a \] \[ b \] in a row.
+\end{itemize}
+\begin{enumerate}
+\item Numbered, with an equation
+\begin{equation}\label{eq:item}
+E = mc^2
+\end{equation}
+which is \ref{eq:item}.
+\begin{enumerate}
+\item Nested deeper with a display that is fairly wide
+\[ f(x) = a_0 + a_1 x + a_2 x^2 + a_3 x^3 + a_4 x^4 + a_5 x^5 + a_6 x^6 \]
+and text after the display.
+\end{enumerate}
+\end{enumerate}
+\begin{description}
+\item[Label] A described item \[ \int_0^1 f(x) \] then more.
+\end{description}
+\begin{quote}
+A quotation with a display \[ y = mx + b \] inside it, and words after the display to finish the quote.
+\end{quote}
+Text after the lists.
+\end{document}
