@@ -249,7 +249,10 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       content = [filGlue()]
       const l = b.env === "thebibliography" ? `[${i + 1}]` : given
       if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
-      if (b.env === "thebibliography") { refs.label = String(i + 1); refs.href = `enumiv.${i + 1}` } // \refstepcounter{enumiv}
+      // \refstepcounter{enumiv}; with hyperref (\@skiphyperreftrue) \@currentHref stays what it was
+      if (b.env === "thebibliography") { refs.label = String(i + 1); if (!hyper) refs.href = `enumiv.${i + 1}` }
+      // hyperref's \@bibitem: \H@item with no anchor of its own (\@skiphyperreftrue), then \Hy@raisedlink{\hyper@anchorstart{cite.<key>}…}, still in vertical mode
+      if (b.env === "thebibliography" && hyper) v.nodes.push(...anchor(`cite.${b.keys![i]}`, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode()))
     }
     const temp = hpack(setgroup(content.slice()))
     const boxed = temp.width > labelwidth ? temp : hpack(setgroup(content.slice()), { exactly: labelwidth })
