@@ -44,9 +44,11 @@ export interface DocumentOptions {
   epoch?: number
   /** graphics files' bounding boxes, by file name (a filecontents* environment in the source also gives one) */
   images?: Record<string, BoundingBox>
+  /** the output driver: dvips (`latex`, the default) or pdfTeX's own (`pdflatex`), which writes the PDF itself */
+  driver?: "dvips" | "pdftex"
 }
 
-export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {} }: DocumentOptions = {}): LayoutResult {
+export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "dvips" }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
   // the graphics files' bounding boxes: the options', then the files the source writes
   const images = new Map(Object.entries(given))
@@ -57,7 +59,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
-      try { return layout(prepared, notHere, aux, epoch, images) } catch (e) {
+      try { return layout(prepared, notHere, aux, epoch, images, driver) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
       }
@@ -78,10 +80,15 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox>): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
+  // pdfTeX's driver: what writes specials under dvips is modeled for dvips only so far
+  if (driver === "pdftex") {
+    const what = hyper ? "hyperref" : usesXcolor ? "xcolor" : graphics.length ? "\\includegraphics" : null
+    if (what) throw new Unsupported(`${what} with the pdftex driver`)
+  }
   const run = runState(pre.k)
   const blocks = blocksOf(body)
 

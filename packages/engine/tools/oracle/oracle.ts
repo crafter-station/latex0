@@ -12,6 +12,8 @@ import { parseShipouts } from "./boxes"
 import type { BoxNode } from "../../trace/schema"
 import { ORACLE_EPOCH, texEnv } from "../tex"
 import { parseTfm, type Tfm } from "./tfm"
+import { boxTrace } from "./boxtrace"
+import { parseHeader } from "../unit/header"
 
 // a fixed date, so \today and friends never change a reference (pdfTeX honours SOURCE_DATE_EPOCH)
 const ENV = texEnv({ SOURCE_DATE_EPOCH: String(ORACLE_EPOCH), FORCE_SOURCE_DATE: "1" })
@@ -45,6 +47,8 @@ export interface OracleResult { trace: Trace; decisions: Decisions; /** every sh
  * Compile `fixture` with real TeX (twice, for references) and return TeX's own
  * records: glyph positions from the DVI, and line/page-break decisions from the
  * log (\tracingparagraphs, \tracingpages). Tracing does not change the output.
+ * A fixture whose header names pdflatex is compiled by it: no DVI, so the positions
+ * are the ones its box dumps imply (boxtrace.ts, checked against the DVI for latex).
  */
 export function oracleRun(fixture: string): OracleResult {
   const name = basename(fixture, ".tex")
@@ -55,12 +59,15 @@ export function oracleRun(fixture: string): OracleResult {
   for (const ext of ["aux", "toc", "lof", "lot", "out"]) rmSync(join(dir, `${name}.${ext}`), { force: true })
   const job = `\\AtBeginDocument{\\tracingassigns=1}\\tracingparagraphs=1\\tracingpages=1\\tracingoutput=1\\pdftracingfonts=1\\showboxdepth=10000\\showboxbreadth=100000\\tracingonline=0\\input{${name}}`
   const env = { ...ENV, max_print_line: "100000", error_line: "254", half_error_line: "238" }
+  const pdf = parseHeader(readFileSync(fixture, "utf8")).oracle === "pdflatex"
   for (let pass = 0; pass < 2; pass++) {
-    execFileSync("latex", ["-interaction=nonstopmode", "-halt-on-error", `-jobname=${name}`, job], { cwd: dir, env, stdio: "pipe" })
+    execFileSync(pdf ? "pdflatex" : "latex", ["-interaction=nonstopmode", "-halt-on-error", `-jobname=${name}`, job], { cwd: dir, env, stdio: "pipe" })
   }
+  const log = readFileSync(join(dir, `${name}.log`), "latin1")
+  const pages = parseShipouts(log)
   return {
-    trace: parseDvi(new Uint8Array(readFileSync(join(dir, `${name}.dvi`))), loadTfm),
-    ...(() => { const log = readFileSync(join(dir, `${name}.log`), "latin1"); return { decisions: parseDecisions(log), pages: parseShipouts(log) } })(),
+    trace: pdf ? boxTrace(pages) : parseDvi(new Uint8Array(readFileSync(join(dir, `${name}.dvi`))), loadTfm),
+    decisions: parseDecisions(log), pages,
   }
 }
 

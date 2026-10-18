@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 220,
-  "exact": 218,
+  "fixtures": 223,
+  "exact": 221,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 224218
+  "glyphs": 230853
  },
  "areas": [
   {
@@ -98,6 +98,11 @@
    "area": "pages",
    "fixtures": 13,
    "exact": 13
+  },
+  {
+   "area": "pdflatex",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "sections",
@@ -1957,6 +1962,37 @@
    "glyphs": 900,
    "covers": "\\Huge lines deeper than \\maxdepth (5pt) over two pages: page_depth is capped and the excess moves into \\pagetotal (§ 1003)",
    "issue": "#115"
+  },
+  {
+   "id": "pdflatex/fancyhdr-default",
+   "file": "micro/pdflatex/fancyhdr-default.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6131,
+   "covers": "under pdflatex (PDF, positions from its box dumps): fancyhdr's default fields with \\pagestyle{fancy}: {\\slshape\\rightmark} left and {\\slshape\\leftmark} right in the head, \\rmfamily\\thepage in the foot, each a \\parbox of \\headwidth with a \\strut (\\f@nch@def), the 0.4pt head rule; its \\sectionmark (\\markboth{\\MakeUppercase{\\thesection\\hskip 1em\\relax title}}{}) and \\subsectionmark (\\markright); \\@mkboth is \\markboth (the contents); the fields' paragraphs traced as each page ships, among the document's"
+  },
+  {
+   "id": "pdflatex/math-sqrt-index",
+   "file": "micro/pdflatex/math-sqrt-index.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "under pdflatex (PDF, positions from its box dumps): \\sqrt[n] (\\root n\\of: the index in \\rootbox at scriptscript style, a \\mathchoice of \\r@@t: \\mkern5mu, the index raised .6(height-depth) of the radical box, \\mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)"
+  },
+  {
+   "id": "pdflatex/text-font-commands",
+   "file": "micro/pdflatex/text-font-commands.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 343,
+   "covers": "under pdflatex (PDF, positions from its box dumps): \\textbf \\textit \\emph (nested: upright inside italic) \\textsl \\textsc \\texttt \\textsf \\textmd \\textup \\textrm \\textnormal, the italic corrections of \\check@icl and \\check@icr (\\sw@slant, \\fix@penalty; none before , or .), interword spaces in each font, hyphenation of words in other fonts, a footnote with \\emph",
+   "issue": "#30"
   },
   {
    "id": "sections/chapters-report",

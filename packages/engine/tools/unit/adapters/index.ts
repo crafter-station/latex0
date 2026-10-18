@@ -8,12 +8,13 @@ import type { LayoutResult } from "../../../latex/result"
 import type { Trace } from "../../../trace/schema"
 import "../../data"
 import { ORACLE_EPOCH } from "../../tex"
+import { parseHeader } from "../header"
 
 export type AdapterResult = LayoutResult
 export type Adapter = (src: string, oracle: Trace) => AdapterResult
 
 export const ADAPTERS: Record<string, Adapter> = {
   paragraph,
-  // \today on the oracle's fixed date
-  document: (src) => document(src, { epoch: ORACLE_EPOCH }),
+  // \today on the oracle's fixed date; the driver of the fixture's reference TeX
+  document: (src) => document(src, { epoch: ORACLE_EPOCH, driver: parseHeader(src).oracle === "pdflatex" ? "pdftex" : "dvips" }),
 }
