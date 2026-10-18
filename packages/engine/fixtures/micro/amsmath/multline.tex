@@ -1,0 +1,46 @@
+% fixture: amsmath/multline
+% tier: T3
+% engine: document
+% covers: amsmath's multline and multline*: rows in \hbox to\displaywidth{\hfil\strut@$\displaystyle{}row$\hfil}, the first starting with \hfilneg\hskip\multlinegap, middle rows centred, the last ending with \hskip\multlinetaggap, the number and \hfilneg (unnumbered: \hskip\multlinegap\hfilneg); one row; \notag; a last row too wide for its number beside it, whose number goes below; a multline in a theorem and in an item; an integral with both limits in the numbered last row (measured from its own mlist)
+% issue: #76
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+\section{Broken formulas}
+Text before:
+\begin{multline}
+  (a+b)^3 = a^3 + 3a^2b \\
+  + 3ab^2 + b^3.
+\end{multline}
+Three rows:
+\begin{multline*}
+  f(x) = a_0 + a_1 x + a_2 x^2 \\
+  + a_3 x^3 + a_4 x^4 \\
+  + a_5 x^5.
+\end{multline*}
+With an integral in the last row
+\begin{multline}
+  a + b \\
+  = \int_0^1 f(x)
+\end{multline}
+One row \begin{multline} x = y \end{multline} and an unnumbered one
+\begin{multline}
+  p = q \\ = r \notag
+\end{multline}
+and a wide last row
+\begin{multline}
+  a = b \\
+  + c_1 + c_2 + c_3 + c_4 + c_5 + c_6 + c_7 + c_8 + c_9 + c_{10} + c_{11} + c_{12} + c_{13} + c_{14} + c_{15}
+\end{multline}
+\begin{theorem}
+In a theorem
+\begin{multline}
+  \sum_{i=1}^n i = 1 + 2 \\
+  + 3 + n.
+\end{multline}
+\end{theorem}
+\begin{itemize}
+\item In an item \begin{multline} u = v \\ = w \end{multline} after.
+\end{itemize}
+\end{document}

@@ -19,6 +19,10 @@ export interface RunState {
   /** hyperref's \if@hyper@item: an \item of a numbered list sets it (local to the list), and the next \refstepcounter
    *  takes it: its anchor is Item.n then, a step of hyperref's own Item counter (`items`) */
   hyperItem: boolean
+  /** amsmath's \iftag@ (global): a numbered multline leaves it true, equation, align and gather false. With cleveref,
+   *  LaTeX's first aid then lets a \label keep cleveref's own \cref@currentlabel instead of rebuilding it from
+   *  \@currentcounter (which tells a theorem sharing a counter apart) */
+  tagFlag: boolean
   /** floats so far */
   floats: number
   /** \c@lstlisting, \lst@neglisting, \lst@lineno */
@@ -41,5 +45,5 @@ export interface RunState {
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null } }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null } }
 }

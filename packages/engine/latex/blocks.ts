@@ -135,8 +135,8 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
 export const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
-export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "gather" | "gather*"; src: string }
-export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|gather\*?)\}([^]*?)\\end\{\3\}/
+export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "gather" | "gather*" | "multline" | "multline*"; src: string }
+export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|gather\*?|multline\*?)\}([^]*?)\\end\{\3\}/
 /** A paragraph's text split at its displays: text, display, text, …, text. */
 export function displaySegments(text: string): (string | Display)[] {
   const out: (string | Display)[] = []
