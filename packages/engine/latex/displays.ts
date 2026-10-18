@@ -5,7 +5,7 @@
 import { QUAD } from "../layout/font"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
 import { CLOSE as CLOSE_NOAD, DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
 import { hpack, vpack } from "../layout/pack"
@@ -138,10 +138,15 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
  *  `quad`: \fontdimen6 of the font then, which \predisplaysize allows for */
 function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, quad: number, skips: Skips = {}) {
   const { amsmath, hyper } = cx.pre
+  // amsmath's \iftag@ after it: \mathdisplay (equation, \[ \]) and \displ@y@'s \everycr (align, gather) leave it false,
+  // a numbered multline's \mmeasure@ true; $$ leaves it alone
+  if (amsmath && next.kind !== "dollars") cx.run.tagFlag = next.kind === "multline" && !/\\(nonumber|notag)\b/.test(next.src)
   const { counters, refs, romanFont, run, v } = cx
-  if (next.kind === "align" || next.kind === "align*" || next.kind === "gather" || next.kind === "gather*") {
+  if (next.kind === "align" || next.kind === "align*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
-    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, quad, skips); else alignDisplay(cx, next, line, quad, skips)
+    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, quad, skips)
+    else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, quad)
+    else alignDisplay(cx, next, line, quad, skips)
     return
   }
   // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
@@ -414,6 +419,78 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
     const lb = lineBreak(par.list, par.params)
     decisions.push(lb.trace)
     v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))
+  }
+  v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+}
+
+/**
+ * amsmath's multline and multline* (\start@multline, \multline@, \mmeasure@, \rendmultline@): one formula broken
+ * into rows, each \hbox to\displaywidth{\hfil\strut@$\displaystyle{}row$\hfil} in a one-column \halign; the first
+ * row starts (in its formula) with \hfilneg\hskip\multlinegap, so it sits \multlinegap from the left, the middle
+ * ones are centred, and the last ends with \hskip\multlinetaggap, the number and \hfilneg (with no number,
+ * \hskip\multlinegap\hfilneg in its formula), so it sits at the right; a number that does not fit beside the last
+ * row (\mmeasure@'s \shifttag@) goes below it. Finished as an alignment in a display (§ 1206), as align is.
+ */
+export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number) {
+  const { amsmath, hyper } = cx.pre
+  const { counters, refs, romanFont, run, v } = cx
+  const src = d.src.trim()
+  if (/\\\\\s*$/.test(src)) throw new Unsupported("multline ending with \\\\")
+  if (/\\(label|tag|shoveleft|shoveright|raisetag|begin)\b/.test(src)) throw new Unsupported("\\label, \\tag, \\shoveleft, \\shoveright or an environment in multline")
+  if (hyper) throw new Unsupported("multline with hyperref")
+  const numbered = d.kind === "multline" && !/\\(nonumber|notag)\b/.test(src)
+  const env = mathEnv(run.k, "normalsize", true)
+  const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em)
+  const sz = run.k.sizes.normalsize, strut = sz.strut
+  const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+  const z = line.width, gap = 655360 // \multlinegap and \multlinetaggap, 10pt
+  const empty: MItem = { noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null } // the {} after \displaystyle
+  const formula = (items: MItem[]) => [{ kind: "math", on: true, width: 0 } as Node, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, empty, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 } as Node]
+  const hfilneg = () => glue(0, -65536, FIL)
+  const rowSrcs = src.split(/\\\\/), rows = rowSrcs.map(parse)
+  // \mmeasure@: the last row's width and depth, and whether the number fits beside it (its own mlist: mlist_to_hlist
+  // changes the one it converts)
+  const lastBox = hpack(formula(parse(rowSrcs[rowSrcs.length - 1])))
+  let tag: BoxNode | null = null
+  if (numbered) {
+    counters.equation++
+    refs.href = stepHref(cx, "equation", counters.equation)
+    const l: Node[] = []
+    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
+    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+    tag = hpack(l) // \maketag@@@
+  }
+  const shifted = !!tag && lastBox.width + tag.width + gap > z
+  const cells = rows.map((items, ri) => {
+    const first = ri === 0, last = ri === rows.length - 1
+    const lead: MItem[] = first ? [hfilneg(), glue(gap)] : []
+    let inner: Node[]
+    if (!last) inner = formula([...lead, ...items])
+    else if (!tag) inner = formula([...lead, ...items, glue(gap), hfilneg()])
+    else if (!shifted) inner = [...formula([...lead, ...items]), glue(gap), tag, hfilneg()]
+    else {
+      // \llap{\vtop{\normalbaselines \setbox\@ne\null \dp\@ne\lineht@ \box\@ne \hbox{\strut@\make@display@tag}}}
+      const nul = hpack([]); nul.depth = lastBox.depth
+      const list: Node[] = [nul]
+      appendToVlist(list, hpack([strutBox(), tag]), lastBox.depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
+      const vt = vpack(list)
+      vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
+      inner = [...formula([...lead, ...items]), glue(gap), hpack([ssGlue(), vt], { exactly: 0 }), hfilneg()]
+    }
+    return [[hpack([filGlue(), strutBox(), ...inner, filGlue()], { exactly: z })]]
+  })
+  const rowBoxes = halign(cells, [paramGlue("tabskip", glue(0)), paramGlue("tabskip", glue(0))], { additional: 0 })
+  // § 1206, with \openup\jot and amsmath's \everycr (\@display@init); \mmeasure@'s \halign ran it already and cleared
+  // \ifdt@p, so the first \cr's \noalign is the \penalty\@eqpen, not align's \lineskiplimit skips
+  v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
+  const jot = 196608
+  v.nodes.push(penalty(10000))
+  const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
+  for (const rb of rowBoxes) {
+    rb.display = true; rb.shift = line.indent
+    v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
+    v.nodes.push(penalty(10000), glue(0))
   }
   v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
 }

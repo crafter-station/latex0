@@ -124,7 +124,10 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   if (thmDef?.counter) {
     thmNumber = counters.stepNumbered(thmDef.counter)
     refs.label = thmNumber; refs.href = `${thmDef.counter}.${thmNumber}`
-    if (refs.cleveref) refs.cleveref.current = { type: thmDef.counter, arabic: counters.value(thmDef.counter), prefix: counters.crefPrefix(thmDef.counter), label: thmNumber }
+    // (cleveref's \@ynthm gives a theorem sharing a counter \refstepcounter[name]{counter}; LaTeX's first aid rebuilds
+    // the label from \@currentcounter unless \iftag@)
+    const crefType = run.tagFlag && thmDef.counter !== b.thm!.name && thmDef.crefNamed ? b.thm!.name : thmDef.counter
+    if (refs.cleveref) refs.cleveref.current = { type: crefType, arabic: counters.value(thmDef.counter), prefix: counters.crefPrefix(thmDef.counter), label: thmNumber }
   }
   // the body's font: \itshape for plain theorems
   const bodyAttrs: FontAttrs | undefined = thmDef?.style === "plain" ? { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" } : undefined

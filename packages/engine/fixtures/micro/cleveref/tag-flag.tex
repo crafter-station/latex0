@@ -1,0 +1,26 @@
+% fixture: cleveref/tag-flag
+% tier: T3
+% engine: document
+% covers: the type of a lemma sharing theorem's counter: LaTeX's first aid for cleveref rebuilds a \label's \cref@currentlabel from \@currentcounter (theorem) unless amsmath's \iftag@ holds, which a numbered multline leaves true (then cleveref's own \refstepcounter[lemma]{theorem}: lemma); equation, \[ \], align and gather set it false again, $$ leaves it alone, multline* leaves it false
+% issue: #66
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage{cleveref}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\begin{document}
+\begin{lemma}\label{l:a}First.\end{lemma}
+\begin{multline}
+a = b \\ = c
+\end{multline}
+\begin{lemma}\label{l:b}After a numbered multline.\end{lemma}
+$$ x = y $$
+\begin{lemma}\label{l:c}After dollars.\end{lemma}
+\[ u = v \]
+\begin{lemma}\label{l:d}After a bracket display.\end{lemma}
+\begin{multline*}
+p = q \\ = r
+\end{multline*}
+\begin{lemma}\label{l:e}After multline*.\end{lemma}
+See \cref{l:a}, \cref{l:b}, \cref{l:c}, \cref{l:d} and \cref{l:e}.
+\end{document}

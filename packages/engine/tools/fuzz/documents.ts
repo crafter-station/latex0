@@ -45,9 +45,9 @@ export function makeDocument(r: () => number): string {
   // a display in a list item, a theorem or a proof, maybe text after it (none: it ends the paragraph)
   let eqn = 0
   const listDisplay = () => {
-    const env = pick(["bracket", "bracket", "dollars", "equation", ...(ams ? ["equation*", "align*", "align", "gather", "gather*"] : [])])
-    const f = env.startsWith("gather") ? rowDisplay() : display()
-    const d = env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : env.startsWith("gather") ? `\\begin{${env}}\n${f}${r() < 0.7 ? ` \\\\\n${rowDisplay()}${r() < 0.3 ? " \\notag" : ""}` : ""}\n\\end{${env}}` : env.startsWith("align") ? `\\begin{${env}}\na &= ${pick(["x^2", "\\frac{1}{2}", "\\sum_{i=1}^n i", "f(x) + g(x)"])} \\\\\n &= b\n\\end{${env}}` : `\\begin{${env}}${env === "equation" && r() < 0.5 ? `\\label{eq:l${++eqn}}` : ""} ${f} \\end{${env}}`
+    const env = pick(["bracket", "bracket", "dollars", "equation", ...(ams ? ["equation*", "align*", "align", "gather", "gather*", "multline", "multline*"] : [])])
+    const f = env.startsWith("gather") || env.startsWith("multline") ? rowDisplay() : display()
+    const d = env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : env.startsWith("multline") ? `\\begin{${env}}\n${f} \\\\\n${r() < 0.4 ? `+ ${rowDisplay()} \\\\\n` : ""}= ${rowDisplay()}${r() < 0.2 ? " \\notag" : ""}\n\\end{${env}}` : env.startsWith("gather") ? `\\begin{${env}}\n${f}${r() < 0.7 ? ` \\\\\n${rowDisplay()}${r() < 0.3 ? " \\notag" : ""}` : ""}\n\\end{${env}}` : env.startsWith("align") ? `\\begin{${env}}\na &= ${pick(["x^2", "\\frac{1}{2}", "\\sum_{i=1}^n i", "f(x) + g(x)"])} \\\\\n &= b\n\\end{${env}}` : `\\begin{${env}}${env === "equation" && r() < 0.5 ? `\\label{eq:l${++eqn}}` : ""} ${f} \\end{${env}}`
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
@@ -400,8 +400,11 @@ export function makeDocument(r: () => number): string {
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120), true)]
       for (let d = r() < 0.3 ? 1 + Math.floor(r() * 2) : 0; d > 0; d--) {
         const f = display()
-        const env = ams ? pick(["bracket", "align", "align", "align*", "dollars", "gather", "gather*"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
-        if (env === "gather" || env === "gather*") { // rows of one formula each, some unnumbered
+        const env = ams ? pick(["bracket", "align", "align", "align*", "dollars", "gather", "gather*", "multline", "multline*"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
+        if (env === "multline" || env === "multline*") { // one formula broken in two to four rows
+          const rows = Array.from({ length: 2 + Math.floor(r() * 3) }, (_, i) => (i ? "+ " : "") + rowDisplay())
+          parts.push(`\\begin{${env}}\n${rows.join(" \\\\\n")}${r() < 0.2 ? " \\notag" : ""}\n\\end{${env}}`)
+        } else if (env === "gather" || env === "gather*") { // rows of one formula each, some unnumbered
           const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => rowDisplay() + (r() < 0.2 ? " \\nonumber" : ""))
           parts.push(`\\begin{${env}}\n${rows.join(" \\\\\n")}\n\\end{${env}}`)
         } else if (env === "align" || env === "align*") {

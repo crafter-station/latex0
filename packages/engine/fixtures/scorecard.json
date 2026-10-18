@@ -1,18 +1,18 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 249,
-  "exact": 247,
+  "fixtures": 251,
+  "exact": 249,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 242965
+  "glyphs": 243446
  },
  "areas": [
   {
    "area": "amsmath",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "amsthm",
@@ -36,8 +36,8 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "display",
@@ -378,6 +378,17 @@
    "status": "pass",
    "glyphs": 412,
    "covers": "amsmath's gather and gather*: each row centred alone in an \\halign to \\displaywidth (\\strut@, \\kern\\eqnshift@ half what the width leaves, the formula, \\hfil, \\tabskip\\@centering), the number \\llap'ed at the right edge, \\eqnshift@ less the tag's width when it is under four tags wide; \\nonumber and \\notag; rows of different widths; a row too wide for its tag beside it, whose tag goes below (\\vtop with \\lineht@ the row's depth); a gather in a proof and in an item; one wider than the line in a flush-left list, whose \\black@ paragraph keeps \\rightskip",
+   "issue": "#76"
+  },
+  {
+   "id": "amsmath/multline",
+   "file": "micro/amsmath/multline.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 302,
+   "covers": "amsmath's multline and multline*: rows in \\hbox to\\displaywidth{\\hfil\\strut@$\\displaystyle{}row$\\hfil}, the first starting with \\hfilneg\\hskip\\multlinegap, middle rows centred, the last ending with \\hskip\\multlinetaggap, the number and \\hfilneg (unnumbered: \\hskip\\multlinegap\\hfilneg); one row; \\notag; a last row too wide for its number beside it, whose number goes below; a multline in a theorem and in an item; an integral with both limits in the numbered last row (measured from its own mlist)",
    "issue": "#76"
   },
   {
@@ -758,6 +769,17 @@
    "status": "pass",
    "glyphs": 52,
    "covers": "\\cref and \\Cref of a label whose type has no name (cref reference format undefined): ?? in bold, \\nobreakspace and the label; a label read before any \\refstepcounter has the empty type and label; an undefined label is ?? alone",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/tag-flag",
+   "file": "micro/cleveref/tag-flag.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 179,
+   "covers": "the type of a lemma sharing theorem's counter: LaTeX's first aid for cleveref rebuilds a \\label's \\cref@currentlabel from \\@currentcounter (theorem) unless amsmath's \\iftag@ holds, which a numbered multline leaves true (then cleveref's own \\refstepcounter[lemma]{theorem}: lemma); equation, \\[ \\], align and gather set it false again, $$ leaves it alone, multline* leaves it false",
    "issue": "#66"
   },
   {
