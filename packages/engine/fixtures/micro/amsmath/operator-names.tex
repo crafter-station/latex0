@@ -1,0 +1,15 @@
+% fixture: amsmath/operator-names
+% tier: T3
+% engine: document
+% covers: amsopn's operator names, \qopname: \mathop{\kern\z@\operator@font name} then \nolimits@ (o; a \limits after it gobbled) or \displaylimits (m); \DeclareMathOperator and its * (\operatorname, \operatorname*), a one-letter name (the kern keeps it a sub-mlist), names with \, ; the kernel's \sin, \lim, \det … as amsopn redefines them
+% issue: #76
+\documentclass{article}
+\usepackage{amsmath}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator{\E}{E}
+\DeclareMathOperator{\rank}{rank}
+\begin{document}
+The trace $\tr A = \sum_i a_{ii}$ and $\tr(AB)=\tr(BA)$, with $\E[X]$, $\rank_2 M$, $\operatorname{span}\{v\}$, $\operatorname*{ess\,sup}_x f$, $\argmax_{\theta} L$ and $\tr\limits_a b$ beside them; $\sin x$, $\lim_{n} a_n$, $\det^2 A$ and $\log\limits_2 n$.
+\[ \argmax_{\theta\in\Theta} \tr\left(\theta A\right) + \operatorname*{ess\,sup}_{x} f - \E_{x}[\rank M] = \lim_{n\to\infty} \max_{i} \cos\theta_i \]
+\end{document}

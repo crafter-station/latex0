@@ -11,11 +11,20 @@
 
 import type { MathData } from "./data"
 import type { GlueSpec } from "../layout/dimen"
-import { glue, penalty } from "../layout/nodes"
+import { glue, kern, penalty } from "../layout/nodes"
 import { delimiterOf, groupField, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
+/** Operator names: latex.ltx's \mathop{\operator@font name} (with \nolimits: "o"), amsopn's \qopname\relax o|m{name}
+ *  (o: \nolimits@, m: \nmlimits@, \displaylimits), whose nucleus starts with \kern\z@ */
+const OPERATORS: Record<string, [string, "o" | "m"]> = {
+  log: ["log", "o"], lg: ["lg", "o"], ln: ["ln", "o"], lim: ["lim", "m"], limsup: ["lim\\,sup", "m"], liminf: ["lim\\,inf", "m"],
+  sin: ["sin", "o"], arcsin: ["arcsin", "o"], sinh: ["sinh", "o"], cos: ["cos", "o"], arccos: ["arccos", "o"], cosh: ["cosh", "o"],
+  tan: ["tan", "o"], arctan: ["arctan", "o"], tanh: ["tanh", "o"], cot: ["cot", "o"], coth: ["coth", "o"], sec: ["sec", "o"], csc: ["csc", "o"],
+  max: ["max", "m"], min: ["min", "m"], sup: ["sup", "m"], inf: ["inf", "m"], arg: ["arg", "o"], ker: ["ker", "o"], dim: ["dim", "o"],
+  hom: ["hom", "o"], det: ["det", "m"], exp: ["exp", "o"], Pr: ["Pr", "m"], gcd: ["gcd", "m"], deg: ["deg", "o"],
+}
 /** \tmspace in math (latex.ltx, amsmath): \mskip with a sign and a mu skip register (\> is \:) */
 const MU_SPACES: Record<string, [1 | -1, "thinmuskip" | "medmuskip" | "thickmuskip"]> = {
   ",": [1, "thinmuskip"], thinspace: [1, "thinmuskip"], "!": [-1, "thinmuskip"], negthinspace: [-1, "thinmuskip"],
@@ -227,6 +236,25 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         const code = data.mathcodes[c.charCodeAt(0)]
         if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported character ${c}`)
         out.push(mathCharNoad(code, fam))
+        continue
+      }
+      if (t.cs in OPERATORS || t.cs === "operatorname") { // (amsmath's \operatorname{name}, \operatorname*{name}: \qopname\newmcodes@ o|m)
+        let name: Token[], kind: "o" | "m"
+        if (t.cs === "operatorname") {
+          if (!opts.amsmath) throw new Error("math: \\operatorname without amsmath")
+          kind = isCh(toks[pos], "*") ? (pos++, "m") : "o"
+          name = argument()
+        } else { name = tokenize(OPERATORS[t.cs][0]); kind = OPERATORS[t.cs][1] }
+        // the nucleus: \mathop{\kern\z@\operator@font name}, a math group in family 0 (\symoperators)
+        const nucleus: MItem[] = opts.amsmath ? [kern(0, true)] : []
+        for (const x of name) {
+          if ("ch" in x && /^[A-Za-z0-9]$/.test(x.ch)) nucleus.push(mathCharNoad(data.mathcodes[x.ch.charCodeAt(0)], 0))
+          else if ("cs" in x && x.cs === ",") nucleus.push({ kind: "muglue", spec: data.muskips.thinmuskip })
+          else throw new Error(`math: an operator name with ${"ch" in x ? x.ch : `\\${x.cs}`}`)
+        }
+        out.push({ noad: OP, nucleus: { kind: "mlist", list: nucleus }, sup: null, sub: null, ...(kind === "o" ? { limits: "nolimits" as const } : {}) })
+        // \nolimits@: \@ifnextchar\limits{\nolimits\@gobble}{\nolimits}
+        if (opts.amsmath && kind === "o" && "cs" in (toks[pos] ?? {}) && (toks[pos] as { cs: string }).cs === "limits") pos++
         continue
       }
       if (t.cs === "ne" || t.cs === "neq") { toks.splice(pos, 0, { cs: "not" }, { ch: "=" }); continue } // fontmath.ltx: \not=

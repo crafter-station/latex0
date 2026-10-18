@@ -99,6 +99,7 @@ export function readPreamble(src: string): Preamble {
   const lengths: [string, string][] = [] // \setlength in the preamble
   const letterInfo: { signature?: string; address?: string; name?: string } = {}
   const newCounters: [string, string | null][] = []
+  const operators: [string, string, boolean][] = [] // \DeclareMathOperator(*){\cmd}{name}
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
@@ -152,6 +153,12 @@ export function readPreamble(src: string): Preamble {
       if (!star && !shared) newCounters.push([name, within ?? null])
       continue
     }
+    // amsopn's \DeclareMathOperator{\cmd}{name}: \cmd is \qopname\newmcodes@ o{name}, as \operatorname{name} (m, \operatorname*, with *)
+    const op = line.match(/^\\DeclareMathOperator(\*)?\s*\{\\([A-Za-z]+)\}\s*\{([^{}]*)\}$/)
+    if (op) {
+      if (!amsmath) throw new Unsupported("\\DeclareMathOperator without amsmath")
+      operators.push([op[2], op[3], !!op[1]]); continue
+    }
     const dc = line.match(/^\\definecolor\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}$/)
     if (dc) { colorDefs.push([dc[1], dc[2], dc[3]]); continue }
     const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
@@ -182,6 +189,7 @@ export function readPreamble(src: string): Preamble {
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   let body = src.slice(begin + 16, end)
+  for (const [cmd, name, star] of operators) body = body.replace(new RegExp(`\\\\${cmd}(?![A-Za-z])`, "g"), () => `\\operatorname${star ? "*" : ""}{${name}}`)
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
