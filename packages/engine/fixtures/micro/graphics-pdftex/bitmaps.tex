@@ -1,0 +1,17 @@
+% fixture: graphics-pdftex/bitmaps
+% oracle: pdflatex
+% files: plain.png screen.png print.png aspect.png photo.jpg shot.jpg both.png both.jpg jfif.jpg jfifcm.jpg
+% tier: T3
+% engine: document
+% covers: PNG and JPEG under pdflatex: pdfTeX's image box (pixels at the file's resolution, 72 dpi without one: a PNG's pHYs, rounded from pixels per metre, unequal ones; a JPEG's JFIF density, per inch or per cm), \Gread@pdftex's .99626 bounding box, natural size, width=, height=, both with keepaspectratio, scale=; \Gscale@box's \rlap, \pdfsetmatrix and kern; a name without extension (\Gin@extensions: .png before .jpg)
+\documentclass{article}
+\usepackage{graphicx}
+\begin{document}
+Natural \includegraphics{plain.png} and \includegraphics{screen.png} sizes.
+
+Print \includegraphics{print.png}, aspect \includegraphics{aspect.png}, photo \includegraphics{photo.jpg} and shot \includegraphics{shot.jpg}; JFIF \includegraphics{jfif.jpg} and \includegraphics{jfifcm.jpg}.
+
+Sized \includegraphics[width=3cm]{plain} and \includegraphics[height=1cm]{screen.png} and
+\includegraphics[width=4cm,height=1cm]{print.png} and \includegraphics[width=4cm,height=1cm,keepaspectratio]{print.png},
+both \includegraphics{both}, scaled \includegraphics[scale=0.5]{aspect.png} and \includegraphics[scale=1.5]{shot.jpg} in a line that goes on.
+\end{document}

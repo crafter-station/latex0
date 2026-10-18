@@ -1,0 +1,31 @@
+% fixture: graphics-pdftex/bitmap-contexts
+% oracle: pdflatex
+% files: plain.png screen.png print.png jfif.jpg
+% tier: T3
+% engine: document
+% covers: bitmaps under pdflatex where they stand: a centred figure with a caption, two minipages side by side with \hfill (width=\linewidth in each), an image in an item, height=2em and width=.5\textwidth, one taller than the line in a paragraph
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\begin{document}
+A paragraph with a tall image \includegraphics[height=2em]{screen} that pushes its line down, and more text after it so the paragraph runs over a few lines of the page.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=.5\textwidth]{print.png}
+\caption{A printed picture}
+\end{figure}
+
+\begin{figure}[h]
+\begin{minipage}{.45\textwidth}
+\includegraphics[width=\linewidth]{plain.png}
+\end{minipage}\hfill
+\begin{minipage}{.45\textwidth}
+\includegraphics[width=\linewidth]{jfif.jpg}
+\end{minipage}
+\end{figure}
+
+\begin{itemize}
+\item An item with \includegraphics[height=1em]{plain} inline.
+\item Another one.
+\end{itemize}
+\end{document}

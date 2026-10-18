@@ -6,9 +6,10 @@
 //   % issue: #112         optional, issue that owns this fixture
 //   % xfail: reason       expected to fail until the named work lands; passing is reported as xpass
 //   % oracle: pdflatex    the reference TeX: latex (dvips, the default) or pdflatex (PDF, positions from its box dumps)
+//   % files: a.png b.jpg  files next to the fixture that TeX reads (images); the engine gets their sizes
 
 export type Tier = "T0" | "T1" | "T2" | "T3"
-export interface FixtureHeader { fixture?: string; tier: Tier; engine?: string; covers?: string; issue?: string; xfail?: string; oracle: "latex" | "pdflatex" }
+export interface FixtureHeader { fixture?: string; tier: Tier; engine?: string; covers?: string; issue?: string; xfail?: string; oracle: "latex" | "pdflatex"; files: string[] }
 
 export function parseHeader(src: string): FixtureHeader {
   const fields: Record<string, string> = {}
@@ -21,5 +22,5 @@ export function parseHeader(src: string): FixtureHeader {
   if (!["T0", "T1", "T2", "T3"].includes(tier)) throw new Error(`bad tier "${fields.tier}"`)
   const oracle = (fields.oracle ?? "latex") as FixtureHeader["oracle"]
   if (!["latex", "pdflatex"].includes(oracle)) throw new Error(`bad oracle "${fields.oracle}"`)
-  return { fixture: fields.fixture, tier, engine: fields.engine, covers: fields.covers, issue: fields.issue, xfail: fields.xfail, oracle }
+  return { fixture: fields.fixture, tier, engine: fields.engine, covers: fields.covers, issue: fields.issue, xfail: fields.xfail, oracle, files: fields.files ? fields.files.split(/\s+/).filter(Boolean) : [] }
 }

@@ -1,16 +1,18 @@
-// graphicx's \includegraphics with the dvips driver (graphics.sty, graphicx.sty,
-// dvips.def). The file's bounding box gives the natural size (\Gin@setfile:
-// ury−lly by urx−llx, in bp); width=, height=, keepaspectratio and scale= ask for
-// another (\Gin@esetsize, \Gscale@div); the result is an \hbox of that size,
-// depth zero, holding dvips's PSfile special (\Ginclude@eps), and scale= puts
-// it in an \mbox (\Gscale@@box with no size).
+// graphicx's \includegraphics (graphics.sty, graphicx.sty) with the dvips driver (dvips.def) or pdfTeX's
+// (pdftex.def). The file's bounding box gives the natural size (\Gin@setfile: ury−lly by urx−llx, in bp): an EPS
+// file's %%BoundingBox under dvips; under pdfTeX a PNG's or JPEG's image box, whose width and height
+// \Gread@pdftex takes as .99626 of their pt (\Gin@defaultbp). width=, height=, keepaspectratio and scale= ask
+// for another size (\Gin@esetsize, \Gscale@div); the result is an \hbox of that size, depth zero, holding
+// dvips's PSfile special (\Ginclude@eps) or pdfTeX's image scaled by \Gscale@box (\Ginclude@@pdftex), and
+// scale= puts it in an \mbox (\Gscale@@box with no size).
 
 import { printScaled } from "../layout/arith"
 import { MAX_DIMEN, parseDimen, type Internal } from "../layout/dimen"
 import { hpack } from "../layout/pack"
-import type { BoxNode, Node } from "../layout/nodes"
+import { kern, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { widthRegisters } from "./boxes"
 import type { Ctx } from "./context"
+import type { Bitmap } from "./images"
 import { Unsupported } from "./unsupported"
 
 /** An EPS file's %%BoundingBox, its numbers as written (dvips's special prints them back) */
@@ -26,11 +28,16 @@ export function boundingBox(eps: string): BoundingBox | null {
 /** \includegraphics number n where it stands; `lineWidth`: \linewidth there; em and ex of the current font */
 export function graphicAt(cx: Ctx, n: number, lineWidth: number, units: { em: number; ex: number }): Node[] {
   const { file, options } = cx.graphics[n]
-  // \Gin@extensions for dvips: a name without one is tried as .eps, then .ps
-  const name = /\.[A-Za-z0-9]+$/.test(file) ? file : [`${file}.eps`, `${file}.ps`].find((f) => cx.images.has(f)) ?? `${file}.eps`
-  if (!/\.e?ps$/i.test(name)) throw new Unsupported(`a graphic of type ${name.replace(/^.*\./, "")} (dvips reads EPS)`)
-  const bb = cx.images.get(name)
-  if (!bb) throw new Unsupported(`a graphic whose size is not known: ${name}`)
+  const pdftex = cx.driver === "pdftex"
+  // \Gin@extensions: a name without one is tried with each, in order
+  const exts = pdftex ? [".pdf", ".png", ".jpg", ".mps", ".jpeg", ".jbig2", ".jb2", ".PDF", ".PNG", ".JPG", ".JPEG", ".JBIG2", ".JB2"] : [".eps", ".ps"]
+  const name = /\.[A-Za-z0-9]+$/.test(file) ? file : exts.map((e) => file + e).find((f) => cx.images.has(f)) ?? file + exts[0]
+  if (!(pdftex ? /\.(png|jpe?g)$/i : /\.e?ps$/i).test(name)) throw new Unsupported(`a graphic of type ${name.replace(/^.*\./, "")} with the ${cx.driver} driver`)
+  const info = cx.images.get(name)
+  if (!info || ("kind" in info) !== pdftex) throw new Unsupported(`a graphic whose size is not known: ${name}`)
+  // pdfTeX's image box, and \Gread@pdftex's bounding box: 0 0 and .99626 of its width and height
+  const image = "kind" in info ? bitmapSize(info) : null
+  const bb: BoundingBox = image ? { llx: "0", lly: "0", urx: stripPt(times(".99626", image.width)), ury: stripPt(times(".99626", image.height)) } : info as BoundingBox
   const keys = keyval(options)
   for (const k of keys.keys()) if (!["width", "height", "keepaspectratio", "scale"].includes(k)) throw new Unsupported(`\\includegraphics option ${k}`)
   if (keys.has("scale") && (keys.has("width") || keys.has("height"))) throw new Unsupported("\\includegraphics with scale and a size")
@@ -61,6 +68,7 @@ export function graphicAt(cx: Ctx, n: number, lineWidth: number, units: { em: nu
     if (iso) { if (factor(scaley) > factor(scalex)) scaley = scalex; else scalex = scaley }
     reqW = times(scalex, natW); reqH = times(scaley, natH)
   }
+  if (image) return pdftexBox(name, image, scalex, scaley, reqW, reqH, scale !== undefined)
   // \Ginclude@eps: the requested size in tenths of a bp, for the factors that are not !
   const tenth = parseDimen(".1bp", { em: 0, ex: 0 })
   const special = `PSfile="${name}" llx=${bb.llx} lly=${bb.lly} urx=${bb.urx} ury=${bb.ury} ${scalex !== null ? `rwi=${Math.trunc(reqW / tenth)} ` : ""}${scaley !== null ? `rhi=${Math.trunc(reqH / tenth)} ` : ""}`
@@ -68,6 +76,53 @@ export function graphicAt(cx: Ctx, n: number, lineWidth: number, units: { em: nu
   box.height = reqH; box.depth = 0; box.width = reqW
   return scale !== undefined ? [hpack([box])] : [box] // (scale=: \mbox)
 }
+
+/**
+ * pdfTeX's image box for a bitmap (writeimg.c's scale_image): one resolution standing for both when only one is
+ * given, 72 dpi when neither is; each side round(100in × pixels / (100 × resolution)) (ext_xn_over_d)
+ */
+export function bitmapSize(b: Bitmap): { width: number; height: number } {
+  let xr = b.xres, yr = b.yres
+  if (!xr && yr) xr = yr
+  if (!yr && xr) yr = xr
+  if (!xr) xr = yr = 72
+  const hundredInch = 7227 * 65536
+  const side = (px: number, res: number) => Math.round((hundredInch * px) / (100 * res))
+  return { width: side(b.width, xr), height: side(b.height, yr) }
+}
+
+/**
+ * \Gin@setfile's box under pdfTeX: \hbox{\Ginclude@@pdftex}, its depth zero and its size the requested one; in it
+ * \hbox{\Gscale@box{x}[y]{\pdfrefximage}}, which is \hb@xt@x\wd0{\box2\kern x\wd0\hss} with box 2
+ * \hbox{\pdfsave\pdfsetmatrix{x 0 0 y}\rlap{\copy0}\pdfrestore} (no matrix for the identity, \Gscale@start),
+ * y times box 0's height and depth (GPT@setup@scale: a ! factor is the other)
+ */
+function pdftexBox(name: string, image: { width: number; height: number }, scalex: string | null, scaley: string | null, reqW: number, reqH: number, mbox: boolean): Node[] {
+  const sx = scalex ?? scaley ?? "1", sy = scaley ?? sx
+  const box0 = hpack([{ kind: "hlist", width: image.width, height: image.height, depth: 0, shift: 0, list: [], glueSet: 0, glueSign: 0, glueOrder: 0, image: name }])
+  const rlap = hpack([box0, ssGlue()], { exactly: 0 })
+  const x = normalize(sx), y = normalize(sy)
+  const box2 = hpack(x === "1" && y === "1" ? [rlap] : [{ kind: "whatsit", text: "\\pdfsave" }, { kind: "whatsit", text: `\\pdfsetmatrix{${x} 0 0 ${y}}` }, rlap, { kind: "whatsit", text: "\\pdfrestore" }])
+  box2.height = times(sy, box0.height); box2.depth = times(sy, box0.depth)
+  const w = times(sx, box0.width)
+  const scaled = hpack([box2, kern(w, true), ssGlue()], { exactly: w })
+  const box = hpack([hpack([scaled])])
+  box.depth = 0; box.height = reqH; box.width = reqW
+  return mbox ? [hpack([box])] : [box]
+}
+
+/** \GPT@NormalizeNumber: no spaces or +, no leading zeros in the integer part or trailing ones in the fraction */
+function normalize(f: string): string {
+  let s = f.replace(/[\s+]/g, "").replace(/--/g, "")
+  const neg = s.startsWith("-"); if (neg) s = s.slice(1)
+  let [int, frac = ""] = s.split(".")
+  int = int.replace(/^0+/, ""); frac = frac.replace(/0+$/, "")
+  const t = int + (frac ? `.${frac}` : "")
+  return t === "" ? "0" : (neg ? "-" : "") + t
+}
+
+/** \strip@pt of a dimension: its value printed without "pt", and without ".0" */
+const stripPt = (x: number) => printScaled(x).replace(/\.0$/, "")
 
 /** keyval's list: key=value pairs and bare keys, split at commas outside braces */
 function keyval(options: string): Map<string, string> {
