@@ -24,7 +24,8 @@ export default function ScorecardPage() {
   const { summary, areas, fixtures } = scorecard
   const pct = Math.round((summary.exact / summary.fixtures) * 100)
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    // (the root layout fixes the page to the viewport for the editor: this page scrolls in its own box)
+    <main className="h-svh overflow-y-auto bg-background text-foreground">
       <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6">
         <Link href="/" className="font-mono text-xs text-muted-foreground hover:text-foreground">
           ← LATEX0
