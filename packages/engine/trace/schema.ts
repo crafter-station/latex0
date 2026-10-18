@@ -13,7 +13,8 @@ export interface TraceRule { h: number; v: number; width: number; height: number
 /** The box tree of a page (the \showbox view of a document). */
 export type BoxNode =
   | { type: "hbox" | "vbox"; width: number; height: number; depth: number; shift: number; glueSet: number; glueSign: 0 | 1 | 2; glueOrder: 0 | 1 | 2 | 3; children: BoxNode[]; /** e-TeX's ", display" box of display math */ display?: boolean }
-  | { type: "char"; font: string; size: number; char: number; /** original characters of a ligature */ lig?: string }
+  | { type: "char"; font: string; size: number; char: number; /** original characters of a ligature */ lig?: string
+      /** the font's file and size when TeX printed them (\pdftracingfonts): `at` absent for the design size */ tfm?: string; at?: number }
   | { type: "glue"; width: number; stretch: number; stretchOrder: number; shrink: number; shrinkOrder: number; /** skip parameter, e.g. "rightskip" */ param?: string }
   | { type: "kern"; width: number; explicit?: boolean }
   | { type: "rule"; width: number | null; height: number | null; depth: number | null }
