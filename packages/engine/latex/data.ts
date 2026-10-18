@@ -19,17 +19,23 @@ export interface DataSource {
   hyphenation(language: string): HyphenationData
   /** data/math/latex.json */
   math(): MathData
+  /** data/webfonts.json: what draws each font's characters in a browser */
+  webfonts(): WebFonts
 }
+
+/** tools/webfonts/build.py's manifest: a TFM name's web font file (public/fonts/tex/<file>.woff2) and the code point of each character code (0: none) */
+export interface WebFonts { fonts: Record<string, [file: string, codes: number]>; codes: number[][] }
 
 let source: DataSource | null = null
 const fonts = new Map<string, FixWordFont>()
 const classes = new Map<string, ClassData>()
 const patterns = new Map<string, HyphenationData>()
 let math: MathData | null = null
+let webfonts: WebFonts | null = null
 
 export function installData(s: DataSource): void {
   source = s
-  fonts.clear(); classes.clear(); patterns.clear(); math = null
+  fonts.clear(); classes.clear(); patterns.clear(); math = null; webfonts = null
 }
 
 function data(): DataSource {
@@ -47,3 +53,4 @@ export const dataFont = (name: string): FixWordFont => memo(fonts, name, () => d
 export const classFile = (cls: string): ClassData => memo(classes, cls, () => data().documentClass(cls))
 export const hyphenationData = (language = "en-us"): HyphenationData => memo(patterns, language, () => data().hyphenation(language))
 export const mathData = (): MathData => (math ??= data().math())
+export const webfontData = (): WebFonts => (webfonts ??= data().webfonts())

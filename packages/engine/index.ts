@@ -20,6 +20,15 @@ export { renderAst, type RenderOptions } from "./render"
 export { LATEX_CSS } from "./styles"
 export type { Node, Token } from "./types"
 
+// The exact engine: a document laid out as TeX lays it out, drawn as SVG pages (emit/svg). The host
+// installs the engine's data (data/*.json) first; a construct the engine cannot lay out exactly yet
+// throws Unsupported.
+export { document, type DocumentOptions } from "./latex/document"
+export { svgPages, type SvgOptions, type SvgPages } from "./emit/svg"
+export { installData, type DataSource, type WebFonts } from "./latex/data"
+export { Unsupported } from "./latex/unsupported"
+export { bitmapInfo, type Bitmap } from "./latex/images"
+
 /** The source with the document's macro definitions removed and their uses expanded. */
 export function expandMacros(source: string): string {
   return expandDocument(source, { known: isKnownCommand }).text

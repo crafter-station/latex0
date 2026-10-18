@@ -9,7 +9,17 @@ import type { Trace, TracePage } from "../trace/schema"
 
 interface Cursor { h: number; v: number }
 
-function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
+/** What a trace leaves out that drawing the page needs: whatsits (colors, links) and images, where ship_out meets them */
+export type PageMark =
+  /** `glyphs` and `rules`: how many of the page's glyphs and rules came before it */
+  | { kind: "whatsit"; text: string; h: number; v: number; glyphs: number; rules: number }
+  /** (h, v) is the left end of the image box's baseline */
+  | { kind: "image"; name: string; h: number; v: number; width: number; height: number; depth: number }
+
+const whatsit = (marks: PageMark[] | null, text: string, cur: Cursor, page: TracePage) =>
+  marks?.push({ kind: "whatsit", text, h: cur.h, v: cur.v, glyphs: page.glyphs.length, rules: page.rules.length })
+
+function hlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] | null) {
   let curG = 0, curGlue = 0
   const baseLine = cur.v, leftEdge = cur.h
   for (const p of box.list) {
@@ -19,10 +29,14 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
         cur.h += p.width
         break
       case "hlist": case "vlist": {
-        if (p.list.length === 0) { cur.h += p.width; break }
+        if (p.list.length === 0) {
+          if (p.image) marks?.push({ kind: "image", name: p.image, h: cur.h, v: baseLine + p.shift, width: p.width, height: p.height, depth: p.depth })
+          cur.h += p.width
+          break
+        }
         const saveH = cur.h
         cur.v = baseLine + p.shift
-        if (p.kind === "vlist") vlistOut(p, cur, page); else hlistOut(p, cur, page)
+        if (p.kind === "vlist") vlistOut(p, cur, page, marks); else hlistOut(p, cur, page, marks)
         cur.h = saveH + p.width
         cur.v = baseLine
         break
@@ -64,7 +78,7 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
           while (cur.h + lb.width <= edge) {
             const saveH = cur.h
             cur.v = baseLine + lb.shift
-            if (lb.kind === "vlist") vlistOut(lb, cur, page); else hlistOut(lb, cur, page)
+            if (lb.kind === "vlist") vlistOut(lb, cur, page, marks); else hlistOut(lb, cur, page, marks)
             cur.v = baseLine
             cur.h = saveH + lb.width + lx
           }
@@ -75,12 +89,13 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
         break
       }
       case "kern": case "math": cur.h += p.width; break
-      case "penalty": case "disc": case "whatsit": case "ins": case "adjust": break
+      case "whatsit": whatsit(marks, p.text, cur, page); break
+      case "penalty": case "disc": case "ins": case "adjust": break
     }
   }
 }
 
-function vlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
+function vlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] | null) {
   let curG = 0, curGlue = 0
   const leftEdge = cur.h
   cur.v -= box.height
@@ -88,11 +103,15 @@ function vlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
     switch (p.kind) {
       case "char": throw new Error("vlist_out: character in vertical list")
       case "hlist": case "vlist": {
-        if (p.list.length === 0) { cur.v += p.height + p.depth; break }
+        if (p.list.length === 0) {
+          if (p.image) marks?.push({ kind: "image", name: p.image, h: leftEdge + p.shift, v: cur.v + p.height, width: p.width, height: p.height, depth: p.depth })
+          cur.v += p.height + p.depth
+          break
+        }
         cur.v += p.height
         const saveV = cur.v
         cur.h = leftEdge + p.shift
-        if (p.kind === "vlist") vlistOut(p, cur, page); else hlistOut(p, cur, page)
+        if (p.kind === "vlist") vlistOut(p, cur, page, marks); else hlistOut(p, cur, page, marks)
         cur.v = saveV + p.depth
         cur.h = leftEdge
         break
@@ -116,20 +135,23 @@ function vlistOut(box: BoxNode, cur: Cursor, page: TracePage) {
         break
       }
       case "kern": cur.v += p.width; break
-      case "penalty": case "whatsit": case "ins": case "adjust": break
+      case "whatsit": whatsit(marks, p.text, cur, page); break
+      case "penalty": case "ins": case "adjust": break
       case "math": throw new Error("math node in a vertical list")
       case "disc": throw new Error("vlist_out: discretionary in vertical list")
     }
   }
 }
 
-/** ship_out (§ 640): `origin` is the DVI position of the box's top-left corner. */
-export function shipOut(pages: BoxNode[], origin = { h: 0, v: 0 }, count0: number[] = pages.map((_, i) => i + 1)): Trace {
+/** ship_out (§ 640): `origin` is the DVI position of the box's top-left corner; `marks` gets each page's whatsits and images */
+export function shipOut(pages: BoxNode[], origin = { h: 0, v: 0 }, count0: number[] = pages.map((_, i) => i + 1), marks?: PageMark[][]): Trace {
   const trace: Trace = { unit: "sp", mag: 1000, pages: [] }
   pages.forEach((box, i) => {
     const page: TracePage = { counts: [count0[i], 0, 0, 0, 0, 0, 0, 0, 0, 0], glyphs: [], rules: [], specials: [] }
     const cur = { h: origin.h, v: origin.v + box.height }
-    if (box.kind === "vlist") vlistOut(box, cur, page); else hlistOut(box, cur, page)
+    const m: PageMark[] | null = marks ? [] : null
+    if (box.kind === "vlist") vlistOut(box, cur, page, m); else hlistOut(box, cur, page, m)
+    if (m) marks!.push(m)
     trace.pages.push(page)
   })
   return trace
