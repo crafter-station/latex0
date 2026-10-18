@@ -23,6 +23,8 @@ export interface SizeData {
   math: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
   /** the same with amsmath loaded, which declares the extension font (family 3) at every size */
   mathAms: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
+  /** the math alphabets' families (\mathbf, \mathit, \mathsf, \mathtt): text, script and scriptscript fonts */
+  alphabets: Record<"mathbf" | "mathit" | "mathsf" | "mathtt", FontRef[]>
   /** the bold extended roman (\bfseries) at this size */
   bold: FontRef
   /** the text companion font (TS1: \textbullet…) at this size */

@@ -8,7 +8,6 @@ import { lineBreak } from "../layout/linebreak"
 import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
 import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
-import { parseMath } from "../mathlayout/parse"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
 import { xnOverD } from "../layout/arith"
@@ -19,7 +18,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, labelWrite, mathData, mathEnv, paragraphInput, spec } from "./paragraph"
+import { squeeze, appendToVlist, labelWrite, mathEnv, paragraphInput, spec, parseFormula } from "./paragraph"
 
 /**
  * A paragraph that may hold displays (§§ 1145–1206). The text before each display is broken
@@ -87,7 +86,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (labels.length > 1) throw new Unsupported("several \\label in an equation")
     const label = labels[0]
     if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
-    const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData(), { amsmath }) } catch (e) { throw new Unsupported((e as Error).message) } }
+    const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath)
     if (next.kind === "equation") { counters.equation++; refs.href = counters.href("equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
     const newlabel: Node | null = label ? labelWrite(refs, label[1], counters.the(counters.equation)) : null
     let mlist: MItem[]
@@ -146,7 +145,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
   const env = mathEnv(run.k, "normalsize", true)
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
-  const parse = (f: string) => { try { return parseMath(f.replace(/\s+/g, " "), mathData(), { amsmath }) } catch (e) { throw new Unsupported((e as Error).message) } }
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath)
   const rows = src.split(/\\\\/).map((r) => {
     const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
     const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {

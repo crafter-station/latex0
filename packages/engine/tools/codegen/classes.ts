@@ -38,6 +38,8 @@ const INTS = [
 /** The text fonts the engine selects: encoding/family/series/shape (NFSS) */
 const FONT_SHAPES = ["OT1", "T1", "TS1"].flatMap((e) => ["cmr", "cmss", "cmtt"].flatMap((f) => ["m", "bx"].flatMap((s) => ["n", "it", "sl", "sc", "scit", "scsl"].map((h) => `${e}/${f}/${s}/${h}`))))
 const LIST = [["D", "leftmargin"], ["D", "labelwidth"], ["G", "topsep"], ["G", "partopsep"], ["G", "parsep"], ["G", "itemsep"]] as const
+/** the math alphabets that allocate a family of their own (\\mathrm, \\mathnormal and \\mathcal use 0, 1 and 2) */
+export const ALPHABETS = ["mathbf", "mathit", "mathsf", "mathtt"] as const
 const DISPLAY = ["abovedisplayskip", "belowdisplayskip", "abovedisplayshortskip", "belowdisplayshortskip"] as const
 
 function probe(cls: string, option: string, packages = ""): string {
@@ -50,7 +52,10 @@ function probe(cls: string, option: string, packages = ""): string {
       `\\immediate\\write16{T:\\expandafter\\@gobble\\string#1:\\the\\ht\\strutbox:\\the\\dp\\strutbox}` +
       `{\\fontencoding{TS1}\\selectfont\\immediate\\write16{C:\\expandafter\\@gobble\\string#1:\\fontname\\font}}` +
       `{\\bfseries\\immediate\\write16{B:\\expandafter\\@gobble\\string#1:\\fontname\\font}}` +
-      `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}}}`,
+      `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}` +
+      // the math alphabets' families (allocated on first use) at text, script and scriptscript size
+      `\\setbox0\\hbox{$${ALPHABETS.map((a) => `\\${a}{\\xdef\\fam${a}{\\the\\fam}}`).join("")}` +
+      `\\immediate\\write16{A:\\expandafter\\@gobble\\string#1${ALPHABETS.flatMap((a) => ["text", "script", "scriptscript"].map((st) => `:\\fontname\\${st}font\\csname fam${a}\\endcsname`)).join("")}}$}}}`,
     "\\begin{document}",
     // with fontenc loaded: the font of every encoding, family, series and shape at every size (what NFSS
     // substitutes when the shape is not declared) and its \\hyphenchar
@@ -102,6 +107,7 @@ function texData(cls: string, option: string): ClassOptionData {
   const t1Log = readFileSync(join(dir, "t1.log"), "latin1").split("\n")
   const data: ClassOptionData = { dimens: {}, glue: {}, ints: {}, sizes: {} as ClassOptionData["sizes"] }
   const mathFonts = new Map<string, SizeData["math"]>()
+  const alphabets = new Map<string, SizeData["alphabets"]>()
   const struts = new Map<string, SizeData["strut"]>()
   const companion = new Map<string, SizeData["companion"]>()
   const bold = new Map<string, SizeData["bold"]>()
@@ -120,6 +126,7 @@ function texData(cls: string, option: string): ClassOptionData {
         abovedisplayskip: display[0], belowdisplayskip: display[1], abovedisplayshortskip: display[2], belowdisplayshortskip: display[3],
         math: { text: [], script: [], scriptscript: [] },
         mathAms: { text: [], script: [], scriptscript: [] },
+        alphabets: { mathbf: [], mathit: [], mathsf: [], mathtt: [] },
         strut: { height: 0, depth: 0 },
         companion: { name: "", at: 0 },
         bold: { name: "", at: 0 },
@@ -131,12 +138,16 @@ function texData(cls: string, option: string): ClassOptionData {
       (m[1] === "C" ? companion : bold).set(m[2], { name: m[3], at: m[4] ? parseScaled(m[4]) : designSize(m[3]) })
     } else if ((m = line.match(/^T:(\w+):([\d.]+)pt:([\d.]+)pt$/))) {
       struts.set(m[1], { height: parseScaled(m[2]), depth: parseScaled(m[3]) })
+    } else if ((m = line.match(/^A:(\w+):(.*)$/))) {
+      const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
+      alphabets.set(m[1], Object.fromEntries(ALPHABETS.map((a, i) => [a, refs.slice(3 * i, 3 * i + 3)])) as SizeData["alphabets"])
     } else if ((m = line.match(/^F:(\w+):(.*)$/))) {
       const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
       mathFonts.set(m[1], { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) })
     }
   }
   for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
+  for (const [size, a] of alphabets) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].alphabets = a
   for (const line of amsLog) {
     const m = line.match(/^F:(\w+):(.*)$/)
     if (!m || !data.sizes[m[1] as keyof ClassOptionData["sizes"]]) continue
@@ -156,7 +167,7 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || ALPHABETS.some((a) => data.sizes[s].alphabets[a].length !== 3) || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
   // letter has no floats' captions
   const absent = cls === "letter" ? ["abovecaptionskip", "belowcaptionskip"] : []
   const lacking = missing.filter((x) => !absent.includes(x))

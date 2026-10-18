@@ -1,0 +1,15 @@
+% fixture: math/alphabets
+% tier: T3
+% engine: document
+% covers: math alphabets: \mathrm, \mathnormal, \mathcal (the operators, letters and symbols families), \mathbf, \mathit, \mathsf, \mathtt (families of their own, fonts at text, script and scriptscript size); only class-7 characters (letters, digits) change; in scripts, displays, groups and other sizes
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+The derivative $\frac{\mathrm{d}y}{\mathrm{d}x}$ and the maximum $x_\mathrm{max}$ of a vector
+$\mathbf{v} = (v_1, v_2)$ in $\mathcal{A}\cup\mathcal{B}$, with $\mathit{diff} \leq \mathnormal{diff}$
+and code $\mathtt{x+1}$ next to $\mathsf{Set}_{\mathsf{k}^{\mathbf{2}}}$; Greek is unchanged: $\mathbf{\alpha + 2b}$.
+\begin{equation}
+  \mathbf{F} = m\mathbf{a}, \mathrm{e}^{\mathrm{i}\pi} + 1 = 0 \label{eq:f}
+\end{equation}
+{\small In small: $\mathbf{x}^{\mathbf{y}^{\mathbf{z}}}$ and $\mathit{ab}_{\mathit{cd}}$.}
+\end{document}
