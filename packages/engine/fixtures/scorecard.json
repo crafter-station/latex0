@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 209,
-  "exact": 207,
+  "fixtures": 211,
+  "exact": 209,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 192731
+  "glyphs": 192996
  },
  "areas": [
   {
@@ -48,6 +48,11 @@
    "area": "footnotes",
    "fixtures": 3,
    "exact": 3
+  },
+  {
+   "area": "graphics",
+   "fixtures": 2,
+   "exact": 2
   },
   {
    "area": "hyperref",
@@ -781,6 +786,26 @@
    "glyphs": 3807,
    "covers": "footnotes in a two-sided 12pt book: \\skip\\footins and \\footnotesep at 12pt, flush-bottom pages stretching around the notes, several notes on a page, numbering across pages",
    "issue": "#115"
+  },
+  {
+   "id": "graphics/contexts",
+   "file": "micro/graphics/contexts.tex",
+   "area": "graphics",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 197,
+   "covers": "\\includegraphics where it stands: side by side in a figure (\\hfill), a bounding box with an offset and decimals, a file named without .eps, \\linewidth in a list, \\textwidth in a minipage, a height in em, keepaspectratio limited by the height, scale= in an \\mbox with xcolor loaded; em and ex of the current font (italic, bold)"
+  },
+  {
+   "id": "graphics/sizes",
+   "file": "micro/graphics/sizes.tex",
+   "area": "graphics",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 68,
+   "covers": "\\includegraphics (graphicx, dvips): the EPS bounding box's natural size, width=, height=, both, keepaspectratio, scale=; in a figure with \\centering and in text"
   },
   {
    "id": "hyperref/anchors-plain",

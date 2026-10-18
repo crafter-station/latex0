@@ -44,7 +44,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false, graphOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -98,6 +98,7 @@ export function makeDocument(r: () => number): string {
     if (cap && r() < 0.6) { const c = `\\caption{${words(1 + Math.floor(r() * (r() < 0.3 ? 14 : 4)))}}${r() < 0.5 ? `\\label{${cap}}` : ""}`; if (r() < 0.75) body.push(c); else body.unshift(c) }
     return `\\begin{minipage}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{minipage}`
   }
+  const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
   // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)
   const address = () => {
     const seg = () => pick(["docs", "a", "2024", "reports", "file_name", "x-y", "v1.2", "index.html", "Path", "q"])
@@ -123,6 +124,7 @@ export function makeDocument(r: () => number): string {
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (r() < 0.006 && !hyper) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
+      if (graphOn && r() < 0.003) ws[i] += ` \\includegraphics[${pick(["height=1em", "scale=0.05", "width=1cm"])}]{${pick(["wide", "tall"])}}`
       if (amsOn && r() < 0.005) ws[i] += pick([" \\eqref{eq:3-1}", "~\\eqref{eq:6-1}", " \\eqref{eq:10-1}", " (\\eqref{eq:15-1})", " \\eqref{eq:2-1}", " \\eqref{nowhere}"])
       // addresses: \url (url.sty or hyperref), \nolinkurl and \href (hyperref)
       if ((urlOn || hyper) && r() < 0.006) ws[i] += pick([" ", "~", " see "]) + `\\url{${address()}}`
@@ -154,6 +156,15 @@ export function makeDocument(r: () => number): string {
   // class options: the size, sometimes a paper and two-sided printing
   const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 && cls !== "letter" ? (cls === "book" ? "oneside" : "twoside") : ""].filter(Boolean)
   const out = [`\\documentclass${copts.length ? `[${copts.join(",")}]` : ""}{${cls}}`]
+  // graphics: EPS files the document writes before \documentclass (filecontents*, prepended at the end, since the
+  // preamble's lines are spliced in after out[0]), and graphicx
+  const files: string[] = []
+  graphOn = r() < 0.25 && !isLetter
+  if (graphOn) {
+    const eps = (name: string, bb: string) => [`\\begin{filecontents*}[overwrite]{${name}.eps}`, "%!PS-Adobe-3.0 EPSF-3.0", `%%BoundingBox: ${bb}`, "%%EndComments", "\\end{filecontents*}"]
+    files.push(...eps("wide", "0 0 400 200"), ...eps("tall", "10 20 110.5 320.25"))
+    out.push("\\usepackage{graphicx}")
+  }
   // the geometry package: margins, body sizes, scales, ratios, head and foot, rounding
   if (r() < 0.3) {
     const len = () => pick([`${(0.5 + Math.floor(r() * 12) / 8).toFixed(3).replace(/0+$/, "")}in`, `${1 + Math.floor(r() * 30) / 10}cm`, `${20 + Math.floor(r() * 50)}mm`, `${40 + Math.floor(r() * 60)}pt`])
@@ -286,7 +297,7 @@ export function makeDocument(r: () => number): string {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
       const env = pick(["figure", "table"])
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
-      const table = r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` : ""
+      const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` : ""
       const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
       const below = table && r() < 0.5
       out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
@@ -392,7 +403,7 @@ export function makeDocument(r: () => number): string {
   }
   if (cls === "book" && r() < 0.3) out.push("\\backmatter", ...(r() < 0.5 ? [`\\chapter{${words(2)}}`, text(20)] : []))
   out.push("\\end{document}", "")
-  return out.join("\n")
+  return [...files, ...out].join("\n")
 }
 
 export function fuzzDocuments(n: number, seed: number): number {

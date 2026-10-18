@@ -1,0 +1,25 @@
+% fixture: graphics/sizes
+% tier: T3
+% engine: document
+% covers: \includegraphics (graphicx, dvips): the EPS bounding box's natural size, width=, height=, both, keepaspectratio, scale=; in a figure with \centering and in text
+\begin{filecontents*}[overwrite]{box200x100.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 200 100
+%%EndComments
+\end{filecontents*}
+\documentclass{article}
+\usepackage{graphicx}
+\begin{document}
+Natural size \includegraphics{box200x100.eps} in text, and scaled
+\includegraphics[scale=0.25]{box200x100.eps} small.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\textwidth]{box200x100.eps}
+  \caption{Blocks.}
+\end{figure}
+
+Height \includegraphics[height=1cm]{box200x100.eps}, both
+\includegraphics[width=2cm,height=2cm]{box200x100.eps} and kept
+\includegraphics[width=2cm,height=2cm,keepaspectratio]{box200x100.eps}.
+\end{document}

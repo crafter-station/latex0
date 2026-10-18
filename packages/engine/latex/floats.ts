@@ -69,7 +69,7 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   let pd: number | null = IGNORE_DEPTH, number = 0, captionName = ""
   const hsize = run.k.dimens.columnwidth
   const fbody = b.body.trim()
-  const tokens = [...fbody.matchAll(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LXminipage\{\d+\}|\S+/g)]
+  const tokens = [...fbody.matchAll(/\\centering\b|\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LX(?:minipage|graphic)\{\d+\}|\S+/g)]
   const items = tokens.map((t) => t[0])
   let centered = false
   /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
@@ -94,10 +94,11 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   for (let ii = 0; ii < items.length; ii++) {
     const it = items[ii]
     if (it === "\\centering") { centered = true; continue }
-    // minipages start a paragraph (\leavevmode): with what joins them on the line (\hfill, \quad, ~), up to a blank line
-    if (/^\\LXminipage\{\d+\}$/.test(it)) {
+    // minipages and graphics start a paragraph (\leavevmode): with what joins them on the line (\hfill, \quad, ~),
+    // up to a blank line
+    if (/^\\LX(?:minipage|graphic)\{\d+\}$/.test(it)) {
       let jj = ii
-      while (jj + 1 < items.length && /^(?:\\LXminipage\{\d+\}|\\hfill|\\hfil|\\quad|\\qquad|~)$/.test(items[jj + 1]) && !/\n[ \t]*\n/.test(fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!))) jj++
+      while (jj + 1 < items.length && /^(?:\\LX(?:minipage|graphic)\{\d+\}|\\hfill|\\hfil|\\quad|\\qquad|~)$/.test(items[jj + 1]) && !/\n[ \t]*\n/.test(fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!))) jj++
       floatParagraph([hpack([])], fbody.slice(tokens[ii].index!, tokens[jj].index! + items[jj].length))
       ii = jj
       continue

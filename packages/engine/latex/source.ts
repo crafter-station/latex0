@@ -34,9 +34,24 @@ export function inlineMathParens(src: string): string {
 /** a URL as typed (verbatim), and whether it is a link (\url and \href with hyperref; not \nolinkurl) */
 export interface UrlSource { address: string; link: boolean }
 
-export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[] }
+/** \includegraphics[options]{file} as typed */
+export interface GraphicSource { options: string; file: string }
+
+export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[]
+  /** \includegraphics, by number (\LXgraphic{n}) */
+  graphics: GraphicSource[]
+  /** the files a filecontents* environment before \documentclass writes: name → contents */
+  files: Map<string, string> }
 
 export function prepareSource(source: string): DocumentSource {
+  // filecontents* environments before \documentclass: the files they write (the graphics' bounding boxes)
+  const files = new Map<string, string>()
+  const head = Math.max(0, source.indexOf("\\documentclass"))
+  source = source.slice(0, head).replace(/\\begin\{filecontents\*\}(?:\[[^\]]*\])?\{([^{}]+)\}\n([^]*?)\\end\{filecontents\*\}[ \t]*\n?/g, (_, name: string, body: string) => {
+    files.set(name.trim(), body)
+    return ""
+  }) + source.slice(head)
+  if (/\\begin\{filecontents/.test(source)) throw new Unsupported("a filecontents environment not read")
   // the document's own macros expanded first, as the renderer does (expand:doc checks this keeps TeX's output)
   // listings' environments are read verbatim: each becomes \lstplaceholder{n}
   const listings: Listing[] = []
@@ -77,6 +92,14 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXlstinline{${listings.length - 1}}`
   })
   if (/\\lstinline(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\lstinline not read")
+  // \includegraphics[options]{file}: \LXgraphic{n}, laid out where it stands
+  const graphics: GraphicSource[] = []
+  source = source.replace(/\\includegraphics(?![A-Za-z])\s*(?:\[((?:[^\]{}]|\{[^{}]*\})*)\])?\s*\{([^{}\n]*)\}/g, (all: string, options: string | undefined, file: string, offset: number, text: string) => {
+    if (/(^|[^\\])%/.test(text.slice(text.lastIndexOf("\n", offset) + 1, offset))) return all
+    graphics.push({ options: options ?? "", file: file.trim() })
+    return `\\LXgraphic{${graphics.length - 1}}`
+  })
+  if (/\\includegraphics(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\includegraphics not read")
   // \url{address} or \url<c>address<c> (and hyperref's \nolinkurl), read verbatim with url.sty's catcodes:
   // \LXurl{n}; \href{address}{text}'s address likewise: \LXhref{n}{text}
   const urls: UrlSource[] = []
@@ -119,7 +142,7 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXminipage{${minipages.length - 1}}`
   })
   if ([...src.matchAll(/\\(?:begin|end)\{minipage\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
-  return { src, listings, tabulars, minipages, urls }
+  return { src, listings, tabulars, minipages, urls, graphics, files }
 }
 
 /** How many groups are open at the end of `src` (braces not escaped). */

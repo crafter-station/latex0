@@ -1,0 +1,38 @@
+% fixture: graphics/contexts
+% tier: T3
+% engine: document
+% covers: \includegraphics where it stands: side by side in a figure (\hfill), a bounding box with an offset and decimals, a file named without .eps, \linewidth in a list, \textwidth in a minipage, a height in em, keepaspectratio limited by the height, scale= in an \mbox with xcolor loaded; em and ex of the current font (italic, bold)
+\begin{filecontents*}[overwrite]{photo.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 12 34 412.5 334.25
+%%EndComments
+\end{filecontents*}
+\begin{filecontents*}[overwrite]{tall.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 50 150
+%%EndComments
+\end{filecontents*}
+\documentclass[11pt]{article}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\begin{document}
+Some text before the figures, long enough to fill a line or so of the paragraph here.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.45\textwidth]{photo}\hfill
+  \includegraphics[width=0.45\textwidth]{tall.eps}
+  \caption{Side by side.}
+\end{figure}
+
+\begin{itemize}
+  \item A list item with \includegraphics[width=0.5\linewidth]{photo.eps} inside.
+\end{itemize}
+\begin{minipage}{6cm}
+In a minipage: \includegraphics[width=0.5\textwidth]{photo} and \includegraphics[height=2em]{tall}.
+\end{minipage}
+
+Kept: \includegraphics[width=3cm,height=1cm,keepaspectratio]{tall.eps} and scaled
+\includegraphics[scale=0.1]{photo.eps} and \textcolor{red}{red \includegraphics[scale=0.05]{tall}} done.
+In italics the em is the italic font's: \emph{see \includegraphics[height=1em]{tall} here} and \textbf{\includegraphics[height=2ex]{photo}} too.
+\end{document}
