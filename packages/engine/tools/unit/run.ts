@@ -86,7 +86,7 @@ export function runFixture(path: string): UnitResult {
     // the oracle's own check: the positions its box dumps imply are the DVI's (what a run without DVI relies on)
     const fromBoxes = header.oracle === "pdflatex" ? null : compareTraces(expected, boxTrace(pages))
     if (fromBoxes) return done({ status: "error", message: `oracle: positions from TeX's box dumps differ from its DVI at page ${fromBoxes.page + 1} ${fromBoxes.field}: DVI ${JSON.stringify(fromBoxes.expected)}, boxes ${JSON.stringify(fromBoxes.actual)}` })
-    const { trace: actual, decisions, pages: pageDecisions, columns, notes } = adapter(src, expected)
+    const { trace: actual, decisions, pages: pageDecisions, columns, notes } = adapter(src, expected, path)
     const schema = validateTrace(actual)
     if (schema.length) return done({ status: "error", message: `schema: ${schema[0]}`, notes })
     if (decisions) {

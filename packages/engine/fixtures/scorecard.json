@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 223,
-  "exact": 221,
+  "fixtures": 225,
+  "exact": 223,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 230853
+  "glyphs": 231113
  },
  "areas": [
   {
@@ -56,6 +56,11 @@
   },
   {
    "area": "graphics",
+   "fixtures": 2,
+   "exact": 2
+  },
+  {
+   "area": "graphics-pdftex",
    "fixtures": 2,
    "exact": 2
   },
@@ -876,6 +881,26 @@
    "status": "pass",
    "glyphs": 68,
    "covers": "\\includegraphics (graphicx, dvips): the EPS bounding box's natural size, width=, height=, both, keepaspectratio, scale=; in a figure with \\centering and in text"
+  },
+  {
+   "id": "graphics-pdftex/bitmap-contexts",
+   "file": "micro/graphics-pdftex/bitmap-contexts.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 159,
+   "covers": "bitmaps under pdflatex where they stand: a centred figure with a caption, two minipages side by side with \\hfill (width=\\linewidth in each), an image in an item, height=2em and width=.5\\textwidth, one taller than the line in a paragraph"
+  },
+  {
+   "id": "graphics-pdftex/bitmaps",
+   "file": "micro/graphics-pdftex/bitmaps.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "PNG and JPEG under pdflatex: pdfTeX's image box (pixels at the file's resolution, 72 dpi without one: a PNG's pHYs, rounded from pixels per metre, unequal ones; a JPEG's JFIF density, per inch or per cm), \\Gread@pdftex's .99626 bounding box, natural size, width=, height=, both with keepaspectratio, scale=; \\Gscale@box's \\rlap, \\pdfsetmatrix and kern; a name without extension (\\Gin@extensions: .png before .jpg)"
   },
   {
    "id": "hyperref/anchors-plain",

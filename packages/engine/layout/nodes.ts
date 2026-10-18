@@ -36,6 +36,8 @@ export interface BoxNode {
   list: Node[]
   /** e-TeX's dlist subtype: a displayed formula or its equation number (shown ", display") */
   display?: boolean
+  /** pdfTeX's \pdfrefximage: an image of the box's size (its list empty), the file's name */
+  image?: string
 }
 /**
  * Discretionary (§ 145): `pre` ends the line and `post` starts the next if TeX

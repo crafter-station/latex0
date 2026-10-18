@@ -4,7 +4,7 @@
 
 import { execFileSync } from "node:child_process"
 import { mkdirSync, readFileSync, copyFileSync, rmSync } from "node:fs"
-import { basename, join, resolve } from "node:path"
+import { basename, dirname, join, resolve } from "node:path"
 import type { Decisions } from "../../trace/decisions"
 import { parseDvi, type Trace } from "./dvi"
 import { parseDecisions } from "./tracing"
@@ -55,6 +55,7 @@ export function oracleRun(fixture: string): OracleResult {
   const dir = join(CACHE, name)
   mkdirSync(dir, { recursive: true })
   copyFileSync(fixture, join(dir, `${name}.tex`))
+  for (const f of parseHeader(readFileSync(fixture, "utf8")).files) copyFileSync(join(dirname(fixture), f), join(dir, f)) // (% files:)
   // the first run reads what an earlier document of the same name wrote
   for (const ext of ["aux", "toc", "lof", "lot", "out"]) rmSync(join(dir, `${name}.${ext}`), { force: true })
   const job = `\\AtBeginDocument{\\tracingassigns=1}\\tracingparagraphs=1\\tracingpages=1\\tracingoutput=1\\pdftracingfonts=1\\showboxdepth=10000\\showboxbreadth=100000\\tracingonline=0\\input{${name}}`
@@ -88,7 +89,9 @@ let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {
   texVersionMemo ??= texInstallation()
-  const key = createHash("sha256").update(readFileSync(fixture)).update(texVersionMemo).update(String(ORACLE_FORMAT)).digest("hex").slice(0, 16)
+  const hash = createHash("sha256").update(readFileSync(fixture))
+  for (const f of parseHeader(readFileSync(fixture, "utf8")).files) hash.update(f).update(readFileSync(join(dirname(fixture), f)))
+  const key = hash.update(texVersionMemo).update(String(ORACLE_FORMAT)).digest("hex").slice(0, 16)
   const file = join(CACHE, "refs", `${basename(fixture, ".tex")}.${key}.json`)
   if (existsSync(file)) return { ...(JSON.parse(readFileSync(file, "utf8")) as OracleResult), cached: true }
   const result = oracleRun(fixture)

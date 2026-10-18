@@ -6,18 +6,18 @@
 
 import { readFileSync } from "node:fs"
 import { relative } from "node:path"
-import { document } from "../latex/document"
 import { paragraph } from "../latex/paragraph"
 import { Unsupported } from "../latex/unsupported"
 import "./data"
-import { ORACLE_EPOCH } from "./tex"
+import { ADAPTERS } from "./unit/adapters"
 import { collectFixtures } from "./unit/run"
 
 /** A reason without the text it quotes, so documents stopped by the same construct group together. */
 export const reasonKey = (message: string) => message.replace(/"[^"]*"/g, "…").trim()
 
-/** A fixture names its layout in its header (% engine: paragraph); anything else is a whole document. */
-const layoutOf = (src: string) => (/^% engine: paragraph$/m.test(src) ? paragraph : (s: string) => document(s, { epoch: ORACLE_EPOCH }))
+/** A fixture names its layout in its header (% engine: paragraph); anything else is a whole document, laid out as the
+ *  fixture runner does (its header's driver and image files) */
+const layoutOf = (src: string, path: string) => (/^% engine: paragraph$/m.test(src) ? paragraph : (s: string) => ADAPTERS.document(s, { unit: "sp", mag: 1000, pages: [] }, path))
 
 export function gaps(paths: string[], examples = 3): number {
   const files = collectFixtures(paths)
@@ -28,7 +28,7 @@ export function gaps(paths: string[], examples = 3): number {
     const name = relative(process.cwd(), f)
     try {
       const src = readFileSync(f, "utf8")
-      layoutOf(src)(src)
+      layoutOf(src, f)(src)
       laidOut++
     } catch (e) {
       if (!(e instanceof Unsupported)) { bugs.push(`${name}: ${(e as Error).message}`); continue }
