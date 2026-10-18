@@ -21,7 +21,11 @@ const AMS_DELIMITERS: Record<string, string> = { lvert: "vert", rvert: "vert", l
 const MATRICES: Record<string, [string, string] | null> = { matrix: null, pmatrix: ["(", ")"], bmatrix: ["[", "]"], Bmatrix: ["lbrace", "rbrace"], vmatrix: ["vert", "vert"], Vmatrix: ["Vert", "Vert"] }
 
 /** Options of the document the formula is in. */
-export interface MathOptions { amsmath?: boolean }
+export interface MathOptions {
+  amsmath?: boolean
+  /** math alphabet commands (\mathbf{…}) and the family each sets in its argument, a math group */
+  alphabets?: Record<string, number>
+}
 
 type Token = { cs: string; value?: number } | { ch: string }
 
@@ -50,10 +54,11 @@ const isCh = (t: Token | undefined, c: string) => !!t && "ch" in t && t.ch === c
 
 /** Parse a formula (the text between $…$) into an mlist. */
 export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
-  return parseTokens(tokenize(src), data, opts)
+  return parseTokens(tokenize(src), data, opts, -1)
 }
 
-function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] {
+/** `fam`: \fam in force (-1: none), which class-7 characters take (§ 1151) */
+function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: number): MItem[] {
   const macroOf = (cs: string) => DELIMITER_MACROS[cs] ?? (opts.amsmath ? AMS_DELIMITERS[cs] : undefined) ?? cs
   let pos = 0
   const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && x.noad !== "fraction"
@@ -71,7 +76,9 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] 
     }
     return toks.slice(start, pos++)
   }
-  const sub = (ts: Token[]) => parseTokens(ts, data, opts)
+  const sub = (ts: Token[], f = fam) => parseTokens(ts, data, opts, f)
+  /** a math alphabet's argument: a math group with \fam set */
+  const alphabet = (cs: string): Field | undefined => (opts.alphabets && cs in opts.alphabets ? groupField(sub(argument(), opts.alphabets[cs])) : undefined)
   /** \begin{name}: the environment's name and its body's tokens, to the matching \end */
   const environment = (): { name: string; body: Token[] } => {
     const nameToks = argument()
@@ -127,9 +134,11 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] 
       if (t.ch === "{") { const l = list(true); return groupField(l) }
       const code = data.mathcodes[t.ch.charCodeAt(0)]
       if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported script ${t.ch}`)
-      return mathCharField(code)
+      return mathCharField(code, fam)
     }
     if (t.cs === "frac") return fraction()
+    const a = alphabet(t.cs)
+    if (a !== undefined) return a
     const dname = macroOf(t.cs)
     if (dname in data.delimiters) return mathCharField(data.delimiters[dname] >> 12) // a \delimiter's \mathchar part
     const code = data.symbols[t.cs]
@@ -184,7 +193,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] 
         }
         const code = data.mathcodes[c.charCodeAt(0)]
         if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported character ${c}`)
-        out.push(mathCharNoad(code))
+        out.push(mathCharNoad(code, fam))
         continue
       }
       if (opts.amsmath && t.cs === "colon") throw new Error("math: amsmath's \\colon") // \nobreak\mskip2mu\mathpunct{}…
@@ -198,6 +207,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions): MItem[] 
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
+      else if (opts.alphabets && cs in opts.alphabets) out.push({ noad: ORD, nucleus: alphabet(cs)!, sup: null, sub: null })
       else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {
         out.push(mathCharNoad(data.symbols[cs]))

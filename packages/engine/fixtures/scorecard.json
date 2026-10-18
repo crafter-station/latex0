@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 207,
-  "exact": 205,
+  "fixtures": 208,
+  "exact": 206,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 192429
+  "glyphs": 192578
  },
  "areas": [
   {
@@ -76,8 +76,8 @@
   },
   {
    "area": "math",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "minipage",
@@ -1558,6 +1558,16 @@
    "glyphs": 439,
    "covers": "lists nested four deep (\\@listii … \\@listiv: \\leftmargin, \\labelwidth, \\topsep, \\parsep, \\itemsep, the enclosing \\parskip in \\@topsep), itemize labels (\\textbullet, bold \\textendash, \\textasteriskcentered, \\textperiodcentered), enumerate labels (1. (a) i. A.), an item's text after a nested list (\\@doendpe), mixed itemize and enumerate",
    "issue": "#30"
+  },
+  {
+   "id": "math/alphabets",
+   "file": "micro/math/alphabets.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "math alphabets: \\mathrm, \\mathnormal, \\mathcal (the operators, letters and symbols families), \\mathbf, \\mathit, \\mathsf, \\mathtt (families of their own, fonts at text, script and scriptscript size); only class-7 characters (letters, digits) change; in scripts, displays, groups and other sizes"
   },
   {
    "id": "math/delimiters",

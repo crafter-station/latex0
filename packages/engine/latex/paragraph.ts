@@ -30,6 +30,7 @@ import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, makeColumns } from "./output"
 import { anchor, refLink, spotAnchor, tocLink } from "./hyperref"
+import { Unsupported } from "./unsupported"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -46,10 +47,25 @@ const hyphenator = () => (memoHyphenator ??= buildHyphenator(hyphenationData("en
 export { mathData }
 
 /** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
+/**
+ * LaTeX's math alphabets and the family each sets for its argument: \mathrm, \mathnormal and \mathcal use the
+ * operators, letters and symbols fonts (\DeclareSymbolFontAlphabet); \mathbf, \mathit, \mathsf and \mathtt
+ * get families of their own (\DeclareMathAlphabet), 4–7 here (LaTeX numbers them as they are first used;
+ * the number never shows)
+ */
+const ALPHABET_FONTS = ["mathbf", "mathit", "mathsf", "mathtt"] as const
+export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1, mathcal: 2, ...Object.fromEntries(ALPHABET_FONTS.map((a, i) => [a, 4 + i])) }
+
+/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets. */
+export function parseFormula(src: string, amsmath = false): MItem[] {
+  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS }) } catch (e) { throw new Unsupported((e as Error).message) } // (what the parser does not read)
+}
+
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
   const m = amsmath ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
   return {
-    fonts: [m.text, m.script, m.scriptscript].map((fs) => fs.map((f) => loadFont(dataFont(f.name), f.at))),
+    // families 0–3, then the math alphabets' (MATH_ALPHABETS)
+    fonts: [m.text, m.script, m.scriptscript].map((fs, s) => [...fs, ...ALPHABET_FONTS.map((a) => k.sizes[size].alphabets[a][s])].map((f) => loadFont(dataFont(f.name), f.at))),
     muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
     scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
     delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
@@ -633,7 +649,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseMath(p.src, mathData(), { amsmath: ctx.amsmath }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, ctx.amsmath), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
