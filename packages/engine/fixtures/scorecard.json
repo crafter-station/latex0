@@ -1,18 +1,18 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 212,
-  "exact": 210,
+  "fixtures": 214,
+  "exact": 212,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 193179
+  "glyphs": 193501
  },
  "areas": [
   {
    "area": "amsmath",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "amsthm",
@@ -81,8 +81,8 @@
   },
   {
    "area": "math",
-   "fixtures": 11,
-   "exact": 11
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "minipage",
@@ -348,6 +348,16 @@
    "status": "pass",
    "glyphs": 122,
    "covers": "amsmath's \\eqref: \\textup{\\tagform@{\\ref{key}}}, the reference in parentheses in an \\hbox in \\normalfont (with \\@@italiccorr), before and after its equation, an undefined key, in italic and bold text, followed by punctuation"
+  },
+  {
+   "id": "amsmath/sqrt-index",
+   "file": "micro/amsmath/sqrt-index.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "amsmath's \\sqrt[n] (\\plainroot@ inside \\bgroup…\\egroup, an ord noad; \\r@@t with \\uproot and \\leftroot zero): a superscript after it goes on the group"
   },
   {
    "id": "amsthm/after-list",
@@ -1690,6 +1700,16 @@
    "status": "pass",
    "glyphs": 183,
    "covers": "math spacing commands: \\, \\: \\> \\; \\! and their names (\\tmspace in math: \\mskip±\\thinmuskip, \\medmuskip, \\thickmuskip, converted with the style's math unit, § 732), in scripts; \\quad and \\qquad (\\hskip in em of the current text font: cmr, cmti in \\emph, a smaller size); \\ne and \\neq (\\not=); glue in math stretching but never a breakpoint"
+  },
+  {
+   "id": "math/sqrt-index",
+   "file": "micro/math/sqrt-index.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "\\sqrt[n] (\\root n\\of: the index in \\rootbox at scriptscript style, a \\mathchoice of \\r@@t: \\mkern5mu, the index raised .6(height-depth) of the radical box, \\mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)"
   },
   {
    "id": "math/sqrt",

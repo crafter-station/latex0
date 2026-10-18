@@ -1,0 +1,11 @@
+% fixture: math/sqrt-index
+% tier: T3
+% engine: document
+% covers: \sqrt[n] (\root n\of: the index in \rootbox at scriptscript style, a \mathchoice of \r@@t: \mkern5mu, the index raised .6(height-depth) of the radical box, \mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)
+\documentclass[11pt]{article}
+\begin{document}
+Indices: $\sqrt[3]{2}$, $\sqrt[n]{x}$, $\sqrt[3]x$, $\sqrt[{3}]{y}$, $\sqrt[k+1]{\frac{a}{b}}$, $a\sqrt[3]{x}^2+b$,
+$x^{\sqrt[3]{2}}$, $e_{\sqrt[n]{x_i}}$, $\frac{1}{\sqrt[4]{1+x}}$, $\sqrt[3]{\sqrt[3]{z}}$ and $1+\sqrt[m]{1+\sqrt[n]{1+x}}=y$
+in a line long enough to wrap, with $\sqrt[\alpha]{\beta}$ and $\sqrt[p]{\sum_{i=1}^n x_i^p}$ once more.
+\[ \sqrt[3]{\frac{\frac{a}{b}}{\frac{c}{d}}} + \sqrt[n]{x} = \sqrt[10]{\sum_{i=1}^n x_i^2}\,\sqrt[3]{2}^{\,k} \]
+\end{document}

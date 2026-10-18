@@ -39,7 +39,7 @@ type Nucleus =
   | { kind: "op"; name: string; limits?: "limits" | "nolimits" }
   | { kind: "fence"; left: string; items: Item[]; right: string }
   | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
-  | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script }
+  | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
 type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | { kind: "group"; items: Item[] }
 type Item =
   | { kind: "atom"; nucleus: Nucleus | null; sup?: Script; sub?: Script; primes: number; subFirst: boolean }
@@ -79,7 +79,10 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: str
       const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: r() < 0.2 ? 1 + Math.floor(r() * cols) : cols }, () => list(depth + 1, 2, true)))
       return { kind: "matrix", env: pick(MATRICES), rows, cr: r() < 0.3 }
     }
-    if (depth < 3 && x >= 0.28 && x < 0.33) return { kind: "line", cs: pick(["overline", "underline", "sqrt"] as const), arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char() }
+    if (depth < 3 && x >= 0.28 && x < 0.33) {
+      const cs = pick(["overline", "underline", "sqrt"] as const)
+      return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: list(depth + 1, 2, true) } : {}) }
+    }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
     return char()
   }
@@ -116,6 +119,8 @@ function print(items: Item[]): string {
       : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : n.kind === "fence" ? `\\left${n.left}${print(n.items)}\\right${n.right}`
       // a space after \\: amsmath's \new@ifnextchar then sees no [ or *
       // (\sqrt's \@ifnextchar would take a [ as its optional argument: braced)
+      // (\sqrt[index]: braced when the index holds a ], which would end it; \@sqrt strips the braces)
+      : n.kind === "line" && n.index ? `\\sqrt[${print(n.index).includes("]") ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "line" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : n.cs === "sqrt" && n.arg.kind === "char" && n.arg.code === 91 ? `{${arg(n.arg)}}` : ` ${arg(n.arg)}`}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""

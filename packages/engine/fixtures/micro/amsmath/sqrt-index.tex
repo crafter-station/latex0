@@ -1,0 +1,12 @@
+% fixture: amsmath/sqrt-index
+% tier: T3
+% engine: document
+% covers: amsmath's \sqrt[n] (\plainroot@ inside \bgroup…\egroup, an ord noad; \r@@t with \uproot and \leftroot zero): a superscript after it goes on the group
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\begin{document}
+Indices: $\sqrt[3]{2}$, $\sqrt[n]{x}$, $\sqrt[3]x$, $\sqrt[{3}]{y}$, $\sqrt[k+1]{\frac{a}{b}}$, $a\sqrt[3]{x}^2+b$,
+$x^{\sqrt[3]{2}}$, $e_{\sqrt[n]{x_i}}$, $\frac{1}{\sqrt[4]{1+x}}$, $\sqrt[3]{\sqrt[3]{z}}$ and $1+\sqrt[m]{1+\sqrt[n]{1+x}}=y$
+in a line long enough to wrap, with $\sqrt[\alpha]{\beta}$ and $\sqrt[p]{\sum_{i=1}^n x_i^p}$ once more.
+\[ \sqrt[3]{\frac{\frac{a}{b}}{\frac{c}{d}}} + \sqrt[n]{x} = \sqrt[10]{\sum_{i=1}^n x_i^2}\,\sqrt[3]{2}^{\,k} \]
+\end{document}
