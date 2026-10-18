@@ -38,7 +38,11 @@ type ShippedContent = { kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[]
 export const outputOptions = { xcolor: false }
 const colorSpecial = (what: string): Node => ({ kind: "whatsit", text: `\\special{color ${what}}` })
 
-export type Shipped = ShippedContent & { /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out, and \thepage */ count: number; thepage: string }
+export type Shipped = ShippedContent & {
+  /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out, and \thepage */ count: number; thepage: string
+  /** how far into the main vertical list the page builder had read when the output routine shipped it */
+  reached: number
+}
 
 /** Assignments the document makes to the output routine's state. */
 export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman" | "arabic"
@@ -311,9 +315,11 @@ export class LatexOutput {
   private numbering: "roman" | "arabic" = "arabic"
   private special: "plain" | "empty" | null = null
   private page = 1
+  /** the page builder's PageParams.reached */
+  reached = -1
   /** \@outputpage: the page style, then \stepcounter{page} */
   private ship(s: ShippedContent) {
-    const shipped = { ...s, count: this.page, thepage: this.numbering === "roman" ? roman(this.page) : String(this.page) } as Shipped
+    const shipped = { ...s, count: this.page, thepage: this.numbering === "roman" ? roman(this.page) : String(this.page), reached: this.reached } as Shipped
     this.page++
     if (this.special) { shipped.special = this.special; this.special = null }
     this.shipped.push(shipped)
@@ -348,6 +354,7 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
     float: (held, marker, boxes) => out.float(held, marker, boxes),
     hook: (h) => out.hook(h as OutputHook),
     output: (page) => out.output(page),
+    reached: (i) => { out.reached = i },
   })
   out.done()
   return { pages: out.shipped, pageTrace: documentPages(built.trace) }
@@ -403,14 +410,15 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
 }
 
 /** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
-export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page)): BoxNode {
+/** `fancy`: what \@thehead and \@thefoot typeset in their \hb@xt@\textwidth, for fancyhdr's styles */
+export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page), fancy?: { head: Node[]; foot: Node[] }): BoxNode {
   const font = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
   const number = () => { const l: Node[] = []; appendText(l, thepage, font, { spaceFactor: 1000 }, false); return l }
   const even = k.ints.twoside && page % 2 === 0
   // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
   // \@evenhead{\thepage\hfil\slshape\leftmark}
-  const headText: Node[] = pagestyle !== "headings" ? [] : even ? [...number(), filGlue(), ...mark] : [...mark, filGlue(), ...number()]
-  const footText: Node[] = pagestyle === "plain" ? [filGlue(), ...number(), filGlue()] : []
+  const headText: Node[] = fancy ? fancy.head : pagestyle !== "headings" ? [] : even ? [...number(), filGlue(), ...mark] : [...mark, filGlue(), ...number()]
+  const footText: Node[] = fancy ? fancy.foot : pagestyle === "plain" ? [filGlue(), ...number(), filGlue()] : []
   // \vfil, \hb@xt@\textwidth{\@thehead} (\color@hbox\normalcolor with a color package)
   const head = vpack([filGlue(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })
   head.depth = 0

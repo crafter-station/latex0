@@ -8,6 +8,7 @@ import { parseGlue, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 import { classData, documentClass, withT1 } from "./classes"
 import { dataFont } from "./data"
+import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
 import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { Unsupported } from "./unsupported"
@@ -43,8 +44,11 @@ export interface Preamble {
   /** \definecolor{name}{model}{spec} */
   colorDefs: [string, string, string][]
   pagestyle: string
-  /** \ps@headings has defined \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle keeps them */
-  markDefs: boolean
+  /** who defined \chaptermark and \sectionmark last: \ps@headings (book runs it when loaded; a later \pagestyle
+   *  keeps them) or fancyhdr as it loads (\f@nch@initialise) */
+  markDefs: "headings" | "fancyhdr" | null
+  /** fancyhdr's fields and rules, when it is loaded */
+  fancy: FancyHdr | null
   title: { title?: string; author?: string; date?: string }
   /** letter's \signature, \address and \name */
   letterInfo: { signature?: string; address?: string; name?: string }
@@ -83,7 +87,8 @@ export function readPreamble(src: string): Preamble {
   let enumitem = false
   // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
   // keeps them, and only \@mkboth goes back to \@gobbletwo
-  let markDefs = cls === "book"
+  let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
+  let fancy: FancyHdr | null = null
   let hyper = false // hyperref, with the dvips driver
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
@@ -95,7 +100,7 @@ export function readPreamble(src: string): Preamble {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
     if (line === "{}") continue // a definition the expander took out
-    const sl = line.match(/^\\setlength\{\\(parindent|parskip)\}\{([^{}]*)\}$/)
+    const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight)\}\{([^{}]*)\}$/)
     if (sl) { lengths.push([sl[1], sl[2]]); continue }
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
     if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
@@ -107,7 +112,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) hyper = true
       if (names.includes("enumitem")) enumitem = true
@@ -117,6 +122,10 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("url")) usesUrl = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       if (names.includes("amsmath")) amsmath = true
+      if (names.includes("fancyhdr")) {
+        if (cls !== "article") throw new Unsupported(`fancyhdr with ${cls}`) // (its \chaptermark and \sectionmark there)
+        fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
+      }
       continue
     }
     // letter's \signature, \address and \name
@@ -139,8 +148,9 @@ export function readPreamble(src: string): Preamble {
     if (lt) { letterInfo[lt[1] as keyof typeof letterInfo] = lt[2].trim(); continue }
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
-    const m = line.match(/^\\pagestyle\{(plain|empty|headings)\}$/)
-    if (m) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = true; continue }
+    if (fancy && fancyCommand(fancy, line)) continue
+    const m = line.match(/^\\pagestyle\{(plain|empty|headings|fancy)\}$/)
+    if (m && (m[1] !== "fancy" || fancy)) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; continue }
     throw new Unsupported(`preamble: ${line}`)
   }
   if (t1) k = withT1(k, cls)
@@ -155,13 +165,15 @@ export function readPreamble(src: string): Preamble {
       let g: GlueSpec
       try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
       if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
+      else if (name === "headheight") k = { ...k, dimens: { ...k.dimens, headheight: g.width } }
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
   }
+  if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   let body = src.slice(begin + 16, end)
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, title, letterInfo, newCounters, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
 }

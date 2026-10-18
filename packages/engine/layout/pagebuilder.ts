@@ -42,6 +42,12 @@ export interface PageParams {
   /** The output routine for each page cut at a break, called after the page is added to the result:
    *  what it returns goes on the contribution list after held-over insertions, before the rest. */
   output?: (page: Page) => Node[] | void
+  /**
+   * How far into `contrib` the builder has read (the index of the furthest of its nodes reached so far), called as it
+   * advances: what TeX had contributed when the output routine fires there, which places the paragraphs it breaks
+   * (fancyhdr's head and foot) among the document's own
+   */
+  reached?: (index: number) => void
 }
 
 export interface Page {
@@ -78,6 +84,9 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
   const pages: Page[] = []
   const trace: PageTrace[] = []
   let queue = contrib.slice()
+  const indexOf = new Map<Node, number>() // (a node object used twice counts where it first stands)
+  contrib.forEach((n, i) => { if (!indexOf.has(n)) indexOf.set(n, i) })
+  let furthest = -1
   // insertion boxes (\box n) between outputs: an output routine that returns the page without
   // emptying them (a float's \@specialoutput) leaves their material there for the next page
   let regs: Record<number, Node[]> = {}
@@ -125,6 +134,8 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     for (let i = 0; ; i++) {
       if (i >= queue.length && !refill()) break
       const n = queue[i]
+      const at = indexOf.get(n)
+      if (at !== undefined && at > furthest) { furthest = at; p.reached?.(at) }
       if (n.kind === "whatsit" && n.hook) { queue.splice(i--, 1, ...(p.hook?.(n.hook) ?? [])); continue }
       if (n.kind === "whatsit" && n.float) {
         // the -\@Miv and -\@Miii penalties fire the output routine (their pages are not output, and

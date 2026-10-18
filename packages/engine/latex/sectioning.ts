@@ -190,7 +190,7 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub, ...(heading.end ? { end: heading.end } : {}) }, outerParskip, size)
   // \@sect: \sectionmark, then \addcontentsline{toc}: \protected@write, a \write after the heading's lines,
   // with \nobreak after it while \if@nobreak holds (a heading right after a heading)
-  if (numbered && headings) v.nodes.push(...marks.insert(sectionMarks(cls, !!run.k.ints.twoside, b.level, number, b.title), afterHeading))
+  if (numbered && headings) v.nodes.push(...marks.insert(sectionMarks(cls, !!run.k.ints.twoside, b.level, number, b.title, headings), afterHeading))
   if (!b.star) v.nodes.push(...contentsWrites(b.level, numbered ? number : null, b.title, anchorName, afterHeading))
   // \@xsect: \par \nobreak \vskip afterskip \@afterheading
   v.nodes.push(penalty(10000))

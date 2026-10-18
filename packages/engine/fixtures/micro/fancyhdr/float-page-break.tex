@@ -1,0 +1,53 @@
+% fixture: fancyhdr/float-page-break
+% tier: T3
+% engine: document
+% covers: the output routine firing at a float's marker, which TeX contributes after reading the float's contents: fancyhdr's field paragraphs are traced after the float's, not before (a paragraph's \parskip, by contrast, is contributed before its text is read); reduced from a random document
+\documentclass[12pt,twoside]{article}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textbf{Notes}}
+\fancyhead[CO]{\slshape\rightmark}
+\fancyfoot[R]{\emph{Draft} copy}
+\rfoot{\leftmark}
+\renewcommand{\headrulewidth}{0pt}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\begin{document}well-known would if\footnote{for made it even three} official where (indeed) because the staff right \cite{b2,b1} years between how a no $\int\!\!\int f\,dx\,dy$ is tolerance both \emph{been life them then\\}. can life take any has have who come in can take through a your little than in only see Plass a then than sufficient fluffy is Knuth them your another after paragraphs for never do\footnote{composition his official back between get too offline if offline to which difficult here other two your are long still well-known} tolerance $\sqrt{x^2+y^2}$ as own Plass the many Paris man own on page~\pageref{figure:20} algorithm will as algorithm Knuth might two more this under his \(\sqrt[n]{\frac{a}{b}}^2\) efficient like way \textsf{demerits would} may since at year also as may through could may little\footnote{world do here under under against stuff get being} official \(f(x)\ne 0\) two
+one old must who into made by different $\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}$ same back off between demerits $x$ \textmd{over $\sqrt[3]{x}$ baffled year} such 90\textdegree tolerance some \\ great most own over those people some between being way as Yes! $\frac{1}{2}$ down been stuff $x^{\sqrt{\frac{1}{2}}}$ affluent these year and baffled with did make no \emph{long \texttt{on after}} the know $f(x)\ne 0$ well-known know world his were before good Paris $f(x)=\sum_{i=1}^n a_i x^i$ an offline a great by who official than know go after sufficient years see long Knuth men hyphenation may man well two should baffled was make \hfill \emph{affluent efficient our do \(\left(\frac{a}{b}\right)^2\) \texttt{them}} where all men very they \&  composition is old an fifty $x^{\sqrt{\frac{1}{2}}}$ more it \label{s:2} their which made still well but they at did \underline{her} make fifty through your as state men do efficient your \ref{s:1} before paragraphs
+
+\begin{table}[h]
+\begin{minipage}{5em}
+down work them three would \textbf{man} no Really? been much $\frac{1}{2}$ difficult came $x^{\sqrt{\frac{1}{2}}}$ one man with tolerance \textbf{because} life do which are their fluffy down
+\end{minipage}\hfill
+\end{table}
+do have tolerance into must well since these well now fluffy has an because on did too know Plass be three here \#1 did through than other they such they man \(x^2+y^2=z^2\) their been their might might badness men people many her made Paris then just at his London.
+\[ \sum_{i=1}^n i=\frac{n(n+1)}{2} \]
+great world three between algorithm know who \(a_{i\,j}\neq b^{n\;m}\) get Plass for right when many three both are offline sufficient take\qquad used
+\[ \mathrm{e}^{\mathrm{i}\pi}+\mathnormal{1}=\mathsf{0} \]
+Typesetting just his composition into demerits man this back how must came was work before while in their $\frac{1}{2}$ work staff their $a_i\leq b_i$ have no $x^{\sqrt{\frac{1}{2}}}$ by very go affluent man just $\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}$ fifteen now \textsl{more were no $\alpha\to\beta$ badness} sufficient no been
+down down efficient take against there {\Large at that his} \textmd{how} no but from they \textup{from \textmd{fifteen}} such $\sqrt{x^2+y^2}$ being algorithm they been sufficient fluffy see own life at tolerance before how day have \cite{b3} in $a_{i\,j}\neq b^{n\;m}$ from back
+
+\begin{figure}[t]
+\begin{minipage}[b]{5em}
+your state life came three my Yes! they fifty come life your still or
+\caption{get at for difficult}\label{figure:10a}
+\end{minipage}\hfill
+\begin{minipage}{4cm}
+just they your difficult fluffy also make with official each then before composition years own new being algorithm it that men two are years affluent
+\end{minipage}
+\end{figure}
+algorithm composition because back Paris only no Typesetting at will little then our very composition\,\textdegree. fifty can fifty against \(\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}\) this our back were two Knuth of\footnote{then be Yes! by be over much two after came or used take their when more can Yes! Plass those other Typesetting know against out your was would more off tolerance so} there one time your %
+Knuth too fifteen both over go where badness
+
+$$\left[\frac{\frac{1}{2}}{\sum_{i=1}^n x_i}\right]$$
+take own his London. as $\sqrt{x^2+y^2}$ sufficient work or where fluffy man $a_i\leq b_i$ different through do time $f(x)\ne 0$
+\begin{displaymath} \left[\frac{\frac{1}{2}}{\sum_{i=1}^n x_i}\right] \end{displaymath}
+go as any never $f(x)=\sum_{i=1}^n a_i x^i$ efficient has this first one badness efficient very no because out between there back hyphenation also under well-known might London. on $x^2+y^2=z^2$ used off\% one an it\footnote{three no different just be day composition who hyphenation before Paris has no stuff also three years with affluent has life life both should}
+
+\begin{figure}[hb]
+\begin{minipage}[b]{2.5in}
+\centering
+at Typesetting a more first \(\frac{\mathrm{d}y}{\mathrm{d}x}\) baffled some Yes! (indeed) both that before by fifty must most
+\end{minipage}
+\end{figure}\end{document}

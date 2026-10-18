@@ -8,6 +8,7 @@
 // Unsupported, and the document is reported as not laid out yet.
 
 import { dataFont } from "./data"
+import { fancyPage } from "./fancyhdr"
 import { emitBoxes } from "../emit/boxes"
 import { shipOut } from "../emit/trace"
 import { type SizeCommand } from "../layout/classdata"
@@ -107,6 +108,9 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   }
   const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec }
   const decisions: ParagraphTrace[] = []
+  // where each paragraph was broken: the length of the main vertical list then (its material so far)
+  const brokenAt: number[] = []
+  decisions.push = (...xs: ParagraphTrace[]) => { for (const _ of xs) brokenAt.push(v.nodes.length); return Array.prototype.push.apply(decisions, xs) }
   const outerParskip = run.k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
     const { list, params, notes } = paragraphInput(counted(text, true), run.k, size, doc, { ...opts, amsmath })
@@ -120,7 +124,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const bodyUnits = { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT] }
   const tocFile = new TocWriter()
   const marks = new MarkWriter()
-  const headings = pre.markDefs, mkboth = pagestyle === "headings"
+  const headings = pre.markDefs, mkboth = pagestyle === "headings" || pagestyle === "fancy"
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
    *  \protected@write adds \nobreak while \if@nobreak holds */
   const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[] => {
@@ -186,10 +190,30 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const columns = makeColumns(pages, run.k, cls === "letter")
   const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
   const heads = pageMarks(pages)
+  // fancyhdr's fields are paragraphs TeX breaks as it ships each page: their traces go where the page builder had
+  // read to then, before the paragraphs broken after the node it fired at was contributed. A node appended right
+  // after a trace was contributed after that paragraph was read (a float's marker after its contents), except a
+  // paragraph's \parskip, which new_graf contributes (and lets the page builder see) before reading it
+  const pageTraces: { at: number; traces: ParagraphTrace[] }[] = []
   const shipped = columns.map((c, i) => {
-    const even = run.k.ints.twoside && pages[i].count % 2 === 0
-    return outputPage(c.outputbox, pages[i].count, run.k, pages[i].special ?? pagestyle, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage)
+    const even = !!run.k.ints.twoside && pages[i].count % 2 === 0
+    const style = pages[i].special ?? pagestyle
+    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i]) : undefined
+    if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
+    return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
+  if (pageTraces.length) {
+    const merged: ParagraphTrace[] = []
+    let next = 0
+    decisions.forEach((d, i) => {
+      const before = (at: number) => at < brokenAt[i] || (at === brokenAt[i] && (v.nodes[at] as { param?: string } | undefined)?.param === "parskip")
+      while (next < pageTraces.length && before(pageTraces[next].at)) merged.push(...pageTraces[next++].traces)
+      merged.push(d)
+    })
+    while (next < pageTraces.length) merged.push(...pageTraces[next++].traces)
+    decisions.length = 0
+    Array.prototype.push.apply(decisions, merged)
+  }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
   if (blocks.some((b) => b.kind === "toc") || READS_AUX.test(body) || hyper) {
