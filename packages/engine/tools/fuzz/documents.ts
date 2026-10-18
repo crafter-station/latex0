@@ -40,11 +40,14 @@ export function makeDocument(r: () => number): string {
   const math = () => { const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$", "$\\sin x+\\log_2 n$", "$\\lim_{n\\to\\infty} a_n$", "$\\max_i x_i\\le\\det A$", "$\\cos^2\\theta$", "$\\lim\\limits_{x} f$", ...(ams ? ["$\\operatorname{tr} A$", "$\\operatorname*{arg\\,max}_x f$"] : [])]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
   const display = () => pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
     "\\prod_{k=1}^{m}\\frac{1}{k}", "\\left[\\frac{\\frac{1}{2}}{\\sum_{i=1}^n x_i}\\right]", "\\left\\{ x \\right|_{a}^{b}", "\\mathbf{F}=m\\mathbf{a}", "\\sqrt{\\frac{a}{b}}+\\sqrt{\\sum_{i=1}^n x_i^2}", "\\mathrm{e}^{\\mathrm{i}\\pi}+\\mathnormal{1}=\\mathsf{0}", "\\sqrt[3]{\\frac{1}{1+\\sqrt[n]{x}}}=y^{\\sqrt[k]{2}}", "\\lim_{x\\to 0}\\frac{\\sin x}{x}=1", "\\max_{1\\le i\\le n}\\log x_i+\\limsup_{n} a_n", "\\sum_{i\\,=\\,1}^n x_i \\quad\\ne\\quad \\prod_{j} y_j \\qquad a\\!\\;b", ...(ams ? ["\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", "A=\\begin{bmatrix} 1 & 0 & x^2 \\\\ \\frac{1}{2} & y \\end{bmatrix}", "\\begin{vmatrix} a \\\\ b \\end{vmatrix}"] : []), "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
+  /** a display with no \\\\ of its own (a matrix's), for a row of a gather */
+  const rowDisplay = () => { for (;;) { const f = display(); if (!f.includes("\\\\")) return f } }
   // a display in a list item, a theorem or a proof, maybe text after it (none: it ends the paragraph)
   let eqn = 0
   const listDisplay = () => {
-    const f = display(), env = pick(["bracket", "bracket", "dollars", "equation", ...(ams ? ["equation*", "align*", "align"] : [])])
-    const d = env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : env.startsWith("align") ? `\\begin{${env}}\na &= ${pick(["x^2", "\\frac{1}{2}", "\\sum_{i=1}^n i", "f(x) + g(x)"])} \\\\\n &= b\n\\end{${env}}` : `\\begin{${env}}${env === "equation" && r() < 0.5 ? `\\label{eq:l${++eqn}}` : ""} ${f} \\end{${env}}`
+    const env = pick(["bracket", "bracket", "dollars", "equation", ...(ams ? ["equation*", "align*", "align", "gather", "gather*"] : [])])
+    const f = env.startsWith("gather") ? rowDisplay() : display()
+    const d = env === "bracket" ? `\\[ ${f} \\]` : env === "dollars" ? `$$${f}$$` : env.startsWith("gather") ? `\\begin{${env}}\n${f}${r() < 0.7 ? ` \\\\\n${rowDisplay()}${r() < 0.3 ? " \\notag" : ""}` : ""}\n\\end{${env}}` : env.startsWith("align") ? `\\begin{${env}}\na &= ${pick(["x^2", "\\frac{1}{2}", "\\sum_{i=1}^n i", "f(x) + g(x)"])} \\\\\n &= b\n\\end{${env}}` : `\\begin{${env}}${env === "equation" && r() < 0.5 ? `\\label{eq:l${++eqn}}` : ""} ${f} \\end{${env}}`
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
@@ -397,8 +400,11 @@ export function makeDocument(r: () => number): string {
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120), true)]
       for (let d = r() < 0.3 ? 1 + Math.floor(r() * 2) : 0; d > 0; d--) {
         const f = display()
-        const env = ams ? pick(["bracket", "align", "align", "align*", "dollars"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
-        if (env === "align" || env === "align*") {
+        const env = ams ? pick(["bracket", "align", "align", "align*", "dollars", "gather", "gather*"]) : pick(["bracket", "bracket", "equation", "dollars", "displaymath"])
+        if (env === "gather" || env === "gather*") { // rows of one formula each, some unnumbered
+          const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => rowDisplay() + (r() < 0.2 ? " \\nonumber" : ""))
+          parts.push(`\\begin{${env}}\n${rows.join(" \\\\\n")}\n\\end{${env}}`)
+        } else if (env === "align" || env === "align*") {
           // rows of 1 to 3 column pairs: right-aligned & left-aligned fields, some rows unnumbered
           const pairs = 1 + Math.floor(r() * 3)
           const field = () => pick(["x", "a+b", "f(x)", "\\alpha", "", "x^2", "\\sum_{i=1}^n i", "\\frac{1}{2}", "y_1"])

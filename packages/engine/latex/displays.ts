@@ -5,7 +5,7 @@
 import { QUAD } from "../layout/font"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
 import { CLOSE as CLOSE_NOAD, DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
 import { hpack, vpack } from "../layout/pack"
@@ -79,6 +79,10 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
   })
 }
 
+/** the \leftskip and \rightskip in force (\raggedright and friends), which a paragraph in the display keeps (\black@'s) */
+type Skips = Pick<ParagraphOptions, "leftSkip" | "rightSkip">
+const skipsOf = (o: ParagraphOptions): Skips => ({ ...(o.leftSkip ? { leftSkip: o.leftSkip } : {}), ...(o.rightSkip ? { rightSkip: o.rightSkip } : {}) })
+
 /** \@currentHref after a display's \refstepcounter: \theH<counter>, or under hyperref in an \item of a numbered list that
  *  stepped none (\if@hyper@item), Item.n; the \@hyper@itemfalse that goes with it is local to the display's group
  *  (to an alignment's cell), so the next one is an Item.n again. Only amsmath's \incr@eqnum goes through hyperref's
@@ -114,7 +118,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
       ...(last ? { ...(end ? { end } : {}), ...(unskip ? { unskip } : {}) } : { widowPenalty: run.k.ints.displaywidowpenalty }) }
     if (last && !t && !end) return // (an empty paragraph after the display makes no line)
     if (!first && !last && !t) { // two displays in a row: the second starts with an empty list (§ 1145: no line break)
-      displayMath(cx, next!, displayLine(prevGraf, run.k.dimens.textwidth, 0, 1, opts.parShape ?? []), null, quad)
+      displayMath(cx, next!, displayLine(prevGraf, run.k.dimens.textwidth, 0, 1, opts.parShape ?? []), null, quad, skipsOf(opts))
       prevGraf += 3
       return
     }
@@ -124,7 +128,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
     if (first) v.paragraph(lb.vlist, parskip, run.k.sizes[size].baselineskip); else v.lines(lb.vlist)
     prevGraf += lb.lines.length
     if (next) {
-      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, quad)
+      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, quad, skipsOf(opts))
       prevGraf += 3
     }
   })
@@ -132,12 +136,12 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
 
 /** A display (§§ 1145–1206) on line prev_graf+2 of the paragraph (`line`), after `justBox`, its last line so far;
  *  `quad`: \fontdimen6 of the font then, which \predisplaysize allows for */
-function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, quad: number) {
+function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, quad: number, skips: Skips = {}) {
   const { amsmath, hyper } = cx.pre
   const { counters, refs, romanFont, run, v } = cx
-  if (next.kind === "align" || next.kind === "align*") {
+  if (next.kind === "align" || next.kind === "align*" || next.kind === "gather" || next.kind === "gather*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
-    alignDisplay(cx, next, line, quad)
+    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, quad, skips); else alignDisplay(cx, next, line, quad, skips)
     return
   }
   // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
@@ -201,7 +205,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
  * by \eqnshift@ with \alignsep@ between column pairs, and each row's number is set off at the
  * right edge. TeX finishes it as an alignment in a display (§ 1206).
  */
-export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number) {
+export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number, skips: Skips = {}) {
   const { amsmath, hyper } = cx.pre
   const { counters, decisions, doc, refs, romanFont, run, v } = cx
   const starred = d.kind === "align*"
@@ -323,7 +327,90 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   const blackWidth = totwidth + tempcntb * minalignsep
   if (blackWidth > z) {
     const wide = hpack([hpack([strutBox(), fillGlue()], { exactly: blackWidth })], { exactly: z })
-    const par = paragraphInput("", run.k, "normalsize", doc, { start: [wide], amsmath })
+    const par = paragraphInput("", run.k, "normalsize", doc, { start: [wide], amsmath, ...skips })
+    const lb = lineBreak(par.list, par.params)
+    decisions.push(lb.trace)
+    v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))
+  }
+  v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+}
+
+/**
+ * amsmath's gather and gather* (\start@gather, \gather@, \gmeasure@, \calc@shift@gather, \set@gather@field,
+ * \place@tag@gather): each row centred on its own (\kern\eqnshift@ before it, half what the display width leaves,
+ * less the tag's width when that is tight), its number set off at the right edge, or below the row when it does not
+ * fit; an \halign to \displaywidth finished as an alignment in a display (§ 1206), as align is.
+ */
+export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number, skips: Skips = {}) {
+  const { amsmath, hyper } = cx.pre
+  const { counters, decisions, doc, refs, romanFont, run, v } = cx
+  const starred = d.kind === "gather*"
+  const src = d.src.trim()
+  if (/\\\\\s*$/.test(src)) throw new Unsupported("gather ending with \\\\")
+  if (/\\(label|tag|intertext|shortintertext|raisetag)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in gather")
+  if (/&/.test(src)) throw new Unsupported("& in gather")
+  const env = mathEnv(run.k, "normalsize", true)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em)
+  const sz = run.k.sizes.normalsize, strut = sz.strut
+  const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+  // \setboxz@h{$\m@th\displaystyle{##}$}
+  const rows = src.split(/\\\\/).map((r) => ({
+    numbered: !starred && !/\\(nonumber|notag)\b/.test(r),
+    box: hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, { noad: ORD_NOAD, nucleus: groupField(parse(r.replace(/\\(nonumber|notag)\b/g, ""))), sup: null, sub: null }], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }]),
+  }))
+  // the tag column: \setboxz@h{\strut@{##}}, ## \make@display@tag's (n) in \maketag@@@, numbered in row order
+  const tags = rows.map((r) => {
+    if (!r.numbered) return hpack([strutBox()])
+    counters.equation++
+    refs.href = stepHref(cx, "equation", counters.equation)
+    const l: Node[] = []
+    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
+    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+    if (hyper) { const s = strutBox(); return hpack([s, ...anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
+    return hpack([strutBox(), hpack(l)])
+  })
+  const z = line.width
+  const totwidth = Math.max(0, ...rows.map((r) => r.box.width)) // \gmeasure@
+  const mintagsep = xnOverD(env.fonts[0][2]!.params[QUAD], 32768, 65536)
+  const cells = rows.map((r, ri) => {
+    // \calc@shift@gather (tags on the right, not fleqn)
+    const tw = r.numbered ? tags[ri].width : 0
+    let eqnshift = z - r.box.width, shifted = false
+    if (tw > 0) {
+      if (2 * mintagsep + r.box.width + tw > z) shifted = true
+      else if (eqnshift < 4 * tw) eqnshift -= tw
+    }
+    eqnshift = Math.max(0, Math.trunc(eqnshift / 2))
+    // \place@tag@gather: \kern-(\totwidth@-\displaywidth) when wider; \llap{\boxz@}, or below the row \llap{\vtop{\raise@tag
+    // \normalbaselines \setbox\@ne\null \dp\@ne\lineht@ \box\@ne \boxz@}} with \lineht@ the row's depth (\set@gather@field)
+    const tagCol: Node[] = totwidth > z ? [kern(-(totwidth - z), true)] : []
+    if (shifted) {
+      const nul = hpack([]); nul.depth = r.box.depth
+      const list: Node[] = [nul]
+      appendToVlist(list, tags[ri], r.box.depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
+      const vt = vpack(list)
+      vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
+      tagCol.push(hpack([ssGlue(), vt], { exactly: 0 }))
+    } else tagCol.push(hpack([ssGlue(), tags[ri]], { exactly: 0 }))
+    return [[strutBox(), kern(eqnshift, true), r.box, filGlue()], tagCol]
+  })
+  const centering = paramGlue("tabskip", glue(0, 65536000, NORMAL, 0, NORMAL)) // \@centering: 0pt plus 1000pt
+  const rowBoxes = halign(cells, [paramGlue("tabskip", glue(0)), centering, paramGlue("tabskip", glue(0))], { exactly: z })
+  // § 1206, with \openup\jot and amsmath's \everycr, as align
+  v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
+  const jot = 196608
+  v.nodes.push(glue(-(run.k.dimens.lineskiplimit + jot)), glue(run.k.dimens.normallineskiplimit))
+  const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
+  for (const rb of rowBoxes) {
+    rb.display = true; rb.shift = line.indent
+    v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
+    v.nodes.push(penalty(10000), glue(0))
+  }
+  // \black@\totwidth@
+  if (totwidth > z) {
+    const wide = hpack([hpack([strutBox(), fillGlue()], { exactly: totwidth })], { exactly: z })
+    const par = paragraphInput("", run.k, "normalsize", doc, { start: [wide], amsmath, ...skips })
     const lb = lineBreak(par.list, par.params)
     decisions.push(lb.trace)
     v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))

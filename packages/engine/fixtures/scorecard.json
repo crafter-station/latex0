@@ -1,23 +1,23 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 247,
-  "exact": 245,
+  "fixtures": 249,
+  "exact": 247,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 242426
+  "glyphs": 242965
  },
  "areas": [
   {
    "area": "amsmath",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "amsthm",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "bibliography",
@@ -370,6 +370,17 @@
    "covers": "amsmath's \\eqref: \\textup{\\tagform@{\\ref{key}}}, the reference in parentheses in an \\hbox in \\normalfont (with \\@@italiccorr), before and after its equation, an undefined key, in italic and bold text, followed by punctuation"
   },
   {
+   "id": "amsmath/gather",
+   "file": "micro/amsmath/gather.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 412,
+   "covers": "amsmath's gather and gather*: each row centred alone in an \\halign to \\displaywidth (\\strut@, \\kern\\eqnshift@ half what the width leaves, the formula, \\hfil, \\tabskip\\@centering), the number \\llap'ed at the right edge, \\eqnshift@ less the tag's width when it is under four tags wide; \\nonumber and \\notag; rows of different widths; a row too wide for its tag beside it, whose tag goes below (\\vtop with \\lineht@ the row's depth); a gather in a proof and in an item; one wider than the line in a flush-left list, whose \\black@ paragraph keeps \\rightskip",
+   "issue": "#76"
+  },
+  {
    "id": "amsmath/operator-names",
    "file": "micro/amsmath/operator-names.tex",
    "area": "amsmath",
@@ -419,6 +430,16 @@
    "status": "pass",
    "glyphs": 269,
    "covers": "a theorem note set in a box (no discretionary after its hyphen) and unboxed into the paragraph: with \\lccode`\\-=`\\- the hyphenation pass takes well-known as one word, and a break before its hyphen makes the -- ligature"
+  },
+  {
+   "id": "amsthm/proof-after-text",
+   "file": "micro/amsthm/proof-after-text.tex",
+   "area": "amsthm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 127,
+   "covers": "a proof right after a paragraph's text (no blank line): amsthm's \\proof starts with \\par, so its \\trivlist is in vertical mode and \\@topsepadd has \\partopsep, at its start and at its end; then a list right after it, and a proof nested in an item after text"
   },
   {
    "id": "amsthm/qed-own-line",
