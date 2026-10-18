@@ -1,0 +1,11 @@
+% fixture: pdflatex/xcolor-textcolor
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: under pdflatex (\pdfcolorstack for dvips color specials): \textcolor and {\color …} with named colors and [rgb], [RGB] (the driver's \divide), [HTML] (\rdivide), [gray], [cmyk]
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+A \textcolor{blue}{word here} and {\color{red} more red} text \textcolor[rgb]{0.1,0.5,0.2}{x}.
+
+\end{document}

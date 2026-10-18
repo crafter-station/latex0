@@ -9,6 +9,7 @@
 
 import { dataFont } from "./data"
 import { fancyPage } from "./fancyhdr"
+import { pdftexColors } from "./pdftex"
 import { emitBoxes } from "../emit/boxes"
 import { shipOut } from "../emit/trace"
 import { type SizeCommand } from "../layout/classdata"
@@ -87,8 +88,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   // pdfTeX's driver: what writes specials under dvips is modeled for dvips only so far
   if (driver === "pdftex") {
-    const what = hyper ? "hyperref" : usesXcolor ? "xcolor" : null
-    if (what) throw new Unsupported(`${what} with the pdftex driver`)
+    if (hyper) throw new Unsupported("hyperref with the pdftex driver")
   }
   const run = runState(pre.k)
   const blocks = blocksOf(body)
@@ -210,6 +210,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
+  if (driver === "pdftex") shipped.forEach(pdftexColors) // (the columns are inside the shipped pages)
   if (pageTraces.length) {
     const merged: ParagraphTrace[] = []
     let next = 0
