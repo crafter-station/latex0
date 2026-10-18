@@ -65,6 +65,9 @@ function tokenize(src: string): Token[] {
 /** a glue register with a sign, as scan_glue negates it (§ 461) */
 const scaled = (g: GlueSpec, sign: 1 | -1): GlueSpec => ({ ...g, width: sign * g.width, stretch: sign * g.stretch, shrink: sign * g.shrink })
 
+/** braces balanced throughout, never closing below zero */
+const balanced = (ts: Token[]) => { let d = 0; for (const t of ts) { if (isCh(t, "{")) d++; else if (isCh(t, "}") && --d < 0) return false } return d === 0 }
+
 const isCh = (t: Token | undefined, c: string) => !!t && "ch" in t && t.ch === c
 
 /** Parse a formula (the text between $…$) into an mlist. */
@@ -160,6 +163,21 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     if (code === undefined) throw new Error(`math: unsupported script \\${t.cs}`)
     return mathCharField(code)
   }
+  /** \@sqrt[#1]{\root #1\of}: the index, delimited by ] outside braces (one braced group loses its braces), and \r@@t's argument */
+  const root = (): MItem => {
+    const start = ++pos
+    for (let depth = 0; depth > 0 || !isCh(toks[pos], "]"); pos++) {
+      if (pos >= toks.length) throw new Error("math: \\sqrt[ without ]")
+      if (isCh(toks[pos], "{")) depth++
+      else if (isCh(toks[pos], "}")) depth--
+    }
+    let index = toks.slice(start, pos++)
+    if (index.length >= 2 && isCh(index[0], "{") && isCh(index.at(-1), "}") && balanced(index.slice(1, -1))) index = index.slice(1, -1)
+    if (index.some((t) => "cs" in t && (t.cs === "uproot" || t.cs === "leftroot"))) throw new Error("math: \\uproot and \\leftroot")
+    const item: MItem = { kind: "root", index: groupField(sub(index)), radicand: groupField(sub(argument())), amsmath: !!opts.amsmath }
+    // amsmath's \root is \bgroup…\egroup: a math group, an ord noad (§ 1186)
+    return opts.amsmath ? { noad: ORD, nucleus: { kind: "mlist", list: [item] }, sup: null, sub: null } : item
+  }
   /** sub_sup (§ 1176): attach to the tail noad, or to a new dummy noad. */
   const subSup = (out: MItem[], which: "sup" | "sub", field: () => Field) => {
     let tail = out[out.length - 1]
@@ -228,8 +246,8 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
-      else if (cs === "sqrt") { // \sqrtsign: \radical"270370 (\sqrt[n] is \root n\of)
-        if (isCh(toks[pos], "[")) throw new Error("math: \\sqrt[n]")
+      else if (cs === "sqrt") { // \sqrtsign: \radical"270370; \sqrt[n] is \root n\of
+        if (isCh(toks[pos], "[")) { out.push(root()); continue }
         out.push({ noad: ORD, radical: delimiterOf(0x270370), nucleus: scanMath(), sup: null, sub: null })
       }
       else if (opts.alphabets && cs in opts.alphabets) out.push({ noad: ORD, nucleus: alphabet(cs)!, sup: null, sub: null })

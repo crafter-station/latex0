@@ -40,6 +40,13 @@ export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; 
 export interface ColsepSkip { kind: "colsep" }
 /** \\mskip glue (§ 149 mu_glue): in mu, converted with the math unit of its style (§ 732) */
 export interface MuGlue { kind: "muglue"; spec: GlueSpec }
+/** \\mkern (§ 155 mu_glue subtype): in mu, converted like \\mskip (§ 732) */
+export interface MuKern { kind: "mukern"; width: number }
+/**
+ * \\root index\\of radicand (latex.ltx; amsmath's \\plainroot@ with \\uproot and \\leftroot zero): the index in
+ * \\rootbox at scriptscript style, then a \\mathchoice of \\r@@t, which the first pass expands in its style
+ */
+export interface RootItem { kind: "root"; index: Field; radicand: Field; amsmath: boolean }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
 export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
 /** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
@@ -49,7 +56,7 @@ export interface Delimiter { smallFam: number; smallChar: number; largeFam: numb
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
 export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | Node
+export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | RootItem | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
 const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
@@ -197,6 +204,8 @@ class Converter {
       if (!isNoad(q)) { // § 730
         if ("kind" in q && q.kind === "style") this.setStyle(q.style)
         else if ("kind" in q && q.kind === "muglue") { const g = mathGlue(q.spec, this.curMu); list[i] = glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) } // § 732
+        else if ("kind" in q && q.kind === "mukern") list[i] = kern(mathGlue({ width: q.width, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }, this.curMu).width, true) // math_kern (§ 717)
+        else if ("kind" in q && q.kind === "root") { list.splice(i, 1, ...this.root(q)); i-- } // § 731: the choice for cur_style
         else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }
         continue
       }
@@ -424,6 +433,21 @@ class Converter {
    * θ + θ/4 otherwise) and a delimiter at least that tall plus θ; extra depth of the delimiter adds half to the
    * clearance; the delimiter raised to the box's top, then overbar (§ 705) with the delimiter's height as rule
    */
+  /**
+   * \\r@@t in the current style: \\setbox0\\hbox{$\\m@th<style>\\sqrtsign{radicand}$}, \\dimen@ its height minus its
+   * depth, then \\mkern5mu\\raise.6\\dimen@\\copy\\rootbox\\mkern-10mu\\box0 (amsmath adds \\mkern∓\\leftroot@ mu around
+   * the index, zero kerns, and 1.667\\wd of an empty \\mskip to \\dimen@). A box in math is an ord noad (§ 1076).
+   */
+  root(q: RootItem): (Noad | MuKern)[] {
+    const mathBox = (l: MItem[], style: number) => hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(structuredClone(l), style, false), { kind: "math", on: false, width: 0 }])
+    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, { noad: ORD, nucleus: q.index, sup: null, sub: null }], TEXT)
+    const box0 = mathBox([{ noad: ORD, radical: delimiterOf(0x270370), nucleus: q.radicand, sup: null, sub: null }], this.curStyle)
+    rootbox.shift = -xnOverD(box0.height - box0.depth, 39322, 0o200000) // .6 (round_decimals, § 452) times \\dimen@ (§ 455)
+    const zero: MuKern[] = q.amsmath ? [{ kind: "mukern", width: 0 }] : []
+    const ord = (box: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box }, sup: null, sub: null })
+    return [...zero, { kind: "mukern", width: 5 * 65536 }, ord(rootbox), { kind: "mukern", width: -10 * 65536 }, ...zero, ord(box0)]
+  }
+
   makeRadical(n: Field, d: Delimiter): BoxNode {
     const t = this.ruleThickness
     const x = this.cleanBox(n, crampedStyle(this.curStyle))
