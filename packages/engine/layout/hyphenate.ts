@@ -78,11 +78,24 @@ export function buildHyphenator(data: HyphenationData): Hyphenator {
 
 /** lc_code as LaTeX's format sets it: letters map to lowercase, the hyphen to itself (\lccode`\-=`\-), others to 0. */
 export function lcCode(c: number): number {
-  if (c >= 97 && c <= 122) return c
-  if (c >= 65 && c <= 90) return c + 32
-  if (c === 45) return 45 // (a word like well-known with no discretionary after its hyphen is one word)
-  return 0
+  return LC_CODES[c] ?? 0
 }
+
+/**
+ * \lccode as latex.ltx sets it for an 8-bit engine (pdfTeX): a–z and the T1 lowercase ranges "A0–"BC and
+ * "E0–"FF are their own; A–Z and the uppercase ranges "80–"9C and "C0–"DF map "20 up; then the OT1 letters
+ * ^^Y ^^Z ^^[ (ß æ œ), dotted I (^^9d → i), d-bar (^^9e), the hyphens - and 127, and T1's compound word
+ * mark 23. Every character with a nonzero \lccode is a letter to the hyphenation pass, in any font (§ 896).
+ */
+const LC_CODES: Record<number, number> = (() => {
+  const t: Record<number, number> = {}
+  const own = (a: number, b: number) => { for (let c = a; c <= b; c++) t[c] = c }
+  const up = (a: number, b: number) => { for (let c = a; c <= b; c++) t[c] = c + 0x20 }
+  own(97, 122); own(0xa0, 0xbc); own(0xe0, 0xff)
+  up(65, 90); up(0x80, 0x9c); up(0xc0, 0xdf)
+  t[25] = 25; t[26] = 26; t[0x9d] = 105; t[0x9e] = 0x9e; t[27] = 27; t[45] = 45; t[127] = 127; t[23] = 23
+  return t
+})()
 
 /** Convenience for tests and tooling: "hyphenation" → "hy-phen-ation". */
 export function hyphenateWord(h: Hyphenator, word: string, lHyf = 2, rHyf = 3): string {

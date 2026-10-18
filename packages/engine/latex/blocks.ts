@@ -4,7 +4,7 @@
 // commands the layout does not handle yet throws Unsupported here.
 
 import type { Node } from "../layout/nodes"
-import { squeeze } from "./paragraph"
+import { squeeze, TEXT_SYMBOLS } from "./paragraph"
 import { Unsupported } from "./unsupported"
 
 export type Block =
@@ -150,6 +150,18 @@ export function inParagraph(before: string): boolean {
   return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*\\label\{[^{}]*\})+\s*$/.test(last)
 }
 
+/** The commands a paragraph lays out (paragraph.ts), less \the<counter> and the text symbols */
+const TEXT_COMMANDS = [
+  "footnote", "noindent", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
+  "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
+  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "eqref", "pageref", "cite", "LXlstinline",
+  "LXurl", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
+  "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
+  "large", "Large", "LARGE", "huge", "Huge"
+]
+/** A command in text that is none of them (not an assignment like \parindent=…) */
+const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS)].join("|")}|the[a-zA-Z]+)\\b)[a-zA-Z]+(?!\\s*=)`)
+
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 export function blocksOf(body: string): Block[] {
   // comments: % takes the rest of the line and its end, and the next line's leading spaces go (TeX's state N);
@@ -229,7 +241,7 @@ export function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(/\\(?!(?:footnote|noindent|textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph|setcounter|addtocounter|stepcounter|refstepcounter|arabic|roman|Roman|alph|Alph|value|label|ref|eqref|pageref|cite|LXlstinline|LXurl|LXhref|LXtabular|LXminipage|underline|textcolor|color|LXcolorpushed|hfill|hfil|quad|qquad|vspace|hrule|tiny|scriptsize|footnotesize|small|normalsize|large|Large|LARGE|huge|Huge|the[a-zA-Z]+)\b)[a-zA-Z]+(?!\s*=)/); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")

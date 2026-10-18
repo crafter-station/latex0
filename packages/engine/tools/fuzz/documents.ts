@@ -114,6 +114,7 @@ export function makeDocument(r: () => number): string {
       if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
+      if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
       if (r() < 0.0015) ws[i] += " " + minipage(pick(["", "[t]", "[b]", "[c]"]), true)
       // \underline: words, sometimes a font change or a formula, in an \hbox

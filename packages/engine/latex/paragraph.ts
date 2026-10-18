@@ -12,7 +12,7 @@
 // shifted right by \oddsidemargin.
 
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../layout/classdata"
-import { Scanner, type GlueSpec } from "../layout/dimen"
+import { parseDimen, Scanner, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { appendText } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
@@ -176,7 +176,9 @@ function closingBrace(body: string, open: number): number {
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece =
-  | { kind: "text" | "math" | "footnote" | "companion"; src: string }
+  | { kind: "text" | "math" | "footnote"; src: string }
+  /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
+  | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
@@ -192,6 +194,12 @@ type Piece =
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
+
+/** Text symbols (\DeclareTextSymbol): each one's code in the encodings that have it; TS1 is the default's. */
+export const TEXT_SYMBOLS: Record<string, Partial<Record<FontAttrs["enc"], number>>> = {
+  textdollar: { T1: 36, TS1: 36 },
+  textdegree: { TS1: 176 },
+}
 
 /** LaTeX's text font commands (\DeclareTextFontCommand) */
 const FONT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "textnormal", "emph"] as const
@@ -300,7 +308,12 @@ function pieces(body: string, footnotes = true): Piece[] {
   while (i < body.length) {
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
     if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
-    if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "companion", src: "$" }); i += 2; continue }
+    if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
+    // a text symbol (\textdegree …); the spaces after a control word go
+    const sym = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
+    if (sym && sym[1] in TEXT_SYMBOLS) { flushText(); out.push({ kind: "symbol", name: sym[1] }); i += sym[0].length; continue }
+    // \, in text: \thinspace, \kern.16667em
+    if (body.startsWith("\\,", i)) { flushText(); out.push({ kind: "thinspace" }); i += 2; continue }
     if (body[i] === "~") { flushText(); out.push({ kind: "tie" }); i++; continue }
     // \\ (\@ifnextchar skips the spaces after it, but not after \\[skip]'s ])
     const nl = body.slice(i).match(/^\\\\(\*)?(?:\s*\[([^\]]*)\]|\s*)/)
@@ -595,7 +608,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push(...doc.url(p.n, size, attrs, !ctx.restricted, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
       state.spaceFactor = 1000 // after \mathoff
     }
-    else if (p.kind === "companion") appendText(list, p.src, attrs.enc === "T1" ? font : selectFont(k, size, { ...attrs, enc: "TS1" as FontAttrs["enc"] }), state, !ctx.restricted)
+    else if (p.kind === "symbol") {
+      // \DeclareTextSymbol in the current encoding, else the default's (\UseTextSymbol: the companion font, TS1)
+      const codes = TEXT_SYMBOLS[p.name], own = codes[attrs.enc]
+      const f = own !== undefined ? font : selectFont(k, size, { ...attrs, enc: "TS1" })
+      appendText(list, String.fromCharCode(own ?? codes.TS1!), f, state, !ctx.restricted)
+    }
+    else if (p.kind === "thinspace") { // \tmspace+\thinmuskip{.16667em}; amsmath's says .1667em
+      list.push(kern(parseDimen(ctx.amsmath ? ".1667em" : ".16667em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] }), true))
+    }
     else if (p.kind === "font") {
       // \DeclareTextFontCommand: {\text@command{#1}<switch>\check@icl #1\check@icr}; an empty argument (or a
       // lone space) has no italic corrections; one before the argument if the new font is upright and the
