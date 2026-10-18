@@ -1,0 +1,13 @@
+% fixture: cleveref/no-format
+% tier: T3
+% engine: document
+% covers: \cref and \Cref of a label whose type has no name (cref reference format undefined): ?? in bold, \nobreakspace and the label; a label read before any \refstepcounter has the empty type and label; an undefined label is ?? alone
+% issue: #66
+\documentclass{article}
+\usepackage{cleveref}
+\newcounter{step}
+\begin{document}
+Early text\label{early} and \cref{early} or \Cref{early}.
+\section{One}
+See \cref{early} and \Cref{early}, then \refstepcounter{step}\label{st}\cref{st}, \Cref{st} and \cref{none}.
+\end{document}

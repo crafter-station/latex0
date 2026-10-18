@@ -16,7 +16,7 @@ import { IGNORE_DEPTH, plain } from "./vlist"
 import { type Float } from "./output"
 import { labelName, spotAnchor } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
-import { classParams, appendToVlist, labelWrite, paragraphInput } from "./paragraph"
+import { classParams, appendToVlist, crefWrites, labelWrite, paragraphInput } from "./paragraph"
 
 /**
  * \caption{text} in a float of type `env` at \hsize `hsize`: \refstepcounter, the lof/lot line, then in a group
@@ -129,7 +129,10 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
     }
     // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
     m = it.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
-    if (m && number) { content.push(labelWrite(refs, m[1], counters.the(number), refs.href, hyper ? captionName : refs.name)); continue } // nameref: the caption
+    if (m && number) { // nameref: the caption
+      content.push(labelWrite(refs, m[1], counters.the(number), refs.href, hyper ? captionName : refs.name), ...crefWrites(refs, m[1], false, { type: b.env, arabic: number, prefix: counters.crefPrefix(b.env), label: counters.the(number) }))
+      continue
+    }
     if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
     throw new Unsupported(`${it} in a ${b.env}`)
   }

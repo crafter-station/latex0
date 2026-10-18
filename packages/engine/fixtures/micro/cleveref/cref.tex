@@ -1,0 +1,42 @@
+% fixture: cleveref/cref
+% tier: T3
+% engine: document
+% covers: cleveref's \cref and \Cref of one label: the type \refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \crefformat's name~number; each \label writes a second \newlabel{key@cref} in its own \@bsphack…\@esphack; an undefined label prints ?? in bold; \cref@currentlabel is local to an environment, as \@currentlabel is
+% issue: #66
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage{cleveref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\begin{document}
+\section{Linear maps}\label{sec:maps}
+Some text about maps.
+
+\begin{definition}\label{def:trace}
+The trace is a sum.
+\end{definition}
+Back in the section,\label{sec:back} after the definition.
+
+\begin{lemma}\label{lem:cyclic}
+A lemma about traces.
+\end{lemma}
+
+\begin{theorem}\label{thm:similar}
+By \cref{lem:cyclic} and \Cref{def:trace}, similar matrices have the same trace.
+\end{theorem}
+\begin{equation}\label{eq:main}
+a = b
+\end{equation}
+\subsection{More}\label{sec:more}
+\Cref{eq:main} follows from \cref{thm:similar}; see \cref{sec:maps}, \cref{sec:back}, \Cref{sec:more}, \cref{fig:one} and \cref{item:two}. Not \cref{nowhere} or \Cref{nowhere}.
+\begin{enumerate}
+\item One.
+\item Two.\label{item:two}
+\end{enumerate}
+\begin{figure}[h]
+\centering
+\caption{A caption.}\label{fig:one}
+\end{figure}
+\end{document}

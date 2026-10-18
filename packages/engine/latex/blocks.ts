@@ -154,7 +154,7 @@ export function inParagraph(before: string): boolean {
 const TEXT_COMMANDS = [
   "footnote", "noindent", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
-  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "eqref", "pageref", "cite", "LXlstinline",
+  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "eqref", "pageref", "cite", "cref", "Cref", "LXlstinline",
   "LXurl", "LXgraphic", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge"

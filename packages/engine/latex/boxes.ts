@@ -13,7 +13,7 @@ import { caption } from "./floats"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
 import { preamble, tabularBox, tabularLines, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
-import { hlistInput, appendToVlist, labelWrite, mathEnv, paragraphInput, selectFont, type FontAttrs, type TabularOuter } from "./paragraph"
+import { hlistInput, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, type FontAttrs, type TabularOuter } from "./paragraph"
 
 /** tabular number n where it stands in text (DocState.tabular) */
 export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
@@ -79,6 +79,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     if (lm) {
       if (!cap) throw new Unsupported("a \\label in a minipage")
       list.push(labelWrite(refs, lm[1], counters.the(cap.number), refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
+      list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: counters.the(cap.number) }))
       continue
     }
     if (/^\\label/.test(part)) throw new Unsupported(`${part} in a minipage`)

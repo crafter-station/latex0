@@ -1,0 +1,12 @@
+% fixture: cleveref/label-spaces
+% tier: T3
+% engine: document
+% covers: a \label in a paragraph with cleveref: the old \label's \@bsphack…\@esphack (after a space, \nobreak\hskip\z@skip\ignorespaces), then cleveref's own, whose \@bsphack sees no skip, so its \@esphack ignores no space: a \label between spaces leaves both
+% issue: #66
+\documentclass{article}
+\usepackage{cleveref}
+\begin{document}
+\section{One}
+Word \label{a} word word\label{b} word word \label{c}word word\label{d}word. End \label{e}
+\label{f} lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{document}

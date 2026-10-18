@@ -72,6 +72,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
     if (numbered) {
       counters.stepSectional(0)
       refs.label = counters.theSectional(0); refs.href = `chapter.${refs.label}`
+      if (refs.cleveref) refs.cleveref.current = { type: "chapter", arabic: counters.sectional[0], prefix: counters.crefPrefix("chapter"), label: refs.label }
       doc.footnote = 0
     } else if (hyper) refs.href = `chapter*.${++run.linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
     // hyperref: the anchor, then \addcontentsline's bookmark and toc line
@@ -172,7 +173,11 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
     counters.stepSectional(b.level)
     number = counters.theSectional(b.level)
   }
-  if (numbered) { refs.label = number; refs.href = `${["", "section", "subsection", "subsubsection"][b.level]}.${number}` } // \refstepcounter
+  if (numbered) { // \refstepcounter
+    const type = ["", "section", "subsection", "subsubsection"][b.level]
+    refs.label = number; refs.href = `${type}.${number}`
+    if (refs.cleveref) refs.cleveref.current = { type, arabic: counters.sectional[b.level], prefix: counters.crefPrefix(type), label: number }
+  }
   // hyperref: \refstepcounter's anchor on the vertical list; an unnumbered heading's (\Hy@MakeCurrentHrefAuto)
   // in an \hbox to 0pt at the start of its title; nameref's \@currentlabelname is the title
   let anchorName = ""

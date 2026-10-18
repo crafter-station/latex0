@@ -31,6 +31,7 @@ import type { LayoutResult } from "./result"
 import { endDocument, makeColumns } from "./output"
 import { anchor, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
+import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -129,6 +130,15 @@ export interface Refs {
   hyper?: boolean
   /** hyperref's \c@Hfootnote: footnotes so far, never reset */
   hfootnotes?: number
+  /** cleveref: \cref@currentlabel (local where \@currentlabel is), each \refstepcounter's by its \@currentHref, the
+   *  second \newlabel writes, the run before's (key → its \cref@currentlabel), and how much of the main vertical list there is */
+  cleveref?: { current: CrefLabel | null; byHref: Map<string, CrefLabel>; writes: CrefWrite[]; prev: Map<string, CrefLabel | null> | null; at: () => number; name: (type: string, capital: boolean) => string | null }
+}
+
+/** cleveref's second write of a \label (none without cleveref): `inPara`, read in a paragraph */
+export function crefWrites(refs: Refs, key: string, inPara: boolean, cref = refs.cleveref?.current ?? null): Node[] {
+  const c = refs.cleveref
+  return c ? [crefWrite(c.writes, key, cref, c.at(), inPara)] : []
 }
 
 /** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
@@ -209,6 +219,8 @@ type Piece =
   | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
+  /** cleveref's \cref{key} or \Cref{key}, and the character after it (\textup's \check@icr looks at it) */
+  | { kind: "cref"; key: string; capital: boolean; next: string }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -382,6 +394,11 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (eqref) {
       flushText(); out.push({ kind: "font", cmd: "textup", src: "\\tagform@", inner: [{ kind: "tagref", key: eqref[1] }], next: body[i + eqref[0].length] ?? "" }); i += eqref[0].length; continue
     }
+    const cref = body.slice(i).match(/^\\(cref|Cref)\{([^{}]*)\}/)
+    if (cref) {
+      if (!/^[A-Za-z0-9:._-]+$/.test(cref[2])) throw new Unsupported(`\\${cref[1]}{${cref[2]}}`) // (several labels: a list or a range)
+      flushText(); out.push({ kind: "cref", key: cref[2], capital: cref[1] === "Cref", next: body[i + cref[0].length] ?? "" }); i += cref[0].length; continue
+    }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
     if (ref) {
       if (ref[1] === "label" && !footnotes) throw new Error("paragraph adapter: \\label in a footnote")
@@ -504,7 +521,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
   for (const p of ps) {
     if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
     if (p.kind === "currentlabel") {
-      if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href }
+      if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href; if (doc.refs.cleveref) doc.refs.cleveref.current = doc.refs.cleveref.byHref.get(p.href)! }
       if (doc.refs?.hyper) list.push(...anchor(p.href, k.sizes[size].baselineskip.width, "h", list.at(-1))) // hyperref's anchor where it stands
       continue
     }
@@ -547,7 +564,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push(labelWrite(doc.refs, p.key))
-      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+      if (savsk > 0) list.push(penalty(10000), glue(0))
+      // cleveref's own \@bsphack…\@esphack after it sees no skip (the \hskip\z@skip, or the write): its write, and no
+      // \ignorespaces (the first one's stopped at that \@bsphack)
+      if (doc.refs.cleveref) list.push(...crefWrites(doc.refs, p.key, true))
+      else if (savsk > 0) ctx.ignoreSpaces = true
     }
     else if (p.kind === "tagref") {
       // \tagform@: \maketag@@@{(\ignorespaces\ref{key}\unskip\@@italiccorr)}, \maketag@@@: \hbox{\m@th\normalfont#1}
@@ -560,6 +581,25 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       appendText(inner, ")", f, st, false)
       list.push(hpack(inner))
       state.spaceFactor = 1000
+    }
+    else if (p.kind === "cref") {
+      // \cref: the name, \nobreakspace, the label in its format (\crefdefaultlabelformat #2#1#3, equation's \textup{(#2#1#3)});
+      // a label the run before did not write: \nfss@text{\reset@font\bfseries ??}
+      const c = doc.refs?.cleveref
+      if (!c) throw new Unsupported(`\\${p.capital ? "C" : "c"}ref without cleveref`)
+      const known = c.prev?.get(p.key)
+      const qq = () => {
+        const l: Node[] = []
+        appendText(l, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
+        list.push(hpack(l))
+        state.spaceFactor = 1000
+      }
+      if (known === undefined) { qq(); continue }
+      // a type with no name (a label read before any \refstepcounter has the empty one): ?? in its place
+      const name = known ? c.name(known.type, p.capital) : null
+      const label: Piece = known?.type === "equation" ? { kind: "font", cmd: "textup", src: `(${known.label})`, inner: [{ kind: "text", src: `(${known.label})` }], next: "" } : { kind: "text", src: known?.label ?? "" }
+      if (name === null) qq()
+      appendPieces(list, [...(name === null ? [] : [{ kind: "text", src: name } as Piece]), { kind: "tie" }, label], font, size, state, ctx, attrs)
     }
     else if (p.kind === "ref" || p.kind === "pageref") {
       // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}

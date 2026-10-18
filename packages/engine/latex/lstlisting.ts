@@ -96,6 +96,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
     lstAnchor(refs.href)
     if (o.label !== null) {
       if (!/^[A-Za-z0-9:._-]+$/.test(o.label)) throw new Unsupported(`listing label ${o.label}`)
+      if (refs.cleveref) throw new Unsupported("a listing's label with cleveref")
       v.nodes.push(labelWrite(refs, o.label, String(n), counters.href("lstlisting", n), hyper ? labelName(text) : refs.name)) // nameref: the caption
       v.nodes.push(...esphackNobreaks(v.nobreak))
     }

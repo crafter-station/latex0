@@ -9,7 +9,7 @@ import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH } from "./vlist"
-import { labelWrite } from "./paragraph"
+import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, maketitle, tableOfContents } from "./frontmatter"
 import { chapter, heading, matter } from "./sectioning"
 import { leadingColor } from "./colors"
@@ -49,7 +49,7 @@ export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
       for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\{([^{}]*)\}|\\hrule/g)) {
         if (m[1] !== undefined) {
-          v.nodes.push(labelWrite(refs, m[1]), ...esphackNobreaks(v.nobreak))
+          for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
         } else if (m[2] !== undefined) {
           let g: GlueSpec
           try { g = parseGlue(m[2], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[2]}}`) }

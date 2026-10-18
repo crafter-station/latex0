@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 233,
-  "exact": 231,
+  "fixtures": 239,
+  "exact": 237,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 232944
+  "glyphs": 240440
  },
  "areas": [
   {
@@ -33,6 +33,11 @@
    "area": "classes",
    "fixtures": 15,
    "exact": 15
+  },
+  {
+   "area": "cleveref",
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "display",
@@ -625,6 +630,72 @@
    "glyphs": 639,
    "covers": "every size command \\tiny … \\Huge in article [12pt]: font, \\baselineskip between sizes, \\parskip between paragraphs",
    "issue": "#44"
+  },
+  {
+   "id": "cleveref/cref-pages",
+   "file": "micro/cleveref/cref-pages.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3292,
+   "covers": "the page in cleveref's \\newlabel{key@cref} is \\arabic{page} when the \\label was read, not the page it is shipped on: labels in vertical mode, in a paragraph and in a display, near page breaks, where the page builder has not fired the page before yet",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/cref-parskip",
+   "file": "micro/cleveref/cref-parskip.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3395,
+   "covers": "a page the page builder fires as it sees a paragraph's \\parskip (new_graf contributes it before the paragraph is read): the labels in that paragraph see the page counter stepped, a \\label in vertical mode before it does not",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/cref-report",
+   "file": "micro/cleveref/cref-report.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 294,
+   "covers": "cleveref in report: \\cref@constructprefix's chain of the counters that reset one (section and equation within the chapter, a theorem within the section, enumii within enumi, a \\newcounter within a section, which has no name), the names of chapter, subsection, a nested item, a footnote-free \\refstepcounter in text, a theorem named after its title (declared after cleveref), and the page counter at each label after the title page set it back to 1",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/cref",
+   "file": "micro/cleveref/cref.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 317,
+   "covers": "cleveref's \\cref and \\Cref of one label: the type \\refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \\crefformat's name~number; each \\label writes a second \\newlabel{key@cref} in its own \\@bsphack…\\@esphack; an undefined label prints ?? in bold; \\cref@currentlabel is local to an environment, as \\@currentlabel is",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/label-spaces",
+   "file": "micro/cleveref/label-spaces.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "a \\label in a paragraph with cleveref: the old \\label's \\@bsphack…\\@esphack (after a space, \\nobreak\\hskip\\z@skip\\ignorespaces), then cleveref's own, whose \\@bsphack sees no skip, so its \\@esphack ignores no space: a \\label between spaces leaves both",
+   "issue": "#66"
+  },
+  {
+   "id": "cleveref/no-format",
+   "file": "micro/cleveref/no-format.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 52,
+   "covers": "\\cref and \\Cref of a label whose type has no name (cref reference format undefined): ?? in bold, \\nobreakspace and the label; a label read before any \\refstepcounter has the empty type and label; an undefined label is ?? alone",
+   "issue": "#66"
   },
   {
    "id": "display/align-amsmath",

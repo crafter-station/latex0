@@ -18,7 +18,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, labelWrite, mathEnv, paragraphInput, spec, parseFormula } from "./paragraph"
+import { squeeze, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, spec, parseFormula } from "./paragraph"
 
 /**
  * A paragraph that may hold displays (§§ 1145–1206). The text before each display is broken
@@ -88,14 +88,15 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
     const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, romanFont.params[QUAD])
     if (next.kind === "equation") { counters.equation++; refs.href = counters.href("equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
-    const newlabel: Node | null = label ? labelWrite(refs, label[1], counters.the(counters.equation)) : null
+    const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the(counters.equation) }
+    const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the(counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
     let mlist: MItem[]
     if (!label) mlist = parse(next.src)
     else {
       const before = next.src.slice(0, label.index), after = next.src.slice(label.index! + label[0].length)
       if (amsmath) mlist = parse(before + after)
       else if (depthOf(before) !== 0) throw new Unsupported("\\label inside a group in an equation")
-      else mlist = [...parse(before), newlabel!, ...parse(after)]
+      else mlist = [...parse(before), ...newlabel!, ...parse(after)]
     }
     const env = mathEnv(run.k, "normalsize", amsmath)
     if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
@@ -109,7 +110,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
       appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
       l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
       appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
-      eqno = hpack(newlabel ? [hpack(l), newlabel] : [hpack(l)]); eqno.display = true
+      eqno = hpack(newlabel ? [hpack(l), ...newlabel] : [hpack(l)]); eqno.display = true
     } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
       // hyperref's \equation: \mathopen{\hyper@anchorstart} at the start, \hyper@anchorend (and \nobreak) at the end
       if (hyper && hyperDriver.pdftex) { // \endequation: \mathclose{\Hy@raisedlink{\hyper@anchorend}}, its box empty (\pdf@endanchor)
