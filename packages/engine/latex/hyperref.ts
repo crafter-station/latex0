@@ -1,11 +1,22 @@
 // hyperref with its dvips driver (pdfmark.def), as LaTeX loads it for `latex`: the pdfmark
-// \special nodes of anchors, links and outlines, and the bookmark lines it writes to the .out file.
+// \special nodes of anchors, links and outlines, and the bookmark lines it writes to the .out file. With
+// pdfTeX's driver (hpdftex.def, `pdflatex`) an anchor is a \pdfdest and a link \pdfstartlink … \pdfendlink
+// around its text, which stays in the paragraph (no box: it can break across lines); the outlines are
+// \pdfoutline objects, no nodes.
 
 import { printScaled } from "../layout/arith"
 import { glue, kern, penalty, type BoxNode, type Node, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 
+/** the document's driver: set for each layout (DocumentOptions.driver) */
+export const hyperDriver = { pdftex: false }
+
 const special = (ps: string): Node => ({ kind: "whatsit", text: `\\special{${ps}}` })
+/** hpdftex.def's \Hy@DestName: \pdfdest name{…} xyz (\@pdfview) */
+export const pdfdest = (name: string): Node => ({ kind: "whatsit", text: `\\pdfdest name{${name}} xyz` })
+/** \pdfstartlink with its running size, and \pdfendlink (\close@pdflink) */
+const startLink = (action: string): Node => ({ kind: "whatsit", text: `\\pdfstartlink(*+*)x* ${action}` })
+const endLink = (): Node => ({ kind: "whatsit", text: "\\pdfendlink" })
 const sdict = (s: string): Node => special(`ps:SDict begin ${s} end`)
 
 /** \strip@pt@and@otherjunk: a dimension in pt without "pt", and without ".0" */
@@ -25,9 +36,24 @@ export const dest = (name: string) => sdict(`[/View [/XYZ H.V]/Dest (${name}) cv
  * vertical mode), \nobreak; (\Hy@raisedlink is empty in this driver)
  */
 export function anchor(name: string, baselineskip: number, mode: "v" | "h", last: Node | undefined): Node[] {
-  const out: Node[] = [HS()]
-  if (mode === "h") out.push(penalty(10000), glue(0))
-  out.push(HA(baselineskip), dest(name))
+  // hpdftex.def's \new@pdflink: \Hy@SaveLastskip, the \pdfdest, \Hy@RestoreLastskip; in horizontal mode inside
+  // \Hy@raisedlink (empty with dvips): \penalty\@M \smash{\raise\baselineskip\hbox{…}}, where nothing came before
+  if (hyperDriver.pdftex && mode === "h") return raisedlink([pdfdest(name), ...restoreLastskip("h", undefined)], baselineskip)
+  const out: Node[] = hyperDriver.pdftex ? [pdfdest(name)] : [HS(), ...(mode === "h" ? [penalty(10000), glue(0)] : []), HA(baselineskip), dest(name)]
+  return [...out, ...restoreLastskip(mode, last)]
+}
+
+/** \Hy@raisedlink in horizontal mode: \penalty\@M, then \smash (an \hbox, its height and depth zero) of the material
+ *  in an \hbox raised by \baselineskip */
+export function raisedlink(material: Node[], baselineskip: number): Node[] {
+  const raised = hpack(material); raised.shift = -baselineskip
+  const smash = hpack([raised]); smash.height = 0; smash.depth = 0
+  return [penalty(10000), smash]
+}
+
+/** \Hy@RestoreLastskip after an anchor */
+function restoreLastskip(mode: "v" | "h", last: Node | undefined): Node[] {
+  const out: Node[] = []
   if (last?.kind === "glue" && last.width !== 0) { // \ifdim\lastskip=\z@ looks at the natural width
     out.push(penalty(10000), glue(-last.width, -last.stretch, last.stretchOrder, -last.shrink, last.shrinkOrder), glue(last.width, last.stretch, last.stretchOrder, last.shrink, last.shrinkOrder))
   } else if (mode === "h" || last?.kind !== "hlist") out.push(penalty(10000))
@@ -38,8 +64,9 @@ export function anchor(name: string, baselineskip: number, mode: "v" | "h", last
  * \hyper@anchor{name} (\pdfmark[\anchor@spot]: \pdf@rect gives H.S and H.R), the /DEST pdfmark, and
  * \Hy@RestoreLastskip as for anchor()
  */
-export function spotAnchor(name: string, mode: "v" | "h", last: Node | undefined): Node[] {
-  return [HS(), HR(), dest(name), ...anchor(name, 0, mode, last).slice(mode === "h" ? 5 : 3)]
+export function spotAnchor(name: string, mode: "v" | "h", last: Node | undefined, baselineskip = 0): Node[] {
+  if (hyperDriver.pdftex && mode === "h") return raisedlink([pdfdest(name), ...restoreLastskip("h", undefined)], baselineskip)
+  return [...(hyperDriver.pdftex ? [pdfdest(name)] : [HS(), HR(), dest(name)]), ...restoreLastskip(mode, last)]
 }
 
 /** \Hy@@SectionAnchor: \hbox to 0pt{\kern-\Hy@SectionHShift <anchor> \hss}, at the start of a heading's title */
@@ -53,16 +80,19 @@ export function sectionAnchorBox(name: string, shift: number, baselineskip: numb
  * empty hbox, and the /ANN pdfmark with the anchor
  */
 export function refLink(text: Node[], name: string, color?: string): Node[] {
+  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[1 0 0]} action goto name{${name}}`), ...text, endLink()] // (find@pdflink)
   return linkBox(text, color, `[/Color [1 0 0]/H /I/Border [0 0 1]BorderArrayPatch/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`)
 }
 
 /** \hyper@linkurl (hdvips.def): a link to a URI around the typeset text, as for \ref */
 export function uriLink(text: Node[], uri: string, color?: string): Node[] {
+  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[0 1 1]} action user{/Subtype/Link/A<</Type/Action/S/URI/URI(${uri})>>}`), ...text, endLink()]
   return linkBox(text, color, `[/H /I/Border [0 0 1]BorderArrayPatch/Color [0 1 1]/Action <</Subtype/URI/URI(${uri})>>/Subtype /Link H.B /ANN pdfmark`)
 }
 
 /** \hyper@linkfile (pdfmark.def): a link to page 1 of another PDF file, in \@filecolor */
 export function fileLink(text: Node[], file: string, color?: string): Node[] {
+  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[0 .5 .5]} action user{/Subtype/Link/A<</F(${file})/S/GoToR/D[0/Fit]>>}`), ...text, endLink()]
   return linkBox(text, color, `[/Subtype /Link/H /I/Border [0 0 1]BorderArrayPatch/Color [0 .5 .5]/Action <</S/GoToR/F(${file})/D[0/Fit]>> H.B /ANN pdfmark`)
 }
 
@@ -77,8 +107,13 @@ function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node
   return [start, box, end, sdict(pdfmark)]
 }
 
-/** A toc line's link (\hyper@linkstart … \hyper@linkend): an hbox with H.S, \Hy@AllowHyphens, the entry, H.L, the /ANN pdfmark */
-export function tocLink(content: Node[], name: string, baselineskip: number): BoxNode {
+/** A toc line's or a footnote mark's link (\hyper@linkstart … \hyper@linkend): an hbox with H.S, \Hy@AllowHyphens,
+ *  the entry, H.L, the /ANN pdfmark; with pdfTeX the link nodes around the entry where it stands */
+export function tocLink(content: Node[], name: string, baselineskip: number): Node[] {
+  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[1 0 0]} action goto name{${name}}`), ...content, endLink()]
+  return [tocBox(content, name, baselineskip)]
+}
+function tocBox(content: Node[], name: string, baselineskip: number): BoxNode {
   // in restricted horizontal mode no empty discretionary follows a hyphen (§ 1039)
   content = content.filter((n) => !(n.kind === "disc" && !n.pre.length && !n.post.length && !n.replaceCount))
   return hpack([HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (${name}) cvn/H /I/Border [0 0 1]BorderArrayPatch/Color [1 0 0] H.B /ANN pdfmark`)])
@@ -126,6 +161,7 @@ export class Bookmarks {
  * (/Count is minus the number of children), the /DOCVIEW and Catalog pdfmarks; then the Doc-Start anchor
  */
 export function documentStart(bookmarks: Bookmark[]): Node[] {
+  if (hyperDriver.pdftex) return []
   const children = new Map<string, number>()
   for (const b of bookmarks) if (b.parent) children.set(b.parent, (children.get(b.parent) ?? 0) + 1)
   return [
@@ -141,7 +177,8 @@ export function documentStart(bookmarks: Bookmark[]): Node[] {
  */
 export function pageAnchor(page: string, topmargin: number, sidemargin: number): BoxNode {
   const bp = 65781 // 1bp
-  const h = hpack([kern(0, true), kern(sidemargin, true), kern(-bp, true), HS(), HR(), dest(`page.${page}`), penalty(10000), ssGlue()], { exactly: 0 })
+  const mark = hyperDriver.pdftex ? [pdfdest(`page.${page}`)] : [HS(), HR(), dest(`page.${page}`)]
+  const h = hpack([kern(0, true), kern(sidemargin, true), kern(-bp, true), ...mark, penalty(10000), ssGlue()], { exactly: 0 })
   return vpack([kern(0, true), kern(topmargin, true), kern(-bp, true), h, ssGlue()], { exactly: 0 })
 }
 

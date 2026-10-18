@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 228,
-  "exact": 226,
+  "fixtures": 230,
+  "exact": 228,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 231153
+  "glyphs": 231595
  },
  "areas": [
   {
@@ -106,8 +106,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "sections",
@@ -1997,6 +1997,26 @@
    "status": "pass",
    "glyphs": 6131,
    "covers": "under pdflatex (PDF, positions from its box dumps): fancyhdr's default fields with \\pagestyle{fancy}: {\\slshape\\rightmark} left and {\\slshape\\leftmark} right in the head, \\rmfamily\\thepage in the foot, each a \\parbox of \\headwidth with a \\strut (\\f@nch@def), the 0.4pt head rule; its \\sectionmark (\\markboth{\\MakeUppercase{\\thesection\\hskip 1em\\relax title}}{}) and \\subsectionmark (\\markright); \\@mkboth is \\markboth (the contents); the fields' paragraphs traced as each page ships, among the document's"
+  },
+  {
+   "id": "pdflatex/hyperref-breaking-links",
+   "file": "micro/pdflatex/hyperref-breaking-links.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 417,
+   "covers": "hyperref under pdflatex: links are \\pdfstartlink … \\pdfendlink around text that stays in the paragraph, so an \\href's text hyphenates and breaks across lines and a \\url keeps its breakpoints (under dvips both sit in an unbreakable \\hbox); a \\ref and a footnote mark inline; \\section anchors raised by \\Hy@raisedlink; an equation's anchors in math; a long table-of-contents title in its link"
+  },
+  {
+   "id": "pdflatex/hyperref-equation-close",
+   "file": "micro/pdflatex/hyperref-equation-close.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 25,
+   "covers": "hyperref's \\endequation under pdflatex: \\mathclose{\\Hy@raisedlink{\\hyper@anchorend}}, a close atom, so no thin space after a formula ending in \\right (an inner atom); \\mathopen at the start; with and without a \\label"
   },
   {
    "id": "pdflatex/math-sqrt-index",
