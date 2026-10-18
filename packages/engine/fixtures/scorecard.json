@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 219,
-  "exact": 217,
+  "fixtures": 220,
+  "exact": 218,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 218230
+  "glyphs": 224218
  },
  "areas": [
   {
@@ -96,8 +96,8 @@
   },
   {
    "area": "pages",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "sections",
@@ -1914,6 +1914,16 @@
    "glyphs": 5964,
    "covers": "\\pagestyle{headings} in article: \\sectionmark's \\markright{\\MakeUppercase{\\thesection\\quad title}} (\\marks2 and \\marks3, \\__mark_value:nn numbered), the head {\\slshape\\rightmark}\\hfil\\thepage with the page's first 2e-right mark or the one carried from the pages before",
    "issue": "#30"
+  },
+  {
+   "id": "pages/headings-depth",
+   "file": "micro/pages/headings-depth.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5988,
+   "covers": "a running head with depth (the slanted parentheses of \"(OF THE LEMMA)\"): \\@outputpage's \\vbox to\\headheight{\\vfil\\hbox…} then has its depth set to zero, which its glue ratio does not see; the oracle's positions from box dumps tell that from a depth \\boxmaxdepth cut"
   },
   {
    "id": "pages/headings-report-twoside",

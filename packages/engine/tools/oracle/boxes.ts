@@ -54,11 +54,13 @@ export function parseLine(text: string): BoxNode {
     const d = (x: string) => (x === "*" ? null : parseScaled(x))
     return { type: "rule", height: d(m[1]), depth: d(m[2]), width: d(m[3]) }
   }
-  // font character or ligature: "\OT1/cmr/m/n/10 w" or "\OT1/cmr/m/n/10 ^^O (ligature ffl)";
-  // the ligature text keeps § 193's | marks for boundary hits
-  if ((m = text.match(/^\\(\S+) (\^\^[0-9a-f]{2}|\^\^.|[^])(?: \(ligature (.*)\))?$/))) {
-    const c: BoxNode = { type: "char", font: m[1], size: 0, char: decodeChar(m[2]) }
-    return m[3] !== undefined ? { ...c, lig: m[3] } : c
+  // font character or ligature: "\OT1/cmr/m/n/10 w" or "\OT1/cmr/m/n/10 ^^O (ligature ffl)", with \pdftracingfonts
+  // the font's file and size after the identifier ("\OT1/cmr/m/n/10.95 (cmr10@10.95pt) w"); the ligature text keeps
+  // § 193's | marks for boundary hits
+  if ((m = text.match(/^\\([^\s{}]+)(?: \(([^@()\s]+)(?:@(-?[\d.]+)pt)?\))? (\^\^[0-9a-f]{2}|\^\^.|[^])(?: \(ligature (.*)\))?$/))) {
+    const c: BoxNode = { type: "char", font: m[1], size: 0, char: decodeChar(m[4]) }
+    if (m[2]) { c.tfm = m[2]; if (m[3]) c.at = parseScaled(m[3]) }
+    return m[5] !== undefined ? { ...c, lig: m[5] } : c
   }
   return { type: "other", text }
 }
@@ -74,6 +76,9 @@ export function parseBoxDump(lines: string[], i: number): { box: BoxNode; end: n
     if (/^[.|]*\\\S+ $/.test(line) && i + 1 < lines.length) line += "\n" + lines[++i]
     const prefix = line.match(/^[.|]*/)![0]
     const depth = prefix.length
+    // a line inside a box display always starts with its depth's dots: one without them goes on with the last
+    // (a \special's text broken at \newlinechar)
+    if (depth === 0) { const last = stack[stack.length - 1].node; if (last.type === "other") last.text += "\n" + line; continue }
     const node = parseLine(line.slice(depth))
     while (stack.length && stack[stack.length - 1].depth >= depth) stack.pop()
     const parent = stack[stack.length - 1].node
