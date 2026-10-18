@@ -19,7 +19,7 @@ const MUSKIPS = ["thinmuskip", "medmuskip", "thickmuskip"]
 const SYMBOLS = (
   "alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi varpi rho varrho sigma varsigma " +
   "tau upsilon phi varphi chi psi omega Gamma Delta Theta Lambda Xi Pi Sigma Upsilon Phi Psi Omega " +
-  "aleph imath jmath ell wp Re Im partial infty prime emptyset nabla top bot triangle forall exists neg lnot flat natural sharp " +
+  "aleph imath jmath ell wp Re Im partial infty prime emptyset nabla top bot triangle forall exists neg lnot flat natural sharp not " +
   "clubsuit diamondsuit heartsuit spadesuit " +
   "pm mp setminus cdot times ast star diamond circ bullet div cap cup uplus sqcap sqcup triangleleft triangleright wr " +
   "bigcirc bigtriangleup bigtriangledown vee lor wedge land oplus ominus otimes oslash odot dagger ddagger amalg " +

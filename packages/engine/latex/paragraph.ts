@@ -56,9 +56,9 @@ export { mathData }
 const ALPHABET_FONTS = ["mathbf", "mathit", "mathsf", "mathtt"] as const
 export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1, mathcal: 2, ...Object.fromEntries(ALPHABET_FONTS.map((a, i) => [a, 4 + i])) }
 
-/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets. */
-export function parseFormula(src: string, amsmath = false): MItem[] {
-  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS }) } catch (e) { throw new Unsupported((e as Error).message) } // (what the parser does not read)
+/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's */
+export function parseFormula(src: string, amsmath: boolean, em: number): MItem[] {
+  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em }) } catch (e) { throw new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
@@ -661,7 +661,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, ctx.amsmath), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD]), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext

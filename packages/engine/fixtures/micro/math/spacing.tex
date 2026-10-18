@@ -1,0 +1,12 @@
+% fixture: math/spacing
+% tier: T3
+% engine: document
+% covers: math spacing commands: \, \: \> \; \! and their names (\tmspace in math: \mskip±\thinmuskip, \medmuskip, \thickmuskip, converted with the style's math unit, § 732), in scripts; \quad and \qquad (\hskip in em of the current text font: cmr, cmti in \emph, a smaller size); \ne and \neq (\not=); glue in math stretching but never a breakpoint
+\documentclass{article}
+\begin{document}
+Thin and thick: $a\,b$, $a\:b\>c$, $a\;b$, $a\!b$, $\int\!\!\int f\,dx\,dy$, $x^{a\,b\;c\!d}$, $e^{x_{i\,j\;k}}$,
+$a\thinspace b\negthinspace c\medspace d\negmedspace e\thickspace f\negthickspace g$ and
+$f(x)\ne 0$, $a\neq b$, $x \ne y^{n\neq m}$ with $a\quad b\qquad c$ and \emph{italic $a\quad b\qquad c$ here}
+and {\small small $x\quad y\;z\,w$ text} in a line long enough to wrap $a\;b\;c\;d\;e\;f\;g\;h\;i\;j\;k\;l\;m\;n\;o\;p\;q$ twice.
+\[ \sum_{i\,=\,1}^n x_i \quad\ne\quad \prod_{j\;=\;1}^m y_j \qquad \frac{a\,b}{c\!d} \]
+\end{document}

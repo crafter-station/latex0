@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 211,
-  "exact": 209,
+  "fixtures": 212,
+  "exact": 210,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 192996
+  "glyphs": 193179
  },
  "areas": [
   {
@@ -81,8 +81,8 @@
   },
   {
    "area": "math",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "minipage",
@@ -1680,6 +1680,16 @@
    "glyphs": 136,
    "covers": "a word touching a formula is not hyphenated (§ 899), the space factor is 1000 after a formula, and \\mathoff is a breakpoint, at 12pt",
    "issue": "#86"
+  },
+  {
+   "id": "math/spacing",
+   "file": "micro/math/spacing.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 183,
+   "covers": "math spacing commands: \\, \\: \\> \\; \\! and their names (\\tmspace in math: \\mskip±\\thinmuskip, \\medmuskip, \\thickmuskip, converted with the style's math unit, § 732), in scripts; \\quad and \\qquad (\\hskip in em of the current text font: cmr, cmti in \\emph, a smaller size); \\ne and \\neq (\\not=); glue in math stretching but never a breakpoint"
   },
   {
    "id": "math/sqrt",

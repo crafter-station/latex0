@@ -38,6 +38,8 @@ export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; 
   radical?: Delimiter }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
+/** \\mskip glue (§ 149 mu_glue): in mu, converted with the math unit of its style (§ 732) */
+export interface MuGlue { kind: "muglue"; spec: GlueSpec }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
 export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
 /** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
@@ -47,7 +49,7 @@ export interface Delimiter { smallFam: number; smallChar: number; largeFam: numb
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
 export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | Node
+export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
 const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
@@ -194,6 +196,7 @@ class Converter {
       const q = list[i]
       if (!isNoad(q)) { // § 730
         if ("kind" in q && q.kind === "style") this.setStyle(q.style)
+        else if ("kind" in q && q.kind === "muglue") { const g = mathGlue(q.spec, this.curMu); list[i] = glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) } // § 732
         else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }
         continue
       }
