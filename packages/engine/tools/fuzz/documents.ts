@@ -430,7 +430,9 @@ export function fuzzDocuments(n: number, seed: number): number {
   const reasons = new Map<string, number>()
   for (let i = 0; i < n; i++) {
     const file = join(dir, `doc-${seed}-${i}.tex`)
-    writeFileSync(file, "% engine: document\n" + makeDocument(r))
+    // some under pdflatex (positions from its box dumps; its hyperref and xcolor nodes), unless they use EPS graphics
+    const doc = makeDocument(r)
+    writeFileSync(file, `% engine: document\n${!doc.includes("\\includegraphics") && r() < 0.3 ? "% oracle: pdflatex\n" : ""}` + doc)
     const res = runFixture(file)
     // TeX's work files (a log with \tracingassigns runs to tens of megabytes) and its saved reference are
     // kept only for differences

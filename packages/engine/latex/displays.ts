@@ -7,7 +7,7 @@ import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"
-import { DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
+import { CLOSE as CLOSE_NOAD, DISPLAY as DISPLAY_STYLE, groupField, mlistToHlist, OPEN as OPEN_NOAD, ORD as ORD_NOAD, TEXT as TEXT_STYLE, type MItem } from "../mathlayout/mlist"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
 import { xnOverD } from "../layout/arith"
@@ -16,7 +16,7 @@ import type { Ctx } from "./context"
 import { depthOf } from "./source"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
-import { anchor, dest, HA, HS } from "./hyperref"
+import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
 import { squeeze, appendToVlist, labelWrite, mathEnv, paragraphInput, spec, parseFormula } from "./paragraph"
 
@@ -103,7 +103,8 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
       mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
       // hyperref: \refstepcounter's anchor in a math group before it (an ord noad)
-      if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
+      if (hyper && hyperDriver.pdftex) mlist.unshift(...mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width))
+      else if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
       const l: Node[] = []
       appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
       l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
@@ -111,7 +112,11 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
       eqno = hpack(newlabel ? [hpack(l), newlabel] : [hpack(l)]); eqno.display = true
     } else if (next.kind === "equation") { // \eqno \hbox{\@eqnnum}: {\normalfont (\theequation)}
       // hyperref's \equation: \mathopen{\hyper@anchorstart} at the start, \hyper@anchorend (and \nobreak) at the end
-      if (hyper) {
+      if (hyper && hyperDriver.pdftex) { // \endequation: \mathclose{\Hy@raisedlink{\hyper@anchorend}}, its box empty (\pdf@endanchor)
+        mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width) }, sup: null, sub: null })
+        mlist.push({ noad: CLOSE_NOAD, nucleus: { kind: "mlist", list: mathAnchor(null, run.k.sizes.normalsize.baselineskip.width) }, sup: null, sub: null })
+      }
+      else if (hyper) {
         mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: [HS()] }, sup: null, sub: null })
         mlist.push(HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
       }
@@ -274,4 +279,15 @@ export function typesetList(cx: Ctx, list: Node[], opts: Parameters<typeof parag
   decisions.push(lb.trace)
   if (withParskip) v.paragraph(lb.vlist, outerParskip); else v.lines(lb.vlist)
   return { just: lb.lines[lb.lines.length - 1] ?? null, params, lines: lb.lines.length }
+}
+
+/**
+ * hpdftex's anchor in math mode (\refstepcounter's, hyperref's \equation): \Hy@raisedlink there is \penalty\@M then
+ * \smash, which in math is \mathpalette\mathsm@sh: an empty group {} and \hbox{$\m@th\raise\baselineskip\hbox{…}$}
+ * of height and depth zero, the \pdfdest and \Hy@RestoreLastskip's \nobreak in the raised box
+ */
+function mathAnchor(name: string | null, baselineskip: number): MItem[] {
+  const raised = hpack(name === null ? [] : [pdfdest(name), penalty(10000)]); raised.shift = -baselineskip
+  const box = hpack([{ kind: "math", on: true, width: 0 }, raised, { kind: "math", on: false, width: 0 }]); box.height = 0; box.depth = 0
+  return [penalty(10000), { noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, { noad: ORD_NOAD, nucleus: { kind: "box", box }, sup: null, sub: null }]
 }

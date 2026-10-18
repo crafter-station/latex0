@@ -12,7 +12,7 @@ import type { GlueSpec } from "../layout/dimen"
 import { kern, type Node } from "../layout/nodes"
 import { BIN, mlistToHlist, OPEN, ORD, REL, TEXT, type MItem, type NoadType } from "../mathlayout/mlist"
 import type { Ctx } from "./context"
-import { fileLink, uriLink } from "./hyperref"
+import { fileLink, hyperDriver, uriLink } from "./hyperref"
 import { mathEnv, selectFont, type FontAttrs } from "./paragraph"
 import { Unsupported } from "./unsupported"
 
@@ -43,8 +43,9 @@ export function urlAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, p
   const { address, link } = cx.urls[n]
   if (!usesUrl && !hyper) throw new Unsupported("\\url without url or hyperref")
   if (!link && !hyper) throw new Unsupported("\\nolinkurl without hyperref")
-  // hyperref's \url: \hyper@linkurl{\Hurl{…}}{…}, the address in the link's \hbox (no breaks there)
-  if (link && hyper) return uriLink(urlFormula(cx, address, size, attrs, false), pdfURI(address), color)
+  // hyperref's \url: \hyper@linkurl{\Hurl{…}}{…}, the address in the link's \hbox (no breaks there); with pdfTeX
+  // the link nodes around it where it stands, its breaks kept
+  if (link && hyper) return uriLink(urlFormula(cx, address, size, attrs, hyperDriver.pdftex && penalties), pdfURI(address), color)
   return urlFormula(cx, address, size, attrs, penalties)
 }
 

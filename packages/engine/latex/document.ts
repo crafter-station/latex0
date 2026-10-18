@@ -31,7 +31,7 @@ import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { VerticalList } from "./vlist"
 import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
-import { anchor, Bookmarks, documentStart, type Bookmark } from "./hyperref"
+import { anchor, Bookmarks, documentStart, hyperDriver, type Bookmark } from "./hyperref"
 import { Colors, colorPush, xcolor } from "./xcolor"
 import { paragraphInput, selectFont, type DocState, type FontAttrs, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
@@ -86,10 +86,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
-  // pdfTeX's driver: what writes specials under dvips is modeled for dvips only so far
-  if (driver === "pdftex") {
-    if (hyper) throw new Unsupported("hyperref with the pdftex driver")
-  }
+  hyperDriver.pdftex = driver === "pdftex"
   const run = runState(pre.k)
   const blocks = blocksOf(body)
 

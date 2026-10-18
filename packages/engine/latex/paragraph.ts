@@ -29,7 +29,7 @@ import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, makeColumns } from "./output"
-import { anchor, refLink, spotAnchor, tocLink } from "./hyperref"
+import { anchor, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
@@ -461,7 +461,7 @@ function footnoteInsert(src: string, n: number, ctx: PieceContext, hn = 0) {
   const markBox = hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
-  if (hn) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut)) // hyperref's \hyper@@anchor after the strut
+  if (hn) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
   appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
@@ -624,6 +624,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "href") {
       if (!doc.href) throw new Error("paragraph adapter: \\href outside a document")
+      if (hyperDriver.pdftex) { // \pdfstartlink, the text where it stands (it may break), \pdfendlink
+        const [start, end] = doc.href(p.n, [], undefined)
+        list.push(start)
+        appendPieces(list, p.inner, font, size, state, ctx, attrs)
+        list.push(end)
+        continue
+      }
       // the text in the link's box, which starts with the space factor before it and leaves its own after it
       // (\Hy@SaveSpaceFactor, \Hy@RestoreSpaceFactor)
       const inner: Node[] = []
@@ -669,7 +676,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // hyperref: the mark in a link to the note's anchor (\hyper@linkstart{link}{Hfootnote.n} … \hyper@linkend)
       const hn = doc.refs?.hyper ? (doc.refs.hfootnotes = (doc.refs.hfootnotes ?? 0) + 1) : 0
       const mark = footnoteMark(n, k, size, ctx.amsmath)
-      list.push(penalty(10000), hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : mark)
+      list.push(penalty(10000), ...(hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : [mark]))
       const { ins, trace } = footnoteInsert(p.src, n, ctx, hn)
       list.push(ins)
       ctx.notes.push(trace)

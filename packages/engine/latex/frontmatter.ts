@@ -182,7 +182,7 @@ export function tocLine(cx: Ctx, e: TocEntry) {
   let body = e.title
   if (hyper && e.anchor) {
     const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath }).list
-    start.push(tocLink([...nl, ...title], e.anchor, run.k.sizes.normalsize.baselineskip.width))
+    start.push(...tocLink([...nl, ...title], e.anchor, run.k.sizes.normalsize.baselineskip.width))
     body = ""
   } else start.push(...nl)
   const { list, params: ps, notes } = paragraphInput(body, run.k, "normalsize", doc, { ...params, start, font, clubPenalty: club, amsmath })

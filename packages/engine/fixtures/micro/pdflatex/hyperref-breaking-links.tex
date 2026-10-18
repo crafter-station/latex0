@@ -1,0 +1,19 @@
+% fixture: pdflatex/hyperref-breaking-links
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: hyperref under pdflatex: links are \pdfstartlink … \pdfendlink around text that stays in the paragraph, so an \href's text hyphenates and breaks across lines and a \url keeps its breakpoints (under dvips both sit in an unbreakable \hbox); a \ref and a footnote mark inline; \section anchors raised by \Hy@raisedlink; an equation's anchors in math; a long table-of-contents title in its link
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\tableofcontents
+\section{A section whose title is long enough that its contents line has to break somewhere in the middle}\label{s1}
+\begin{minipage}{12em}
+See \href{https://example.org/a/very/long/path}{this rather lengthy, well-known and hyper-linked description of something} and
+\url{https://example.org/another/quite/long/address/that/must/break/over/lines} as well as section~\ref{s1}.
+\end{minipage}
+
+Text with a footnote\footnote{A note with \href{https://n.org}{a link in it}.} and an equation
+\begin{equation} x = y \label{e}\end{equation}
+referred to as (\ref{e}), and that is all.
+\end{document}

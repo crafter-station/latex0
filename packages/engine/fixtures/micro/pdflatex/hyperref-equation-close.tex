@@ -1,0 +1,13 @@
+% fixture: pdflatex/hyperref-equation-close
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: hyperref's \endequation under pdflatex: \mathclose{\Hy@raisedlink{\hyper@anchorend}}, a close atom, so no thin space after a formula ending in \right (an inner atom); \mathopen at the start; with and without a \label
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+Text.
+\begin{equation} \left[x\right] \end{equation}
+More.
+\begin{equation} a+\left(b\right) \label{q}\end{equation}
+\end{document}

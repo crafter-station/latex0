@@ -38,14 +38,14 @@ export function caption(cx: Ctx, env: "figure" | "table", source: string, hsize:
   appendText(l, env === "figure" ? "Figure" : "Table", romanFont, state, false)
   l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
   // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
-  if (hyper) { appendText(l, `${counters.the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1))); appendText(l, text, romanFont, state, false) }
+  if (hyper) { appendText(l, `${counters.the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); appendText(l, text, romanFont, state, false) }
   else appendText(l, `${counters.the(number)}: ${text}`, romanFont, state, false)
   const cap = hpack(setgroup(l)) // \sbox
   if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
     const start: Node[] = [hpack([])]
     appendText(start, env === "figure" ? "Figure" : "Table", romanFont, { spaceFactor: 1000 }, false)
     start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
-    if (hyper) { appendText(start, `${counters.the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1))); out.paragraph(start, text) }
+    if (hyper) { appendText(start, `${counters.the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width)); out.paragraph(start, text) }
     else out.paragraph(start, `${counters.the(number)}: ${text}`)
   } else out.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }))
   out.push(glue(run.k.dimens.belowcaptionskip))
