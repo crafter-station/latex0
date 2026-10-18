@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -33,6 +33,17 @@ export function IdeLayout() {
   const isActiveFileImage = activeFile?.blobUrl && isImageFile(activeFile.name)
 
   const [zoom, setZoom] = useState(100)
+  // the exact page view (beta), remembered per browser
+  const [exact, setExact] = useState(false)
+  useEffect(() => {
+    try { setExact(localStorage.getItem("latex0:exact-view") === "1") } catch {}
+  }, [])
+  const handleToggleExact = useCallback(() => {
+    setExact((on) => {
+      try { localStorage.setItem("latex0:exact-view", on ? "0" : "1") } catch {}
+      return !on
+    })
+  }, [])
 
   const handleCompile = useCallback(() => {
     requestCompile()
@@ -86,10 +97,12 @@ export function IdeLayout() {
                   onZoomIn={handleZoomIn}
                   onZoomOut={handleZoomOut}
                   onDownload={handleDownload}
+                  onToggleExact={handleToggleExact}
+                  exact={exact}
                   zoom={zoom}
                 />
                 <div className="flex-1 overflow-hidden">
-                  <UniversalPreview zoom={zoom} />
+                  <UniversalPreview zoom={zoom} exact={exact} />
                 </div>
               </div>
             </div>

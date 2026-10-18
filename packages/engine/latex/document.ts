@@ -11,7 +11,7 @@ import { dataFont } from "./data"
 import { fancyPage } from "./fancyhdr"
 import { pdftexColors } from "./pdftex"
 import { emitBoxes } from "../emit/boxes"
-import { shipOut } from "../emit/trace"
+import { shipOut, type PageMark } from "../emit/trace"
 import { type SizeCommand } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
@@ -241,9 +241,14 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
     }
   }
+  const drawn: PageMark[][] = []
+  const trace = shipOut(shipped, undefined, pages.map((p) => p.count), drawn)
+  const { paperwidth, paperheight, hoffset, voffset } = run.k.dimens
+  const INCH = 4736286
   return {
     result: {
-      trace: shipOut(shipped, undefined, pages.map((p) => p.count)),
+      trace,
+      view: { paper: { width: paperwidth, height: paperheight }, origin: { h: INCH + hoffset, v: INCH + voffset }, marks: drawn },
       decisions,
       pages: pageTrace,
       columns: columns.map((c) => c.column && c.column.map(emitBoxes)),

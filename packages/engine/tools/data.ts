@@ -14,6 +14,7 @@ export const fileData: DataSource = {
   documentClass: (cls) => json("classes", `${cls}.json`),
   hyphenation: (language) => json("hyphenation", `${language}.json`),
   math: () => json("math", "latex.json"),
+  webfonts: () => json("webfonts.json"),
 }
 
 installData(fileData)

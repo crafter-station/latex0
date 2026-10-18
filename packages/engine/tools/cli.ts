@@ -16,6 +16,7 @@
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 //   bun engine boundary                                imports stay inside the package (#38)
+//   bun engine webfonts:check                          the exact page view's web fonts cover every font
 //   bun engine gaps [paths…]                           constructs not laid out yet, ranked by documents stopped (engine only, no TeX)
 //   bun engine ci                                      the full conformance gate, locally (what engine.yml runs)
 import { execFileSync, spawn, spawnSync } from "node:child_process"
@@ -24,6 +25,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { watch } from "node:fs"
 import { boundaryCheck } from "./boundary"
+import { webfontsCheck } from "./webfonts/check"
 import { oracleTrace } from "./oracle/oracle"
 import { collectFixtures, report, runFixture } from "./unit/run"
 
@@ -74,6 +76,7 @@ function ci(): number {
     ["boundary"],
     ["gaps"], // no engine errors on the fixtures and the starter corpus
     ["codegen", "--check"],
+    ["webfonts:check"],
     ["oracle:check"],
     ["unit"],
     ["scorecard", "--check", "--base", base],
@@ -100,6 +103,8 @@ function ci(): number {
 switch (cmd) {
   case "ci":
     process.exit(ci())
+  case "webfonts:check":
+    process.exit(webfontsCheck())
   case "boundary":
     process.exit(boundaryCheck())
   case "unit":

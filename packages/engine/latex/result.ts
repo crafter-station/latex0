@@ -3,6 +3,7 @@
 
 import type { PageTrace, ParagraphTrace } from "../trace/decisions"
 import type { BoxNode, Trace } from "../trace/schema"
+import type { PageView } from "../emit/svg"
 
 export interface LayoutResult {
   trace: Trace
@@ -13,4 +14,6 @@ export interface LayoutResult {
   /** each page's main vertical list from \\topskip on, compared with TeX's page dumps (null for a page of floats) */
   columns?: (BoxNode[] | null)[]
   notes?: string[]
+  /** what drawing the pages needs besides the trace (emit/svg) */
+  view?: PageView
 }

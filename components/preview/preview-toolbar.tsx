@@ -14,6 +14,8 @@ interface PreviewToolbarProps {
   onZoomIn?: () => void
   onZoomOut?: () => void
   onDownload?: () => void
+  onToggleExact?: () => void
+  exact?: boolean
   isCompiling?: boolean
   zoom?: number
 }
@@ -23,6 +25,8 @@ export function PreviewToolbar({
   onZoomIn,
   onZoomOut,
   onDownload,
+  onToggleExact,
+  exact = false,
   isCompiling = false,
   zoom = 100,
 }: PreviewToolbarProps) {
@@ -49,6 +53,23 @@ export function PreviewToolbar({
       </Tooltip>
 
       <div className="flex items-center gap-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={exact ? "secondary" : "ghost"}
+              size="sm"
+              onClick={onToggleExact}
+              aria-pressed={exact}
+              className="h-7 text-xs"
+            >
+              Exact · beta
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Pages laid out exactly as pdfLaTeX lays them out</TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="mx-1 h-4" />
+
         <span className="text-xs text-muted-foreground tabular-nums min-w-[2.5rem] text-center">
           {zoom}%
         </span>

@@ -2,10 +2,11 @@
 // stops. Each document is laid out by the engine alone (no TeX), so any corpus
 // works: the fixtures, the starter corpus, a folder of real documents. A
 // document stops at its first construct not laid out; one that throws anything
-// else is an engine bug and is listed apart.
+// else is an engine bug and is listed apart, as is a laid-out document whose pages cannot be drawn (emit/svg).
 
 import { readFileSync } from "node:fs"
 import { relative } from "node:path"
+import { svgPages } from "../emit/svg"
 import { paragraph } from "../latex/paragraph"
 import { Unsupported } from "../latex/unsupported"
 import "./data"
@@ -28,7 +29,8 @@ export function gaps(paths: string[], examples = 3): number {
     const name = relative(process.cwd(), f)
     try {
       const src = readFileSync(f, "utf8")
-      layoutOf(src, f)(src)
+      const r = layoutOf(src, f)(src)
+      if (r.view) svgPages(r.trace, r.view)
       laidOut++
     } catch (e) {
       if (!(e instanceof Unsupported)) { bugs.push(`${name}: ${(e as Error).message}`); continue }
