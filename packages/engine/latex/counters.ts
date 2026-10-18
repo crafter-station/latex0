@@ -3,6 +3,7 @@
 // counter commands in text, which act in order (\stepcounter and friends) or
 // print (\the<name>, \arabic{name} …).
 
+import type { CrefLabel } from "./cleveref"
 import { Unsupported } from "./unsupported"
 
 /** The sectioning counters, outermost first: \c@chapter … \c@subparagraph. */
@@ -30,6 +31,8 @@ export class Counters {
   equation = 0
   figure = 0
   table = 0
+  /** cleveref's \cref@currentlabel of each \refstepcounter of a document's counter, by its \@currentHref */
+  readonly crefs = new Map<string, CrefLabel>()
   /** the document's counters (\newcounter), with the counter that resets each */
   private readonly user = new Map<string, { value: number; within: string | null }>()
 
@@ -70,6 +73,35 @@ export class Counters {
     c.value++
     const level = c.within === null ? -1 : SECTIONAL.indexOf(c.within as typeof SECTIONAL[number])
     return level >= 0 ? `${this.theSectional(level)}.${c.value}` : String(c.value)
+  }
+
+  /** \theH<counter> of a document's counter (\@newctr): \theH<within>.\arabic{counter}, or \arabic{counter} */
+  private theH(name: string): string {
+    const u = this.user.get(name)
+    if (!u) {
+      const l = SECTIONAL.slice(0, 4).indexOf(name as typeof SECTIONAL[number])
+      if (l < 0 || (l === 0 && this.cls === "article")) throw new Unsupported(`\theH${name}`)
+      return this.theSectional(l)
+    }
+    return u.within === null ? String(u.value) : `${this.theH(u.within)}.${u.value}`
+  }
+
+  /** cleveref's \cref@constructprefix: the values of the counters that reset `name` (\cl@… lists), outermost first */
+  crefPrefix(name: string): string {
+    const out: number[] = []
+    for (let c = this.resetBy(name); c; c = this.resetBy(c)) out.unshift(this.value(c))
+    return out.join(",")
+  }
+
+  private resetBy(name: string): string | null {
+    const chapters = this.cls === "report" || this.cls === "book"
+    const l = SECTIONAL.indexOf(name as typeof SECTIONAL[number])
+    if (l > 1 || (l === 1 && chapters)) return SECTIONAL[l - 1]
+    if (l >= 0) return null
+    if (["equation", "figure", "table", "footnote"].includes(name)) return chapters ? "chapter" : null
+    const u = this.user.get(name)
+    if (u) return u.within
+    throw new Unsupported(`cleveref: the counter ${name}`)
   }
 
   value(name: string): number {
@@ -116,7 +148,8 @@ export class Counters {
           this.set(name, this.value(name) + 1)
           for (const u of this.user.values()) if (u.within === name) u.value = 0
           if (cmd === "refstepcounter") {
-            const label = this.theUser(name), href = `${name}.${label}`
+            const label = this.theUser(name), href = `${name}.${this.theH(name)}`
+            this.crefs.set(href, { type: name, arabic: this.value(name), prefix: this.crefPrefix(name), label })
             if (inText) return `\\LXcurrentlabel{${label}}{${href}}{}`
             refstep(label, href)
           }

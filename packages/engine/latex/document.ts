@@ -40,6 +40,7 @@ import { hrefAt, urlAt } from "./url"
 import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
 import type { Bitmap } from "./images"
 import { processBlock, runInAlone } from "./body"
+import { crefName, fillCrefWrites, type CrefLabel } from "./cleveref"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -74,10 +75,10 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 }
 
 /** The commands that read what the run before wrote to the .aux file: with one, LaTeX runs twice. */
-const READS_AUX = /\\(?:ref|pageref|eqref|cite)\{/
+const READS_AUX = /\\(?:ref|pageref|eqref|cite|cref|Cref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string> }
+interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -154,9 +155,11 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
   const counters = new Counters(cls, newCounters, () => doc.footnote)
+  if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, name: (type, capital) => crefName(type, capital, pre.thmDefs) }
   /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
   const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h
+    if (refs.cleveref) refs.cleveref.current = counters.crefs.get(h)!
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
   })
   /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
@@ -193,6 +196,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     throw e
   }
   const { pages, pageTrace } = built
+  if (refs.cleveref) fillCrefWrites(refs.cleveref.writes, pages, (at) => (v.nodes[at] as { param?: string } | undefined)?.param === "parskip")
   const columns = makeColumns(pages, run.k, cls === "letter")
   const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
   const heads = pageMarks(pages)
@@ -239,6 +243,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
       bookmarks: bookmarks.written,
       // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
+      crefs: new Map((refs.cleveref?.writes ?? []).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, w.cref])),
     }
   }
   const drawn: PageMark[][] = []

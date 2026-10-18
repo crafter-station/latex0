@@ -33,5 +33,5 @@ tlpdbopt_install_docfiles 0
 tlpdbopt_install_srcfiles 0
 PROFILE
 "$WORK"/install-tl-*/install-tl -profile "$WORK/texlive.profile" -repository "$REPO" > "$WORK/install.log" 2>&1 || { tail -40 "$WORK/install.log"; exit 1; }
-"$DIR"/bin/*/tlmgr install enumitem
+"$DIR"/bin/*/tlmgr install enumitem cleveref
 "$DIR"/bin/*/latex --version | head -1

@@ -40,8 +40,8 @@ export function makeDocument(r: () => number): string {
   const math = () => { const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$"]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
   const display = () => pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
     "\\prod_{k=1}^{m}\\frac{1}{k}", "\\left[\\frac{\\frac{1}{2}}{\\sum_{i=1}^n x_i}\\right]", "\\left\\{ x \\right|_{a}^{b}", "\\mathbf{F}=m\\mathbf{a}", "\\sqrt{\\frac{a}{b}}+\\sqrt{\\sum_{i=1}^n x_i^2}", "\\mathrm{e}^{\\mathrm{i}\\pi}+\\mathnormal{1}=\\mathsf{0}", "\\sqrt[3]{\\frac{1}{1+\\sqrt[n]{x}}}=y^{\\sqrt[k]{2}}", "\\sum_{i\\,=\\,1}^n x_i \\quad\\ne\\quad \\prod_{j} y_j \\qquad a\\!\\;b", ...(ams ? ["\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", "A=\\begin{bmatrix} 1 & 0 & x^2 \\\\ \\frac{1}{2} & y \\end{bmatrix}", "\\begin{vmatrix} a \\\\ b \\end{vmatrix}"] : []), "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
-  // hyperref
-  let hyper = false
+  // hyperref; cleveref
+  let hyper = false, crefOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false, graphOn = false
@@ -123,6 +123,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
+      if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`])
       if (r() < 0.006) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
       if (graphOn && r() < 0.003) ws[i] += ` \\includegraphics[${pick(["height=1em", "scale=0.05", "width=1cm"])}]{${pick(["wide", "tall"])}}`
       if (amsOn && r() < 0.005) ws[i] += pick([" \\eqref{eq:3-1}", "~\\eqref{eq:6-1}", " \\eqref{eq:10-1}", " (\\eqref{eq:15-1})", " \\eqref{eq:2-1}", " \\eqref{nowhere}"])
@@ -295,6 +296,9 @@ export function makeDocument(r: () => number): string {
       "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", "\\newtheorem*{remark}{Remark}", "\\newtheorem{note}{Note}")
     thms.push("theorem", "lemma", "claim", "definition", "remark", "note")
   }
+  // cleveref, after amsmath and amsthm (before or after the theorems are declared)
+  crefOn = !hyper && !isLetter && r() < 0.2
+  if (crefOn) { const at = out.indexOf("\\usepackage{amsthm}"); if (at >= 0 && r() < 0.5) out.splice(at + 1, 0, "\\usepackage{cleveref}"); else out.push("\\usepackage{cleveref}") }
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter
   const front = cls === "book" && r() < 0.5

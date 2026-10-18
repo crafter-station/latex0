@@ -1,0 +1,43 @@
+% fixture: cleveref/cref-report
+% tier: T3
+% engine: document
+% covers: cleveref in report: \cref@constructprefix's chain of the counters that reset one (section and equation within the chapter, a theorem within the section, enumii within enumi, a \newcounter within a section, which has no name), the names of chapter, subsection, a nested item, a footnote-free \refstepcounter in text, a theorem named after its title (declared after cleveref), and the page counter at each label after the title page set it back to 1
+% issue: #66
+\documentclass{report}
+\usepackage{amsmath,amsthm}
+\usepackage{cleveref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{claim}{Claim}
+\newcounter{step}[section]
+\title{Notes}
+\author{Someone}
+\begin{document}
+\maketitle
+\chapter{First}\label{ch:first}
+Text of \cref{ch:first}.
+\section{Setup}\label{sec:setup}
+\begin{theorem}\label{thm:a}
+A theorem in \Cref{sec:setup}.
+\end{theorem}
+\begin{claim}\label{cl:one}
+A claim.
+\end{claim}
+\begin{equation}\label{eq:one}
+x = y
+\end{equation}
+\section{Other}
+\subsection{Deeper}\label{sec:deeper}
+Here \refstepcounter{step}\label{step:one}step \thestep{} is labeled.
+\begin{enumerate}
+\item Outer.\label{it:outer}
+\begin{enumerate}
+\item Inner.\label{it:inner}
+\end{enumerate}
+\end{enumerate}
+\chapter{Second}
+See \cref{ch:first}, \cref{sec:setup}, \Cref{sec:deeper}, \cref{thm:a}, \Cref{cl:one}, \cref{cl:one}, \cref{eq:one}, \Cref{it:outer} and \cref{it:inner}.
+\begin{equation}\label{eq:two}
+a = b
+\end{equation}
+By \cref{eq:two}.
+\end{document}

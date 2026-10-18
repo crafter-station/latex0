@@ -19,7 +19,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { anchor } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { labelWrite, selectFont, type FontAttrs } from "./paragraph"
+import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
 
 const TEXTBULLET = 136 // \textbullet in TS1
@@ -51,7 +51,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const { cls, enumitem, hyper, thmDefs } = cx.pre
   const { counters, esphackNobreaks, lastNode, refs, romanFont, run, typeset, v } = cx
   if (b.env === "abstract") return abstract(cx, b, ctx)
-  const outerLabel = refs.label // \@currentlabel is local to the environment
+  const outerLabel = refs.label, outerCref = refs.cleveref?.current ?? null // \@currentlabel is local to the environment (and cleveref's \cref@currentlabel)
   const amsthm = b.env === "LXtheorem" || b.env === "proof"
   const trivial = b.env === "center" || b.env === "flushleft" || b.env === "flushright" || amsthm
   const sizeFont = loadFont(dataFont(run.k.sizes[ctx.size].font.name), run.k.sizes[ctx.size].font.at)
@@ -124,6 +124,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   if (thmDef?.counter) {
     thmNumber = counters.stepNumbered(thmDef.counter)
     refs.label = thmNumber; refs.href = `${thmDef.counter}.${thmNumber}`
+    if (refs.cleveref) refs.cleveref.current = { type: thmDef.counter, arabic: counters.value(thmDef.counter), prefix: counters.crefPrefix(thmDef.counter), label: thmNumber }
   }
   // the body's font: \itshape for plain theorems
   const bodyAttrs: FontAttrs | undefined = thmDef?.style === "plain" ? { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" } : undefined
@@ -216,6 +217,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         const [v1, v2, v3] = [...ctx.enums, n]
         refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
         refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
+        if (refs.cleveref) refs.cleveref.current = { type: `enum${["i", "ii", "iii", "iv"][level - 1]}`, arabic: n, prefix: ctx.enums.join(","), label: refs.label }
         // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
         if (hyper) { refs.href = `Item.${++run.items}`; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
@@ -250,7 +252,10 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       const l = b.env === "thebibliography" ? `[${i + 1}]` : given
       if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
       // \refstepcounter{enumiv}; with hyperref (\@skiphyperreftrue) \@currentHref stays what it was
-      if (b.env === "thebibliography") { refs.label = String(i + 1); if (!hyper) refs.href = `enumiv.${i + 1}` }
+      if (b.env === "thebibliography") {
+        refs.label = String(i + 1); if (!hyper) refs.href = `enumiv.${i + 1}`
+        if (refs.cleveref) refs.cleveref.current = { type: "enumiv", arabic: i + 1, prefix: "", label: refs.label }
+      }
       // hyperref's \@bibitem: \H@item with no anchor of its own (\@skiphyperreftrue), then \Hy@raisedlink{\hyper@anchorstart{cite.<key>}…}, still in vertical mode
       if (b.env === "thebibliography" && hyper) v.nodes.push(...anchor(`cite.${b.keys![i]}`, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode()))
     }
@@ -278,7 +283,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         const lead = p.text.match(/^(?:\s*\\label\{[A-Za-z0-9:._-]+\})+\s*/)
         if (lead) {
           // (\if@nobreak still holds right after a heading: \@nbitem leaves it, the paragraph's \everypar ends it)
-          for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) v.nodes.push(labelWrite(refs, m[1]), ...esphackNobreaks(club !== undefined))
+          for (const m of lead[0].matchAll(/\\label\{([^}]*)\}/g)) for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(club !== undefined))
           p.text = p.text.slice(lead[0].length)
         }
       }
@@ -324,6 +329,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   // \endtrivlist: the last item's \par, then \@endparenv
   v.endtrivlist(parsep, ctx.parskip, topsepadd)
   refs.label = outerLabel
+  if (refs.cleveref) refs.cleveref.current = outerCref
 }
 
 /**
