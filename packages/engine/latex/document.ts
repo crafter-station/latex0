@@ -46,11 +46,12 @@ export interface DocumentOptions {
   epoch?: number
   /** graphics files' bounding boxes, by file name (a filecontents* environment in the source also gives one) */
   images?: Record<string, BoundingBox | Bitmap>
-  /** the output driver: dvips (`latex`, the default) or pdfTeX's own (`pdflatex`), which writes the PDF itself */
+  /** the output driver: pdfTeX's own (`pdflatex`, the default, what most documents are compiled with: PNG and JPEG
+   *  images) or dvips (`latex`: EPS images) */
   driver?: "dvips" | "pdftex"
 }
 
-export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "dvips" }: DocumentOptions = {}): LayoutResult {
+export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "pdftex" }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
   // the graphics files' bounding boxes: the options', then the files the source writes
   const images = new Map<string, BoundingBox | Bitmap>(Object.entries(given))
