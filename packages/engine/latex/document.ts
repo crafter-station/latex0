@@ -35,22 +35,28 @@ import { paragraphInput, selectFont, type DocState, type FontAttrs, type Refs } 
 import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
+import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
 import { processBlock, runInAlone } from "./body"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
   epoch?: number
+  /** graphics files' bounding boxes, by file name (a filecontents* environment in the source also gives one) */
+  images?: Record<string, BoundingBox>
 }
 
-export function document(source: string, { epoch = Math.floor(Date.now() / 1000) }: DocumentOptions = {}): LayoutResult {
+export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {} }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
+  // the graphics files' bounding boxes: the options', then the files the source writes
+  const images = new Map(Object.entries(given))
+  for (const [name, contents] of prepared.files) { const bb = boundingBox(contents); if (bb) images.set(name, bb) }
   // Whether a float right after a heading goes here decides \if@nobreak for the text after it,
   // which is laid out before the output routine places the float: the document is laid out again,
   // with the float not placed here, until every such guess holds.
   const run = (aux: Aux | null) => {
     const notHere = new Set<number>()
     for (;;) {
-      try { return layout(prepared, notHere, aux, epoch) } catch (e) {
+      try { return layout(prepared, notHere, aux, epoch, images) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
       }
@@ -71,7 +77,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings, tabulars, minipages, urls }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox>): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
@@ -165,7 +171,8 @@ function layout({ src, listings, tabulars, minipages, urls }: DocumentSource, no
   doc.lstinline = (...a) => lstinlineAt(cx, ...a)
   doc.url = (...a) => urlAt(cx, ...a)
   doc.href = (...a) => hrefAt(cx, ...a)
-  const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, notHere, normalAttrs, booktabs }
+  doc.graphic = (...a) => graphicAt(cx, ...a)
+  const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, images, notHere, normalAttrs, booktabs }
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
 
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode

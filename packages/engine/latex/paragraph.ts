@@ -97,6 +97,8 @@ export interface DocState {
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
   /** \url number n (taken out of the source before expansion) at a size in a font */
   url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
+  /** \includegraphics number n, with \linewidth where it stands */
+  graphic?: (n: number, lineWidth: number, units: { em: number; ex: number }) => Node[]
   /** \href number n around its typeset text */
   href?: (n: number, text: Node[], color: string | undefined) => Node[]
   /** tabular number n (taken out of the source after expansion) at a size in a font: its \hbox */
@@ -196,7 +198,7 @@ type Piece =
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -356,6 +358,8 @@ function pieces(body: string, footnotes = true): Piece[] {
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
+    const gr = body.slice(i).match(/^\\LXgraphic\{(\d+)\}/) // \includegraphics
+    if (gr) { flushText(); out.push({ kind: "graphic", n: Number(gr[1]) }); i += gr[0].length; continue }
     const url = body.slice(i).match(/^\\LXurl\{(\d+)\}/) // \url, taken out before expansion
     if (url) { flushText(); out.push({ kind: "url", n: Number(url[1]) }); i += url[0].length; continue }
     const href = body.slice(i).match(/^\\LXhref\{(\d+)\}\s*\{/) // \href{address}{text}: the text in an \hbox, no footnotes or labels
@@ -491,6 +495,9 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
 interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean }
 
+/** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
+const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
+
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
@@ -584,17 +591,22 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
       list.push({ kind: "whatsit", text: "\\special{color pop}" })
     }
+    else if (p.kind === "graphic") {
+      if (!doc.graphic) throw new Error("paragraph adapter: \\includegraphics outside a document")
+      list.push(...doc.graphic(p.n, lineWidthOf(ctx), { em: font.params[QUAD], ex: font.params[X_HEIGHT] })) // (em and ex: the current font's)
+      state.spaceFactor = 1000 // after a box
+    }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}
       if (!doc.tabular) throw new Error("paragraph adapter: a tabular outside a document")
       // (a tabular that starts the paragraph starts it in its group: the \everypar's \clubpenalty there is its own)
       const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
-      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize }))
+      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
       state.spaceFactor = 1000
     }
     else if (p.kind === "minipage") { // \leavevmode, then \@iiiparbox's box (in its group, like a tabular's)
       if (!doc.minipage) throw new Error("paragraph adapter: a minipage outside a document")
       const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
-      list.push(...doc.minipage(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize }))
+      list.push(...doc.minipage(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
       state.spaceFactor = 1000
     }
     else if (p.kind === "underline") { // $\@@underline{\hbox{#1}}\m@th$: the box as an under noad's nucleus
