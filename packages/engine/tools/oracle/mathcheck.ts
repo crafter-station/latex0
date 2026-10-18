@@ -44,6 +44,7 @@ type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | {
 type Item =
   | { kind: "atom"; nucleus: Nucleus | null; sup?: Script; sub?: Script; primes: number; subFirst: boolean }
   | { kind: "style"; style: number }
+  | { kind: "space"; cs: string }
 
 function rng(seed: number) {
   let a = seed >>> 0
@@ -56,6 +57,8 @@ function rng(seed: number) {
   }
 }
 
+/** \tmspace's commands in math (\mskip), \quad and \qquad (\hskip in em) */
+const SPACES = [",", ":", ">", ";", "!", "thinspace", "negthinspace", "medspace", "negmedspace", "thickspace", "negthickspace", "quad", "qquad"]
 const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix"]
 
 function generator(r: () => number, pool: number[], busy: number[], symbols: string[], ams: () => boolean) {
@@ -87,6 +90,7 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: str
     for (let i = 0; i < n; i++) {
       const prev = out[out.length - 1]
       if (r() < 0.08) { out.push({ kind: "style", style: 2 * Math.floor(r() * 4) }); continue }
+      if (r() < 0.06) { out.push({ kind: "space", cs: pick(SPACES) }); continue }
       const bare = (!prev || prev.kind === "style") && r() < 0.1 && !noBare
       const primes = r() < 0.12 ? 1 + Math.floor(r() * 2) : 0
       const s = r()
@@ -106,6 +110,7 @@ function print(items: Item[]): string {
   const arg = (s: Script) => (s.kind === "group" ? `{${print(s.items)}}` : ch(s))
   return items.map((it) => {
     if (it.kind === "style") return `\\${STYLES[it.style / 2]} `
+    if (it.kind === "space") return `\\${it.cs}${/^[a-z]/.test(it.cs) ? " " : ""}`
     const n = it.nucleus
     let out = !n ? "" : n.kind === "group" ? `{${print(n.items)}}` : n.kind === "frac" ? `\\frac{${print(n.num)}}{${print(n.den)}}`
       : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : n.kind === "fence" ? `\\left${n.left}${print(n.items)}\\right${n.right}`
@@ -160,7 +165,7 @@ export function mathCheck(n: number, seed: number): number {
     }
     cases.forEach((c, i) => {
       total++
-      const hl = mlistToHlist(parseMath(`\\${STYLES[c.style / 2]} ${print(c.items)}`, data, { amsmath: withAms }), {
+      const hl = mlistToHlist(parseMath(`\\${STYLES[c.style / 2]} ${print(c.items)}`, data, { amsmath: withAms, em: fonts[0][0].params[6] }), { // (the text font: cmr at the size, as family 0's)
         fonts, muskips: data.muskips as never, binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
         scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
         delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,

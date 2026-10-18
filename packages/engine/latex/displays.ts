@@ -86,7 +86,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (labels.length > 1) throw new Unsupported("several \\label in an equation")
     const label = labels[0]
     if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
-    const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath)
+    const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, romanFont.params[QUAD])
     if (next.kind === "equation") { counters.equation++; refs.href = counters.href("equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
     const newlabel: Node | null = label ? labelWrite(refs, label[1], counters.the(counters.equation)) : null
     let mlist: MItem[]
@@ -145,7 +145,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
   const env = mathEnv(run.k, "normalsize", true)
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, romanFont.params[QUAD])
   const rows = src.split(/\\\\/).map((r) => {
     const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
     const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {

@@ -3,17 +3,27 @@
 // math groups and their collapse to a lone ord's nucleus (§ 1186), sub_sup
 // with its dummy noads (§§ 1176–1177), \limits and \nolimits (§ 1159),
 // style commands (§ 1169), \overline and \underline (§ 1163), \penalty, \sqrt (\radical, § 1163), and these LaTeX definitions: \allowbreak
-// (\penalty0), \nobreak (\penalty10000), \frac
+// (\penalty0), \nobreak (\penalty10000), \, \: \; \! and their names (\tmspace: \mskip±\thinmuskip…),
+// \quad and \qquad (\hskip1em, \hskip2em), \ne and \neq (\not=), \frac
 // ({\begingroup#1\endgroup\over#2}), \int and \oint (\intop\nolimits), and
 // the prime ' (^\bgroup\prime…\egroup, which takes in a superscript that
 // follows: x'^{ab} is x^{\prime ab}).
 
 import type { MathData } from "./data"
-import { penalty } from "../layout/nodes"
+import type { GlueSpec } from "../layout/dimen"
+import { glue, penalty } from "../layout/nodes"
 import { delimiterOf, groupField, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
+/** \tmspace in math (latex.ltx, amsmath): \mskip with a sign and a mu skip register (\> is \:) */
+const MU_SPACES: Record<string, [1 | -1, "thinmuskip" | "medmuskip" | "thickmuskip"]> = {
+  ",": [1, "thinmuskip"], thinspace: [1, "thinmuskip"], "!": [-1, "thinmuskip"], negthinspace: [-1, "thinmuskip"],
+  ":": [1, "medmuskip"], ">": [1, "medmuskip"], medspace: [1, "medmuskip"], negmedspace: [-1, "medmuskip"],
+  ";": [1, "thickmuskip"], thickspace: [1, "thickmuskip"], negthickspace: [-1, "thickmuskip"],
+}
+/** \quad and \qquad: \hskip in em of the current (text) font */
+const QUADS: Record<string, number> = { quad: 1, qquad: 2 }
 /** delimiters LaTeX defines through others in math: \{ (\lbrace), \} (\rbrace), \| (\Vert); amsmath's \lvert… */
 const DELIMITER_MACROS: Record<string, string> = { "{": "lbrace", "}": "rbrace", "|": "Vert" }
 const AMS_DELIMITERS: Record<string, string> = { lvert: "vert", rvert: "vert", lVert: "Vert", rVert: "Vert" }
@@ -25,6 +35,8 @@ export interface MathOptions {
   amsmath?: boolean
   /** math alphabet commands (\mathbf{…}) and the family each sets in its argument, a math group */
   alphabets?: Record<string, number>
+  /** \fontdimen6 of the current text font, the em of \quad and \qquad */
+  em?: number
 }
 
 type Token = { cs: string; value?: number } | { ch: string }
@@ -49,6 +61,9 @@ function tokenize(src: string): Token[] {
   }
   return out
 }
+
+/** a glue register with a sign, as scan_glue negates it (§ 461) */
+const scaled = (g: GlueSpec, sign: 1 | -1): GlueSpec => ({ ...g, width: sign * g.width, stretch: sign * g.stretch, shrink: sign * g.shrink })
 
 const isCh = (t: Token | undefined, c: string) => !!t && "ch" in t && t.ch === c
 
@@ -195,6 +210,12 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported character ${c}`)
         out.push(mathCharNoad(code, fam))
         continue
+      }
+      if (t.cs === "ne" || t.cs === "neq") { toks.splice(pos, 0, { cs: "not" }, { ch: "=" }); continue } // fontmath.ltx: \not=
+      if (t.cs in MU_SPACES) { const [sign, reg] = MU_SPACES[t.cs]; out.push({ kind: "muglue", spec: scaled(data.muskips[reg], sign) }); continue }
+      if (t.cs in QUADS) {
+        if (opts.em === undefined) throw new Error(`math: \\${t.cs} without the current font`)
+        out.push(glue(QUADS[t.cs] * opts.em)); continue
       }
       if (opts.amsmath && t.cs === "colon") throw new Error("math: amsmath's \\colon") // \nobreak\mskip2mu\mathpunct{}…
       const cs = OPERATOR_MACROS[t.cs] ?? t.cs
