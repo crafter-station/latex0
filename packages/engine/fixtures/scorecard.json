@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 205,
-  "exact": 203,
+  "fixtures": 207,
+  "exact": 205,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 191953
+  "glyphs": 192429
  },
  "areas": [
   {
@@ -106,8 +106,8 @@
   },
   {
    "area": "text",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "title",
@@ -2051,6 +2051,26 @@
    "glyphs": 277,
    "covers": "\\usepackage[T1]{fontenc}: the EC fonts for text, headings and footnotes (ecrm, ecbx), their ligatures and kerns, -- and --- dashes, quotes, hyphenation with the T1 fonts, footnote marks at \\sf@size, the bold \\textendash label",
    "issue": "#30"
+  },
+  {
+   "id": "text/textdegree-amsmath",
+   "file": "micro/text/textdegree-amsmath.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 335,
+   "covers": "\\textdegree with amsmath and T1 at 11pt: amsmath's \\, is \\kern.1667em (four digits, not five); the TS1 degree sign a letter to the hyphenation pass (\\lccode 176), so a word glued to it after a space is not hyphenated"
+  },
+  {
+   "id": "text/textdegree",
+   "file": "micro/text/textdegree.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 141,
+   "covers": "\\textdegree (TS1, \\UseTextSymbol: the companion font's character 176 in a group), after a thin space \\, (\\kern.16667em), in bold and italic text and in \\small"
   },
   {
    "id": "text/underline",

@@ -1,0 +1,18 @@
+% fixture: text/textdegree-amsmath
+% tier: T3
+% engine: document
+% covers: \textdegree with amsmath and T1 at 11pt: amsmath's \, is \kern.1667em (four digits, not five); the TS1 degree sign a letter to the hyphenation pass (\lccode 176), so a word glued to it after a space is not hyphenated
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\begin{document}
+Heat the oven to 175\,\textdegree C and bake for an hour; a right angle is 90\textdegree.
+The night was cold, \textbf{only 3\textdegree} and \textit{falling to $-2$\textdegree} by morning,
+while {\small the forecast said 5\,\textdegree C} at noon. Then \textdegree{} alone, and many \textdegree affluent fluffy suffixes in a long line of words that keeps going until it wraps.
+
+\begin{minipage}{4cm}
+Readings: \textdegree affluent, \textdegree fluffy, \textdegree hyphenation, \textdegree demerits,
+\textdegree composition, \textdegree officially, \textdegree paragraphs, \textdegree algorithm,
+\textdegree efficient and \textdegree baffled were all recorded.
+\end{minipage}
+\end{document}
