@@ -33,7 +33,9 @@ export type Field =
   | null
 /** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal;
  *  `vcenter` makes it a vcenter noad (§ 687) and `line` an over or under noad (§ 687), ords for spacing */
-export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits"; vcenter?: boolean; line?: "over" | "under" }
+export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits"; vcenter?: boolean; line?: "over" | "under"
+  /** a radical noad (§ 683, \radical): its left delimiter */
+  radical?: Delimiter }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
@@ -66,7 +68,7 @@ export function mathCharField(mathcode: number, fam = -1): Field {
 }
 /** A math group {…} as scan_math leaves it (§ 1186): a lone ord without scripts gives up its nucleus. */
 export function groupField(list: MItem[]): Field {
-  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !("vcenter" in p && p.vcenter) && !("line" in p && p.line) && !p.sub && !p.sup) return p.nucleus }
+  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !("vcenter" in p && p.vcenter) && !("line" in p && p.line) && !("radical" in p && p.radical) && !p.sub && !p.sup) return p.nucleus }
   return { kind: "mlist", list }
 }
 
@@ -211,6 +213,7 @@ class Converter {
         delta = this.makeOp(q, hl)
         if (q.limits === "limits") { check(hl.get(q)); r = q; rType = q.noad; continue }
       } else if (q.line) q.nucleus = { kind: "box", box: q.line === "over" ? this.makeOver(q.nucleus) : this.makeUnder(q.nucleus) }
+      else if (q.radical) q.nucleus = { kind: "box", box: this.makeRadical(q.nucleus, q.radical) }
       else if (q.noad === ORD) this.makeOrd(list, i)
       // § 754: the nucleus as an hlist
       let p: Node[]
@@ -374,7 +377,7 @@ class Converter {
       const p = list[i + 1]
       const n = q.nucleus
       if (q.sub || q.sup || n?.kind !== "char" || n.text) return
-      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT || p.vcenter || p.line) return
+      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT || p.vcenter || p.line || p.radical) return
       const pn = p.nucleus
       if (pn?.kind !== "char" || pn.text || pn.fam !== n.fam) return
       n.text = true
@@ -411,6 +414,22 @@ class Converter {
   makeOver(n: Field): BoxNode {
     const t = this.ruleThickness
     return vpack([kern(t), { kind: "rule", width: null, height: t, depth: 0 }, kern(3 * t), this.cleanBox(n, this.curStyle | 1)])
+  }
+
+  /**
+   * make_radical (§ 737): the nucleus cramped, with a clearance above it (θ + |x-height|/4 in display styles,
+   * θ + θ/4 otherwise) and a delimiter at least that tall plus θ; extra depth of the delimiter adds half to the
+   * clearance; the delimiter raised to the box's top, then overbar (§ 705) with the delimiter's height as rule
+   */
+  makeRadical(n: Field, d: Delimiter): BoxNode {
+    const t = this.ruleThickness
+    const x = this.cleanBox(n, crampedStyle(this.curStyle))
+    let clr = this.curStyle < TEXT ? t + (Math.abs(this.mathXHeight) >> 2) : t + (Math.abs(t) >> 2)
+    const y = this.varDelimiter(d, this.curSize, x.height + x.depth + clr + t)
+    const delta = y.depth - (x.height + x.depth + clr)
+    if (delta > 0) clr += half(delta)
+    y.shift = -(x.height + clr)
+    return hpack([y, vpack([kern(y.height), { kind: "rule", width: null, height: y.height, depth: 0 }, kern(clr), x])])
   }
 
   /** make_under (§ 735): a rule 3θ below the nucleus, θ clear beneath it; the box keeps the nucleus's height */

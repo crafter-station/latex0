@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 208,
-  "exact": 206,
+  "fixtures": 209,
+  "exact": 207,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 192578
+  "glyphs": 192731
  },
  "areas": [
   {
@@ -76,8 +76,8 @@
   },
   {
    "area": "math",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "minipage",
@@ -1655,6 +1655,16 @@
    "glyphs": 136,
    "covers": "a word touching a formula is not hyphenated (§ 899), the space factor is 1000 after a formula, and \\mathoff is a breakpoint, at 12pt",
    "issue": "#86"
+  },
+  {
+   "id": "math/sqrt",
+   "file": "micro/math/sqrt.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 153,
+   "covers": "\\sqrt (\\radical\"270370, make_radical § 737): the nucleus cramped, the clearance (text and display styles), the radical sign's variants as the content grows (cmsy, then cmex's larger signs and the extensible one), its extra depth halved into the clearance, the overbar; in scripts and fractions"
   },
   {
    "id": "minipage/captions",

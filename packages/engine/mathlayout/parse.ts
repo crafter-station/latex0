@@ -2,7 +2,7 @@
 // characters by \mathcode (§ 1151), symbol commands by their \mathchar,
 // math groups and their collapse to a lone ord's nucleus (§ 1186), sub_sup
 // with its dummy noads (§§ 1176–1177), \limits and \nolimits (§ 1159),
-// style commands (§ 1169), \overline and \underline (§ 1163), \penalty, and these LaTeX definitions: \allowbreak
+// style commands (§ 1169), \overline and \underline (§ 1163), \penalty, \sqrt (\radical, § 1163), and these LaTeX definitions: \allowbreak
 // (\penalty0), \nobreak (\penalty10000), \frac
 // ({\begingroup#1\endgroup\over#2}), \int and \oint (\intop\nolimits), and
 // the prime ' (^\bgroup\prime…\egroup, which takes in a superscript that
@@ -207,6 +207,10 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
+      else if (cs === "sqrt") { // \sqrtsign: \radical"270370 (\sqrt[n] is \root n\of)
+        if (isCh(toks[pos], "[")) throw new Error("math: \\sqrt[n]")
+        out.push({ noad: ORD, radical: delimiterOf(0x270370), nucleus: scanMath(), sup: null, sub: null })
+      }
       else if (opts.alphabets && cs in opts.alphabets) out.push({ noad: ORD, nucleus: alphabet(cs)!, sup: null, sub: null })
       else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {

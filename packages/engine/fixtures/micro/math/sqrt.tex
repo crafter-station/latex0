@@ -1,0 +1,12 @@
+% fixture: math/sqrt
+% tier: T3
+% engine: document
+% covers: \sqrt (\radical"270370, make_radical § 737): the nucleus cramped, the clearance (text and display styles), the radical sign's variants as the content grows (cmsy, then cmex's larger signs and the extensible one), its extra depth halved into the clearance, the overbar; in scripts and fractions
+\documentclass[12pt]{article}
+\begin{document}
+Roots in text: $\sqrt{2}$, $\sqrt x$, $\sqrt{x^2+y^2}$, $\sqrt{\frac{a}{b}}$, $x^{\sqrt{2}}$, $e^{\sqrt{\frac{1}{2}}}$,
+and $\sqrt{\sqrt{\sqrt{z}}}$ with $1+\sqrt{1+\sqrt{1+x}}$ in a line long enough to wrap.
+\[ \sqrt{\frac{\frac{a}{b}}{\frac{c}{d}}} + \sqrt{\frac{1}{\sqrt{x}}} = \sqrt{\sum_{i=1}^n x_i^2} \]
+And a tall one: $\sqrt{\frac{\frac{\frac{1}{2}}{3}}{\frac{4}{\frac{5}{6}}}}$ in text.
+\[ \sqrt{\frac{\frac{\frac{\frac{1}{2}}{3}}{4}}{\frac{5}{\frac{6}{\frac{7}{8}}}}} \]
+\end{document}
