@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 230,
-  "exact": 228,
+  "fixtures": 233,
+  "exact": 231,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 231595
+  "glyphs": 232944
  },
  "areas": [
   {
@@ -66,8 +66,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "hyphenation",
@@ -106,8 +106,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "sections",
@@ -922,6 +922,28 @@
    "status": "pass",
    "glyphs": 85,
    "covers": "hyperref anchors beyond headings: enumerate items (Item.n, a counter of its own, on the vertical list), footnote marks in a link to Hfootnote.n and its \\hyper@@anchor after the strut, amsmath's equation (the anchor in a math group) and align rows (in the tag box, at \\baselineskip plus \\jot), \\refstepcounter in a paragraph, figure and table captions (H.S H.R after \"n: \", the lof and lot lines with the anchor, nameref's caption), \\ref links to all of them",
+   "issue": "#30"
+  },
+  {
+   "id": "hyperref/bibliography-report",
+   "file": "micro/hyperref/bibliography-report.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 453,
+   "covers": "thebibliography with hyperref: \\bibitem's \\@bibitem (\\H@item with \\@skiphyperreftrue: no Item anchor, then a raised cite.<key> anchor at the item's text), \\cite numbers in \\hyper@@link[cite] links to cite.<key> (an undefined one unlinked), and a \\label in an item, whose \\ref goes to the heading's anchor (\\refstepcounter{enumiv} keeps \\@currentHref)",
+   "issue": "#30"
+  },
+  {
+   "id": "hyperref/bibliography",
+   "file": "micro/hyperref/bibliography.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 448,
+   "covers": "thebibliography with hyperref: \\bibitem's \\@bibitem (\\H@item with \\@skiphyperreftrue: no Item anchor, then a raised cite.<key> anchor at the item's text), \\cite numbers in \\hyper@@link[cite] links to cite.<key> (an undefined one unlinked), and a \\label in an item, whose \\ref goes to the heading's anchor (\\refstepcounter{enumiv} keeps \\@currentHref)",
    "issue": "#30"
   },
   {
@@ -1997,6 +2019,17 @@
    "status": "pass",
    "glyphs": 6131,
    "covers": "under pdflatex (PDF, positions from its box dumps): fancyhdr's default fields with \\pagestyle{fancy}: {\\slshape\\rightmark} left and {\\slshape\\leftmark} right in the head, \\rmfamily\\thepage in the foot, each a \\parbox of \\headwidth with a \\strut (\\f@nch@def), the 0.4pt head rule; its \\sectionmark (\\markboth{\\MakeUppercase{\\thesection\\hskip 1em\\relax title}}{}) and \\subsectionmark (\\markright); \\@mkboth is \\markboth (the contents); the fields' paragraphs traced as each page ships, among the document's"
+  },
+  {
+   "id": "pdflatex/hyperref-bibliography",
+   "file": "micro/pdflatex/hyperref-bibliography.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 448,
+   "covers": "thebibliography with hyperref: \\bibitem's \\@bibitem (\\H@item with \\@skiphyperreftrue: no Item anchor, then a raised cite.<key> anchor at the item's text), \\cite numbers in \\hyper@@link[cite] links to cite.<key> (an undefined one unlinked), and a \\label in an item, whose \\ref goes to the heading's anchor (\\refstepcounter{enumiv} keeps \\@currentHref) under pdfTeX",
+   "issue": "#30"
   },
   {
    "id": "pdflatex/hyperref-breaking-links",

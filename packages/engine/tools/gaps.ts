@@ -4,9 +4,11 @@
 // document stops at its first construct not laid out; one that throws anything
 // else is an engine bug and is listed apart, as is a laid-out document whose pages cannot be drawn (emit/svg).
 
-import { readFileSync } from "node:fs"
-import { relative } from "node:path"
+import { readdirSync, readFileSync } from "node:fs"
+import { dirname, join, relative } from "node:path"
+import { bitmapInfo, type Bitmap } from "../latex/images"
 import { svgPages } from "../emit/svg"
+import { document } from "../latex/document"
 import { paragraph } from "../latex/paragraph"
 import { Unsupported } from "../latex/unsupported"
 import "./data"
@@ -17,8 +19,22 @@ import { collectFixtures } from "./unit/run"
 export const reasonKey = (message: string) => message.replace(/"[^"]*"/g, "…").trim()
 
 /** A fixture names its layout in its header (% engine: paragraph); anything else is a whole document, laid out as the
- *  fixture runner does (its header's driver and image files) */
-const layoutOf = (src: string, path: string) => (/^% engine: paragraph$/m.test(src) ? paragraph : (s: string) => ADAPTERS.document(s, { unit: "sp", mag: 1000, pages: [] }, path))
+ *  fixture runner does (its header's driver and image files), or, with no fixture header, as the app does (pdfTeX) */
+const layoutOf = (src: string, path: string) =>
+  /^% engine: paragraph$/m.test(src) ? paragraph
+  : /^% fixture:/m.test(src) ? (s: string) => ADAPTERS.document(s, { unit: "sp", mag: 1000, pages: [] }, path)
+  : (s: string) => document(s, { images: siblingImages(path) })
+
+/** The PNG and JPEG files next to a document, as the app gives it the project's uploads */
+function siblingImages(path: string): Record<string, Bitmap> {
+  const dir = dirname(path), out: Record<string, Bitmap> = {}
+  for (const f of readdirSync(dir)) {
+    if (!/\.(png|jpe?g)$/i.test(f)) continue
+    const b = bitmapInfo(new Uint8Array(readFileSync(join(dir, f))))
+    if (b) out[f] = b
+  }
+  return out
+}
 
 export function gaps(paths: string[], examples = 3): number {
   const files = collectFixtures(paths)

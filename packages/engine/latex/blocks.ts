@@ -30,7 +30,7 @@ export type EnvName = typeof ENVS[number]
 export const ENV_ALT = ENVS.join("|")
 /** An environment: its items (one, from \item\relax, for all but itemize, enumerate and description). */
 export interface ListBlock {
-  kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** enumitem's [options] */ options?: string
+  kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** thebibliography's \bibitem keys */ keys?: string[]; /** enumitem's [options] */ options?: string
   /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
   thm?: { name: string; note: string | null }; proofTitle?: string
 }
@@ -206,7 +206,8 @@ export function blocksOf(body: string): Block[] {
       if (/\\bibitem\s*\[/.test(inner)) throw new Unsupported("\\bibitem[label]")
       const bib = parseList("thebibliography", inner.replace(/\\bibitem\s*\{[^{}]*\}/g, "\\item "), false, true)
       bib.widest = m[11]
-      out.push({ kind: "bib", keys: [...inner.matchAll(/\\bibitem\s*\{([^{}]*)\}/g)].map((x) => x[1].trim()) }, bib)
+      bib.keys = [...inner.matchAll(/\\bibitem\s*\{([^{}]*)\}/g)].map((x) => x[1].trim())
+      out.push({ kind: "bib", keys: bib.keys }, bib)
       re.lastIndex = at = end + "\\end{thebibliography}".length
       endpe = true
       continue

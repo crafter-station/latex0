@@ -1,0 +1,17 @@
+% fixture: hyperref/bibliography
+% tier: T3
+% engine: document
+% covers: thebibliography with hyperref: \bibitem's \@bibitem (\H@item with \@skiphyperreftrue: no Item anchor, then a raised cite.<key> anchor at the item's text), \cite numbers in \hyper@@link[cite] links to cite.<key> (an undefined one unlinked), and a \label in an item, whose \ref goes to the heading's anchor (\refstepcounter{enumiv} keeps \@currentHref)
+% issue: #30
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\section{Intro}
+As shown by \cite{knuth} and \cite{lamport,knuth}, and not \cite{nobody}; see item \ref{third}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+\begin{thebibliography}{9}
+\bibitem{knuth} Author 0. \emph{A Title}. Publisher, City. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\bibitem{lamport} Author 1. \emph{A Title}. Publisher, City, see \cite{knuth}. Lorem ipsum dolor sit amet, consectetur adipiscing elit.\footnote{A note. With periods.}
+\bibitem{r3} Author 2.\label{third} \emph{A Title}. Publisher, City, item \ref{third}.
+\end{thebibliography}
+\end{document}

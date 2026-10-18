@@ -79,9 +79,11 @@ export function sectionAnchorBox(name: string, shift: number, baselineskip: numb
  * A \ref or \pageref link (\hyper@link through \pdf@rect): H.S, the text in an hbox, \raise\ht H.R in an
  * empty hbox, and the /ANN pdfmark with the anchor
  */
-export function refLink(text: Node[], name: string, color?: string): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[1 0 0]} action goto name{${name}}`), ...text, endLink()] // (find@pdflink)
-  return linkBox(text, color, `[/Color [1 0 0]/H /I/Border [0 0 1]BorderArrayPatch/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`)
+export function refLink(text: Node[], name: string, color?: string, type: "link" | "cite" = "link"): Node[] {
+  // \@linkbordercolor, or \@citebordercolor for \hyper@@link[cite]
+  const border = type === "cite" ? "0 1 0" : "1 0 0"
+  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[${border}]} action goto name{${name}}`), ...text, endLink()] // (find@pdflink)
+  return linkBox(text, color, `[/Color [${border}]/H /I/Border [0 0 1]BorderArrayPatch/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`)
 }
 
 /** \hyper@linkurl (hdvips.def): a link to a URI around the typeset text, as for \ref */

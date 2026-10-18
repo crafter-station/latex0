@@ -529,7 +529,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
           list.push(penalty(1000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
         }
         const n = doc.refs?.cites?.get(key), l: Node[] = []
-        if (n) appendText(l, n, font, { spaceFactor: 1000 }, false)
+        // hyperref's \bibcite: the number in \hyper@@link[cite] to the item's cite.<key> anchor
+        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, font, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? "gray 0" : undefined, "cite")) }
+        else if (n) appendText(l, n, font, { spaceFactor: 1000 }, false)
         else appendText(l, "?", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
         list.push(hpack(l))
         state.spaceFactor = 1000

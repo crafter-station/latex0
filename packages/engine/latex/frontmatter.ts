@@ -197,7 +197,6 @@ export function tocLine(cx: Ctx, e: TocEntry) {
 export function bibliography(cx: Ctx) {
   const { cls, hyper } = cx.pre
   const { marks, mkboth, v } = cx
-  if (hyper) throw new Unsupported("thebibliography with hyperref")
   const [name, macro] = cls === "article" ? ["References", "refname"] : ["Bibliography", "bibname"]
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
