@@ -1,0 +1,22 @@
+% fixture: amsthm/qed-own-line
+% tier: T3
+% engine: document
+% covers: a proof whose last paragraph a blank line ends (after text, or after a display): \qed's \leavevmode starts a paragraph of its own, indented, with \parskip, holding \penalty9999, \hbox{}, \nobreak\hfill\quad and the box
+\documentclass{article}
+\usepackage{amsthm}
+\begin{document}
+\begin{proof}
+The argument ends with a full stop and then a blank line comes before the end of the proof.
+
+\end{proof}
+\begin{proof}
+It ends with a display
+\[ a + b = c \]
+
+\end{proof}
+\begin{proof}
+And this one with a display and no blank line
+\[ x = y \]
+\end{proof}
+Text after.
+\end{document}

@@ -36,7 +36,7 @@ export interface ListBlock {
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
-export type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number; /** \\* and \\[skip] before it */ crStar?: boolean; crSkip?: string } | ListBlock
+export type Part = { kind: "text"; text: string; start: "label" | "doendpe" | "par" | "cr"; /** nodes after the label, before the text */ nodes?: Node[]; /** \unskips before the \par that ends it */ unskip?: number; /** \\* and \\[skip] before it */ crStar?: boolean; crSkip?: string; /** a blank line ends it */ parEnd?: boolean } | ListBlock
 
 /** Where the \end matching an environment's \begin is (environments nest), and where it ends. */
 export function listEnd(body: string, from: number, env: string): { at: number; next: number } {
@@ -88,7 +88,9 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
       const paras = t.split(/\n[ \t]*\n/)
       paras.forEach((para0, pi) => {
         const para = pi < paras.length - 1 ? para0 + " " : para0 // the line end before a blank line is a space
-        const lines = para.split(/\\\\/)
+        // (a \\ in a display is the display's)
+        const shown: string[] = []
+        const lines = para.replace(new RegExp(DISPLAY.source, "g"), (m) => `\u0000${shown.push(m) - 1}\u0000`).split(/\\\\/).map((l) => l.replace(/\u0000(\d+)\u0000/g, (_, n) => shown[Number(n)]))
         if (lines.length > 1 && !crs) throw new Unsupported(`\\\\ in ${env}`)
         lines.forEach((line, li) => {
           // \@centercr: \par, \nobreak for \\*, \addvspace{-\parskip}, \vskip for \\[skip]
@@ -104,6 +106,8 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
           parts.push({ kind: "text", text: tx, start, unskip, ...(start === "cr" ? cr : {}) })
         })
       })
+      const lp = parts[parts.length - 1]
+      if (paras.length > 1 && !paras[paras.length - 1].trim() && lp?.kind === "text") lp.parEnd = true
     }
     const nested = new RegExp(`\\\\begin\\{(${ENV_ALT})\\}`, "g")
     let at = 0
@@ -252,9 +256,8 @@ export function blocksOf(body: string): Block[] {
     else if (b.kind === "list") {
       const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
         if (p.kind === "list") return walk(p)
-        if (DISPLAY.test(p.text)) throw new Unsupported(`a display in ${l.env}`)
         if (/^\s*\\label\b/.test(p.text) && !(l.env === "LXtheorem" && p === l.items[0].parts[0])) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
-        check(p.text)
+        displaySegments(p.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
       }))
       walk(b)
     }

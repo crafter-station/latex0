@@ -20,7 +20,8 @@ import { lineBreak } from "../layout/linebreak"
 import { penalty, type Node } from "../layout/nodes"
 import type { ParagraphTrace } from "../trace/decisions"
 import type { LayoutResult } from "./result"
-import { blocksOf } from "./blocks"
+import { blocksOf, displaySegments } from "./blocks"
+import { listParagraphWithDisplays } from "./displays"
 import { prepareSource, type DocumentSource } from "./source"
 import { Counters } from "./counters"
 import { markText, MarkWriter, pageMarks } from "./marks"
@@ -120,6 +121,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   decisions.push = (...xs: ParagraphTrace[]) => { for (const _ of xs) brokenAt.push(v.nodes.length); return Array.prototype.push.apply(decisions, xs) }
   const outerParskip = run.k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
+    if (displaySegments(text).length > 1) return listParagraphWithDisplays(cx, text, opts ?? {}, parskip, size)
     const { list, params, notes } = paragraphInput(counted(text, true), run.k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
