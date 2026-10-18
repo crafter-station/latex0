@@ -1,0 +1,13 @@
+% fixture: math/operator-names
+% tier: T3
+% engine: document
+% covers: latex.ltx's operator names, \mathop{\operator@font name}: a sub-mlist nucleus in family 0, \nolimits for \sin and friends, limits in display style for \lim, \max, \det, \Pr, \gcd; \limsup's thin space; \limits after one in text style; spacing around them (op next to ord, open, bin)
+% issue: #76
+\documentclass{article}
+\begin{document}
+Text operators: $\sin x + \cos^2\theta = \tan(\alpha)$, $\log_2 n$, $\ln x$, $\exp(-x)$, $\arcsin y$, $\sinh t$, $\cot\phi$, $\sec x\csc x$,
+$\arg z$, $\ker f$, $\dim V$, $\hom$, $\deg p$, $\lg n$ and with limits beside them $\lim_{n\to\infty} a_n$, $\max_{i} x_i$, $\min_j$, $\sup_k$, $\inf S$,
+$\limsup_{n} b_n$, $\liminf c$, $\det A$, $\Pr(X)$, $\gcd(a,b)$, and $\lim\limits_{x\to 0} f$ or $\sin\limits_a b$.
+\[ \lim_{n\to\infty} \sin\frac{1}{n} = \max_{1\le i\le n} \log x_i + \det_{k} M - \limsup_{n\to\infty} a_n \]
+\[ \Pr_{x} \gcd^{2} \cosh^{2}_{t} y = \exp\left(\inf_{s} f\right) \]
+\end{document}

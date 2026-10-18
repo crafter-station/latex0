@@ -1,18 +1,18 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 239,
-  "exact": 237,
+  "fixtures": 241,
+  "exact": 239,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 240440
+  "glyphs": 240894
  },
  "areas": [
   {
    "area": "amsmath",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "amsthm",
@@ -96,8 +96,8 @@
   },
   {
    "area": "math",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "minipage",
@@ -368,6 +368,17 @@
    "status": "pass",
    "glyphs": 122,
    "covers": "amsmath's \\eqref: \\textup{\\tagform@{\\ref{key}}}, the reference in parentheses in an \\hbox in \\normalfont (with \\@@italiccorr), before and after its equation, an undefined key, in italic and bold text, followed by punctuation"
+  },
+  {
+   "id": "amsmath/operator-names",
+   "file": "micro/amsmath/operator-names.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 170,
+   "covers": "amsopn's operator names, \\qopname: \\mathop{\\kern\\z@\\operator@font name} then \\nolimits@ (o; a \\limits after it gobbled) or \\displaylimits (m); \\DeclareMathOperator and its * (\\operatorname, \\operatorname*), a one-letter name (the kern keeps it a sub-mlist), names with \\, ; the kernel's \\sin, \\lim, \\det … as amsopn redefines them",
+   "issue": "#76"
   },
   {
    "id": "amsmath/sqrt-index",
@@ -1868,6 +1879,17 @@
    "glyphs": 136,
    "covers": "a word touching a formula is not hyphenated (§ 899), the space factor is 1000 after a formula, and \\mathoff is a breakpoint, at 12pt",
    "issue": "#86"
+  },
+  {
+   "id": "math/operator-names",
+   "file": "micro/math/operator-names.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 284,
+   "covers": "latex.ltx's operator names, \\mathop{\\operator@font name}: a sub-mlist nucleus in family 0, \\nolimits for \\sin and friends, limits in display style for \\lim, \\max, \\det, \\Pr, \\gcd; \\limsup's thin space; \\limits after one in text style; spacing around them (op next to ord, open, bin)",
+   "issue": "#76"
   },
   {
    "id": "math/spacing",
