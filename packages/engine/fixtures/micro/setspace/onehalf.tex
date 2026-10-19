@@ -1,0 +1,41 @@
+% fixture: setspace/onehalf
+% tier: T3
+% engine: document
+% covers: setspace's \onehalfspacing at 12pt in report (\setstretch{1.241}): every size's \baselineskip and \strutbox stretched; headings, the table of contents, a list; the figure single-spaced (\@xfloat)
+% issue: #253
+\begin{filecontents*}[overwrite]{box4x3.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 400 300
+%%EndComments
+\end{filecontents*}
+\documentclass[12pt]{report}
+\usepackage{graphicx}
+\usepackage{setspace}
+\onehalfspacing
+\begin{document}
+\tableofcontents
+\chapter{Introduction}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+
+\section{Background}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text. Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+
+\begin{itemize}
+\item One item that is long enough to run over onto a second line of the list, at least.
+\item Two.
+\end{itemize}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.5\linewidth]{box4x3.eps}
+\caption{A caption long enough to need two lines in the single-spaced float, which setspace restores there.}
+\end{figure}
+
+\subsection{Details}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.  {\small Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.} Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text. Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text. Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text. Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+\end{document}

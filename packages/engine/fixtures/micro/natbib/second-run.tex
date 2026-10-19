@@ -1,0 +1,12 @@
+% fixture: natbib/second-run
+% tier: T3
+% engine: document
+% covers: natbib alone makes the second run (no table of contents or references): \citep with \bibliographystyle{plain}, as numbers
+% issue: #251
+\documentclass{article}
+\usepackage{natbib}
+\begin{document}
+Only parenthetical citations \citep{a} and \citep[p.~2]{b,c} here.
+
+\bibliographystyle{plain}
+\end{document}

@@ -1,0 +1,12 @@
+% fixture: setspace/option
+% tier: T3
+% engine: document
+% covers: setspace's [onehalfspacing] option at 11pt (\setstretch{1.213}, at the end of the package) with nodisplayskipstretch: the display skips times 1.0, dimensions
+% issue: #253
+\documentclass[11pt]{article}
+\usepackage[onehalfspacing,nodisplayskipstretch]{setspace}
+\begin{document}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+$$ x = y $$
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+\end{document}

@@ -303,6 +303,12 @@ export function makeDocument(r: () => number): string {
   if (natOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage${pick(["", "", "[round]", "[square]", "[numbers]", "[authoryear]"])}{natbib}`)
   const natStyleAtEnd = r() < 0.5
   if (natStyle && !natStyleAtEnd) out.push(`\\bibliographystyle{${natStyle}}`)
+  // setspace: an option, or a spacing command in the preamble
+  if (r() < 0.15) {
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage${pick(["", "", "[onehalfspacing]", "[doublespacing]", "[nodisplayskipstretch]"])}{setspace}`)
+    const cmd = pick(["\\onehalfspacing", "\\doublespacing", "\\setstretch{1.3}", "\\setstretch{1.1}", "\\singlespacing", ""])
+    if (cmd) out.push(cmd)
+  }
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page

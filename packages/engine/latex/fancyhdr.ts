@@ -7,6 +7,7 @@
 // \llap with \hfill between (\f@nch@hfbox@center), under the head rule or over the foot rule
 // (\f@nch@head, \f@nch@foot), in a \vbox no taller than \headheight or \footskip (\f@nch@vbox).
 
+import { singleSpaced } from "./setspace"
 import { xnOverD } from "../layout/arith"
 import { parseDimen, roundDecimals } from "../layout/dimen"
 import { QUAD } from "../layout/font"
@@ -69,7 +70,7 @@ export function fancyCommand(f: FancyHdr, line: string): boolean {
 
 /** \@thehead and \@thefoot on a page of style fancy, and the paragraphs their fields make (TeX breaks them at shipout) */
 export function fancyPage(cx: Ctx, f: FancyHdr, even: boolean, thepage: string, marks: { left?: MarkValue; right?: MarkValue }): { head: Node[]; foot: Node[]; traces: ParagraphTrace[] } {
-  const k = cx.run.k, sz = k.sizes.normalsize
+  const k = singleSpaced(cx.run.k), sz = k.sizes.normalsize // \f@nch@reset: \def\baselinestretch{1}
   const headwidth = k.dimens.textwidth
   const traces: ParagraphTrace[] = []
   const eo = even ? "e" : "o"

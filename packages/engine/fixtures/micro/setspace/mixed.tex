@@ -1,0 +1,34 @@
+% fixture: setspace/mixed
+% tier: T3
+% engine: document
+% covers: setspace's \setstretch{1.3} at 12pt with hyperref (anchors at the stretched \baselineskip): a tabular in text (\@arstrutbox from the stretched \strutbox), a table float single-spaced, a minipage, an enumerate, a short display (\everydisplay stretches the short skips too), a footnote
+% issue: #253
+\documentclass[12pt]{article}
+\usepackage{setspace}
+\usepackage{hyperref}
+\setstretch{1.3}
+\begin{document}
+\section{Tables}\label{s}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A tabular \begin{tabular}{|l|c|}\hline a & b \\ c & d \\\hline\end{tabular} in the text.\footnote{A footnote with a reference to Section~\ref{s}, long enough to run over two lines.}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+one & 1 \\
+two & 2 \\
+\end{tabular}
+\caption{A table whose caption is long enough to need two lines in the float, single-spaced there.}\label{t}
+\end{table}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. See Table~\ref{t}.
+\begin{enumerate}
+\item First item, which runs on for long enough to need a second line in the list.
+\item Second.
+\end{enumerate}
+\begin{minipage}{0.6\linewidth}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit.
+\end{minipage}
+
+Short
+\[ a = b \]
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit.
+\end{document}
