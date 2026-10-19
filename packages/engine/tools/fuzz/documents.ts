@@ -51,7 +51,7 @@ export function makeDocument(r: () => number): string {
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
-  let hyper = false, crefOn = false
+  let hyper = false, crefOn = false, tsOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false, graphOn = false
@@ -284,6 +284,17 @@ export function makeDocument(r: () => number): string {
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25 && !isLetter
   if (hyper) out.push("\\usepackage{hyperref}")
+  // titlesec (after hyperref): its defaults, or \titleformat's font, label, sep and \titlerule
+  tsOn = cls === "article" && !out.includes("\\pagestyle{headings}") && !out.includes("\\usepackage{fancyhdr}") && r() < 0.2
+  if (tsOn) {
+    out.push("\\usepackage{titlesec}")
+    for (const name of ["section", "subsection", "subsubsection"]) {
+      if (r() < 0.5) continue
+      const format = pick(["\\large\\bfseries", "\\normalfont\\Large\\bfseries", "\\normalsize\\bfseries", "\\Large", "\\bfseries"])
+      const label = pick(["", `\\the${name}`, `\\the${name}\\quad`])
+      out.push(`\\titleformat{\\${name}}${r() < 0.2 ? "[hang]" : ""}{${format}}{${label}}{${pick(["0em", "0pt", "1em", "6pt", ".5em"])}}{}${r() < 0.5 ? "[\\titlerule]" : ""}`)
+    }
+  }
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page
@@ -297,7 +308,7 @@ export function makeDocument(r: () => number): string {
     else if (d < 0.6) out.push(`\\date{${words(3)}}`)
   }
   // a counter and a macro that steps it and makes a run-in heading, as homework templates do
-  const macros = r() < 0.3 && !isLetter
+  const macros = r() < 0.3 && !isLetter && !tsOn
   if (macros) out.push("\\newcounter{thm}", "\\newcommand{\\thm}{\\stepcounter{thm}\\paragraph{Theorem \\thethm.}}")
   // amsthm: theorem-like environments in the three styles, numbered alone, within sections, sharing a counter, or not at all
   const thms: string[] = []
@@ -333,7 +344,7 @@ export function makeDocument(r: () => number): string {
         space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}`)
       afterPar = false
     } else if (x < 0.2) {
-      const level = pick(["section", "section", "subsection", "subsubsection", "paragraph", "subparagraph", ...(cls !== "article" ? ["chapter"] : [])])
+      const level = pick(["section", "section", "subsection", "subsubsection", ...(tsOn ? [] : ["paragraph", "subparagraph"]), ...(cls !== "article" ? ["chapter"] : [])])
       if (macros && r() < 0.3) { out.push("", r() < 0.5 ? "\\thm" : `\\thm ${text(5 + Math.floor(r() * 30))}`); afterPar = false; continue }
       out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}${r() < 0.3 && !level.endsWith("paragraph") ? `\\label{${key()}}` : ""}`)
       afterPar = false

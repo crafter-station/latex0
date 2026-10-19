@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 251,
-  "exact": 249,
+  "fixtures": 256,
+  "exact": 254,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 243446
+  "glyphs": 244754
  },
  "areas": [
   {
@@ -138,6 +138,11 @@
    "area": "title",
    "fixtures": 4,
    "exact": 4
+  },
+  {
+   "area": "titlesec",
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "url",
@@ -2608,6 +2613,61 @@
    "glyphs": 337,
    "covers": "report's \\maketitle: the titlepage environment (\\newpage, \\thispagestyle{empty}, \\setcounter{page}\\@ne), \\null\\vfil\\vskip60\\p@, the centered title, \\vskip3em, the authors with \\lineskip.75em, \\vskip1.5em, {\\large date\\par} with \\large's \\baselineskip, \\vfil\\null, \\newpage; one-sided, the next page is page 1 again",
    "issue": "#30"
+  },
+  {
+   "id": "titlesec/cv",
+   "file": "micro/titlesec/cv.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 343,
+   "covers": "the cv template: geometry, enumitem, hyperref, titlesec with a ruled \\section",
+   "issue": "#249"
+  },
+  {
+   "id": "titlesec/defaults",
+   "file": "micro/titlesec/defaults.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 371,
+   "covers": "titlesec loaded without changes: the straight class, the hang shape, the spacing taken from \\@startsection",
+   "issue": "#249"
+  },
+  {
+   "id": "titlesec/labels",
+   "file": "micro/titlesec/labels.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 81,
+   "covers": "titlesec's \\@currentlabelname in \\label without hyperref (empty after a starred title), and the label's \\sbox with xcolor",
+   "issue": "#249"
+  },
+  {
+   "id": "titlesec/titlerule",
+   "file": "micro/titlesec/titlerule.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 299,
+   "covers": "\\titleformat in the hang shape (format, empty and \\the labels, sep) and \\titlerule after the title",
+   "issue": "#249"
+  },
+  {
+   "id": "titlesec/with-hyperref",
+   "file": "micro/titlesec/with-hyperref.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 214,
+   "covers": "titlesec's headings with hyperref: \\ttl@Hy@refstepcounter's anchor in \\ttl@Hy@saveanchor, \\ttl@Hy@steplink for starred titles",
+   "issue": "#249"
   },
   {
    "id": "url/contexts",

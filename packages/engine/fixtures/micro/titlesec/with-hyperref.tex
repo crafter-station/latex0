@@ -1,0 +1,23 @@
+% fixture: titlesec/with-hyperref
+% tier: T3
+% engine: document
+% covers: titlesec's headings with hyperref: \ttl@Hy@refstepcounter's anchor in \ttl@Hy@saveanchor, \ttl@Hy@steplink for starred titles
+% issue: #249
+\documentclass[11pt]{article}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\begin{document}
+\section{Experience}\label{sec:exp}
+Some text that starts the section, see Section~\ref{sec:edu} on page~\pageref{sec:edu}.
+
+\subsection{Background}
+More text in the subsection.
+\section{Education}\label{sec:edu}
+\subsection{Right after a ruled heading}
+Text.
+\section*{Unnumbered}
+Text after an unnumbered section heading, back to~\ref{sec:exp}.
+\subsection*{Also unnumbered}
+Last words.
+\end{document}
