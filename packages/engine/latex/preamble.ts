@@ -11,6 +11,7 @@ import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
 import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
+import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { Unsupported } from "./unsupported"
 
@@ -59,6 +60,8 @@ export interface Preamble {
   letterInfo: { signature?: string; address?: string; name?: string }
   /** \newcounter{name}[within], and the theorems' counters */
   newCounters: [string, string | null][]
+  /** natbib: its citation punctuation */
+  natbib: NatStyle | null
   /** between \begin{document} and \end{document} */
   body: string
 }
@@ -97,6 +100,8 @@ export function readPreamble(src: string): Preamble {
   let hyper = false // hyperref, with the dvips driver
   let cleveref = false
   let titlesec: TitleFormats | null = null
+  let natbib: ReturnType<typeof natbibOptions> | null = null
+  const bibstyles: string[] = [] // the .aux's \bibstyle lines, in order
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   const geometryOptions: string[] = []
@@ -115,6 +120,11 @@ export function readPreamble(src: string): Preamble {
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
     const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
     if (geo) { geometryOptions.push(geo[1] ?? ""); continue }
+    const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
+    if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
+    // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
+    const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)
+    if (bs) { bibstyles.push(bs[1].trim()); continue }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
@@ -202,9 +212,17 @@ export function readPreamble(src: string): Preamble {
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   let body = src.slice(begin + 16, end)
+  // \bibliographystyle and \bibliography between paragraphs: an \immediate\write to the .aux, and with no .bbl
+  // nothing to \input; the .aux's \bibstyle lines are read back at \begin{document}
+  body = body.replace(/(^|\n[ \t]*\n)((?:[ \t]*\\bibliography(?:style)?\{[^{}]*\}[ \t]*(?:\n|$))+)/g, (_, before: string, cmds: string) => {
+    for (const m of cmds.matchAll(/\\bibliographystyle\{([^{}]*)\}/g)) bibstyles.push(m[1].trim())
+    return before + cmds.replace(/[^\n]/g, "")
+  })
+  if (/\\bibliography(?:style)?\b/.test(body)) throw new Unsupported("\\bibliography in a paragraph")
+  if (natbib && /\\begin\{thebibliography\}/.test(body)) throw new Unsupported("thebibliography with natbib")
   for (const [cmd, name, star] of operators) body = body.replace(new RegExp(`\\\\${cmd}(?![A-Za-z])`, "g"), () => `\\operatorname${star ? "*" : ""}{${name}}`)
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && natbibStyle(natbib, bibstyles), t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
 }

@@ -51,7 +51,7 @@ export function makeDocument(r: () => number): string {
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
-  let hyper = false, crefOn = false, tsOn = false
+  let hyper = false, crefOn = false, tsOn = false, natOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false, graphOn = false
@@ -134,7 +134,9 @@ export function makeDocument(r: () => number): string {
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
       if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`])
-      if (r() < 0.006) ws[i] += pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
+      if (r() < 0.006) ws[i] += natOn // natbib with no .bbl: every key undefined
+        ? pick([" \\citep{b1}", "~\\citet{b2,b1}", " \\cite{b3}", " \\citep[p.~4]{b1}", " \\citet[see][ch.~2]{b2}", " \\citealp{b1}", " \\citeauthor{b3}", " \\citeyearpar{b1}", "~\\cite[][p.~9]{nobody}", " (\\citealt{b1,b2})"])
+        : pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
       if (graphOn && r() < 0.003) ws[i] += ` \\includegraphics[${pick(["height=1em", "scale=0.05", "width=1cm"])}]{${pick(["wide", "tall"])}}`
       if (amsOn && r() < 0.005) ws[i] += pick([" \\eqref{eq:3-1}", "~\\eqref{eq:6-1}", " \\eqref{eq:10-1}", " (\\eqref{eq:15-1})", " \\eqref{eq:2-1}", " \\eqref{nowhere}"])
       // addresses: \url (url.sty or hyperref), \nolinkurl and \href (hyperref)
@@ -295,6 +297,12 @@ export function makeDocument(r: () => number): string {
       out.push(`\\titleformat{\\${name}}${r() < 0.2 ? "[hang]" : ""}{${format}}{${label}}{${pick(["0em", "0pt", "1em", "6pt", ".5em"])}}{}${r() < 0.5 ? "[\\titlerule]" : ""}`)
     }
   }
+  // natbib: its options, and a \bibliographystyle in the preamble or at the end (read back from the .aux)
+  natOn = !isLetter && r() < 0.15
+  const natStyle = natOn && r() < 0.6 ? pick(["plainnat", "plain", "chicago", "unsrtnat", "abbrv", "ieeetr"]) : null
+  if (natOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage${pick(["", "", "[round]", "[square]", "[numbers]", "[authoryear]"])}{natbib}`)
+  const natStyleAtEnd = r() < 0.5
+  if (natStyle && !natStyleAtEnd) out.push(`\\bibliographystyle{${natStyle}}`)
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page
@@ -441,7 +449,8 @@ export function makeDocument(r: () => number): string {
   }
   // a bibliography: \section*{References} (\chapter*{Bibliography}) and its numbered list
   if (isLetter) out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []), "\\end{letter}")
-  if (r() < 0.2 && !isLetter) {
+  if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : []))
+  else if (r() < 0.2 && !isLetter) {
     const n = 1 + Math.floor(r() * (r() < 0.2 ? 12 : 4))
     out.push("", `\\begin{thebibliography}{${n < 10 ? "9" : "99"}}`)
     for (let i = 1; i <= n; i++) out.push(`\\bibitem{b${i}} ${text(5 + Math.floor(r() * 40))}`)

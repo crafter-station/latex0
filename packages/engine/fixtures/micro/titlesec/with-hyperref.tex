@@ -1,7 +1,7 @@
 % fixture: titlesec/with-hyperref
 % tier: T3
 % engine: document
-% covers: titlesec's headings with hyperref: \ttl@Hy@refstepcounter's anchor in \ttl@Hy@saveanchor, \ttl@Hy@steplink for starred titles
+% covers: titlesec's headings with hyperref: \ttl@Hy@refstepcounter's anchor in \ttl@Hy@saveanchor, \ttl@Hy@steplink for starred titles; nameref drops a title's final period
 % issue: #249
 \documentclass[11pt]{article}
 \usepackage{hyperref}
@@ -11,7 +11,7 @@
 \section{Experience}\label{sec:exp}
 Some text that starts the section, see Section~\ref{sec:edu} on page~\pageref{sec:edu}.
 
-\subsection{Background}
+\subsection{Background.}\label{sec:bg}
 More text in the subsection.
 \section{Education}\label{sec:edu}
 \subsection{Right after a ruled heading}

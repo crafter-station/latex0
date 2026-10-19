@@ -114,7 +114,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
   }
-  const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec }
+  const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec, ...(pre.natbib ? { natbib: pre.natbib } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []

@@ -188,7 +188,7 @@ export function pageAnchor(page: string, topmargin: number, sidemargin: number):
  * nameref's \@currentlabelname for a heading: its title's tokens as \@onelevel@sanitize prints them (a
  * control word with a space after it, spaces after it in the source skipped), without one final period
  */
-export function labelName(title: string): string {
+export function labelName(title: string, stripPeriod = true): string {
   let out = ""
   for (let i = 0; i < title.length; ) {
     const cw = title.slice(i).match(/^\\([A-Za-z@]+)\s*/)
@@ -197,5 +197,5 @@ export function labelName(title: string): string {
     if (/\s/.test(title[i])) { if (!out.endsWith(" ")) out += " "; i++; continue }
     out += title[i++]
   }
-  return out.replace(/\.$/, "")
+  return stripPeriod ? out.replace(/\.$/, "") : out
 }

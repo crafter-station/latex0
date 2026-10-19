@@ -1,0 +1,13 @@
+% fixture: natbib/round
+% tier: T3
+% engine: document
+% covers: natbib's [round] option (nobibstyle): \bibliographystyle{plainnat} in the document does not change the brackets
+% issue: #251
+\documentclass{article}
+\usepackage[round]{natbib}
+\begin{document}
+Round brackets stay \citep{x}, \citep[p.~1]{y} and \citet[ch.~3]{z}.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+\end{document}

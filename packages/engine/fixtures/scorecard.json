@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 256,
-  "exact": 254,
+  "fixtures": 262,
+  "exact": 260,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 244754
+  "glyphs": 246052
  },
  "areas": [
   {
@@ -103,6 +103,11 @@
    "area": "minipage",
    "fixtures": 4,
    "exact": 4
+  },
+  {
+   "area": "natbib",
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "pages",
@@ -2073,6 +2078,72 @@
    "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
   },
   {
+   "id": "natbib/authoryear",
+   "file": "micro/natbib/authoryear.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 325,
+   "covers": "natbib's author-year citations with no .bbl (every key undefined): \\citep, \\citet, \\cite, \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar, \\Citet; several keys; pre- and post-notes; \\bibliography with no .bbl",
+   "issue": "#251"
+  },
+  {
+   "id": "natbib/numbers-option",
+   "file": "micro/natbib/numbers-option.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 141,
+   "covers": "natbib's [numbers] option (square, comma, nobibstyle) with hyperref, at 11pt: \\citep, \\citet and \\citealp with notes, in a footnote, \\textbf and \\emph; \\citeauthor and \\citeyear drop the post-note",
+   "issue": "#251"
+  },
+  {
+   "id": "natbib/numbers",
+   "file": "micro/natbib/numbers.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 333,
+   "covers": "natbib with \\bibliographystyle{plain} (read back from the .aux): numerical citations, every key undefined",
+   "issue": "#251"
+  },
+  {
+   "id": "natbib/options",
+   "file": "micro/natbib/options.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 133,
+   "covers": "natbib's [square] option (nobibstyle: the \\bibstyle the preamble's \\bibliographystyle writes is gobbled) with hyperref, at 11pt; citations in a footnote, in \\textbf and \\emph, and after \\cite's notes",
+   "issue": "#251"
+  },
+  {
+   "id": "natbib/plainnat",
+   "file": "micro/natbib/plainnat.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 325,
+   "covers": "natbib with \\bibliographystyle{plainnat} (read back from the .aux): square brackets, author-year, every key undefined",
+   "issue": "#251"
+  },
+  {
+   "id": "natbib/round",
+   "file": "micro/natbib/round.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "natbib's [round] option (nobibstyle): \\bibliographystyle{plainnat} in the document does not change the brackets",
+   "issue": "#251"
+  },
+  {
    "id": "pages/article-multipage",
    "file": "micro/pages/article-multipage.tex",
    "area": "pages",
@@ -2643,8 +2714,8 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 81,
-   "covers": "titlesec's \\@currentlabelname in \\label without hyperref (empty after a starred title), and the label's \\sbox with xcolor",
+   "glyphs": 82,
+   "covers": "titlesec's \\@currentlabelname in \\label without hyperref (empty after a starred title; a final period kept), and the label's \\sbox with xcolor",
    "issue": "#249"
   },
   {
@@ -2665,8 +2736,8 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 214,
-   "covers": "titlesec's headings with hyperref: \\ttl@Hy@refstepcounter's anchor in \\ttl@Hy@saveanchor, \\ttl@Hy@steplink for starred titles",
+   "glyphs": 215,
+   "covers": "titlesec's headings with hyperref: \\ttl@Hy@refstepcounter's anchor in \\ttl@Hy@saveanchor, \\ttl@Hy@steplink for starred titles; nameref drops a title's final period",
    "issue": "#249"
   },
   {
