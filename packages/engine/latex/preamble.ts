@@ -11,6 +11,7 @@ import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
 import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
+import { times, setspaceCommand, setspaceOptions, withSetspace, type SetSpace } from "./setspace"
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { Unsupported } from "./unsupported"
@@ -60,8 +61,8 @@ export interface Preamble {
   letterInfo: { signature?: string; address?: string; name?: string }
   /** \newcounter{name}[within], and the theorems' counters */
   newCounters: [string, string | null][]
-  /** natbib: its citation punctuation */
-  natbib: NatStyle | null
+  /** natbib: its citation punctuation on the first run (no .aux yet) and on later ones (the .aux's \bibstyle) */
+  natbib: { first: NatStyle; later: NatStyle } | null
   /** between \begin{document} and \end{document} */
   body: string
 }
@@ -101,10 +102,12 @@ export function readPreamble(src: string): Preamble {
   let cleveref = false
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
+  let setspace: SetSpace | null = null
   const bibstyles: string[] = [] // the .aux's \bibstyle lines, in order
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   const geometryOptions: string[] = []
+  let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
   const lengths: [string, string][] = [] // \setlength in the preamble
   const letterInfo: { signature?: string; address?: string; name?: string } = {}
   const newCounters: [string, string | null][] = []
@@ -119,9 +122,12 @@ export function readPreamble(src: string): Preamble {
     if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
     const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
-    if (geo) { geometryOptions.push(geo[1] ?? ""); continue }
+    if (geo) { geometryOptions.push(geo[1] ?? ""); geometryStretch = setspace?.stretch ?? ""; continue }
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
+    const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
+    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); continue }
+    if (setspace && setspaceCommand(setspace, line, option)) continue
     // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
     const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)
     if (bs) { bibstyles.push(bs[1].trim()); continue }
@@ -196,7 +202,8 @@ export function readPreamble(src: string): Preamble {
   if (t1) k = withT1(k, cls)
   if (geometryOptions.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-    k = geometry(k, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
+    const bs = geometryStretch ? { ...k.glue, baselineskip: { ...k.glue.baselineskip, width: times(geometryStretch, k.glue.baselineskip.width) } } : k.glue
+    k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }), glue: k.glue }
   }
   if (lengths.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
@@ -209,6 +216,7 @@ export function readPreamble(src: string): Preamble {
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
   }
+  if (setspace) k = withSetspace(k, setspace)
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   let body = src.slice(begin + 16, end)
@@ -219,10 +227,11 @@ export function readPreamble(src: string): Preamble {
     return before + cmds.replace(/[^\n]/g, "")
   })
   if (/\\bibliography(?:style)?\b/.test(body)) throw new Unsupported("\\bibliography in a paragraph")
+  if (setspace && /\\(?:singlespacing|onehalfspacing|doublespacing|setstretch|begin\{(?:spacing|singlespace\*?|onehalfspace|doublespace)\})/.test(body)) throw new Unsupported("setspace's spacing in the document")
   if (natbib && /\\begin\{thebibliography\}/.test(body)) throw new Unsupported("thebibliography with natbib")
   for (const [cmd, name, star] of operators) body = body.replace(new RegExp(`\\\\${cmd}(?![A-Za-z])`, "g"), () => `\\operatorname${star ? "*" : ""}{${name}}`)
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && natbibStyle(natbib, bibstyles), t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
 }

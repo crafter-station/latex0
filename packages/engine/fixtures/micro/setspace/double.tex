@@ -1,0 +1,16 @@
+% fixture: setspace/double
+% tier: T3
+% engine: document
+% covers: setspace's \doublespacing at 10pt in article (\setstretch{1.667}); a footnote single-spaced (setspace's \@footnotetext); a display, whose \abovedisplayskip and \belowdisplayskip \everydisplay stretches (as dimensions)
+% issue: #253
+\documentclass{article}
+\usepackage{setspace}
+\doublespacing
+\begin{document}
+\section{Double}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.\footnote{A footnote long enough to need two lines at footnote size, which stays single-spaced inside the footnote.}
+\[ x^2 + y^2 = z^2 \]
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+\begin{equation} a = b \end{equation}
+Line spacing changes how many lines fit on a page, where the page breaks fall, and how far apart the baselines of a paragraph sit. A thesis is often set one and a half spaced, which this paragraph shows over several lines of ordinary text.
+\end{document}

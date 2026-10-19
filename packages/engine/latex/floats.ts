@@ -11,6 +11,7 @@ import { hpack, vpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
 import { centering as centeringShape, sloppy } from "./kernel"
+import { singleSpaced } from "./setspace"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, plain } from "./vlist"
 import { type Float } from "./output"
@@ -90,6 +91,9 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
     }
   }
   run.captype = b.env
+  // setspace's \@xfloat: \def\baselinestretch{\setspace@singlespace}\normalsize in the float
+  const spaced = run.k
+  run.k = singleSpaced(spaced)
   try {
   for (let ii = 0; ii < items.length; ii++) {
     const it = items[ii]
@@ -136,7 +140,7 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
     if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)
     throw new Unsupported(`${it} in a ${b.env}`)
   }
-  } finally { run.captype = null }
+  } finally { run.captype = null; run.k = spaced }
   content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
   const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
   if (box.height > run.k.dimens.textheight) box.height = run.k.dimens.textheight // \@largefloatcheck

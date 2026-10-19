@@ -114,7 +114,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
   }
-  const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec, ...(pre.natbib ? { natbib: pre.natbib } : {}) }
+  const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
@@ -229,7 +229,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc") || READS_AUX.test(body) || hyper) {
+  if (blocks.some((b) => b.kind === "toc") || READS_AUX.test(body) || hyper || pre.natbib) { // (natbib: the .aux's \bibstyle)
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>()
     const walk = (n: Node, page: string) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
     shipped.forEach((b, i) => walk(b, pages[i].thepage))

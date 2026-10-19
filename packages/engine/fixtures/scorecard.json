@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 262,
-  "exact": 260,
+  "fixtures": 269,
+  "exact": 267,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 246052
+  "glyphs": 252936
  },
  "areas": [
   {
@@ -106,8 +106,8 @@
   },
   {
    "area": "natbib",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "pages",
@@ -123,6 +123,11 @@
    "area": "sections",
    "fixtures": 10,
    "exact": 10
+  },
+  {
+   "area": "setspace",
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "tabular",
@@ -2089,6 +2094,17 @@
    "issue": "#251"
   },
   {
+   "id": "natbib/first-run",
+   "file": "micro/natbib/first-run.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1815,
+   "covers": "natbib's first run has no .aux, so no \\bibstyle: author-year citations there (section Two on page 1), numbers on the second (\\bibliographystyle{plain}: on page 2); the table of contents shows the first run's page",
+   "issue": "#251"
+  },
+  {
    "id": "natbib/numbers-option",
    "file": "micro/natbib/numbers-option.tex",
    "area": "natbib",
@@ -2141,6 +2157,17 @@
    "status": "pass",
    "glyphs": 39,
    "covers": "natbib's [round] option (nobibstyle): \\bibliographystyle{plainnat} in the document does not change the brackets",
+   "issue": "#251"
+  },
+  {
+   "id": "natbib/second-run",
+   "file": "micro/natbib/second-run.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 46,
+   "covers": "natbib alone makes the second run (no table of contents or references): \\citep with \\bibliographystyle{plain}, as numbers",
    "issue": "#251"
   },
   {
@@ -2486,6 +2513,61 @@
    "glyphs": 5129,
    "covers": "\\tableofcontents in report: \\chapter* Contents, \\l@chapter (\\addpenalty-\\@highpenalty, \\vskip 1em plus 1pt, \\penalty\\@highpenalty after it), sections and subsections as dotted lines, math in a title, subsubsections below tocdepth 2",
    "issue": "#30"
+  },
+  {
+   "id": "setspace/double",
+   "file": "micro/setspace/double.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 695,
+   "covers": "setspace's \\doublespacing at 10pt in article (\\setstretch{1.667}); a footnote single-spaced (setspace's \\@footnotetext); a display, whose \\abovedisplayskip and \\belowdisplayskip \\everydisplay stretches (as dimensions)",
+   "issue": "#253"
+  },
+  {
+   "id": "setspace/mixed",
+   "file": "micro/setspace/mixed.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 692,
+   "covers": "setspace's \\setstretch{1.3} at 12pt with hyperref (anchors at the stretched \\baselineskip): a tabular in text (\\@arstrutbox from the stretched \\strutbox), a table float single-spaced, a minipage, an enumerate, a short display (\\everydisplay stretches the short skips too), a footnote",
+   "issue": "#253"
+  },
+  {
+   "id": "setspace/onehalf",
+   "file": "micro/setspace/onehalf.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2644,
+   "covers": "setspace's \\onehalfspacing at 12pt in report (\\setstretch{1.241}): every size's \\baselineskip and \\strutbox stretched; headings, the table of contents, a list; the figure single-spaced (\\@xfloat)",
+   "issue": "#253"
+  },
+  {
+   "id": "setspace/option",
+   "file": "micro/setspace/option.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 392,
+   "covers": "setspace's [onehalfspacing] option at 11pt (\\setstretch{1.213}, at the end of the package) with nodisplayskipstretch: the display skips times 1.0, dimensions",
+   "issue": "#253"
+  },
+  {
+   "id": "setspace/setstretch",
+   "file": "micro/setspace/setstretch.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 600,
+   "covers": "setspace's \\setstretch{1.5} at 11pt in article, and the [onehalfspacing] option overridden by it",
+   "issue": "#253"
   },
   {
    "id": "tabular/inline",

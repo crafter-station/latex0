@@ -32,6 +32,7 @@ import { endDocument, makeColumns } from "./output"
 import { anchor, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
+import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
@@ -473,8 +474,9 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, ctx: PieceContext, hn = 0) {
-  const { k } = ctx
+function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0) {
+  const k = singleSpaced(outer.k) // setspace's \@footnotetext: \def\baselinestretch{\setspace@singlespace}
+  const ctx = { ...outer, k }
   const fs: SizeCommand = "footnotesize"
   const font = sizeFont(k, fs)
   const em = font.params[QUAD]
