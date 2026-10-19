@@ -354,9 +354,12 @@ export function makeDocument(r: () => number): string {
       const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` : ""
       const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
       const below = table && r() < 0.5
-      out.push("", `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
-        space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}`)
-      afterPar = false
+      // a float that starts in the paragraph before it (no blank line), and the paragraph going on after it
+      const inPar: boolean = afterPar && r() < 0.4
+      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
+        space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}${inPar && r() < 0.3 ? "%" : ""}`)
+      afterPar = inPar && r() < 0.6
+      if (afterPar) out.push(text(3 + Math.floor(r() * 40)))
     } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection", ...(tsOn ? [] : ["paragraph", "subparagraph"]), ...(cls !== "article" ? ["chapter"] : [])])
       if (macros && r() < 0.3) { out.push("", r() < 0.5 ? "\\thm" : `\\thm ${text(5 + Math.floor(r() * 30))}`); afterPar = false; continue }

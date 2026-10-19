@@ -6,7 +6,7 @@ import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT } from "../layout/fo
 import { parseGlue } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { glue, paramGlue, penalty, type BoxNode, type Node, filGlue } from "../layout/nodes"
+import { glue, paramGlue, penalty, type BoxNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
@@ -14,6 +14,7 @@ import { centering as centeringShape, sloppy } from "./kernel"
 import { singleSpaced } from "./setspace"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, plain } from "./vlist"
+import type { ParagraphTrace } from "../trace/decisions"
 import { type Float } from "./output"
 import { labelName, spotAnchor } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
@@ -54,10 +55,25 @@ export function caption(cx: Ctx, env: "figure" | "table", source: string, hsize:
 }
 
 export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
-  const { amsmath, hyper } = cx.pre
-  const { counters, decisions, doc, normalAttrs, notHere, refs, romanFont, run, v } = cx
   if (b.inPar) throw new Unsupported("a float inside a paragraph")
-  if (b.blank) v.par() // (after \@doendpe, its \par resets \clubpenalty)
+  if (b.blank) cx.v.par() // (after \@doendpe, its \par resets \clubpenalty)
+  const marker = floatMarker(cx, b)
+  cx.v.nodes.push(marker)
+  // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
+  // elsewhere \nobreak alone, and the text after it is still right after the heading
+  if ((marker.float as Float).here) cx.v.nobreak = false
+}
+
+/**
+ * A float: its box, built as \@xfloat … \end@float build it, and the marker that stands for its \penalty-\@Miv
+ * \vbox{}\penalty\@floatpenalty (on the vertical list, or in a paragraph's \vadjust: `b.inPar`, where
+ * \if@nobreak is false and \@floatpenalty is -\@Mii); its paragraphs' traces go to `traces`, and `club` is the
+ * \clubpenalty in force (in a paragraph, what its \everypar set)
+ */
+export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, traces: ParagraphTrace[] = cx.decisions, club = cx.v.club): WhatsitNode {
+  const { amsmath, hyper } = cx.pre
+  const { counters, doc, normalAttrs, notHere, refs, romanFont, run, v } = cx
+  const decisions = traces // (in a paragraph: with its footnotes', in the order TeX reads them)
   // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !
   let fps = 16
   for (const c of b.fps ?? "tbp") { // \fps@figure and \fps@table are tbp
@@ -79,7 +95,7 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
     // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
     const shape = centering ? centeringShape() : centered ? { finalHyphenDemerits: 0 } : {}
     // (\clubpenalty is the one in force: \@parboxrestore leaves it, and \@setminipage's \everypar replaces \@afterheading's)
-    const par = paragraphInput(body, run.k, "normalsize", doc, { ...shape, start, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: v.club })
+    const par = paragraphInput(body, run.k, "normalsize", doc, { ...shape, start, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: club })
     const lb = lineBreak(par.list, par.params)
     decisions.push(...par.notes, lb.trace)
     // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
@@ -111,7 +127,7 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
     // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
     const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
     if (tab) {
-      floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club: v.club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits })], "")
+      floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits })], "")
       continue
     }
     // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
@@ -145,8 +161,6 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
   if (box.height > run.k.dimens.textheight) box.height = run.k.dimens.textheight // \@largefloatcheck
   const index = run.floats++
-  v.nodes.push({ kind: "whatsit", text: "", float: { box, count: fps + 32 * (b.env === "figure" ? 1 : 2), nobreak: v.nobreak, index, here: !notHere.has(index) } satisfies Float }) // \ftype@figure 1, \ftype@table 2
-  // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
-  // elsewhere \nobreak alone, and the text after it is still right after the heading
-  if (!notHere.has(index)) v.nobreak = false
+  // \ftype@figure 1, \ftype@table 2
+  return { kind: "whatsit", text: "", float: { box, count: fps + 32 * (b.env === "figure" ? 1 : 2), nobreak: !b.inPar && v.nobreak, index, here: !notHere.has(index), ...(b.inPar ? { inPar: true } : {}) } satisfies Float }
 }

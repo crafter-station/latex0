@@ -1,0 +1,57 @@
+% fixture: floats/in-paragraph
+% tier: T3
+% engine: document
+% covers: figures and tables that start inside a paragraph: \end@float's \vadjust{\penalty-\@Miv\vbox{}\penalty-\@Mii} after the line, \@bsphack and \@Esphack around it (a space before: \nobreak\hskip\z@skip and the spaces after it go; none: the space after it stays); placed here (no \vskip-\parskip), at the top, and deferred; in the paragraph after a run-in heading, whose \clubpenalty\@M a p{} cell sees
+% issue: #256
+\begin{filecontents*}[overwrite]{box3x1.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 85 28
+%%EndComments
+\end{filecontents*}
+\begin{filecontents*}[overwrite]{box4x6.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 113 170
+%%EndComments
+\end{filecontents*}
+\documentclass{article}
+\usepackage{graphicx}
+\begin{document}
+\paragraph{Run in.} After a run-in heading
+\begin{table}[h]
+\begin{tabular}{p{2cm}|c}
+A cell long enough for two lines & x \\
+\end{tabular}
+\caption{Its cell sees the club penalty the heading set.}
+\end{table}
+the paragraph goes on.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. The first float comes after a line end,
+\begin{figure}[h]
+\centering
+\includegraphics{box3x1.eps}
+\caption{Placed here, after the line it starts in.}
+\end{figure}
+and the paragraph goes on after it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. A table with no space before it,%
+\begin{table}[t]
+\centering
+\begin{tabular}{ll}
+a & b \\
+c & d \\
+\end{tabular}
+\caption{At the top.}\label{tab}
+\end{table} and a space after it stays. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Table~\ref{tab} and a last figure
+\begin{figure}[htbp]
+\centering
+\includegraphics[height=12cm]{box4x6.eps}
+\caption{Too tall for what is left of the page.}
+\end{figure}
+that goes elsewhere. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+\end{document}

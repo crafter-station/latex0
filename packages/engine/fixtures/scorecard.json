@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 269,
-  "exact": 267,
+  "fixtures": 272,
+  "exact": 270,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 252936
+  "glyphs": 257783
  },
  "areas": [
   {
@@ -51,8 +51,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "footnotes",
@@ -136,8 +136,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 18,
-   "exact": 16
+   "fixtures": 19,
+   "exact": 17
   },
   {
    "area": "text",
@@ -352,6 +352,17 @@
    "glyphs": 74,
    "covers": "snippet in a minimal article: Table with header row and sample data",
    "issue": "#30"
+  },
+  {
+   "id": "templates/thesis-chapter",
+   "file": "macro/templates/thesis-chapter.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 648,
+   "covers": "the thesis-chapter template: 12pt report, a4 geometry, natbib with no .bbl, setspace's \\onehalfspacing, a figure inside a paragraph (an EPS in place of ndvi-map.pdf)",
+   "issue": "#256"
   },
   {
    "id": "templates/tikz-simple",
@@ -956,6 +967,28 @@
    "glyphs": 632,
    "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label after a caption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
+  },
+  {
+   "id": "floats/in-paragraph-hyperref",
+   "file": "micro/floats/in-paragraph-hyperref.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2263,
+   "covers": "floats inside paragraphs with hyperref (the caption's anchor, a \\ref to it): in the first paragraph after a heading (\\if@nobreak already false there), with footnotes before and after it in the same paragraph (their traces and the float's in the order TeX reads them), and near the bottom of a page, at 11pt",
+   "issue": "#256"
+  },
+  {
+   "id": "floats/in-paragraph",
+   "file": "micro/floats/in-paragraph.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1936,
+   "covers": "figures and tables that start inside a paragraph: \\end@float's \\vadjust{\\penalty-\\@Miv\\vbox{}\\penalty-\\@Mii} after the line, \\@bsphack and \\@Esphack around it (a space before: \\nobreak\\hskip\\z@skip and the spaces after it go; none: the space after it stays); placed here (no \\vskip-\\parskip), at the top, and deferred; in the paragraph after a run-in heading, whose \\clubpenalty\\@M a p{} cell sees",
+   "issue": "#256"
   },
   {
    "id": "floats/long-captions",

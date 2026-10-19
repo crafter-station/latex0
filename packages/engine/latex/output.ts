@@ -30,6 +30,8 @@ export interface Float {
   nobreak: boolean
   /** its place among the document's floats, and whether the text after it was laid out as if it went here */
   index: number; here: boolean
+  /** from a paragraph (\@floatpenalty -\@Mii in its \vadjust): no \vskip-\parskip after it */
+  inPar?: boolean
 }
 
 /** What the output routine ships: a page of text with its top and bottom floats, or a page of floats. */
@@ -129,7 +131,7 @@ export class LatexOutput {
     if (here) {
       if (f.nobreak) out.push(penalty(10000)) // \nobreak\@nobreakfalse
       else this.addpenalty(out)
-      out.push(plain(k.glue.intextsep), f.box, penalty(k.ints.interlinepenalty), plain(k.glue.intextsep), plain(negate(this.parskip)))
+      out.push(plain(k.glue.intextsep), f.box, penalty(k.ints.interlinepenalty), plain(k.glue.intextsep), ...(f.inPar ? [] : [plain(negate(this.parskip))])) // (\ifnum\outputpenalty<-\@Mii)
     } else {
       // \outputpenalty is still -\@Miii: \nobreak (and \if@nobreak stays true), or \addpenalty\interlinepenalty
       if (f.nobreak) out.push(penalty(10000))

@@ -15,11 +15,19 @@ import { chapter, heading, matter } from "./sectioning"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
 import { list, topCtx } from "./lists"
-import { floatBlock } from "./floats"
+import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
+  // the floats that start in a paragraph are built where they stand in it
+  if (b.kind !== "par" || !b.floats) return block(cx, b, bi, blocks)
+  const floats = b.floats
+  cx.doc.float = (n, traces, club) => floatMarker(cx, floats[n], traces, club)
+  try { block(cx, b, bi, blocks) } finally { delete cx.doc.float }
+}
+
+function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   const { amsmath, cls } = cx.pre
   const { bodyUnits, counted, esphackNobreaks, noskipsecPar, refs, run, v } = cx
   // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter

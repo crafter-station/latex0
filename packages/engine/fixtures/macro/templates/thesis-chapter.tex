@@ -1,0 +1,49 @@
+% fixture: templates/thesis-chapter
+% tier: T3
+% engine: document
+% covers: the thesis-chapter template: 12pt report, a4 geometry, natbib with no .bbl, setspace's \onehalfspacing, a figure inside a paragraph (an EPS in place of ndvi-map.pdf)
+% issue: #256
+% source: packages/engine/corpus/thesis-chapter.tex
+\begin{filecontents*}[overwrite]{ndvi-map.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 400 300
+%%EndComments
+\end{filecontents*}
+\documentclass[12pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{natbib}
+\usepackage{setspace}
+\onehalfspacing
+
+\begin{document}
+\tableofcontents
+
+\chapter{Literature Review}
+\label{ch:review}
+
+\section{Background}
+Early work on soil erosion focused on field plots \citep{smith1990}. Later,
+\citet{jones2005} introduced remote sensing methods.
+
+\subsection{Field studies}
+Field studies remain the reference method. They are expensive, slow and
+limited to small areas, but they measure erosion directly.
+
+\subsection{Remote sensing}
+Satellite imagery covers large areas at low cost.
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=\linewidth]{ndvi-map.eps}
+  \caption{Vegetation index over the study area.}
+  \label{fig:ndvi}
+\end{figure}
+
+\section{Research gap}
+No study combines both methods over a full watershed, as Chapter~\ref{ch:review}
+shows.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}
