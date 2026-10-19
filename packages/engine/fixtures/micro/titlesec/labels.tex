@@ -1,7 +1,7 @@
 % fixture: titlesec/labels
 % tier: T3
 % engine: document
-% covers: titlesec's \@currentlabelname in \label without hyperref (empty after a starred title), and the label's \sbox with xcolor
+% covers: titlesec's \@currentlabelname in \label without hyperref (empty after a starred title; a final period kept), and the label's \sbox with xcolor
 % issue: #249
 \documentclass[12pt]{article}
 \usepackage{xcolor}
@@ -15,6 +15,6 @@ Text with a \textcolor{red}{red} word.
 More text.\label{b}
 \section*{Starred}
 Text.\label{c}
-\subsection{Second}
+\subsection{Second.}\label{e}
 See \ref{a}, \ref{b}, \ref{c} and \ref{fig}.\label{d}
 \end{document}

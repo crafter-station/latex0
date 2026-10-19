@@ -1,0 +1,16 @@
+% fixture: natbib/options
+% tier: T3
+% engine: document
+% covers: natbib's [square] option (nobibstyle: the \bibstyle the preamble's \bibliographystyle writes is gobbled) with hyperref, at 11pt; citations in a footnote, in \textbf and \emph, and after \cite's notes
+% issue: #251
+\documentclass[11pt]{article}
+\usepackage[square]{natbib}
+\usepackage{hyperref}
+\bibliographystyle{chicago}
+\begin{document}
+Citations in other places: a footnote\footnote{As in \citet{x} and \citep[p.~2]{y}.}
+and bold \textbf{\citep{x} and \citet{y}} or emphasised \emph{\citealp{x}} text, then
+\cite[see][]{x} and \cite[][p.~9]{y}. The last one ends the sentence \citep{z}.
+
+\bibliography{refs}
+\end{document}

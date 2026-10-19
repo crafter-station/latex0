@@ -32,6 +32,7 @@ import { endDocument, makeColumns } from "./output"
 import { anchor, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
+import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -92,6 +93,8 @@ export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
   xcolor?: boolean
+  /** natbib is loaded: its citation punctuation */
+  natbib?: NatStyle
   /** a color expression as its \special text */
   color?: (spec: string, model?: string) => string
   /** \lstinline number n (taken out of the source before expansion) at a size in a font */
@@ -217,6 +220,8 @@ type Piece =
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
   /** {\large …}: a size command in a group */
   | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
+  /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
+  | { kind: "natcite"; cmd: string; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
   /** cleveref's \cref{key} or \Cref{key}, and the character after it (\textup's \check@icr looks at it) */
@@ -368,6 +373,13 @@ function pieces(body: string, footnotes = true): Piece[] {
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
+    // natbib's commands: \@ifstar, then \@ifnextchar[ twice (each skips spaces), then the keys
+    const nat = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])(\*?)\s*(?:\[([^\]]*)\]\s*(?:\[([^\]]*)\]\s*)?)?\{([A-Za-z0-9:._,\s-]+)\}/)
+    if (nat && nat[1] in NAT_COMMANDS) {
+      // one optional argument is the post-note; two are the pre- and post-notes
+      const [pre, post] = nat[4] !== undefined ? [nat[3], nat[4]] : ["", nat[3] ?? ""]
+      flushText(); out.push({ kind: "natcite", cmd: nat[1], keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined }); i += nat[0].length; continue
+    }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
     const gr = body.slice(i).match(/^\\LXgraphic\{(\d+)\}/) // \includegraphics
@@ -536,6 +548,18 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
+    else if (p.kind === "natcite" || p.kind === "cite" && doc.natbib) {
+      if (!doc.natbib) throw new Unsupported(`\\${p.kind === "natcite" ? p.cmd : "cite"} without natbib`)
+      const n = p.kind === "natcite" ? p : { cmd: "cite", keys: p.keys, pre: [], post: [], optional: false }
+      const bold = selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }) // \reset@font\bfseries
+      for (const item of natCite(doc.natbib, n.cmd, n.keys.length, n.pre.length ? "pre" : "", n.post.length ? "post" : "", n.optional)) {
+        if (item.kind === "text") appendText(list, item.text, font, state, !ctx.restricted)
+        else if (item.kind === "q") appendText(list, "?", bold, state, !ctx.restricted)
+        else if (item.kind === "ctl") list.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+        else if (item.kind === "note") appendPieces(list, item.which === "pre" ? n.pre : n.post, font, size, state, ctx, attrs)
+        else { const l: Node[] = []; appendText(l, item.text, font, { spaceFactor: 1000 }, false); list.push(hpack(l)); state.spaceFactor = 1000 }
+      }
+    }
     else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
       // ,\penalty\@m\  , then ]

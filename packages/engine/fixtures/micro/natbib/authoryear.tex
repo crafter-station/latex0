@@ -1,0 +1,21 @@
+% fixture: natbib/authoryear
+% tier: T3
+% engine: document
+% covers: natbib's author-year citations with no .bbl (every key undefined): \citep, \citet, \cite, \citealt, \citealp, \citeauthor, \citeyear, \citeyearpar, \Citet; several keys; pre- and post-notes; \bibliography with no .bbl
+% issue: #251
+\documentclass{article}
+\usepackage{natbib}
+\begin{document}
+Early work focused on field plots \citep{smith1990}. Later,
+\citet{jones2005} introduced remote sensing, as \cite{lee2010} showed, and
+\cite[p.~4]{lee2010} again. Two at once \citep{smith1990,jones2005} and three
+\citet{a, b,c}. Notes: \citep[see][p.~12]{smith1990}, \citep[p.~3]{jones2005},
+\citep[e.g.][]{lee2010}, \citet[ch.~2]{lee2010} and \citet*{lee2010}.
+
+Others: \citealt{a}, \citealp{a} and \citealp[p.~1]{a}; \citeauthor{a} wrote
+it in \citeyear{a} \citeyearpar{a}. \Citet{a} begins a sentence? Yes \citep{a}!
+And \citet{a}: then \citep{a}; more text to fill the line out so that it
+breaks somewhere after the citations, which keeps going for a while longer.
+
+\bibliography{references}
+\end{document}
