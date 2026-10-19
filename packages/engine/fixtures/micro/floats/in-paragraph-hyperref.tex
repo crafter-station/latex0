@@ -1,0 +1,37 @@
+% fixture: floats/in-paragraph-hyperref
+% tier: T3
+% engine: document
+% covers: floats inside paragraphs with hyperref (the caption's anchor, a \ref to it): in the first paragraph after a heading (\if@nobreak already false there), with footnotes before and after it in the same paragraph (their traces and the float's in the order TeX reads them), and near the bottom of a page, at 11pt
+% issue: #256
+\begin{filecontents*}[overwrite]{box3x1.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 85 28
+%%EndComments
+\end{filecontents*}
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\begin{document}
+\section{Start}
+Right after the heading, with a note first\footnote{A note read before the float, whose paragraph TeX breaks first: long enough to run over three lines at footnote size, so that its trace and the float's caption differ in more than their order on the list of paragraphs.}
+\begin{figure}[h]
+\centering
+\includegraphics{box3x1.eps}
+\caption{In the first paragraph.}\label{f1}
+\end{figure}
+the text goes on, with a footnote\footnote{A note in the same paragraph as the float.} and Figure~\ref{f1}. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. And now near the bottom
+\begin{figure}[htb]
+\centering
+\includegraphics{box3x1.eps}
+\caption{Near the bottom of the page, where it may not fit.}\label{f2}
+\end{figure}
+of the page the paragraph goes on and on, see Figure~\ref{f2}. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+
+Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it. Words fill this paragraph so that its lines run on, and the float that starts in the middle of it waits for the line it belongs to before the output routine sees it.
+\end{document}

@@ -94,6 +94,8 @@ export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
   xcolor?: boolean
+  /** the float number n that starts in this paragraph: the marker its \vadjust holds */
+  float?: (n: number, traces: ParagraphTrace[], club: number) => Node
   /** natbib is loaded: its citation punctuation */
   natbib?: NatStyle
   /** a color expression as its \special text */
@@ -222,6 +224,8 @@ type Piece =
   /** {\large …}: a size command in a group */
   | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
   /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
+  /** a float that starts in the paragraph (\LXfloat{n}) */
+  | { kind: "float"; n: number }
   | { kind: "natcite"; cmd: string; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
@@ -383,6 +387,8 @@ function pieces(body: string, footnotes = true): Piece[] {
     }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
+    const fl = body.slice(i).match(/^\\LXfloat\{(\d+)\}/) // a figure or table, taken out of the paragraph's source
+    if (fl) { flushText(); out.push({ kind: "float", n: Number(fl[1]) }); i += fl[0].length; continue }
     const gr = body.slice(i).match(/^\\LXgraphic\{(\d+)\}/) // \includegraphics
     if (gr) { flushText(); out.push({ kind: "graphic", n: Number(gr[1]) }); i += gr[0].length; continue }
     const url = body.slice(i).match(/^\\LXurl\{(\d+)\}/) // \url, taken out before expansion
@@ -550,6 +556,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
+    else if (p.kind === "float") {
+      // \@xfloat's \@bsphack, \end@float's \vadjust{\penalty-\@Miv\vbox{}\penalty-\@Mii} and \@Esphack: after a
+      // space, \nobreak\hskip\z@skip, and the spaces after it go
+      if (!doc.float) throw new Unsupported("a float inside a paragraph here")
+      const last = list[list.length - 1]
+      const savsk = last?.kind === "glue" ? last.width : 0
+      list.push({ kind: "adjust", list: [doc.float(p.n, ctx.notes, ctx.params.clubPenalty)] }) // (its paragraphs' traces where its footnotes' go)
+      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+    }
     else if (p.kind === "natcite" || p.kind === "cite" && doc.natbib) {
       if (!doc.natbib) throw new Unsupported(`\\${p.kind === "natcite" ? p.cmd : "cite"} without natbib`)
       const n = p.kind === "natcite" ? p : { cmd: "cite", keys: p.keys, pre: [], post: [], optional: false }
