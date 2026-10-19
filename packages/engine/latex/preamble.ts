@@ -11,6 +11,7 @@ import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
 import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
+import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { Unsupported } from "./unsupported"
 
 export type ThmStyle = "plain" | "definition" | "remark"
@@ -38,6 +39,8 @@ export interface Preamble {
   hyper: boolean
   /** cleveref */
   cleveref: boolean
+  /** titlesec: each level's format */
+  titlesec: TitleFormats | null
   /** \usepackage[T1]{fontenc} */
   t1: boolean
   /** booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then */
@@ -93,6 +96,7 @@ export function readPreamble(src: string): Preamble {
   let fancy: FancyHdr | null = null
   let hyper = false // hyperref, with the dvips driver
   let cleveref = false
+  let titlesec: TitleFormats | null = null
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   const geometryOptions: string[] = []
@@ -116,9 +120,13 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
-      if (names.includes("hyperref")) hyper = true
+      if (names.includes("hyperref")) {
+        // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
+        if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) throw new Unsupported("hyperref after titlesec")
+        hyper = true
+      }
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
@@ -133,6 +141,10 @@ export function readPreamble(src: string): Preamble {
         cleveref = true
       }
       if (names.includes("amsmath")) amsmath = true
+      if (names.includes("titlesec")) {
+        if (cls !== "article") throw new Unsupported(`titlesec with ${cls}`)
+        titlesec = titlesecDefaults()
+      }
       if (names.includes("fancyhdr")) {
         if (cls !== "article") throw new Unsupported(`fancyhdr with ${cls}`) // (its \chaptermark and \sectionmark there)
         fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
@@ -166,6 +178,7 @@ export function readPreamble(src: string): Preamble {
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     if (fancy && fancyCommand(fancy, line)) continue
+    if (titlesec && titleformat(titlesec, line)) continue
     const m = line.match(/^\\pagestyle\{(plain|empty|headings|fancy)\}$/)
     if (m && (m[1] !== "fancy" || fancy)) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; continue }
     throw new Unsupported(`preamble: ${line}`)
@@ -193,5 +206,5 @@ export function readPreamble(src: string): Preamble {
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
 }

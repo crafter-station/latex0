@@ -1,0 +1,23 @@
+% fixture: titlesec/titlerule
+% tier: T3
+% engine: document
+% covers: \titleformat in the hang shape (format, empty and \the labels, sep) and \titlerule after the title
+% issue: #249
+\documentclass[11pt]{article}
+\usepackage{titlesec}
+\titleformat{\section}{\large\bfseries}{}{0em}{}[\titlerule]
+\titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection}{1em}{}
+\begin{document}
+\section{Experience}
+Some text that starts the section and runs on for a little while so that it fills a line or two of the page.
+
+\subsection{Background}
+More text in the subsection.
+\section{Education}
+\subsection{Right after a ruled heading}
+Text.
+\section*{Unnumbered}
+Text after an unnumbered section heading.
+\section{A long title that wraps onto a second line because it is much longer than the text width}
+Last words.
+\end{document}

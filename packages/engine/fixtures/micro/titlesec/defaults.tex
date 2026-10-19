@@ -1,0 +1,21 @@
+% fixture: titlesec/defaults
+% tier: T3
+% engine: document
+% covers: titlesec loaded without changes: the straight class, the hang shape, the spacing taken from \@startsection
+% issue: #249
+\documentclass{article}
+\usepackage{titlesec}
+\begin{document}
+\section{Introduction}
+Some text that starts the section and runs on for a little while so that it fills a line or two of the page.
+
+\subsection{Background}
+More text in the subsection, also long enough to wrap onto a second line of the paragraph here.
+\subsection{Right after text}
+\subsubsection{A heading right after a heading}
+Text.
+\section*{Unnumbered}
+Text after an unnumbered section heading.
+\section{A long title that wraps onto a second line because it is much longer than the text width}
+Last words.
+\end{document}
