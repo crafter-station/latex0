@@ -14,7 +14,7 @@ export type Block =
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[]
       /** a blank line (\par) right before it */ blank?: boolean }
   | { kind: "maketitle" }
-  | { kind: "float"; env: "figure" | "table"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
+  | { kind: "float"; env: "figure" | "table" | "algorithm"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
   | { kind: "matter"; which: "front" | "main" | "back" }
   /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
@@ -178,7 +178,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -191,9 +191,10 @@ export function blocksOf(body: string): Block[] {
   }
   for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
     const before = body.slice(at, m.index)
-    if (m[6] && inParagraph(before)) { // the paragraph goes on: the float stands in it (its \vadjust), as \LXfloat{n}
+    // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
+    if (m[6] && m[7] !== "H" && inParagraph(before)) { // the paragraph goes on: the float stands in it (its \vadjust), as \LXfloat{n}
       const ph = `\\LXfloat{${inline.length}}`
-      inline.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar: true, blank: false })
+      inline.push({ kind: "float", env: m[6] as "figure" | "table" | "algorithm", fps: m[7] ?? null, body: m[8], inPar: true, blank: false })
       body = body.slice(0, m.index) + ph + body.slice(re.lastIndex)
       re.lastIndex = m.index + ph.length
       continue
@@ -231,7 +232,7 @@ export function blocksOf(body: string): Block[] {
     }
     if (m[6]) {
       const inPar = inParagraph(before)
-      out.push({ kind: "float", env: m[6] as "figure" | "table", fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
+      out.push({ kind: "float", env: m[6] as "figure" | "table" | "algorithm", fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
       at = re.lastIndex; endpe = false; continue
     }
     if (m[1]) { // a heading: its argument in braces

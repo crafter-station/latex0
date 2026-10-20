@@ -13,6 +13,7 @@ import { geometry } from "./geometry"
 import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { times, setspaceCommand, setspaceOptions, withSetspace, type SetSpace } from "./setspace"
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
+import type { AlgorithmPackages } from "./algorithm"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { Unsupported } from "./unsupported"
 
@@ -63,6 +64,8 @@ export interface Preamble {
   newCounters: [string, string | null][]
   /** natbib: its citation punctuation on the first run (no .aux yet) and on later ones (the .aux's \bibstyle) */
   natbib: { first: NatStyle; later: NatStyle } | null
+  /** algorithm.sty, algpseudocode (and its noend option) */
+  algorithm: AlgorithmPackages
   /** between \begin{document} and \end{document} */
   body: string
 }
@@ -103,6 +106,7 @@ export function readPreamble(src: string): Preamble {
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
   let setspace: SetSpace | null = null
+  const algorithm: AlgorithmPackages = { algorithm: false, algpseudocode: false, noend: false }
   const bibstyles: string[] = [] // the .aux's \bibstyle lines, in order
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
@@ -131,12 +135,17 @@ export function readPreamble(src: string): Preamble {
     // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
     const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)
     if (bs) { bibstyles.push(bs[1].trim()); continue }
+    const ap = line.match(/^\\usepackage\[(noend|end)\]\{algpseudocode\}$/)
+    if (ap) {
+      if (algorithm.algpseudocode) throw new Unsupported("algpseudocode loaded twice") // (LaTeX: Option clash)
+      algorithm.algpseudocode = true; algorithm.noend = ap[1] === "noend"; continue
+    }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) {
         // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
@@ -148,6 +157,8 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("xcolor")) usesXcolor = true
       if (names.includes("amsthm")) usesAmsthm = true
       if (names.includes("url")) usesUrl = true
+      if (names.includes("algorithm")) algorithm.algorithm = true
+      if (names.includes("algpseudocode")) algorithm.algpseudocode = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
       // cleveref patches amsmath's and amsthm's commands (loaded later, they would undo it) and hyperref's
       if (cleveref && names.some((n) => ["amsmath", "amsthm", "hyperref"].includes(n))) throw new Unsupported(`${line} after cleveref`)
@@ -233,5 +244,6 @@ export function readPreamble(src: string): Preamble {
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, body }
+  if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }

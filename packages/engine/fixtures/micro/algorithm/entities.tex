@@ -1,0 +1,54 @@
+% fixture: algorithm/entities
+% tier: T3
+% engine: document
+% covers: algpseudocode's Require and Ensure labels, Statex, Procedure with an empty argument list and Call, For, ForAll, Repeat and Until, Loop, Comment, textproc, Return before text, a State long enough to wrap, nested blocks, two algorithms numbered in order, and xcolor (\sbox's color group in each label)
+% issue: #258
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\begin{document}
+\section{Sorting}
+Insertion sort keeps a sorted prefix and moves each new element left until it fits.
+
+\begin{algorithm}
+\caption{Insertion sort}
+\label{alg:insertion}
+\begin{algorithmic}[1]
+\Require an array $A$ of $n$ numbers
+\Ensure $A$ is sorted in place
+\Procedure{InsertionSort}{$A$}
+  \For{$i \gets 2$ to $n$}
+    \State $key \gets A[i]$ \Comment{the element to place}
+    \State $j \gets i - 1$
+    \While{$j > 0$ and $A[j] > key$}
+      \State $A[j+1] \gets A[j]$
+      \State $j \gets j - 1$
+    \EndWhile
+    \State $A[j+1] \gets key$
+  \EndFor
+\EndProcedure
+\Statex
+\Procedure{Reset}{}
+  \ForAll{$x \in A$}
+    \State $x \gets 0$
+  \EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+Its worst case compares every pair, so it takes quadratic time on reversed input; on almost sorted input it is nearly linear.
+
+\begin{algorithm}
+\caption{Polling a queue}
+\begin{algorithmic}
+\Loop
+  \Repeat
+    \State wait for a message, then read its header and check that the sender is one we know, dropping it otherwise and logging the reason in the audit trail
+  \Until{the queue is not empty}
+  \State \Call{Handle}{$q$}
+  \If{\textproc{Done}$(q)$} \State \Return true \EndIf
+\EndLoop
+\end{algorithmic}
+\end{algorithm}
+Both procedures run in constant extra space.
+\end{document}

@@ -19,6 +19,7 @@ import { type Float } from "./output"
 import { labelName, spotAnchor } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { classParams, appendToVlist, crefWrites, labelWrite, paragraphInput } from "./paragraph"
+import { algorithmBox } from "./algorithm"
 
 /**
  * \caption{text} in a float of type `env` at \hsize `hsize`: \refstepcounter, the lof/lot line, then in a group
@@ -55,6 +56,7 @@ export function caption(cx: Ctx, env: "figure" | "table", source: string, hsize:
 }
 
 export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
+  if (b.fps === "H") { if (b.blank) cx.v.par(); hereBox(cx, b); return } // (in a paragraph: \float@endH's \vskip ends it)
   if (b.inPar) throw new Unsupported("a float inside a paragraph")
   if (b.blank) cx.v.par() // (after \@doendpe, its \par resets \clubpenalty)
   const marker = floatMarker(cx, b)
@@ -62,6 +64,25 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
   // elsewhere \nobreak alone, and the text after it is still right after the heading
   if ((marker.float as Float).here) cx.v.nobreak = false
+}
+
+/**
+ * float.sty's [H] (\@float@HH, \float@endH): no float, the box in the text, \vskip\intextsep \box\@currbox
+ * \vskip\intextsep, its caption box set to an empty \vbox first
+ */
+function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
+  const { run, v } = cx
+  if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
+  if (v.nobreak) throw new Unsupported("an [H] float right after a heading")
+  // (setspace's \@xfloat runs for [H] only when it loads after float.sty)
+  if (run.k.singleSizes) throw new Unsupported("an [H] float with setspace")
+  // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
+  const pending = b.inPar ? cx.decisions.pop() : undefined
+  const box = algorithmBox(cx, b.body, cx.decisions, v.club, true)
+  if (pending) cx.decisions.push(pending)
+  v.vskip(run.k.glue.intextsep)
+  v.box(box, run.k.sizes.normalsize.baselineskip)
+  v.vskip(run.k.glue.intextsep)
 }
 
 /**
@@ -76,11 +97,18 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   const decisions = traces // (in a paragraph: with its footnotes', in the order TeX reads them)
   // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !
   let fps = 16
-  for (const c of b.fps ?? "tbp") { // \fps@figure and \fps@table are tbp
+  for (const c of b.fps ?? (b.env === "algorithm" ? "htbp" : "tbp")) { // \fps@figure and \fps@table are tbp, \fps@algorithm htbp
     if (c === "h") { if (fps % 2 === 0) fps++ }
     else if (c === "t" || c === "b" || c === "p") { const bit = c === "t" ? 2 : c === "b" ? 4 : 8; if (Math.floor(fps / bit) % 2 === 0) fps += bit }
     else if (c === "!") { if (fps > 15) fps -= 16 }
     else throw new Unsupported(`float option ${c}`)
+  }
+  if (b.env === "algorithm") {
+    const spaced = run.k
+    run.k = singleSpaced(spaced) // (setspace's \@xfloat)
+    let box: BoxNode
+    try { box = algorithmBox(cx, b.body, decisions, club) } finally { run.k = spaced }
+    return floatWhatsit(cx, b, box, fps + 32 * 4) // \ftype@algorithm: float.sty's float@type, 4 after figure and table
   }
   const content: Node[] = []
   let pd: number | null = IGNORE_DEPTH, number = 0, captionName = ""
@@ -159,8 +187,13 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   } finally { run.captype = null; run.k = spaced }
   content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
   const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
+  return floatWhatsit(cx, b, box, fps + 32 * (b.env === "figure" ? 1 : 2)) // \ftype@figure 1, \ftype@table 2
+}
+
+/** \end@float's marker for a float's box and \count\@currbox */
+function floatWhatsit(cx: Ctx, b: Extract<Block, { kind: "float" }>, box: BoxNode, count: number): WhatsitNode {
+  const { notHere, run, v } = cx
   if (box.height > run.k.dimens.textheight) box.height = run.k.dimens.textheight // \@largefloatcheck
   const index = run.floats++
-  // \ftype@figure 1, \ftype@table 2
-  return { kind: "whatsit", text: "", float: { box, count: fps + 32 * (b.env === "figure" ? 1 : 2), nobreak: !b.inPar && v.nobreak, index, here: !notHere.has(index), ...(b.inPar ? { inPar: true } : {}) } satisfies Float }
+  return { kind: "whatsit", text: "", float: { box, count, nobreak: !b.inPar && v.nobreak, index, here: !notHere.has(index), ...(b.inPar ? { inPar: true } : {}) } satisfies Float }
 }

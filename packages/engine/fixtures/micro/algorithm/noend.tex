@@ -1,0 +1,53 @@
+% fixture: algorithm/noend
+% tier: T3
+% engine: document
+% covers: algpseudocode's noend option (each end entity an \item[] with no text after \nointerlineskip), numbering every second line ([2]) and no numbers at all (labels 0.5em wide), algorithms placed at the top and the bottom of a page, and a line ending in three glues (\@item's two \unskip, then \par's)
+% issue: #258
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\begin{document}
+\section{Searching}
+A linear search looks at every element in turn and stops at the first match, which makes it the simplest search there is and the slowest one on large inputs.
+
+\begin{algorithm}
+\caption{Linear search}
+\begin{algorithmic}[2]
+\Function{Find}{$A, x$}
+  \For{$i \gets 1$ to $|A|$}
+    \If{$A[i] = x$}
+      \State \Return $i$
+    \EndIf
+  \EndFor
+  \State \Return $0$\hfill\hfill{}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+When the array is sorted, a binary search halves the range at every step instead.
+
+\begin{algorithm}[t]
+\caption{Counting matches}
+\begin{algorithmic}
+\State $c \gets 0$
+\ForAll{$a \in A$}
+  \If{$a = x$} \State $c \gets c + 1$ \Else \State skip \EndIf
+\EndFor
+\While{$c > 10$}
+  \State $c \gets c - 10$
+\EndWhile
+\State \Return $c$
+\end{algorithmic}
+\end{algorithm}
+Counting needs the whole array, so it cannot stop early.
+
+\begin{algorithm}[b]
+\caption{Maximum}
+\begin{algorithmic}[1]
+\State $m \gets A[1]$
+\For{$i \gets 2$ to $n$}
+  \If{$A[i] > m$} \State $m \gets A[i]$ \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+The maximum is found in a single pass as well.
+\end{document}

@@ -1,0 +1,33 @@
+% fixture: algorithm/here
+% tier: T3
+% engine: document
+% covers: float.sty's [H] (\float@endH: \vskip\intextsep, the box with its interline glue, \vskip\intextsep), right after a paragraph's text (its \vskip ends the paragraph) and after a blank line, an [H] algorithm with no caption (its empty caption box still brings the rule), and the text after it
+% issue: #258
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\begin{document}
+\section{Greatest common divisor}
+Euclid's algorithm replaces the larger number by its remainder modulo the smaller one until the remainder vanishes.
+\begin{algorithm}[H]
+\caption{Euclid's algorithm}
+\begin{algorithmic}[1]
+\Function{Gcd}{$a, b$}
+  \While{$b \ne 0$}
+    \State $(a, b) \gets (b, a - qb)$
+  \EndWhile
+  \State \Return $a$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+Each step at least halves one of the numbers every two steps, so the loop runs a logarithmic number of times.
+
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State $x \gets a$
+\State $y \gets b$
+\end{algorithmic}
+\end{algorithm}
+
+The extended version also keeps the coefficients of the identity of Bezout.
+\end{document}

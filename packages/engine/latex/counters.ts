@@ -31,6 +31,8 @@ export class Counters {
   equation = 0
   figure = 0
   table = 0
+  /** float.sty's \newfloat{algorithm}: \arabic{algorithm}, within nothing */
+  algorithm = 0
   /** cleveref's \cref@currentlabel of each \refstepcounter of a document's counter, by its \@currentHref */
   readonly crefs = new Map<string, CrefLabel>()
   /** the document's counters (\newcounter), with the counter that resets each */

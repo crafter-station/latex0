@@ -214,7 +214,7 @@ type Piece =
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -355,6 +355,7 @@ function pieces(body: string, footnotes = true): Piece[] {
     // \, in text: \thinspace, \kern.16667em
     if (body.startsWith("\\,", i)) { flushText(); out.push({ kind: "thinspace" }); i += 2; continue }
     if (body[i] === "~") { flushText(); out.push({ kind: "tie" }); i++; continue }
+    if (body.startsWith("\\ ", i)) { flushText(); out.push({ kind: "ctlspace" }); i += 2; continue } // \␣
     // \\ (\@ifnextchar skips the spaces after it, but not after \\[skip]'s ])
     const nl = body.slice(i).match(/^\\\\(\*)?(?:\s*\[([^\]]*)\]|\s*)/)
     if (nl) { flushText(); out.push({ kind: "newline", star: !!nl[1], skip: nl[2] ?? null }); i += nl[0].length; continue }
@@ -599,6 +600,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
       list.push(penalty(10000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
     }
+    // \␣ (§ 1041): the font's interword glue, whatever the space factor, which stays
+    else if (p.kind === "ctlspace") list.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
     else if (p.kind === "label") {
       // \@bsphack, the write, \@esphack: after a space, \nobreak\hskip\z@skip and \ignorespaces
       if (!doc.refs) throw new Error("paragraph adapter: \\label outside a document")
