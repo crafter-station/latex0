@@ -37,6 +37,41 @@ function rng(seed: number) {
 export function makeDocument(r: () => number): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   const words = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join(" ")
+  // algpseudocode: statements, conditions and nested blocks, a procedure around them sometimes
+  const algorithmic = (): string[] => {
+    const lines: string[] = []
+    const v = () => pick(["x", "y", "i", "n", "k", "A[i]", "lo", "hi"])
+    const cond = () => r() < 0.6 ? `$${v()} ${pick(["<", ">", "\\le", "\\ne", "="])} ${v()}$` : words(1 + Math.floor(r() * 5))
+    const stmt = () => pick([`$${v()} \\gets ${v()} + 1$`, words(1 + Math.floor(r() * (r() < 0.15 ? 40 : 8))), `\\Return $${v()}$`, `\\Call{${words(1)}}{${r() < 0.3 ? "" : `$${v()}$`}}`, `\\Return \\textproc{${words(1)}}`]) + (r() < 0.15 ? ` \\Comment{${words(1 + Math.floor(r() * 4))}}` : "")
+    const block = (depth: number, n: number) => {
+      const ind = "  ".repeat(depth)
+      for (let i = 0; i < n; i++) {
+        const x = r()
+        if (depth < 4 && x < 0.15) {
+          if (r() < 0.2) { lines.push(`${ind}\\If{${cond()}} \\State ${stmt()} \\EndIf`); continue }
+          lines.push(`${ind}\\If{${cond()}}`); block(depth + 1, 1 + Math.floor(r() * 3))
+          if (r() < 0.3) { lines.push(`${ind}\\ElsIf{${cond()}}`); block(depth + 1, 1 + Math.floor(r() * 2)) }
+          if (r() < 0.4) { lines.push(`${ind}\\Else`); block(depth + 1, 1 + Math.floor(r() * 2)) }
+          lines.push(`${ind}\\EndIf`)
+        } else if (depth < 4 && x < 0.27) {
+          const [open, close] = pick([["While", "EndWhile"], ["For", "EndFor"], ["ForAll", "EndFor"]])
+          lines.push(`${ind}\\${open}{${cond()}}`); block(depth + 1, 1 + Math.floor(r() * 3)); lines.push(`${ind}\\${close}`)
+        } else if (depth < 4 && x < 0.31) {
+          const loop = r() < 0.5
+          lines.push(`${ind}\\${loop ? "Loop" : "Repeat"}`); block(depth + 1, 1 + Math.floor(r() * 2))
+          lines.push(loop ? `${ind}\\EndLoop` : `${ind}\\Until{${cond()}}`)
+        } else if (x < 0.34) lines.push(`${ind}\\Statex`)
+        else lines.push(`${ind}\\State ${stmt()}`)
+      }
+    }
+    if (r() < 0.3) lines.push(`\\Require ${words(2 + Math.floor(r() * 4))}`)
+    if (r() < 0.2) lines.push(`\\Ensure ${words(2 + Math.floor(r() * 4))}`)
+    if (r() < 0.5) {
+      const [open, close] = pick([["Procedure", "EndProcedure"], ["Function", "EndFunction"]])
+      lines.push(`\\${open}{${words(1)}}{${r() < 0.2 ? "" : `$${v()}, ${v()}$`}}`); block(1, 1 + Math.floor(r() * 6)); lines.push(`\\${close}`)
+    } else block(0, 1 + Math.floor(r() * 8))
+    return [`\\begin{algorithmic}${pick(["[1]", "[1]", "", "[2]"])}`, ...lines, "\\end{algorithmic}"]
+  }
   const math = () => { const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$", "$\\sin x+\\log_2 n$", "$\\lim_{n\\to\\infty} a_n$", "$\\max_i x_i\\le\\det A$", "$\\cos^2\\theta$", "$\\lim\\limits_{x} f$", ...(ams ? ["$\\operatorname{tr} A$", "$\\operatorname*{arg\\,max}_x f$"] : [])]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
   const display = () => pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
     "\\prod_{k=1}^{m}\\frac{1}{k}", "\\left[\\frac{\\frac{1}{2}}{\\sum_{i=1}^n x_i}\\right]", "\\left\\{ x \\right|_{a}^{b}", "\\mathbf{F}=m\\mathbf{a}", "\\sqrt{\\frac{a}{b}}+\\sqrt{\\sum_{i=1}^n x_i^2}", "\\mathrm{e}^{\\mathrm{i}\\pi}+\\mathnormal{1}=\\mathsf{0}", "\\sqrt[3]{\\frac{1}{1+\\sqrt[n]{x}}}=y^{\\sqrt[k]{2}}", "\\lim_{x\\to 0}\\frac{\\sin x}{x}=1", "\\max_{1\\le i\\le n}\\log x_i+\\limsup_{n} a_n", "\\sum_{i\\,=\\,1}^n x_i \\quad\\ne\\quad \\prod_{j} y_j \\qquad a\\!\\;b", ...(ams ? ["\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", "A=\\begin{bmatrix} 1 & 0 & x^2 \\\\ \\frac{1}{2} & y \\end{bmatrix}", "\\begin{vmatrix} a \\\\ b \\end{vmatrix}"] : []), "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
@@ -51,7 +86,7 @@ export function makeDocument(r: () => number): string {
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
-  let hyper = false, crefOn = false, tsOn = false, natOn = false
+  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false, graphOn = false
@@ -309,6 +344,9 @@ export function makeDocument(r: () => number): string {
     const cmd = pick(["\\onehalfspacing", "\\doublespacing", "\\setstretch{1.3}", "\\setstretch{1.1}", "\\singlespacing", ""])
     if (cmd) out.push(cmd)
   }
+  // algorithm floats with algpseudocode (noend sometimes); not with hyperref or cleveref yet
+  algOn = !hyper && !crefOn && !isLetter && r() < 0.15
+  if (algOn) out.push(...(r() < 0.25 ? ["\\usepackage{algorithm}", "\\usepackage[noend]{algpseudocode}"] : r() < 0.4 ? ["\\usepackage{algorithm,algpseudocode}"] : ["\\usepackage{algorithm}", "\\usepackage{algpseudocode}"]))
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page
@@ -349,7 +387,15 @@ export function makeDocument(r: () => number): string {
     const x0 = r(), x = isLetter && x0 < 0.2 ? 0.5 : x0 // (a letter has no floats or headings)
     if (x < 0.1) {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
-      const env = pick(["figure", "table"])
+      const env = pick(algOn ? ["figure", "table", "algorithm", "algorithm"] : ["figure", "table"])
+      if (env === "algorithm") {
+        const inPar: boolean = afterPar && r() < 0.4
+        out.push(...(inPar ? [] : [""]), `\\begin{algorithm}${pick(["", "", "[H]", "[H]", "[h]", "[t]", "[b]", "[p]", "[htbp]", "[!t]", "[tbp]"])}`,
+          ...(r() < 0.85 ? [`\\caption{${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`\\label{algorithm:${b}}`] : [])] : []), ...algorithmic(), "\\end{algorithm}")
+        afterPar = inPar && r() < 0.6
+        if (afterPar) out.push(text(3 + Math.floor(r() * 40)))
+        continue
+      }
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
       const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` : ""
       const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""

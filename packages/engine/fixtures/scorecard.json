@@ -1,14 +1,19 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 272,
-  "exact": 270,
+  "fixtures": 277,
+  "exact": 275,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 257783
+  "glyphs": 260155
  },
  "areas": [
+  {
+   "area": "algorithm",
+   "fixtures": 4,
+   "exact": 4
+  },
   {
    "area": "amsmath",
    "fixtures": 6,
@@ -136,8 +141,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 19,
-   "exact": 17
+   "fixtures": 20,
+   "exact": 18
   },
   {
    "area": "text",
@@ -166,6 +171,17 @@
   }
  ],
  "fixtures": [
+  {
+   "id": "templates/algorithm",
+   "file": "macro/templates/algorithm.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 241,
+   "covers": "the algorithm template: float.sty's ruled algorithm float, algpseudocode's Function, State, While, If, ElsIf, Else and Return, numbered lines and block indentation",
+   "issue": "#258"
+  },
   {
    "id": "templates/align",
    "file": "macro/templates/align.tex",
@@ -374,6 +390,50 @@
    "glyphs": 40,
    "covers": "snippet in a minimal article: Simple TikZ diagram with nodes and arrows",
    "issue": "#30"
+  },
+  {
+   "id": "algorithm/entities",
+   "file": "micro/algorithm/entities.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 734,
+   "covers": "algpseudocode's Require and Ensure labels, Statex, Procedure with an empty argument list and Call, For, ForAll, Repeat and Until, Loop, Comment, textproc, Return before text, a State long enough to wrap, nested blocks, two algorithms numbered in order, and xcolor (\\sbox's color group in each label)",
+   "issue": "#258"
+  },
+  {
+   "id": "algorithm/here",
+   "file": "micro/algorithm/here.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 385,
+   "covers": "float.sty's [H] (\\float@endH: \\vskip\\intextsep, the box with its interline glue, \\vskip\\intextsep), right after a paragraph's text (its \\vskip ends the paragraph) and after a blank line, an [H] algorithm with no caption (its empty caption box still brings the rule), and the text after it",
+   "issue": "#258"
+  },
+  {
+   "id": "algorithm/noend",
+   "file": "micro/algorithm/noend.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 517,
+   "covers": "algpseudocode's noend option (each end entity an \\item[] with no text after \\nointerlineskip), numbering every second line ([2]) and no numbers at all (labels 0.5em wide), algorithms placed at the top and the bottom of a page, and a line ending in three glues (\\@item's two \\unskip, then \\par's)",
+   "issue": "#258"
+  },
+  {
+   "id": "algorithm/report",
+   "file": "micro/algorithm/report.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 495,
+   "covers": "algorithms in a report: \\thealgorithm not within the chapter (\\newfloat without a parent), \\label and \\ref with \\@currentHref algorithm.n, and float types: a figure waiting for a page of floats (ftype 1) does not hold back an algorithm (ftype 4), which goes here",
+   "issue": "#258"
   },
   {
    "id": "amsmath/eqref-hyperref",

@@ -9,7 +9,9 @@ set -eu
 YEAR=$(cat "$(dirname "$0")/TEXLIVE")
 REPO=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/$YEAR/tlnet-final
 DIR=$(mkdir -p "${1:-.cache/texlive/$YEAR}" && cd "${1:-.cache/texlive/$YEAR}" && pwd)
-if [ -x "$DIR"/bin/*/latex ] 2>/dev/null; then echo "TeX Live $YEAR already in $DIR"; exit 0; fi
+# the packages beyond the collections (tlmgr skips what is there already)
+extras() { "$DIR"/bin/*/tlmgr install enumitem cleveref titlesec algorithms algorithmicx; }
+if [ -x "$DIR"/bin/*/latex ] 2>/dev/null; then echo "TeX Live $YEAR already in $DIR"; extras; exit 0; fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 curl -fsSL "$REPO/install-tl-unx.tar.gz" | tar -xz -C "$WORK"
@@ -33,5 +35,5 @@ tlpdbopt_install_docfiles 0
 tlpdbopt_install_srcfiles 0
 PROFILE
 "$WORK"/install-tl-*/install-tl -profile "$WORK/texlive.profile" -repository "$REPO" > "$WORK/install.log" 2>&1 || { tail -40 "$WORK/install.log"; exit 1; }
-"$DIR"/bin/*/tlmgr install enumitem cleveref titlesec
+extras
 "$DIR"/bin/*/latex --version | head -1

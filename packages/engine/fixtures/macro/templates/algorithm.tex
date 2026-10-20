@@ -1,0 +1,31 @@
+% fixture: templates/algorithm
+% tier: T3
+% engine: document
+% covers: the algorithm template: float.sty's ruled algorithm float, algpseudocode's Function, State, While, If, ElsIf, Else and Return, numbered lines and block indentation
+% issue: #258
+% source: packages/engine/corpus/algorithm.tex
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{amsmath}
+
+\begin{document}
+\section{Binary search}
+\begin{algorithm}
+\caption{Binary search}
+\begin{algorithmic}[1]
+\Function{Search}{$A, x$}
+  \State $lo \gets 0$, $hi \gets |A| - 1$
+  \While{$lo \le hi$}
+    \State $mid \gets \lfloor (lo+hi)/2 \rfloor$
+    \If{$A[mid] = x$} \State \Return $mid$
+    \ElsIf{$A[mid] < x$} \State $lo \gets mid + 1$
+    \Else \State $hi \gets mid - 1$
+    \EndIf
+  \EndWhile
+  \State \Return $-1$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+It runs in $O(\log n)$ time.
+\end{document}

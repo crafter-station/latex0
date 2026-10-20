@@ -1,0 +1,55 @@
+% fixture: algorithm/report
+% tier: T3
+% engine: document
+% covers: algorithms in a report: \thealgorithm not within the chapter (\newfloat without a parent), \label and \ref with \@currentHref algorithm.n, and float types: a figure waiting for a page of floats (ftype 1) does not hold back an algorithm (ftype 4), which goes here
+% issue: #258
+\documentclass{report}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\begin{document}
+\chapter{Methods}
+We first sketch the data flow in Figure~\ref{fig:flow} and then give the two procedures, Algorithm~\ref{alg:clean} and Algorithm~\ref{alg:merge}.
+
+\begin{figure}[p]
+\centering
+\vspace{3cm}
+\caption{The data flow}
+\label{fig:flow}
+\end{figure}
+Cleaning drops the records that fail validation.
+
+\begin{algorithm}
+\caption{Cleaning}
+\label{alg:clean}
+\begin{algorithmic}[1]
+\ForAll{records $r$}
+  \If{$r$ is invalid} \State drop $r$ \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+Merging then joins the remaining records by key.
+
+\chapter{Results}
+The merge of Algorithm~\ref{alg:merge} runs in linear time after sorting.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+records & 120 \\
+kept & 97 \\
+\end{tabular}
+\caption{Counts}
+\label{tab:counts}
+\end{table}
+\begin{algorithm}
+\caption{Merging}
+\label{alg:merge}
+\begin{algorithmic}
+\State sort both inputs by key
+\While{both inputs have records}
+  \State emit the smaller key
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+The counts are in Table~\ref{tab:counts} as well.
+\end{document}
