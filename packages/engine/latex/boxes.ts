@@ -135,7 +135,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     // \vrule depth \dp\@arstrutbox) \par\egroup
     pbox: (text, width, cr) => {
       if (!outer) throw new Unsupported("a p{width} column here")
-      if (/\\(?:footnote|label|par|newline|linebreak)(?![A-Za-z])|\n\s*\n/.test(text)) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
+      if (/\\(?:footnote|label|par|newline|linebreak|multirow)(?![A-Za-z])|\n\s*\n/.test(text)) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
       let hsize: number
       try { hsize = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, outer.lineWidth) }) } catch { throw new Unsupported(`p{${width}}`) }
       const list: Node[] = []
@@ -161,6 +161,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
       return vtop(list)
     },
     ...(booktabs ? { booktabs } : {}),
+    multirow: cx.pre.usesMultirow,
   }
   return tabularBox(lines, cols, env, pos)
 }

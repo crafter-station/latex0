@@ -10,7 +10,7 @@ YEAR=$(cat "$(dirname "$0")/TEXLIVE")
 REPO=https://ftp.math.utah.edu/pub/tex/historic/systems/texlive/$YEAR/tlnet-final
 DIR=$(mkdir -p "${1:-.cache/texlive/$YEAR}" && cd "${1:-.cache/texlive/$YEAR}" && pwd)
 # the packages beyond the collections (tlmgr skips what is there already)
-extras() { "$DIR"/bin/*/tlmgr install enumitem cleveref titlesec algorithms algorithmicx; }
+extras() { "$DIR"/bin/*/tlmgr install enumitem cleveref titlesec algorithms algorithmicx multirow siunitx; }
 if [ -x "$DIR"/bin/*/latex ] 2>/dev/null; then echo "TeX Live $YEAR already in $DIR"; extras; exit 0; fi
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT

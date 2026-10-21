@@ -4,8 +4,8 @@
 // column's entry is \@classv's \vtop paragraph.
 
 import { halignSpans, type AlignCell } from "../layout/align"
-import { emptyBox, glue, kern, paramGlue, type BoxNode, type Node, filGlue, fillGlue } from "../layout/nodes"
-import { hpack, vpack } from "../layout/pack"
+import { emptyBox, glue, kern, paramGlue, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { hpack, vpack, type PackSpec } from "../layout/pack"
 import type { GlueSpec } from "../layout/dimen"
 import { appendToVlist } from "./paragraph"
 import { Unsupported } from "./unsupported"
@@ -172,9 +172,42 @@ export function tabularLines(body: string): TabLine[] {
   return lines
 }
 
+/** \multirow[vpos]{rows}{*}{text} at an entry's start; the spaces after it go with \@ifnextchar's look for [fixup] */
+function multirow(text: string): { vpos: "c" | "t" | "b"; rows: number; text: string; rest: string } | null {
+  const m = text.match(/^\\multirow(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*/)
+  if (!m) {
+    if (/\\multirow(?![A-Za-z])/.test(text)) throw new TabularUnsupported(`\\multirow inside an entry: ${text.trim().slice(0, 40)}`)
+    return null
+  }
+  // (a [bigstruts] after rows leaves no braced width there)
+  const n = arg(text, m[0].length), w = n && arg(text, n[1]), t = w && arg(text, w[1])
+  const vpos = (m[1] ?? "c").trim()
+  if (!n || !w || !t || !/^[ctb]$/.test(vpos) || !/^\s*[1-9]\d*\s*$/.test(n[0]) || w[0].trim() !== "*")
+    throw new TabularUnsupported(`\\multirow: ${text.trim().slice(0, 40)}`)
+  const rest = text.slice(t[1])
+  if (/^\s*\[/.test(rest)) throw new TabularUnsupported(`\\multirow with a fixup: ${text.trim().slice(0, 40)}`)
+  return { vpos: vpos as "c", rows: Number(n[0]), text: t[0], rest: rest.replace(/^\s+/, "") }
+}
+
+/**
+ * multirow.sty's \@xmultirow with width *: \setbox0\vtop to rows×(\ht+\dp\@arstrutbox){\vfill (not for t)
+ * \hbox{\strut text\strut} \vfill (not for b)}, then \setbox0\vtop{\vskip-d \box0\vss}\dp0=0 where d is
+ * \ht\@arstrutbox (and its \dp too for b), or for t the box's height
+ */
+function multirowBox(env: TabularEnv, m: { vpos: "c" | "t" | "b"; rows: number; text: string }): BoxNode {
+  const { height: sh, depth: sd } = env.strut
+  const strut = (): Node => ({ kind: "rule", width: 0, height: sh, depth: sd }) // \unhcopy\strutbox
+  const hbox = hpack([strut(), ...env.cell(m.text, { spaceFactor: 1000 }), strut()])
+  const box0 = vtop([...(m.vpos !== "t" ? [fillGlue()] : []), hbox, ...(m.vpos !== "b" ? [fillGlue()] : [])], { exactly: m.rows * sh + m.rows * sd })
+  const d = m.vpos === "t" ? box0.height : sh + (m.vpos === "b" ? sd : 0)
+  const box = vtop([glue(-d), box0, ssGlue()])
+  box.depth = 0
+  return box
+}
+
 /** \vtop (§ 1087): the vbox's height is its first item's if that is a box or a rule, else zero */
-export function vtop(list: Node[]): BoxNode {
-  const box = vpack(list)
+export function vtop(list: Node[], spec?: PackSpec): BoxNode {
+  const box = vpack(list, spec)
   const first = list[0]
   const h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0
   box.depth = box.depth - h + box.height; box.height = h
@@ -194,6 +227,8 @@ export interface TabularEnv {
   pbox(text: string, width: string, cr: Node[]): BoxNode
   /** a \\[skip]'s dimension */
   skip(text: string): number
+  /** multirow loaded */
+  multirow?: boolean
   /** booktabs's dimensions, when the document loads it (set in the font of its \usepackage) */
   booktabs?: { heavyrulewidth: number; lightrulewidth: number; cmidrulewidth: number; belowrulesep: number; belowbottomsep: number; aboverulesep: number; abovetopsep: number; cmidrulesep: number; cmidrulekern: number; defaultaddspace: number }
 }
@@ -211,6 +246,14 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     if ("text" in x) return env.cell(x.text, st)
     return [glue(x.skip === "tabcolsep" ? env.tabcolsep : x.skip === "doublerulesep" ? env.doublerulesep : half)]
   })
+  /** an entry's list: its text, or a \multirow and what follows it */
+  const content = (text: string, st: { spaceFactor: number }): Node[] => {
+    const m = multirow(text)
+    if (!m) return env.cell(text, st)
+    if (!env.multirow) throw new TabularUnsupported("\\multirow without multirow")
+    st.spaceFactor = 1000 // (a box: an @{text} before may have left another)
+    return [multirowBox(env, m), ...env.cell(m.rest, st)]
+  }
   const unskip = (l: Node[]) => { if (l.at(-1)?.kind === "glue") l.pop() }
   /** {\hfil\hskip1sp\ignorespaces entry\unskip\hfil} as the column aligns it, or \@startpbox{width}\ignorespaces
    *  entry\@endpbox (whose \hfil follows the \vtop); `cr` is what \\[skip] puts before \unskip */
@@ -218,7 +261,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     const align = col.align
     if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr), filGlue()] } // (a box: the space factor is 1000)
     const l: Node[] = align === "l" ? [] : [filGlue()]
-    l.push(glue(1), ...env.cell(text.replace(/^\s+/, ""), st))
+    l.push(glue(1), ...content(text.replace(/^\s+/, ""), st))
     if (cr.length) { unskip(l); l.push(...cr) }
     unskip(l)
     if (align !== "r") l.push(filGlue())
