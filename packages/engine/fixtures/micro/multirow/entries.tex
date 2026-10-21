@@ -1,0 +1,50 @@
+% fixture: multirow/entries
+% tier: T3
+% engine: document
+% covers: multirow's \multirow{rows}{*}{text}: centred, [t] and [b], over two and three rows, a [t] one taller than the strut, in l, c and r columns and the last one, with math and a font change, in a \multicolumn, with booktabs and \hline, in a \small table, between @{text}'s with spaces
+% issue: #262
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{multirow}
+\begin{document}
+\begin{table}[h]
+  \centering
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Trial & Period (s) & Error (s) \\
+    \midrule
+    \multirow{2}{*}{A} & 1.74 & 0.02 \\
+                       & 1.73 & 0.02 \\
+    B & 1.75 & 0.01 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Measured periods.}
+\end{table}
+
+Text before a ruled table.
+\begin{tabular}{|c|c|r|}
+\hline
+\multirow[t]{3}{*}{Top} & one & \multirow{3}{*}{$x^2$} \\
+ & two & \\
+ & three & \\
+\hline
+\multirow[b]{2}{*}{\textbf{Bottom}} & four & 1 \\
+ & five & \multirow{2}{*}{last} \\
+\multicolumn{2}{|l|}{\multirow{1}{*}{span}} & \\
+\hline
+\end{tabular}
+and after it.
+
+{\small
+\begin{tabular}{ll}
+\multirow{2}{*}{Small group} & a \\
+ & b \\
+\multirow[t]{2}{*}{$\displaystyle\sum_{i=1}^{n}$ tall} & c \\
+ & d \\
+\end{tabular}}
+
+\begin{tabular}{@{: }l@{ -- }l}
+\multirow{2}{*}{value} & key \\
+ & key \\
+\end{tabular}
+\end{document}

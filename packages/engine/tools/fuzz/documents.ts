@@ -89,7 +89,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, urlOn = false, amsOn = false, graphOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, urlOn = false, amsOn = false, graphOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -110,6 +110,8 @@ export function makeDocument(r: () => number): string {
       const w = words(1 + Math.floor(r() * (long ? 12 : 3))).replace(/[^A-Za-z ]/g, "").trim() || "x"
       return x < 0.4 ? `\\${pick(["textbf", "textit", "emph", "texttt"])}{${w}}` : w
     }
+    // multirow: \multirow[vpos]{rows}{*}{entry} (its rows below need not be empty)
+    const entry = (p = false) => !p && mrOn && r() < 0.15 ? `\\multirow${pick(["", "", "[t]", "[b]", "[c]"])}{${1 + Math.floor(r() * 3)}}{*}{${cell() || "x"}}` : cell(p)
     const rows: string[] = []
     // booktabs: \toprule … \bottomrule, rules between rows (\cmidrule's with trims, \addlinespace, \specialrule)
     const bt = btOn && r() < 0.6
@@ -124,7 +126,7 @@ export function makeDocument(r: () => number): string {
       const cells: string[] = []
       for (let j = 0; j < n;) {
         const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
-        if (span) { cells.push(`\\multicolumn{${span}}{${pick(["c", "|c|", "l", "r|", "|l", "p{3cm}"])}}{${cell()}}`); j += span } else { cells.push(cell(kinds[j].startsWith("p"))); j++ }
+        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}"]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(sp.startsWith("p"))}}`); j += span } else { cells.push(entry(kinds[j].startsWith("p"))); j++ }
       }
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
       rows.push(cells.join(" & ") + ` \\\\${end}`)
@@ -260,6 +262,7 @@ export function makeDocument(r: () => number): string {
   const lst = r() < 0.2 && !t1
   colorOn = r() < 0.25
   btOn = r() < 0.3
+  mrOn = r() < 0.2
   const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])]) +
     (colorOn && r() < 0.4 ? `\\color${lstEnv ? `{${color()}}` : colorArg()}` : "") // (no [ ] in the environment's options)
   let lstEnv = false
@@ -302,6 +305,7 @@ export function makeDocument(r: () => number): string {
   if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
+  if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
   if (colorOn) out.push(`\\definecolor{fz}${pick(["{rgb}{0.1,0.5,0.9}", "{RGB}{255,136,0}", "{HTML}{2CA02C}", "{gray}{.35}", "{cmyk}{0,.5,1,0}", "{rgb}{1.0,0.25,.5}"])}`)
   const code = (hash: boolean) => { // (C's directives are not laid out yet)
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",

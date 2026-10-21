@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 277,
-  "exact": 275,
+  "fixtures": 278,
+  "exact": 276,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 260155
+  "glyphs": 260336
  },
  "areas": [
   {
@@ -108,6 +108,11 @@
    "area": "minipage",
    "fixtures": 4,
    "exact": 4
+  },
+  {
+   "area": "multirow",
+   "fixtures": 1,
+   "exact": 1
   },
   {
    "area": "natbib",
@@ -2174,6 +2179,17 @@
    "status": "pass",
    "glyphs": 328,
    "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
+  },
+  {
+   "id": "multirow/entries",
+   "file": "micro/multirow/entries.tex",
+   "area": "multirow",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 181,
+   "covers": "multirow's \\multirow{rows}{*}{text}: centred, [t] and [b], over two and three rows, a [t] one taller than the strut, in l, c and r columns and the last one, with math and a font change, in a \\multicolumn, with booktabs and \\hline, in a \\small table, between @{text}'s with spaces",
+   "issue": "#262"
   },
   {
    "id": "natbib/authoryear",
