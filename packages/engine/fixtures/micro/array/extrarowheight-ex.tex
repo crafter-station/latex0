@@ -1,0 +1,17 @@
+% fixture: array/extrarowheight-ex
+% tier: T3
+% engine: document
+% covers: \setlength{\extrarowheight}{1ex} before \usepackage[T1]{fontenc}: the ex of the OT1 font in force there, in an 11pt class
+% issue: #264
+\documentclass[11pt]{article}
+\usepackage{array}
+\setlength{\extrarowheight}{1ex}
+\usepackage[T1]{fontenc}
+\begin{document}
+\begin{tabular}{|l|r|}
+\hline
+one & two \\
+three & four \\
+\hline
+\end{tabular}
+\end{document}

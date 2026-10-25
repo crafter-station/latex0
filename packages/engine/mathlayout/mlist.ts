@@ -95,6 +95,8 @@ export interface MathEnv {
   delimitershortfall: number
   /** \\arraycolsep and the \\@arstrutbox rule (\\strutbox at \\arraystretch 1), for arrays */
   arraycolsep?: number
+  /** array.sty's \array: \hskip1sp before each cell's formula, and no ${} from its \@arraycr */
+  arrayPackage?: boolean
   arstrut?: { height: number; depth: number }
   /** called for a character the font lacks (char_warning) */
   missing?: (fam: number, c: number) => void
@@ -301,8 +303,8 @@ class Converter {
     const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }]
     const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
       ...(ci === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth } as Node] : []),
-      glue(colsep), filGlue(), ...math(cell),
-      ...(a.crs[ri] && ci === row.length - 1 ? math([{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]) : []), // \@arraycr's ${}
+      glue(colsep), filGlue(), ...(this.env.arrayPackage ? [glue(1)] : []), ...math(cell),
+      ...(a.crs[ri] && ci === row.length - 1 && !this.env.arrayPackage ? math([{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]) : []), // \@arraycr's ${}
       filGlue(), glue(colsep),
     ]))
     const cols = 10 // \c@MaxMatrixCols

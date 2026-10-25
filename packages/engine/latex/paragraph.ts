@@ -72,7 +72,9 @@ export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false):
     muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
     scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
     delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
-    arraycolsep: k.dimens.arraycolsep, arstrut: k.sizes[size].strut, // \@arstrutbox: \strutbox at \arraystretch 1
+    arraycolsep: k.dimens.arraycolsep, // \@arstrutbox: \strutbox at \arraystretch 1, with array.sty's \extrarowheight
+    arstrut: k.array ? { height: k.sizes[size].strut.height + k.array.extrarowheight, depth: k.sizes[size].strut.depth } : k.sizes[size].strut,
+    ...(k.array ? { arrayPackage: true } : {}),
   }
 }
 
@@ -156,6 +158,8 @@ export function labelWrite(refs: Refs, key: string, label = refs.label, href = r
 
 /** What a paragraph's surroundings set: the start of its list (in place of the indent box) and its shape. */
 export interface ParagraphOptions {
+  /** plain groups and font declarations read (no \everypar runs in them here) */
+  groups?: boolean
   start?: Node[]; parShape?: [number, number][]; clubPenalty?: number
   /** the text font, when not the size's roman (a heading's \bfseries) */
   font?: FontRef
@@ -221,6 +225,8 @@ type Piece =
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \hfill, \hfil, \quad, \qquad */
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
+  /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
+  | { kind: "group"; inner: Piece[] } | { kind: "decl"; name: string; inner: Piece[] }
   /** {\large …}: a size command in a group */
   | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
   /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
@@ -338,7 +344,13 @@ function swSlant(list: Node[]) {
   if (skip) list.push(glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder))
 }
 
-function pieces(body: string, footnotes = true): Piece[] {
+/** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
+ *  `grouped`: the body is a group's (a declaration lasts to its end) */
+interface PieceOptions { groups?: boolean; grouped?: boolean }
+const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
+
+function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
+  const inner: PieceOptions = { ...po, grouped: true }
   const out: Piece[] = []
   let i = 0, text = ""
   const flushText = () => {
@@ -368,14 +380,14 @@ function pieces(body: string, footnotes = true): Piece[] {
       let depth = 0, j = open
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Error("paragraph adapter: unbalanced color group")
-      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
+      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, inner), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
     }
     const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
     if (sz) {
       let depth = 0, j = i
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Error("paragraph adapter: unbalanced {")
-      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes) }); i = j + 1; continue
+      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, inner) }); i = j + 1; continue
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
@@ -426,6 +438,14 @@ function pieces(body: string, footnotes = true): Piece[] {
     }
     // an empty group: no node, but no ligature or kern across it
     if (body.startsWith("{}", i)) { flushText(); i += 2; continue }
+    if (po.groups && body[i] === "{") { // (no ligature or kern across its ends either)
+      const j = closingBrace(body, i)
+      flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue
+    }
+    const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([a-z]+)(?![A-Za-z])\s*/) : null
+    if (decl && DECLARATIONS.includes(decl[1])) {
+      flushText(); out.push({ kind: "decl", name: decl[1], inner: pieces(body.slice(i + decl[0].length), footnotes, inner) }); i = body.length; continue
+    }
     if (body[i] === "$") {
       const j = body.indexOf("$", i + 1)
       if (j < 0) throw new Error("paragraph adapter: unbalanced $")
@@ -434,7 +454,7 @@ function pieces(body: string, footnotes = true): Piece[] {
       const cmd = body.slice(i + 1).match(/^[a-z]+/)![0] as FontCommand
       const open = body.indexOf("{", i), j = closingBrace(body, open)
       const src = body.slice(open + 1, j)
-      flushText(); out.push({ kind: "font", cmd, src, inner: pieces(src, footnotes), next: body[j + 1] ?? "" }); i = j + 1
+      flushText(); out.push({ kind: "font", cmd, src, inner: pieces(src, footnotes, inner), next: body[j + 1] ?? "" }); i = j + 1
     } else if (footnotes && body.startsWith("\\footnote{", i)) {
       let depth = 0, j = i + 9
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
@@ -557,6 +577,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
+    else if (p.kind === "group") appendPieces(list, p.inner, font, size, state, ctx, attrs)
+    else if (p.kind === "decl") {
+      const a = fontDeclaration(p.name, attrs, k, size, doc)!
+      appendPieces(list, p.inner, selectFont(k, size, a), size, state, ctx, a)
+    }
     else if (p.kind === "float") {
       // \@xfloat's \@bsphack, \end@float's \vadjust{\penalty-\@Miv\vbox{}\penalty-\@Mii} and \@Esphack: after a
       // space, \nobreak\hskip\z@skip, and the spaces after it go
@@ -774,10 +799,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
  * Material in restricted horizontal mode (a tabular cell): text, formulas, font, size and color
  * commands, in the font `attrs` at `size`; no footnotes or labels.
  */
-export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string): Node[] {
+export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
   const list: Node[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  appendPieces(list, pieces(body.replace(/\s+/g, " "), false), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
+  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
   return list
 }
 
@@ -811,7 +836,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     if (s.errors.length) throw new Error(`\\${name}: ${s.errors[0]}`)
     body = s.rest().trimStart()
   }
-  const ps = pieces(body)
+  const ps = pieces(body, true, { groups: !!opts.groups })
   params.hyphenation = hyphenation(k, font)
   if (opts.parShape) params.parShape = opts.parShape
   if (opts.hsize !== undefined) params.hsize = opts.hsize

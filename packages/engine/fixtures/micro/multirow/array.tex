@@ -1,0 +1,17 @@
+% fixture: multirow/array
+% tier: T3
+% engine: document
+% covers: multirow with array.sty: \multirow after >{decl} (its text in the declarations' font, and after a size its \strut that size's) and before <{decl}, text after one, in array's p-less columns with \vline rules
+% issue: #264
+\documentclass{article}
+\usepackage{multirow}
+\usepackage{array}
+\begin{document}
+\begin{tabular}{|l|>{\bfseries}c<{.}|>{\itshape}r|>{\small}l|}
+\hline
+key & \multirow{2}{*}{bold} & \multirow[t]{2}{*}{it} x & \multirow{3}{*}{small} \\
+key & & & \\
+key & & & \\
+\hline
+\end{tabular}
+\end{document}
