@@ -1,0 +1,15 @@
+% fixture: array/shallow-rows
+% tier: T3
+% engine: document
+% covers: array.sty with a negative \extrarowheight: \@arstrutbox lower than \strutbox, so \ar@align@mcell leaves a short m entry where it is and lowers a taller one
+% issue: #264
+\documentclass{article}
+\usepackage{array}
+\setlength{\extrarowheight}{-2pt}
+\begin{document}
+\begin{tabular}{|m{2cm}|m{2cm}|}
+\hline
+short & a longer entry over lines \\
+\hline
+\end{tabular}
+\end{document}

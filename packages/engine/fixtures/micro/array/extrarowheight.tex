@@ -1,0 +1,21 @@
+% fixture: array/extrarowheight
+% tier: T3
+% engine: document
+% covers: array.sty's \extrarowheight set in the preamble: taller \@arstrutbox rows in a tabular (with rules, a p column and multirow, whose \strut stays \strutbox) and in a matrix
+% issue: #264
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{array}
+\usepackage{multirow}
+\setlength{\extrarowheight}{3pt}
+\begin{document}
+\begin{tabular}{|l|p{3cm}|}
+\hline
+\multirow{2}{*}{key} & a value that wraps onto a second line \\
+\hline
+ & second \\
+\hline
+\end{tabular}
+
+\[ \begin{bmatrix} 1 & 0 \\ 0 & 1 \end{bmatrix} \]
+\end{document}

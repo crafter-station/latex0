@@ -1,7 +1,7 @@
 % fixture: multirow/entries
 % tier: T3
 % engine: document
-% covers: multirow's \multirow{rows}{*}{text}: centred, [t] and [b], over two and three rows, a [t] one taller than the strut, in l, c and r columns and the last one, with math and a font change, in a \multicolumn, with booktabs and \hline, in a \small table, between @{text}'s with spaces
+% covers: multirow's \multirow{rows}{*}{text}: centred, [t] and [b], over two and three rows, a [t] one taller than the strut, in l, c and r columns and the last one, with math and a font change, in a \multicolumn, with booktabs and \hline, in a \small table, between @{text}'s with spaces, text after one (its spaces stay)
 % issue: #262
 \documentclass{article}
 \usepackage{booktabs}
@@ -43,8 +43,8 @@ and after it.
  & d \\
 \end{tabular}}
 
-\begin{tabular}{@{: }l@{ -- }l}
-\multirow{2}{*}{value} & key \\
- & key \\
+\begin{tabular}{@{: }l@{ -- }lr}
+\multirow{2}{*}{value} & key & \multirow[t]{2}{*}{it} x \\
+ & key & \\
 \end{tabular}
 \end{document}

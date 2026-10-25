@@ -8,7 +8,7 @@ import { lineBreak } from "../layout/linebreak"
 import { emptyBox, glue, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
 import { vpack } from "../layout/pack"
 import type { Ctx } from "./context"
-import { centering as centeringShape, sloppy } from "./kernel"
+import { centering as centeringShape, raggedleft, raggedright, sloppy } from "./kernel"
 import { caption } from "./floats"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
@@ -19,7 +19,7 @@ import { hlistInput, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphIn
 export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
   const { tabulars } = cx
   const t = tabulars[n]
-  const lines = tabularLines(t.body), cols = preamble(t.spec)
+  const lines = tabularLines(t.body), cols = preamble(t.spec, cx.run.k.array && { types: cx.pre.columnTypes })
   return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer)
 }
 
@@ -118,12 +118,13 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
   const { booktabs, doc, run } = cx
   const font = selectFont(run.k, size, attrs)
   const sz = run.k.sizes[size]
+  const strutbox = run.k.sizes[size].strut, extra = run.k.array?.extrarowheight ?? 0
   const env: TabularEnv = {
-    strut: run.k.sizes[size].strut, tabcolsep: run.k.dimens.tabcolsep, arrayrulewidth: run.k.dimens.arrayrulewidth, doublerulesep: run.k.dimens.doublerulesep,
+    strut: { height: strutbox.height + extra, depth: strutbox.depth }, tabcolsep: run.k.dimens.tabcolsep, arrayrulewidth: run.k.dimens.arrayrulewidth, doublerulesep: run.k.dimens.doublerulesep,
     lineskiplimit: run.k.dimens.lineskiplimit, axis: mathEnv(run.k, size, amsmath).fonts[0][2]!.params[22],
     cell: (text, state) => {
       if (/\\(?:footnote|label)(?![A-Za-z])/.test(text)) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
-      try { return hlistInput(text, run.k, size, doc, attrs, sfcodes ? Object.assign(state, { sfcodes }) : state, amsmath) } catch (e) {
+      try { return hlistInput(text, run.k, size, doc, attrs, sfcodes ? Object.assign(state, { sfcodes }) : state, amsmath, undefined, true) } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a tabular entry "${text.trim().slice(0, 40)}"`)
         throw e
       }
@@ -133,7 +134,9 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     // \parfillskip \@flushglue, the normal \baselineskip, \lineskip and \lineskiplimit, \sloppy) \ignorespaces entry,
     // then \@finalstrut\@arstrutbox (\unskip, then \nobreak in a paragraph and \vskip-\baselineskip out of one, and
     // \vrule depth \dp\@arstrutbox) \par\egroup
-    pbox: (text, width, cr) => {
+    // array.sty's \@startpbox adds \everypar{\vrule height\ht\@arstrutbox width0pt}, and its \@finalstrut leaves out
+    // the \vskip-\baselineskip when the box is empty
+    pbox: (text, width, cr, array) => {
       if (!outer) throw new Unsupported("a p{width} column here")
       if (/\\(?:footnote|label|par|newline|linebreak|multirow)(?![A-Za-z])|\n\s*\n/.test(text)) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
       let hsize: number
@@ -143,10 +146,17 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
       let end: Node[] = [...cr, penalty(10000), strut]
       // (an empty entry: the \vrule starts a paragraph after the \vskip, and new_graf and LaTeX's restart of it each
       // add \parskip, zero here)
-      if (!text.trim() && !cr.length) { list.push(glue(-sz.baselineskip.width), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))); end = [strut] }
+      // (groups and font declarations alone start no paragraph)
+      const blank = !text.replace(/\\(?:bfseries|mdseries|itshape|slshape|scshape|upshape|rmfamily|sffamily|ttfamily|normalfont)(?![A-Za-z])|[{}\s]/g, "")
+      if (blank && !cr.length) {
+        if (!array) list.push(glue(-sz.baselineskip.width), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+        end = [strut]
+      }
+      const start: Node[] = [emptyBox("hlist", 0), ...(array ? [{ kind: "rule", width: 0, height: env.strut.height, depth: null } as Node] : [])]
+      const shape = array?.shape === "centering" ? centeringShape() : array?.shape === "raggedright" ? raggedright() : array?.shape === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph }
       let p: ReturnType<typeof paragraphInput>
       try {
-        p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, unskip: 1, end })
+        p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start, amsmath, groups: true, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, ...shape, unskip: 1, end })
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
         throw e
@@ -158,10 +168,11 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
         if (n.kind === "hlist") pd = appendToVlist(list, n, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
         else list.push(n)
       }
-      return vtop(list)
+      return !array || array.kind === "p" ? vtop(list) : vpack(list)
     },
     ...(booktabs ? { booktabs } : {}),
     multirow: cx.pre.usesMultirow,
+    ...(run.k.array ? { array: { types: cx.pre.columnTypes, strutbox, strutOf: (sz: SizeCommand) => run.k.sizes[sz].strut } } : {}),
   }
   return tabularBox(lines, cols, env, pos)
 }

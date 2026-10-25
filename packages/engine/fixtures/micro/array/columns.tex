@@ -1,0 +1,54 @@
+% fixture: array/columns
+% tier: T3
+% engine: document
+% covers: array.sty's tabular: \vline rules (| and ||), @{} and !{text}, >{decl} and <{decl} (two of each), \hline\hline, \cline, \multicolumn with array's preamble and a \\[skip] after it, p, m and b columns with \\[skip] (an m entry taller than the strut), an entry ending in two glues before \\[skip], an empty p entry, >{\centering\arraybackslash}p, \newcolumntype with and without an argument, fuzz's cases (an empty entry in a <{decl} column, \textit's correction before <{.}, an empty >{\itshape}p entry, an empty l entry before \\[skip], whose two \unskip's reach the column's \tabcolsep), and amsmath's pmatrix through array's \array
+% issue: #264
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{array}
+\newcolumntype{C}{>{\centering\arraybackslash}p{2cm}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+\newcolumntype{B}{>{\bfseries}l}
+\begin{document}
+Rules first:
+\begin{tabular}{|l||c|r|}
+\hline
+left & centre & right \\
+\hline\hline
+a & b & c \\
+\cline{2-3}
+\multicolumn{2}{|c|}{spanning two} & 3 \\
+\hline
+\end{tabular}
+and declarations
+\begin{tabular}{>{\itshape}l<{.}!{:}>{$}c<{$}@{ -- }>{\bfseries}>{\small}r<{!}<{?}}
+first & x^2 & one \\
+second & \alpha & two
+\end{tabular}
+then text.
+
+\begin{tabular}{|p{2cm}|m{2cm}|b{2cm}|}
+\hline
+a paragraph long enough to wrap & middle & bottom row text that wraps too \\[4pt]
+\hline
+ & short & x \\
+\multicolumn{2}{|l|}{a span} & y \\[2pt]
+\hline
+\end{tabular}
+
+\begin{tabular}{CR{3cm}B}
+centred text in a column & to the right side here & bold \\
+two & three & four\quad{} \\[2pt]
+\end{tabular}
+
+\begin{tabular}{m{2.5cm}l}
+a middle entry long enough to take three lines & beside it \\
+\end{tabular}
+
+\begin{tabular}{|r>{\bfseries}l<{.}>{\itshape}p{2cm}|l}
+x & \textit{italic} & & \\[3pt]
+ & & {} & y
+\end{tabular}
+
+\[ A = \begin{pmatrix} a & b \\ c & d \end{pmatrix} \]
+\end{document}

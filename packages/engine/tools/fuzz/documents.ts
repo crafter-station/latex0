@@ -89,7 +89,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, urlOn = false, amsOn = false, graphOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, urlOn = false, amsOn = false, graphOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -99,8 +99,16 @@ export function makeDocument(r: () => number): string {
     const n = 1 + Math.floor(r() * 4)
     const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
     let spec = r() < 0.2 ? pick(["@{}", "@{~}", "@{: }"]) : rule()
-    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `p{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : pick(["l", "c", "r"]))
-    for (let j = 0; j < n; j++) spec += kinds[j] + (j < n - 1 ? (r() < 0.1 ? pick(["@{}", "@{ -- }", "@{\\quad}"]) : rule()) : "")
+    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.1 ? pick(["C", "B"]) : pick(["l", "c", "r"]))
+    // array.sty: >{decl} before a column, <{decl} after it, !{text} between columns
+    const decl = (box: boolean) => pick(["\\bfseries", "\\itshape", "\\small", "\\ttfamily", ...(box ? ["\\centering\\arraybackslash", "\\raggedright\\arraybackslash", "\\raggedleft\\arraybackslash"] : ["\\sffamily", "\\slshape"])]) // (no >{$}: entries have formulas of their own)
+    const col = (k: string) => {
+      if (!arOn || k === "C" || k === "B") return k
+      const box = /^[pmb]/.test(k), pre = r() < 0.25 ? decl(box) : ""
+      return (pre ? `>{${pre}}` : "") + k + (r() < 0.1 && !box ? `<{${pick(["\\,\\%", ":", "."])}}` : "")
+    }
+    const sep = () => arOn && r() < 0.08 ? pick(["!{:}", "!{\\quad}", "!{/}"]) : r() < 0.1 ? pick(["@{}", "@{ -- }", "@{\\quad}"]) : rule()
+    for (let j = 0; j < n; j++) spec += col(kinds[j]) + (j < n - 1 ? sep() : "")
     spec += r() < 0.2 ? "@{}" : rule()
     if (r() < 0.1) spec = `${rule()}*{${n}}{${pick(["c", "l|", "r"])}}`
     const cell = (long = false) => {
@@ -111,7 +119,7 @@ export function makeDocument(r: () => number): string {
       return x < 0.4 ? `\\${pick(["textbf", "textit", "emph", "texttt"])}{${w}}` : w
     }
     // multirow: \multirow[vpos]{rows}{*}{entry} (its rows below need not be empty)
-    const entry = (p = false) => !p && mrOn && r() < 0.15 ? `\\multirow${pick(["", "", "[t]", "[b]", "[c]"])}{${1 + Math.floor(r() * 3)}}{*}{${cell() || "x"}}` : cell(p)
+    const entry = (p = false) => !p && mrOn && r() < 0.15 ? `\\multirow${pick(["", "", "[t]", "[b]", "[c]"])}{${1 + Math.floor(r() * 3)}}{*}{${cell() || "x"}}${r() < 0.2 ? pick([" more", " x", "~y"]) : ""}` : cell(p)
     const rows: string[] = []
     // booktabs: \toprule … \bottomrule, rules between rows (\cmidrule's with trims, \addlinespace, \specialrule)
     const bt = btOn && r() < 0.6
@@ -126,7 +134,7 @@ export function makeDocument(r: () => number): string {
       const cells: string[] = []
       for (let j = 0; j < n;) {
         const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
-        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}"]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(sp.startsWith("p"))}}`); j += span } else { cells.push(entry(kinds[j].startsWith("p"))); j++ }
+        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(entry(/^[pmbC]/.test(kinds[j]))); j++ }
       }
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
       rows.push(cells.join(" & ") + ` \\\\${end}`)
@@ -263,6 +271,7 @@ export function makeDocument(r: () => number): string {
   colorOn = r() < 0.25
   btOn = r() < 0.3
   mrOn = r() < 0.2
+  arOn = r() < 0.2
   const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])]) +
     (colorOn && r() < 0.4 ? `\\color${lstEnv ? `{${color()}}` : colorArg()}` : "") // (no [ ] in the environment's options)
   let lstEnv = false
@@ -306,6 +315,11 @@ export function makeDocument(r: () => number): string {
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
+  if (arOn) {
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{array}")
+    const at = out.indexOf("\\usepackage{array}") + 1 // (after it: array.sty defines them)
+    out.splice(at, 0, "\\newcolumntype{C}{>{\\centering\\arraybackslash}p{2.5cm}}", "\\newcolumntype{B}{>{\\bfseries}l}", ...(r() < 0.3 ? [`\\setlength{\\extrarowheight}{${pick(["2pt", "1ex", "4pt"])}}`] : []))
+  }
   if (colorOn) out.push(`\\definecolor{fz}${pick(["{rgb}{0.1,0.5,0.9}", "{RGB}{255,136,0}", "{HTML}{2CA02C}", "{gray}{.35}", "{cmyk}{0,.5,1,0}", "{rgb}{1.0,0.25,.5}"])}`)
   const code = (hash: boolean) => { // (C's directives are not laid out yet)
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",

@@ -1,0 +1,13 @@
+% fixture: tabular/declarations
+% tier: T3
+% engine: document
+% covers: groups and font declarations in tabular entries and p{width} entries: {\bfseries …}, a declaration after text in its group, nested groups and declarations, inside \textit and a size group, an empty and a plain group between letters (no ligature or kern across them), a space after a group
+% issue: #264
+\documentclass{article}
+\begin{document}
+\begin{tabular}{lcp{3cm}}
+{\bfseries Bold} head & {a \itshape slanted} b & {\sffamily sans and {\ttfamily mono} back} to roman \\
+\textit{it {\upshape up} it} & {\small\scshape Small caps} & f{}f and {V}{A} and {\slshape A} V \\
+{\mdseries{\bfseries x}y} & {\normalfont\rmfamily n} {\bfseries b {\itshape bi}} & {\itshape a paragraph in italics that wraps}
+\end{tabular}
+\end{document}

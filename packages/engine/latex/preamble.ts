@@ -34,6 +34,8 @@ export interface Preamble {
   usesListings: boolean
   /** url.sty (hyperref loads it too) */
   usesUrl: boolean
+  /** array.sty's \newcolumntype{X}[n]{spec} definitions */
+  columnTypes: Record<string, { n: number; spec: string }>
   /** multirow loaded: \multirow in tabular entries */
   usesMultirow: boolean
   usesXcolor: boolean
@@ -114,7 +116,9 @@ export function readPreamble(src: string): Preamble {
   let t1 = false
   const geometryOptions: string[] = []
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
-  const lengths: [string, string][] = [] // \setlength in the preamble
+  const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
+  let usesArray = false
+  const columnTypes: Preamble["columnTypes"] = {}
   const letterInfo: { signature?: string; address?: string; name?: string } = {}
   const newCounters: [string, string | null][] = []
   const operators: [string, string, boolean][] = [] // \DeclareMathOperator(*){\cmd}{name}
@@ -122,8 +126,16 @@ export function readPreamble(src: string): Preamble {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
     if (line === "{}") continue // a definition the expander took out
-    const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight)\}\{([^{}]*)\}$/)
-    if (sl) { lengths.push([sl[1], sl[2]]); continue }
+    const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight|extrarowheight)\}\{([^{}]*)\}$/)
+    if (sl) {
+      if (sl[1] === "extrarowheight" && !usesArray) throw new Unsupported(`preamble: ${line}`) // (array.sty defines it)
+      lengths.push([sl[1], sl[2], t1]); continue
+    }
+    const ncol = line.match(/^\\newcolumntype\{?([A-Za-z])\}?\s*(?:\[(\d)\])?\s*\{(.*)\}$/)
+    if (ncol) {
+      if (!usesArray || "clrmbpw".includes(ncol[1]) || ncol[1] in columnTypes || !balanced(ncol[3])) throw new Unsupported(`preamble: ${line}`)
+      columnTypes[ncol[1]] = { n: Number(ncol[2] ?? 0), spec: ncol[3] }; continue
+    }
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
     if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
@@ -147,7 +159,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) {
         // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
@@ -160,6 +172,7 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("amsthm")) usesAmsthm = true
       if (names.includes("url")) usesUrl = true
       if (names.includes("multirow")) usesMultirow = true
+      if (names.includes("array")) usesArray = true
       if (names.includes("algorithm")) algorithm.algorithm = true
       if (names.includes("algpseudocode")) algorithm.algpseudocode = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
@@ -213,6 +226,7 @@ export function readPreamble(src: string): Preamble {
     if (m && (m[1] !== "fancy" || fancy)) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; continue }
     throw new Unsupported(`preamble: ${line}`)
   }
+  const kOT1 = k
   if (t1) k = withT1(k, cls)
   if (geometryOptions.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
@@ -220,16 +234,18 @@ export function readPreamble(src: string): Preamble {
     k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }), glue: k.glue }
   }
   if (lengths.length) {
-    const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
-    const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-    for (const [name, value] of lengths) {
+    for (const [name, value, enc] of lengths) {
+      const font = (enc ? k : kOT1).sizes.normalsize.font, f = loadFont(dataFont(font.name), font.at)
+      const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
       let g: GlueSpec
       try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
-      if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
+      if (name === "extrarowheight") k = { ...k, array: { extrarowheight: g.width } }
+      else if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
       else if (name === "headheight") k = { ...k, dimens: { ...k.dimens, headheight: g.width } }
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
   }
+  if (usesArray && !k.array) k = { ...k, array: { extrarowheight: 0 } }
   if (setspace) k = withSetspace(k, setspace)
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
@@ -248,5 +264,16 @@ export function readPreamble(src: string): Preamble {
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+}
+
+/** braces balanced in s */
+function balanced(s: string): boolean {
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "\\") { i++; continue }
+    if (s[i] === "{") depth++
+    else if (s[i] === "}" && --depth < 0) return false
+  }
+  return depth === 0
 }

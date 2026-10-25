@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 278,
-  "exact": 276,
+  "fixtures": 284,
+  "exact": 282,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 260336
+  "glyphs": 260837
  },
  "areas": [
   {
@@ -23,6 +23,11 @@
    "area": "amsthm",
    "fixtures": 8,
    "exact": 8
+  },
+  {
+   "area": "array",
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "bibliography",
@@ -111,8 +116,8 @@
   },
   {
    "area": "multirow",
-   "fixtures": 1,
-   "exact": 1
+   "fixtures": 2,
+   "exact": 2
   },
   {
    "area": "natbib",
@@ -141,8 +146,8 @@
   },
   {
    "area": "tabular",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "templates",
@@ -582,6 +587,50 @@
    "status": "pass",
    "glyphs": 71,
    "covers": "amsthm: a theorem with a note (the head \\unhbox'ed by \\dth@everypar, \\textup's italic corrections, \\itshape body) and a proof (\\item[\\hskip\\labelsep\\itshape Proof.], \\qed with \\openbox)"
+  },
+  {
+   "id": "array/columns",
+   "file": "micro/array/columns.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 281,
+   "covers": "array.sty's tabular: \\vline rules (| and ||), @{} and !{text}, >{decl} and <{decl} (two of each), \\hline\\hline, \\cline, \\multicolumn with array's preamble and a \\\\[skip] after it, p, m and b columns with \\\\[skip] (an m entry taller than the strut), an entry ending in two glues before \\\\[skip], an empty p entry, >{\\centering\\arraybackslash}p, \\newcolumntype with and without an argument, fuzz's cases (an empty entry in a <{decl} column, \\textit's correction before <{.}, an empty >{\\itshape}p entry, an empty l entry before \\\\[skip], whose two \\unskip's reach the column's \\tabcolsep), and amsmath's pmatrix through array's \\array",
+   "issue": "#264"
+  },
+  {
+   "id": "array/extrarowheight-ex",
+   "file": "micro/array/extrarowheight-ex.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 16,
+   "covers": "\\setlength{\\extrarowheight}{1ex} before \\usepackage[T1]{fontenc}: the ex of the OT1 font in force there, in an 11pt class",
+   "issue": "#264"
+  },
+  {
+   "id": "array/extrarowheight",
+   "file": "micro/array/extrarowheight.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 46,
+   "covers": "array.sty's \\extrarowheight set in the preamble: taller \\@arstrutbox rows in a tabular (with rules, a p column and multirow, whose \\strut stays \\strutbox) and in a matrix",
+   "issue": "#264"
+  },
+  {
+   "id": "array/shallow-rows",
+   "file": "micro/array/shallow-rows.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "array.sty with a negative \\extrarowheight: \\@arstrutbox lower than \\strutbox, so \\ar@align@mcell leaves a short m entry where it is and lowers a taller one",
+   "issue": "#264"
   },
   {
    "id": "bibliography/boxes",
@@ -2181,14 +2230,25 @@
    "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
   },
   {
+   "id": "multirow/array",
+   "file": "micro/multirow/array.tex",
+   "area": "multirow",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 25,
+   "covers": "multirow with array.sty: \\multirow after >{decl} (its text in the declarations' font, and after a size its \\strut that size's) and before <{decl}, text after one, in array's p-less columns with \\vline rules",
+   "issue": "#264"
+  },
+  {
    "id": "multirow/entries",
    "file": "micro/multirow/entries.tex",
    "area": "multirow",
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 181,
-   "covers": "multirow's \\multirow{rows}{*}{text}: centred, [t] and [b], over two and three rows, a [t] one taller than the strut, in l, c and r columns and the last one, with math and a font change, in a \\multicolumn, with booktabs and \\hline, in a \\small table, between @{text}'s with spaces",
+   "glyphs": 184,
+   "covers": "multirow's \\multirow{rows}{*}{text}: centred, [t] and [b], over two and three rows, a [t] one taller than the strut, in l, c and r columns and the last one, with math and a font change, in a \\multicolumn, with booktabs and \\hline, in a \\small table, between @{text}'s with spaces, text after one (its spaces stay)",
    "issue": "#262"
   },
   {
@@ -2677,6 +2737,17 @@
    "glyphs": 600,
    "covers": "setspace's \\setstretch{1.5} at 11pt in article, and the [onehalfspacing] option overridden by it",
    "issue": "#253"
+  },
+  {
+   "id": "tabular/declarations",
+   "file": "micro/tabular/declarations.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 102,
+   "covers": "groups and font declarations in tabular entries and p{width} entries: {\\bfseries …}, a declaration after text in its group, nested groups and declarations, inside \\textit and a size group, an empty and a plain group between letters (no ligature or kern across them), a space after a group",
+   "issue": "#264"
   },
   {
    "id": "tabular/inline",
