@@ -1,0 +1,19 @@
+% fixture: siunitx/numbers
+% tier: T3
+% engine: document
+% covers: siunitx's \num: signs (a + goes, a zero has none), leading zeros, decimal markers . and , and an empty integer or decimal part, digit groups of three with \, in parts of five or more digits (integer and exponent from the right, decimals from the left), compact uncertainties from \pm and +- (padded to the same decimals; a zero one goes) and in brackets, exponents e and d (none for 0, no mantissa), \pm as a sign
+% issue: #267
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+Plain \num{0.75}, \num{12345} and \num{1234}, then \num{1234567.89012} and \num{1234.56789},
+\num{0.0001} and \num{12345.6}; signs \num{-3.5}, \num{+2}, \num{-0} and \num{-0.5};
+leading zeros \num{007} and \num{00.5}; markers \num{.5}, \num{5.} and \num{1,5}.
+
+Uncertainties \num{1.74 \pm 0.02}, \num{1.23 \pm 0.4}, \num{1.23 +- 0.045}, \num{100 \pm 0.5},
+\num{1.5 \pm 1.2}, \num{5 \pm 0}, \num{1.5(2)} and \num{1.50(12)}, \num{12345(6)}.
+
+Exponents \num{1.2e3}, \num{1.2e-3}, \num{e5}, \num{1e0}, \num{1e03}, \num{3.45d-4},
+\num{-1.2(3)e4}, \num{1.5 \pm 0.25e3} and \num{1.2e12345}; signs \num{\pm 0.3} and \num{+-3}.
+A number ends a sentence \num{42}. And one in a word: x\num{3}y.
+\end{document}

@@ -1,0 +1,21 @@
+% fixture: siunitx/color
+% tier: T3
+% engine: document
+% covers: siunitx loads color at \begin{document}: \normalcolor and \color@setgroup push the default color in footnotes, floats, minipages and the output routine as with xcolor
+% issue: #267
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+A footnote\footnote{Of \SI{2}{\metre}.} in a paragraph, and a float.
+\begin{table}[t]
+\centering
+\begin{tabular}{lr}
+Trial & \si{\second} \\
+A & \num{1.74} \\
+\end{tabular}
+\caption{Periods.}
+\end{table}
+\begin{minipage}{3cm}
+In a minipage \qty{4}{\kelvin}.
+\end{minipage}
+\end{document}

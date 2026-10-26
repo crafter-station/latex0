@@ -94,9 +94,12 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const blocks = blocksOf(body)
 
   const v = new VerticalList(run.k)
-  xcolor.on = usesXcolor
-  outputOptions.xcolor = usesXcolor
-  if (usesXcolor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
+  // a color package: xcolor, or the color package siunitx loads at \begin{document} (its default color named Black)
+  const usesColor = usesXcolor || pre.usesSiunitx
+  xcolor.on = usesColor
+  xcolor.normal = usesXcolor ? "gray 0" : " Black"
+  outputOptions.xcolor = usesColor
+  if (usesColor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
@@ -114,7 +117,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
   }
-  const doc: DocState = { footnote: 0, refs, xcolor: usesXcolor, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
+  const doc: DocState = { footnote: 0, refs, xcolor: usesColor, siunitx: pre.usesSiunitx, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []

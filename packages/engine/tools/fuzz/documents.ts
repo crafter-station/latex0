@@ -89,10 +89,25 @@ export function makeDocument(r: () => number): string {
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, urlOn = false, amsOn = false, graphOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, urlOn = false, amsOn = false, graphOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
+  // siunitx: numbers (signs, decimals, groups, uncertainties, exponents), units (prefixes, powers, \per, literal), quantities,
+  // ranges, lists and angles
+  const siNum = () => pick(["0.75", "12345", "1234", "-3.5", "+2", "1.2e3", "1.2e-3", "e5", ".5", "1,5", "1.74 \\pm 0.02", "1.23 +- 0.045", "1.5(2)", "3.45d-4", "100", "0", "1234567.89012", "-0", "42", "6.022e23", "1.5 \\pm 1.2"])
+  const siUnit = () => pick(["\\metre", "\\second", "\\kilo\\gram", "\\metre\\per\\second", "\\metre\\per\\second\\squared", "\\square\\metre", "\\cubic\\centi\\metre", "\\degreeCelsius",
+    "\\ohm", "\\kilo\\ohm", "\\micro\\metre", "\\percent", "\\joule\\per\\kilogram\\per\\kelvin", "\\newton\\metre", "\\degree", "\\arcminute", "\\hertz", "\\mA", "\\kWh", "\\dB",
+    "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us"])
+  const si = () => {
+    const x = r()
+    if (x < 0.2) return `\\num{${siNum()}}`
+    if (x < 0.35) return `\\${pick(["si", "unit"])}{${siUnit()}}`
+    if (x < 0.75) return `\\${pick(["SI", "qty"])}{${siNum()}}{${siUnit()}}`
+    if (x < 0.85) return pick([`\\numrange{${siNum()}}{${siNum()}}`, `\\qtyrange{1}{${siNum()}}{${siUnit()}}`, `\\SIrange{2}{3}{${siUnit()}}`])
+    if (x < 0.95) return pick(["\\numlist{1;2;3}", `\\SIlist{${siNum()};${siNum()}}{${siUnit()}}`, `\\qtylist{1;2;3;4}{${siUnit()}}`, `\\numlist{${siNum()}}`])
+    return `\\ang{${pick(["45", "1;2;3", ";;3", "12.5;30"])}}`
+  }
   // a tabular: l, c, r and p{width} columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
   // \multicolumn with rules of its own, \hline (sometimes doubled), \cline, \\[skip]
   const tabular = (pos = "") => {
@@ -115,6 +130,7 @@ export function makeDocument(r: () => number): string {
       const x = r()
       if (x < 0.15) return ""
       if (x < 0.25) return math()
+      if (siOn && x < 0.32) return si()
       const w = words(1 + Math.floor(r() * (long ? 12 : 3))).replace(/[^A-Za-z ]/g, "").trim() || "x"
       return x < 0.4 ? `\\${pick(["textbf", "textit", "emph", "texttt"])}{${w}}` : w
     }
@@ -169,6 +185,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.006) ws[i] += pick([" \\hfill", " \\quad", "\\qquad", ` {\\${pick(["small", "large", "Large", "footnotesize"])} ${words(1 + Math.floor(r() * 4))}}`])
       if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
+      if (siOn && r() < 0.03) ws[i] += pick([" ", " ", "~"]) + si()
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
@@ -272,6 +289,7 @@ export function makeDocument(r: () => number): string {
   btOn = r() < 0.3
   mrOn = r() < 0.2
   arOn = r() < 0.2
+  siOn = r() < 0.2
   const lstStyle = (fam: boolean) => pick(["", "\\bfseries", "\\itshape", "\\slshape", ...(fam ? ["\\ttfamily", "\\ttfamily\\small", "\\footnotesize", "\\small\\ttfamily", "\\sffamily", "\\scriptsize\\ttfamily"] : ["\\ttfamily", "\\upshape", "\\mdseries"])]) +
     (colorOn && r() < 0.4 ? `\\color${lstEnv ? `{${color()}}` : colorArg()}` : "") // (no [ ] in the environment's options)
   let lstEnv = false
@@ -315,6 +333,7 @@ export function makeDocument(r: () => number): string {
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
+  if (siOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{siunitx}")
   if (arOn) {
     out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{array}")
     const at = out.indexOf("\\usepackage{array}") + 1 // (after it: array.sty defines them)

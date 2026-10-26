@@ -38,6 +38,8 @@ export interface Preamble {
   columnTypes: Record<string, { n: number; spec: string }>
   /** multirow loaded: \multirow in tabular entries */
   usesMultirow: boolean
+  /** siunitx loaded: \num, \si, \SI… (it loads array and, at \begin{document}, color) */
+  usesSiunitx: boolean
   usesXcolor: boolean
   usesAmsthm: boolean
   amsmath: boolean
@@ -118,6 +120,7 @@ export function readPreamble(src: string): Preamble {
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
   const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
   let usesArray = false
+  let usesSiunitx = false
   const columnTypes: Preamble["columnTypes"] = {}
   const letterInfo: { signature?: string; address?: string; name?: string } = {}
   const newCounters: [string, string | null][] = []
@@ -159,7 +162,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) {
         // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
@@ -173,6 +176,7 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("url")) usesUrl = true
       if (names.includes("multirow")) usesMultirow = true
       if (names.includes("array")) usesArray = true
+      if (names.includes("siunitx")) { usesSiunitx = true; usesArray = true } // (siunitx loads array)
       if (names.includes("algorithm")) algorithm.algorithm = true
       if (names.includes("algpseudocode")) algorithm.algpseudocode = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
@@ -264,7 +268,7 @@ export function readPreamble(src: string): Preamble {
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

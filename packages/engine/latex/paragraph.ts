@@ -17,7 +17,7 @@ import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, ty
 import { appendText } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
-import { emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../mathlayout/mlist"
 import { parseMath } from "../mathlayout/parse"
 import { emitBoxes } from "../emit/boxes"
@@ -31,9 +31,11 @@ import type { LayoutResult } from "./result"
 import { endDocument, makeColumns } from "./output"
 import { anchor, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
+import { xcolor } from "./xcolor"
 import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
+import { SI_COMMANDS, siunitx } from "./siunitx"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -94,6 +96,8 @@ export function classParams(k: ClassOptionData): LineBreakParams {
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
 export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
+  /** siunitx is loaded */
+  siunitx?: boolean
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
   xcolor?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
@@ -240,6 +244,8 @@ type Piece =
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
+  /** a siunitx command (SI_COMMANDS) and its arguments */
+  | { kind: "si"; cmd: string; args: string[] }
 
 /** Text symbols (\DeclareTextSymbol): each one's code in the encodings that have it; TS1 is the default's. */
 export const TEXT_SYMBOLS: Record<string, Partial<Record<FontAttrs["enc"], number>>> = {
@@ -388,6 +394,18 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Error("paragraph adapter: unbalanced {")
       flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, inner) }); i = j + 1; continue
+    }
+    const si = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
+    if (si && si[1] in SI_COMMANDS) { // siunitx: its arguments in braces, no options
+      const args: string[] = []
+      let j = i + si[0].length
+      for (let n = 0; n < SI_COMMANDS[si[1]]; n++) {
+        while (body[j] === " ") j++
+        if (body[j] !== "{") throw new Unsupported(`\\${si[1]} ${body.slice(j, j + 20)}`)
+        const close = closingBrace(body, j)
+        args.push(body.slice(j + 1, close)); j = close + 1
+      }
+      flushText(); out.push({ kind: "si", cmd: si[1], args }); i = j; continue
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
@@ -614,7 +632,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         }
         const n = doc.refs?.cites?.get(key), l: Node[] = []
         // hyperref's \bibcite: the number in \hyper@@link[cite] to the item's cite.<key> anchor
-        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, font, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? "gray 0" : undefined, "cite")) }
+        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, font, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite")) }
         else if (n) appendText(l, n, font, { spaceFactor: 1000 }, false)
         else appendText(l, "?", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
         list.push(hpack(l))
@@ -677,7 +695,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
         const text: Node[] = []
         appendText(text, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted)
-        list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
+        list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
         continue
       }
       if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted); list.push(hpack([])) }
@@ -746,12 +764,12 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // (\Hy@SaveSpaceFactor, \Hy@RestoreSpaceFactor)
       const inner: Node[] = []
       appendPieces(inner, p.inner, font, size, state, { ...ctx, restricted: true }, attrs)
-      list.push(...doc.href(p.n, inner, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
+      list.push(...doc.href(p.n, inner, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
       ctx.ignoreSpaces = false
     }
     else if (p.kind === "url") {
       if (!doc.url) throw new Error("paragraph adapter: \\url outside a document")
-      list.push(...doc.url(p.n, size, attrs, !ctx.restricted, doc.xcolor ? ctx.color ?? "gray 0" : undefined))
+      list.push(...doc.url(p.n, size, attrs, !ctx.restricted, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
       state.spaceFactor = 1000 // after \mathoff
     }
     else if (p.kind === "symbol") {
@@ -759,6 +777,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const codes = TEXT_SYMBOLS[p.name], own = codes[attrs.enc]
       const f = own !== undefined ? font : selectFont(k, size, { ...attrs, enc: "TS1" })
       appendText(list, String.fromCharCode(own ?? codes.TS1!), f, state, !ctx.restricted)
+    }
+    else if (p.kind === "si") {
+      if (!doc.siunitx) throw new Unsupported(`\\${p.cmd} without siunitx`)
+      const micro = () => hpack([hpack([charNode(selectFont(k, size, { enc: "TS1", fam: "cmr", ser: "m", shape: "n" }), 0xb5)])]) // \text{\textmu}
+      for (const x of siunitx(p.cmd, p.args, { data: mathData(), micro })) {
+        if (x.kind === "formula") list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(x.list, mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+        else if (x.kind === "nobreak") list.push(penalty(10000))
+        else if (x.kind === "mbox") { const box: Node[] = []; appendText(box, x.src, font, { spaceFactor: 1000 }, false); list.push(hpack(box)) }
+        else appendPieces(list, [x.kind === "text" ? { kind: "text", src: x.src } : x], font, size, state, ctx, attrs)
+        if (x.kind === "formula" || x.kind === "mbox") state.spaceFactor = 1000
+      }
     }
     else if (p.kind === "thinspace") { // \tmspace+\thinmuskip{.16667em}; amsmath's says .1667em
       list.push(kern(parseDimen(ctx.amsmath ? ".1667em" : ".16667em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] }), true))

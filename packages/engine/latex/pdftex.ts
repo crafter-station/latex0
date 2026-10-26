@@ -14,6 +14,7 @@ function operators(spec: string): string {
   if (model === "rgb" && v.length === 3) return `${values} rg ${values} RG`
   if (model === "gray" && v.length === 1) return `${values} g ${values} G`
   if (model === "cmyk" && v.length === 4) return `${values} k ${values} K`
+  if (model === "Black" && !v.length) return "0 g 0 G" // color.sty's default (pdftex.def's \current@color)
   throw new Unsupported(`the color ${spec} with the pdftex driver`)
 }
 

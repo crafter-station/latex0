@@ -6,6 +6,7 @@
 import type { Node } from "../layout/nodes"
 import { squeeze, TEXT_SYMBOLS } from "./paragraph"
 import { Unsupported } from "./unsupported"
+import { SI_COMMANDS } from "./siunitx"
 
 export type Block =
   | { kind: "par"; text: string; noindent: boolean; /** the floats that start in it (\LXfloat{n}: the n-th) */ floats?: Extract<Block, { kind: "float" }>[]; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
@@ -168,6 +169,8 @@ const TEXT_COMMANDS = [
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge"
 ]
+/** siunitx's commands with their arguments, which the paragraph reads (siunitx.ts) */
+const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS)].join("|")}|the[a-zA-Z]+)\\b)[a-zA-Z]+(?!\\s*=)`)
 
@@ -260,7 +263,7 @@ export function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")

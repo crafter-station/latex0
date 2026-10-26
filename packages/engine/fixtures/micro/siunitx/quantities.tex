@@ -1,0 +1,32 @@
+% fixture: siunitx/quantities
+% tier: T3
+% engine: document
+% covers: siunitx's \SI and \qty (number, \nobreak, \, of the current font, unit; no \, for \degree, \arcminute and \arcsecond alone), \numrange, \SIrange and \qtyrange (\text{to} between), \numlist, \SIlist and \qtylist (", " and \text{and}), \ang, in bold and small text, in a tabular with array.sty's columns and rules (siunitx loads array), and breaks around them in a narrow paragraph
+% issue: #267
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+The pendulum of length \SI{0.75}{\metre} swung with period \SI{1.74 \pm 0.02}{\second}, at
+\qty{20}{\degreeCelsius} and \qty{3}{\percent} humidity, turned by \qty{90}{\degree}, then by
+\qty{5}{\arcminute} and \qty{12}{\arcsecond}; light runs at \SI{3e8}{\metre\per\second} and
+the load was \qty{1.2e3}{\kilo\gram}, or \SI{1.74 \pm 0.02}{\milli\second}.
+
+Ranges \numrange{1}{5}, \SIrange{1}{5}{\metre} and \qtyrange{-10}{12.5}{\kelvin}; lists
+\numlist{1}, \numlist{1;2}, \numlist{1;2;3} and \numlist{1; 2; 3; 4}, \SIlist{1;2;3}{\metre},
+\qtylist{4;5}{\second}; angles \ang{45}, \ang{1;2;3}, \ang{;;3} and \ang{12.5;30}.
+
+\textbf{In bold: \SI{2}{\micro\metre}, \numrange{1}{2} and \numlist{1;2;3}.}
+{\small Small: \qty{7}{\newton} and \qtyrange{1}{2}{\volt}.}
+
+\begin{tabular}{|>{\bfseries}l|r|}
+\hline\hline
+Speed & \qty{3}{\metre\per\second} \\
+Mass & \SI{1.5 \pm 0.1}{\kilo\gram} \\
+\hline
+\end{tabular}
+
+\begin{minipage}{4cm}
+A narrow paragraph with \qty{12.5}{\kilo\metre\per\hour}, \qty{3.14159}{\radian},
+\SIrange{100}{200}{\milli\litre} and \qtylist{1;2;3;4;5}{\ohm} to break.
+\end{minipage}
+\end{document}

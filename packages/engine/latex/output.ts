@@ -17,7 +17,7 @@ import { buildPages, type Page } from "../layout/pagebuilder"
 import { documentPages } from "../trace/decisions"
 import { dataFont } from "./data"
 import { pageAnchor } from "./hyperref"
-import { setgroup } from "./xcolor"
+import { setgroup, xcolor } from "./xcolor"
 import { Unsupported } from "./unsupported"
 
 const MAX_DIMEN = 0o7777777777
@@ -398,7 +398,7 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
       list.push(plain(last))
     }
     // \color@begingroup\normalcolor\footnoterule\unvbox\footins\color@endgroup
-    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial("push gray 0")] : []), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
+    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial(`push ${xcolor.normal}`)] : []), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
     if (sh.top.length) list = [...sh.top.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep)), plain(textfloatsep), ...list]
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)
