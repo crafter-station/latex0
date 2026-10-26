@@ -89,7 +89,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, urlOn = false, amsOn = false, graphOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, subOn = false, urlOn = false, amsOn = false, graphOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -161,13 +161,13 @@ export function makeDocument(r: () => number): string {
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
   // a minipage: one or two paragraphs (words, formulas, fonts), sometimes \centering first or a tabular inside
-  const minipage = (pos = "", inline = false, cap = "") => {
+  const minipage = (pos = "", inline = false, cap = "", env = "minipage") => {
     const par = () => words(3 + Math.floor(r() * 25)).split(" ").map((w) => r() < 0.04 ? `${w} ${math()}` : r() < 0.03 ? `\\textbf{${w}}` : w).join(" ")
     const body = [(r() < 0.3 ? "\\centering\n" : "") + par() + (r() < 0.12 ? ` ${tabular()}` : "")]
     if (!inline && r() < 0.3) body.push("", par()) // (in text, perhaps a command's argument: no \\par)
     // in a float: a caption (and a label), after the text or first
-    if (cap && r() < 0.6) { const c = `\\caption{${words(1 + Math.floor(r() * (r() < 0.3 ? 14 : 4)))}}${r() < 0.5 ? `\\label{${cap}}` : ""}`; if (r() < 0.75) body.push(c); else body.unshift(c) }
-    return `\\begin{minipage}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{minipage}`
+    if (cap && r() < (env === "minipage" ? 0.6 : 0.9)) { const c = `\\caption{${words(1 + Math.floor(r() * (r() < 0.3 ? 14 : 4)))}}${r() < 0.5 ? `\\label{${cap}}` : ""}`; if (r() < 0.75) body.push(c); else body.unshift(c) }
+    return `\\begin{${env}}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{${env}}`
   }
   const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
   // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)
@@ -186,6 +186,7 @@ export function makeDocument(r: () => number): string {
       if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
       if (siOn && r() < 0.03) ws[i] += pick([" ", " ", "~"]) + si()
+      if (subOn && r() < 0.004) ws[i] += ` \\subref{${pick(["figure", "table"])}:${20 + Math.floor(r() * 40)}${pick(["a", "b", "c"])}}`
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
@@ -384,6 +385,10 @@ export function makeDocument(r: () => number): string {
   // algorithm floats with algpseudocode (noend sometimes); not with hyperref or cleveref yet
   algOn = !hyper && !crefOn && !isLetter && r() < 0.15
   if (algOn) out.push(...(r() < 0.25 ? ["\\usepackage{algorithm}", "\\usepackage[noend]{algpseudocode}"] : r() < 0.4 ? ["\\usepackage{algorithm,algpseudocode}"] : ["\\usepackage{algorithm}", "\\usepackage{algpseudocode}"]))
+  // caption.sty, and subcaption with it sometimes; not with hyperref (hypcap), algorithms or listing captions yet
+  capOn = !hyper && !algOn && !isLetter && r() < 0.2
+  subOn = capOn && r() < 0.5
+  if (capOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? pick(["\\usepackage{subcaption}", "\\usepackage{caption}\n\\usepackage{subcaption}"]) : "\\usepackage{caption}")
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page
@@ -434,7 +439,8 @@ export function makeDocument(r: () => number): string {
         continue
       }
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
-      const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` : ""
+      const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` :
+        subOn && r() < 0.5 ? Array.from({ length: 1 + Math.floor(r() * 3) }, (_, j) => minipage(pick(["", "", "[t]", "[b]", "[c]"]), false, `${env}:${b}${"abc"[j]}`, `sub${env}`)).join(pick(["\n", "%\n", "\n\\hfill\n", "\n\\quad\n"])) : ""
       const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
       const below = table && r() < 0.5
       // a float that starts in the paragraph before it (no blank line), and the paragraph going on after it
@@ -498,7 +504,7 @@ export function makeDocument(r: () => number): string {
       // a listing, maybe right after text, maybe with a caption and a label, maybe text right after it
       if (!afterPar || r() < 0.5) out.push("")
       const keys = lstKeys(true)
-      if (cls === "article" && !hyper && r() < 0.3) keys.push(`caption={${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`label=lst:${b}`] : []))
+      if (cls === "article" && !hyper && !capOn && r() < 0.3) keys.push(`caption={${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`label=lst:${b}`] : []))
       out.push(`\\begin{lstlisting}${keys.length ? `[${keys.join(",")}]` : ""}`, ...code(!/language=\{?(\[\w+\])?C/.test(keys.join(",") + lstsetKeys)), "\\end{lstlisting}")
       afterPar = false
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }

@@ -1,0 +1,46 @@
+% fixture: caption/graphics
+% tier: T3
+% engine: document
+% covers: the lab-report shape: a booktabs table with a caption below, subfigures holding \includegraphics[width=\linewidth], a long main caption
+% issue: #269
+\begin{filecontents*}[overwrite]{box4x3.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 113 85
+%%EndComments
+\end{filecontents*}
+\documentclass{article}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\begin{document}
+\section{Data}
+The table and the figure below hold the measurements of the pendulum, taken three times for each length.
+\begin{table}[h]
+  \centering
+  \begin{tabular}{@{}lrr@{}}
+    \toprule
+    Trial & Period (s) & Error (s) \\
+    \midrule
+    A & 1.74 & 0.02 \\
+    B & 1.75 & 0.01 \\
+    \bottomrule
+  \end{tabular}
+  \caption{Measured periods.}
+  \label{tab:periods}
+\end{table}
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}{0.45\textwidth}
+    \includegraphics[width=\linewidth]{box4x3}
+    \caption{Setup}
+    \label{fig:setup}
+  \end{subfigure}
+  \begin{subfigure}{0.45\textwidth}
+    \includegraphics[width=\linewidth]{box4x3}
+    \caption{Period vs length}
+  \end{subfigure}
+  \caption{The experiment, with the setup on the left and the measured period against the length on the right.}
+\end{figure}
+Table~\ref{tab:periods} and Figure~\ref{fig:setup}.
+\end{document}

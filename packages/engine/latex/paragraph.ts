@@ -98,6 +98,8 @@ export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
   /** siunitx is loaded */
   siunitx?: boolean
+  /** subcaption is loaded (\subref) */
+  subcaption?: boolean
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
   xcolor?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
@@ -232,7 +234,7 @@ type Piece =
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
   | { kind: "group"; inner: Piece[] } | { kind: "decl"; name: string; inner: Piece[] }
   /** {\large …}: a size command in a group */
-  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string } | { kind: "pageref"; key: string }
+  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string; sub?: true } | { kind: "pageref"; key: string }
   /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
   /** a float that starts in the paragraph (\LXfloat{n}) */
   | { kind: "float"; n: number }
@@ -449,6 +451,9 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       if (!/^[A-Za-z0-9:._-]+$/.test(cref[2])) throw new Unsupported(`\\${cref[1]}{${cref[2]}}`) // (several labels: a list or a range)
       flushText(); out.push({ kind: "cref", key: cref[2], capital: cref[1] === "Cref", next: body[i + cref[0].length] ?? "" }); i += cref[0].length; continue
     }
+    // subcaption's \subref{key}: \ref{sub@key} in a group (subrefformat=simple, \p@subref empty)
+    const subref = body.slice(i).match(/^\\subref\{([A-Za-z0-9:._-]+)\}/)
+    if (subref) { flushText(); out.push({ kind: "ref", key: `sub@${subref[1]}`, sub: true }); i += subref[0].length; continue }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
     if (ref) {
       if (ref[1] === "label" && !footnotes) throw new Error("paragraph adapter: \\label in a footnote")
@@ -690,6 +695,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "ref" || p.kind === "pageref") {
       // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}
+      if (p.kind === "ref" && p.sub && !doc.subcaption) throw new Unsupported("\\subref without subcaption")
+      if (p.kind === "ref" && p.sub && doc.refs?.hyper) throw new Unsupported("\\subref with hyperref") // (\hyperref[key]{…})
       const known = doc.refs?.prev?.get(p.key)
       if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text

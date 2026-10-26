@@ -1,0 +1,30 @@
+% fixture: caption/minipage
+% tier: T3
+% engine: document
+% covers: caption.sty captions in minipages side by side (one wrapping), two captions in one table (the first on top fixes the position for the second)
+% issue: #269
+\documentclass{article}
+\usepackage{caption}
+\begin{document}
+Two figures side by side, each with its own caption.
+\begin{figure}[h]
+\centering
+\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{Left, with a caption long enough to take two lines.}\label{fig:l}
+\end{minipage}\hfill
+\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{c}B\end{tabular}
+\caption{Right.}\label{fig:r}
+\end{minipage}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{Above.}
+\begin{tabular}{ll}a & b\\\end{tabular}
+\caption{Below, the second caption of the table.}\label{tab:b}
+\end{table}
+Figures \ref{fig:l} and \ref{fig:r}, Table~\ref{tab:b}.
+\end{document}

@@ -198,6 +198,7 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
   for (const m of fbody.matchAll(re)) {
     if (m[1] !== undefined) {
       if (captioned) throw new Unsupported("two captions in an algorithm")
+      if (cx.pre.usesCaption) throw new Unsupported("an algorithm caption with caption.sty") // (its float.sty styles)
       captioned = true
       const text = m[1].replace(/\s+/g, " ").trim()
       if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)

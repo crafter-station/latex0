@@ -13,7 +13,12 @@ export interface Listing { options: string; lines: string[]; inline?: true }
 /** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
 export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
 /** a minipage environment as typed (taken out of the source after expansion: \LXminipage{n}) */
-export interface MinipageSource { pos: "t" | "b" | "c"; height: string | null; width: string; body: string }
+export interface MinipageSource {
+  /** (null: subcaption's subfigure or subtable with no position, b before the float's \caption and t after it) */
+  pos: "t" | "b" | "c" | null; height: string | null; width: string; body: string
+  /** subcaption's subfigure or subtable: a minipage whose \caption is a subcaption */
+  sub?: "figure" | "table"
+}
 /** commands that take no argument: a { after one opens a group */
 export const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
 
@@ -138,13 +143,15 @@ export function prepareSource(source: string): DocumentSource {
   if ([...src0.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
   // minipages: \LXminipage{n}, laid out where they stand
   const minipages: MinipageSource[] = []
-  const src = src0.replace(/\\begin\{minipage\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{minipage\}/g, (all: string, pos: string | undefined, height: string | undefined, _inner: string | undefined, width: string, body: string, offset: number, text: string) => {
+  // (and subcaption's subfigure and subtable, minipages too)
+  const src = src0.replace(/\\begin\{(minipage|subfigure|subtable)\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{\1\}/g, (all: string, env: string, pos: string | undefined, height: string | undefined, _inner: string | undefined, width: string, body: string, offset: number, text: string) => {
     if (commented(text, offset)) return all
-    if (/\\begin\{minipage\}/.test(body)) throw new Unsupported("a minipage in a minipage")
-    minipages.push({ pos: (pos ?? "c") as "c", height: height ?? null, width, body })
+    if (/\\begin\{(?:minipage|subfigure|subtable)\}/.test(body)) throw new Unsupported(`a minipage in a ${env}`)
+    const sub = env === "minipage" ? undefined : env === "subfigure" ? "figure" : "table"
+    minipages.push({ pos: (pos ?? (sub ? null : "c")) as MinipageSource["pos"], height: height ?? null, width, body, ...(sub ? { sub } : {}) })
     return `\\LXminipage{${minipages.length - 1}}`
   })
-  if ([...src.matchAll(/\\(?:begin|end)\{minipage\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
+  if ([...src.matchAll(/\\(?:begin|end)\{(?:minipage|subfigure|subtable)\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
   return { src, listings, tabulars, minipages, urls, graphics, files }
 }
 
