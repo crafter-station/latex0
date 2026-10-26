@@ -1,0 +1,31 @@
+% fixture: caption/report
+% tier: T3
+% engine: document
+% covers: subcaption in report (Figure 1.1, 1.1a), three subfigures joined by %, \subref to a defined and an undefined label
+% issue: #269
+\documentclass{report}
+\usepackage{subcaption}
+\begin{document}
+\chapter{Results}
+The measurements.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.3\textwidth}
+\centering
+\begin{tabular}{c}1\end{tabular}
+\caption{One}\label{a}
+\end{subfigure}%
+\begin{subfigure}{0.3\textwidth}
+\centering
+\begin{tabular}{c}2\end{tabular}
+\caption{Two}\label{b}
+\end{subfigure}%
+\begin{subfigure}{0.3\textwidth}
+\centering
+\begin{tabular}{c}3\end{tabular}
+\caption{Three, a longer one that wraps}\label{c}
+\end{subfigure}
+\caption{All three.}\label{all}
+\end{figure}
+Figure~\ref{all} has \subref{a}, \subref{b} and \ref{c}; \subref{none} is not there.
+\end{document}

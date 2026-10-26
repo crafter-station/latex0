@@ -81,6 +81,10 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   const clubOutside = v.club
   v.nodes.push(penalty(-50))
   vspace(medskip)
+  // caption.sty's \lst@MakeCaption: its options' \@esphack, \nobreak in vertical mode under \if@nobreak or \if@noskipsec
+  const capEsphack = () => { if (cx.pre.usesCaption && (v.nobreak || run.noskipsec)) v.nodes.push(penalty(10000)) }
+  if (cx.pre.usesCaption && hyper) throw new Unsupported("a listing with caption.sty and hyperref")
+  capEsphack()
   v.nodes.push(penalty(0)) // \allowbreak
   // \@currentHref after it: \refstepcounter{lstlisting} (a caption) or \lst@HRefStepCounter (\lst@neglisting
   // goes down), then each line's \refstepcounter{lstnumber}
@@ -89,6 +93,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   const lstAnchor = (name: string) => { if (hyper) v.nodes.push(...anchor(name, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
   if (o.caption !== null) {
     if (cls !== "article") throw new Unsupported("a listing caption outside article")
+    if (cx.pre.usesCaption) throw new Unsupported("a listing caption with caption.sty")
     const text = o.caption.replace(/\s+/g, " ").trim()
     if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`listing caption "${text}"`)
     const n = captioned = ++run.listingCount // \refstepcounter{lstlisting}
@@ -211,6 +216,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   // \lst@DeInit's \normalcolor: in the bottom frame's paragraph, which the \par below ends
   if (bottom) { v.prevDepth = IGNORE_DEPTH; frameParagraph(bottom, xcolor.on ? [colorPush()] : []) }
   else if (xcolor.on) v.nodes.push(colorPush())
+  capEsphack() // (\lst@MakeCaption b, after them)
   v.nodes.push(penalty(-50))
   vspace(medskip)
   if (xcolor.on) v.nodes.push(colorPop()) // the group's end

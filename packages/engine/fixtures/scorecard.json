@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 290,
-  "exact": 288,
+  "fixtures": 297,
+  "exact": 295,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 262096
+  "glyphs": 263487
  },
  "areas": [
   {
@@ -38,6 +38,11 @@
    "area": "booktabs",
    "fixtures": 1,
    "exact": 1
+  },
+  {
+   "area": "caption",
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "classes",
@@ -678,6 +683,83 @@
    "status": "pass",
    "glyphs": 143,
    "covers": "booktabs: \\toprule, \\midrule, \\bottomrule (and with a width), \\cmidrule with trims and widths, consecutive \\cmidrule's and \\morecmidrules, \\addlinespace (default and given), \\specialrule, rules in a row, in a float, in a \\small table and in text"
+  },
+  {
+   "id": "caption/basic",
+   "file": "micro/caption/basic.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 257,
+   "covers": "caption.sty's \\caption at its defaults: position=auto (below after content, \\hrule height0pt then \\abovecaptionskip; on top when \\prevdepth is -1000pt, the skips swapped), the single-line check (centered when it fits, else a justified paragraph), the \\parbox[b] with the struts; \\caption@xref's definition before the first \\label",
+   "issue": "#269"
+  },
+  {
+   "id": "caption/graphics",
+   "file": "micro/caption/graphics.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 288,
+   "covers": "the lab-report shape: a booktabs table with a caption below, subfigures holding \\includegraphics[width=\\linewidth], a long main caption",
+   "issue": "#269"
+  },
+  {
+   "id": "caption/listings",
+   "file": "micro/caption/listings.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 108,
+   "covers": "caption.sty's \\lst@MakeCaption around a listing without a caption: its options' \\@esphack puts a \\nobreak at the listing's top and bottom when \\if@nobreak (right after a heading, still true at the end) or \\if@noskipsec holds; a bottom frame, a single frame, xcolor",
+   "issue": "#269"
+  },
+  {
+   "id": "caption/minipage",
+   "file": "micro/caption/minipage.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 184,
+   "covers": "caption.sty captions in minipages side by side (one wrapping), two captions in one table (the first on top fixes the position for the second)",
+   "issue": "#269"
+  },
+  {
+   "id": "caption/order",
+   "file": "micro/caption/order.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 275,
+   "covers": "caption.sty with xcolor (\\normalcolor's push in the caption's group, popped after its last skip), a subcaption first in its subtable (below all the same: \\caption@ifsubcaption@above), the float's caption after subcaptions (below though first in the float's list), amsmath's \\@arrayparboxrestore putting LaTeX's \\label back in a minipage (no \\caption@xref there; the float's \\label writes it); subcaptions exactly as wide as their box (one line, centered) and a scaled point narrower (a paragraph); a caption on top in a minipage, and the float's caption after it placed by \\prevdepth",
+   "issue": "#269"
+  },
+  {
+   "id": "caption/report",
+   "file": "micro/caption/report.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 130,
+   "covers": "subcaption in report (Figure 1.1, 1.1a), three subfigures joined by %, \\subref to a defined and an undefined label",
+   "issue": "#269"
+  },
+  {
+   "id": "caption/subfigure",
+   "file": "micro/caption/subfigure.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "subcaption's subfigure and subtable (minipages, [b] before the float's caption and [t] after it), (a) subcaptions in \\small with a 6pt skip and no lof line, the float's counter stepped by the first subcaption, \\label writing sub@key, the position the float's caption fixed holding in the subtables",
+   "issue": "#269"
   },
   {
    "id": "classes/article-11pt",

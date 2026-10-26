@@ -1,0 +1,33 @@
+% fixture: caption/basic
+% tier: T3
+% engine: document
+% covers: caption.sty's \caption at its defaults: position=auto (below after content, \hrule height0pt then \abovecaptionskip; on top when \prevdepth is -1000pt, the skips swapped), the single-line check (centered when it fits, else a justified paragraph), the \parbox[b] with the struts; \caption@xref's definition before the first \label
+% issue: #269
+\documentclass{article}
+\usepackage{caption}
+\begin{document}
+Text before the floats.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Short.}
+\label{fig:a}
+\end{figure}
+\begin{table}[h]
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}Z\end{tabular}
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{On top.}
+\begin{tabular}{ll}
+a & b \\
+\end{tabular}
+\end{table}
+See Figure~\ref{fig:a}.
+\end{document}

@@ -225,6 +225,11 @@ variants + caption package, subcaption/subfigure/subfig, wrapfig, TikZ subset
 → SVG (paths, nodes, styles, `\foreach`, arrow tips, positioning), pgfplots
 basic axis, xy/amscd.
 
+🟡 caption.sty and subcaption at their defaults (#269): `\caption` with position=auto, the
+single-line check and struts; `subfigure`/`subtable` with (a) subcaptions, `\subref`. Not yet:
+caption with hyperref (hypcap's anchor), `\captionsetup` and package options, `\captionof`,
+`\subcaptionbox`, captions with commands or math.
+
 ### 4.7 Pages: the exact layout engine
 
 | Component | Source |

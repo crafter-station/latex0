@@ -9,11 +9,11 @@ import { emptyBox, glue, paramGlue, penalty, type BoxNode, type Node } from "../
 import { vpack } from "../layout/pack"
 import type { Ctx } from "./context"
 import { centering as centeringShape, raggedleft, raggedright, sloppy } from "./kernel"
-import { caption } from "./floats"
+import { caption, captionXref, type Captioned } from "./floats"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
 import { preamble, tabularBox, tabularLines, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
-import { hlistInput, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, type FontAttrs, type TabularOuter } from "./paragraph"
+import { hlistInput, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions, type TabularOuter } from "./paragraph"
 
 /** tabular number n where it stands in text (DocState.tabular) */
 export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
@@ -33,6 +33,9 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   const { counters, doc, minipages, refs, romanFont, run } = cx
   const m = minipages[n]
   if (m.height !== null) throw new Unsupported("a minipage with a height")
+  if (m.sub && (!cx.pre.usesSubcaption || run.captype !== m.sub)) throw new Unsupported(`a sub${m.sub} ${run.captype ? `in a ${run.captype}` : "outside a float"}`)
+  // subcaption's position: b, or t after the float's \caption (\caption@ifcaption)
+  const f = run.floatCaption, pos = m.pos ?? (f.number !== null && !f.pending ? "t" : "b")
   const font = selectFont(run.k, size, attrs), sz = run.k.sizes[size]
   let hsize: number
   try { hsize = parseDimen(m.width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, outer.lineWidth) }) } catch { throw new Unsupported(`a minipage {${m.width}}`) }
@@ -47,7 +50,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   const list: Node[] = []
   let pd: number | null = IGNORE_DEPTH
   // (in it, \textwidth and \columnwidth are its \hsize, and so is \linewidth after \@parboxrestore)
-  const outerWidth = run.minipageWidth
+  const outerWidth = run.minipageWidth, outerTop = f.top
   run.minipageWidth = hsize
   try {
   const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
@@ -55,7 +58,13 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   // LaTeX's restart of the paragraph
   const parskips = () => { if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) }
   // \caption (\par first) and a \label right after it, in vertical mode; paragraphs between
-  let cap: { number: number; name: string } | null = null
+  let cap: Captioned | null = null
+  const capLines = (start: Node[], text: string, opts: ParagraphOptions, size: SizeCommand = "normalsize") => {
+    const p = paragraphInput(text, run.k, size, doc, { start, hsize, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph, ...opts })
+    const lb = lineBreak(p.list, p.params)
+    outer.notes.push(...p.notes, lb.trace)
+    return lb.vlist
+  }
   for (const part of body.split(/(\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^{}]*\})/)) {
     const cm = part.match(/^\\caption\s*\{([^]*)\}$/)
     if (cm) {
@@ -65,21 +74,24 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
         push: (x) => list.push(x),
         box: (x) => { pd = appendToVlist(list, x, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit) },
         // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits)
-        paragraph: (start, text) => {
-          parskips()
-          const p = paragraphInput(text, run.k, "normalsize", doc, { start, hsize, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, finalHyphenDemerits: centering ? 0 : outer.finalHyph })
-          const lb = lineBreak(p.list, p.params)
-          outer.notes.push(...p.notes, lb.trace)
-          lines(lb.vlist)
-        },
-      })
+        paragraph: (start, text) => { parskips(); lines(capLines(start, text, {})) },
+        prevDepth: () => pd,
+        rule: () => { list.push({ kind: "rule", width: null, height: 0, depth: 0 }); pd = IGNORE_DEPTH },
+        lines: (start, text, opts, size) => capLines(start, text, opts, size),
+      }, !!m.sub)
       continue
     }
     const lm = part.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
     if (lm) {
       if (!cap) throw new Unsupported("a \\label in a minipage")
-      list.push(labelWrite(refs, lm[1], counters.the(cap.number), refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
-      list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: counters.the(cap.number) }))
+      list.push(...captionXref(cx, true), labelWrite(refs, lm[1], cap.label, refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
+      // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>
+      if (cap.sub !== undefined) {
+        if (cx.pre.cleveref) throw new Unsupported("a subcaption's \\label with cleveref")
+        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, refs.name))
+        continue
+      }
+      list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: cap.label }))
       continue
     }
     if (/^\\label/.test(part)) throw new Unsupported(`${part} in a minipage`)
@@ -101,11 +113,11 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     lines(lb.vlist)
   }
   }
-  } finally { run.minipageWidth = outerWidth }
+  } finally { run.minipageWidth = outerWidth; f.top = outerTop } // (the position a caption fixed in it ends with its group)
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
-  if (m.pos === "t") return [vtop(list)]
+  if (pos === "t") return [vtop(list)]
   const box = vpack(list)
-  if (m.pos === "b") return [box]
+  if (pos === "b") return [box]
   const delta = box.height + box.depth // \vcenter: make_vcenter (§ 736), about the axis
   box.height = mathEnv(run.k, size, amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
   box.depth = delta - box.height

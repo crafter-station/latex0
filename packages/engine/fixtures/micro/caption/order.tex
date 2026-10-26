@@ -1,0 +1,45 @@
+% fixture: caption/order
+% tier: T3
+% engine: document
+% covers: caption.sty with xcolor (\normalcolor's push in the caption's group, popped after its last skip), a subcaption first in its subtable (below all the same: \caption@ifsubcaption@above), the float's caption after subcaptions (below though first in the float's list), amsmath's \@arrayparboxrestore putting LaTeX's \label back in a minipage (no \caption@xref there; the float's \label writes it); subcaptions exactly as wide as their box (one line, centered) and a scaled point narrower (a paragraph); a caption on top in a minipage, and the float's caption after it placed by \prevdepth
+% issue: #269
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\begin{document}
+Text before.
+\begin{table}[h]
+\centering
+\vspace{20pt}
+\begin{subtable}[c]{6em}
+\caption{Typesetting with a caption first}\label{t:a}
+\centering
+under composition from \(\langle u, v\rangle\) by who
+
+when two with if like
+\end{subtable}\quad
+\begin{subtable}{0.4\textwidth}
+some words in a subtable
+\caption{Second}\label{t:b}
+\end{subtable}
+\caption{The float's caption.}\label{t:main}
+\end{table}
+See \ref{t:a}, \subref{t:b} and \ref{t:main}.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{5164702sp}
+\caption{Exactly as wide}
+\end{subfigure}
+\begin{subfigure}{5164701sp}
+\caption{Exactly as wide}
+\end{subfigure}
+\end{figure}
+\begin{figure}[h]
+\begin{minipage}{4cm}
+\caption{On top in its minipage.}
+\begin{tabular}{c}x\end{tabular}
+\end{minipage}
+\caption{Below the minipage, though the minipage's caption was on top.}
+\end{figure}
+\end{document}

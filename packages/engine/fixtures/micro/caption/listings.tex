@@ -1,0 +1,33 @@
+% fixture: caption/listings
+% tier: T3
+% engine: document
+% covers: caption.sty's \lst@MakeCaption around a listing without a caption: its options' \@esphack puts a \nobreak at the listing's top and bottom when \if@nobreak (right after a heading, still true at the end) or \if@noskipsec holds; a bottom frame, a single frame, xcolor
+% issue: #269
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{caption}
+\begin{document}
+\section{Code}
+\begin{lstlisting}
+x = 1
+y = 2
+\end{lstlisting}
+Text after it.
+\subsection{Framed below}
+\begin{lstlisting}[frame=b]
+z = 3
+\end{lstlisting}
+\subsection{Framed}
+\begin{lstlisting}[frame=single]
+w = 4
+\end{lstlisting}
+\paragraph{Run in}
+\begin{lstlisting}
+v = 5
+\end{lstlisting}
+Some text, then a listing in the middle of nothing special.
+\begin{lstlisting}
+u = 6
+\end{lstlisting}
+\end{document}

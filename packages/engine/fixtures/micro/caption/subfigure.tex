@@ -1,0 +1,40 @@
+% fixture: caption/subfigure
+% tier: T3
+% engine: document
+% covers: subcaption's subfigure and subtable (minipages, [b] before the float's caption and [t] after it), (a) subcaptions in \small with a 6pt skip and no lof line, the float's counter stepped by the first subcaption, \label writing sub@key, the position the float's caption fixed holding in the subtables
+% issue: #269
+\documentclass{article}
+\usepackage{caption}
+\usepackage{subcaption}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Setup}
+\label{fig:s}
+\end{subfigure}
+\begin{subfigure}{0.45\textwidth}
+\begin{tabular}{c}Y\end{tabular}
+\caption{Period vs length of the pendulum measured in the lab}
+\end{subfigure}
+\caption{The experiment.}
+\label{fig:e}
+\end{figure}
+See \ref{fig:s} and \ref{fig:e}.
+\begin{table}[h]
+\caption{Before the subtables.}
+\begin{subtable}{0.3\textwidth}
+\caption{First}\label{tab:a}
+\begin{tabular}{ll}a & b\\\end{tabular}
+\end{subtable}
+\hfill
+\begin{subtable}[b]{0.3\textwidth}
+\begin{tabular}{ll}c & d\\\end{tabular}
+\caption{Second}
+\end{subtable}
+\end{table}
+Table~\ref{tab:a}.
+\end{document}
