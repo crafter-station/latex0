@@ -1,0 +1,12 @@
+% fixture: siunitx/hyperref
+% tier: T3
+% engine: document
+% covers: siunitx with hyperref: links (\ref, \url, a footnote's mark) with the color package's default color loaded
+% issue: #267
+\documentclass{article}
+\usepackage{siunitx}
+\usepackage{hyperref}
+\begin{document}
+\section{Lengths}\label{s:len}
+In Section~\ref{s:len} the rod\footnote{Of \SI{2}{\metre}.} is \qty{1.5}{\metre} long, see \url{https://example.com}.
+\end{document}

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 284,
-  "exact": 282,
+  "fixtures": 290,
+  "exact": 288,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 260837
+  "glyphs": 262096
  },
  "areas": [
   {
@@ -143,6 +143,11 @@
    "area": "setspace",
    "fixtures": 5,
    "exact": 5
+  },
+  {
+   "area": "siunitx",
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "tabular",
@@ -2737,6 +2742,72 @@
    "glyphs": 600,
    "covers": "setspace's \\setstretch{1.5} at 11pt in article, and the [onehalfspacing] option overridden by it",
    "issue": "#253"
+  },
+  {
+   "id": "siunitx/color-pdftex",
+   "file": "micro/siunitx/color-pdftex.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 79,
+   "covers": "siunitx loads color at \\begin{document}: \\normalcolor and \\color@setgroup push the default color in footnotes, floats, minipages and the output routine as with xcolor; under pdfTeX color.sty's Black is 0 g 0 G on the color stack",
+   "issue": "#267"
+  },
+  {
+   "id": "siunitx/color",
+   "file": "micro/siunitx/color.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 79,
+   "covers": "siunitx loads color at \\begin{document}: \\normalcolor and \\color@setgroup push the default color in footnotes, floats, minipages and the output routine as with xcolor",
+   "issue": "#267"
+  },
+  {
+   "id": "siunitx/hyperref",
+   "file": "micro/siunitx/hyperref.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 66,
+   "covers": "siunitx with hyperref: links (\\ref, \\url, a footnote's mark) with the color package's default color loaded",
+   "issue": "#267"
+  },
+  {
+   "id": "siunitx/numbers",
+   "file": "micro/siunitx/numbers.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 361,
+   "covers": "siunitx's \\num: signs (a + goes, a zero has none), leading zeros, decimal markers . and , and an empty integer or decimal part, digit groups of three with \\, in parts of five or more digits (integer and exponent from the right, decimals from the left), compact uncertainties from \\pm and +- (padded to the same decimals; a zero one goes) and in brackets, exponents e and d (none for 0, no mantissa), \\pm as a sign",
+   "issue": "#267"
+  },
+  {
+   "id": "siunitx/quantities",
+   "file": "micro/siunitx/quantities.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 415,
+   "covers": "siunitx's \\SI and \\qty (number, \\nobreak, \\, of the current font, unit; no \\, for \\degree, \\arcminute and \\arcsecond alone), \\numrange, \\SIrange and \\qtyrange (\\text{to} between), \\numlist, \\SIlist and \\qtylist (\", \" and \\text{and}), \\ang, in bold and small text, in a tabular with array.sty's columns and rules (siunitx loads array), and breaks around them in a narrow paragraph",
+   "issue": "#267"
+  },
+  {
+   "id": "siunitx/units",
+   "file": "micro/siunitx/units.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 259,
+   "covers": "siunitx's \\si and \\unit: prefixes and symbols in \\mathrm (one letter alone, more in a box), \\, between units, \\per as a power -1, \\square, \\cubic, \\squared, \\cubed, \\tothe and \\raiseto (a negative one after \\per positive), \\degreeCelsius and \\degree ({}^{\\circ}), \\arcminute and \\arcsecond ({}' and {}''), \\ohm (\\mathrm{\\Omega}), \\micro (\\text{\\textmu}, upright even in bold), \\percent, abbreviations (\\kg, \\mA, \\kohm, \\ml, \\kWh with no product), literal units with . ~ / and ^",
+   "issue": "#267"
   },
   {
    "id": "tabular/declarations",

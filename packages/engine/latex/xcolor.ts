@@ -134,8 +134,10 @@ export class Colors {
 export const COLOR_CMD = /\\color\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}/g
 
 /** xcolor (dvips driver): \set@color's push and \reset@color's pop; the document's color while it is loaded */
-export const xcolor = { on: false }
-export const colorPush = (spec = "gray 0"): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` })
+/** a color package is loaded (xcolor, or color: siunitx loads it at \begin{document}), and the default color as
+ *  the driver gets it: xcolor's black, or color.sty's named Black (dvips.def's \current@color " Black") */
+export const xcolor = { on: false, normal: "gray 0" }
+export const colorPush = (spec = xcolor.normal): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` })
 export const colorPop = (): Node => ({ kind: "whatsit", text: "\\special{color pop}" })
 /** with xcolor, \color@setgroup (\sbox, \mbox): the current color pushed in the box and popped at its end */
 export const setgroup = (nodes: Node[]): Node[] => (xcolor.on ? [colorPush(), ...nodes, colorPop()] : nodes)

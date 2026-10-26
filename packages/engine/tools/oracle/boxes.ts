@@ -73,7 +73,7 @@ export function parseBoxDump(lines: string[], i: number): { box: BoxNode; end: n
   for (i++; i < lines.length && lines[i] !== ""; i++) {
     let line = lines[i]
     // character 10 is LaTeX's \newlinechar, so print_ASCII ends the line there (§ 58)
-    if (/^[.|]*\\\S+ $/.test(line) && i + 1 < lines.length) line += "\n" + lines[++i]
+    if (/^[.|]*\\\S+(?: \([^()\s]+\))? $/.test(line) && i + 1 < lines.length) line += "\n" + lines[++i]
     const prefix = line.match(/^[.|]*/)![0]
     const depth = prefix.length
     // a line inside a box display always starts with its depth's dots: one without them goes on with the last

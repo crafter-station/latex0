@@ -1,0 +1,19 @@
+% fixture: siunitx/units
+% tier: T3
+% engine: document
+% covers: siunitx's \si and \unit: prefixes and symbols in \mathrm (one letter alone, more in a box), \, between units, \per as a power -1, \square, \cubic, \squared, \cubed, \tothe and \raiseto (a negative one after \per positive), \degreeCelsius and \degree ({}^{\circ}), \arcminute and \arcsecond ({}' and {}''), \ohm (\mathrm{\Omega}), \micro (\text{\textmu}, upright even in bold), \percent, abbreviations (\kg, \mA, \kohm, \ml, \kWh with no product), literal units with . ~ / and ^
+% issue: #267
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+Speeds in \si{\kilo\metre\per\hour} and \si{\metre\per\second\squared}, areas in \si{\square\metre},
+volumes in \unit{\cubic\centi\metre}, \si{\per\second}, \si{\joule\per\kilogram\per\kelvin}, \si{\metre\tothe{4}},
+\si{\raiseto{3}\metre}, \si{\per\square\metre}, \si{\per\metre\tothe{-2}} and \si{\kelvin\cubed}; \si{\newton\metre}, \si{\volt\ampere}, \si{\hertz}.
+
+Temperatures in \si{\degreeCelsius}, angles in \si{\degree}, \si{\arcminute} and \si{\arcsecond},
+resistance in \si{\ohm} and \si{\kilo\ohm}, lengths in \si{\micro\metre} or \textbf{\si{\micro\metre}},
+\si{\percent}, \si{\litre}, \si{\milli\litre}, \si{\decibel}, \si{\electronvolt}, \si{\mole}, \si{\candela}.
+
+Abbreviations \si{\kg}, \si{\mA}, \si{\kohm}, \si{\ml}, \si{\uL}, \si{\MHz}, \si{\um}, \si{\ms}, \si{\kWh} and \si{\dB}.
+Literal units \si{m/s}, \si{kg.m/s^2}, \si{N~m}, \si{km}, \si{m^2} and \si{m^{-1}}.
+\end{document}

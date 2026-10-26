@@ -203,7 +203,8 @@ cmti10 cmtt10 cmss10`, 5/6/7/8/9/12/17pt variants, `msam10 msbm10`, `eufm10`,
 | Math alphabets: `\mathcal \mathbb \mathfrak \mathscr \mathsf \mathtt \mathit \mathbf \boldsymbol`, `bm`; `\text`/`\textrm` in math | 🟡 | |
 | Environments exact: `equation align alignat flalign gather multline split aligned gathered cases dcases subequations`, `\intertext`, `\tag \tag* \notag`, number placement (`leqno`, `fleqn`), `eqnarray` | 🟡 | amsmath `amsmath.pdf`, `amsldoc` |
 | Spacing & phantoms: `\, \: \; \! \quad \qquad \mspace`, `\phantom \hphantom \vphantom \smash \mathstrut`, `\not`, `cancel` | 🟡 | |
-| Packages: mathtools, physics, siunitx, amscd, mhchem | ❌ | |
+| siunitx in text: `\num \si \unit \SI \qty`, ranges, lists, `\ang` at the default options (#267); options, `\sisetup`, the `S` column and math mode not yet | 🟡 | `siunitx.pdf` |
+| Packages: mathtools, physics, amscd, mhchem | ❌ | |
 | Symbols: amssymb, latexsym, stmaryrd/wasysym subsets → ~1000 | 🟡 | |
 | Hidden MathML for accessibility | ❌ | later |
 

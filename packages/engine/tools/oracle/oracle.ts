@@ -84,7 +84,7 @@ export function oracleTrace(fixture: string): Trace {
 import { createHash } from "node:crypto"
 import { existsSync, readdirSync, unlinkSync, writeFileSync } from "node:fs"
 
-const ORACLE_FORMAT = 7 // 7: \pdftracingfonts (box dumps name each font's file and size); 6: a line of spaces does not end a paragraph's trace; 5: fixed date; 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
+const ORACLE_FORMAT = 8 // 8: character 10 after a font named by \pdftracingfonts; 7: \pdftracingfonts (box dumps name each font's file and size); 6: a line of spaces does not end a paragraph's trace; 5: fixed date; 3: cache holds { trace, decisions, pages }; 4: \tracingassigns for \looseness
 let texVersionMemo: string | undefined
 
 export function cachedOracle(fixture: string): OracleResult & { cached: boolean } {
