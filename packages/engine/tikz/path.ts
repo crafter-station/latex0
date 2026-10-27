@@ -1140,15 +1140,15 @@ export class TikzPicture {
     return wrapped
   }
 
-  /** the node's path (#4 of \pgfmultipartnode): \tikz@finish in a group, the line width kept */
+  /**
+   * the node's path (#4 of \pgfmultipartnode): \tikz@finish in a group (\pgflinewidth, which it sets to the
+   * path's, put back after it is not read again before \endpgfscope restores it)
+   */
   private nodePath() {
-    const lineWidth = this.tz.st.lineWidth // \pgfutil@tempdima=\pgflinewidth
     this.begin() // {
     this.begin() // \begingroup, which \tikz@finish ends
     this.finish(null, false)
     this.end() // }
-    this.s.lineWidth = lineWidth
-    this.globalLineWidth()
   }
 
   /** \tikz@node@transformations (4157–4170): at the node's position, or by the timer for a label */

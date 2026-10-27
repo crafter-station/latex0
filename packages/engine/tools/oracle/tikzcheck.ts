@@ -127,6 +127,8 @@ const FIXED = [
   pic("\\draw (0,0) node[coordinate] (z) {} -- (1,1); \\draw (z) -- (2,0) node[at end,above] {end} node[at start,below] {start};"),
   pic("\\node[draw] (a) at (0,0) {A}; \\draw (a) -- ++(2,1) -- (a); \\draw (a) to[red] +(0,2);"),
   pic("\\node[draw,font=\\small] (a) {Small text}; \\node[font=\\bfseries\\itshape] at (2,0) {Bold}; \\node[font=\\footnotesize,circle,draw] at (0,1) {f};"),
+  pic("\\begin{scope}[draw=red] \\node[text=blue] {x}; \\node at (1,0) {y }; \\end{scope} \\node[draw,rotate=30] (r) at (1.3,-1.7) {R}; \\draw (r) |- (0,2) (r) -| (2,2);"),
+  pic("\\node[draw] (a) {A}; \\node[draw,circle] (b) at (3,2) {B}; \\draw (a) -- (b) -- cycle (b) ellipse (6mm and 4mm) (a) circle (2mm) (a) rectangle (1,1); \\draw[red] (a) {-- (b)} -- (2,0);"),
   "\\tikz \\node[draw] {x};",
   "\\tikz \\draw (0,0) node {a} -- (1,0) node {b};",
 ]
