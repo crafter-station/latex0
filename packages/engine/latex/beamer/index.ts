@@ -86,7 +86,7 @@ function frame(cx: BeamerCtx, f: FrameSource) {
   for (let slide = 1; ; slide++) {
     if (slide > 1) clearpage(cx)
     const overlay = newOverlay(slide)
-    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, overlay }, f, cx.pre.centered)
+    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, overlay, smuggled: [] }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
     cx.v.box(box, bs)

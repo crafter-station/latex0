@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 393,
-  "exact": 390,
+  "fixtures": 398,
+  "exact": 395,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 304434
+  "glyphs": 305953
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 38,
-   "exact": 37
+   "fixtures": 43,
+   "exact": 42
   },
   {
    "area": "bibliography",
@@ -1119,6 +1119,61 @@
    "glyphs": 235,
    "covers": "beamer: itemize and enumerate at 8pt (msam10 at 8pt, beamer's list skips), ten items (two-digit labels flush right), a list right after another, items of two paragraphs, a frame title over a list, text after a blank line (indented again)",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/overlay-boundaries",
+   "file": "micro/beamer/overlay-boundaries.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 262,
+   "covers": "beamer: overlay commands between letters that kern (AV\\only<2>{V}A, W\\uncover<2>{A}V), between two spaces, with incremental specifications <+->, \\only around a list in vertical mode, \\uncover right after a list (its skip smuggled past the specials), and \\temporal alone asking for a second slide",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-commands",
+   "file": "micro/beamer/overlay-commands.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 285,
+   "covers": "beamer: \\only, \\alt, \\temporal, \\uncover, \\visible, \\invisible and \\onslide in and between paragraphs over three slides (the covered parts between pgf's invisible specials, a space before them smuggled past them)",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-items",
+   "file": "micro/beamer/overlay-items.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "beamer: \\item<n-> in itemize (covered items invisible on the slides before), and [<+->] on enumerate (one more item each slide)",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-mixed",
+   "file": "micro/beamer/overlay-mixed.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 698,
+   "covers": "beamer: item specifications <n>, <n-m>, <-m> and lists, an item ended by a blank line, \\pause right after a list (the skip it ends with smuggled past the specials) and \\pause[n], with the infolines footline over the slides; a range's end alone asking for a second slide",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-pause",
+   "file": "micro/beamer/overlay-pause.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "beamer: \\pause between paragraphs: one page per slide, the paragraphs after a \\pause invisible (pgf's invisible specials) on the slides before",
+   "issue": "#300"
   },
   {
    "id": "beamer/sections-short",

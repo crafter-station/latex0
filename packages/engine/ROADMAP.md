@@ -271,11 +271,18 @@ elsarticle, revtex4, neurips/icml/iclr, exam, moderncv. Each is a binding + a
 conformance fixture set.
 
 🟡 beamer (#283), its own pipeline (`latex/beamer/`) with class data from TeX for every size option
-(8pt–20pt): the default theme with the navigation symbols switched off, frames as pages (the frame
-environment and `\frame`, `[c]` and `[t]`) with beamer's head (background canvas, sidebars) and foot,
-the frames' paragraphs ragged right in the sans serif fonts, `\textbf` and friends and beamer's
-`\emph`, the .nav writes and page anchors, with dvips. Not yet: other themes, the navigation
-symbols, frame titles, the title page, lists, blocks, columns, overlays, math, pdfTeX.
+(8pt–20pt) and theme data from TeX (data/beamer: the default theme, the whale, orchid, seahorse,
+beaver and dolphin color themes, the infolines outer theme with the default headline), the
+navigation symbols switched off, frames as pages (the frame environment and `\frame`, `[c]` and
+`[t]`) with beamer's head (background canvas, sidebars) and foot (infolines' three boxes with the
+frame number), frame titles, rectangular beamercolorboxes, the default title page, first-level
+itemize and enumerate, the frames' paragraphs ragged right in the sans serif fonts, `\textbf` and
+friends and beamer's `\emph`; `\section` and `\subsection` between frames (toc, nav and bookmark
+writes) and `\tableofcontents`; overlays (one page per slide, `\pause`, `\item<…>` and `[<+->]`,
+`\only`, `\alt`, `\temporal`, `\uncover`, `\visible`, `\invisible`, `\onslide`, covered material
+between pgf's invisible specials); the .nav writes and page anchors, with dvips (#289, #299, #300).
+Not yet: Madrid's rounded boxes and shadows, the navigation symbols, blocks, columns, nested
+lists, math, pdfTeX.
 
 ---
 

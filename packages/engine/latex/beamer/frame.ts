@@ -24,7 +24,7 @@ import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
-import { groupEnd, pause, smuggle, type Overlay } from "./overlays"
+import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
 import { tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
 
@@ -100,7 +100,9 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** the .toc lines the last run wrote (\tableofcontents reads them) */
   toc: TocEntry[]
   /** the slide being typeset and its overlay state */
-  overlay: Overlay }
+  overlay: Overlay
+  /** the nodes each \LXsmuggle{n} in the frame's text stands for (overlay specials) */
+  smuggled: Node[][] }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -125,7 +127,7 @@ export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape
  *  otherwise); its trace goes to cx.decisions. */
 export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {}): Node[] {
   plainText(text)
-  const doc: DocState = { footnote: 0, xcolor: true }
+  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n] }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = text, prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
@@ -169,8 +171,23 @@ const paragraph: FrameHandler = (cx, v, text) => {
     cx.listInParagraph = true
   }
   if (cx.endpe) { s.indent = false; cx.endpe = false }
-  v.paragraph(setParagraph(cx, par, s), cx.k.glue.parskip)
+  v.paragraph(setParagraph(cx, overlayText(cx.overlay, par, cx.smuggled), s), cx.k.glue.parskip)
   return rest
+}
+
+/** An overlay command in vertical mode (overlays.ts): the specials it begins with go on the frame's list (smuggled past
+ *  a skip that ends it); what takes its place is read next */
+const overlay: FrameHandler = (cx, v, text) => {
+  const c = overlayCommand(cx.overlay, text, cx.smuggled)
+  if (c.begin) smuggle(v, c.begin)
+  return c.text + text.slice(c.end)
+}
+
+/** the specials an overlay command's \LXsmuggle{n} stands for, reached in vertical mode */
+const smuggled: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\LXsmuggle\{(\d+)\}/)!
+  smuggle(v, cx.smuggled[Number(m[1])])
+  return text.slice(m[0].length)
 }
 
 /** itemize and enumerate (lists.ts); a paragraph right after one comes with \@endpetrue */
@@ -196,7 +213,8 @@ function plainText(text: string) {
   let t = text, prev = ""
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
-  const bad = t.replace(/\\quad(?![A-Za-z])/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  // (and the empty groups and placeholders overlay commands leave)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -277,7 +295,8 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+  only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {

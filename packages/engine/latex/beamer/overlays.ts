@@ -108,3 +108,76 @@ export function groupEnd(o: Overlay, frame: boolean): Node[] {
 export const coverBegin = (shown: boolean): Node[] => (shown ? emptyPair() : beginInvisible())
 /** and ended: the empty pair or \pgfsys@endinvisible, then the two pairs \aftergroup'd to its group's end */
 export const coverEnd = (shown: boolean): Node[] => [...(shown ? emptyPair() : endInvisible()), ...emptyPair(), ...emptyPair()]
+
+/** the overlay commands read in a frame's text */
+const COMMAND = /\\(only|alt|temporal|uncover|visible|invisible|onslide)(?![A-Za-z])/
+
+/** What an overlay command at the start of `text` does: `begin`, the specials it puts before its argument (null for
+ *  \only, \alt and \temporal, which put none), then `text`, the material that takes its place (its \LXsmuggle{n}
+ *  placeholders for the specials after it, registered in `smuggled`), and `end`, where it ends in `text` */
+export function overlayCommand(o: Overlay, text: string, smuggled: Node[][]): { begin: Node[] | null; text: string; end: number } {
+  const m = text.match(COMMAND)
+  if (!m || m.index !== 0) throw new Error("no overlay command")
+  let i = m[0].length, name = m[1]
+  if (name === "onslide" && (text[i] === "+" || text[i] === "*")) name += text[i++]
+  while (/\s/.test(text[i] ?? "")) i++ // (\@ifnextchar< skips spaces)
+  if (text[i] !== "<") throw new Unsupported(`beamer: \\${name} without an overlay specification first`)
+  const close = text.indexOf(">", i)
+  if (close < 0) throw new Unsupported(`beamer: \\${name}'s overlay specification`)
+  const spec = text.slice(i + 1, close)
+  i = close + 1
+  const arg = () => {
+    while (/\s/.test(text[i] ?? "")) i++
+    if (text[i] !== "{") throw new Unsupported(`beamer: \\${name} without a braced argument`)
+    let depth = 0
+    for (let j = i; j < text.length; j++) {
+      if (text[j] === "\\") { j++; continue }
+      if (text[j] === "{") depth++
+      else if (text[j] === "}" && --depth === 0) { const a = text.slice(i + 1, j); i = j + 1; return a }
+    }
+    throw new Unsupported(`beamer: \\${name}'s argument not closed`)
+  }
+  const mark = (nodes: Node[]) => { smuggled.push(nodes); return `\\LXsmuggle{${smuggled.length - 1}}` }
+  // the argument read after the specification is decoded, its own overlay commands as it is
+  const inner = (t: string) => overlayText(o, t, smuggled)
+  if (name === "only" || name === "onslide*") { const a = arg(); return { begin: null, text: inSpec(o, spec) ? inner(a) : "", end: i } }
+  if (name === "alt") { const a = arg(), b = arg(); return { begin: null, text: inner(inSpec(o, spec) ? a : b), end: i } }
+  if (name === "temporal") {
+    // the text before the slides named (some named slide is later: \ifbeamer@localanotherslide), on them, after them
+    const before = arg(), on = arg(), after = arg()
+    const another = o.another
+    o.another = false
+    const shown = inSpec(o, spec), later = o.another
+    o.another ||= another
+    return { begin: null, text: inner(shown ? on : later ? before : after), end: i }
+  }
+  // \onslide<spec> without an argument (\beamer@noargsonslide, \beamer@noargsvisibleonslide): as \pause
+  if (name.startsWith("onslide") && !/^\s*\{/.test(text.slice(i))) {
+    const nodes = endpause(o)
+    const shown = inSpec(o, spec)
+    o.endpause = shown ? "spacing" : "covered"
+    o.queue++
+    return { begin: [...nodes, ...(shown ? emptyPair() : beginInvisible())], text: "", end: i }
+  }
+  // \uncover (\onslide), \visible (\onslide+): shown, \beamer@fakeinvisible's empty pairs around the argument, else
+  // \beamer@makecovered's or \beamer@reallymakeinvisible's \pgfsys@begininvisible and \pgfsys@endinvisible (the same
+  // with beamer's invisible covering); \invisible the other way round. Each leaves a pair for the group.
+  const shown = inSpec(o, spec) !== (name === "invisible")
+  const a = arg()
+  o.queue += 2
+  return { begin: shown ? emptyPair() : beginInvisible(), text: inner(a) + mark(shown ? emptyPair() : endInvisible()), end: i }
+}
+
+/** Paragraph text with its overlay commands done for the slide: \only, \alt and \temporal leave the text they choose
+ *  after an empty group (their assignments end a ligature or a kern as one does), the others \LXsmuggle{n}'s */
+export function overlayText(o: Overlay, text: string, smuggled: Node[][]): string {
+  let out = ""
+  for (let rest = text; ;) {
+    const m = rest.match(COMMAND)
+    if (!m) return out + rest
+    out += rest.slice(0, m.index)
+    const c = overlayCommand(o, rest.slice(m.index), smuggled)
+    out += c.begin ? `\\LXsmuggle{${smuggled.push(c.begin) - 1}}${c.text}` : `{}${c.text}`
+    rest = rest.slice(m.index! + c.end)
+  }
+}
