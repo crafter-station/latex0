@@ -132,12 +132,13 @@ export class CrefSetup {
 export type CrefOut = { t: "text"; s: string } | { t: "tie" } | { t: "qq" } | { t: "link"; key: string; out: CrefOut[] } | { t: "textup"; src: string; out: CrefOut[] }
 
 type Family = "cref" | "Cref"
-type Pos = "" | "@first" | "@second" | "@middle" | "@last"
+type Pos = "" | "@first" | "@middle" | "@last"
 
 const text = (s: string): CrefOut => ({ t: "text", s })
 const TIE: CrefOut = { t: "tie" }
-/** the english option's conjunctions (\crefpairconjunction … \creflastgroupconjunction, \crefrangeconjunction) */
-const CONJ: Record<Exclude<Pos, "" | "@first">, CrefOut[]> = { "@second": [text(" and"), TIE], "@middle": [text(", ")], "@last": [text(" and"), TIE] }
+/** the english option's conjunctions (\crefpairconjunction and \creflastconjunction alike … \creflastgroupconjunction,
+ *  \crefrangeconjunction) */
+const CONJ: Record<Exclude<Pos, "" | "@first">, CrefOut[]> = { "@middle": [text(", ")], "@last": [text(" and"), TIE] }
 const PAIR_GROUP = [text(" and"), TIE], MIDDLE_GROUP = [text(", ")], LAST_GROUP = [text(", and"), TIE]
 const RANGE_CONJ = [text(" to"), TIE]
 
@@ -163,10 +164,8 @@ export function crefOutput(setup: CrefSetup, prev: Map<string, CrefEntry> | null
   const refs = keys.map((k) => ({ key: k, r: ref(k) }))
   // \cref@isrefsametype (\cpageref@…: the page's \thepage at 1); undefined ones are alike
   const same = (a: Ref | null, b: Ref | null) => !a || !b ? !a && !b : page ? a.type === b.type : setup.formatKey(a.type) === setup.formatKey(b.type)
-  // \@cref@countercmp: 1 when a comes first, 2 when b does, 0 when equal; an undefined one last
-  const cmp = (a: Ref | null, b: Ref | null): number => {
-    if (!a) return 2
-    if (!b) return 1
+  // \@cref@countercmp: 1 when a comes first, 2 when b does, 0 when equal (the prefix's counters, then the counter)
+  const cmp = (a: Ref, b: Ref): number => {
     const xs = [...(a.prefix ? a.prefix.split(",").map(Number) : []), a.counter], ys = [...(b.prefix ? b.prefix.split(",").map(Number) : []), b.counter]
     for (let i = 0; ; i++) {
       if (i >= xs.length) return i >= ys.length ? 0 : 1
@@ -183,15 +182,17 @@ export function crefOutput(setup: CrefSetup, prev: Map<string, CrefEntry> | null
     let sub: typeof refs
     if (sort) {
       // \cref@processgroupall: the refs of the first one's type, in order; then \cref@stack@sort, each inserted before
-      // the first one already there that comes after it
+      // the first one already there that comes after it (undefined ones, all ??, in any order)
       const first = stack[0].r
       sub = stack.filter((x) => same(first, x.r)); stack = stack.filter((x) => !same(first, x.r))
-      const sorted: typeof refs = []
-      for (const x of sub) {
-        const at = sorted.findIndex((y) => cmp(y.r, x.r) === 2)
-        if (at < 0) sorted.push(x); else sorted.splice(at, 0, x)
+      if (first) {
+        const sorted: typeof refs = []
+        for (const x of sub) {
+          const at = sorted.findIndex((y) => cmp(y.r!, x.r!) === 2)
+          if (at < 0) sorted.push(x); else sorted.splice(at, 0, x)
+        }
+        sub = sorted
       }
-      sub = sorted
     } else {
       // \cref@processgroup: the refs of the first one's type up to the first of another
       let n = 1
@@ -204,21 +205,17 @@ export function crefOutput(setup: CrefSetup, prev: Map<string, CrefEntry> | null
       group++
       family = "cref" // (\lowercase{\def\cref@variant{#1}})
     }
-    // the group's refs, runs of consecutive ones a range (two: each on its own, the second kept from the next)
-    const queue = sub.map((x) => ({ ...x, barrier: false }))
+    // the group's refs, a run of consecutive ones a range: of the same label, the first alone; of two, each on its own
+    // (the second pushed back, with an empty one after it that keeps it from the next: it was not consecutive to it)
+    const queue = sub.slice()
     for (let n = 1; queue.length; n++) {
       const begin = queue.shift()!
       let end: typeof begin | null = null, count = 1
-      if (compress && !begin.barrier && queue.length) {
-        let ok = consecutive(begin.r, queue[0].r)
-        while (ok) {
-          count++; end = queue.shift()!
-          ok = !end.barrier && queue.length > 0 && consecutive(end.r, queue[0].r)
-        }
-      }
+      if (compress) while (queue.length && consecutive((end ?? begin).r, queue[0].r)) { count++; end = queue.shift()! }
       if (count > 1 && begin.r!.label === end!.r!.label) { end = null; count = 1 }
-      if (count === 2) { queue.unshift({ ...end!, barrier: true }); end = null; count = 1 }
-      const pos: Pos = queue.length ? (n === 1 ? "@first" : "@middle") : n === 1 ? "" : n === 2 ? "@second" : "@last"
+      if (count === 2) { queue.unshift(end!); end = null; count = 1 }
+      // (the second of two is @second, the last of more @last: \crefpairconjunction and \creflastconjunction, the same)
+      const pos: Pos = queue.length ? (n === 1 ? "@first" : "@middle") : n === 1 ? "" : "@last"
       if (count === 1) out.push(...single(setup, family, begin.r, pos, page, links))
       else {
         // (\@setcpagerefrange is not defined: \relax, and the arguments typeset)
@@ -271,7 +268,7 @@ function single(setup: CrefSetup, family: Family, r: Ref | null, pos: Pos, page:
   const name = setup.name(type, family, pos !== "")
   if (name === null) return [{ t: "qq" }, TIE, text(r.label)]
   const pr = page ? { ...r, type: "page" } : r
-  if (pos === "@second" || pos === "@middle" || pos === "@last") return [...CONJ[pos], ...labelFormat(setup, pr, true, true, links)]
+  if (pos === "@middle" || pos === "@last") return [...CONJ[pos], ...labelFormat(setup, pr, true, true, links)]
   // the first: the name (an empty one: the label alone), \nobreakspace, the label
   if (name === "") return labelFormat(setup, pr, true, true, links)
   if (setup.options.nameinlink && links) return joinLink(r.key, [text(name), TIE], labelFormat(setup, pr, false, true, links))
@@ -283,7 +280,7 @@ function range(setup: CrefSetup, family: Family, a: Ref, b: Ref, pos: Pos, links
   const name = setup.name(a.type, family, true)
   if (name === null) return [{ t: "qq" }, TIE, text(`${a.label}--${b.label}`)]
   const second = [...RANGE_CONJ, ...labelFormat(setup, b, true, true, links)]
-  if (pos === "@second" || pos === "@middle" || pos === "@last") return [...CONJ[pos], ...labelFormat(setup, a, true, true, links), ...second]
+  if (pos === "@middle" || pos === "@last") return [...CONJ[pos], ...labelFormat(setup, a, true, true, links), ...second]
   // (the single range format leaves out the name when the singular one is empty, the multi one when the plural is)
   if ((pos === "" ? setup.name(a.type, family, false) : name) === "") return [...labelFormat(setup, a, true, true, links), ...second]
   if (setup.options.nameinlink && links) return [...joinLink(a.key, [text(name), TIE], labelFormat(setup, a, false, true, links)), ...second]

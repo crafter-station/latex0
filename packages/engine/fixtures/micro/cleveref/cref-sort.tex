@@ -1,0 +1,29 @@
+% fixture: cleveref/cref-sort
+% tier: T3
+% engine: document
+% covers: cleveref's sort option, and \Crefname (\cref's names in lower case): \cref of several keys in the order given or sorted, grouped by type, compressed into ranges or not
+% issue: #318
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage[sort]{cleveref}
+\Crefname{section}{Par.}{Pars.}
+\begin{document}
+\section{One}\label{s1}
+\begin{equation}\label{e1}
+a = b
+\end{equation}
+\begin{equation}\label{e2}
+c = d
+\end{equation}
+\section{Two}\label{s2}
+\begin{equation}\label{e3}
+e = f
+\end{equation}
+\begin{equation}\label{e4}
+g = h
+\end{equation}
+\begin{equation}\label{e5}
+i = j
+\end{equation}
+See \cref{e3,e1,e2}, \cref{e1,e2,e3,e5}, \cref{e5,e4,e3,e2}, \cref{e1,s1,e2}, \Cref{s2,e1,e2,s1,e3} and \cref{e1,e2,nowhere,e3}.
+\end{document}

@@ -81,7 +81,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 }
 
 /** The commands that read what the run before wrote to the .aux file: with one, LaTeX runs twice. */
-const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC]ref\*?|[cC]pageref\*?|[cC]refrange\*?|[cC]pagerefrange\*?|autoref\*?|nameref\*?|Nameref)\{/
+const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
 interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry> }

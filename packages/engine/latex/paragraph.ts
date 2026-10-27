@@ -492,7 +492,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (cref) {
       // (a key with a space or an empty one: \r@ key@cref, undefined)
       const keys = cref[3].split(",")
-      if (!keys.every((x) => /^[A-Za-z0-9:._-]+$/.test(x)) || keys.length > 1) throw new Unsupported(`\\${cref[1]}{${cref[3]}}`)
+      if (!keys.every((x) => /^[A-Za-z0-9:._-]+$/.test(x))) throw new Unsupported(`\\${cref[1]}{${cref[3]}}`)
       flushText(); out.push({ kind: "cref", keys, variant: cref[1] as "cref", star: !!cref[2] }); i += cref[0].length; continue
     }
     const crange = body.slice(i).match(/^\\(crefrange|Crefrange|cpagerefrange|Cpagerefrange)(\*?)\{([A-Za-z0-9:._-]+)\}\{([A-Za-z0-9:._-]+)\}/)

@@ -88,6 +88,8 @@ export function makeDocument(r: () => number): string {
   // hyperref; cleveref
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
+  // equations' keys (eq:none never defined): never a label with no counter, which \cref of several keys compares (\ifnum: TeX's Missing number)
+  const ckey = () => pick(["eq:l1", "eq:l2", "eq:l3", "eq:3-1", "eq:6-1", "eq:2-1", "eq:10-1", "eq:none"])
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
@@ -252,7 +254,10 @@ export function makeDocument(r: () => number): string {
         const k = r() < 0.6 ? key() : `${pick(["figure", "table", "thm"])}:${20 + Math.floor(r() * 40)}`
         ws[i] += hyper && r() < 0.5 ? pick([` \\autoref{${k}}`, `~\\autoref*{${k}}`]) : pick([` \\nameref{${k}}`, ` \\nameref*{${k}}`, ` \\Nameref{${k}}`, ` (\\nameref{${k}})`])
       }
-      if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`])
+      // (several keys: grouped, sorted, compressed; pages; ranges; with hyperref their links, \cref* none)
+      if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`,
+        ` \\cref{${ckey()},${ckey()}}`, ` \\Cref{${ckey()},${ckey()},${ckey()}}`, " \\cref{eq:l1,eq:l2,eq:l3}", "~\\cref{eq:l2,eq:3-1,eq:l1}", ` \\cpageref{${key()}}`, ` \\Cpageref{${key()},${key()}}`,
+        ` \\crefrange{${key()}}{${key()}}`, ` \\Crefrange{eq:l1}{eq:l${1 + Math.floor(r() * 4)}}`, ...(hyper ? [` \\cref*{${ckey()},${ckey()}}`] : [])])
       if (r() < 0.006) ws[i] += natOn // natbib with no .bbl: every key undefined
         ? pick([" \\citep{b1}", "~\\citet{b2,b1}", " \\cite{b3}", " \\citep[p.~4]{b1}", " \\citet[see][ch.~2]{b2}", " \\citealp{b1}", " \\citeauthor{b3}", " \\citeyearpar{b1}", "~\\cite[][p.~9]{nobody}", " (\\citealt{b1,b2})"])
         : pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
@@ -494,8 +499,14 @@ export function makeDocument(r: () => number): string {
     thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
-  crefOn = !hyper && !nrOn && !isLetter && r() < 0.2
-  if (crefOn) { const at = out.indexOf("\\usepackage{amsthm}"); if (at >= 0 && r() < 0.5) out.splice(at + 1, 0, "\\usepackage{cleveref}"); else out.push("\\usepackage{cleveref}") }
+  // (after hyperref; its options sometimes, and \crefname)
+  crefOn = !nrOn && !isLetter && r() < 0.2
+  if (crefOn) {
+    const opts = pick(["", "", "", "[capitalise]", "[noabbrev]", "[nameinlink]", "[nosort]", "[compress]", "[sort]", "[capitalise,noabbrev]"])
+    const at = out.indexOf("\\usepackage{amsthm}")
+    if (at >= 0 && r() < 0.5) out.splice(at + 1, 0, `\\usepackage${opts}{cleveref}`); else out.push(`\\usepackage${opts}{cleveref}`)
+    if (r() < 0.2) out.push(pick(["\\crefname{section}{sec.}{secs.}", "\\Crefname{equation}{Eq.}{Eqs.}", "\\crefname{figure}{fig.}{figs.}"]))
+  }
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter
   const front = cls === "book" && r() < 0.5
