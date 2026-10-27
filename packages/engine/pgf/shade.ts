@@ -6,8 +6,8 @@
 // of their values (a global counter and the colours name it): every shading made is a global macro. Only
 // xcolor's natural (rgb) target model is modelled.
 
-import { glue, ssGlue, type BoxNode, type Node } from "../layout/nodes"
-import { hpack } from "../layout/pack"
+import { filGlue, glue, ssGlue, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import type { PgfDriver } from "./drivers"
@@ -15,6 +15,7 @@ import { DvipsDriver } from "./drivers/dvips"
 import { PdftexDriver } from "./drivers/pdftex"
 import { TexArith, toNumber } from "./fixed"
 import { invoke } from "./paths"
+import { pdfXform } from "./pdfforms"
 import { parse, setLength, trig, type PgfPointMacro } from "./points"
 import type { PgfState } from "./state"
 import { mul } from "./transformations"
@@ -40,17 +41,13 @@ interface Globals {
   boxes: Map<string, Made>
   num: Map<string, string>
   count: number
-  /** \pdfxform's objects: resources and size (\pdflastxform is the index + 1) */
-  forms: { resources: string; width: number; height: number }[]
 }
 const globals = new WeakMap<PgfState, Globals>()
 function global(s: PgfState): Globals {
   let g = globals.get(s)
-  if (!g) globals.set(s, (g = { boxes: new Map(), num: new Map(), count: 0, forms: [] }))
+  if (!g) globals.set(s, (g = { boxes: new Map(), num: new Map(), count: 0 }))
   return g
 }
-/** pdfTeX's form objects made so far */
-export const pdfForms = (s: PgfState) => global(s).forms
 
 const setMacro = (s: PgfState, key: string, value: string | Declared | null) => s.setLocal({ shadings: { ...s.local.shadings, [key]: value } })
 
@@ -165,9 +162,10 @@ function make(s: PgfState, d: PgfDriver, kind: Kind, size: string | PgfPointMacr
   }
   // (the \hbox's height: the \vbox's, if not below 0)
   h = Math.max(0, h)
-  const forms = global(s).forms
-  forms.push({ resources: `/Shading << /Sh << /ShadingType ${type} /ColorSpace /DeviceRGB /Domain [${p.domain}] /Coords [${coords}] ${fn}/Extend [${extend}] >> >>`, width: w, height: h })
-  return { driver: "pdftex", width: w, height: h, form: forms.length }
+  // \hbox to w{\vbox to h{\vfil\pgfsys@invoke{/Sh sh}}\hfil}
+  const box = hpack([vpack([filGlue(), { kind: "whatsit", text: "\\pdfliteral{/Sh sh}" }], { exactly: h }), filGlue()], { exactly: w })
+  const form = pdfXform(s, "shading", box, true, "", `/Shading << /Sh << /ShadingType ${type} /ColorSpace /DeviceRGB /Domain [${p.domain}] /Coords [${coords}] ${fn}/Extend [${extend}] >> >>`)
+  return { driver: "pdftex", width: w, height: h, form }
 }
 
 /**

@@ -102,6 +102,13 @@ export class PgfState {
   last = { x: 0, y: 0 }
   /** \pgfsyssoftpath@lastmoveto (global) */
   lastMoveTo = { x: 0, y: 0 }
+  /**
+   * pdfTeX's last object number (\pdflastobj, \pdflastxform: one numbering for all objects) and how many
+   * objects its open object stream holds (0: none open; pdfforms.ts counts as pdfTeX does). The document
+   * sets both: the pages, fonts and annotations it writes take numbers too.
+   */
+  pdfLastObject = 0
+  pdfObjectStream = 0
   /** \ifpgfpicture: inside a pgfpicture */
   inPicture = false
   /** \pgfscope@linewidth of each open pgfscope */

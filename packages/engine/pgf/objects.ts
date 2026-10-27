@@ -27,6 +27,13 @@ function global(s: PgfState): Globals {
 }
 /** pdfTeX's ExtGState resources added so far, in order */
 export const pdfExtGStates = (s: PgfState) => [...global(s).extgs.values()]
+/** \pgfutil@addpdfresource@extgs: the entry `name`, once */
+export function addExtGState(s: PgfState, name: string, entry: string) {
+  const extgs = global(s).extgs
+  if (!extgs.has(name)) extgs.set(name, entry)
+}
+/** `\global\advance\pgf@objectcount\@ne` (dvips's objects, fadings and transparency groups): the new count */
+export const nextObjectCount = (s: PgfState) => ++global(s).count
 
 /** \pgfsysprotocol@literal (pgfsysprotocol.code.tex 38–44) */
 function literal(s: PgfState, d: PgfDriver, text: string) {
@@ -35,7 +42,7 @@ function literal(s: PgfState, d: PgfDriver, text: string) {
 }
 
 /** \pgfsys@invoke{#1}: the driver's literal of `text` as it is */
-function invokeText(s: PgfState, d: PgfDriver, text: string) {
+export function invokeText(s: PgfState, d: PgfDriver, text: string) {
   const saved = s.protocol
   s.protocol = text
   d.flush()
@@ -46,8 +53,7 @@ function opacity(s: PgfState, d: PgfDriver, v: string, stroke: boolean) {
   if (d instanceof DvipsDriver) return literal(s, d, `${v} .pgfset${stroke ? "stroke" : "fill"}opacityalpha`)
   if (!(d instanceof PdftexDriver)) throw new Unsupported("pgf: opacity under this driver")
   const name = `/pgf@${stroke ? "CA" : "ca"}${v}`
-  const extgs = global(s).extgs
-  if (!extgs.has(name)) extgs.set(name, `${name} << /${stroke ? "CA" : "ca"} ${v} >>`)
+  addExtGState(s, name, `${name} << /${stroke ? "CA" : "ca"} ${v} >>`)
   literal(s, d, `${name} gs`)
 }
 
@@ -72,8 +78,7 @@ export function sysDefObject(s: PgfState, d: PgfDriver, name: string, body: () =
   s.protocol = ""
   s.sw.buffered = true
   if (d instanceof DvipsDriver) {
-    g.count++
-    g.objects.set(name, String(g.count))
+    g.objects.set(name, String(nextObjectCount(s)))
     body()
     s.special(`! /pgf${g.count}{gsave exec ${s.protocol} grestore} bind def`)
   } else {
