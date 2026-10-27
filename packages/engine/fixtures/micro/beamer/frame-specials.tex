@@ -1,0 +1,14 @@
+% fixture: beamer/frame-specials
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: every special of a frame's page, outside the column too (the shipout/firstpage specials, pgf's PostScript header for the navigation symbols, the page's anchors and colors)
+% issue: #296
+% xfail: pgf's PostScript header specials and beamer's first-page specials are not emitted yet (B8)
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Lines are some equivalents symbols will according at out stored been easily type ordered not have letters.
+\end{frame}
+\end{document}
