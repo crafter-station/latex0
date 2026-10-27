@@ -1,0 +1,35 @@
+% fixture: beamer/outer-split-slides
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's split outer theme with whale and orchid: more subsections than sections (the headline's height from them), a two-slide frame (its subsection's link goes to its last slide from the first), short subsection titles
+% issue: #322
+\documentclass{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useoutertheme{split}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\begin{document}
+\section{Only}
+\subsection{First}
+\begin{frame}{Two slides}
+\begin{itemize}
+\item One
+\item<2-> Two
+\end{itemize}
+\end{frame}
+\begin{frame}{Again}
+Text.
+\end{frame}
+\subsection[Sec.]{Second}
+\begin{frame}{Three}
+Text.
+\end{frame}
+\subsection{Third}
+\begin{frame}{Four}
+Text.
+\end{frame}
+\end{document}

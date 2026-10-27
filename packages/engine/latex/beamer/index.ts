@@ -13,6 +13,7 @@ import { emitBoxes } from "../../emit/boxes"
 import { shipOut, type PageMark } from "../../emit/trace"
 import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
+import type { ClassOptionData } from "../../layout/classdata"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
@@ -27,6 +28,7 @@ import { footlineTemplate, headlineTemplate, type FootlineAt, type Heads } from 
 import { newOverlay } from "./overlays"
 import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource } from "./frame"
 import { Sections, sectionNodes, type TocEntry } from "./sections"
+import { navHeads, type NavHead } from "./headnav"
 import { beamerPage, headOrFoot } from "./page"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { BeamerPgf } from "./pgf"
@@ -36,13 +38,17 @@ import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 /** What a run writes for the next one: the frames (\inserttotalframenumber, in the .nav lines \AtEndDocument writes),
  *  the pages (\beamer@documentpages) and their labels, the frame numbers (\HyPL@Entry where one changes, in the .aux),
  *  the .toc lines and the bookmarks (the .out file) */
-interface Aux { frames: number; pages: number; pageFrames: number[]; toc: TocEntry[]; bookmarks: Bookmark[]; nav: NavLine[] }
+interface Aux { frames: number; pages: number; pageFrames: number[]; toc: TocEntry[]; bookmarks: Bookmark[]; nav: NavLine[]
+  /** the .nav's section, slide and subsection entries */
+  heads: NavHead[] }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per page the
  *  index in `decisions` after its slide's paragraphs (where its head paragraph goes) and its frame's number */
 interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; pageEnds: number[]; pageFrames: number[]
   /** per page, the section and subsection heads where it is shipped (the frame's) */
   pageHeads: Heads[]
+  /** the last run's .nav entries (none before) */
+  nav: NavHead[]
   frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number
   /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number
   /** the sectioning state, and the .toc lines the last run wrote */
@@ -102,7 +108,8 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null, objects: Node[]): 
 function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, number = ++cx.frames
   // \beamer@calculateheadfoot (\c@framenumber stepped already)
-  calculateHeadFoot(cx, number, cx.pageFrames.length + 1)
+  // (before beamer@frameslide steps \c@subsectionslide)
+  frameHeadFoot(cx, number, cx.pageFrames.length + 1)
   const bs = k.sizes.normalsize.baselineskip
   const first = cx.pageFrames.length + 1, equations = cx.equations.n, footnotes = cx.footnotes.n
   for (let slide = 1; ; slide++) {
@@ -114,7 +121,7 @@ function frame(cx: BeamerCtx, f: FrameSource) {
       footnotes: cx.footnotes, footins: [], pgf: cx.pgf }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
-    cx.pageHeads.push(heads(cx))
+    cx.pageHeads.push(heads(cx, 1))
     cx.v.box(box, bs)
     if (!overlay.another) break
   }
@@ -135,35 +142,52 @@ function clearpage(cx: BeamerCtx) {
 
 /** The head and foot lines' counters, the date and the section heads (`h`: the current ones) for frame `frame` on page
  *  `page` */
-const footlineAt = (cx: BeamerCtx, frame: number, page: number, h = heads(cx)): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch, heads: h })
-const heads = (cx: BeamerCtx): Heads => ({ section: cx.sections.sectionHead, subsection: cx.sections.subsectionHead })
+const footlineAt = (cx: BeamerCtx, frame: number, page: number, h = heads(cx, 0)): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch, heads: h, nav: cx.nav })
+/** the heads and counters now; `step`: what the frame begun steps \c@subsectionslide by (the engine counts it at its end) */
+const heads = (cx: BeamerCtx, step: number): Heads => {
+  const st = cx.sections
+  return { section: st.sectionHead, subsection: st.subsectionHead, counters: { section: st.section, subsection: st.subsection, slide: st.subsectionSlide + step } }
+}
 
-/** \beamer@calculateheadfoot: the footline and the headline typeset (their paragraphs traced) and measured. The sizes
- *  are the theme data's (\beamer@calculateheadfoot's at \begin{document}): a headline or footline of another height
- *  would change them. */
-function calculateHeadFoot(cx: BeamerCtx, frame: number, page: number) {
+/** the sizes \beamer@calculateheadfoot sets */
+const HEADFOOT = ["footheight", "footskip", "headheight", "headdp", "sidebarheight", "textheight"] as const
+
+/** \beamer@calculateheadfoot: the footline and the headline typeset (their paragraphs traced) and measured, the sizes
+ *  that come from them */
+function calculateHeadFoot(cx: BeamerCtx, frame: number, page: number): Record<(typeof HEADFOOT)[number], number> {
   const { k, theme, info } = cx.pre, d = k.dimens
   const at = footlineAt(cx, frame, page)
   const foot = hpack(headOrFoot(k, footlineTemplate(k, theme, info, at, cx.decisions)))
   const head = hpack(headOrFoot(k, headlineTemplate(k, theme, at, cx.decisions)))
-  if (foot.height + foot.depth + 4 * 65536 !== d.footheight || head.height + head.depth !== d.headheight || head.depth !== d.headdp) throw new Unsupported("beamer: a headline or footline of another height")
+  const footheight = foot.height + foot.depth + 4 * 65536, headheight = head.height + head.depth
+  return { footheight, footskip: footheight, headheight, headdp: head.depth, sidebarheight: d.paperheight - headheight + head.depth - footheight + 4 * 65536,
+    textheight: d.paperheight - footheight - headheight }
+}
+
+/** \beamer@calculateheadfoot at a frame's start: the sizes the document began with (a head or foot line that changes
+ *  its height would change the pages after it) */
+function frameHeadFoot(cx: BeamerCtx, frame: number, page: number) {
+  const sizes = calculateHeadFoot(cx, frame, page)
+  if (HEADFOOT.some((n) => sizes[n] !== cx.pre.k.dimens[n])) throw new Unsupported("beamer: a headline or footline that changes its height")
 }
 
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
 function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux } {
   const pre = readBeamerPreamble(src)
-  const k = pre.k
   hyperDriver.pdftex = driver === "pdftex"
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
-  const v = new VerticalList(k)
   const pgf = navigationPgf(driver)
+  const cx: BeamerCtx = { pre, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
+    lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d) }
+  // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1), after the .nav is read:
+  // the sizes the theme data has, but for a headline that shows the .nav's sections
+  const sizes = calculateHeadFoot(cx, 0, 1)
+  if (!prev && HEADFOOT.some((n) => sizes[n] !== pre.k.dimens[n])) throw new Error(`beamer: the head and foot lines' sizes are not the theme data's`)
+  const k: ClassOptionData = pre.k = { ...pre.k, dimens: { ...pre.k.dimens, ...sizes } }
+  const v = cx.v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev, pgf.nodes)
-  const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
-    sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d) }
-  // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
-  calculateHeadFoot(cx, 0, 1)
   for (const item of bodyOf(pre.body)) (BODY[item.kind] as (cx: BeamerCtx, item: BodyItem) => void)(cx, item)
   // \end{document}: beamerbasemisc.sty's \AtEndDocument \clearpage (its .nav lines are \immediate), then the kernel's
   clearpage(cx)
@@ -201,6 +225,6 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
       notes: [`beamer [${pre.option}]; ${cx.frames} frame(s), ${pages.length} page(s)`],
     },
     written: { frames: cx.frames, pages: pages.length, pageFrames: cx.pageFrames, toc: cx.sections.toc, bookmarks: cx.sections.bookmarks.written,
-      nav: navLines(v.nodes, cx.sections, pages.length) },
+      nav: navLines(v.nodes, cx.sections, pages.length), heads: navHeads(v.nodes) },
   }
 }

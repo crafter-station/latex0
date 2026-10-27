@@ -3,7 +3,7 @@
 % specials: compare
 % tier: T3
 % engine: document
-% covers: beamer's infolines outer theme with its headline (section and subsection in head/foot): frames before any section, in a section, in a subsection
+% covers: beamer's infolines outer theme with its headline (section and subsection in head/foot): frames before any section, in a section, in a subsection, in a section after a subsection
 % issue: #322
 \documentclass{beamer}
 \useoutertheme{infolines}
@@ -49,5 +49,9 @@ Not every sequence.
 \subsection{More}
 \begin{frame}{Another}
 Some text.
+\end{frame}
+\section{Conclusion}
+\begin{frame}{End}
+Done.
 \end{frame}
 \end{document}

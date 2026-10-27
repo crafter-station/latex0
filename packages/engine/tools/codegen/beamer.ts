@@ -36,6 +36,11 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...presentation("AnnArbor", true, ["colorthemewolverine", "innerthemerounded", "outerthemeinfolines"]),
   ...presentation("Boadilla", true, ["colorthemerose", "innerthemerounded", "colorthemedolphin", "outerthemeinfolines"]),
   ...presentation("Pittsburgh", false, ["innerthemecircles"]),
+  split: { preamble: ["\\useoutertheme{split}"], files: ["beamerouterthemesplit.sty"] },
+  "whale-orchid-split": { preamble: ["\\usecolortheme{whale}", "\\usecolortheme{orchid}", "\\useoutertheme{split}"], files: ["beamercolorthemewhale.sty", "beamercolorthemeorchid.sty", "beamerouterthemesplit.sty"] },
+  ...presentation("Malmoe", false, ["outerthemesplit", "colorthemewhale"]),
+  ...presentation("Copenhagen", false, ["outerthemesplit", "innerthemerounded", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("Luebeck", false, ["outerthemesplit", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
 }
 
 /** A presentation theme (\usetheme, with shadow=false where it has the option) and the theme files it loads */

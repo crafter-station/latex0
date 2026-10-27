@@ -15,9 +15,9 @@ export interface Theme { name: string; data: BeamerThemeData
   /** the inner theme (\useinnertheme): its templates */
   inner: "default" | "rounded" | "circles" | "rectangles"
   /** the outer theme (\useoutertheme): its footline */
-  outer: "default" | "infolines"
+  outer: "default" | "infolines" | "split"
   /** the headline: the outer theme's, or the default (empty) one */
-  headline: "default" | "infolines"
+  headline: "default" | "infolines" | "split"
   /** the frame title's alignment (\setbeamertemplate{frametitle}[default][…]) */
   frametitle: "left" | "right"
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
@@ -29,6 +29,9 @@ const PRESENTATION: Record<string, Partial<Theme>> = {
   AnnArbor: { inner: "rounded", outer: "infolines", headline: "infolines" },
   Boadilla: { inner: "rounded", outer: "infolines", headline: "default", boadillaItems: true },
   Pittsburgh: { inner: "circles", frametitle: "right" },
+  Malmoe: { outer: "split", headline: "split" },
+  Copenhagen: { inner: "rounded", outer: "split", headline: "split" },
+  Luebeck: { inner: "rectangles", outer: "split", headline: "split" },
 }
 
 export function loadTheme(name: string): Theme {
@@ -38,6 +41,7 @@ export function loadTheme(name: string): Theme {
     const inner = line.match(/^\\useinnertheme\{(rounded|circles|rectangles)\}$/)
     if (inner) t.inner = inner[1] as Theme["inner"]
     else if (line === "\\useoutertheme{infolines}") t.outer = t.headline = "infolines"
+    else if (line === "\\useoutertheme{split}") t.outer = t.headline = "split"
     else if (line === "\\setbeamertemplate{headline}[default]") t.headline = "default"
     else {
       const p = line.match(/^\\usetheme(?:\[[^\]]*\])?\{([A-Za-z]+)\}$/)
