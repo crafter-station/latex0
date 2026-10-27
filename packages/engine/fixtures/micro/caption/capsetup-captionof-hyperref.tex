@@ -1,0 +1,32 @@
+% fixture: caption/capsetup-captionof-hyperref
+% tier: T3
+% engine: document
+% covers: caption.sty's \captionof with hyperref: no hypcap anchor (\setcaptiontype*), \hyper@@anchor before the text and figure.n for the \label; two \captionof{figure} in one minipage (its list run once)
+% issue: #282
+\documentclass{article}
+\usepackage{caption}
+\usepackage{hyperref}
+\captionsetup[figure]{labelfont+=bf,font+=smaller}
+\begin{document}
+Two figures side by side, each with its own caption.
+
+\noindent\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{c}A\end{tabular}
+\captionof{figure}{Left, with a caption long enough to take two lines.}\label{fig:l}
+\captionof{figure}{Another.}
+\end{minipage}\hfill
+\begin{minipage}{0.45\textwidth}
+\captionsetup{labelsep=period}
+\captionof{table}[Short]{Right, on top.}\label{tab:r}
+\centering
+\begin{tabular}{c}B\end{tabular}
+\end{minipage}
+
+Figure~\ref{fig:l} and Table~\ref{tab:r}.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}C\end{tabular}
+\caption{A float after them.}\label{fig:c}
+\end{figure}
+\end{document}

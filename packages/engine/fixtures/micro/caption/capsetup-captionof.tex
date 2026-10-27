@@ -1,0 +1,30 @@
+% fixture: caption/capsetup-captionof
+% tier: T3
+% engine: document
+% covers: caption.sty's \captionof{type} in minipages outside floats (\setcaptiontype*: the type's option list, no \caption@xref for the \label after it), with \captionof{table}[short]{text}, a \captionsetup in the minipage, on top when first
+% issue: #282
+\documentclass{article}
+\usepackage{caption}
+\captionsetup[figure]{labelfont=bf}
+\begin{document}
+Two figures side by side, each with its own caption.
+
+\noindent\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{c}A\end{tabular}
+\captionof{figure}{Left, with a caption long enough to take two lines.}\label{fig:l}
+\end{minipage}\hfill
+\begin{minipage}{0.45\textwidth}
+\captionsetup{labelsep=period}
+\captionof{table}[Short]{Right, on top.}\label{tab:r}
+\centering
+\begin{tabular}{c}B\end{tabular}
+\end{minipage}
+
+Figure~\ref{fig:l} and Table~\ref{tab:r}.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}C\end{tabular}
+\caption{A float after them.}\label{fig:c}
+\end{figure}
+\end{document}

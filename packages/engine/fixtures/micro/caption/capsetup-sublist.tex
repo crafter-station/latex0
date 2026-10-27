@@ -1,0 +1,21 @@
+% fixture: caption/capsetup-sublist
+% tier: T3
+% engine: document
+% covers: caption.sty's list=false in a float sticking for its subcaptions (\caption@subtypehook gobbles \caption@setlist), whatever \captionsetup[sub] says
+% issue: #282
+\documentclass{article}
+\usepackage{subcaption}
+\captionsetup[figure]{list=false}
+\captionsetup[sub]{list=true}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Setup}
+\end{subfigure}
+\caption{The experiment.}
+\end{figure}
+\end{document}

@@ -161,12 +161,32 @@ export function makeDocument(r: () => number): string {
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
   // a minipage: one or two paragraphs (words, formulas, fonts), sometimes \centering first or a tabular inside
+  // caption.sty's keys: in the preamble at once (`at` "pre"), in a type's list or a float ("list"; name= and lengths
+  // in \linewidth there), in a sub-float's list ("sub": no name=)
+  const capKeys = (at: "pre" | "list" | "sub") => {
+    const pool = [
+      () => `font=${pick(["small", "footnotesize", "it", "sf", "{small,it}", "smaller"])}`, () => `labelfont=${pick(["bf", "it", "sf", "up", "{sf,bf}"])}`,
+      () => `textfont=${pick(["it", "sl", "up", "small"])}`, () => `labelsep=${pick(["colon", "period", "space", "quad", "endash", "newline", "none"])}`,
+      () => `format=${pick(["plain", "hang"])}`, () => `justification=${pick(["justified", "centering", "centerlast", "raggedright", "raggedleft"])}`,
+      () => `singlelinecheck=${pick(["false", "true", "off"])}`, () => `skip=${Math.floor(r() * 15)}pt`, () => `position=${pick(["top", "bottom", "auto", "above", "below"])}`,
+      () => `margin=${pick(["10pt", "1cm", "{5pt,15pt}", "0pt"])}`, () => `width=${at === "pre" ? pick(["200pt", "8cm"]) : pick([".8\\linewidth", "200pt", "0.6\\linewidth"])}`,
+      () => `indention=${pick(["1em", "10pt"])}`, () => `labelformat=${pick(["simple", "parens", "empty", "brace", "original"])}`,
+      () => "hypcap=false", () => "list=false",
+      ...(at === "list" ? [() => `name=${pick(["Fig.", "Tab", "Plate"])}`] : at === "pre" ? [() => `${pick(["figurename", "tablename"])}=${pick(["Fig.", "Tab.", "Exhibit"])}`] : []),
+    ]
+    const keys = Array.from({ length: 1 + Math.floor(r() * 3) }, () => pick(pool)())
+    // (newline with hang is caption's error; a sub-float's list= and hypcap= true are not modeled)
+    return keys.filter((k) => !(k === "labelsep=newline" && keys.includes("format=hang"))).join(",")
+  }
   const minipage = (pos = "", inline = false, cap = "", env = "minipage") => {
     const par = () => words(3 + Math.floor(r() * 25)).split(" ").map((w) => r() < 0.04 ? `${w} ${math()}` : r() < 0.03 ? `\\textbf{${w}}` : w).join(" ")
     const body = [(r() < 0.3 ? "\\centering\n" : "") + par() + (r() < 0.12 ? ` ${tabular()}` : "")]
     if (!inline && r() < 0.3) body.push("", par()) // (in text, perhaps a command's argument: no \\par)
     // in a float: a caption (and a label), after the text or first
     if (cap && r() < (env === "minipage" ? 0.6 : 0.9)) { const c = `\\caption{${words(1 + Math.floor(r() * (r() < 0.3 ? 14 : 4)))}}${r() < 0.5 ? `\\label{${cap}}` : ""}`; if (r() < 0.75) body.push(c); else body.unshift(c) }
+    // caption.sty: \captionof in a minipage in text, and \captionsetup in a minipage
+    if (capOn && inline && r() < 0.3) body.push(`\\captionof{${pick(["figure", "table"])}}${r() < 0.2 ? "[short]" : ""}{${words(1 + Math.floor(r() * 10))}}`)
+    if (capOn && (cap || inline) && r() < 0.2) body.unshift(`\\captionsetup{${capKeys(env === "minipage" && cap ? "list" : "sub")}}`)
     return `\\begin{${env}}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{${env}}`
   }
   const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
@@ -388,7 +408,15 @@ export function makeDocument(r: () => number): string {
   // caption.sty, and subcaption with it sometimes (with hyperref too: hypcap); not with algorithms or listing captions yet
   capOn = !algOn && !isLetter && r() < 0.2
   subOn = capOn && r() < 0.5
-  if (capOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? pick(["\\usepackage{subcaption}", "\\usepackage{caption}\n\\usepackage{subcaption}"]) : "\\usepackage{caption}")
+  if (capOn) {
+    // with options sometimes, and \captionsetup for all, a type or the sub-floats
+    // (subcaption's options go to \captionsetup[sub]: no figurename= there)
+    const both = subOn && r() < 0.5, opts = r() < 0.3 ? `[${capKeys(subOn && !both ? "sub" : "pre")}]` : ""
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? both ? `\\usepackage${opts}{caption}\n\\usepackage{subcaption}` : `\\usepackage${opts}{subcaption}` : `\\usepackage${opts}{caption}`)
+    if (r() < 0.3) out.push(`\\captionsetup{${capKeys("pre")}}`)
+    if (r() < 0.3) out.push(`\\captionsetup[${pick(["figure", "table"])}]{${capKeys("list")}}`)
+    if (subOn && r() < 0.3) out.push(`\\captionsetup[${pick(["sub", "subfigure", "subtable"])}]{${capKeys("sub")}}`)
+  }
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   const titled = r() < 0.5 && !isLetter // report: a title page
@@ -441,12 +469,15 @@ export function makeDocument(r: () => number): string {
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
       const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` :
         subOn && r() < 0.5 ? Array.from({ length: 1 + Math.floor(r() * 3) }, (_, j) => minipage(pick(["", "", "[t]", "[b]", "[c]"]), false, `${env}:${b}${"abc"[j]}`, `sub${env}`)).join(pick(["\n", "%\n", "\n\\hfill\n", "\n\\quad\n"])) : ""
-      const caption = `\\caption{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 ? `\\label{${env}:${b}}` : ""
+      // caption.sty: \caption* (no \label after it) and \caption[short], and a \captionsetup in the float
+      const variant = capOn && r() < 0.3 ? pick(["*", "[]", `[${words(2)}]`]) : ""
+      const caption = `\\caption${variant}{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 && variant !== "*" ? `\\label{${env}:${b}}` : ""
+      const setup = capOn && r() < 0.25 ? `\\captionsetup{${capKeys("list")}}` : ""
       const below = table && r() < 0.5
       // a float that starts in the paragraph before it (no blank line), and the paragraph going on after it
       const inPar: boolean = afterPar && r() < 0.4
       out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
-        space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}${inPar && r() < 0.3 ? "%" : ""}`)
+        setup, space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}${inPar && r() < 0.3 ? "%" : ""}`)
       afterPar = inPar && r() < 0.6
       if (afterPar) out.push(text(3 + Math.floor(r() * 40)))
     } else if (x < 0.2) {

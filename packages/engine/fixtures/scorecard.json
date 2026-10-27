@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 324,
-  "exact": 322,
+  "fixtures": 337,
+  "exact": 335,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 273288
+  "glyphs": 276055
  },
  "areas": [
   {
@@ -41,8 +41,8 @@
   },
   {
    "area": "caption",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 22,
+   "exact": 22
   },
   {
    "area": "classes",
@@ -826,6 +826,149 @@
    "glyphs": 257,
    "covers": "caption.sty's \\caption at its defaults: position=auto (below after content, \\hrule height0pt then \\abovecaptionskip; on top when \\prevdepth is -1000pt, the skips swapped), the single-line check (centered when it fits, else a justified paragraph), the \\parbox[b] with the struts; \\caption@xref's definition before the first \\label",
    "issue": "#269"
+  },
+  {
+   "id": "caption/capsetup-captionof-hyperref",
+   "file": "micro/caption/capsetup-captionof-hyperref.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 171,
+   "covers": "caption.sty's \\captionof with hyperref: no hypcap anchor (\\setcaptiontype*), \\hyper@@anchor before the text and figure.n for the \\label; two \\captionof{figure} in one minipage (its list run once)",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-captionof",
+   "file": "micro/caption/capsetup-captionof.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 155,
+   "covers": "caption.sty's \\captionof{type} in minipages outside floats (\\setcaptiontype*: the type's option list, no \\caption@xref for the \\label after it), with \\captionof{table}[short]{text}, a \\captionsetup in the minipage, on top when first",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-fonts",
+   "file": "micro/caption/capsetup-fonts.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 245,
+   "covers": "caption.sty's font, labelfont and textfont keys (small, footnotesize, bf, it, sf, sc, up) as package options and \\captionsetup, label font over the caption font, the colon in the label font",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-hypcap-sub",
+   "file": "micro/caption/capsetup-hypcap-sub.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 97,
+   "covers": "subcaption with hyperref and hypcap=false: no anchor at the float's start, the subcaptions' own subfigure.n.m anchors before their text (\\hyper@@anchor) and for their \\label, the float caption's figure.n",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-hyperref",
+   "file": "micro/caption/capsetup-hyperref.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "caption.sty with hyperref: hypcap=false (no anchor at the float's start, \\hyper@@anchor before the caption's text, figure.n for \\label), in the preamble and in \\captionsetup[table]; \\caption* and \\caption[short] (nameref's name the short caption) with and without hypcap; a \\label in the text after a float with only \\caption* pointing at its hypcap anchor (\\hyper@makecurrent's global \\@currentHref)",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-kernel-short",
+   "file": "micro/caption/capsetup-kernel-short.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "LaTeX's own \\caption[short]{long} (no caption.sty): the lof line's short caption, an empty one still written, nameref's name with hyperref the short caption",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-labels",
+   "file": "micro/caption/capsetup-labels.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 248,
+   "covers": "caption.sty's labelsep (colon, period, space, quad, endash, none), labelformat (original, simple, parens, brace, empty: no separator after it) and name (empty: original's \\nobreakspace still there), in the floats and in \\captionsetup[figure]; figurename and tablename (package options over lines)",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-newline",
+   "file": "micro/caption/capsetup-newline.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 254,
+   "covers": "caption.sty's labelsep=newline: \\\\ as \\@normalcr in a justified caption (\\nobreak\\hfil\\break), as \\@centercr in a single-line one (centered) or a ragged one (\\par, \\addvspace{-\\parskip}, the text a new paragraph)",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-position",
+   "file": "micro/caption/capsetup-position.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 275,
+   "covers": "caption.sty's position (top, bottom, above, below; auto from the preamble's figure list), skip and belowskip, list=false (no lof line), \\caption* (no label, number or lof line), \\caption[short]{long} (the lof line's short caption, none for an empty one), a \\captionsetup position resetting the fixed one",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-shape",
+   "file": "micro/caption/capsetup-shape.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 719,
+   "covers": "caption.sty's format=hang (the lines after the first hung by the label's width), indention, justification (centering, centerlast, raggedright, raggedleft), singlelinecheck=false (a short caption justified), margin (one and two values) and width (margin after width clears it, width clears the margins), no indention and plain's format for a single-line caption (hang's single-line format)",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-sizes",
+   "file": "micro/caption/capsetup-sizes.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 225,
+   "covers": "caption.sty's sizes in labelfont and textfont (the text's size sets the lines' \\baselineskip and struts), larger and smaller, labelsep=endash under T1 (\\textendash its char 21), labelsep=quad in the caption font, not the label font",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-sub",
+   "file": "micro/caption/capsetup-sub.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 156,
+   "covers": "subcaption's options (\\usepackage[…]{subcaption} and \\captionsetup[sub]: after its own font+=smaller and the rest), \\captionsetup[subfigure] (over lines) after them, \\captionsetup in a subfigure (labelformat=original as simple there; a position resetting the fixed one), the float's font making smaller footnotesize, the float's margin cleared for the subcaptions",
+   "issue": "#282"
+  },
+  {
+   "id": "caption/capsetup-sublist",
+   "file": "micro/caption/capsetup-sublist.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 37,
+   "covers": "caption.sty's list=false in a float sticking for its subcaptions (\\caption@subtypehook gobbles \\caption@setlist), whatever \\captionsetup[sub] says",
+   "issue": "#282"
   },
   {
    "id": "caption/graphics",

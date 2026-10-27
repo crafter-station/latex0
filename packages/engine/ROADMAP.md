@@ -225,10 +225,15 @@ variants + caption package, subcaption/subfigure/subfig, wrapfig, TikZ subset
 → SVG (paths, nodes, styles, `\foreach`, arrow tips, positioning), pgfplots
 basic axis, xy/amscd.
 
-🟡 caption.sty and subcaption at their defaults (#269): `\caption` with position=auto, the
-single-line check and struts; `subfigure`/`subtable` with (a) subcaptions, `\subref`. Not yet:
-caption with hyperref (hypcap's anchor), `\captionsetup` and package options, `\captionof`,
-`\subcaptionbox`, captions with commands or math.
+🟡 caption.sty and subcaption (#269, #279, #282): `\caption` with position=auto, the
+single-line check and struts; `subfigure`/`subtable` with (a) subcaptions, `\subref`; hyperref
+(hypcap's anchor); package options and `\captionsetup` (global, `[figure]`/`[table]`/`[sub]`/`[subfigure]`,
+in floats and minipages) for font/labelfont/textfont, labelsep, format, justification,
+singlelinecheck, skip/belowskip, position, margin/width, indention, labelformat, name,
+figurename/tablename, hypcap, list; `\caption*`, `\caption[short]{long}`, `\captionof` in minipages.
+Not yet: other keys (ragged2e's justifications, textformat, size, box, style, …), `\captionof` in
+text outside a minipage or under setspace, capt-of (not installed), `\subcaptionbox`, subcaption
+lof entries, captions with commands or math.
 
 ### 4.7 Pages: the exact layout engine
 

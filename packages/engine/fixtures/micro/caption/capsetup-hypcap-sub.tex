@@ -1,0 +1,29 @@
+% fixture: caption/capsetup-hypcap-sub
+% tier: T3
+% engine: document
+% covers: subcaption with hyperref and hypcap=false: no anchor at the float's start, the subcaptions' own subfigure.n.m anchors before their text (\hyper@@anchor) and for their \label, the float caption's figure.n
+% issue: #282
+\documentclass{article}
+\usepackage[hypcap=false]{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Setup}
+\label{fig:s}
+\end{subfigure}
+\begin{subfigure}{0.45\textwidth}
+\begin{tabular}{c}Y\end{tabular}
+\caption[Short]{Period vs length of the pendulum measured in the lab}
+\label{fig:t}
+\end{subfigure}
+\caption{The experiment.}
+\label{fig:e}
+\end{figure}
+See \ref{fig:s}, \ref{fig:t} and \ref{fig:e}.
+\end{document}
