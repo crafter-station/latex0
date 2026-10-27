@@ -836,8 +836,9 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}", "\\makeatletter",
     // (each snippet instantiates its arrow tips afresh, as the engine does)
     "\\let\\pgfcheck@fullname\\pgf@arrow@fullname\\def\\pgf@arrow@fullname#1{\\pgfcheckn @\\pgfcheck@fullname{#1}}",
-    // (the protocol, the last moveto and the objects' count are global: what one snippet leaves must not reach the next)
-    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\ifdefined\\pgf@objectcount\\global\\pgf@objectcount=0 \\fi\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
+    // (the protocol, the last moveto and the objects' count are global: what one snippet leaves must not reach the next;
+    // an empty paragraph resets TeX's count of errors, which stops the run at 100)
+    ...snippets.map((x, i) => `\\noindent\\par\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\ifdefined\\pgf@objectcount\\global\\pgf@objectcount=0 \\fi\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
   ].join("\n")
   const file = join(DIR, `${t.name}.tex`), log = join(DIR, `${t.name}.log`)
   if (!existsSync(file) || readFileSync(file, "utf8") !== tex || !existsSync(log) || !/^(No pages of output|Output written)/m.test(readFileSync(log, "latin1"))) {
