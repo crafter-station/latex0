@@ -39,7 +39,7 @@ import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
 import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
-import type { Bitmap } from "./images"
+import type { Image } from "./images"
 import { processBlock, runInAlone } from "./body"
 import { crefName, fillCrefWrites, type CrefLabel } from "./cleveref"
 
@@ -47,16 +47,16 @@ export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
   epoch?: number
   /** graphics files' bounding boxes, by file name (a filecontents* environment in the source also gives one) */
-  images?: Record<string, BoundingBox | Bitmap>
-  /** the output driver: pdfTeX's own (`pdflatex`, the default, what most documents are compiled with: PNG and JPEG
-   *  images) or dvips (`latex`: EPS images) */
+  images?: Record<string, BoundingBox | Image>
+  /** the output driver: pdfTeX's own (`pdflatex`, the default, what most documents are compiled with: PNG, JPEG
+   *  and PDF images) or dvips (`latex`: EPS images) */
   driver?: "dvips" | "pdftex"
 }
 
 export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "pdftex" }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
   // the graphics files' bounding boxes: the options', then the files the source writes
-  const images = new Map<string, BoundingBox | Bitmap>(Object.entries(given))
+  const images = new Map<string, BoundingBox | Image>(Object.entries(given))
   for (const [name, contents] of prepared.files) { const bb = boundingBox(contents); if (bb) images.set(name, bb) }
   // Whether a float right after a heading goes here decides \if@nobreak for the text after it,
   // which is laid out before the output routine places the float: the document is laid out again,
@@ -85,7 +85,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Bitmap>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre

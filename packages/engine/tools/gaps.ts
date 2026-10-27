@@ -6,7 +6,7 @@
 
 import { readdirSync, readFileSync } from "node:fs"
 import { dirname, join, relative } from "node:path"
-import { bitmapInfo, type Bitmap } from "../latex/images"
+import { imageInfo, type Image } from "../latex/images"
 import { svgPages } from "../emit/svg"
 import { document } from "../latex/document"
 import { paragraph } from "../latex/paragraph"
@@ -25,12 +25,12 @@ const layoutOf = (src: string, path: string) =>
   : /^% fixture:/m.test(src) ? (s: string) => ADAPTERS.document(s, { unit: "sp", mag: 1000, pages: [] }, path)
   : (s: string) => document(s, { images: siblingImages(path) })
 
-/** The PNG and JPEG files next to a document, as the app gives it the project's uploads */
-function siblingImages(path: string): Record<string, Bitmap> {
-  const dir = dirname(path), out: Record<string, Bitmap> = {}
+/** The PNG, JPEG and PDF files next to a document, as the app gives it the project's uploads */
+function siblingImages(path: string): Record<string, Image> {
+  const dir = dirname(path), out: Record<string, Image> = {}
   for (const f of readdirSync(dir)) {
-    if (!/\.(png|jpe?g)$/i.test(f)) continue
-    const b = bitmapInfo(new Uint8Array(readFileSync(join(dir, f))))
+    if (!/\.(png|jpe?g|pdf)$/i.test(f)) continue
+    const b = imageInfo(new Uint8Array(readFileSync(join(dir, f))))
     if (b) out[f] = b
   }
   return out

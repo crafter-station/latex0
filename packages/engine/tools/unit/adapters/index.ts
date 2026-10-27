@@ -11,7 +11,7 @@ import { ORACLE_EPOCH } from "../../tex"
 import { parseHeader } from "../header"
 import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
-import { bitmapInfo, type Bitmap } from "../../../latex/images"
+import { imageInfo, type Image } from "../../../latex/images"
 
 export type AdapterResult = LayoutResult
 export type Adapter = (src: string, oracle: Trace, path?: string) => AdapterResult
@@ -21,8 +21,8 @@ export const ADAPTERS: Record<string, Adapter> = {
   // \today on the oracle's fixed date; the driver of the fixture's reference TeX
   // the images among the fixture's files, by their headers (as the app reads an upload's)
   document: (src, _, path) => {
-    const h = parseHeader(src), images: Record<string, Bitmap> = {}
-    for (const f of h.files) { const b = path && bitmapInfo(new Uint8Array(readFileSync(join(dirname(path), f)))); if (b) images[f] = b }
+    const h = parseHeader(src), images: Record<string, Image> = {}
+    for (const f of h.files) { const b = path && imageInfo(new Uint8Array(readFileSync(join(dirname(path), f)))); if (b) images[f] = b }
     return document(src, { epoch: ORACLE_EPOCH, driver: h.oracle === "pdflatex" ? "pdftex" : "dvips", images })
   },
 }

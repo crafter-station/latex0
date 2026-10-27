@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 307,
-  "exact": 305,
+  "fixtures": 310,
+  "exact": 308,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 266473
+  "glyphs": 267299
  },
  "areas": [
   {
@@ -81,8 +81,8 @@
   },
   {
    "area": "graphics-pdftex",
-   "fixtures": 2,
-   "exact": 2
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "hyperref",
@@ -161,8 +161,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 27,
-   "exact": 25
+   "fixtures": 28,
+   "exact": 26
   },
   {
    "area": "text",
@@ -333,6 +333,17 @@
    "glyphs": 214,
    "covers": "the starter-corpus recipe (corpus/recipe.tex): xcolor's \\textcolor, enumitem lists, sections and subsections, \\textdegree",
    "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-thesis-chapter",
+   "file": "macro/templates/corpus-thesis-chapter.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 648,
+   "covers": "the starter corpus's thesis chapter as it stands, under pdflatex: its figure the PDF file ndvi-map.pdf at \\linewidth (pdfTeX's image box from the page's crop box), 12pt report, a4 geometry, natbib with no .bbl, \\onehalfspacing",
+   "issue": "#274"
   },
   {
    "id": "templates/demo",
@@ -1405,6 +1416,28 @@
    "status": "pass",
    "glyphs": 101,
    "covers": "PNG and JPEG under pdflatex: pdfTeX's image box (pixels at the file's resolution, 72 dpi without one: a PNG's pHYs, rounded from pixels per metre, unequal ones; a JPEG's JFIF density, per inch or per cm), \\Gread@pdftex's .99626 bounding box, natural size, width=, height=, both with keepaspectratio, scale=; \\Gscale@box's \\rlap, \\pdfsetmatrix and kern; a name without extension (\\Gin@extensions: .png before .jpg)"
+  },
+  {
+   "id": "graphics-pdftex/pdf-files",
+   "file": "micro/graphics-pdftex/pdf-files.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 108,
+   "covers": "PDF graphics under pdflatex, the ways a PDF file stores its pages: objects in a compressed object stream found through a cross-reference stream with a PNG predictor (an object the stream's header numbers otherwise is null: the box is inherited); pdfTeX's own output (object streams, \\pdfpageattr's CropBox and Rotate); a hybrid file (an XRefStm after the table; CR LF line ends); an incremental update (the newer object wins); boxes, their numbers and the kids given by indirect objects, a box with a string in it ignored; xpdf's 50 by 50 bp page for a page dictionary whose /Contents or /Annots is of the wrong type; in a figure, centred",
+   "issue": "#274"
+  },
+  {
+   "id": "graphics-pdftex/pdf-graphics",
+   "file": "micro/graphics-pdftex/pdf-graphics.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 70,
+   "covers": "PDF graphics under pdflatex: pdfTeX's image box for a page of a PDF file (read_pdf_info through xpdf): the crop box by default, pagebox= mediabox, bleedbox, trimbox and artbox (an unknown name, media: the crop box), page=; MediaBox, CropBox and Rotate inherited through the page tree, the other boxes defaulting to the crop box, every box clipped to the media box, corners put in order; /Rotate 90 and 270 (also -90, 450, an inherited one) swapping width and height, 45, 180 and an indirect -540 not, a real 180.0 ignored (the inherited 270 holds); 8.5 by 11 in with no MediaBox; pages found by the kids' /Count, a /Count 0 counted; each side a float (epdf_width) made sp by bp2int; reals read as xpdf reads them (488.4388885498047, --3.5, 7.)",
+   "issue": "#274"
   },
   {
    "id": "hyperref/anchors-plain",
