@@ -1,0 +1,46 @@
+% fixture: cleveref/subcaption
+% tier: T3
+% engine: document
+% covers: subcaption's \label with cleveref: \label{key} and \label{sub@key}, each with its key@cref write ([sub<type>][n][float number, after the chapter's]<\thesub<type>>), \cref and \Cref of sub-figures and sub-tables, in report (the chapter in the prefix)
+% issue: #294
+\documentclass{report}
+\usepackage{subcaption}
+\usepackage{cleveref}
+\begin{document}
+\chapter{One}
+Text.
+\begin{figure}
+\begin{subfigure}{0.3\textwidth}
+A
+\caption{First}
+\label{fig:a}
+\end{subfigure}
+\begin{subfigure}{0.3\textwidth}
+B
+\caption{Second}
+\label{fig:b}
+\end{subfigure}
+\begin{subfigure}{0.3\textwidth}
+C
+\caption{Third}
+\label{fig:c}
+\end{subfigure}
+\caption{All}
+\label{fig:all}
+\end{figure}
+\begin{table}
+\caption{Tables}
+\label{tab:all}
+\begin{subtable}{0.4\textwidth}
+D
+\caption{Left}
+\label{tab:l}
+\end{subtable}
+\begin{subtable}{0.4\textwidth}
+E
+\caption{Right}
+\label{tab:r}
+\end{subtable}
+\end{table}
+See \cref{fig:a}, \Cref{fig:b}, \cref{fig:c}, \cref{fig:all}, \cref{tab:l}, \Cref{tab:r} and \cref{tab:all}.
+\end{document}

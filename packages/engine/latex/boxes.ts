@@ -128,10 +128,11 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     if (lm) {
       if (!cap) throw new Unsupported("a \\label in a minipage")
       list.push(...(captionOf ? [] : captionXref(cx, true)), labelWrite(refs, lm[1], cap.label, refs.href, cx.pre.nameref ? cap.name : refs.name)) // nameref: the caption
-      // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>
+      // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>; cleveref's write after
+      // each, the same (\cref@currentlabel of \refstepcounter{sub<type>}, a counter within the float's)
       if (cap.sub !== undefined) {
-        if (cx.pre.cleveref) throw new Unsupported("a subcaption's \\label with cleveref")
-        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, cx.pre.nameref ? cap.name : refs.name))
+        const type = run.captype!, cref = { type: `sub${type}`, arabic: f.sub, prefix: [counters.crefPrefix(type), String(cap.number)].filter(Boolean).join(","), label: cap.label }
+        list.push(...crefWrites(refs, lm[1], false, cref), labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, cx.pre.nameref ? cap.name : refs.name), ...crefWrites(refs, `sub@${lm[1]}`, false, cref))
         continue
       }
       list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: cap.label }))
