@@ -2,10 +2,11 @@
 // the committed data (data/classes, through the installed data source).
 
 import { xnOverD } from "../layout/arith"
-import type { ClassOptionData, SizeCommand } from "../layout/classdata"
+import type { ClassOptionData, FontRef, SizeCommand } from "../layout/classdata"
 import { loadFont, QUAD } from "../layout/font"
 import { glue } from "../layout/nodes"
-import { classFile, dataFont } from "./data"
+import { classFile, dataFont, familyFile, mathFontsFile } from "./data"
+import { Unsupported } from "./unsupported"
 
 export function classData(cls: string, option = "10pt", extras: string[] = []): ClassOptionData {
   const d = classFile(cls)
@@ -59,4 +60,39 @@ export function withT1(k: ClassOptionData, cls: string): ClassOptionData {
     }
   }
   return { ...k, sizes, glue: glues, ints: { ...k.ints, T1: 1 } }
+}
+
+/** The fonts the preamble's font packages select (#340): the families \rmdefault, \sfdefault and \ttdefault name, and
+ *  the package that set the math fonts (\SetSymbolFont, \SetMathAlphabet), null for fontmath.ltx's */
+export interface FontSetup { rm: string; sf: string; tt: string; math: string | null }
+export const CM_FONTS: FontSetup = { rm: "cmr", sf: "cmss", tt: "cmtt", math: null }
+
+/** NFSS's font for "encoding/series/shape" of a family at a font size in sp (\fontsize{size}\selectfont) */
+export function familyFont(family: string, key: string, size: number): FontRef & { hyphenchar: number; declared: boolean } {
+  const r = familyFile(family).sizes[String(size)]?.[key]
+  if (!r) throw new Unsupported(`${key.replace("/", `/${family}/`)} at ${size / 65536}pt`)
+  return r
+}
+
+/** The class with the font packages' fonts: at every size, each family's fonts where the FontAttrs families cmr, cmss
+ *  and cmtt (\rmdefault, \sfdefault, \ttdefault) select, the roman's as the size's fonts, and the package's math fonts. */
+export function withFonts(k: ClassOptionData, setup: FontSetup): ClassOptionData {
+  const slots = ([["cmr", setup.rm], ["cmss", setup.sf], ["cmtt", setup.tt]] as const).filter(([slot, family]) => slot !== family)
+  if (!slots.length && !setup.math) return k
+  const math = setup.math ? mathFontsFile(setup.math) : null
+  const sizes = Object.fromEntries(Object.entries(k.sizes).map(([n, s]) => {
+    const fonts = { ...s.fonts }
+    for (const [slot, family] of slots) {
+      for (const key of Object.keys(s.fonts).filter((x) => x.split("/")[1] === slot)) {
+        const [enc, , ser, shape] = key.split("/")
+        fonts[key] = familyFont(family, `${enc}/${ser}/${shape}`, s.size)
+      }
+    }
+    const ref = (key: string): FontRef => ({ name: fonts[key].name, at: fonts[key].at })
+    const m = math?.sizes[`${s.size}:${s.scriptSize}:${s.scriptScriptSize}`]
+    if (math && !m) throw new Unsupported(`${setup.math}'s math fonts at ${s.size / 65536}pt`)
+    const text = setup.rm === "cmr" ? {} : { font: ref("OT1/cmr/m/n"), bold: ref("OT1/cmr/bx/n"), companion: ref("TS1/cmr/m/n"), t1: { font: ref("T1/cmr/m/n"), bold: ref("T1/cmr/bx/n") } }
+    return [n, { ...s, fonts, ...text, ...(m ? { math: m.math, mathAms: m.mathAms, alphabets: m.alphabets } : {}) }]
+  })) as ClassOptionData["sizes"]
+  return { ...k, sizes, families: { rm: setup.rm, sf: setup.sf, tt: setup.tt } }
 }

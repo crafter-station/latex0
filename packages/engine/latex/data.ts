@@ -5,7 +5,7 @@
 // layer reads through it. Decoded values are memoized per source.
 
 import type { BeamerThemeData } from "../layout/beamerdata"
-import type { ClassData } from "../layout/classdata"
+import type { ClassData, FamilyData, MathFontData } from "../layout/classdata"
 import { decodeFontData, type FontData } from "../layout/fontdata"
 import type { FixWordFont } from "../layout/font"
 import type { HyphenationData } from "../layout/hyphenate"
@@ -17,6 +17,10 @@ export interface DataSource {
   font(name: string): FontData
   /** data/classes/<cls>.json */
   documentClass(cls: string): ClassData
+  /** data/nfss/<family>.json: a font family past Computer Modern */
+  fontFamily(family: string): FamilyData
+  /** data/nfss/math-<package>.json: a package's math fonts */
+  mathFonts(pkg: string): MathFontData
   /** data/beamer/<theme>.json */
   beamerTheme(theme: string): BeamerThemeData
   /** data/hyphenation/<language>.json */
@@ -35,6 +39,8 @@ export interface WebFonts { fonts: Record<string, [file: string, codes: number]>
 let source: DataSource | null = null
 const fonts = new Map<string, FixWordFont>()
 const classes = new Map<string, ClassData>()
+const families = new Map<string, FamilyData>()
+const mathFontSets = new Map<string, MathFontData>()
 const beamerThemes = new Map<string, BeamerThemeData>()
 const patterns = new Map<string, HyphenationData>()
 let math: MathData | null = null
@@ -43,7 +49,7 @@ let webfonts: WebFonts | null = null
 
 export function installData(s: DataSource): void {
   source = s
-  fonts.clear(); classes.clear(); beamerThemes.clear(); patterns.clear(); math = null; pgf = null; webfonts = null
+  fonts.clear(); classes.clear(); families.clear(); mathFontSets.clear(); beamerThemes.clear(); patterns.clear(); math = null; pgf = null; webfonts = null
 }
 
 function data(): DataSource {
@@ -59,6 +65,8 @@ const memo = <T>(m: Map<string, T>, key: string, load: () => T): T => {
 
 export const dataFont = (name: string): FixWordFont => memo(fonts, name, () => decodeFontData(data().font(name)))
 export const classFile = (cls: string): ClassData => memo(classes, cls, () => data().documentClass(cls))
+export const familyFile = (family: string): FamilyData => memo(families, family, () => data().fontFamily(family))
+export const mathFontsFile = (pkg: string): MathFontData => memo(mathFontSets, pkg, () => data().mathFonts(pkg))
 export const beamerThemeFile = (theme: string): BeamerThemeData => memo(beamerThemes, theme, () => data().beamerTheme(theme))
 export const hyphenationData = (language = "en-us"): HyphenationData => memo(patterns, language, () => data().hyphenation(language))
 export const mathData = (): MathData => (math ??= data().math())

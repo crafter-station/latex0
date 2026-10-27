@@ -9,6 +9,7 @@
 # code point each character code is drawn with (0: none), shared by the TFMs with the same encoding. A glyph whose name has a Unicode value (Adobe Glyph List) gets it, so selected text copies as
 # text; the others go to the Private Use Area. Positions never come from the font: the engine places each glyph.
 # Only the outlines are used, so hints are dropped and metrics are the Type 1 widths.
+# A file already built for the same glyphs is kept as it is (its code points are read back), so a rebuild only adds files.
 
 import json
 import os
@@ -18,6 +19,7 @@ import sys
 from fontTools import t1Lib
 from fontTools.agl import AGL2UV
 from fontTools.fontBuilder import FontBuilder
+from fontTools.ttLib import TTFont
 from fontTools.pens.t2CharStringPen import T2CharStringPen
 from fontTools.pens.recordingPen import RecordingPen
 
@@ -79,11 +81,24 @@ def parse(path):
     return PARSED[path]
 
 
+def existing(names, out_path):
+    """glyph name -> code point of the file at out_path, if it was built for exactly the glyphs `names`"""
+    if not os.path.exists(out_path):
+        return None
+    font = TTFont(out_path)
+    if font.getGlyphOrder() != [".notdef"] + names:
+        return None
+    return {n: u for u, n in font.getBestCmap().items()}
+
+
 def build(pfb_path, names, out_path):
     """The glyphs `names` of a Type 1 font as a WOFF2 font; returns glyph name -> code point"""
     t1 = parse(pfb_path)
     glyphs = t1.getGlyphSet()
     names = [n for n in dict.fromkeys(names) if n in glyphs and n != ".notdef"]
+    kept = existing(names, out_path)
+    if kept is not None:
+        return kept
     cmap, used, codepoints = {}, set(), {}
     pua = PUA
     for n in names:

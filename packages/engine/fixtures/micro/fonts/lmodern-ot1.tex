@@ -1,0 +1,31 @@
+% fixture: fonts/lmodern-ot1
+% tier: T3
+% engine: document
+% covers: \usepackage{lmodern} without fontenc: lmr, lmss and lmtt in OT1 (rm-lmr*, rm-lmss*, rm-lmtt*) at every size, every shape and series the .fd files declare and NFSS's substitutes, ligatures and kerns, hyphenation, \textbullet from ts1-lmr, footnote marks at \sf@size
+% issue: #340
+\documentclass{article}
+\usepackage{lmodern}
+\begin{document}
+\section{Latin Modern in OT1}
+The office staff found a difficult affair: efficient workflows, offline coffee, ``quoted words'' and pages 10--20 --- with an em dash. Hyphenation works with the Latin Modern fonts as well: typesetting, composition, paragraphs, demerits.\footnote{A footnote in Latin Modern, with fluffy waffles.}
+
+\subsection{Shapes}
+{\itshape italic} {\slshape slanted} {\scshape Small Caps} {\bfseries bold \itshape bold italic \slshape bold slanted \scshape bold caps}
+{\sffamily sans \itshape italic \slshape slanted \bfseries bold \scshape caps} {\ttfamily typewriter \itshape italic \slshape slanted \scshape caps \bfseries bold} {\ttfamily\bfseries bold tt \itshape italic}
+{\itshape\scshape it sc} {\scshape\slshape sc sl} and \emph{emphasis \emph{inside} it}.
+
+{\tiny tiny} {\scriptsize script} {\footnotesize foot} {\small small} {\large large} {\Large Large} {\LARGE LARGE} {\huge huge} {\Huge Huge}
+
+\begin{itemize}
+\item one
+  \begin{itemize}
+  \item a bold en dash label
+    \begin{itemize}
+    \item an asterisk
+      \begin{itemize}
+      \item a centred dot
+      \end{itemize}
+    \end{itemize}
+  \end{itemize}
+\end{itemize}
+\end{document}

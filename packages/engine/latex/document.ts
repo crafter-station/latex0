@@ -39,7 +39,7 @@ import { VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { COLOR_STY, Colors, colorPush, xcolor } from "./xcolor"
-import { mathFonts, paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
+import { fontAt, mathFonts, paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, parboxAt, tabularAt, widthRegisters } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
@@ -107,7 +107,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const listings = es ? listings0.map((l) => ({ ...l, options: markAccentHyphens(l.options) })) : listings0
   // (listings prints % with \%, which spanish.ldf's \es@sppercent makes $\,$%)
   if (es && listings0.some((l) => l.lines.some((x) => x.includes("%")))) throw new Unsupported("% in a listing with spanish.ldf")
-  const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
+  const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsFont, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
   const run = runState(pre.k)
@@ -204,8 +204,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
     return out
   }
   // booktabs's dimensions, set as it loads, in the class's \normalsize roman (.08em, .05em, .03em, .65ex, .4ex, .5em)
-  const booktabs = booktabsT1 === null ? null : (() => {
-    const f = selectFont(run.k, "normalsize", { enc: booktabsT1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" })
+  const booktabs = booktabsFont === null ? null : (() => {
+    const f = fontAt(booktabsFont.name, booktabsFont.at)
     const d = (x: string) => parseDimen(x, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
     return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: run.k.dimens.doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
   })()

@@ -12,6 +12,8 @@ const json = <T>(...path: string[]): T => JSON.parse(readFileSync(join(DIR, ...p
 export const fileData: DataSource = {
   font: (name) => json("fonts", `${name}.json`),
   documentClass: (cls) => json("classes", `${cls}.json`),
+  fontFamily: (family) => json("nfss", `${family}.json`),
+  mathFonts: (pkg) => json("nfss", `math-${pkg}.json`),
   beamerTheme: (theme) => json("beamer", `${theme}.json`),
   hyphenation: (language) => json("hyphenation", `${language}.json`),
   math: () => json("math", "latex.json"),

@@ -1,0 +1,27 @@
+% fixture: fonts/lmodern-preamble-cm
+% tier: T3
+% engine: document
+% covers: lengths read in the preamble take the font selected there, not lmodern's: geometry's margins in em of cmr10 (before fontenc), \parindent and booktabs's rules and separations and caption's skip in em and ex of ecrm1000 (fontenc selected T1 before lmodern loaded, which selects nothing)
+% issue: #340
+\documentclass{article}
+\usepackage[hmargin=12em,vmargin=8em]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage[skip=3ex]{caption}
+\setlength{\parindent}{5em}
+\begin{document}
+A first paragraph, indented by five em of the EC roman, long enough to run over two lines of text here.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+One & Two \\
+\midrule
+Three & Four \\
+\bottomrule
+\end{tabular}
+\caption{A table.}
+\end{table}
+\end{document}

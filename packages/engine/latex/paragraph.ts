@@ -24,7 +24,7 @@ import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { shipOut } from "../emit/trace"
-import { classData, documentClass } from "./classes"
+import { classData, documentClass, familyFont } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
@@ -757,6 +757,7 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  */
 /** \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size */
 function markFont(k: ClassOptionData, size: SizeCommand): Font {
+  if (k.families) { const r = familyFont(k.families.rm, `${k.ints.T1 ? "T1" : "OT1"}/m/n`, k.sizes[size].scriptSize); return loadFont(dataFont(r.name), r.at) }
   const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
   return loadFont(dataFont(ref.name), ref.at)
 }
@@ -777,8 +778,10 @@ function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath 
   if (!kind) throw new Unsupported(`\\thanks number ${n}`) // (\@ctrerr)
   const sf = k.sizes[size].scriptSize, pt = String(Math.round(sf / 655.36)).padStart(4, "0")
   const font = (name: string) => loadFont(dataFont(name), sf)
-  const [f, code] = kind === "section" && k.ints.T1 ? [font(`ecrm${pt}`), 159]
-    : [font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
+  // (\rmdefault's at \sf@size)
+  const rm = (enc: string) => { const r = familyFont(k.families!.rm, `${enc}/m/n`, sf); return loadFont(dataFont(r.name), r.at) }
+  const [f, code] = kind === "section" && k.ints.T1 ? [k.families ? rm("T1") : font(`ecrm${pt}`), 159]
+    : [k.families ? rm("TS1") : font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
   const chars = kind.endsWith("2") || kind === "**" ? [code, code] : [code]
   const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: hpack(chars.map((c) => charNode(f, c))) }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return [{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }]
