@@ -252,6 +252,15 @@ node distance, auto/swap, inner/outer sep, minimum sizes, text width, align, fon
 TeX's macros. Not yet: pictures, paths and nodes themselves (T2–T4), other keys, arrow options, `.store in`/`.is if`
 and other handlers, transformations applied at once (pgf's matrix, P4).
 
+🟡 TikZ's pictures and paths (#309, `tikz/path.ts`): tikzpicture and `\tikz` (braces or one path), the scope
+environment, `\path`, `\draw`, `\fill`, `\filldraw`, `\clip`, `\useasboundingbox`, `\coordinate`, `\tikzset`, options
+anywhere (every picture/scope/path, clip, use as bounding box, baseline, radius, xslant/yslant), coordinates (x,y)
+with and without units, (a:r) and its direction names, +(…), ++(…), (a |- b), (a -| b) and named coordinates, the
+operations --, -|, |-, rectangle, circle, ellipse, cycle and to, path groups `{…}`, pgf driven as tikz.code.tex
+does with every space its macros leave on the picture's list; checked by `bun engine tikz:check` (whole pictures
+under latex/dvips and pdflatex, box for box). Not yet: nodes (but coordinates), arrow tips, rounded corners
+(#304, #305), arcs, curves, grids, plots, `\foreach`, calc, coordinate options, x/y vectors, custom to paths.
+
 ### 4.7 Pages: the exact layout engine
 
 | Component | Source |
