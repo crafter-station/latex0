@@ -29,9 +29,10 @@ import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
-import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
+import { anchor, autorefLanguage, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { babelAux, babelLanguage, isSpanish, type Babel } from "./babel"
+import { babelGuillemet, portugueseHyphen, portugueseLayout, portugueseShorthand } from "./portuguese"
 import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text } from "./encodings"
 import { xcolor } from "./xcolor"
@@ -268,8 +269,10 @@ type Piece =
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** spanish.ldf's \%: \es@sppercent\percentsign{} */
   | { kind: "percent" }
-  /** spanish.ldf's guillemets: << and >> (the quoting environment's \lquoti, \rquoti), "< and "> */
+  /** spanish.ldf's guillemets: << and >> (the quoting environment's \lquoti, \rquoti), "< and ">; portuges.ldf's "< and "> */
   | { kind: "guillemet"; right: boolean; quoting: boolean }
+  /** portuges.ldf's "" (\hskip\z@skip) and "- (\nobreak-\bbl@allowhyphens) */
+  | { kind: "babelskip" } | { kind: "babelhyphen" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string }
   /** babel: \selectlanguage{lang}, \begin{otherlanguage}{lang} and its \end (`other`, `endother`), otherlanguage*'s
@@ -457,6 +460,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
         i = j; continue
       }
     }
+    if (portugueseLayout.on && body[i] === '"') { flushText(); out.push(portugueseShorthand(body.slice(i, i + 2))); i += 2; continue } // (portuges.ldf's)
     if (body[i] === "\\" && body[i + 1] !== undefined && "#%&".includes(body[i + 1])) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
     // a text symbol (\textdegree …); the spaces after a control word go
@@ -792,8 +796,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         if (ctx.quoting === !p.right) throw new Unsupported(p.right ? "spanish.ldf's >> without <<" : "spanish.ldf's quoting in quoting")
         ctx.quoting = !p.right
       }
-      list.push(...spanishGuillemet(p.right, attrs.enc, k, size, font, state))
+      list.push(...(spanishLayout.on ? spanishGuillemet(p.right, attrs.enc, k, size, font, state) : babelGuillemet(p.right, attrs.enc, k, size, font, state, !!ctx.amsmath)))
     }
+    else if (p.kind === "babelskip") list.push(glue(0))
+    else if (p.kind === "babelhyphen") list.push(...portugueseHyphen(font, state, !ctx.restricted))
     else if (p.kind === "babel" || p.kind === "foreign") {
       const lang = babelLanguage(doc.babel, p.lang)
       if (p.kind === "foreign") { appendPieces(list, p.inner, font, size, state, ctx, attrs); continue } // (in a group)
@@ -946,8 +952,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (p.kind === "autoref") {
         // \HyRef@autosetref: \hyper@@link{}{anchor}{\HyRef@currentHtag label \null}, the tag the name and ~;
         // \autoref* \@gobbletwo's the link's first two arguments
-        // (hyperref's spanish names when babel came first, its \extrasspanish has them, or with the class's spanish option)
-        const name = autorefName(known.href, isSpanish(doc.babel) && (!!doc.babel?.beforeHyperref || doc.babel!.global.includes("spanish")))
+        // (hyperref's names in babel's main language: autorefLanguage)
+        const name = autorefName(known.href, autorefLanguage(doc.babel))
         appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: sourceText(isSpanish(doc.babel) ? markAccentHyphens(name) : name) } as Piece, { kind: "tie" } as Piece]), { kind: "text", src: known.label }], font, size, state, inner, attrs)
       } else {
         // \T@nameref: the label's third field (its tokens as the .aux file is read) in \@setref; with hyperref

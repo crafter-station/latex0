@@ -27,6 +27,7 @@ import { Counters } from "./counters"
 import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
 import { babelAux, babelFrenchspacing, isSpanish } from "./babel"
 import { markAccentHyphens, spanishLayout } from "./spanish"
+import { portugueseLayout } from "./portuguese"
 import { accentHyphens, babelUmlauts, sourceText } from "./encodings"
 import { spacing } from "../layout/hmode"
 import { TocWriter, type TocEntry } from "./toc"
@@ -76,7 +77,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
       try { return layout(prepared, notHere, aux, epoch, images, driver) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
-      } finally { spacing.french = false; markLanguage.name = null; accentHyphens.on = spanishLayout.on = false; babelUmlauts.mode = null } // (babel's, for this document only)
+      } finally { spacing.french = false; markLanguage.name = null; accentHyphens.on = spanishLayout.on = portugueseLayout.on = false; babelUmlauts.mode = null } // (babel's, for this document only)
     }
   }
   // the oracle runs LaTeX twice: the second run reads the .toc and .aux files the first one wrote
@@ -110,6 +111,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const run = runState(pre.k)
   const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(body) : body)
   accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
+  portugueseLayout.on = ["portuguese", "portuges", "brazil", "brazilian"].includes(pre.babel?.main ?? "")
   babelUmlauts.mode = !pre.babel ? null : isSpanish(pre.babel) ? "spanish" : "high"
 
   const v = new VerticalList(run.k)
@@ -197,6 +199,10 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
   const counters = new Counters(cls, newCounters, () => doc.footnote)
+  // (cleveref's language options among the class's, with babel: its brazilian not modeled; its english and spanish also
+  // \crefname in babel's \extras<lang>, over the preamble's)
+  if (pre.cleveref && pre.babel?.global.includes("brazilian")) throw new Unsupported("cleveref's brazilian option")
+  if (pre.cleveref && pre.crefNames.length && pre.babel?.global.some((o) => o === "english" || o === "spanish")) throw new Unsupported(`\\crefname with cleveref's ${pre.babel.global} option`)
   // (cleveref's spanish option, the class's: its names, with spanish.ldf's accents)
   const crefSpanish = isSpanish(pre.babel) && pre.babel!.global.includes("spanish") ? (n: string) => sourceText(markAccentHyphens(n)) : undefined
   if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames, crefSpanish) }

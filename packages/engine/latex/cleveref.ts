@@ -78,8 +78,6 @@ export class CrefSetup {
   constructor(readonly options: CrefOptions, thms: Map<string, TheoremDef>, defs: CrefNameDef[], spanish?: (src: string) => string) {
     const { capitalise } = options
     const abbrev = options.abbrev && !spanish
-    // (spanish.ldf's \extrasspanish \crefname and \Crefname, after the preamble's)
-    if (spanish && defs.length) throw new Unsupported("\\crefname with cleveref's spanish")
     const and = spanish ? " y" : " and"
     this.conj = { middle: [text(", ")], last: [text(and), TIE], pairGroup: [text(and), TIE], middleGroup: [text(", ")], lastGroup: [text(spanish ? " y" : ", and"), TIE], range: [text(spanish ? " a" : " to"), TIE] }
     // \crefname and \Crefname in the preamble: the other variant's name, if it has none yet, the first token's case changed

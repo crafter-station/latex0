@@ -1,0 +1,21 @@
+% fixture: babel/brazil-report
+% tier: T3
+% engine: document
+% covers: \usepackage[brazil]{babel} in report with T1: portuges.ldf's brazil captions (Cap\'{\i}tulo, Sum\'ario, Refer\^encias Bibliogr\'aficas), "< and "> as T1's guillemets, the portuguese patterns on accented letters
+% issue: #63
+\documentclass{report}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\chapter{Introdução}
+Texto com "<aspas"> e guarda"-chuva. A teoria da informação estuda a quantificação, o armazenamento e a
+comunicação da informação digital.
+\begin{minipage}{60pt}
+Transformações estabelecidas e armazenamento de comunicações eletrônicas.
+\end{minipage}
+\begin{thebibliography}{9}
+\bibitem{a} Um item.
+\end{thebibliography}
+\end{document}

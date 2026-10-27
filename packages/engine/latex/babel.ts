@@ -56,6 +56,18 @@ const SPANISH_MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "
  *  glue after a lowercase letter) */
 const esDate = (d: Date) => `${d.getUTCDate()}~de ${SPANISH_MONTHS[d.getUTCMonth()]} de~${d.getUTCFullYear()}`
 
+/** portuges.ldf's captions: portuguese and portuges, or brazil and brazilian */
+const portugueseCaptions = (brazil: boolean): Captions => ({
+  refname: "Refer\\^encias", abstractname: "Resumo", bibname: brazil ? "Refer\\^encias Bibliogr\\'aficas" : "Bibliografia",
+  chaptername: "Cap\\'{\\i}tulo", appendixname: "Ap\\^endice", contentsname: brazil ? "Sum\\'ario" : "\\'Indice",
+  listfigurename: "Lista de Figuras", listtablename: "Lista de Tabelas", indexname: "\\'Indice Remissivo", figurename: "Figura",
+  tablename: "Tabela", partname: "Parte", enclname: "Anexo", ccname: brazil ? "C\\'opia para" : "Com c\\'opia a", headtoname: "Para",
+  pagename: "P\\'agina", proofname: "Demonstra\\c{c}\\~ao",
+})
+const PORTUGUESE_MONTHS = ["janeiro", "fevereiro", "mar\\c{c}o", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+/** portuges.ldf's \today: \number\day\space de\space <month>\space de\space\number\year */
+const ptDate = (d: Date) => `${d.getUTCDate()} de ${PORTUGUESE_MONTHS[d.getUTCMonth()]} de ${d.getUTCFullYear()}`
+
 /** each option's language: english is TeX Live's language 0 (hyphen.tex), british and its dialects ukenglish's */
 const LANGUAGES: Record<string, LanguageDef> = {
   english: { captions: LATEX_CAPTIONS, today: usDate, patterns: "en-us", hyphenmins: [2, 3] },
@@ -67,6 +79,10 @@ const LANGUAGES: Record<string, LanguageDef> = {
   australian: { captions: LATEX_CAPTIONS, today: auDate, patterns: "en-gb", hyphenmins: [2, 3] },
   newzealand: { captions: LATEX_CAPTIONS, today: auDate, patterns: "en-gb", hyphenmins: [2, 3] },
   spanish: { captions: spanishCaptions, today: esDate, patterns: "es", hyphenmins: [2, 2], frenchspacing: true },
+  portuguese: { captions: portugueseCaptions(false), today: ptDate, patterns: "pt", hyphenmins: [2, 3] },
+  portuges: { captions: portugueseCaptions(false), today: ptDate, patterns: "pt", hyphenmins: [2, 3] },
+  brazil: { captions: portugueseCaptions(true), today: ptDate, patterns: "pt", hyphenmins: [2, 3] },
+  brazilian: { captions: portugueseCaptions(true), today: ptDate, patterns: "pt", hyphenmins: [2, 3] },
 }
 
 /** the languages babel loaded, the main one (the last), and those the class's options gave (global: hyperref and

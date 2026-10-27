@@ -16,6 +16,7 @@ const LANGUAGES: Record<string, { file: string; source: string; ec: boolean }> =
   "en-us": { file: "hyphen.tex", source: "hyphen.tex (Knuth, TeX Live)", ec: false },
   "en-gb": { file: "hyph-en-gb.tex", source: "hyph-en-gb.tex (hyph-utf8, TeX Live's ukenglish)", ec: false },
   es: { file: "hyph-es.tex", source: "hyph-es.tex (hyph-utf8, TeX Live's spanish), EC characters", ec: true },
+  pt: { file: "hyph-pt.tex", source: "hyph-pt.tex (hyph-utf8, TeX Live's portuguese), EC characters", ec: true },
 }
 
 function block(src: string, cmd: string, optional = false): string[] {

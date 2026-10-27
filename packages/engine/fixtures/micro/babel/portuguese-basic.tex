@@ -1,0 +1,36 @@
+% fixture: babel/portuguese-basic
+% tier: T3
+% engine: document
+% covers: \usepackage[portuguese]{babel} (portuges.ldf): its captions (Resumo, \'Indice in the contents' heading and running heads, Figura, Tabela, Demonstra\c{c}\~ao, Refer\^encias), \today, the portuguese patterns (hyphenmins 2 3, no \frenchspacing), its " shorthands ("" "- and "< "> as babel's OT1 guillemets), babel's OT1 umlauts
+% issue: #63
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage[portuguese]{babel}
+\pagestyle{headings}
+\title{Título do artigo}
+\author{João Silva}
+\begin{document}
+\maketitle
+\begin{abstract}
+Um resumo curto. Fim.
+\end{abstract}
+\tableofcontents
+\section{Introdução}
+A teoria da informação estuda a quantificação, o armazenamento e a comunicação da informação digital.
+Palavras com hífen: guarda"-chuva e couve"-flor, sem""quebra, aspas "<assim"> e na\"{\i}ve, \"a, ü.
+\begin{figure}[h]
+\caption{Uma figura}
+\end{figure}
+\begin{table}[h]
+\caption{Uma tabela}
+\end{table}
+\begin{proof}
+Uma demonstração.
+\end{proof}
+\begin{minipage}{60pt}
+Transformações estabelecidas e armazenamento de comunicações eletrônicas.
+\end{minipage}
+\begin{thebibliography}{9}
+\bibitem{a} Um item.
+\end{thebibliography}
+\end{document}

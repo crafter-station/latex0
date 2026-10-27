@@ -274,17 +274,29 @@ const SPANISH_AUTOREF_NAMES: Record<string, string> = {
   equation: "Ecuaci\\'on", Item: "Elemento", figure: "Figura", table: "Tabla", chapter: "Cap\\'itulo", section: "Secci\\'on",
   subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing",
 }
+/** hyperref's \HyLang@portuges, for brazil, brazilian and portuguese (not portuges) */
+const PORTUGUESE_AUTOREF_NAMES: Record<string, string> = {
+  equation: "Equa\\c c\\~ao", Item: "Item", figure: "Figura", table: "Tabela", chapter: "Cap\\'itulo", section: "Se\\c c\\~ao",
+  subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing",
+}
 /** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
 const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "appendix", "paragraph", "subparagraph", "FancyVerbLine", "page"]
+
+/** The language of hyperref's names (\HyLang@DeclareLang): the main language's, when babel came first (its \extras<lang> are
+ *  there to add them to) or the class has it as an option; english (null) for the english ones and the others */
+export function autorefLanguage(b: { main: string; global: string[]; beforeHyperref?: boolean } | null | undefined): "spanish" | "portuges" | null {
+  if (!b || !(b.beforeHyperref || b.global.includes(b.main))) return null
+  return b.main === "spanish" ? "spanish" : ["brazil", "brazilian", "portuguese"].includes(b.main) ? "portuges" : null
+}
 
 /**
  * \HyRef@testreftype: \autoref's name for an anchor, from its type (the anchor up to its first period):
  * \<type>autorefname, else \<type>name, else either for the type without a final * (\HyRef@StripStar);
  * null with neither (hyperref's warning "No autoref name", and no name)
  */
-export function autorefName(href: string, spanish = false): string | null {
+export function autorefName(href: string, lang: "spanish" | "portuges" | null = null): string | null {
   const type = href.split(".")[0]
   if (AUTOREF_OTHERS.includes(type.replace(/\*$/, ""))) throw new Unsupported(`\\autoref to a ${type} anchor`)
-  const names = spanish ? SPANISH_AUTOREF_NAMES : AUTOREF_NAMES
+  const names = lang === "spanish" ? SPANISH_AUTOREF_NAMES : lang === "portuges" ? PORTUGUESE_AUTOREF_NAMES : AUTOREF_NAMES
   return names[type] ?? (type.endsWith("*") ? names[type.slice(0, -1)] : undefined) ?? null
 }

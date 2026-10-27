@@ -5,7 +5,7 @@
 // flushright and abstract, started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
-// them, \label in both, babel (english, british, american, spanish: Spanish words with accents typed and in UTF-8,
+// them, \label in both, babel (english, british, american, portuguese, brazil, spanish: Spanish words with accents typed and in UTF-8,
 // its shorthands << >> "< "> "u and \%, decimals and operators in math) — each compared with TeX as a fixture is:
 // every glyph, every line and page decision, every page's box tree.
 //
@@ -513,7 +513,7 @@ export function makeDocument(r: () => number): string {
     thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
   // babel, its option or the class's (not with siunitx or titlesec in spanish: not modeled; nor in letters)
-  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", ...(siOn || tsOn ? [] : ["spanish", "spanish", "spanish"])]) : null
+  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(siOn || tsOn ? [] : ["spanish", "spanish", "spanish"])]) : null
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
   // (after hyperref; its options sometimes, and \crefname: not with cleveref's spanish, which redefines them)
   crefOn = !nrOn && !isLetter && r() < 0.2

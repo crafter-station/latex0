@@ -6,7 +6,7 @@
 
 import type { Font } from "../layout/font"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH } from "../layout/font"
-import { appendText, sourceText } from "./encodings"
+import { ACCENT_COMMAND, appendText, sourceText } from "./encodings"
 import { glue, penalty, type Node } from "../layout/nodes"
 import type { Shipped } from "./output"
 import { Unsupported } from "./unsupported"
@@ -19,10 +19,10 @@ export const EMPTY_MARK: MarkValue = { print: "", parts: [], upper: false }
 
 /** a mark's value: the \protected@xdef'd text (\MakeUppercase prints as itself), and what it typesets */
 export function markValue(parts: MarkValue["parts"], upper: boolean): MarkValue {
-  // (text accents print as typed: \'{I}ndice)
-  for (const p of parts) if ("text" in p && /[\\{}$^_~%&#]/.test(p.text.replace(/\\['~]\{(?:[A-Za-z]|\\i)\}/g, ""))) throw new Unsupported(`a running head for "${p.text}"`)
-  // (a control word prints with a space after it: \'{\i }; spanish.ts's marks go)
-  const text = parts.map((p) => ("text" in p ? p.text.replace(/\\i\}/g, "\\i }").replace(/\ue000/g, "") : "quad" in p ? "\\hskip 1em\\relax " : "\\ ")).join("")
+  // (text accents print as typed: \'{I}ndice, \'Indice)
+  for (const p of parts) if ("text" in p && /[\\{}$^_~%&#]/.test(p.text.replace(new RegExp(ACCENT_COMMAND.source.slice(1), "g"), ""))) throw new Unsupported(`a running head for "${p.text}"`)
+  // (a control word prints with a space after it: \'{\i }, \c {c}; spanish.ts's marks go)
+  const text = parts.map((p) => ("text" in p ? p.text.replace(/\\([A-Za-z]+)\s*/g, "\\$1 ").replace(/\ue000/g, "") : "quad" in p ? "\\hskip 1em\\relax " : "\\ ")).join("")
   return { print: upper ? `\\MakeUppercase    []{${text}}` : text, parts, upper }
 }
 
