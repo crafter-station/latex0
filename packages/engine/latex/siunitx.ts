@@ -22,6 +22,9 @@
 // penalty, \, \mskip\thinmuskip, the phrases' spaces are \ (the text font's space, § 1045) and their \text{…}
 // amstext's \mathchoice of \hbox{…}, Unsupported in script styles (another font size), like \micro's.
 //
+// An S column's entry (siTableCell): text in braces, or a number in boxes aligned on its decimal marker or by the
+// model table-format gives.
+//
 // Options (\usepackage[…]{siunitx}, \sisetup{…} in the preamble, a command's […]): round-mode (none, places,
 // figures: rounded half up on the digits, padded with zeros, a zero without its minus), round-precision,
 // round-pad, round-zero-positive; group-digits, group-separator and group-minimum-digits; output-decimal-marker
@@ -32,7 +35,8 @@
 // quantity-product; range-phrase and the list separators (text then, a formula in math mode). Any other key or
 // value, and anything else siunitx reads differently, is Unsupported.
 
-import { glue, penalty, type BoxNode } from "../layout/nodes"
+import { FILL, filGlue, glue, kern, penalty, ssGlue, type BoxNode, type Node } from "../layout/nodes"
+import { hpack } from "../layout/pack"
 import { SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../layout/font"
 import { mathCharNoad, groupField, ORD, SCRIPT, type ChoiceItem, type MItem, type Noad } from "../mathlayout/mlist"
 import type { MathData } from "../mathlayout/data"
@@ -51,15 +55,15 @@ export interface SiOptions {
   perMode: "power" | "symbol" | "fraction"; perSymbol: string; interUnitProduct: string; quantityProduct: string
   /** null: the default, \TextOrMath{\space}{\ }\text{to}… and ",\TextOrMath{\space}{\ }" */
   rangePhrase: string | null; listSeparator: string | null; listFinalSeparator: string | null; listPairSeparator: string | null
-  /** table-format, for S columns */
-  tableFormat: string
+  /** S columns: table-alignment-mode (table-format sets format) and table-format */
+  tableMode: "marker" | "format"; tableFormat: string
 }
 export const SI_DEFAULTS: SiOptions = {
   roundMode: "none", roundPrecision: 2, roundPad: true, roundZeroPositive: true,
   groupInteger: true, groupDecimal: true, groupMinimum: 5, groupSeparator: "\\,",
   decimalMarker: ".", exponentProduct: "\\times", separateUncertainty: false,
   perMode: "power", perSymbol: "/", interUnitProduct: "\\,", quantityProduct: "\\,",
-  rangePhrase: null, listSeparator: null, listFinalSeparator: null, listPairSeparator: null, tableFormat: "2.2",
+  rangePhrase: null, listSeparator: null, listFinalSeparator: null, listPairSeparator: null, tableMode: "marker", tableFormat: "2.2",
 }
 
 /** A key–value list (l3keys: commas outside braces, spaces around keys and values trimmed, one level of braces
@@ -111,7 +115,8 @@ export function siOptions(src: string, base: SiOptions): SiOptions {
       case "list-separator": o.listSeparator = tl(); break
       case "list-final-separator": o.listFinalSeparator = tl(); break
       case "list-pair-separator": o.listPairSeparator = tl(); break
-      case "table-format": o.tableFormat = tl(); break
+      case "table-format": o.tableFormat = tl(); o.tableMode = "format"; break
+      case "table-alignment-mode": o.tableMode = choice("marker", "format"); break
       default: throw bad()
     }
   }
@@ -256,15 +261,15 @@ function quantity(n: string, u: string, cx: SiContext, o: SiOptions): SiPart[] {
 
 // ---- numbers ----
 
-/** A number as \siunitx_number_output:N leaves it: the sign, digits and decimal part with the compact uncertainty;
- *  the separate uncertainty (\pm…); the exponent (\times10^{…}) */
-interface NumberOut { head: MItem[]; unc: MItem[]; exp: MItem[] }
+/** A number as \siunitx_number_output:N leaves it: the sign and integer digits; the decimal marker and digits with
+ *  the compact uncertainty; the separate uncertainty (\pm…); the exponent product; the exponent (10^{…}) */
+interface NumberOut { int: MItem[]; dec: MItem[]; unc: MItem[]; product: MItem[]; exp: MItem[] }
 
 /** \num's brackets around a separate uncertainty before an exponent (bracket-ambiguous-numbers); a quantity's
  *  around any separate uncertainty (separate-uncertainty-units = bracket) */
 function numberItems(n: NumberOut, o: SiOptions, data: MathData, inQuantity: boolean): MItem[] {
-  if (n.unc.length && (inQuantity || n.exp.length)) return [ch("(", data), ...n.head, ...n.unc, ch(")", data), ...n.exp]
-  return [...n.head, ...n.unc, ...n.exp]
+  if (n.unc.length && (inQuantity || n.exp.length)) return [ch("(", data), ...n.int, ...n.dec, ...n.unc, ch(")", data), ...n.product, ...n.exp]
+  return [...n.int, ...n.dec, ...n.unc, ...n.product, ...n.exp]
 }
 
 /** The digits of a part, grouped in threes (from the right for an integer part, from the left for decimals) when
@@ -312,7 +317,7 @@ function number(input: string, o: SiOptions, data: MathData): NumberOut {
   const m = src.match(/^([+\-±]?)(\d*)(?:([.,])(\d*))?(?:\((\d+)\)|±(\d*)(?:[.,](\d*))?)?(?:[eEdD]([+-]?)(\d+))?$/)
   if (!m || (m[2] === "" && m[3] === undefined && m[8] === undefined) || (m[6] === "" && m[7] === undefined)) throw new Unsupported(`siunitx number ${input}`)
   const [, signIn, intIn, marker, decIn = "", paren, uInt, uDec = "", expSign, expIn] = m
-  const out: NumberOut = { head: [], unc: [], exp: [] }
+  const out: NumberOut = { int: [], dec: [], unc: [], product: [], exp: [] }
   const mantissa = intIn !== "" || marker !== undefined
   if (mantissa) {
     let int = stripZeros(intIn) || "0", dec = decIn, unc = paren ?? ""
@@ -340,10 +345,11 @@ function number(input: string, o: SiOptions, data: MathData): NumberOut {
       } else if (o.roundPad) dec += "0".repeat(-drop)
       if (/^0*$/.test(int + dec) && o.roundZeroPositive && sign === "-") sign = ""
     }
-    if (sign === "-") out.head.push(ch("-", data))
-    else if (sign === "±") out.head.push(mathCharNoad(data.symbols.pm))
-    out.head.push(...digits(int, "integer", o, data), ...decimal(dec, o, data))
-    if (unc && !o.separateUncertainty) out.head.push(ch("(", data), ...unc.split("").map((c) => ch(c, data)), ch(")", data))
+    if (sign === "-") out.int.push(ch("-", data))
+    else if (sign === "±") out.int.push(mathCharNoad(data.symbols.pm))
+    out.int.push(...digits(int, "integer", o, data))
+    out.dec.push(...decimal(dec, o, data))
+    if (unc && !o.separateUncertainty) out.dec.push(ch("(", data), ...unc.split("").map((c) => ch(c, data)), ch(")", data))
     else if (unc) { // \__siunitx_number_output_uncert_S_sep:nnnn: \pm (a break allowed), the uncertainty with the value's decimals
       const n = unc.length - dec.length
       out.unc.push(mathCharNoad(data.symbols.pm), ...(n > 0 ? digits(unc.slice(0, n), "integer", o, data) : [ch("0", data)]), ...decimal(n > 0 ? unc.slice(n) : "0".repeat(-n) + unc, o, data))
@@ -351,7 +357,7 @@ function number(input: string, o: SiOptions, data: MathData): NumberOut {
   } else if (signIn || paren !== undefined || uInt !== undefined) throw new Unsupported(`siunitx number ${input}`)
   const exp = expIn === undefined ? "" : stripZeros(expIn)
   if (exp !== "" && exp !== "0") {
-    if (mantissa) out.exp.push(...mathOf(o.exponentProduct, data))
+    if (mantissa) out.product.push(...mathOf(o.exponentProduct, data))
     const ten: Noad = ch("0", data)
     ten.sup = groupField([...(expSign === "-" ? [ch("-", data)] : []), ...digits(exp, "integer", o, data)])
     out.exp.push(ch("1", data), ten)
@@ -469,4 +475,82 @@ function unitNoad(p: UnitPart, cx: SiContext): Noad {
   }
   const power = p.power === null ? null : groupField(p.power.split("").map((c) => ch(c, data)))
   return { noad: ORD, nucleus: groupField(items), sup: power, sub: null }
+}
+
+// ---- S columns ----
+
+/** The builder's view of a tabular entry: a list as $…$ in hbox material, and text as the entry reads it (with its
+ *  space factor) */
+export interface SiCellContext extends SiContext { formula: (list: MItem[]) => Node[]; cell: (src: string) => Node[] }
+
+/** \siunitx_if_number_token:N at the defaults: input-decimal-markers, -digits, -exponent-markers, -signs, -ignore,
+ *  the uncertainty brackets and the comparators */
+const NUMBER_TOKENS = new Set([..."0123456789.,()+-dDeE<=>", "\\pm", "\\mp", "\\,", "\\approx", "\\ge", "\\geq", "\\gg", "\\le", "\\leq", "\\ll", "\\sim"])
+
+/**
+ * An S column's entry (\siunitx_cell_begin:w … \siunitx_cell_end:): its tokens without spaces, split into the text
+ * before, the number and the text after (\__siunitx_table_split:nNNN); without a number the text alone
+ * (\__siunitx_table_print_text:n), else the number's integer and decimal parts in boxes aligned on the decimal
+ * marker (table-alignment-mode = marker) or the widths table-format's model gives them (format), centered by
+ * \hskip 0pt plus .5fill on both sides (table-alignment = center)
+ */
+export function siTableCell(text: string, opt: string, state: { spaceFactor: number }, cx: SiCellContext): Node[] {
+  const o = opt === "" ? cx.options : siOptions(opt, cx.options)
+  const { data } = cx
+  // the entry's tokens: groups, control sequences, characters (\__siunitx_table_collect_loop: removes spaces)
+  const toks: string[] = []
+  for (let i = 0; i < text.length;) {
+    const c = text[i]
+    if (/\s/.test(c)) { i++; continue }
+    if (c === "{") {
+      let depth = 0, j = i
+      for (; j < text.length; j++) { if (text[j] === "\\") { j++; continue } if (text[j] === "{") depth++; else if (text[j] === "}" && --depth === 0) break }
+      if (j >= text.length) throw new Unsupported(`an S entry ${text.trim()}`)
+      toks.push(text.slice(i, j + 1)); i = j + 1; continue
+    }
+    if (c === "}") throw new Unsupported(`an S entry ${text.trim()}`)
+    const cs = text.slice(i).match(/^\\(?:[A-Za-z]+|.)/)
+    if (cs) { toks.push(cs[0]); i += cs[0].length; continue }
+    toks.push(c); i++
+  }
+  let before = "", num = "", after = ""
+  for (const t of toks) {
+    if (t.startsWith("{")) before += t // (after a number, text after it: Unsupported as well)
+    else if (after) after += t
+    else if (NUMBER_TOKENS.has(t)) num += t + (/^\\[A-Za-z]/.test(t) ? " " : "")
+    else if (num) after += t
+    else before += t + (/^\\[A-Za-z]/.test(t) ? " " : "")
+  }
+  const skip = (): Node[] => [glue(0, 32768, FILL), kern(0, true)] // \__siunitx_table_skip:n {0pt plus 0.5fill}
+  if (!num) return [...skip(), ...(before ? cx.cell(before) : []), ...skip()] // (a lone group's braces go, but they change nothing here)
+  if (before || after) throw new Unsupported(`an S entry with text around its number: ${text.trim()}`)
+  state.spaceFactor = 1000 // (boxes)
+  const n = number(num, o, data)
+  if (n.unc.length && n.exp.length) { n.int.unshift(ch("(", data)); n.unc.push(ch(")", data)) } // (bracket-ambiguous-numbers)
+  const box = (list: MItem[]): BoxNode => hpack(list.length ? cx.formula(list) : [])
+  if (o.tableMode === "marker") { // \__siunitx_table_print_marker:nnn
+    const int = box(n.int)
+    const empty: Noad = { noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null } // {}
+    // \__siunitx_table_print_marker_aux:w: {} before a separate uncertainty without decimals, and alone without either
+    let dec = box([...(!n.dec.length && n.unc.length ? [empty] : n.dec), ...n.unc, ...(n.dec.length || n.unc.length ? [] : [empty]), ...n.product, ...n.exp])
+    const marker = box([{ noad: ORD, nucleus: groupField(mathOf(o.decimalMarker, data)), sup: null, sub: null }]).width // \mathord{marker}
+    // \__siunitx_table_center_marker: (table-align-text-before and -after true)
+    let intBox = int
+    if (int.width > dec.width - marker) dec = hpack([...dec.list, filGlue()], { exactly: int.width + marker })
+    else intBox = hpack([filGlue(), ...int.list], { exactly: dec.width - marker })
+    const after = hpack([filGlue()], { exactly: 0 }) // (the empty after box, as wide as the empty before box, which goes)
+    return [...skip(), intBox, dec, after, ...skip()]
+  }
+  // \__siunitx_table_print_format:nnn with the model of table-format
+  // (a separate uncertainty and an exponent the model lacks go: \__siunitx_table_print_format_auxv:w, auxxiii)
+  const fm = o.tableFormat.replace(/\s+/g, "").match(/^([+-]?)(\d+)(?:\.(\d+))?$/)
+  if (!fm) throw new Unsupported(`table-format = ${o.tableFormat}`)
+  const modelInt = box([...(fm[1] ? [ch(fm[1], data)] : []), ...digits(fm[2] === "0" ? "0" : "8".repeat(Number(fm[2])), "integer", o, data)])
+  const modelDec = box(fm[3] ? decimal("8".repeat(Number(fm[3])), o, data) : [])
+  let tmp = box(n.int)
+  if (tmp.width > modelInt.width) tmp = hpack([ssGlue(), ...tmp.list], { exactly: modelInt.width }) // (\hss: it sticks out on the left)
+  const intBox = hpack([filGlue(), filGlue(), ...tmp.list], { exactly: modelInt.width }) // (\fil, the comparator box's \fil, the integer)
+  const dec = box(n.dec)
+  const carry = modelDec.width - dec.width
+  return [...skip(), hpack([filGlue()], { exactly: 0 }), intBox, dec, hpack([glue(carry), filGlue()], { exactly: carry }), ...skip()]
 }

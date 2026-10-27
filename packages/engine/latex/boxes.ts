@@ -14,13 +14,15 @@ import { copyKeys, runList, setCaptionKeys } from "./captionsetup"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
 import { preamble, tabularBox, tabularLines, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
-import { hlistInput, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions, type TabularOuter } from "./paragraph"
+import { hlistInput, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, siContext, type FontAttrs, type ParagraphOptions, type TabularOuter } from "./paragraph"
+import { mlistToHlist, TEXT } from "../mathlayout/mlist"
+import { siTableCell } from "./siunitx"
 
 /** tabular number n where it stands in text (DocState.tabular) */
 export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
   const { tabulars } = cx
   const t = tabulars[n]
-  const lines = tabularLines(t.body), cols = preamble(t.spec, cx.run.k.array && { types: cx.pre.columnTypes })
+  const lines = tabularLines(t.body), cols = preamble(t.spec, cx.run.k.array && { types: cx.pre.columnTypes, si: !!cx.doc.siunitx })
   return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer)
 }
 
@@ -225,7 +227,9 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     },
     ...(booktabs ? { booktabs } : {}),
     multirow: cx.pre.usesMultirow,
-    ...(run.k.array ? { array: { types: cx.pre.columnTypes, strutbox, strutOf: (sz: SizeCommand) => run.k.sizes[sz].strut } } : {}),
+    ...(run.k.array ? { array: { types: cx.pre.columnTypes, strutbox, strutOf: (sz: SizeCommand) => run.k.sizes[sz].strut, si: !!doc.siunitx } } : {}),
+    // an S entry's boxes: $…$ in them (\mathsurround zero), text as the entry's
+    ...(doc.siunitx ? { si: (text: string, options: string, state: { spaceFactor: number }) => siTableCell(text, options, state, { ...siContext(run.k, size, font, doc.siunitx!), formula: (l) => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(l, mathEnv(run.k, size, amsmath), TEXT, false), { kind: "math", on: false, width: 0 }], cell: (src) => env.cell(src, state) }) } : {}),
   }
   return tabularBox(lines, cols, env, pos)
 }
