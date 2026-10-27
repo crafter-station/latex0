@@ -246,8 +246,8 @@ export interface ParagraphOptions {
  */
 export const squeeze = (t: string): string => {
   const s = t.replace(/\s+/g, " ").replace(/^ /, "")
-  // a space after } or ~ is glue \par removes in place of what comes before it
-  return /[}~] $/.test(s) ? s : s.replace(/ $/, "")
+  // a space after } or ~ is glue \par removes in place of what comes before it, and so is a control space (\␣)
+  return /[}~] $|(^|[^\\])(\\\\)*\\ $/.test(s) ? s : s.replace(/ $/, "")
 }
 
 /** Where the group opened at `open` closes (braces nest, \{ and \} do not count). */
@@ -457,7 +457,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
         i = j; continue
       }
     }
-    if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
+    if (body[i] === "\\" && body[i + 1] !== undefined && "#%&".includes(body[i + 1])) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
     // a text symbol (\textdegree …); the spaces after a control word go
     const sym = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)

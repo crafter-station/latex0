@@ -7,6 +7,7 @@
 import { expandDocument } from "../expand/document"
 import { isKnownCommand } from "../parser"
 import { Unsupported } from "./unsupported"
+import { spanishLayout } from "./spanish"
 
 /** an lstlisting environment's [options] and lines */
 export interface Listing { options: string; lines: string[]; inline?: true }
@@ -219,7 +220,8 @@ function takeTikz(source: string, out: string[]): string {
 /** How many groups are open at the end of `src` (braces not escaped). */
 export const depthOf = (src: string) => { let d = 0; for (const m of src.matchAll(/\\.|[{}]/g)) d += m[0] === "{" ? 1 : m[0] === "}" ? -1 : 0; return d }
 
-/** a paragraph that a tabular (or a minipage) starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
-export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text)
+/** a paragraph that a tabular (or a minipage, or spanish.ldf's quoting, <<) starts: it starts in \begin{tabular}'s group
+ *  (\leavevmode), where \everypar's assignments stay */
+export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text) || spanishLayout.on && /^\s*<\s*</.test(text)
 /** a paragraph that starts in a group ({…}, not an empty one): its \everypar runs there */
 export const groupStart = (text: string) => /^\s*\{(?!\})/.test(text)

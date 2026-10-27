@@ -1,0 +1,16 @@
+% fixture: text/control-space-display
+% tier: T3
+% engine: document
+% covers: a control space (\␣) at the end of a paragraph or before a display: its glue is the one line_break removes (§ 816), the tie before it stays; TeX skips the blanks after \␣ (§ 354)
+% issue: #63
+\documentclass{article}
+\begin{document}
+Text with a tie at the end of it and then a control space~\ 
+\begin{displaymath} x \end{displaymath}
+more text and a control space\  
+followed by blanks. The end of the paragraph has one\ 
+
+Next paragraph with a tie and a control space~\ 
+
+The last.
+\end{document}
