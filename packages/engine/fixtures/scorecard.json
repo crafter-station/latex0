@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 750,
-  "exact": 750,
+  "fixtures": 769,
+  "exact": 769,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 403958
+  "glyphs": 453607
  },
  "areas": [
   {
@@ -71,13 +71,13 @@
   },
   {
    "area": "fancyhdr",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "floats",
-   "fixtures": 11,
-   "exact": 11
+   "fixtures": 15,
+   "exact": 15
   },
   {
    "area": "footnotes",
@@ -96,8 +96,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 19,
-   "exact": 19
+   "fixtures": 23,
+   "exact": 23
   },
   {
    "area": "hyphenation",
@@ -145,9 +145,14 @@
    "exact": 14
   },
   {
+   "area": "parskip",
+   "fixtures": 3,
+   "exact": 3
+  },
+  {
    "area": "pdflatex",
-   "fixtures": 16,
-   "exact": 16
+   "fixtures": 20,
+   "exact": 20
   },
   {
    "area": "sections",
@@ -5280,6 +5285,50 @@
    "covers": "fancyhdr's default fields with \\pagestyle{fancy}: {\\slshape\\rightmark} left and {\\slshape\\leftmark} right in the head, \\rmfamily\\thepage in the foot, each a \\parbox of \\headwidth with a \\strut (\\f@nch@def), the 0.4pt head rule; its \\sectionmark (\\markboth{\\MakeUppercase{\\thesection\\hskip 1em\\relax title}}{}) and \\subsectionmark (\\markright); \\@mkboth is \\markboth (the contents); the fields' paragraphs traced as each page ships, among the document's"
   },
   {
+   "id": "fancyhdr/fancy-before-geometry",
+   "file": "micro/fancyhdr/fancy-before-geometry.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3406,
+   "covers": "fancyhdr with \\pagestyle{fancy} before geometry loads: \\headwidth is the class's \\textwidth then, wider or narrower than geometry's text; a second \\pagestyle{fancy} after it keeps it",
+   "issue": "#332"
+  },
+  {
+   "id": "fancyhdr/fancy-book",
+   "file": "micro/fancyhdr/fancy-book.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 17212,
+   "covers": "fancyhdr in book: \\f@nch@initialise's \\chaptermark (\\markboth{\\MakeUppercase{\\@chapapp\\ \\thechapter. \\ title}}{}) and \\sectionmark (\\markright{\\MakeUppercase{\\thesection. \\ title}}), two-sided fields LE,RO and RE, LO with \\leftmark and \\rightmark, chapter pages in plain; a front matter chapter's mark (\\thechapter still 0)",
+   "issue": "#332"
+  },
+  {
+   "id": "fancyhdr/fancy-geometry",
+   "file": "micro/fancyhdr/fancy-geometry.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6840,
+   "covers": "fancyhdr with geometry loaded before \\pagestyle{fancy}: \\headwidth is geometry's \\textwidth when \\ps@fancy first runs; the head and foot fields and rules over it",
+   "issue": "#332"
+  },
+  {
+   "id": "fancyhdr/fancy-report",
+   "file": "micro/fancyhdr/fancy-report.tex",
+   "area": "fancyhdr",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13853,
+   "covers": "fancyhdr in report (one-sided) with its default fields: \\chaptermark and \\sectionmark as \\f@nch@initialise defines them, the slanted \\leftmark and \\rightmark, the page number in the foot",
+   "issue": "#332"
+  },
+  {
    "id": "fancyhdr/float-page-break",
    "file": "micro/fancyhdr/float-page-break.tex",
    "area": "fancyhdr",
@@ -5308,6 +5357,50 @@
    "status": "pass",
    "glyphs": 6281,
    "covers": "fancyhdr at 11pt: head fields taller than \\headheight (13.6pt struts, a field wrapping to two lines in its \\raggedleft parbox), the \\vbox cut to \\headheight (\\f@nch@vbox); a \\setlength{\\headheight} in the preamble"
+  },
+  {
+   "id": "floats/float-here-H",
+   "file": "micro/floats/float-here-H.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2924,
+   "covers": "float.sty's [H] for figures and tables (\\@float@HH, \\float@endH): the float's box in the text between two \\vskip\\intextsep, no float; after a paragraph, inside one (its \\vskip ends it), right after a heading, and a page break between boxes; numbering shared with ordinary floats",
+   "issue": "#332"
+  },
+  {
+   "id": "floats/float-here-after-hyperref",
+   "file": "micro/floats/float-here-after-hyperref.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 484,
+   "covers": "float.sty's [H] loaded after hyperref (float.sty's \\caption in place of hyperref's: the anchor before the caption) and before setspace (no single spacing in the [H] box)",
+   "issue": "#332"
+  },
+  {
+   "id": "floats/float-here-hyperref-algorithm",
+   "file": "micro/floats/float-here-hyperref-algorithm.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 80,
+   "covers": "float.sty loaded before hyperref, algorithm.sty after it (its float.sty already loaded: hyperref's \\caption stays, its anchor in the caption) with a figure [H]",
+   "issue": "#332"
+  },
+  {
+   "id": "floats/float-here-hyperref",
+   "file": "micro/floats/float-here-hyperref.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 484,
+   "covers": "float.sty's [H] with hyperref loaded after it (hyperref's \\caption, its anchor in the caption) and with setspace loaded after it (setspace's \\@xfloat for [H] too: single spacing in the box)",
+   "issue": "#332"
   },
   {
    "id": "floats/float-in-declared-paragraph",
@@ -5602,6 +5695,28 @@
    "issue": "#30"
   },
   {
+   "id": "hyperref/colorlinks-xcolor",
+   "file": "micro/hyperref/colorlinks-xcolor.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 128,
+   "covers": "hyperref's colorlinks set by \\hypersetup with xcolor's colors (teal, black, a mix): links in them, anchors (a figure's caption, a footnote's) in \\@anchorcolor",
+   "issue": "#332"
+  },
+  {
+   "id": "hyperref/colorlinks",
+   "file": "micro/hyperref/colorlinks.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 115,
+   "covers": "hyperref's colorlinks with its colors: the color package loaded at \\begin{document}, each link's text in \\@<type>color (\\Hy@colorlink), the border /Border [0 0 0]; linkcolor, citecolor, urlcolor and filecolor set as package options",
+   "issue": "#332"
+  },
+  {
    "id": "hyperref/first-page-geometry",
    "file": "micro/hyperref/first-page-geometry.tex",
    "area": "hyperref",
@@ -5611,6 +5726,17 @@
    "glyphs": 2964,
    "covers": "the first page's shipout/firstpage specials with hyperref, geometry and xcolor under dvips: hyperref's (pdfmark test, /DOCINFO, the H.S … procedures, its papersize), l3backend's header, then geometry's and dvips.def's papersize; \\Hy@DistillerDestFix before each page's anchor",
    "issue": "#296"
+  },
+  {
+   "id": "hyperref/hidelinks",
+   "file": "micro/hyperref/hidelinks.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 91,
+   "covers": "hyperref's hidelinks through \\hypersetup: no color, every link's border 0 0 0; a later colorlinks=false keeps it",
+   "issue": "#332"
   },
   {
    "id": "hyperref/item-displays-plain",
@@ -5710,6 +5836,17 @@
    "glyphs": 7717,
    "covers": "hyperref's page labels under dvips: \\HyPL@EveryPage's entries where the numbering changes (book's \\frontmatter roman, \\mainmatter arabic from 1, numbers that follow on making none), read back by \\HyPL@SetPageLabels in the next run as a Catalog /PageLabels pdfmark after the Doc-Start anchor",
    "issue": "#296"
+  },
+  {
+   "id": "hyperref/pdfinfo-border",
+   "file": "micro/hyperref/pdfinfo-border.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 67,
+   "covers": "hyperref's document information (pdftitle, pdfauthor, pdfsubject, pdfkeywords, pdfcreator as \\pdfstringdef makes them) in the first page's /DOCINFO, pdfborder in every link's /Border, bookmarksopen (each \\BOOKMARK line and /OUT pdfmark open); options over more than one line",
+   "issue": "#332"
   },
   {
    "id": "hyperref/report-toc",
@@ -6973,6 +7110,39 @@
    "issue": "#115"
   },
   {
+   "id": "parskip/parskip-12pt",
+   "file": "micro/parskip/parskip-12pt.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 609,
+   "covers": "parskip.sty with article at 12pt (7.25pt plus 2pt) and T1, a heading right after a heading (no skip before it), a list",
+   "issue": "#332"
+  },
+  {
+   "id": "parskip/parskip-article",
+   "file": "micro/parskip/parskip-article.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1539,
+   "covers": "parskip.sty: \\parskip .5\\baselineskip plus 2pt and \\parindent 0pt; \\@listI, \\@listii, \\@listiii (\\topsep and \\itemsep zero, \\parsep\\parskip, \\partopsep zero) and \\small's own \\@listi (an abstract's quotation); \\@startsection's and \\@xsect's skips less \\parskip (display and run-in headings); \\@starttoc's skip and the toc lines' zero \\parskip; \\maketitle, center, quote, a list in a quotation (\\@listii's \\parsep the quotation's \\parsep) and footnotes",
+   "issue": "#332"
+  },
+  {
+   "id": "parskip/parskip-report",
+   "file": "micro/parskip/parskip-report.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 999,
+   "covers": "parskip.sty with report at 11pt: its \\parskip from the class's \\baselineskip (6.8pt plus 2pt), chapters (\\@makechapterhead unpatched), sections after them, the toc after \\chapter*'s skip, a later \\setlength{\\parskip} that the lists' \\parsep follows",
+   "issue": "#332"
+  },
+  {
    "id": "pdflatex/algorithm-hyperref-first",
    "file": "micro/pdflatex/algorithm-hyperref-first.tex",
    "area": "pdflatex",
@@ -7038,6 +7208,17 @@
    "covers": "under pdflatex (PDF, positions from its box dumps): fancyhdr's default fields with \\pagestyle{fancy}: {\\slshape\\rightmark} left and {\\slshape\\leftmark} right in the head, \\rmfamily\\thepage in the foot, each a \\parbox of \\headwidth with a \\strut (\\f@nch@def), the 0.4pt head rule; its \\sectionmark (\\markboth{\\MakeUppercase{\\thesection\\hskip 1em\\relax title}}{}) and \\subsectionmark (\\markright); \\@mkboth is \\markboth (the contents); the fields' paragraphs traced as each page ships, among the document's"
   },
   {
+   "id": "pdflatex/float-here-hyperref-pdftex",
+   "file": "micro/pdflatex/float-here-hyperref-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 484,
+   "covers": "float.sty's [H] with hyperref loaded after it (hyperref's \\caption, its anchor in the caption) and with setspace loaded after it (setspace's \\@xfloat for [H] too: single spacing in the box)",
+   "issue": "#332"
+  },
+  {
    "id": "pdflatex/hyperref-bibliography",
    "file": "micro/pdflatex/hyperref-bibliography.tex",
    "area": "pdflatex",
@@ -7059,6 +7240,28 @@
    "covers": "hyperref under pdflatex: links are \\pdfstartlink … \\pdfendlink around text that stays in the paragraph, so an \\href's text hyphenates and breaks across lines and a \\url keeps its breakpoints (under dvips both sit in an unbreakable \\hbox); a \\ref and a footnote mark inline; \\section anchors raised by \\Hy@raisedlink; an equation's anchors in math; a long table-of-contents title in its link"
   },
   {
+   "id": "pdflatex/hyperref-colorlinks-xcolor",
+   "file": "micro/pdflatex/hyperref-colorlinks-xcolor.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 128,
+   "covers": "hyperref's colorlinks set by \\hypersetup with xcolor's colors (teal, black, a mix): links in them, anchors (a figure's caption, a footnote's) in \\@anchorcolor",
+   "issue": "#332"
+  },
+  {
+   "id": "pdflatex/hyperref-colorlinks",
+   "file": "micro/pdflatex/hyperref-colorlinks.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 115,
+   "covers": "hyperref's colorlinks with its colors: the color package loaded at \\begin{document}, each link's text in \\@<type>color (\\Hy@colorlink), the border /Border [0 0 0]; linkcolor, citecolor, urlcolor and filecolor set as package options",
+   "issue": "#332"
+  },
+  {
    "id": "pdflatex/hyperref-equation-close",
    "file": "micro/pdflatex/hyperref-equation-close.tex",
    "area": "pdflatex",
@@ -7067,6 +7270,17 @@
    "status": "pass",
    "glyphs": 25,
    "covers": "hyperref's \\endequation under pdflatex: \\mathclose{\\Hy@raisedlink{\\hyper@anchorend}}, a close atom, so no thin space after a formula ending in \\right (an inner atom); \\mathopen at the start; with and without a \\label"
+  },
+  {
+   "id": "pdflatex/hyperref-hidelinks",
+   "file": "micro/pdflatex/hyperref-hidelinks.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 91,
+   "covers": "hyperref's hidelinks through \\hypersetup: no color, every link's border 0 0 0; a later colorlinks=false keeps it",
+   "issue": "#332"
   },
   {
    "id": "pdflatex/hyperref-multline",
