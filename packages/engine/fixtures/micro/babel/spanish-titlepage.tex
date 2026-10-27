@@ -1,0 +1,14 @@
+% fixture: babel/spanish-titlepage
+% tier: T3
+% engine: document
+% covers: report's titlepage in spanish: accents in a \title with \\, a UTF-8 \author, spanish \today
+% issue: #63
+\documentclass{report}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\title{Teor\'ia de la informaci\'on\\ y codificaci\'on}
+\author{José Pérez \and María Núñez}
+\begin{document}
+\maketitle
+Texto con acentos: canción, línea.
+\end{document}
