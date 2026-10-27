@@ -1,0 +1,47 @@
+% fixture: beamer/navsymbols-sections
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: the navigation symbols' links to the slide, frame, subsection, section and document pages the last run's .nav gives (sections, subsections, overlays)
+% issue: #311
+\documentclass{beamer}
+\title{Results}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{First}
+One.
+
+\pause
+Two.
+
+\pause
+Three.
+\end{frame}
+\subsection{Details}
+\begin{frame}{Second}
+More.
+\end{frame}
+\begin{frame}{Third}
+Text.
+
+\pause
+After.
+\end{frame}
+\subsection{Other}
+\begin{frame}
+Other.
+\end{frame}
+\section{Results}
+\subsection{Main result}
+\begin{frame}
+Last.
+\end{frame}
+\section{End}
+\begin{frame}
+Really the last.
+\end{frame}
+\end{document}

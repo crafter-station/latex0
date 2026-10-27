@@ -7,8 +7,8 @@
 // theme's colors: the canvas is a rule over the whole paper in its bg, each sidebar's
 // canvas a rule in its bg (of the sidebar's zero width, a paragraph of its own), the
 // headline and left sidebar are empty, the right sidebar has the logo and the
-// (switched off) navigation symbols; the footline is footline.ts's. With hyperref, \AtBeginShipout puts beamer's own page anchor
-// (\Hy@EveryPageAnchor, beamerbasenavigation.sty) before the page.
+// navigation symbols (navigation.ts); the footline is footline.ts's. With hyperref, \AtBeginShipout puts pdfmark.def's
+// \Hy@DistillerDestFix and beamer's own page anchor (\Hy@EveryPageAnchor, beamerbasenavigation.sty) before the page.
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
@@ -16,7 +16,7 @@ import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, filGlue, fillGlue, glue, kern, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { hyperDriver, pdfdest, spotAnchor } from "../hyperref"
+import { distillerDestFix, hyperDriver, pdfdest, spotAnchor } from "../hyperref"
 import { appendToVlist, classParams, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { setgroup } from "../xcolor"
@@ -76,8 +76,9 @@ function sidebar(k: ClassOptionData, t: Theme, name: "sidebar left" | "sidebar r
 }
 
 /** the default sidebar right template: \vfill, \llap{\insertlogo\hskip0.1cm}, \vskip2pt, \llap{navigation symbols
- *  \hskip0.1cm}, \vskip2pt, in the sidebar font (\Tiny: 5pt lines) */
-function rightSidebarTemplate(k: ClassOptionData, t: Theme): Node[] {
+ *  \hskip0.1cm}, \vskip2pt, in the sidebar font (\Tiny: 5pt lines; \@outputpage's zero \lineskip and \lineskiplimit);
+ *  `symbols`: the navigation symbols template's list (navigation.ts) */
+function rightSidebarTemplate(k: ClassOptionData, t: Theme, symbols: Node[]): Node[] {
   const cm = parseDimen("0.1cm", ENV0), pt2 = parseDimen("2pt", ENV0)
   const llap = (nodes: Node[]) => hpack([ssGlue(), ...nodes, glue(cm)], { exactly: 0 })
   const list: Node[] = [...templateColors(t, "sidebar right").map(push), fillGlue()]
@@ -85,7 +86,7 @@ function rightSidebarTemplate(k: ClassOptionData, t: Theme): Node[] {
   let prevDepth = appendToVlist(list, llap([push(useColor(t, "logo", at).fg), pop()]), null, zero, zero, 0)
   list.push(glue(pt2))
   const tiny = { ...zero, width: parseDimen("5pt", ENV0) }
-  prevDepth = appendToVlist(list, llap([...templateColors(t, "navigation symbols").map(push), pop(), pop()]), prevDepth, tiny, k.glue.lineskip, k.dimens.lineskiplimit)
+  prevDepth = appendToVlist(list, llap([...templateColors(t, "navigation symbols").map(push), ...symbols, pop(), pop()]), prevDepth, tiny, zero, 0)
   list.push(pop(), pop(), glue(pt2), filGlue())
   return list
 }
@@ -95,7 +96,7 @@ function rightSidebarTemplate(k: ClassOptionData, t: Theme): Node[] {
  * \baselineskip, \lineskip and \lineskiplimit, then the paragraph \hfil starts (\@parboxrestore: no indentation, no
  * \rightskip), which TeX breaks into one empty line
  */
-function head(k: ClassOptionData, t: Theme): { box: BoxNode; traces: ParagraphTrace[] } {
+function head(k: ClassOptionData, t: Theme, symbols: Node[]): { box: BoxNode; traces: ParagraphTrace[] } {
   const d = k.dimens
   // the canvas template: \color{bg}\vrule width\paperwidth height\paperheight, nothing when its bg is empty
   const bg = emptyBackground(t, "background canvas") ? [] : [push(useColor(t, "background canvas", outerColors(t)).bg), { kind: "rule", width: d.paperwidth, height: d.paperheight, depth: null } as Node, pop()]
@@ -103,7 +104,7 @@ function head(k: ClassOptionData, t: Theme): { box: BoxNode; traces: ParagraphTr
   const background = hung(hpack(emptyTemplate(t, "background")))
   const traces: ParagraphTrace[] = []
   const left = sidebar(k, t, "sidebar left", [glue(-d["Gm@lmargin"])], [...emptyTemplate(t, "sidebar left"), filGlue()], traces)
-  const right = sidebar(k, t, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])], rightSidebarTemplate(k, t), traces)
+  const right = sidebar(k, t, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])], rightSidebarTemplate(k, t, symbols), traces)
   const list: Node[] = []
   let prevDepth = appendToVlist(list, hpack([glue(-d["Gm@lmargin"]), canvas, background]), null, zero, zero, 0)
   prevDepth = appendToVlist(list, hpack([left, right, ...headOrFoot(k, emptyTemplate(t, "headline"))]), prevDepth, zero, zero, 0)
@@ -137,11 +138,11 @@ function pageAnchor(k: ClassOptionData, page: number): BoxNode {
  * \vskip\topmargin, then moved right by \oddsidemargin a \vbox of the head in \vbox to\headheight{\vfil
  * \color@hbox\normalcolor\hb@xt@\textwidth{\@thehead}} (depth 0), \headsep, the column, the foot \footskip below,
  * with \baselineskip, \lineskip and \lineskiplimit zero until then. The head's paragraph comes back as `trace`; the
- * footline's list (footline.ts), typeset after it, is `footline`.
+ * footline's list (footline.ts), typeset after it, is `footline`; the navigation symbols' (navigation.ts), `symbols`.
  */
-export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData, t: Theme, footline: (() => Node[])): { box: BoxNode; traces: ParagraphTrace[] } {
+export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData, t: Theme, footline: (() => Node[]), symbols: Node[]): { box: BoxNode; traces: ParagraphTrace[] } {
   const d = k.dimens
-  const h = head(k, t)
+  const h = head(k, t, symbols)
   const headBox = vpack([filGlue(), hpack(setgroup([hpack([h.box], { exactly: d.textwidth })]))], { exactly: d.headheight })
   headBox.depth = 0
   const footBox = hpack(setgroup([hpack(foot(k, footline()), { exactly: d.textwidth })]))
@@ -152,5 +153,6 @@ export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData,
   body.shift = d.oddsidemargin
   const placed = vpack([glue(d.topmargin), body])
   const shipped = hyperDriver.pdftex ? placed : vpack([special(TRANSITION), placed])
-  return { box: vpack([pageAnchor(k, page), paramGlue("lineskip", glue(0)), shipped]), traces: h.traces }
+  // (pdfmark.def's \Hy@DistillerDestFix: dvips only)
+  return { box: vpack([...(hyperDriver.pdftex ? [] : [distillerDestFix()]), pageAnchor(k, page), paramGlue("lineskip", glue(0)), shipped]), traces: h.traces }
 }

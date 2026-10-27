@@ -27,13 +27,14 @@ import { newOverlay } from "./overlays"
 import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource } from "./frame"
 import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { beamerPage } from "./page"
-import { outerColors } from "./theme"
+import { beamerFirstPage, linkPages, navigationObjects, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
+import { outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
 /** What a run writes for the next one: the frames (\inserttotalframenumber, in the .nav lines \AtEndDocument writes),
  *  the pages (\beamer@documentpages) and their labels, the frame numbers (\HyPL@Entry where one changes, in the .aux),
  *  the .toc lines and the bookmarks (the .out file) */
-interface Aux { frames: number; pages: number; pageFrames: number[]; toc: TocEntry[]; bookmarks: Bookmark[] }
+interface Aux { frames: number; pages: number; pageFrames: number[]; toc: TocEntry[]; bookmarks: Bookmark[]; nav: NavLine[] }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per page the
  *  index in `decisions` after its slide's paragraphs (where its head paragraph goes) and its frame's number */
@@ -68,11 +69,11 @@ export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdft
 
 /** \begin{document}: \normalcolor, LaTeX's \write, hyperref's \AtBeginDocument (the /DOCVIEW and Catalog pdfmarks, the
  *  Doc-Start anchor, the document information, the page labels (frame numbers) the last run wrote), then beamerbasecolor.sty's
- *  \AtBeginDocument colors (four \color's at the outer level). (Not here: the PostScript header specials pgf's
- *  objects for the navigation symbols put after LaTeX's \write; whatsits before the first box, which nothing reads.) */
+ *  \AtBeginDocument colors (four \color's at the outer level). The class's pgf objects (navigation.ts) come after
+ *  LaTeX's \write. */
 function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
   const sdict = (s: string): Node => ({ kind: "whatsit", text: `\\special{ps:SDict begin ${s} end}` })
-  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...documentStart(prev ? prev.bookmarks : [], true)]
+  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...navigationObjects(), ...documentStart(prev ? prev.bookmarks : [], true)]
   out.push(...anchor("Doc-Start", pre.k.sizes.normalsize.baselineskip.width, "v", out.at(-1)))
   // (with pdfTeX the document information and the page labels are \pdfinfo and \pdfcatalog: no nodes)
   if (hyperDriver.pdftex) { out.push(colorPush(), colorPush(), colorPush(), colorPush()); return out }
@@ -149,11 +150,17 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   const columns = makeColumns(pages, k)
   // each page's head paragraph and then its footline's are broken as it ships, after its frame's paragraphs
   const decisions: ParagraphTrace[] = []
+  // (the navigation symbols' links: to the pages the last run's .nav gives)
+  const links = linkPages(prev ? prev.nav : null, pages.length)
+  const symbolColors = useColor(pre.theme, "navigation symbols", outerColors(pre.theme))
   const shipped: BoxNode[] = columns.map((c, i) => {
     const foot: ParagraphTrace[] = []
-    const { box, traces } = beamerPage(c.outputbox, pages[i].count, k, pre.theme, () => footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, cx.pageFrames[i], pages[i].count), foot))
+    const page = pages[i].count
+    const symbols = pre.navigationSymbols ? [navigationSymbols(pre.theme, symbolColors, page, links[page - 1])] : []
+    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, () => footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, cx.pageFrames[i], page), foot), symbols)
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
-    return box
+    const shown = pgfBackground(box, i === 0)
+    return i === 0 ? beamerFirstPage(shown, k) : shown
   })
   // (pdfTeX: the color specials as its color stack's nodes, in the columns too, which are inside the pages)
   if (hyperDriver.pdftex) shipped.forEach(pdftexColors)
@@ -170,6 +177,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
       columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
       notes: [`beamer [${pre.option}]; ${cx.frames} frame(s), ${pages.length} page(s)`],
     },
-    written: { frames: cx.frames, pages: pages.length, pageFrames: cx.pageFrames, toc: cx.sections.toc, bookmarks: cx.sections.bookmarks.written },
+    written: { frames: cx.frames, pages: pages.length, pageFrames: cx.pageFrames, toc: cx.sections.toc, bookmarks: cx.sections.bookmarks.written,
+      nav: navLines(v.nodes, cx.sections, pages.length) },
   }
 }

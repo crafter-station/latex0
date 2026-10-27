@@ -38,6 +38,7 @@ import { pgfDefObject, pgfSetFillOpacity, pgfSetStrokeOpacity, pgfUseObject, sys
 import { pgfSetCornersArced } from "../../pgf/round"
 import { pgfDeclareShading, pgfShadePath, pgfUseShading } from "../../pgf/shade"
 import { PgfState } from "../../pgf/state"
+import { pgfPathQCurveTo, pgfPathQLineTo, pgfPathQMoveTo, pgfUsePathQClip, pgfUsePathQFill, pgfUsePathQFillStroke, pgfUsePathQStroke } from "../../pgf/quick"
 import { pgfCoordinate, pgfMultipartNode, pgfNode, pgfPointAnchor, pgfPointShapeBorder, pgfText, SHAPE_KEYS, type PgfShapeKeys, type PgfText, type PgfTextOption } from "../../pgf/shapes"
 import { hlistInput } from "../../latex/paragraph"
 import { pgfArrowsMeta, pgfSetArrows, pgfSetArrowsEnd, pgfSetArrowsStart, pgfSetShortenEnd, pgfSetShortenStart } from "../../pgf/arrows"
@@ -178,6 +179,9 @@ const PICTURES = [
   ...["\\pgfsetcolor{red}", "\\pgfsetstrokecolor{red}\\pgfsetfillcolor{red}", "\\pgfsetstrokecolor{red!50}\\pgfsetfillcolor{red!50}", "\\pgfsetstrokecolor{red!50}", "\\pgfsetfillcolor{blue}"]
     .map((c) => `${c}\\pgfsetarrowsend{>>}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}\\begin{pgfscope}\\pgfsetfillcolor{red}\\end{pgfscope}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}`),
   // the minimum width met to the sp
+  // the quick commands: the coordinates as given, no extent, no transformation (beamer's navigation symbols)
+  "{0pt}{-1.5pt}{20pt}{5.5pt} \\pgfpathqmoveto{4bp}{0.5bp}\\pgfpathqlineto{2bp}{2bp}\\pgfpathqlineto{4bp}{3.5bp}\\pgfusepathqfill \\pgfsetlinewidth{0.6pt} \\pgfpathqmoveto{9bp}{-.5bp}\\pgfpathqlineto{12bp}{.8bp}\\pgfusepathqstroke",
+  "\\pgftransformshift{\\pgfpoint{1cm}{2pt}}\\pgfsetroundcap\\pgfpathqmoveto{4bp}{0bp}\\pgfpathqcurveto{5.1pt}{0pt}{6bp}{0.9bp}{6bp}{2bp}\\pgfpathqlineto{1cm}{-3pt}\\pgfusepathqfillstroke\\pgfpathqmoveto{1pt}{1pt}\\pgfusepathqclip\\pgfpathqmoveto{1pt}{1pt}\\pgfusepathqstroke",
   "\\pgfset{inner sep=1pt,minimum size=131071sp}\\pgfnode{rectangle}{north east}{}{}{\\pgfusepath{stroke}}\\pgfnode{rectangle}{south west}{}{}{\\pgfusepath{stroke}}",
   // rounded corners: rectangles, polylines, curves, closepaths, consecutive marks, the arc switched off
   "\\pgfsetcornersarced{\\pgfpoint{4pt}{4pt}}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke}",
@@ -754,6 +758,10 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     pgfset: () => { keys = setKeys(keys, arg()) },
     pgfsetarrowsstart: () => pgfSetArrowsStart(s, arg()), pgfsetarrowsend: () => pgfSetArrowsEnd(s, arg()), pgfsetarrows: () => pgfSetArrows(s, arg()),
     pgfsetshortenstart: ignoring(() => pgfSetShortenStart(s, arg())), pgfsetshortenend: ignoring(() => pgfSetShortenEnd(s, arg())),
+    pgfpathqmoveto: () => pgfPathQMoveTo(s, arg(), arg()), pgfpathqlineto: () => pgfPathQLineTo(s, arg(), arg()),
+    pgfpathqcurveto: () => { const [p, q, u, v, x, y] = strs(6); pgfPathQCurveTo(s, p, q, u, v, x, y) },
+    pgfusepathqstroke: () => pgfUsePathQStroke(s, driver), pgfusepathqfill: () => pgfUsePathQFill(s, driver),
+    pgfusepathqfillstroke: () => pgfUsePathQFillStroke(s, driver), pgfusepathqclip: () => pgfUsePathQClip(s, driver),
   }
   const commands: Record<string, () => void> = {
     ...basic, begingroup, endgroup, setbox,
