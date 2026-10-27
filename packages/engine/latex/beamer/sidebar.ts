@@ -5,7 +5,10 @@
 // sections of the last run's .nav, each a link in \hbox to the width holding \vbox{\vskip1ex the
 // section's beamercolorbox}, and the subsections, each a link in an \hbox holding its box (shaded but
 // the current section, when in no subsection, and the current subsection); then \vfill. The right
-// sidebar has only the navigation symbols.
+// sidebar has only the navigation symbols. On the right (Goettingen, Marburg) the sidebar ends with
+// the navigation symbols, and its canvas may be a vertical shading. With a head, the headline is the
+// frame title's color across the paper (the logo's corner over the sidebar) and the frame title
+// goes in it (frametitle.ts).
 
 import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
@@ -114,10 +117,11 @@ function verticalNavigation(k: ClassOptionData, t: Theme, at: FootlineAt, c: Col
 }
 
 /** The sidebar theme's left sidebar template's list (\usebeamertemplate***{sidebar left}), in the \vbox before its \vfil */
-export function sidebarTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, at: FootlineAt, traces: ParagraphTrace[]): Node[] {
-  const size = sizedFont(t, k, "sidebar left", "normalsize").size, at0 = useColor(t, "sidebar left", outerColors(t))
-  const width = k.dimens["beamer@leftsidebar"], inner = width - 6 * 65536
-  const list: Node[] = templateColors(t, "sidebar left").map((c) => colorPush(c))
+export function sidebarTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, at: FootlineAt, symbols: Node[], traces: ParagraphTrace[]): Node[] {
+  const name = t.sidebar === "right" ? "sidebar right" : "sidebar left"
+  const size = sizedFont(t, k, name, "normalsize").size, at0 = useColor(t, name, outerColors(t))
+  const width = k.dimens[t.sidebar === "right" ? "beamer@rightsidebar" : "beamer@leftsidebar"], inner = width - 6 * 65536
+  const list: Node[] = templateColors(t, name).map((c) => colorPush(c))
   const prevDepth: { d: number | null } = { d: null }
   // the short title: \hyperlinkpresentationend on the first page, …start on the others
   const ts = sizedFont(t, k, "title in sidebar", size), tf = ts.font
@@ -127,18 +131,23 @@ export function sidebarTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, a
   const as = sizedFont(t, k, "author in sidebar", size)
   shortParagraph(k, list, prevDepth, useColor(t, "author in sidebar", at0).fg, [minipage(k, info.short.author.replace(/\s*\\and(?![A-Za-z])\s*/g, ", "), as, inner, traces)], as, traces)
   appendToVlist(list, verticalNavigation(k, t, at, at0, size, width, traces), prevDepth.d, ZERO, ZERO, 0)
-  // \vfill, then the template's pops (beamer's \reset@color: each before the skip that ends the list)
+  // \vfill; on the right \usebeamercolor{normal text}, \llap{the navigation symbols\hskip0.1cm}, \vskip2pt; then the
+  // template's pops (beamer's \reset@color: each before the skip that ends the list)
   list.push(fillGlue())
+  if (t.sidebar === "right") list.push(symbolsLlap(t, symbols), glue(parseDimen("2pt", { em: 0, ex: 0 })))
   resetColor(list)
   resetColor(list)
   return list
 }
 
+/** \llap{\usebeamertemplate***{navigation symbols}\hskip0.1cm} */
+const symbolsLlap = (t: Theme, symbols: Node[]): BoxNode =>
+  hpack([ssGlue(), ...templateColors(t, "navigation symbols").map((c) => colorPush(c)), ...symbols, colorPop(), colorPop(), glue(parseDimen("0.1cm", { em: 0, ex: 0 }))], { exactly: 0 })
+
 /** The sidebar theme's right sidebar (with the sidebar on the left): \vfill, \llap{the navigation symbols template
  *  \hskip0.1cm}, \vskip2pt; `symbols`: navigation.ts's */
 export function sidebarRightTemplate(t: Theme, symbols: Node[]): Node[] {
-  const llap = hpack([ssGlue(), ...templateColors(t, "navigation symbols").map((c) => colorPush(c)), ...symbols, colorPop(), colorPop(), glue(parseDimen("0.1cm", { em: 0, ex: 0 }))], { exactly: 0 })
-  const list: Node[] = [...templateColors(t, "sidebar right").map((c) => colorPush(c)), fillGlue(), llap, glue(parseDimen("2pt", { em: 0, ex: 0 }))]
+  const list: Node[] = [...templateColors(t, "sidebar right").map((c) => colorPush(c)), fillGlue(), symbolsLlap(t, symbols), glue(parseDimen("2pt", { em: 0, ex: 0 }))]
   resetColor(list)
   resetColor(list)
   return list

@@ -42,7 +42,9 @@ const emptyTemplate = (t: Theme, name: string): Node[] => [...templateColors(t, 
 
 /** the templates the page's head typesets, their paragraphs' traces to `traces`: the headline's and the sidebar
  *  theme's sidebar's lists */
-export interface PageTemplates { headline: (traces: ParagraphTrace[]) => Node[]; sidebar: (traces: ParagraphTrace[]) => Node[] }
+export interface PageTemplates { headline: (traces: ParagraphTrace[]) => Node[]; sidebar: (traces: ParagraphTrace[]) => Node[]
+  /** a sidebar's canvas when it is a shading (its box), else null */
+  canvas: (name: "sidebar left" | "sidebar right") => BoxNode | null }
 
 /** \wd, \ht and \dp set to 0pt */
 function zeroed(b: BoxNode): BoxNode { b.width = 0; b.height = 0; b.depth = 0; return b }
@@ -64,12 +66,14 @@ export function headOrFoot(k: ClassOptionData, template: Node[]): Node[] {
  *  The canvas template (beamerouterthemedefault.sty's), where the theme gives the sidebar a bg: \color{bg}\vrule
  *  height\sidebarheight width<the sidebar's width>, a paragraph (\hsize \textwidth, \@parboxrestore's \parindent and
  *  \rightskip), whose trace goes to `traces`. */
-function sidebar(k: ClassOptionData, t: Theme, name: "sidebar left" | "sidebar right", skips: Node[], template: () => Node[], traces: ParagraphTrace[]): BoxNode {
+function sidebar(k: ClassOptionData, t: Theme, templates: PageTemplates, name: "sidebar left" | "sidebar right", skips: Node[], template: () => Node[], traces: ParagraphTrace[]): BoxNode {
   const h = k.dimens.sidebarheight
   // (\usebeamercolor*{name}: normal text's fg set, name's colors only defined)
   const canvas: Node[] = [push(outerColors(t).fg)]
   const pops = [pop()]
-  if (!emptyBackground(t, name)) {
+  const shading = templates.canvas(name)
+  if (shading) canvas.push(shading)
+  else if (!emptyBackground(t, name)) {
     const width = k.dimens[name === "sidebar left" ? "beamer@leftsidebar" : "beamer@rightsidebar"]
     const { vlist, trace } = lineBreak([emptyBox("hlist", 0), { kind: "rule", width, height: h, depth: null }], { ...classParams(k), rightSkip: spec("rightskip", zero) })
     traces.push(trace)
@@ -108,9 +112,11 @@ function head(k: ClassOptionData, t: Theme, templates: PageTemplates, symbols: N
   const canvas = hung(hpack([...templateColors(t, "background canvas").map(push), ...bg, pop(), pop(), ...transition()]))
   const background = hung(hpack(emptyTemplate(t, "background")))
   const traces: ParagraphTrace[] = []
-  // (the sidebar theme's: its sidebar on the left, the navigation symbols alone on the right)
-  const left = sidebar(k, t, "sidebar left", [glue(-d["Gm@lmargin"])], () => [...(t.sidebar === "left" ? templates.sidebar(traces) : emptyTemplate(t, "sidebar left")), filGlue()], traces)
-  const right = sidebar(k, t, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])], () => [...(t.sidebar === "left" ? sidebarRightTemplate(t, symbols) : rightSidebarTemplate(k, t, symbols)), ...(t.sidebar === "left" ? [filGlue()] : [])], traces)
+  // (the sidebar theme's: its sidebar on the left and the navigation symbols alone on the right, or its sidebar with the
+  // symbols at its foot on the right)
+  const left = sidebar(k, t, templates, "sidebar left", [glue(-d["Gm@lmargin"])], () => [...(t.sidebar === "left" ? templates.sidebar(traces) : emptyTemplate(t, "sidebar left")), filGlue()], traces)
+  const right = sidebar(k, t, templates, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])],
+    () => t.sidebar === "left" ? [...sidebarRightTemplate(t, symbols), filGlue()] : t.sidebar === "right" ? [...templates.sidebar(traces), filGlue()] : rightSidebarTemplate(k, t, symbols), traces)
   const list: Node[] = []
   let prevDepth = appendToVlist(list, hpack([glue(-d["Gm@lmargin"]), canvas, background]), null, zero, zero, 0)
   prevDepth = appendToVlist(list, hpack([left, right, ...headOrFoot(k, templates.headline(traces))]), prevDepth, zero, zero, 0)

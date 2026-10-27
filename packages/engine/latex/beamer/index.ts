@@ -31,9 +31,13 @@ import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { navHeads, type NavHead } from "./headnav"
 import { beamerPage, headOrFoot } from "./page"
 import { sidebarTemplate } from "./sidebar"
+import { pgfDeclareShading } from "../../pgf/shade"
+import { printScaled } from "../../layout/arith"
+import { selectFont } from "../paragraph"
+import { SANS } from "./frame"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { BeamerPgf } from "./pgf"
-import { outerColors, useColor } from "./theme"
+import { evaluate, outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
 /** What a run writes for the next one: the frames (\inserttotalframenumber, in the .nav lines \AtEndDocument writes),
@@ -58,6 +62,9 @@ interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decis
   equations: { n: number }; footnotes: { n: number }
   /** pgf's state in the run */
   pgf: BeamerPgf }
+
+/** the sidebar canvas's shading */
+const CANVAS_SHADING = "beamer@sidebarcanvasshading"
 
 /** The body's constructs: frames (the environment and the \frame command), \section and \subsection */
 const BODY: { [K in BodyItem["kind"]]: (cx: BeamerCtx, item: Extract<BodyItem, { kind: K }>) => void } = { frame, section, subsection: section }
@@ -182,6 +189,15 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   const pgf = navigationPgf(driver)
   const cx: BeamerCtx = { pre, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
     lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d) }
+  // the sidebar canvas's shading (beamerbaseauxtemplates.sty's \beamer@calcvertshading, as the theme loads): from the
+  // bottom color at 0cm to the top one at \paperheight, the sidebar's width wide
+  const canvas = pre.theme.sidebarCanvas
+  if (canvas) {
+    const outer = outerColors(pre.theme), d = pre.k.dimens
+    cx.pgf.color("beamer@bgsb", evaluate(pre.theme, canvas.bottom, outer)); cx.pgf.color("beamer@bgst", evaluate(pre.theme, canvas.top, outer))
+    pgfDeclareShading(cx.pgf.s, cx.pgf.d, "vertical", "", CANVAS_SHADING, `${printScaled(d[pre.theme.sidebar === "right" ? "beamer@rightsidebar" : "beamer@leftsidebar"])}pt`,
+      `color(0cm)=(beamer@bgsb); color(${printScaled(d.paperheight)}pt)=(beamer@bgst)`, cx.pgf.colors)
+  }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1), after the .nav is read:
   // the sizes the theme data has, but for a headline that shows the .nav's sections
   const sizes = calculateHeadFoot(cx, 0, 1)
@@ -205,7 +221,8 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
     const page = pages[i].count
     const symbols = pre.navigationSymbols ? [navigationSymbols(pgf, pre.theme, symbolColors, page, links[page - 1])] : []
     const at = footlineAt(cx, cx.pageFrames[i], page, cx.pageHeads[i])
-    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, { headline: (traces) => headlineTemplate(k, pre.theme, pre.info, at, traces), sidebar: (traces) => sidebarTemplate(k, pre.theme, pre.info, at, traces) }, () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
+    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, { headline: (traces) => headlineTemplate(k, pre.theme, pre.info, at, traces), sidebar: (traces) => sidebarTemplate(k, pre.theme, pre.info, at, symbols, traces),
+      canvas: (name) => (pre.theme.sidebarCanvas && name === `sidebar ${pre.theme.sidebar}` ? cx.pgf.shading(CANVAS_SHADING, selectFont(k, "normalsize", SANS), outerColors(pre.theme).bg, outerColors(pre.theme).bg) : null) }, () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     const shown = pgfBackground(box, i === 0)
     return i === 0 ? beamerFirstPage(shown, k) : shown

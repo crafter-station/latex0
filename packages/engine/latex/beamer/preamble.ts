@@ -2,9 +2,10 @@
 // loads geometry (paper 128mm × 96mm, 1cm side margins), xcolor, hyperref,
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
 // of one of them changes nothing. The themes are the default ones, color themes,
-// the rounded, circles and rectangles inner themes, the infolines, split and
+// the rounded, circles and rectangles inner themes, the infolines, split,
 // miniframes, tree and sidebar outer themes, Pittsburgh, Malmoe, Copenhagen, Luebeck, Berlin,
-// Dresden, Ilmenau, Szeged, Montpellier, Hannover, Berkeley and Rochester, and Madrid,
+// Dresden, Ilmenau, Szeged, Montpellier, Hannover, Berkeley, Rochester, Goettingen and
+// Marburg, and Madrid,
 // CambridgeUS, AnnArbor, Boadilla and PaloAlto without their shadows,
 // as data/beamer has them, with
 // the default navigation symbols or none: any other theme or template setting
@@ -65,7 +66,7 @@ const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10p
 const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
   "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
   "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles",
-  "infolines-headline", "CambridgeUS", "AnnArbor", "Boadilla", "Pittsburgh", "rectangles", "whale-orchid-circles", "whale-orchid-rectangles", "split", "whale-orchid-split", "Malmoe", "Copenhagen", "Luebeck", "miniframes", "Berlin", "Dresden", "Ilmenau", "Szeged", "tree", "Montpellier", "Hannover", "sidebar", "Berkeley", "PaloAlto", "Rochester",
+  "infolines-headline", "CambridgeUS", "AnnArbor", "Boadilla", "Pittsburgh", "rectangles", "whale-orchid-circles", "whale-orchid-rectangles", "split", "whale-orchid-split", "Malmoe", "Copenhagen", "Luebeck", "miniframes", "Berlin", "Dresden", "Ilmenau", "Szeged", "tree", "Montpellier", "Hannover", "sidebar", "Berkeley", "PaloAlto", "Rochester", "Goettingen", "Marburg",
   "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 /** the presentation themes with the rounded inner theme's shadows on by default */
 const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla", "PaloAlto"]
@@ -133,7 +134,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     }
     // the presentation themes data/beamer has whole (with shadow=false where the theme has shadows: the rounded inner
     // theme's shadow=true needs pgf's fadings)
-    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover|Berkeley|PaloAlto|Rochester)\}$/)
+    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover|Berkeley|PaloAlto|Rochester|Goettingen|Marburg)\}$/)
     if (p) {
       if (SHADOWS.includes(p[2]) ? p[1] !== "shadow=false" : p[1] !== undefined) throw new Unsupported(`beamer: ${p[2]}'s options or shadows (pgf's fadings)`)
       if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)

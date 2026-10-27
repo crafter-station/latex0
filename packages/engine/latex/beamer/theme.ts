@@ -26,7 +26,9 @@ export interface Theme { name: string; data: BeamerThemeData
   /** the frame title's alignment (\setbeamertemplate{frametitle}[default][…]) */
   frametitle: "left" | "right"
   /** the sidebar theme's sidebar (\useoutertheme{sidebar}: on the left by default; none where its width is 0pt) */
-  sidebar?: "left"
+  sidebar?: "left" | "right"
+  /** the sidebar canvas's vertical shading ([vertical shading][top=…,bottom=…]: xcolor expressions) */
+  sidebarCanvas?: { top: string; bottom: string }
   /** the sidebar theme's head (its height not 0pt): its headline, the frame title in it */
   sidebarHead?: true
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
@@ -50,6 +52,8 @@ const PRESENTATION: Record<string, Partial<Theme>> = {
   Berkeley: { inner: "rectangles", sidebar: "left", sidebarHead: true, headline: "sidebar" },
   PaloAlto: { inner: "rounded", sidebar: "left", sidebarHead: true, headline: "sidebar" },
   Rochester: { inner: "rectangles", sidebarHead: true, headline: "sidebar" },
+  Goettingen: { sidebar: "right", sidebarCanvas: { top: "structure.fg!25", bottom: "structure.fg!10" } },
+  Marburg: { sidebar: "right", sidebarCanvas: { top: "palette quaternary.bg", bottom: "palette primary.bg" } },
 }
 
 export function loadTheme(name: string): Theme {
@@ -99,7 +103,7 @@ export function useColor(t: Theme, name: string, at: ColorState): ColorState {
 
 /** an xcolor expression of a beamer color's (fg!40!bg, section in sidebar.fg!40!bg) where `at` is in force: fg and bg
  *  its colors, name.fg and name.bg the beamer color name's there */
-function evaluate(t: Theme, expr: string, at: ColorState): string {
+export function evaluate(t: Theme, expr: string, at: ColorState): string {
   const mix = new Colors()
   const def = (n: string, spec: string) => { const [model, ...x] = spec.split(" "); mix.define(n, model, x.join(",")) }
   def("fg", at.fg); def("bg", at.bg)
