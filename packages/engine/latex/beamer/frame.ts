@@ -33,6 +33,7 @@ import { outerColors, useColor, type Theme } from "./theme"
 import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
 import { tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
+import type { BeamerPgf } from "./pgf"
 
 /** a frame as written: its options and what it holds */
 export interface FrameSource { kind: "frame"; options: string; body: string }
@@ -123,7 +124,9 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** \c@footnote, and the slide's \beamer@footins (footnotes.ts) */
   footnotes: { n: number }; footins: Node[]
   /** in a column's minipage (columns.ts), where \footnote is the minipage's */
-  inMinipage?: boolean }
+  inMinipage?: boolean
+  /** pgf in the document (the inner themes' pictures and shadings) */
+  pgf: BeamerPgf }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList

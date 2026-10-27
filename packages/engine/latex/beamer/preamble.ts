@@ -59,7 +59,8 @@ const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10p
 /** the themes data/beamer has (tools/codegen/beamer.ts), by the parts of their preamble lines: color themes, then the
  *  infolines outer theme with the default headline */
 const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
-  "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines"]
+  "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
+  "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles"]
 /** the packages beamer.cls loads (with these, \usepackage does nothing) */
 const LOADED = ["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "xcolor", "geometry", "url", "enumerate"]
 
@@ -106,6 +107,8 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     const color = line.match(/^\\usecolortheme\{([A-Za-z]+)\}$/)
     if (color) { themeLines.push(line); themeParts.push(color[1]); continue }
     if (line === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts.push("infolines"); continue }
+    const inner = line.match(/^\\useinnertheme\{(rounded|circles)\}$/)
+    if (inner) { themeLines.push(line); themeParts.push(inner[1]); continue }
     // (infolines' headline set back to the default one, as Madrid does)
     if (line === "\\setbeamertemplate{headline}[default]" && themeLines.at(-1) === "\\useoutertheme{infolines}") { themeLines.push(line); continue }
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }

@@ -105,6 +105,7 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
  */
 export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) {
   const { k, theme } = cx
+  if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's table of contents`)
   const font = selectFont(k, "normalsize", SANS)
   const bs = k.sizes.normalsize.baselineskip
   // \vspace*{-.5em}: \hrule height0pt \nobreak \vskip-.5em \vskip\z@skip, then \prevdepth as it was before the rule

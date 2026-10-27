@@ -1,0 +1,35 @@
+% fixture: beamer/rounded-items-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme under pdflatex: ball itemize items (bigsphere, smallsphere below, raised 0.2pt, in item projected's bg on the bg in force) and ball enumerate items (a pgfpicture with the sphere scaled 1.75 or 1.4 and the number in item projected's font and fg), nested to the third level
+% issue: #315
+\documentclass{beamer}
+\useinnertheme{rounded}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{enumerate}
+\item One.
+\item Two, with a nested list:
+\begin{enumerate}
+\item Inner one.
+\item Inner two, with
+\begin{enumerate}
+\item deepest.
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+\begin{itemize}
+\item Ball.
+\item Nested:
+\begin{itemize}
+\item Small ball, and
+\begin{itemize}
+\item smaller.
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\end{frame}
+\end{document}

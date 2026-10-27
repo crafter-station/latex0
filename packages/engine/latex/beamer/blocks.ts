@@ -112,6 +112,7 @@ export function blockInParagraph(cx: FrameCtx, text: string): Node[] {
 export function frameBlock(cx: FrameCtx, v: VerticalList, text: string): string {
   const b = readBlock(text)
   const { k, theme } = cx
+  if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's blocks`)
   let shown: boolean
   if (cx.blockBegun !== undefined) { shown = cx.blockBegun; cx.blockBegun = undefined }
   else { const o = begin(cx, b); shown = o.shown; smuggle(v, o.nodes) }

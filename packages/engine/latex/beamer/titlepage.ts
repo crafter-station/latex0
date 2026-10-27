@@ -20,6 +20,7 @@ import { fontSize, outerColors, useColor, type ColorState } from "./theme"
 /** \titlepage in the frame's vertical list `v` */
 export function titlePage(cx: FrameCtx, v: VerticalList) {
   const { k, theme, info } = cx
+  if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's title page`)
   const normal = selectFont(k, "normalsize", SANS)
   const env = { em: normal.params[QUAD], ex: normal.params[X_HEIGHT] }
   const bs = k.sizes.normalsize.baselineskip

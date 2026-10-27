@@ -11,9 +11,15 @@ import { Unsupported } from "../unsupported"
 /** the colors in force (beamer's fg and bg), as the driver gets them */
 export interface ColorState { fg: string; bg: string }
 
-export interface Theme { name: string; data: BeamerThemeData }
+export interface Theme { name: string; data: BeamerThemeData
+  /** the inner theme (\useinnertheme): its templates */
+  inner: "default" | "rounded" | "circles" }
 
-export const loadTheme = (name: string): Theme => ({ name, data: beamerThemeFile(name) })
+export function loadTheme(name: string): Theme {
+  const data = beamerThemeFile(name)
+  const inner = data.preamble.map((l) => l.match(/^\\useinnertheme\{(rounded|circles)\}$/)?.[1]).find((x) => x) as Theme["inner"] | undefined
+  return { name, data, inner: inner ?? "default" }
+}
 
 function color(t: Theme, name: string): BeamerColor {
   const c = t.data.colors[name]
