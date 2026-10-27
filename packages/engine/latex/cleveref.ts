@@ -51,15 +51,16 @@ export function crefWrite(writes: CrefWrite[], key: string, cref: CrefLabel | nu
   return node
 }
 
-/** The page counter for each write: the number of the first page the page builder had not fired then */
+/** The page counter for each write: the number of the first page the page builder had not fired then, and \thepage
+ *  with that counter at 1 (\pagenumbering changes only after a \cleardoublepage, so that page's numbering was in force) */
 export function fillCrefWrites(writes: CrefWrite[], pages: { count: number; thepage: string; reached: number }[], parskipAt: (at: number) => boolean): void {
   for (const w of writes) {
-    if (pages.some((p) => p.thepage !== String(p.count))) throw new Unsupported("cleveref with roman page numbers")
     const fired = pages.filter((p) => p.reached < w.at || (p.reached === w.at && w.inPara && parskipAt(w.at)))
     // the next page's number (a title page sets the counter back to 1 after it)
     const page = pages[fired.length]?.count ?? (fired.length ? fired[fired.length - 1].count + 1 : 1)
+    const roman = /^[ivxlcdm]+$/.test((pages[fired.length] ?? pages[pages.length - 1])?.thepage ?? "")
     const c = w.cref
     const label = c ? `[${c.type}][${c.arabic}][${c.prefix}]${c.label}` : ""
-    w.node.text = `\\write1{\\newlabel{${w.key}@cref}{{${label}}{[1][${page}][]\\thepage }{}{}{}}}`
+    w.node.text = `\\write1{\\newlabel{${w.key}@cref}{{${label}}{[${roman ? "i" : "1"}][${page}][]\\thepage }{}{}{}}}`
   }
 }
