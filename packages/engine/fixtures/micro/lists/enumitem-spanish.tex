@@ -1,0 +1,24 @@
+% fixture: lists/enumitem-spanish
+% tier: T3
+% engine: document
+% covers: enumitem's label= under babel's spanish (the corpus's hw-calculo-es): \alph* and \arabic* labels and their references, leftmargin=* on spanish.ldf's own itemize labels, a nested itemize keeping spanish.ldf's labels
+% issue: #334
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{enumitem}
+\begin{document}
+Resuelva los siguientes ejercicios.
+\begin{enumerate}[label=\alph*)]
+\item Calcule la derivada de la función.\label{e1}
+\item Halle el límite cuando $x$ tiende a cero.
+\end{enumerate}
+\begin{enumerate}[label=\textbf{\arabic*.}, leftmargin=*]
+\item Primero.
+\item Segundo.
+\end{enumerate}
+\begin{itemize}[leftmargin=*]
+\item uno
+\begin{itemize}\item dos\end{itemize}
+\end{itemize}
+Véase \ref{e1}.
+\end{document}

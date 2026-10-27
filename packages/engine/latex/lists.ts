@@ -139,7 +139,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     eit = preset({ env: b.env, e: enumitem, depth, level: b.env === "description" ? descDepth : level, dims, units, parindent: parindentAt, linewidth: ctx.lineWidth, textwidth: run.k.dimens.textwidth, prevLabel: ctx.labels?.[`${type}${level - 1}`] ?? null, widest, scope: ctx.scope ?? new Map(), own: b.options ?? "" })
     ;({ leftmargin, labelwidth, labelsep: ls, itemindent, listparindent, rightmargin, topsep, partopsep, parsep, itemsep } = dims)
     if (eit.ref !== null && refs.cleveref) throw new Unsupported("cleveref with enumitem's label or ref")
-    if ((eit.ref !== null || eit.format) && isSpanish(cx.pre.babel)) throw new Unsupported("enumitem's label, ref or font with spanish") // (spanish.ldf's \labelenum… and \theenum…)
+    // (spanish.ldf's \theenum… after an enclosing list's label= or ref=; its \@roman, small capitals, throws in representation)
+    if (ctx.thes && b.env === "enumerate" && isSpanish(cx.pre.babel)) throw new Unsupported("spanish.ldf's references in a list inside one with enumitem's label or ref")
   } else if (b.options !== undefined) throw new Unsupported(`\\begin{${b.env}}[${b.options}] without enumitem`)
   // amsthm's proof: \topsep6\p@\@plus6\p@ before \trivlist
   if (b.env === "proof") topsep = { width: 6 * 65536, stretch: 6 * 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }

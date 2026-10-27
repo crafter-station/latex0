@@ -1,0 +1,13 @@
+% fixture: text/center-title-symbols
+% tier: T3
+% engine: document
+% covers: the corpus's physics-hw header: \textbf{\large …} with \textemdash-style --- in a center, then \textbullet between \quad's after \\ (once a plain error in the paragraph adapter, now laid out)
+% issue: #334
+\documentclass[11pt]{article}
+\begin{document}
+\begin{center}
+\textbf{\large PHYS 2210 Electromagnetism --- Homework 6}\\
+Oliver Grant \quad\textbullet\quad Due 30 October 2026
+\end{center}
+Some text after the header, with \S 2 and \pounds 3.
+\end{document}
