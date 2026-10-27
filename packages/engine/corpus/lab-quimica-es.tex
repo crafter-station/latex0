@@ -1,0 +1,67 @@
+\documentclass[12pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage[left=3cm,right=2.5cm,top=2.5cm,bottom=2.5cm]{geometry}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+{\Large Universidad Nacional\par}
+\vspace{1cm}
+{\large Facultad de Ciencias --- Departamento de Química\par}
+\vspace{3cm}
+{\huge\bfseries Informe de Laboratorio N.\textordmasculine\ 2\par}
+\vspace{0.5cm}
+{\Large Titulación ácido--base\par}
+\vspace{3cm}
+{\large Camila Restrepo \quad Andrés Gómez\par}
+\vfill
+{\large Bogotá, 2026\par}
+\end{titlepage}
+
+\section{Objetivos}
+\begin{itemize}
+  \item Determinar la concentración de una solución de NaOH mediante titulación con
+        ftalato ácido de potasio (KHP).
+  \item Aplicar el concepto de punto de equivalencia.
+\end{itemize}
+
+\section{Marco teórico}
+La reacción de neutralización es
+\[
+\mathrm{KHC_8H_4O_4} + \mathrm{NaOH} \longrightarrow \mathrm{KNaC_8H_4O_4} + \mathrm{H_2O}.
+\]
+En el punto de equivalencia, $n_{\mathrm{NaOH}} = n_{\mathrm{KHP}}$, por lo tanto
+\begin{equation}
+C_{\mathrm{NaOH}} = \frac{m_{\mathrm{KHP}}}{M_{\mathrm{KHP}}\, V_{\mathrm{NaOH}}}.
+\end{equation}
+
+\section{Resultados}
+\begin{table}[h]
+\centering
+\caption{Datos de la titulación.}
+\begin{tabular}{cccc}
+\toprule
+Ensayo & $m_{\mathrm{KHP}}$ (g) & $V_{\mathrm{NaOH}}$ (mL) & $C_{\mathrm{NaOH}}$ (M) \\
+\midrule
+1 & 0,5102 & 24,8 & 0,1007 \\
+2 & 0,5087 & 24,6 & 0,1012 \\
+3 & 0,5121 & 24,9 & 0,1007 \\
+\midrule
+\multicolumn{3}{r}{Promedio} & 0,1009 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La desviación estándar de las tres determinaciones fue de $2{,}9\times10^{-4}$~M.
+
+\section{Conclusiones}
+La concentración de la solución de NaOH es $(0{,}1009 \pm 0{,}0003)$~M. El error relativo
+respecto al valor nominal de 0,1~M es del 0,9\,\%.
+
+\end{document}

@@ -1,0 +1,64 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{accent}{RGB}{0,82,147}
+\titleformat{\section}{\large\bfseries\color{accent}}{}{0em}{}[\titlerule]
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\pagestyle{empty}
+\setlist[itemize]{leftmargin=*, nosep}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries Dr.\ Amara Nwosu}\\[4pt]
+  Department of Computer Science, University of Edinburgh\\
+  \href{mailto:a.nwosu@example.ac.uk}{a.nwosu@example.ac.uk} \textbar{}
+  \url{https://amaranwosu.example.org} \textbar{} +44 131 555 0199
+\end{center}
+
+\section{Research Interests}
+Machine learning for healthcare, causal inference, fairness in clinical prediction models.
+
+\section{Education}
+\begin{tabular}{@{}p{0.18\textwidth}p{0.78\textwidth}@{}}
+2018--2022 & \textbf{PhD in Computer Science}, University of Cambridge\\
+           & Thesis: \emph{Causal Methods for Electronic Health Records}\\[4pt]
+2016--2018 & \textbf{MSc in Statistics}, University of Lagos (Distinction)\\[4pt]
+2012--2016 & \textbf{BSc in Mathematics}, University of Lagos (First Class)
+\end{tabular}
+
+\section{Appointments}
+\begin{tabular}{@{}p{0.18\textwidth}p{0.78\textwidth}@{}}
+2024--present & Lecturer, School of Informatics, University of Edinburgh\\
+2022--2024    & Postdoctoral Research Associate, Alan Turing Institute
+\end{tabular}
+
+\section{Selected Publications}
+\begin{enumerate}[leftmargin=*, label={[\arabic*]}]
+  \item A.~Nwosu and J.~Smith. Counterfactual fairness in sepsis prediction.
+        \emph{Proceedings of ICML}, 2025.
+  \item A.~Nwosu, L.~Chen, and R.~Patel. Doubly robust estimation with missing EHR data.
+        \emph{Journal of Machine Learning Research}, 24(112):1--38, 2023.
+  \item A.~Nwosu. Instrumental variables for treatment effects in primary care.
+        \emph{Statistics in Medicine}, 41(9):1650--1667, 2022.
+\end{enumerate}
+
+\section{Teaching}
+\begin{itemize}
+  \item Introduction to Machine Learning (INFR10069), course organiser, 2024--
+  \item Probabilistic Modelling and Reasoning, guest lectures, 2023
+\end{itemize}
+
+\section{Awards}
+\begin{itemize}
+  \item Turing Fellowship, 2022
+  \item Best Student Paper, Machine Learning for Health Workshop, 2021
+\end{itemize}
+
+\end{document}

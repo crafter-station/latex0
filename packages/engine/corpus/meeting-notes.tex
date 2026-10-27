@@ -1,0 +1,64 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=2cm]{geometry}
+\usepackage{enumitem}
+\usepackage{multicol}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+\newcommand{\action}[2]{\textbf{\textcolor{red}{ACTION}} (#1): #2}
+
+\begin{document}
+
+{\Large\bfseries Product Team Weekly Sync}\hfill 21 October 2026
+
+\begin{description}[leftmargin=2.5cm, style=nextline]
+  \item[Attendees] Ana (PM), Ben (Eng lead), Chloe (Design), Dev (QA), Eva (Data)
+  \item[Absent] Felix (on leave)
+  \item[Notes by] Chloe
+\end{description}
+
+\section*{1. Release 4.2 status}
+\begin{itemize}[nosep]
+  \item Feature freeze reached on Monday; 3 open P1 bugs remain.
+  \item Search latency regression traced to missing index --- fix in review.
+  \item \action{Ben}{merge index fix and re-run load test by Thursday.}
+\end{itemize}
+
+\section*{2. Onboarding redesign}
+\begin{multicols}{2}
+\textbf{Findings from user tests}
+\begin{itemize}[nosep]
+  \item 6 of 8 users skipped the tour
+  \item Account linking step confusing
+  \item Positive feedback on new empty states
+\end{itemize}
+\columnbreak
+\textbf{Proposed changes}
+\begin{enumerate}[nosep]
+  \item Replace tour with contextual tips
+  \item Merge linking into settings
+  \item A/B test new welcome screen
+\end{enumerate}
+\end{multicols}
+\action{Chloe}{share revised flows in Figma before next sync.}
+
+\section*{3. Metrics}
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Metric & Last week & This week & Change \\
+\midrule
+Weekly active users & 18\,240 & 18\,915 & +3.7\% \\
+Day-7 retention & 41.2\% & 42.0\% & +0.8 pp \\
+Crash-free sessions & 99.1\% & 99.4\% & +0.3 pp \\
+\bottomrule
+\end{tabular}
+
+\section*{4. Any other business}
+Eva will present the churn model at the all-hands on 4 November.
+
+\vfill
+\small\textit{Next meeting: 28 October 2026, 10:00, Room Juniper.}
+
+\end{document}

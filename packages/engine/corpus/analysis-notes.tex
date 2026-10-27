@@ -1,0 +1,86 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\DeclareMathOperator{\supp}{supp}
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\DeclarePairedDelimiter{\norm}{\lVert}{\rVert}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Real Analysis II --- Lecture Notes 4\\\large Uniform Convergence}
+\author{Notes by A.~Petrov}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Pointwise and uniform convergence}
+
+\begin{definition}\label{def:unif}
+A sequence $(f_n)_{n\in\N}$ of functions $f_n\colon E\to\R$ converges \emph{uniformly}
+to $f$ if for every $\varepsilon>0$ there is $N$ such that
+\[
+  \sup_{x\in E}\abs{f_n(x)-f(x)} < \varepsilon \quad\text{for all } n\ge N.
+\]
+\end{definition}
+
+\begin{example}
+Let $f_n(x) = x^n$ on $[0,1]$. Then $f_n\to f$ pointwise, where $f(x)=0$ for $x<1$ and
+$f(1)=1$, but not uniformly, since $\norm{f_n-f}_\infty = 1$ for every $n$.
+\end{example}
+
+\begin{theorem}\label{thm:cont}
+If $f_n\to f$ uniformly on $E$ and each $f_n$ is continuous at $x_0$, then $f$ is
+continuous at $x_0$.
+\end{theorem}
+
+\begin{proof}
+Let $\varepsilon>0$ and choose $N$ with $\norm{f_N-f}_\infty<\varepsilon/3$. Choose
+$\delta>0$ such that $\abs{f_N(x)-f_N(x_0)}<\varepsilon/3$ whenever
+$\abs{x-x_0}<\delta$. Then
+\begin{align}
+\abs{f(x)-f(x_0)}
+ &\le \abs{f(x)-f_N(x)} + \abs{f_N(x)-f_N(x_0)} + \abs{f_N(x_0)-f(x_0)} \notag\\
+ &< \tfrac{\varepsilon}{3}+\tfrac{\varepsilon}{3}+\tfrac{\varepsilon}{3} = \varepsilon. \label{eq:three}
+\end{align}
+\end{proof}
+
+The argument in \eqref{eq:three} is the classical ``$\varepsilon/3$ trick''.
+
+\begin{corollary}
+The uniform limit of continuous functions is continuous.
+\end{corollary}
+
+\section{Integration and differentiation}
+
+\begin{proposition}\label{prop:int}
+If $f_n\to f$ uniformly on $[a,b]$ and each $f_n$ is Riemann integrable, then
+\[
+  \lim_{n\to\infty}\int_a^b f_n(x)\,dx = \int_a^b f(x)\,dx.
+\]
+\end{proposition}
+
+By \cref{thm:cont} and \cref{prop:int}, uniform convergence preserves both
+continuity and integrals. It does \emph{not} preserve derivatives:
+\[
+  f_n(x) = \frac{\sin(nx)}{\sqrt n} \xrightarrow{\text{unif.}} 0,
+  \qquad\text{but}\qquad f_n'(0) = \sqrt{n}\to\infty.
+\]
+
+\begin{definition}
+The \emph{support} of $f$ is $\supp f = \overline{\{x : f(x)\neq 0\}}$.
+\end{definition}
+
+\end{document}

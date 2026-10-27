@@ -1,0 +1,50 @@
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[top=1.5cm,bottom=1.5cm,left=2cm,right=2cm]{geometry}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, urlcolor=teal}
+
+\newcommand{\seccion}[1]{\vspace{8pt}{\large\bfseries\color{teal}#1}\par\vspace{2pt}\hrule\vspace{6pt}}
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+
+\begin{document}
+
+{\Huge\bfseries Santiago Herrera Vélez}\\[6pt]
+Ingeniero de Software \textbullet{} Medellín, Colombia\\
+\href{mailto:santiago.herrera@example.com}{santiago.herrera@example.com} \textbullet{}
++57 300 555 1234 \textbullet{} \href{https://github.com/sherrera}{github.com/sherrera}
+
+\seccion{Perfil}
+Ingeniero de software con seis años de experiencia en desarrollo de sistemas
+distribuidos, APIs y aplicaciones web. Interesado en arquitectura de datos y
+equipos de alto rendimiento.
+
+\seccion{Experiencia}
+\begin{tabularx}{\textwidth}{@{}l X r@{}}
+\textbf{Líder técnico} & Fintech Andina S.A.S. & 2023--actual\\
+& \multicolumn{2}{p{0.75\textwidth}}{Diseño de la plataforma de pagos en tiempo real;
+reducción de la latencia del 40\,\%. Coordinación de un equipo de ocho personas.}\\[6pt]
+\textbf{Desarrollador sénior} & Logística Express & 2020--2023\\
+& \multicolumn{2}{p{0.75\textwidth}}{Migración de un monolito a microservicios en Go y
+Kubernetes.}\\[6pt]
+\textbf{Desarrollador} & Agencia Digital Norte & 2018--2020\\
+\end{tabularx}
+
+\seccion{Educación}
+\begin{tabularx}{\textwidth}{@{}X r@{}}
+\textbf{Ingeniería de Sistemas}, Universidad EAFIT & 2013--2018\\
+\textbf{Especialización en Analítica}, Universidad de Antioquia & 2021\\
+\end{tabularx}
+
+\seccion{Habilidades}
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+Lenguajes: & Go, TypeScript, Python, SQL\\
+Herramientas: & PostgreSQL, Kafka, Docker, Kubernetes, AWS\\
+Idiomas: & Español (nativo), inglés (C1), portugués (B1)\\
+\end{tabularx}
+
+\end{document}

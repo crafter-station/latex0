@@ -1,0 +1,92 @@
+\documentclass[11pt]{book}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amsthm,amssymb}
+\usepackage{fancyhdr}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[RE]{\leftmark}
+\fancyhead[LO]{\rightmark}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[chapter]
+\theoremstyle{plain}
+\newtheorem{theorem}[definition]{Theorem}
+\newtheorem{lemma}[definition]{Lemma}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+\title{A Gentle Introduction to Number Theory}
+\author{Margaret Lindqvist}
+
+\begin{document}
+\frontmatter
+\maketitle
+\tableofcontents
+
+\mainmatter
+\chapter{Divisibility}
+
+\section{The division algorithm}
+
+\begin{definition}
+Let $a,b\in\mathbb{Z}$. We say $a$ \emph{divides} $b$, written $a\mid b$, if there
+exists $k\in\mathbb{Z}$ with $b = ka$.
+\end{definition}
+
+\begin{theorem}[Division algorithm]\label{thm:div}
+For all $a\in\mathbb{Z}$ and $b\in\mathbb{Z}_{>0}$ there exist unique integers $q,r$
+with $a = qb + r$ and $0\le r<b$.
+\end{theorem}
+
+\begin{proof}
+Let $S = \{a - kb : k\in\mathbb{Z}\}\cap\mathbb{Z}_{\ge0}$. $S$ is non-empty, so by
+the well-ordering principle it has a least element $r = a - qb$. If $r\ge b$ then
+$r-b\in S$ is smaller, a contradiction. Uniqueness follows by subtracting two
+representations.
+\end{proof}
+
+\section{Greatest common divisors}
+
+\begin{lemma}\label{lem:gcd}
+If $a = qb + r$ then $\gcd(a,b) = \gcd(b,r)$.
+\end{lemma}
+
+Repeated application of Lemma~\ref{lem:gcd} yields the Euclidean algorithm. For
+example,
+\begin{align*}
+252 &= 1\cdot 198 + 54,\\
+198 &= 3\cdot 54 + 36,\\
+54  &= 1\cdot 36 + 18,\\
+36  &= 2\cdot 18,
+\end{align*}
+so $\gcd(252,198) = 18$.
+
+\begin{remark}
+The number of steps is at most about five times the number of decimal digits of the
+smaller argument (Lamé's theorem).
+\end{remark}
+
+\chapter{Primes}
+\section{The fundamental theorem of arithmetic}
+\begin{theorem}
+Every integer $n\ge2$ is a product of primes, uniquely up to order.
+\end{theorem}
+
+\section{Infinitely many primes}
+\begin{theorem}[Euclid]
+There are infinitely many primes.
+\end{theorem}
+\begin{proof}
+Suppose $p_1,\dots,p_n$ are all the primes and let $N = p_1p_2\cdots p_n + 1$. No $p_i$
+divides $N$, contradicting Theorem~\ref{thm:div} applied to its prime factorisation.
+\end{proof}
+
+\backmatter
+\chapter{Further Reading}
+Hardy and Wright, \emph{An Introduction to the Theory of Numbers}, remains the classic
+reference.
+
+\end{document}

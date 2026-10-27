@@ -1,0 +1,80 @@
+\documentclass{amsart}
+\usepackage{amssymb}
+\usepackage{enumitem}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\begin{document}
+
+\title{A Note on Sums of Two Squares in Arithmetic Progressions}
+\author{Helena Costa}
+\address{Instituto de Matemática, Universidade Federal do Rio de Janeiro, Brazil}
+\email{hcosta@example.br}
+\author{Pieter de Vries}
+\address{Mathematical Institute, Leiden University, The Netherlands}
+\email{p.devries@example.nl}
+\subjclass[2020]{Primary 11E25; Secondary 11N13}
+\keywords{sums of two squares, arithmetic progressions}
+\date{\today}
+
+\begin{abstract}
+We give an elementary proof that every arithmetic progression $a \bmod q$ with
+$\gcd(a,q)=1$ and $a\equiv 1 \pmod 4$ contains infinitely many integers that are sums of
+two squares, and we bound the least such integer.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}
+Let $\mathcal{S}$ denote the set of positive integers representable as $x^2+y^2$ with
+$x,y\in\mathbb{Z}$. By Fermat's theorem, a prime $p$ lies in $\mathcal{S}$ if and only if
+$p=2$ or $p\equiv1\pmod 4$.
+
+\begin{theorem}\label{thm:main}
+Let $q\ge1$ and $a$ be integers with $\gcd(a,q)=1$ and $a\equiv1\pmod 4$. Then the
+progression $a\bmod q$ contains an element of $\mathcal{S}$ less than $q^{2}$.
+\end{theorem}
+
+\section{Preliminaries}
+\begin{definition}
+For $n\in\mathbb{N}$, let $r_2(n) = \#\{(x,y)\in\mathbb{Z}^2 : x^2+y^2=n\}$.
+\end{definition}
+
+\begin{lemma}\label{lem:mult}
+The set $\mathcal{S}$ is closed under multiplication.
+\end{lemma}
+
+\begin{proof}
+This follows from the Brahmagupta--Fibonacci identity
+\[
+(a^2+b^2)(c^2+d^2) = (ac-bd)^2 + (ad+bc)^2. \qedhere
+\]
+\end{proof}
+
+\section{Proof of Theorem~\ref{thm:main}}
+We proceed in three steps.
+\begin{enumerate}[label=\textup{(\roman*)}]
+  \item Reduce to the case $q$ odd using Lemma~\ref{lem:mult}.
+  \item Choose $x$ with $x^2\equiv a-1\pmod q$ when possible.
+  \item Otherwise use the Chinese remainder theorem on prime power factors of $q$.
+\end{enumerate}
+
+\begin{remark}
+The exponent $2$ in Theorem~\ref{thm:main} is not optimal; Linnik-type arguments give
+much smaller bounds.
+\end{remark}
+
+\bibliographystyle{amsplain}
+\begin{thebibliography}{9}
+\bibitem{HW} G.~H. Hardy and E.~M. Wright, \emph{An introduction to the theory of
+numbers}, 6th ed., Oxford University Press, 2008.
+\bibitem{IK} H.~Iwaniec and E.~Kowalski, \emph{Analytic number theory}, American
+Mathematical Society, 2004.
+\end{thebibliography}
+
+\end{document}
