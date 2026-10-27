@@ -242,6 +242,9 @@ export function pgfNodes(s: PgfState): Map<string, PgfNodeRecord> {
   return r
 }
 
+/** the named nodes of `s` kept in `nodes` (TeX's are global: a document's pictures share them) */
+export function usePgfNodes(s: PgfState, nodes: Map<string, PgfNodeRecord>) { registries.set(s, nodes) }
+
 /** the anchor `{text}{\pgfpointorigin}` every shape has (\pgfdeclareshape 781) */
 const textAnchor: Anchor = () => ({ x: 0, y: 0 })
 

@@ -125,6 +125,17 @@ export const pgfPointAdd = (a: PgfPoint, b: PgfPoint): PgfPoint => ({ x: b.x + a
 /** \pgfpointdiff{#1}{#2} (52–58): #2 minus #1 */
 export const pgfPointDiff = (a: PgfPoint, b: PgfPoint): PgfPoint => ({ x: b.x - a.x, y: b.y - a.y })
 
+/**
+ * \pgfpointlineattime{#1}{#2}{#3} (445–459): the point at time #1 (\pgfmathsetmacro'd) on the line from #2 to
+ * #3, #3 evaluated first
+ */
+export function pgfPointLineAtTime(time: string, a: PgfPointMacro, b: PgfPointMacro, units: PgfUnits): PgfPoint {
+  const c = b()
+  const p = a()
+  const t = parse(time, units)
+  return { x: p.x + scaled(t, c.x - p.x), y: p.y + scaled(t, c.y - p.y) }
+}
+
 /** \pgfpointscale{#1}{#2} (72–77) */
 export function pgfPointScale(factor: string, p: PgfPoint, units: PgfUnits): PgfPoint {
   const f = parse(factor, units)

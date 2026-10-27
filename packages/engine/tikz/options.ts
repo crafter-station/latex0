@@ -10,7 +10,8 @@
 // swap, anchors and placement (above=…, right of=…, positioning's right=of …, on grid), inner and outer
 // sep, minimum sizes, text width, align, font, shapes, arrow specifications and >=, the transformations
 // scale, xscale, yscale, xslant, yslant, shift, xshift, yshift and rotate, and what paths read: clip, use as
-// bounding box, baseline, radius, x radius, y radius. Other keys throw Unsupported.
+// bounding box, baseline, radius, x radius, y radius, and what nodes read: name, at, pos and the positions
+// (midway …), sloped, allow upside down, transform shape, text, font. Other keys throw Unsupported.
 
 import { printScaled } from "../layout/arith"
 import { TexArith } from "../pgf/fixed"
@@ -47,6 +48,8 @@ export type TransformCall =
   | { op: "xshift" | "yshift" | "scale" | "xscale" | "yscale" | "xslant" | "yslant" | "rotate"; arg: Toks }
   /** right of=… and the like (\tikz@of): a shift by the node distance, read when the transformation runs */
   | { op: "of"; angle: string }
+  /** positioning's \tikz@lib@pos@call, read when the transformation runs (each node's first) */
+  | { op: "poscall" }
 
 /** \tikz@text@action: how a node's text with a text width is set */
 export type TextAction = "ragged" | "badly ragged" | "ragged left" | "badly ragged left" | "justified" | "centered" | "badly centered"
@@ -57,6 +60,8 @@ export type NodeAt =
   | { kind: "of"; node: Toks }
   /** \pgfpointanchor{node}{anchor} (positioning's right=of node) */
   | { kind: "anchor"; node: string; anchor: string }
+  /** a point TikZ scanned (at=…, `at (…)`), computed when the node is placed */
+  | { kind: "point"; point: () => { x: number; y: number } }
 
 /** The macros and registers TikZ's options set, as they are inside a picture */
 export interface TikzState {
@@ -93,10 +98,20 @@ export interface TikzState {
   posCall: { x: number; y: number } | null
   /** positioning's \iftikz@lib@ignore@size (on grid) */
   onGrid: boolean
-  /** \tikz@text@width, \tikz@textfont, \tikz@text@action */
+  /** \tikz@text@width, \tikz@textfont, \tikz@node@textfont, \tikz@text@action */
   textWidth: Toks
   textFont: Toks
+  nodeFont: Toks
   textAction: TextAction
+  /** \tikz@fig@name (name=…, a node's `(name)`) */
+  figName: string
+  /** \tikz@time: a label's position on its path (pos=…; "" while empty) */
+  time: string
+  /** \ifpgfslopedattime, \ifpgfallowupsidedownattime, \ifpgfresetnontranslationattime, \iftikz@fullytransformed */
+  sloped: boolean
+  upsideDown: boolean
+  resetNonTranslations: boolean
+  fullyTransformed: boolean
   /** \tikz@current@arrows, \pgf@start@tip@sequence, \pgf@end@tip@sequence */
   currentArrows: Toks
   startTips: Tip[]
@@ -123,8 +138,13 @@ export interface TikzSetup {
   /** \usetikzlibrary{positioning}, \usetikzlibrary{arrows.meta} */
   positioning?: boolean
   arrowsMeta?: boolean
-  /** the names of the picture's nodes (other than coordinates), for positioning's `of` */
-  nodes?: ReadonlySet<string>
+  /**
+   * positioning's `of`: \tikz@scan@one@point(#2), the point and, for a node's name, the node whose border it
+   * is on (\iftikz@shapeborder)
+   */
+  scanOf?: (target: Toks) => { point: () => { x: number; y: number }; border: string | null }
+  /** at=…: the point scanned (\tikz@scan@one@point) */
+  at?: (v: Toks, st: TikzState) => void
   /** a transformation applied at once (\tikz@transform is \relax): pgf's transformations */
   transform?: (t: TransformCall, st: TikzState) => void
   /** baseline=…: \pgfsetbaseline (pgf's picture) */
@@ -142,8 +162,11 @@ const PGF_KEYS = `inner xsep/.initial=.3333em, inner ysep/.initial=.3333em,
   minimum width/.initial=1pt, minimum height/.initial=1pt,
   minimum size/.style={/pgf/minimum width={#1},/pgf/minimum height={#1}}`
 
-/** TikZ's styles (tikz.code.tex 975, 1110, 1174–1184, 1558–1601) */
+/** TikZ's styles (tikz.code.tex 952–953, 975, 1110, 1174–1184, 1558–1601, 1614–1620) */
 const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
+  name prefix/.initial=, name suffix/.initial=,
+  at start/.style={pos=0}, very near start/.style={pos=0.125}, near start/.style={pos=0.25}, midway/.style={pos=0.5},
+  near end/.style={pos=0.75}, very near end/.style={pos=0.875}, at end/.style={pos=1},
   '/.style=swap,
   node halign header/.initial=,
   align/.is choice,
@@ -233,6 +256,9 @@ export class Tikz {
   private readonly db: ArrowDb
   private readonly setup: TikzSetup
 
+  /** \usetikzlibrary{positioning} */
+  get positioning(): boolean { return !!this.setup.positioning }
+
   constructor(setup: TikzSetup) {
     this.setup = setup
     this.db = arrowDb(!!setup.arrowsMeta)
@@ -246,7 +272,8 @@ export class Tikz {
       shape: "rectangle",
       nodeDistance: chars(setup.positioning ? "1cm and 1cm" : "1cm"),
       nodeAt: null, posCall: null, onGrid: false,
-      textWidth: [], textFont: [], textAction: "ragged",
+      textWidth: [], textFont: [], nodeFont: [], textAction: "ragged",
+      figName: "", time: "", sloped: false, upsideDown: false, resetNonTranslations: true, fullyTransformed: false,
       currentArrows: chars("-"), startTips: [], endTips: [],
     }
     this.install()
@@ -261,6 +288,8 @@ export class Tikz {
     for (const s of this.stack) s.lineWidth = w
   }
 
+  /** how many groups are open */
+  get depth(): number { return this.stack.length }
   begingroup() { this.stack.push(clone(this.st)); this.keys.begingroup() }
   endgroup() {
     const s = this.stack.pop()
@@ -397,13 +426,16 @@ export class Tikz {
       const i = find(temp, chars("of "))
       const dist = arg(temp.slice(0, i))
       const target = arg(temp.slice(i + 3))
-      const node = plain(target, "node name")
-      // \tikz@scan@one@point(#2): a node's name makes the point its border
-      if (!this.setup.nodes?.has(node)) throw new Unsupported(`tikz: positioning of "${node}", not a known node`)
-      if (this.st.onGrid) {
-        this.st.nodeAt = { kind: "anchor", node, anchor: "center" }
-        this.st.anchor = chars("center")
-      } else this.st.nodeAt = { kind: "anchor", node, anchor: ofAnchor }
+      // \tikz@lib@place@of@ (98–110): the point scanned; a node's name makes it the node's anchor
+      if (!this.setup.scanOf) throw new Unsupported("tikz: positioning outside a picture")
+      const { point, border } = this.setup.scanOf(target)
+      this.st.nodeAt = { kind: "point", point }
+      if (border !== null) {
+        if (this.st.onGrid) {
+          this.st.nodeAt = { kind: "anchor", node: border, anchor: "center" }
+          this.st.anchor = chars("center")
+        } else this.st.nodeAt = { kind: "anchor", node: border, anchor: ofAnchor }
+      }
       nums = dist.length === 0 ? this.expand(this.st.nodeDistance) : dist
     } else nums = temp
     if (nums.length === 0) return
@@ -571,6 +603,31 @@ export class Tikz {
     opt("text width", (v) => { st().textWidth = v })
     opt("font", (v) => { st().textFont = v })
     opt("text", (v) => { st().textColor = v })
+    opt("node font", (v) => { st().nodeFont = v })
+    // name (951): \tikz@pp@name, with no prefix or suffix
+    opt("name", (v) => {
+      if (k.valueOf("/tikz/name prefix")?.length || k.valueOf("/tikz/name suffix")?.length) throw new Unsupported("tikz: name prefix and suffix")
+      st().figName = plain(this.expand(v), "node name")
+    })
+    opt("at", (v) => {
+      if (!this.setup.at) throw new Unsupported("tikz: at outside a picture")
+      this.setup.at(v, st())
+    })
+    // pos (1099): \pgfmathsetmacro
+    opt("pos", (v) => {
+      const t = plain(this.expand(v), "pos")
+      st().time = t === "" ? "" : this.parse(t).result
+    })
+    // (1086–1087) .is if-like: \csname pgfslopedattime#1\endcsname
+    const ifKey = (name: string, set: (b: boolean) => void) => opt(name, (v) => {
+      const b = plain(v, name)
+      if (b !== "true" && b !== "false") throw new Unsupported(`tikz: ${name}=${b}`)
+      set(b === "true")
+    }, "true")
+    ifKey("sloped", (b) => { st().sloped = b })
+    ifKey("allow upside down", (b) => { st().upsideDown = b })
+    // transform shape (1050–1057)
+    ifKey("transform shape", (b) => { st().fullyTransformed = b; st().resetNonTranslations = !b })
     for (const a of TEXT_ACTIONS) opt(`text ${a}`, () => { st().textAction = a }, "")
     opt("arrows", (v) => this.arrows(v))
     // >=… (1195): \pgfdeclarearrow{name=<->,means={#1}}

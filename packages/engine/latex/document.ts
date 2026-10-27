@@ -39,7 +39,7 @@ import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
 import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
-import { tikzAt } from "./tikz"
+import { pgfCompatObjects, pgfShipoutBackground, tikzAt } from "./tikz"
 import type { Image } from "./images"
 import { processBlock, runInAlone } from "./body"
 import { crefName, fillCrefWrites, type CrefLabel } from "./cleveref"
@@ -107,6 +107,9 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
   outputOptions.xcolor = usesColor
   // \begin{document}'s \normalcolor (\relax still when siunitx loads color, in its \AtBeginDocument after it)
   if (usesXcolor) v.nodes.push(colorPush())
+  // pgf.sty's compatibility arrows (after xcolor, which tikz loads first): objects whose dvips header specials the
+  // preamble puts on the main vertical list
+  if (pre.tikz && driver !== "pdftex") v.nodes.push(...pgfCompatObjects())
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   // (its .out file is \write3, or \write4 after pgf's \newwrite\w@pgf@writea: pgfsys.code.tex 67)
@@ -233,6 +236,8 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
+  // pgf's shipout/background hook on every page, its PostScript header on the first under dvips
+  if (pre.tikz) shipped.forEach((p, i) => { shipped[i] = pgfShipoutBackground(p, i === 0 && driver !== "pdftex", run.k) })
   if (driver === "pdftex") shipped.forEach(pdftexColors) // (the columns are inside the shipped pages)
   // shipout/firstpage under dvips, by label: hyperref's, l3backend-dvips.def's PostScript header, then the \AtBeginDvi of
   // geometry and of the graphics driver (dvips.def), both at \begin{document}

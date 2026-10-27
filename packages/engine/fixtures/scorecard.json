@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 540,
-  "exact": 538,
+  "fixtures": 547,
+  "exact": 546,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 2,
-  "glyphs": 337126
+  "pending": 1,
+  "glyphs": 337652
  },
  "areas": [
   {
@@ -166,8 +166,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 28,
-   "exact": 26
+   "fixtures": 29,
+   "exact": 28
   },
   {
    "area": "text",
@@ -176,8 +176,8 @@
   },
   {
    "area": "tikz",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 18,
+   "exact": 18
   },
   {
    "area": "title",
@@ -356,6 +356,17 @@
    "issue": "#274"
   },
   {
+   "id": "templates/corpus-tikz-figure",
+   "file": "macro/templates/corpus-tikz-figure.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 84,
+   "covers": "the starter-corpus TikZ figure (corpus/tikz-figure.tex): a section, a center environment with a tikzpicture of three drawn nodes with rounded corners (every node/.style), placed by positioning's right=of with node distance=2cm, joined by -Stealth arrows that end on the nodes' borders",
+   "issue": "#320"
+  },
+  {
    "id": "templates/demo",
    "file": "macro/templates/demo.tex",
    "area": "templates",
@@ -503,8 +514,8 @@
    "file": "macro/templates/tikz-simple.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 40,
    "covers": "snippet in a minimal article: Simple TikZ diagram with nodes and arrows",
    "issue": "#30"
@@ -5685,6 +5696,28 @@
    "issue": "#309"
   },
   {
+   "id": "tikz/labels-pdftex",
+   "file": "micro/tikz/labels-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped (and turned not to be upside down), above and below, in a rotated scope, a coordinate on a line; nodes at the ends of a path and in \\tikz, a cycle after a node; a line to a circle node's border; math in a node, text= under a scope's draw=, a trailing space, transform shape, font=\\small",
+   "issue": "#320"
+  },
+  {
+   "id": "tikz/labels",
+   "file": "micro/tikz/labels.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped (and turned not to be upside down), above and below, in a rotated scope, a coordinate on a line; nodes at the ends of a path and in \\tikz, a cycle after a node; a line to a circle node's border; math in a node, text= under a scope's draw=, a trailing space, transform shape, font=\\small",
+   "issue": "#320"
+  },
+  {
    "id": "tikz/lines-pdftex",
    "file": "micro/tikz/lines-pdftex.tex",
    "area": "tikz",
@@ -5705,6 +5738,50 @@
    "glyphs": 92,
    "covers": "\\usepackage{tikz}; tikzpicture environments between paragraphs and in a paragraph: lines, -|, |-, cycle, colors, widths and dash patterns",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/node-borders-pdftex",
+   "file": "micro/tikz/node-borders-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7,
+   "covers": "lines from and to nodes on their borders: -| and |- from a node, a cycle, circle, ellipse and rectangle after a node's point, the border carried out of a path group, to between nodes; the old placements above of=, below left of= with node distance",
+   "issue": "#320"
+  },
+  {
+   "id": "tikz/node-borders",
+   "file": "micro/tikz/node-borders.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7,
+   "covers": "lines from and to nodes on their borders: -| and |- from a node, a cycle, circle, ellipse and rectangle after a node's point, the border carried out of a path group, to between nodes; the old placements above of=, below left of= with node distance",
+   "issue": "#320"
+  },
+  {
+   "id": "tikz/nodes-pdftex",
+   "file": "micro/tikz/nodes-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 132,
+   "covers": "named nodes (rectangle and circle, drawn, filled, rounded corners, minimum height, inner sep) with styles from \\tikzset, positioning's right=of, below=of and above=… of with node distance, lines between nodes ending on their borders, an anchor (in.south), -| and |- to and from nodes, labels on lines, the nodes' text in the document's fonts (\\textbf, \\small around \\tikz)",
+   "issue": "#320"
+  },
+  {
+   "id": "tikz/nodes",
+   "file": "micro/tikz/nodes.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 132,
+   "covers": "named nodes (rectangle and circle, drawn, filled, rounded corners, minimum height, inner sep) with styles from \\tikzset, positioning's right=of, below=of and above=… of with node distance, lines between nodes ending on their borders, an anchor (in.south), -| and |- to and from nodes, labels on lines, the nodes' text in the document's fonts (\\textbf, \\small around \\tikz)",
+   "issue": "#320"
   },
   {
    "id": "tikz/shapes-pdftex",

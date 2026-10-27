@@ -6,6 +6,7 @@ import type { PgfDriver } from "./drivers"
 import { TexArith } from "./fixed"
 import { invoke, resetPathSizes } from "./paths"
 import type { PgfState } from "./state"
+import { mul } from "./transformations"
 
 /** a coordinate as \pgf@sys@bp scans it */
 const dimen = (s: PgfState, x: string) => new TexArith(s.units).dimen(x)
@@ -22,6 +23,19 @@ export function pgfPathQLineTo(s: PgfState, x: string, y: string) { s.softPath.p
 export function pgfPathQCurveTo(s: PgfState, x1: string, y1: string, x2: string, y2: string, x: string, y: string) {
   const [a, b, c, d, e, f] = [x1, y1, x2, y2, x, y].map((v) => dimen(s, v))
   s.softPath.push({ op: "curveto", x1: a, y1: b, x2: c, y2: d, x: e, y: f })
+}
+
+/** \pgfpathqcircle{#1} (76–87): four quarter curves about the origin, from (r, 0), closed */
+export function pgfPathQCircle(s: PgfState, r: string) {
+  const x = dimen(s, r), y = mul("0.5522847", x)
+  s.softPath.push(
+    { op: "moveto", x, y: 0 },
+    { op: "curveto", x1: x, y1: y, x2: y, y2: x, x: 0, y: x },
+    { op: "curveto", x1: -y, y1: x, x2: -x, y2: y, x: -x, y: 0 },
+    { op: "curveto", x1: -x, y1: -y, x2: -y, y2: -x, x: 0, y: -x },
+    { op: "curveto", x1: y, y1: -x, x2: x, y2: -y, x, y: 0 },
+    { op: "closepath", x, y: 0 },
+  )
 }
 
 /** \pgfsyssoftpath@flushcurrentpath, the \pgfsys@ command, \pgf@resetpathsizes */
