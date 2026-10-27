@@ -156,7 +156,7 @@ export function readPreamble(src: string): Preamble {
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
-    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; continue }
+    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm) algorithm.singleHere = true; continue }
     if (setspace && setspaceCommand(setspace, line, option)) continue
     // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
     const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)

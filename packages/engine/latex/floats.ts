@@ -177,12 +177,14 @@ function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
   if (cx.pre.usesCaption && cx.pre.hyper) throw new Unsupported("an [H] float with caption.sty and hyperref")
   if (v.nobreak) throw new Unsupported("an [H] float right after a heading")
-  // (setspace's \@xfloat runs for [H] only when it loads after float.sty)
-  if (run.k.singleSizes) throw new Unsupported("an [H] float with setspace")
   // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
   const pending = b.inPar ? cx.decisions.pop() : undefined
   const traces: ParagraphTrace[] = []
-  const box = algorithmBox(cx, b.body, traces, v.club, true)
+  // (setspace's \@xfloat runs for [H] only when it loads after float.sty: single spacing in the box)
+  const spaced = run.k
+  if (cx.pre.algorithm.singleHere) run.k = singleSpaced(spaced)
+  let box: BoxNode
+  try { box = algorithmBox(cx, b.body, traces, v.club, true) } finally { run.k = spaced }
   if (pending) cx.decisions.push(...traces, pending)
   else cx.decisions.push(...traces)
   v.vskip(run.k.glue.intextsep)

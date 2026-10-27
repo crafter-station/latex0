@@ -17,7 +17,11 @@ import { IGNORE_DEPTH, LOW_PENALTY } from "./vlist"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 
 /** algpseudocode's options: [noend] takes the end entities' text away (\algtext*) */
-export interface AlgorithmPackages { algorithm: boolean; algpseudocode: boolean; noend: boolean }
+export interface AlgorithmPackages {
+  algorithm: boolean; algpseudocode: boolean; noend: boolean
+  /** setspace loaded after float.sty: its \@xfloat (single spacing) runs for [H] too */
+  singleHere?: boolean
+}
 
 const kw = (w: string) => `\\textbf{${w}}`
 
