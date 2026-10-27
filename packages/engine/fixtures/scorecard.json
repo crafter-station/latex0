@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 691,
-  "exact": 691,
+  "fixtures": 705,
+  "exact": 705,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 391488
+  "glyphs": 396064
  },
  "areas": [
   {
@@ -71,8 +71,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "footnotes",
@@ -111,8 +111,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 13,
-   "exact": 13
+   "fixtures": 15,
+   "exact": 15
   },
   {
    "area": "math",
@@ -171,8 +171,8 @@
   },
   {
    "area": "text",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 14,
+   "exact": 14
   },
   {
    "area": "tikz",
@@ -181,8 +181,8 @@
   },
   {
    "area": "title",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "titlesec",
@@ -196,8 +196,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 16,
+   "exact": 16
   }
  ],
  "fixtures": [
@@ -4920,6 +4920,17 @@
    "covers": "fancyhdr at 11pt: head fields taller than \\headheight (13.6pt struts, a field wrapping to two lines in its \\raggedleft parbox), the \\vbox cut to \\headheight (\\f@nch@vbox); a \\setlength{\\headheight} in the preamble"
   },
   {
+   "id": "floats/float-in-declared-paragraph",
+   "file": "micro/floats/float-in-declared-paragraph.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 119,
+   "covers": "floats that start in a paragraph read in vertical mode (after \\bigskip, in a size group that ends its paragraph): their \\vadjust where they stand",
+   "issue": "#329"
+  },
+  {
    "id": "floats/float-pages",
    "file": "micro/floats/float-pages.tex",
    "area": "floats",
@@ -5945,6 +5956,17 @@
    "covers": "lstlisting: basicstyle=\\ttfamily\\small (struts, baselines, \\lst@width)"
   },
   {
+   "id": "lists/after-par-group",
+   "file": "micro/lists/after-par-group.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 169,
+   "covers": "an environment right after a group that ended its paragraph ({\\large … \\par} or text\\par, no blank line): it starts in vertical mode (\\partopsep, no \\unskip of the paragraph)",
+   "issue": "#329"
+  },
+  {
    "id": "lists/club-after-centercr",
    "file": "micro/lists/club-after-centercr.tex",
    "area": "lists",
@@ -5965,6 +5987,17 @@
    "glyphs": 359,
    "covers": "lists one after another: \\addpenalty when \\lastskip is not zero (the penalty goes before the skip, with the \\prevdepth correction) and \\addvspace keeping the larger skip, between itemize and enumerate",
    "issue": "#30"
+  },
+  {
+   "id": "lists/declarations-in-environments",
+   "file": "micro/lists/declarations-in-environments.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 395,
+   "covers": "declarations in center, flushright and quote (\\begin{center}\\Large\\bfseries …): they last to the end of the environment, across \\\\ and blank lines; each paragraph starts in the font in force and its \\par (\\@centercr's, a blank line's, \\endtrivlist's) uses the \\baselineskip in force there; \\\\[1em] in the font in force",
+   "issue": "#329"
   },
   {
    "id": "lists/enumerate-long",
@@ -7088,6 +7121,28 @@
    "covers": "a table float with a \\multicolumn wider than its columns, \\hline\\hline, a span to the end, \\cline from the first column, \\small entries"
   },
   {
+   "id": "text/declarations-in-groups-t1",
+   "file": "micro/text/declarations-in-groups-t1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 364,
+   "covers": "declarations in groups with T1 at 11pt in report: NFSS substitutions (tt bold, sc it), \\rm \\sf \\tt \\sc resetting with \\normalfont, a group right after a list (\\@doendpe), groups after \\\\ and \\\\* in flushright, footnotes in size groups (\\@makefnmark at the group's size), every size",
+   "issue": "#329"
+  },
+  {
+   "id": "text/declarations-in-groups",
+   "file": "micro/text/declarations-in-groups.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 797,
+   "covers": "font declarations (\\bfseries \\itshape \\slshape \\scshape \\sffamily \\ttfamily \\normalfont \\upshape \\mdseries), the old \\bf \\it and \\em (\\eminnershape in a slanted font) and size commands in groups: mid-paragraph, starting a paragraph (its \\everypar in the group: after a heading \\clubpenalty\\@M ends with it), in center after \\\\[skip], in an item",
+   "issue": "#329"
+  },
+  {
    "id": "text/font-commands",
    "file": "micro/text/font-commands.tex",
    "area": "text",
@@ -7108,6 +7163,17 @@
    "glyphs": 176,
    "covers": "TeX hyphenates \"waffle\" at a line end (Liang patterns, hyph-en-us)",
    "issue": "#113"
+  },
+  {
+   "id": "text/lead-group-footnotes",
+   "file": "micro/text/lead-group-footnotes.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 599,
+   "covers": "footnotes in a group that starts the paragraph (a size group, a plain group, an item's) right after a heading: they see the \\clubpenalty the \\everypar set in the group, footnotes after it the one from before",
+   "issue": "#329"
   },
   {
    "id": "text/ligatures-kerns",
@@ -7190,6 +7256,17 @@
    "status": "pass",
    "glyphs": 174,
    "covers": "\\underline in text ($\\@@underline{\\hbox{…}}\\m@th$) with words, descenders, fonts and math; \\underline and \\overline in formulas"
+  },
+  {
+   "id": "text/vspace-in-paragraph",
+   "file": "micro/text/vspace-in-paragraph.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 174,
+   "covers": "\\noindent in horizontal mode (nothing, the spaces after it go) after \\\\ and mid-paragraph; \\vspace and \\vspace* in a paragraph (\\@bsphack, \\vadjust{\\hrule\\@height\\z@ \\nobreak \\vskip \\vskip\\z@skip}, \\@esphack after a space) and in vertical mode (\\@vspacer: \\hrule\\@height\\z@\\nobreak, \\prevdepth kept), at the start of a paragraph and after a heading",
+   "issue": "#329"
   },
   {
    "id": "tikz/arrows-pdftex",
@@ -7401,6 +7478,28 @@
    "issue": "#30"
   },
   {
+   "id": "title/maketitle-declarations-report",
+   "file": "micro/title/maketitle-declarations-report.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 160,
+   "covers": "report's \\maketitle with a bold title that changes shape before its end, \\and with \\\\[skip] and \\texttt in a row, and a \\date of two paragraphs ({\\large \\@date \\par}, \\\\ as \\@centercr, \\small in the second)",
+   "issue": "#329"
+  },
+  {
+   "id": "title/maketitle-declarations",
+   "file": "micro/title/maketitle-declarations.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 226,
+   "covers": "\\title with \\\\ (\\@centercr in center) and a size after it, its paragraphs at that size's \\baselineskip; \\author over several lines with formulas, \\\\ rows and \\and, a \\small row (a declaration in a tabular entry); \\date with a size declaration (its \\par after the group)",
+   "issue": "#329"
+  },
+  {
    "id": "title/maketitle-long-title",
    "file": "micro/title/maketitle-long-title.tex",
    "area": "title",
@@ -7410,6 +7509,50 @@
    "glyphs": 340,
    "covers": "\\maketitle at 11pt with a title long enough to take three centered lines (\\centering: \\leftskip and \\rightskip \\@flushglue, \\parfillskip zero), \\date{} empty (\\endtrivlist redoes the last skip), and text right after",
    "issue": "#30"
+  },
+  {
+   "id": "title/maketitle-thanks-t1",
+   "file": "micro/title/maketitle-thanks-t1.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 168,
+   "covers": "nine \\thanks at 12pt with T1: every \\@fnsymbol mark (\\textsection T1's, the others TS1's, doubled from the seventh) at the \\sf@size of the size it stands in",
+   "issue": "#329"
+  },
+  {
+   "id": "title/maketitle-thanks",
+   "file": "micro/title/maketitle-thanks.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 318,
+   "covers": "\\thanks in \\title and \\author (and \\footnote, which \\maketitle makes \\thanks): \\@fnsymbol marks in \\rlap (\\textasteriskcentered, \\textdagger, \\textdaggerdbl in TS1), the texts at \\@thanks as footnotes in vertical mode with \\maketitle's \\@makefntext; footnotes numbered from one after it",
+   "issue": "#329"
+  },
+  {
+   "id": "title/titlepage-article",
+   "file": "micro/title/titlepage-article.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 295,
+   "covers": "article's titlepage environment (\\newpage, \\thispagestyle{empty}, \\setcounter{page}\\@ne, then \\newpage and page 1 again) with \\centering, size groups ending their paragraphs ({\\Large … \\par}: that size's \\baselineskip), \\vspace and \\vfill between them; a size group with \\par in the body; \\bigskip between paragraphs and in one (\\vadjust)",
+   "issue": "#329"
+  },
+  {
+   "id": "title/titlepage-declarations",
+   "file": "micro/title/titlepage-declarations.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 675,
+   "covers": "a two-sided report's titlepage: \\vspace* first, \\null, \\\\ as \\@centercr in a group (\\\\*[skip]), \\bigskip, a size change in the last paragraph (its \\par at the new size); in the body, {\\centering …\\par}, {\\raggedleft …\\par}, {\\raggedright\\itshape …\\par}, two paragraphs in one group, \\medskip, and {} stopping \\@esphack's \\ignorespaces",
+   "issue": "#329"
   },
   {
    "id": "title/titlepage-report-twoside",
@@ -7537,6 +7680,17 @@
    "status": "pass",
    "glyphs": 439,
    "covers": "\\url (url.sty): the address in math mode in \\ttfamily, \\fam0 the typewriter font, its characters ordinary, binary (\\UrlBreaks: a break after them at \\binoppenalty), relations (:, at \\relpenalty) or openings, no math spacing; long addresses broken across lines"
+  },
+  {
+   "id": "xcolor/color-in-declared-paragraph",
+   "file": "micro/xcolor/color-in-declared-paragraph.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 117,
+   "covers": "a {\\color …} group that starts a paragraph read in vertical mode (in a size group that ends it, after \\medskip): the push on the vertical list before \\parskip",
+   "issue": "#329"
   },
   {
    "id": "xcolor/definecolor",
