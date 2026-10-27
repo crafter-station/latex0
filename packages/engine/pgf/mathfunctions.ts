@@ -5,6 +5,7 @@
 // by digit, the reciprocal through 10^9, ln's polynomial, exp's series), never floating point.
 
 import { UNITY } from "../layout/arith"
+import { Unsupported } from "../latex/unsupported"
 import { toNumber, type TexArith } from "./fixed"
 
 /** what a function needs from the parser: the registers and pgf's error reporting */
@@ -17,13 +18,13 @@ export interface PgfMathCtx {
 /** a pgfmath function: its arity (`...`: any number, handed over as one braced list) and its macro */
 export interface PgfFunction { arity: number | "..."; fn: (m: PgfMathCtx, args: string[]) => string }
 
-const pt = (m: PgfMathCtx, s: string) => m.a.dimen(`${s}pt`)
+export const pt = (m: PgfMathCtx, s: string) => m.a.dimen(`${s}pt`)
 
 /** \pgfmath@returnone: the register reassigned (attach_sign's bound applies) and printed */
-const returnOne = (m: PgfMathCtx, x: number) => toNumber(m.a.reassign(x))
+export const returnOne = (m: PgfMathCtx, x: number) => toNumber(m.a.reassign(x))
 
 /** `\c@pgfmath@counta\the<dimen>`: the integer part, and the rest (`.5pt`) pgf's \afterassignment reads */
-const intPart = (m: PgfMathCtx, x: number) => m.a.int(`${toNumber(x)}pt`)
+export const intPart = (m: PgfMathCtx, x: number) => m.a.int(`${toNumber(x)}pt`)
 
 /**
  * The undelimited arguments TeX takes from a list such as `{1}{2}{3}` (spaces skipped, one token or one
@@ -47,7 +48,7 @@ export function texArgs(s: string): string[] {
 }
 
 /** \pgfmathdivide@ (basic): TeX's \divide for an integer divisor, the reciprocal below 1, else long division */
-function divide(m: PgfMathCtx, a: string, b: string): string {
+export function divide(m: PgfMathCtx, a: string, b: string): string {
   let x = pt(m, a), y = pt(m, b)
   let sign = ""
   if (y === 0) m.error(`You've asked me to divide \`${a}' by \`${b}', but I cannot divide any number by \`${b}'`)
@@ -105,7 +106,7 @@ function dimenByTen(m: PgfMathCtx, y: number): number {
 }
 
 /** \pgfmathreciprocal@: 1/x from 10^9 divided by x's digits (five decimals, three above 100) */
-function reciprocal(m: PgfMathCtx, s: string): string {
+export function reciprocal(m: PgfMathCtx, s: string): string {
   let x = pt(m, s)
   if (x === 0) m.error(`You asked me to calculate \`1/${s}', but I cannot divide any number by zero`)
   const temp = toNumber(x)
@@ -126,6 +127,12 @@ function reciprocal(m: PgfMathCtx, s: string): string {
     x += y
   }
   return returnOne(m, x)
+}
+
+/** \pgfmathabs@ */
+export function abs(m: PgfMathCtx, a: string): string {
+  const x = pt(m, a)
+  return returnOne(m, x < 0 ? -x : x)
 }
 
 /** \pgfmathmod@: a − b·⌊a/b⌋ with the quotient truncated by \divide on the sp values */
@@ -229,6 +236,75 @@ function pow(m: PgfMathCtx, a: string, b: string): string {
   return returnOne(m, x)
 }
 
+/**
+ * \pgfmathsqrt@: the root digit by digit from pairs of the printed number's digits (its integer part padded
+ * to an even count), the largest digit d with (20·root + d)·d at most the remainder each time; five decimals.
+ */
+function sqrt(m: PgfMathCtx, a: string): string {
+  const x = pt(m, a)
+  // pgf reports the error and goes on with its digits' macros undefined: TeX errors, not modeled
+  if (x < 0) throw new Unsupported(`pgfmath: square root of the negative number ${a}`)
+  const p = (s: string) => pt(m, s)
+  const [zeros, iterations] = x < p("10") ? ["0", 1] : x < p("100") ? ["", 1] : x < p("1000") ? ["0", 2] : x < p("10000") ? ["", 2] : ["0", 3]
+  const digits = (zeros + toNumber(x)).replace(".", "")
+  let root = 0
+  while ((root + 1) * (root + 1) <= Number(digits.slice(0, 2))) root++
+  let result = String(root), special = root
+  let remainder = Number(digits.slice(0, 2)) - root * root
+  for (let k = 2, target = iterations; ; k += 2) {
+    remainder = remainder * 100 + Number((digits.slice(k, k + 2) + "00").slice(0, 2))
+    let d = 0
+    while ((20 * special + d + 1) * (d + 1) <= remainder) d++
+    remainder -= (20 * special + d) * d
+    special = special * 10 + d
+    target--
+    result += target === 0 ? `.${d}` : String(d)
+    if (target === -4) return result
+  }
+}
+
+/**
+ * \pgfmathveclen@ (misc): the larger component y and the ratio x/y scaled down together, then
+ * y·(A + B·t + C·t² + D·t³ + E·t⁴) for t = (x/y)², scaled back up by \multiply.
+ */
+function veclen(m: PgfMathCtx, a: string, b: string): string {
+  let x = pt(m, a), y = pt(m, b)
+  if (x < 0) x = -x
+  if (y < 0) y = -y
+  if (x === 0) x = y
+  else if (y !== 0) {
+    if (x > y) [x, y] = [y, x]
+    const counta = y > pt(m, "10000") ? 1500 : y > pt(m, "1000") ? 150 : y > pt(m, "100") ? 50 : 1
+    x = m.a.divide(x, counta)
+    y = m.a.divide(y, counta)
+    x = m.a.times(reciprocal(m, toNumber(y)), x)
+    const xa = m.a.times(toNumber(x), x)
+    const temp = toNumber(xa)
+    x = m.a.times("-0.01019210944", xa)
+    x += pt(m, "0.04453994279")
+    x = m.a.times(temp, x)
+    x += pt(m, "-0.1195159052")
+    x = m.a.times(temp, x)
+    x += pt(m, "0.4993615349")
+    x = m.a.times(temp, x)
+    x += pt(m, "1.000012594")
+    x = m.a.times(toNumber(y), x)
+    x = m.a.multiplyDimen(x, counta)
+  }
+  return returnOne(m, x)
+}
+
+/** \pgfmathfactorial@: 1pt multiplied by n, n−1, …, 2 (n the integer part); printed without \pgfmath@returnone */
+function factorial(m: PgfMathCtx, a: string): string {
+  let counta = m.a.int(a).value
+  let x = UNITY
+  for (; counta >= 2; counta--) x = m.a.multiplyDimen(x, counta)
+  return toNumber(x)
+}
+
+/** pgfmathfunctions.comparison: \ifdim on the two arguments, the result 1 or 0 */
+const compare = (test: (x: number, y: number) => boolean): PgfFunction => f2((m, a, b) => (test(pt(m, a), pt(m, b)) ? "1" : "0"))
+
 /** \pgfmathmax@ / \pgfmathmin@: from ∓16383pt, each item until an empty one */
 function extremum(m: PgfMathCtx, list: string, larger: boolean): string {
   let x = pt(m, larger ? "-16383" : "16383")
@@ -273,8 +349,8 @@ export function scientific(m: PgfMathCtx, mantissa: string, exponent: number): s
   return returnOne(m, x)
 }
 
-const f1 = (fn: (m: PgfMathCtx, a: string) => string): PgfFunction => ({ arity: 1, fn: (m, [a]) => fn(m, a) })
-const f2 = (fn: (m: PgfMathCtx, a: string, b: string) => string): PgfFunction => ({ arity: 2, fn: (m, [a, b]) => fn(m, a, b) })
+export const f1 = (fn: (m: PgfMathCtx, a: string) => string): PgfFunction => ({ arity: 1, fn: (m, [a]) => fn(m, a) })
+export const f2 = (fn: (m: PgfMathCtx, a: string, b: string) => string): PgfFunction => ({ arity: 2, fn: (m, [a, b]) => fn(m, a, b) })
 const constant = (v: string): PgfFunction => ({ arity: 0, fn: () => v })
 
 /** the functions by name (\pgfmathdeclarefunction), with the parser's operators' names among them */
@@ -294,10 +370,7 @@ export const FUNCTIONS: Record<string, PgfFunction> = {
     if (x < 0) x += pt(m, b)
     return toNumber(x)
   }),
-  abs: f1((m, a) => {
-    const x = pt(m, a)
-    return returnOne(m, x < 0 ? -x : x)
-  }),
+  abs: f1(abs),
   sign: f1((m, a) => {
     const x = pt(m, a)
     return x > 0 ? "1" : x === 0 ? "0" : "-1"
@@ -332,6 +405,28 @@ export const FUNCTIONS: Record<string, PgfFunction> = {
   log2: f1((m, a) => returnOne(m, m.a.times("1.442695041", pt(m, ln(m, a))))),
   log10: f1((m, a) => returnOne(m, m.a.times("0.43429441", pt(m, ln(m, a))))),
   exp: f1(exp),
+  sqrt: f1(sqrt),
+  veclen: f2(veclen),
+  factorial: f1(factorial),
+  greater: compare((x, y) => x > y),
+  less: compare((x, y) => x < y),
+  equal: compare((x, y) => x === y),
+  notequal: compare((x, y) => x !== y),
+  notless: compare((x, y) => !(x < y)),
+  notgreater: compare((x, y) => !(x > y)),
+  // \ifdim#1pt=0pt, then (unless decided) \ifdim#2pt=0pt
+  and: f2((m, a, b) => (pt(m, a) === 0 || pt(m, b) === 0 ? "0" : "1")),
+  or: f2((m, a, b) => (pt(m, a) !== 0 || pt(m, b) !== 0 ? "1" : "0")),
+  not: f1((m, a) => (pt(m, a) === 0 ? "1" : "0")),
+  approxequalto: f2((m, a, b) => {
+    let x = pt(m, a) - pt(m, b)
+    // \ifdim reads the register through scan_dimen, \multiply works on it directly
+    if (m.a.reassign(x) < 0) x = m.a.multiplyDimen(x, -1)
+    return m.a.reassign(x) < pt(m, "0.0001") ? "1.0" : "0.0"
+  }),
+  ifthenelse: { arity: 3, fn: (m, [a, b, c]) => (pt(m, a) === pt(m, "0.0") ? c : b) },
+  true: constant("1"),
+  false: constant("0"),
   e: constant("2.718281828"),
   pi: constant("3.141592654"),
 }

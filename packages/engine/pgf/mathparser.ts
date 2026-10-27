@@ -4,12 +4,15 @@
 // pgf pushes: a number as typed (`1.50`), a dimension as \pgf@sys@tonumber prints it, a function's
 // \pgfmathresult; every function and operator reads them back with `#1pt`. An expression of digits and
 // periods alone is returned as typed (the "fast lane"). Units, scientific notation, + − * / ^, unary
-// signs, parentheses, function calls and comma lists are modeled; comparisons, ?:, !, arrays, quotes,
-// registers and the other bases throw Unsupported.
+// signs, parentheses, function calls, comma lists, comparisons, logic, ?:, the postfix r and ! are modeled;
+// arrays, quotes, registers and the other bases throw Unsupported.
 
 import { Unsupported } from "../latex/unsupported"
 import { TexArith, toNumber } from "./fixed"
-import { FUNCTIONS, scientific, texArgs, type PgfMathCtx } from "./mathfunctions"
+import { FUNCTIONS as BASIC, scientific, texArgs, type PgfFunction, type PgfMathCtx } from "./mathfunctions"
+import { TRIGONOMETRIC } from "./mathtrig"
+
+const FUNCTIONS: Record<string, PgfFunction> = { ...BASIC, ...TRIGONOMETRIC }
 
 /** the font's em and ex (\pgfmath@selectfont: the current font) */
 export interface PgfUnits { em: number; ex: number }
@@ -32,6 +35,12 @@ const OPS: Record<string, Op> = {
   "/": { name: "divide", arity: 2, precedence: 700 },
   "^": { name: "pow", arity: 2, precedence: 900 },
   "<": { name: "less", arity: 2, prefix: true, precedence: 250 },
+  "==": { name: "equal", arity: 2, precedence: 250 },
+  ">=": { name: "notless", arity: 2, precedence: 250 },
+  "<=": { name: "notgreater", arity: 2, precedence: 250 },
+  "&&": { name: "and", arity: 2, precedence: 200 },
+  "||": { name: "or", arity: 2, precedence: 200 },
+  "!=": { name: "notequal", arity: 2, precedence: 250 },
   ">": { name: "greater", arity: 2, precedence: 250 },
   "!": { name: "factorial", arity: 1, prefix: true, postfix: true, precedence: 800 },
   "?": { name: "ifthenelse", arity: 3, precedence: 100 },
@@ -48,7 +57,7 @@ const OPS: Record<string, Op> = {
 /** the two-character operators (comparisons and logic) */
 const DOUBLE = new Set(["==", ">=", "<=", "&&", "||", "!="])
 /** the operators modeled */
-const MODELED = new Set(["+", "-", "*", "/", "^", ",", "(", ")", "@"])
+const MODELED = new Set(["+", "-", "*", "/", "^", "<", ">", "!", "?", ":", "r", ",", "(", ")", "@", ...DOUBLE])
 /** \pgfmath@tokens@make{specials}: operators that are never pushed */
 const SPECIALS = new Set(["@", ")", "]"])
 /** \pgfmath@tokens@make{group}: an opening operator on the stack met by its closing one */
@@ -120,6 +129,8 @@ class Parser implements PgfMathCtx {
     if (t === "+") return this.operand
     if (t === "-") { this.ops.push("neg"); return this.operand }
     if (OPS[t]?.prefix) {
+      // \pgfmath@parse@prefix@operator: a prefix ! pushes the function not
+      if (t === "!") { this.ops.push("not"); return this.operand }
       if (t !== "(") throw new Unsupported(`pgfmath: prefix ${t}`)
       this.ops.push(t)
       return this.operand
@@ -225,7 +236,11 @@ class Parser implements PgfMathCtx {
   /** \pgfmath@parse@@@operator */
   private operator3(): State {
     const t = this.token
-    if (DOUBLE.has(t + this.tokenNext)) throw new Unsupported(`pgfmath: operator ${t + this.tokenNext}`)
+    if (DOUBLE.has(t + this.tokenNext)) {
+      // a double character operator is always followed by an operand
+      this.process(t + this.tokenNext)
+      return this.operand
+    }
     const op = OPS[t === AT ? "@" : t]
     if (!op || !MODELED.has(t === AT ? "@" : t)) throw new Unsupported(`pgfmath: operator ${t}`)
     this.process(t === AT ? "@" : t)
@@ -260,6 +275,12 @@ class Parser implements PgfMathCtx {
     else if (op.arity === 2) {
       const b = this.pop()
       this.result = this.call(op.name, [b, a])
+    } else {
+      // ?: the condition, then the collected {then}{else} spread as two more arguments
+      const b = this.pop()
+      const rest = texArgs(a)
+      if (rest.length !== 2) throw new Unsupported(`pgfmath: ${op.name} needs 3 arguments`)
+      this.result = this.call(op.name, [b, ...rest])
     }
   }
 
@@ -278,6 +299,7 @@ class Parser implements PgfMathCtx {
   private call(name: string, args: string[]): string {
     if (name === "@startgroup") return args[0]
     if (name === "@collect") return collect(args[0], args[1])
+    if (name === "@@collect") return `{${args[0]}}{${args[1]}}` // \pgfmath@@collect@: no stripping
     return FUNCTIONS[name].fn(this, args)
   }
 }

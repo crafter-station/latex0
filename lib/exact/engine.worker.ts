@@ -20,6 +20,7 @@ const source: DataSource = {
   documentClass: (cls) => read(`classes/${cls}.json`),
   hyphenation: (language) => read(`hyphenation/${language}.json`),
   math: () => read("math/latex.json"),
+  pgf: () => read("pgf/tables.json"),
   webfonts: () => read("webfonts.json"),
 }
 

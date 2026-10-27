@@ -9,6 +9,7 @@ import { decodeFontData, type FontData } from "../layout/fontdata"
 import type { FixWordFont } from "../layout/font"
 import type { HyphenationData } from "../layout/hyphenate"
 import type { MathData } from "../mathlayout/data"
+import type { PgfTables } from "../pgf/mathtrig"
 
 export interface DataSource {
   /** data/fonts/<name>.json */
@@ -19,6 +20,8 @@ export interface DataSource {
   hyphenation(language: string): HyphenationData
   /** data/math/latex.json */
   math(): MathData
+  /** data/pgf/tables.json */
+  pgf(): PgfTables
   /** data/webfonts.json: what draws each font's characters in a browser */
   webfonts(): WebFonts
 }
@@ -31,11 +34,12 @@ const fonts = new Map<string, FixWordFont>()
 const classes = new Map<string, ClassData>()
 const patterns = new Map<string, HyphenationData>()
 let math: MathData | null = null
+let pgf: PgfTables | null = null
 let webfonts: WebFonts | null = null
 
 export function installData(s: DataSource): void {
   source = s
-  fonts.clear(); classes.clear(); patterns.clear(); math = null; webfonts = null
+  fonts.clear(); classes.clear(); patterns.clear(); math = null; pgf = null; webfonts = null
 }
 
 function data(): DataSource {
@@ -53,4 +57,5 @@ export const dataFont = (name: string): FixWordFont => memo(fonts, name, () => d
 export const classFile = (cls: string): ClassData => memo(classes, cls, () => data().documentClass(cls))
 export const hyphenationData = (language = "en-us"): HyphenationData => memo(patterns, language, () => data().hyphenation(language))
 export const mathData = (): MathData => (math ??= data().math())
+export const pgfTables = (): PgfTables => (pgf ??= data().pgf())
 export const webfontData = (): WebFonts => (webfonts ??= data().webfonts())
