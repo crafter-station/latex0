@@ -45,6 +45,8 @@ export interface GraphicSource { options: string; file: string }
 export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[]
   /** \includegraphics, by number (\LXgraphic{n}) */
   graphics: GraphicSource[]
+  /** TikZ's pictures as typed (tikzpicture environments, \tikz), by number (\LXtikz{n}) */
+  tikz: string[]
   /** the files a filecontents* environment before \documentclass writes: name → contents */
   files: Map<string, string> }
 
@@ -105,6 +107,9 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXgraphic{${graphics.length - 1}}`
   })
   if (/\\includegraphics(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\includegraphics not read")
+  // TikZ's pictures: \LXtikz{n}, laid out where they stand (the picture's source read by tikz/path.ts)
+  const tikz: string[] = []
+  source = takeTikz(source, tikz)
   // \url{address} or \url<c>address<c> (and hyperref's \nolinkurl), read verbatim with url.sty's catcodes:
   // \LXurl{n}; \href{address}{text}'s address likewise: \LXhref{n}{text}
   const urls: UrlSource[] = []
@@ -152,7 +157,63 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXminipage{${minipages.length - 1}}`
   })
   if ([...src.matchAll(/\\(?:begin|end)\{(?:minipage|subfigure|subtable)\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
-  return { src, listings, tabulars, minipages, urls, graphics, files }
+  return { src, listings, tabulars, minipages, urls, graphics, tikz, files }
+}
+
+/** the end of the group opened at `i` in `s` (\{ and \} escaped), or -1 */
+function groupEndAt(s: string, i: number): number {
+  let depth = 0
+  for (let j = i; j < s.length; j++) {
+    if (s[j] === "\\") { j++; continue }
+    if (s[j] === "{") depth++
+    else if (s[j] === "}" && --depth === 0) return j
+  }
+  return -1
+}
+
+/**
+ * tikzpicture environments and \tikz (`\tikz[options]{…}`, or `\tikz[options]` and one path command up to its
+ * `;`) outside comments, each replaced by \LXtikz{n}
+ */
+function takeTikz(source: string, out: string[]): string {
+  let result = ""
+  let i = 0
+  const re = /\\begin\{tikzpicture\}|\\tikz(?![A-Za-z])|%/g
+  for (let m = re.exec(source); m; m = re.exec(source)) {
+    if (m.index < i) continue
+    if (m.index > 0 && source[m.index - 1] === "\\") continue
+    if (m[0] === "%") { const e = source.indexOf("\n", m.index); re.lastIndex = e < 0 ? source.length : e; continue }
+    let end: number
+    if (m[0] === "\\begin{tikzpicture}") {
+      const e = source.indexOf("\\end{tikzpicture}", m.index)
+      if (e < 0) throw new Unsupported("a tikzpicture without its end")
+      end = e + "\\end{tikzpicture}".length
+    } else {
+      let j = m.index + 5
+      while (/\s/.test(source[j] ?? "")) j++
+      if (source[j] === "[") {
+        const c = source.indexOf("]", j)
+        if (c < 0) throw new Unsupported("\\tikz[ without ]")
+        j = c + 1
+        while (/\s/.test(source[j] ?? "")) j++
+      }
+      if (source[j] === "{") {
+        end = groupEndAt(source, j) + 1
+        if (end === 0) throw new Unsupported("\\tikz{ without }")
+      } else {
+        const semi = source.indexOf(";", j)
+        if (semi < 0) throw new Unsupported("\\tikz without ;")
+        end = semi + 1
+      }
+    }
+    const pic = source.slice(m.index, end)
+    if (/\\begin\{tikzpicture\}/.test(pic.slice(1))) throw new Unsupported("a tikzpicture in a tikzpicture")
+    out.push(pic)
+    result += source.slice(i, m.index) + `\\LXtikz{${out.length - 1}}`
+    i = end
+    re.lastIndex = end
+  }
+  return result + source.slice(i)
 }
 
 /** How many groups are open at the end of `src` (braces not escaped). */

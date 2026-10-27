@@ -252,6 +252,19 @@ node distance, auto/swap, inner/outer sep, minimum sizes, text width, align, fon
 TeX's macros. Not yet: pictures, paths and nodes themselves (T2–T4), other keys, arrow options, `.store in`/`.is if`
 and other handlers, transformations applied at once (pgf's matrix, P4).
 
+🟡 TikZ's pictures and paths (#309, `tikz/path.ts`): tikzpicture and `\tikz` (braces or one path), the scope
+environment, `\path`, `\draw`, `\fill`, `\filldraw`, `\clip`, `\useasboundingbox`, `\coordinate`, `\tikzset`, options
+anywhere (every picture/scope/path, clip, use as bounding box, baseline, radius, xslant/yslant), coordinates (x,y)
+with and without units, (a:r) and its direction names, +(…), ++(…), (a |- b), (a -| b) and named coordinates, the
+operations --, -|, |-, rectangle, circle, ellipse, cycle and to, path groups `{…}`, arrow tips (pgf/arrows.ts, one
+cache a document), rounded corners (pgf/round.ts), pgf driven as tikz.code.tex does with every space its macros leave on the picture's list; checked
+by `bun engine tikz:check` (whole pictures under latex/dvips and pdflatex, box for box). In documents
+(`latex/tikz.ts`): `\usepackage{tikz}` (xcolor, graphicx, pgf's \newwrite before hyperref's), `\usetikzlibrary`
+positioning, arrows.meta and calc, preamble style definitions, pictures in paragraphs, center and figures.
+Not yet: nodes (but coordinates), `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
+grids, plots, `\foreach`, calc's coordinates, coordinate options, x/y vectors, custom to paths, pgf's dvips
+header specials on the first page (`! /pgfHrgb…`, outside the column).
+
 ### 4.7 Pages: the exact layout engine
 
 | Component | Source |

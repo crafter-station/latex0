@@ -360,7 +360,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   let pd: number | null = IGNORE_DEPTH, cap: Captioned | null = null
   const hsize = run.k.dimens.columnwidth
   const fbody = b.body.trim()
-  const tokens = [...fbody.matchAll(/\\centering\b|\\caption(?:\*)?\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionsetup\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LX(?:minipage|graphic)\{\d+\}|\S+/g)]
+  const tokens = [...fbody.matchAll(/\\centering\b|\\caption(?:\*)?\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionsetup\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LX(?:minipage|graphic|tikz)\{\d+\}|\S+/g)]
   const items = tokens.map((t) => t[0])
   let centered = false
   /** a paragraph in the float: \parindent is zero (\@parboxrestore), \sloppy (\tolerance 9999, \emergencystretch
@@ -416,9 +416,9 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     if (it === "\\centering") { centered = true; continue }
     // minipages and graphics start a paragraph (\leavevmode): with what joins them on the line (\hfill, \quad, ~),
     // up to a blank line
-    if (/^\\LX(?:minipage|graphic)\{\d+\}$/.test(it)) {
+    if (/^\\LX(?:minipage|graphic|tikz)\{\d+\}$/.test(it)) {
       let jj = ii
-      while (jj + 1 < items.length && /^(?:\\LX(?:minipage|graphic)\{\d+\}|\\hfill|\\hfil|\\quad|\\qquad|~)$/.test(items[jj + 1]) && !/\n[ \t]*\n/.test(fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!))) jj++
+      while (jj + 1 < items.length && /^(?:\\LX(?:minipage|graphic|tikz)\{\d+\}|\\hfill|\\hfil|\\quad|\\qquad|~)$/.test(items[jj + 1]) && !/\n[ \t]*\n/.test(fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!))) jj++
       floatParagraph([hpack([])], fbody.slice(tokens[ii].index!, tokens[jj].index! + items[jj].length), centered, captionAnchor(jj, ii))
       ii = jj
       continue

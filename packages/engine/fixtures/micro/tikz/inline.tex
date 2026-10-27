@@ -1,0 +1,13 @@
+% fixture: tikz/inline
+% tier: T3
+% engine: document
+% covers: \tikz in a paragraph: one path up to its semicolon, braces, a baseline option; spaces after the picture; xcolor's \textcolor around one
+% issue: #309
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+A dot \tikz \fill (0,0) circle (2pt); in the text, after a period.\tikz \fill (0,0) circle (1pt); and a box
+\tikz[baseline=-0.5ex]{\draw (0,0) rectangle (1em,1ex);} on the line,
+then a raised mark \tikz[baseline=1pt] \draw[thick] (0,0) -- (0.3,0.2) -- (0.6,0); and
+\textcolor{red}{a red \tikz \draw (0,0) -- (1,0); line} to end the paragraph with some more words so that it breaks over lines.
+\end{document}

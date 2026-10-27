@@ -16,6 +16,7 @@
 //   bun engine pgfmath:check [--n 3000] [--seed 1]    random expressions: pgf/mathparser.ts vs TeX \pgfmathparse (#284)
 //   bun engine pgf:check [--n 2000] [--seed 1]        pgf system-layer snippets, pictures, nodes, shadings, objects: pgf/ vs TeX \showbox (#292, #298, #304, #305)
 //   bun engine tikzkeys:check [--n 3000] [--seed 1]   random TikZ option lists: tikz/options.ts vs TeX's state (#302)
+//   bun engine tikz:check [--n 1000] [--seed 1]       TikZ pictures: tikz/path.ts on pgf/ vs TeX \showbox (#309)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 //   bun engine boundary                                imports stay inside the package (#38)
@@ -91,6 +92,7 @@ function ci(): number {
     ["pgfmath:check", "--n", "3000"],
     ["pgf:check", "--n", "2000"],
     ["tikzkeys:check", "--n", "3000"],
+    ["tikz:check", "--n", "1000"],
     ["fuzz:paragraphs", "--n", "1000", "--seed", "1"],
     ["fuzz:documents", "--n", "30", "--seed", "1"],
     ["hyphen:check", "--words", "20000"],
@@ -193,6 +195,10 @@ switch (cmd) {
   case "pgf:check": {
     const { pgfCheck } = await import("./oracle/pgfcheck")
     process.exit(pgfCheck(numOpt("--n", 2000), numOpt("--seed", 1)))
+  }
+  case "tikz:check": {
+    const { tikzCheck } = await import("./oracle/tikzcheck")
+    process.exit(tikzCheck(numOpt("--n", 1000), numOpt("--seed", 1)))
   }
   case "tikzkeys:check": {
     const { tikzkeysCheck } = await import("./oracle/tikzkeyscheck")

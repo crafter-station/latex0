@@ -15,9 +15,10 @@ const isLetter = (c: string, atLetter: boolean) => /^[A-Za-z]$/.test(c) || (atLe
 /**
  * TeX's input processor: a control word swallows the blanks after it, a run of blanks is one space, an end
  * of line is a space, `%` drops the rest of the line and the next line's leading blanks. `atLetter` is
- * \makeatletter (pgf's own sources). A blank line (\par) is not something an option list holds.
+ * \makeatletter (pgf's own sources). A blank line is \par where `par` (a picture's body), and not something an
+ * option list holds.
  */
-export function tokenize(src: string, atLetter = false): Tok[] {
+export function tokenize(src: string, atLetter = false, par = false): Tok[] {
   const out: Tok[] = []
   // TeX's states (§ 303): M mid-line, S skipping blanks, N at the start of a line
   let state: "M" | "S" | "N" = "M"
@@ -45,7 +46,10 @@ export function tokenize(src: string, atLetter = false): Tok[] {
       continue
     }
     if (c === "\n") {
-      if (state === "N") throw new Unsupported("tikz: a blank line in an option list")
+      if (state === "N") {
+        if (!par) throw new Unsupported("tikz: a blank line in an option list")
+        out.push("\\par")
+      }
       if (state === "M") out.push(" ")
       state = "N"
       continue

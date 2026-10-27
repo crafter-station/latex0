@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 507,
-  "exact": 505,
+  "fixtures": 519,
+  "exact": 517,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 333424
+  "glyphs": 334448
  },
  "areas": [
   {
@@ -173,6 +173,11 @@
    "area": "text",
    "fixtures": 10,
    "exact": 10
+  },
+  {
+   "area": "tikz",
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "title",
@@ -5370,6 +5375,138 @@
    "status": "pass",
    "glyphs": 174,
    "covers": "\\underline in text ($\\@@underline{\\hbox{…}}\\m@th$) with words, descenders, fonts and math; \\underline and \\overline in formulas"
+  },
+  {
+   "id": "tikz/arrows-pdftex",
+   "file": "micro/tikz/arrows-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 23,
+   "covers": "arrow tips on drawn paths (->, <->, -latex, -stealth, arrows.meta's Stealth and Latex, To), in two pictures: the tips instantiated once for the document; line widths and colors",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/arrows",
+   "file": "micro/tikz/arrows.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 23,
+   "covers": "arrow tips on drawn paths (->, <->, -latex, -stealth, arrows.meta's Stealth and Latex, To), in two pictures: the tips instantiated once for the document; line widths and colors",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/figure-pdftex",
+   "file": "micro/tikz/figure-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 169,
+   "covers": "tikzpictures in figures (two side by side with \\hfill) with \\centering and a caption; coordinates by name, polar and relative coordinates, to, |- and -|; a clip",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/figure",
+   "file": "micro/tikz/figure.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 169,
+   "covers": "tikzpictures in figures (two side by side with \\hfill) with \\centering and a caption; coordinates by name, polar and relative coordinates, to, |- and -|; a clip",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/hyperref-pdftex",
+   "file": "micro/tikz/hyperref-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 25,
+   "covers": "tikz and hyperref: pgf's \\newwrite takes a stream before hyperref's .out file (\\write4 for the bookmarks); a picture after a heading",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/hyperref",
+   "file": "micro/tikz/hyperref.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 25,
+   "covers": "tikz and hyperref: pgf's \\newwrite takes a stream before hyperref's .out file (\\write4 for the bookmarks); a picture after a heading",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/inline-pdftex",
+   "file": "micro/tikz/inline-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 129,
+   "covers": "\\tikz in a paragraph: one path up to its semicolon, braces, a baseline option; spaces after the picture; xcolor's \\textcolor around one",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/inline",
+   "file": "micro/tikz/inline.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 129,
+   "covers": "\\tikz in a paragraph: one path up to its semicolon, braces, a baseline option; spaces after the picture; xcolor's \\textcolor around one",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/lines-pdftex",
+   "file": "micro/tikz/lines-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 92,
+   "covers": "\\usepackage{tikz}; tikzpicture environments between paragraphs and in a paragraph: lines, -|, |-, cycle, colors, widths and dash patterns",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/lines",
+   "file": "micro/tikz/lines.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 92,
+   "covers": "\\usepackage{tikz}; tikzpicture environments between paragraphs and in a paragraph: lines, -|, |-, cycle, colors, widths and dash patterns",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/shapes-pdftex",
+   "file": "micro/tikz/shapes-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 74,
+   "covers": "rounded corners; rectangles, circles and ellipses drawn, filled and both; scopes with options (shift, scale, rotate, colors), \\tikzset and every path in a picture, picture options, a centered picture",
+   "issue": "#309"
+  },
+  {
+   "id": "tikz/shapes",
+   "file": "micro/tikz/shapes.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 74,
+   "covers": "rounded corners; rectangles, circles and ellipses drawn, filled and both; scopes with options (shift, scale, rotate, colors), \\tikzset and every path in a picture, picture options, a centered picture",
+   "issue": "#309"
   },
   {
    "id": "title/maketitle-authors",

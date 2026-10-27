@@ -33,6 +33,8 @@ export interface Ctx {
   minipages: MinipageSource[]
   /** \includegraphics by number, and the bounding boxes of the graphics files the engine knows */
   graphics: GraphicSource[]
+  /** TikZ's pictures by number (\LXtikz{n}) */
+  tikz: string[]
   images: Map<string, BoundingBox | Image>
   /** the output driver (DocumentOptions.driver) */
   driver: "dvips" | "pdftex"

@@ -8,8 +8,9 @@
 // rounded corners) go through pgfmath (pgf/mathparser.ts) with TeX's arithmetic. The subset modeled:
 // draw, fill, colors and xcolor expressions, line widths, dash patterns, corners, node distance, auto and
 // swap, anchors and placement (above=…, right of=…, positioning's right=of …, on grid), inner and outer
-// sep, minimum sizes, text width, align, font, shapes, arrow specifications and >=, and the
-// transformations scale, xscale, yscale, shift, xshift, yshift and rotate. Other keys throw Unsupported.
+// sep, minimum sizes, text width, align, font, shapes, arrow specifications and >=, the transformations
+// scale, xscale, yscale, xslant, yslant, shift, xshift, yshift and rotate, and what paths read: clip, use as
+// bounding box, baseline, radius, x radius, y radius. Other keys throw Unsupported.
 
 import { printScaled } from "../layout/arith"
 import { TexArith } from "../pgf/fixed"
@@ -36,14 +37,14 @@ export type OptionCall =
   | { op: "compatcolor"; color: string }
 
 /** \tikz@mode's switches, \tikz@mode@<name> */
-export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse"
+export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue"
 
 /** a transformation, as TikZ hands it to pgf */
 export type TransformCall =
   /** \tikz@scan@one@point\pgftransformshift<point>\relax */
   | { op: "shift"; point: Toks }
   /** \pgftransform<op>{arg} */
-  | { op: "xshift" | "yshift" | "scale" | "xscale" | "yscale" | "rotate"; arg: Toks }
+  | { op: "xshift" | "yshift" | "scale" | "xscale" | "yscale" | "xslant" | "yslant" | "rotate"; arg: Toks }
   /** right of=… and the like (\tikz@of): a shift by the node distance, read when the transformation runs */
   | { op: "of"; angle: string }
 
@@ -126,6 +127,12 @@ export interface TikzSetup {
   nodes?: ReadonlySet<string>
   /** a transformation applied at once (\tikz@transform is \relax): pgf's transformations */
   transform?: (t: TransformCall, st: TikzState) => void
+  /** baseline=…: \pgfsetbaseline (pgf's picture) */
+  baseline?: (v: Toks) => void
+  /** rounded corners=…, sharp corners: \pgfsetcornersarced (pgf's picture), with \pgf@corner@arc set */
+  corners?: (st: TikzState) => void
+  /** an arrow specification: \pgfsetarrows (pgf's picture) */
+  arrows?: (v: Toks, st: TikzState) => void
 }
 
 /** pgf's styles and keys that TikZ's options reach (pgfmoduleshapes.code.tex 887–897) */
@@ -149,6 +156,8 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   align/justify/.style={text justified,node halign header=\\tikz@align@left@header},
   align/none/.style={text justified,node halign header=},
   help lines/.style={color=gray,line width=0.2pt},
+  style/.style={#1}, every to/.style={},
+  x radius/.initial=0pt, y radius/.initial=0pt,
   every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={},
   every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none},
   ultra thin/.style={line width=0.1pt}, very thin/.style={line width=0.2pt}, thin/.style={line width=0.4pt},
@@ -245,6 +254,12 @@ export class Tikz {
 
   /** \tikzset{list} */
   set(list: Toks | string) { this.keys.pgfqkeys("/tikz", list) }
+
+  /** a global assignment to \pgflinewidth (pgf's \pgfsetlinewidth, \endpgfscope): the groups' saved values go too */
+  globalLineWidth(w: number) {
+    this.st.lineWidth = w
+    for (const s of this.stack) s.lineWidth = w
+  }
 
   begingroup() { this.stack.push(clone(this.st)); this.keys.begingroup() }
   endgroup() {
@@ -432,6 +447,7 @@ export class Tikz {
     const { start, end } = setArrows(v, this.db)
     this.st.startTips = start
     this.st.endTips = end
+    this.setup.arrows?.(v, this.st)
   }
 
   /** the color options of /tikz/.unknown: \tikz@compat@color@set and the text color */
@@ -448,7 +464,8 @@ export class Tikz {
     if (k.success) return
     const key = chars(name)
     if (contains(key, ["!"])) return this.compatColor(name)
-    if (this.setup.colors.has(name)) return this.compatColor(name)
+    // (xcolor's current color "." is a color too)
+    if (name === "." || this.setup.colors.has(name)) return this.compatColor(name)
     if (contains(key, ["-"])) return this.arrows(key)
     if (SHAPES.has(name)) { this.st.shape = name; return }
     throw new Unsupported(`tikz: I do not know the key '/tikz/${name}'`)
@@ -510,9 +527,25 @@ export class Tikz {
       const x = this.length(v), y = this.length(v)
       st().corner = { x, y }
       st().arcCorners = x !== 0 || y !== 0
+      this.setup.corners?.(st())
     }, "4pt")
-    opt("sharp corners", () => { st().corner = { x: 0, y: 0 }; st().arcCorners = false }, "")
-    for (const op of ["scale", "xscale", "yscale", "rotate", "xshift", "yshift"] as const) opt(op, (v) => this.addTransform({ op, arg: v }))
+    opt("sharp corners", () => { st().corner = { x: 0, y: 0 }; st().arcCorners = false; this.setup.corners?.(st()) }, "")
+    // tikz.code.tex 533–534
+    opt("clip", () => { st().mode.push("cliptrue") }, "")
+    opt("use as bounding box", () => { st().mode.push("boundarytrue") }, "")
+    // baseline (88–94): \pgfsetbaseline{#1}, or a coordinate (not modeled)
+    opt("baseline", (v) => {
+      if (v[0] === "(" || !this.setup.baseline) throw new Unsupported("tikz: baseline at a coordinate")
+      this.setup.baseline(v)
+    }, "0pt")
+    // radius (285–295): \pgfmathparse'd, with pt when it has units
+    opt("radius", (v) => {
+      const r = this.parse(plain(v, "radius"))
+      const value = chars(r.units ? `${r.result}pt` : r.result)
+      k.setValue("/tikz/x radius", value)
+      k.setValue("/tikz/y radius", value)
+    })
+    for (const op of ["scale", "xscale", "yscale", "xslant", "yslant", "rotate", "xshift", "yshift"] as const) opt(op, (v) => this.addTransform({ op, arg: v }))
     opt("shift", (v) => this.addTransform({ op: "shift", point: v }))
 
     opt("shape", (v) => { st().shape = plain(this.expand(v), "shape") })

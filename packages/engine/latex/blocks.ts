@@ -165,7 +165,7 @@ const TEXT_COMMANDS = [
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
   "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "cref", "Cref", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
-  "LXurl", "LXfloat", "LXgraphic", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
+  "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge"
 ]
