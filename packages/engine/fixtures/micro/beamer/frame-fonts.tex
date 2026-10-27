@@ -1,0 +1,21 @@
+% fixture: beamer/frame-fonts
+% tier: T3
+% engine: document
+% covers: beamer: an empty \frame{}, a frame's paragraphs with \textbf, \textit, \textsl, \textsc, \texttt, \textrm and beamer's own \emph ({\itshape #1}: no italic correction, nested too), ligatures, dashes, quotes and a tie; blank lines around them; long words hyphenated in a ragged right paragraph
+% issue: #283
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\frame{}
+\begin{frame}[t]
+
+  \textbf{Bold start} with ligatures fi ff ffl -- and --- dashes, ``quotes'' and e.g.~this. Characterization internationalization of hyphenation tremendously.
+
+  \textit{Italic} \textsl{slanted} \textsc{Small Caps} \texttt{typewriter} \textrm{roman} \emph{an \emph{inner} emph} \textbf{\emph{bold emph}}.
+
+
+\end{frame}
+\begin{frame}
+Supercalifragilisticexpialidocious antidisestablishmentarianism incomprehensibilities uncharacteristically counterrevolutionaries electroencephalographically.
+\end{frame}
+\end{document}

@@ -1,0 +1,19 @@
+% fixture: beamer/two-frames
+% tier: T3
+% engine: document
+% covers: beamer: two empty frames, each its own page after the \clearpage of the frame before; the title data in the preamble (no title page); the total frame count read back on the second run
+% issue: #283
+\documentclass{beamer}
+\usetheme{default}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\title{Results}
+\author{A. Author}
+\institute{Some University}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+\end{frame}
+\begin{frame}
+\end{frame}
+\end{document}

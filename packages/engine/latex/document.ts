@@ -42,6 +42,8 @@ import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
 import type { Image } from "./images"
 import { processBlock, runInAlone } from "./body"
 import { crefName, fillCrefWrites, type CrefLabel } from "./cleveref"
+import { documentClass } from "./classes"
+import { beamerDocument } from "./beamer"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -55,6 +57,8 @@ export interface DocumentOptions {
 
 export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "pdftex" }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
+  // beamer has a pipeline of its own
+  if (documentClass(prepared.src).cls === "beamer") return beamerDocument(prepared, driver)
   // the graphics files' bounding boxes: the options', then the files the source writes
   const images = new Map<string, BoundingBox | Image>(Object.entries(given))
   for (const [name, contents] of prepared.files) { const bb = boundingBox(contents); if (bb) images.set(name, bb) }
