@@ -1,0 +1,22 @@
+% fixture: beamer/colorbox-plain
+% tier: T3
+% engine: document
+% covers: beamer: a beamercolorbox with no background (wd, sep), between paragraphs of a frame; one set left with a skip
+% issue: #290
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Before the box.
+
+\begin{beamercolorbox}[wd=5cm,sep=4pt]{structure}
+Some text in a box, long enough to be broken into more than one line of text here.
+\end{beamercolorbox}
+
+After the box.
+
+\begin{beamercolorbox}[wd=4cm,left=1em]{structure}
+Lines ragged right with a skip of an em at their right, as the box's left option sets it.
+\end{beamercolorbox}
+\end{frame}
+\end{document}

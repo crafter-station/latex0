@@ -62,7 +62,7 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
  */
 function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, page = ++cx.frames
-  const box = frameBox({ k, decisions: cx.decisions }, f, cx.pre.centered)
+  const box = frameBox({ k, theme: cx.pre.theme, decisions: cx.decisions }, f, cx.pre.centered)
   cx.frameEnds.push(cx.decisions.length)
   const bs = k.sizes.normalsize.baselineskip
   cx.v.box(box, bs)

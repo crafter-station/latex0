@@ -1,0 +1,16 @@
+% fixture: beamer/colorbox-wide
+% tier: T3
+% engine: document
+% covers: beamer: a beamercolorbox wider than \textwidth (squeezed into it, into the margins) with a background, right-aligned lines, its height and depth set
+% issue: #290
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Some text before.
+
+\begin{beamercolorbox}[wd=\paperwidth,right,ht=1cm,dp=2pt,sep=1ex]{normal text}
+Right-aligned lines in a box as wide as the paper, more than one of them since the text goes on for a while.
+\end{beamercolorbox}
+\end{frame}
+\end{document}
