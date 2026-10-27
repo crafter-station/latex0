@@ -38,6 +38,8 @@ export interface BoxNode {
   display?: boolean
   /** pdfTeX's \pdfrefximage: an image of the box's size (its list empty), the file's name */
   image?: string
+  /** pdfTeX's \pdfrefxform: a form of the box's size (its list empty), its number */
+  form?: number
 }
 /**
  * Discretionary (§ 145): `pre` ends the line and `post` starts the next if TeX

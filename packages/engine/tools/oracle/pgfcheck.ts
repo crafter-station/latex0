@@ -1,11 +1,12 @@
-// pgf oracle (#292, #298, #304): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
+// pgf oracle (#292, #298, #304, #305): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
 // `\setbox0\hbox{\nullfont <snippet>}\showbox0` with tikz loaded (a picture's \nullfont: every stray space in
 // pgf's macros is a \glue 0.0) by latex (pgf's dvips driver) and by pdflatex (its pdftex driver), and run
 // through pgf/ for each. The box dumps must agree node by node: every box's size and shift, every \special's
 // and \pdfliteral's text, every space. A tiny reader of the snippet's commands drives the TS side. Fixed
 // snippets cover each primitive, then seeded random sequences of system commands and random pictures (paths
-// under transformations, scopes, groups, graphic state, baselines and trims) and random pictures of nodes
-// (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext); a node's text is typeset
+// under transformations, scopes, groups, graphic state, rounded corners, baselines and trims), random pictures of nodes
+// (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext), random shadings (declared, used,
+// \pgfshadepath) and random objects and opacities; a node's text is typeset
 // by the engine (latex/paragraph.ts). A TeX error (a dimension too large) must be the engine's Unsupported.
 //   bun engine pgf:check [--n 2000] [--seed 1]
 
@@ -33,6 +34,9 @@ import {
   setLength, type PgfPoint,
 } from "../../pgf/points"
 import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope, pgfSetBaseline, pgfSetTrimLeft, pgfSetTrimRight } from "../../pgf/scopes"
+import { pgfDefObject, pgfSetFillOpacity, pgfSetStrokeOpacity, pgfUseObject, sysDefObject, sysFillOpacity, sysStrokeOpacity, sysUseObject } from "../../pgf/objects"
+import { pgfSetCornersArced } from "../../pgf/round"
+import { pgfDeclareShading, pgfShadePath, pgfUseShading } from "../../pgf/shade"
 import { PgfState } from "../../pgf/state"
 import { pgfCoordinate, pgfMultipartNode, pgfNode, pgfPointAnchor, pgfPointShapeBorder, pgfText, SHAPE_KEYS, type PgfShapeKeys, type PgfText, type PgfTextOption } from "../../pgf/shapes"
 import { hlistInput } from "../../latex/paragraph"
@@ -175,6 +179,54 @@ const PICTURES = [
     .map((c) => `${c}\\pgfsetarrowsend{>>}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}\\begin{pgfscope}\\pgfsetfillcolor{red}\\end{pgfscope}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}`),
   // the minimum width met to the sp
   "\\pgfset{inner sep=1pt,minimum size=131071sp}\\pgfnode{rectangle}{north east}{}{}{\\pgfusepath{stroke}}\\pgfnode{rectangle}{south west}{}{}{\\pgfusepath{stroke}}",
+  // rounded corners: rectangles, polylines, curves, closepaths, consecutive marks, the arc switched off
+  "\\pgfsetcornersarced{\\pgfpoint{4pt}{4pt}}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{3pt}{5pt}}\\pgfpathrectanglecorners{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{-1pt}{-2pt}}\\pgfusepath{fill,stroke}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfsetcornersarced{\\pgfpoint{4pt}{4pt}}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{2cm}{3mm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{2pt}}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathclose\\pgfusepath{draw}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{6pt}}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{1cm}{0pt}}{\\pgfpoint{1cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfpathcurveto{\\pgfpoint{3cm}{1cm}}{\\pgfpoint{3cm}{0cm}}{\\pgfpoint{2cm}{-1cm}}\\pgfpathlineto{\\pgfpoint{0pt}{-1cm}}\\pgfpathclose\\pgfusepath{fill}",
+  "\\pgftransformrotate{20}\\pgfsetcornersarced{\\pgfpoint{3pt}{3pt}}\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{2cm}{1cm}}\\pgfsetcornersarced{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{3cm}{0pt}}\\pgfpathlineto{\\pgfpoint{3cm}{2cm}}\\pgfusepath{clip}",
+  "\\pgfsetcornersarced{\\pgfpoint{0pt}{3pt}}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{5mm}}\\pgfpathrectangle{\\pgfpoint{2cm}{0pt}}{\\pgfpoint{-1cm}{-5mm}}\\pgfusepath{stroke}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{5mm}}\\pgfusepath{discard}",
+  "\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{5mm}}\\pgfsetcornersarced{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfpathclose\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{5pt}{5pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{2cm}{0pt}}\\pgfpathclose\\pgfpathclose\\pgfusepath{stroke}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfsetcornersarced{\\pgfpoint{3pt}{3pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfsetcornersarced{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{2cm}{0pt}}{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{1cm}{2cm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{3pt}}\\pgfpathmoveto{\\pgfpoint{1pt}{2pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathclose\\pgfpathlineto{\\pgfpoint{-1cm}{5mm}}\\pgfpathlineto{\\pgfpoint{-2cm}{-5mm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{900pt}{700.3pt}}\\pgfpathrectangle{\\pgfpoint{-11pt}{3pt}}{\\pgfpoint{2000pt}{1999pt}}\\pgfusepath{fill}",
+  // a rectangle's size past max_dimen; a corner past it from the point before, which only the rounding of a used path reads
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{1sp}{0pt}}}\\pgfusepath{discard}",
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathmoveto{\\pgfpoint{-16000pt}{0pt}}\\pgfsetcornersarced{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{0pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{1pt}}\\pgfusepath{discard}",
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathmoveto{\\pgfpoint{-16000pt}{0pt}}\\pgfsetcornersarced{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{0pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{1pt}}\\pgfusepath{clip}",
+]
+
+/** Shadings (each on one line): each declaration, its colour stops and dependencies, used outside and inside pictures, \pgfshadepath. */
+const BIGSPHERE = "\\pgfdeclareradialshading[bg,parent.bg]{bigsphere}{\\pgfpoint{-0.1849315ex}{.2260273ex}}{color(0cm)=(bg!15); color(0.1643835ex)=(bg!75); color(0.3287671ex)=(bg!70!black); color(0.4520547ex)=(bg!50!black); color(0.53ex)=(parent.bg)}"
+const SHADINGS = [
+  "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0); rgb(2cm)=(0,0,1)}\\pgfuseshading{h}",
+  "\\pgfdeclareverticalshading{v}{2cm}{gray(0pt)=(0); gray(1cm)=(.5); gray(2cm)=(1)}\\pgfuseshading{v} \\pgfuseshading{v}",
+  "\\pgfdeclareradialshading{r}{\\pgfpoint{-0.0333em}{0.0333em}}{color(0cm)=(white);color(0.1cm)=(red!55);color(0.2cm)=(mine);color(0.5cm)=(white)}\\pgfuseshading{r}",
+  "\\colorlet{structure}{blue}\\pgfdeclareradialshading[structure]{s}{\\pgfpointorigin}{color(0cm)=(white);color(0.1cm)=(structure!55);color(0.2cm)=(structure);color(0.5cm)=(white)}\\pgfuseshading{s}\\colorlet{structure}{dark}\\pgfuseshading{s}\\pgfuseshading{s}",
+  `\\colorlet{bg}{mine}\\colorlet{parent.bg}{white}${BIGSPHERE}\\pgfuseshading{bigsphere}\\colorlet{bg}{red}{\\pgfuseshading{bigsphere}}\\colorlet{bg}{mine}\\pgfuseshading{bigsphere}`,
+  "\\pgfdeclarehorizontalshading[mine]{h}{3mm}{rgb(0pt)=(0.5,1.0,.25); color(5pt)=(mine); gray(1cm)=(0.3); color(1.5cm)=(-red); rgb(2cm)=(0,0,0)}\\pgfuseshading{h}",
+  "\\pgfdeclareverticalshading{v}{+1cm}{rgb(1cm)=(1,0,0);rgb(-1cm)=(0,1,0)} \\pgfdeclarehorizontalshading{h}{+1cm}{rgb(+2pt)=(1,0,0);rgb(+3pt)=(0,1,0)}\\pgfuseshading{v}\\pgfuseshading{h}",
+  // inside pictures: centred on the origin; a path shaded at an angle; no path
+  "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0); rgb(2cm)=(0,0,1)}\\pgfdeclareradialshading{r}{\\pgfpoint{1pt}{-2pt}}{rgb(0pt)=(1,1,1); rgb(5mm)=(0,0,0)}\\begin{pgfpicture}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{2cm}}\\pgfshadepath{h}{30}\\pgfuseshading{r}\\end{pgfpicture}",
+  "\\pgfdeclareverticalshading{v}{2cm}{gray(0pt)=(0); gray(1cm)=(1)}\\begin{pgfpicture}\\pgfshadepath{v}{0}\\pgfpathcircle{\\pgfpoint{1cm}{0pt}}{3mm}\\pgfshadepath{v}{-120.5}\\pgfusepath{stroke}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfshadepath{v}{90}\\end{pgfpicture}",
+  `\\colorlet{bg}{dark}\\colorlet{parent.bg}{mid}${BIGSPHERE}\\begin{pgfpicture}\\pgftransformscale{1.75}\\pgfuseshading{bigsphere}\\pgfpathrectangle{\\pgfpoint{-1pt}{-1pt}}{\\pgfpoint{2pt}{2pt}}\\pgfshadepath{bigsphere}{45}\\end{pgfpicture}`,
+  // a horizontal line has nothing to shade; a shading declared again with the same colours is made again
+  "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0); rgb(2cm)=(0,0,1)}\\begin{pgfpicture}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfshadepath{h}{0}\\pgfshadepath{h}{10}\\pgfusepath{discard}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfshadepath{h}{0}\\end{pgfpicture}",
+  "\\colorlet{ca}{red}\\pgfdeclarehorizontalshading[ca]{h}{1cm}{color(0pt)=(ca); rgb(2cm)=(0,0,1)}\\pgfuseshading{h}\\pgfdeclarehorizontalshading[ca]{h}{2cm}{color(0pt)=(ca); rgb(1cm)=(0,1,1)}\\pgfuseshading{h}",
+  // objects and opacities
+  "\\pgfsys@beginpicture\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpoint{1pt}{1pt}}{\\pgfsys@moveto{0pt}{0pt}\\pgfsys@lineto{1pt}{2pt}\\pgfsys@stroke}\\pgfsys@useobject{o}{}\\pgfsys@useobject{o}{\\pgfsys@transformshift{3pt}{4pt}} \\pgfsys@useobject{o}{\\pgfsys@transformxyscale{2}{.5}\\pgfsys@color@gray@fill{0.5}}\\pgfsys@endpicture",
+  "\\pgfsys@beginpicture\\pgfsysprotocol@bufferedtrue\\pgfsys@stroke\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfsys@rect{0pt}{0pt}{1pt}{1pt} \\pgfsys@fill}\\pgfsys@useobject{o}{\\pgfsys@fill}\\pgfsys@defobject{p}{\\pgfpointorigin}{\\pgfpointorigin}{}\\pgfsys@useobject{p}{}\\pgfsysprotocol@flushcurrentprotocol\\pgfsys@endpicture",
+  "\\begin{pgfpicture}\\pgfpathmoveto{\\pgfpoint{1pt}{1pt}}\\pgfdefobject{a}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfpathmoveto{\\pgfpoint{5cm}{0pt}}\\pgfpathlineto{\\pgfpoint{1cm}{3cm}}\\pgfsys@stroke} \\pgfpathlineto{\\pgfpoint{2pt}{0pt}}\\pgfusepath{stroke}\\pgfuseobject{a}\\pgfpathclose\\pgfusepath{stroke}\\end{pgfpicture}",
+  "\\pgfsys@beginpicture\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfsys@fill}\\pgfsys@useobject{o}{\\pgfsysprotocol@bufferedtrue\\pgfsys@stroke}\\pgfsys@endpicture",
+  // the last moveto restored after an object's code (a closepath carries it, which rounding reads)
+  "\\begin{pgfpicture}\\pgfpathmoveto{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{2pt}{0pt}}\\pgfdefobject{a}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfpathmoveto{\\pgfpoint{5cm}{0pt}}}\\pgfpathclose\\pgfsetcornersarced{\\pgfpoint{2pt}{2pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfusepath{stroke}\\end{pgfpicture}",
+  "\\pgfsys@beginpicture\\pgfsys@stroke@opacity{0.5}\\pgfsys@fill@opacity{.3}\\pgfsys@stroke@opacity{0.5}\\pgfsetstrokeopacity{1/3}\\pgfsetfillopacity{0.25*2}\\pgfsys@endpicture",
+  "\\begin{pgfpicture}\\pgfsetfillopacity{.5}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{fill}{\\pgfsysprotocol@bufferedtrue\\pgfsetstrokeopacity{0.8}}\\pgfsys@stroke\\end{pgfpicture}",
+  // errors: an undefined shading; one stop (an ill-formed specification is an endless loop of errors)
+  "\\pgfuseshading{nothing}",
+  "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0)}",
 ]
 
 function rng(seed: number) {
@@ -283,6 +335,7 @@ export function makePictures(n: number, seed: number): string[] {
     () => `\\${pick(["pgfsetstrokecolor", "pgfsetfillcolor", "pgfsetcolor"])}{${colorExpr()}}`,
     () => `\\${pick(["pgfsetbaseline", "pgfsettrimleft", "pgfsettrimright"])}{${pick([len, expr, () => "default"])()}}`,
     () => pick(["\\pgfsys@clipnext", "\\pgfsys@stroke", "\\pgfsys@beginscope\\pgfsys@endscope"]),
+    () => `\\pgfsetcornersarced{${pick([point, () => "\\pgfpointorigin", () => `\\pgfpoint{${len()}}{${len()}}`])()}}`,
   ]
   const body = (depth: number): string => {
     let out = ""
@@ -418,6 +471,99 @@ export function makeArrows(n: number, seed: number): string[] {
   })
 }
 
+/**
+ * Random shadings: declarations of each kind with random stops, sizes and dependencies, used outside and inside
+ * pictures and by \pgfshadepath, between changes of the colours they depend on (at the snippet's level: the
+ * reader's colours are not local to groups).
+ */
+export function makeShadings(n: number, seed: number): string[] {
+  const r = rng(seed * 104729 + 3)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const digits = (k: number) => Array.from({ length: k }, () => String(int(0, 9))).join("")
+  const len = () => {
+    const unit = pick(["pt", "pt", "bp", "cm", "mm", "sp", "em", "ex", "pc"])
+    const whole = unit === "sp" ? int(0, 999999) : unit === "pt" || unit === "bp" ? int(0, 99) : int(0, 4)
+    return `${pick(["", "", "", "-"])}${pick([String(whole), `${whole}.${digits(int(1, 5))}`, `.${digits(int(1, 3))}`])}${unit}`
+  }
+  // (a quick \pgfmathsetlength, +, takes a dimension only)
+  const expr = () => pick([len, len, len, () => `+${len()}`, () => `${len()}+${len()}`, () => `2*${len()}`])()
+  const value = () => pick(["0", "1", ".5", "0.25", `0.${digits(int(1, 4))}`, "1.0"])
+  const named = () => pick(["red", "blue", "green!50", "red!30!blue", "black", "white", "gray", "mine", "dark", "mid", "dark!25!red", "-red", "ca", "cb", "ca!40", "cb!20!black"])
+  const stop = () => {
+    const pos = expr()
+    return pick([() => `rgb(${pos})=(${value()},${value()},${value()})`, () => `gray(${pos})=(${value()})`, () => `color(${pos})=(${named()})`])()
+  }
+  const point = () => pick(["\\pgfpointorigin", `\\pgfpoint{${len()}}{${len()}}`, `\\pgfpoint{-0.1849315ex}{.2260273ex}`])
+  const names = ["s0", "s1", "s2"]
+  const declare = (name: string) => {
+    const kind = pick(["horizontal", "vertical", "radial"])
+    const deps = pick(["", "", "[ca]", "[ca,cb]", "[cb]"])
+    const stops = Array.from({ length: int(2, 5) }, stop).join(pick([";", "; ", " ; "]))
+    return `\\pgfdeclare${kind}shading${deps}{${name}}{${kind === "radial" ? point() : expr()}}{${stops}}`
+  }
+  const path = () => pick([
+    () => `\\pgfpathrectangle{\\pgfpoint{${len()}}{${len()}}}{\\pgfpoint{${len()}}{${len()}}}`,
+    () => `\\pgfpathcircle{\\pgfpoint{${len()}}{${len()}}}{${len()}}`,
+    () => `\\pgfpathmoveto{\\pgfpoint{${len()}}{${len()}}}\\pgfpathlineto{\\pgfpoint{${len()}}{${len()}}}`,
+  ])()
+  const angle = () => pick(["0", "90", "45", "-30", `${int(-360, 360)}`, `${int(0, 90)}.${digits(2)}`])
+  const inPicture = (depth: number): string => {
+    let out = ""
+    for (let k = int(1, 5); k > 0; k--) {
+      out += pick([
+        () => `\\pgfuseshading{${pick(names)}}`, () => path(), () => `\\pgfshadepath{${pick(names)}}{${angle()}}`,
+        () => `\\pgftransformrotate{${angle()}}`, () => `\\pgfusepath{${pick(["stroke", "fill", "discard"])}}`, () => " ",
+        () => (depth < 1 ? `{${inPicture(depth + 1)}}` : ""), () => (depth < 1 ? `\\begin{pgfscope}${inPicture(depth + 1)}\\end{pgfscope}` : ""),
+      ])()
+    }
+    return out
+  }
+  return Array.from({ length: n }, () => {
+    let out = `\\colorlet{ca}{${pick(["red", "mine", "dark", "mid"])}}\\colorlet{cb}{${pick(["blue", "white", "dark!50"])}}`
+    out += names.map(declare).join(pick(["", " "]))
+    for (let k = int(1, 5); k > 0; k--) {
+      out += pick([
+        () => `\\pgfuseshading{${pick(names)}}`, () => `{\\pgfuseshading{${pick(names)}}}`, () => " ",
+        () => `\\colorlet{${pick(["ca", "cb"])}}{${pick(["red", "blue!50", "mine", "dark", "green"])}}`,
+        // (a body beginning with a brace would be the old syntax's bounding box)
+        () => `\\begin{pgfpicture}\\pgftransformrotate{${angle()}}${inPicture(0)}\\end{pgfpicture}`,
+      ])()
+    }
+    return out
+  })
+}
+
+/** Random objects and opacities: system-layer code defined as objects, used under transformations and opacities. */
+export function makeObjects(n: number, seed: number): string[] {
+  const r = rng(seed * 15485863 + 11)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const dim = () => `${pick(["", "-"])}${int(0, 99)}.${int(0, 99)}${pick(["pt", "bp", "mm"])}`
+  const opacity = () => pick(["0", "1", "0.5", ".3", "0.25", `0.${int(0, 999)}`])
+  const code = (depth: number): string => {
+    let out = ""
+    for (let k = int(0, 6); k > 0; k--) {
+      out += pick([
+        () => `\\pgfsys@moveto{${dim()}}{${dim()}}`, () => `\\pgfsys@lineto{${dim()}}{${dim()}}`, () => `\\pgfsys@rect{${dim()}}{${dim()}}{${dim()}}{${dim()}}`,
+        () => pick(["\\pgfsys@stroke", "\\pgfsys@fill", "\\pgfsys@fillstroke", "\\pgfsys@closepath", "\\pgfsys@clipnext", "\\pgfsys@discardpath"]),
+        () => `\\pgfsys@color@gray@fill{${opacity()}}`, () => `\\pgfsys@setlinewidth{${dim()}}`,
+        () => `\\pgfsys@${pick(["stroke", "fill"])}@opacity{${opacity()}}`, () => `\\${pick(["pgfsetstrokeopacity", "pgfsetfillopacity"])}{${pick([opacity(), "1/4", "0.5*0.5"])}}`,
+        () => `\\pgfsys@transformshift{${dim()}}{${dim()}}`, () => " ",
+        () => (depth < 1 ? `{${code(depth + 1)}}` : ""), () => (depth < 1 ? `\\pgfsys@beginscope${code(depth + 1)}\\pgfsys@endscope` : ""),
+      ])()
+    }
+    return out
+  }
+  return Array.from({ length: n }, () => {
+    let out = `\\pgfsys@beginpicture${pick(["", "\\pgfsysprotocol@bufferedtrue"])}`
+    const names = ["oa", "ob"]
+    for (const name of names) out += `\\pgfsys@defobject{${name}}{\\pgfpointorigin}{\\pgfpointorigin}{${code(0)}}${code(1)}`
+    for (let k = int(1, 5); k > 0; k--) out += pick([() => `\\pgfsys@useobject{${pick(names)}}{${code(1)}}`, () => code(1), () => `\\pgfsys@defobject{${pick(names)}}{\\pgfpointorigin}{\\pgfpointorigin}{${code(0)}}`])()
+    return `${out}\\pgfsysprotocol@flushcurrentprotocol\\pgfsys@endpicture`
+  })
+}
+
 /** The snippet's commands on a driver: TeX's tokens as the snippet has them (spaces after a control word skipped). */
 export function runSnippet(source: string, driver: PgfDriver, colors: Colors, text: PgfText = TEXT): void {
   let src = source
@@ -495,6 +641,9 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     hbox: () => { const reg = arg(); driver.hbox(boxes.get(reg) ?? null, reg.startsWith("\\")); boxes.set(reg, null) },
     begininvisible: () => driver.beginInvisible(), endinvisible: () => driver.endInvisible(),
     "begin@text": () => driver.beginText(), "end@text": () => driver.endText(),
+    "stroke@opacity": () => sysStrokeOpacity(s, driver, arg()), "fill@opacity": () => sysFillOpacity(s, driver, arg()),
+    defobject: () => { const name = arg(); strs(2); const body = arg(); sysDefObject(s, driver, name, () => exec(body)) },
+    useobject: () => { const name = arg(); const before = arg(); sysUseObject(s, driver, name, () => exec(before)) },
   }
   const units = s.units
   /** a point: one of pgf's point commands and its arguments, evaluated */
@@ -535,6 +684,15 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     e[k]()
     if (k === 1) keys = keyStack.pop() ?? keys
   }
+  /** \pgfdeclare…shading[deps]{name}{size}{spec} (\pgfutil@ifnextchar skips the spaces) */
+  const declare = (kind: "horizontal" | "vertical" | "radial") => {
+    skipSpaces()
+    let deps = ""
+    if (src[i] === "[") { const j = src.indexOf("]", i); deps = src.slice(i + 1, j); i = j + 1 }
+    const name = arg()
+    const size = kind === "radial" ? pt(arg()) : arg()
+    pgfDeclareShading(s, driver, kind, deps, name, size, arg(), colors)
+  }
   /** pgf's basic layer; the commands ending in \ignorespaces skip the spaces after them */
   const ignoring = (f: () => void) => () => { f(); skipSpaces() }
   const basic: Record<string, () => void> = {
@@ -555,6 +713,14 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     pgftransformcm: () => { const [p, q, u, v] = strs(4); pgfTransformCm(s, p, q, u, v, pt(arg())) },
     pgftransformreset: () => pgfTransformReset(s), pgftransformresetnontranslations: () => pgfTransformResetNonTranslations(s),
     pgflowlevelsynccm: () => pgfLowLevelSyncCm(s, driver),
+    pgfsetcornersarced: () => pgfSetCornersArced(s, pt(arg())),
+    pgfsetstrokeopacity: () => pgfSetStrokeOpacity(s, driver, arg()), pgfsetfillopacity: () => pgfSetFillOpacity(s, driver, arg()),
+    pgfdefobject: ignoring(() => { const name = arg(); strs(2); const body = arg(); pgfDefObject(s, driver, name, () => exec(body)) }),
+    pgfuseobject: () => pgfUseObject(s, driver, arg()),
+    pgfdeclarehorizontalshading: () => declare("horizontal"), pgfdeclareverticalshading: () => declare("vertical"), pgfdeclareradialshading: () => declare("radial"),
+    pgfuseshading: () => pgfUseShading(s, driver, arg(), colors),
+    pgfshadepath: () => pgfShadePath(s, driver, arg(), arg(), colors),
+    colorlet: () => { const name = arg(); const [model, ...v] = colors.spec(arg()).split(" "); colors.define(name, model, v.join(",")) },
     pgfsetbaseline: () => pgfSetBaseline(s, arg()), pgfsettrimleft: () => pgfSetTrimLeft(s, arg()), pgfsettrimright: () => pgfSetTrimRight(s, arg()),
     pgfsetlinewidth: ignoring(() => pgfSetLineWidth(s, driver, arg())),
     pgfsetdash: ignoring(() => { const pattern = texArgs(arg()); pgfSetDash(s, driver, pattern, arg()) }),
@@ -670,8 +836,9 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}", "\\makeatletter",
     // (each snippet instantiates its arrow tips afresh, as the engine does)
     "\\let\\pgfcheck@fullname\\pgf@arrow@fullname\\def\\pgf@arrow@fullname#1{\\pgfcheckn @\\pgfcheck@fullname{#1}}",
-    // (the protocol is global: what one snippet leaves buffered must not reach the next)
-    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
+    // (the protocol, the last moveto and the objects' count are global: what one snippet leaves must not reach the next;
+    // an empty paragraph resets TeX's count of errors, which stops the run at 100)
+    ...snippets.map((x, i) => `\\noindent\\par\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\ifdefined\\pgf@objectcount\\global\\pgf@objectcount=0 \\fi\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
   ].join("\n")
   const file = join(DIR, `${t.name}.tex`), log = join(DIR, `${t.name}.log`)
   if (!existsSync(file) || readFileSync(file, "utf8") !== tex || !existsSync(log) || !/^(No pages of output|Output written)/m.test(readFileSync(log, "latin1"))) {
@@ -695,7 +862,7 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
 export function pgfCheck(n: number, seed: number): number {
   const f = loadFont(dataFont("cmr10"), 10 * UNITY) // \pgfmath@selectfont: the document's \normalfont
   const units: PgfUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed), ...makeArrows(n, seed)]
+  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...SHADINGS, ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed), ...makeArrows(n, seed), ...makeShadings(Math.ceil(n / 4), seed), ...makeObjects(Math.ceil(n / 4), seed)]
   let failed = 0
   for (const t of TARGETS) {
     const tex = texBoxes(t, snippets)

@@ -438,7 +438,7 @@ function getId(s: PgfState, d: PgfDriver, name: string): { i: Instance; p: Param
   // the code, protocolled once (\pgfinterruptpath: the path and its sizes kept aside)
   const outer = s.protocol
   s.begingroup()
-  const path = s.softPath, sizes = s.path, last = s.last
+  const path = s.softPath, sizes = s.path, last = s.last, lastMoveTo = s.lastMoveTo
   s.softPath = []
   s.setLocal({ relevant: false })
   pgfTransformReset(s)
@@ -451,6 +451,7 @@ function getId(s: PgfState, d: PgfDriver, name: string): { i: Instance; p: Param
   s.softPath = path
   s.path = sizes
   s.last = last
+  s.lastMoveTo = lastMoveTo
   s.endgroup()
   s.protocol = outer
   s.endgroup()
