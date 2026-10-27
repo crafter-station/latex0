@@ -19,6 +19,7 @@ import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type P
 import { Unsupported } from "../unsupported"
 import { negate, plain, VerticalList } from "../vlist"
 import { colorPush } from "../xcolor"
+import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
@@ -102,7 +103,9 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** the slide being typeset and its overlay state */
   overlay: Overlay
   /** the nodes each \LXsmuggle{n} in the frame's text stands for (overlay specials) */
-  smuggled: Node[][] }
+  smuggled: Node[][]
+  /** a block began in the paragraph read last (blocks.ts): whether it is shown */
+  blockBegun?: boolean }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -113,11 +116,11 @@ type FrameHandler = (cx: FrameCtx, v: FrameList, text: string) => string
 /** The text font: beamer's \familydefault is \sfdefault (OT1 cmss) */
 export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
-const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph"]
+const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure"]
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
-export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape?: [number, number][]; leftskip?: GlueSpec; rightskip?: GlueSpec; sloppy?: number; start?: Node[]; end?: Node[]
+export interface ParagraphSetting { size?: SizeCommand; /** the font's attributes, when not the frame's (a theorem's \itshape) */ attrs?: FontAttrs; hsize?: number; parShape?: [number, number][]; leftskip?: GlueSpec; rightskip?: GlueSpec; sloppy?: number; start?: Node[]; end?: Node[]
   /** false: no indentation box (\@doendpe's \everypar takes it off, \@item's puts the labels in its place) */
   indent?: boolean
   /** the text ended in a space that stays (something other than \par follows it) */
@@ -127,13 +130,14 @@ export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape
  *  otherwise); its trace goes to cx.decisions. */
 export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {}): Node[] {
   plainText(text)
-  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n] }
+  // (\alert and \structure: \textcolor with the driver's spec)
+  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec } }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
-  let t = text, prev = ""
+  let t = alerts(cx, text), prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
   // (an empty group after the space keeps it from being the paragraph's last glue)
   if (s.trailingSpace) t = `${t.trimEnd()} {}`
-  const opts: ParagraphOptions = { attrs: SANS, groups: true }
+  const opts: ParagraphOptions = { attrs: s.attrs ?? SANS, groups: true }
   if (s.hsize !== undefined) opts.hsize = s.hsize
   if (s.parShape) opts.parShape = s.parShape
   if (s.leftskip) opts.leftSkip = spec("leftskip", s.leftskip)
@@ -156,14 +160,19 @@ const upToBlankLine = (text: string): [string, string] => {
 /** the lists a paragraph's text may run into */
 const LIST_BEGIN = /\\begin\{(?:itemize|enumerate)\}/
 
-/** A paragraph of text up to a blank line or a list: broken into lines in the frame's \hsize (\textwidth), ragged
- *  right. A list's \begin pushes the list's body color in the paragraph, then \@trivlist ends it (\unskip\par: the
- *  push is last, so a space before it stays). After a list, \@doendpe's \everypar takes the indentation box off. */
+/** A paragraph of text up to a blank line, a list or a block: broken into lines in the frame's \hsize (\textwidth),
+ *  ragged right. A list's \begin pushes the list's body color in the paragraph, then \@trivlist ends it (\unskip\par:
+ *  the push is last, so a space before it stays). After a list, \@doendpe's \everypar takes the indentation box off.
+ *  A block's \begin ends it too (blocks.ts): its overlay specials smuggled past the last space, which \par takes. */
 const paragraph: FrameHandler = (cx, v, text) => {
   let [par, rest] = upToBlankLine(text)
-  const at = par.search(LIST_BEGIN)
+  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN)
   const s: ParagraphSetting = {}
-  if (at >= 0) {
+  if (block >= 0 && (at < 0 || block < at)) {
+    rest = par.slice(block) + rest
+    s.end = blockInParagraph(cx, rest)
+    par = par.slice(0, block).trimEnd()
+  } else if (at >= 0) {
     rest = par.slice(at) + rest
     par = par.slice(0, at)
     s.end = [colorPush(useColor(cx.theme, "itemize/enumerate body", outerColors(cx.theme)).fg)]
@@ -214,7 +223,7 @@ function plainText(text: string) {
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -272,6 +281,9 @@ const colorbox: FrameHandler = (cx, v, text) => {
   return text.slice(end + "\\end{beamercolorbox}".length)
 }
 
+/** block, alertblock, exampleblock, the theorems and proof (blocks.ts) */
+const blocks: FrameHandler = (cx, v, text) => frameBlock(cx, v, text)
+
 /** \titlepage, and \maketitle (\titlepage in a frame) */
 const titlepage: FrameHandler = (cx, v, text) => {
   if (cx.endpe) throw new Unsupported("beamer: a title page right after a list")
@@ -298,6 +310,7 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
 const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+  ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */

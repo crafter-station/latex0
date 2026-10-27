@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 422,
-  "exact": 419,
+  "fixtures": 427,
+  "exact": 424,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 319484
+  "glyphs": 320345
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 44,
-   "exact": 43
+   "fixtures": 49,
+   "exact": 48
   },
   {
    "area": "bibliography",
@@ -877,6 +877,61 @@
    "glyphs": 105,
    "covers": "a size in >{decl} of p, m and b columns: \\insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\\@endpbox's \\par): the entry's lines at its \\baselineskip; with \\bfseries, after \\centering\\arraybackslash, an empty entry, a row ended by \\\\[skip]",
    "issue": "#277"
+  },
+  {
+   "id": "beamer/block-default",
+   "file": "micro/beamer/block-default.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 201,
+   "covers": "beamer: block, alertblock and exampleblock in the default inner and color themes (no bg: title and body beamercolorboxes with colsep*, \\medskipamount before, \\smallskipamount after), text before and after (the specials past a space after a group), a list after a block",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/block-orchid",
+   "file": "micro/beamer/block-orchid.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "beamer: blocks in the orchid color theme (title and body with a bg: \\colorbox with colsep* .75ex, \\nointerlineskip\\vskip-0.5pt between them, \\vskip-.75ex in the body), alertblock and exampleblock colors, \\alert and \\structure in a block",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/block-overlay",
+   "file": "micro/beamer/block-overlay.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 172,
+   "covers": "beamer: blocks with overlay specifications (\\begin{block}<2->, an alertblock on the first slide only): covered blocks between pgf's invisible specials, on two slides; a block in the orchid theme with a theorem in its colors",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/block-theorems",
+   "file": "micro/beamer/block-theorems.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 171,
+   "covers": "beamer: theorem (italic body), definition, example (an exampleblock), theorem with an addition, and proof with its qed symbol, each a block in the default inner theme, with hyperref's theorem anchors",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/block-whale",
+   "file": "micro/beamer/block-whale.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 155,
+   "covers": "beamer: blocks in the whale color theme under a frame title: a theorem right after a paragraph (\\unskip\\unskip\\par before its block), a lemma, a proof with its own name and the qed symbol, \\structure and \\alert in text",
+   "issue": "#307"
   },
   {
    "id": "beamer/colorbox-background",
