@@ -1,0 +1,14 @@
+% fixture: beamer/frametitle-17pt
+% tier: T3
+% engine: document
+% covers: beamer: a frame title and subtitle at 17pt, where the title box is taller
+% issue: #290
+\documentclass[17pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\frametitle{Big}
+\framesubtitle{Bigger subtitle}
+Text.
+\end{frame}
+\end{document}

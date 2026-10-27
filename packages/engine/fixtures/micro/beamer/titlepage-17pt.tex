@@ -1,0 +1,17 @@
+% fixture: beamer/titlepage-17pt
+% tier: T3
+% engine: document
+% covers: beamer: a title page at 17pt (\Large and \scriptsize of size17.clo) with an empty date and a subtitle
+% issue: #290
+\documentclass[17pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\title{Title}
+\subtitle{Sub}
+\author{Me}
+\institute{Here}
+\date{}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\end{document}

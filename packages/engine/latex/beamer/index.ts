@@ -20,6 +20,7 @@ import { VerticalList } from "../vlist"
 import { colorPush, xcolor } from "../xcolor"
 import { frameBox, framesOf, type FrameSource } from "./frame"
 import { beamerPage } from "./page"
+import { outerColors } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
 /** What a run writes to the .aux file for the next one: the frames (\inserttotalframenumber, in the .nav lines
@@ -28,16 +29,16 @@ interface Aux { frames: number; pages: number }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per frame the
  *  index in `decisions` after its paragraphs (where its page's head paragraph goes) */
-interface BeamerCtx { pre: BeamerPreamble; v: VerticalList; decisions: ParagraphTrace[]; frameEnds: number[]; frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number }
+interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; frameEnds: number[]; frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number }
 
 /** The body's constructs: frames (the environment and the \frame command) */
 const BODY: Record<string, (cx: BeamerCtx, f: FrameSource) => void> = { frame: frame }
 
-export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex"): LayoutResult {
+export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {
   if (driver === "pdftex") throw new Unsupported("beamer with pdfTeX's driver")
   if (prepared.listings.length || prepared.tabulars.length || prepared.minipages.length || prepared.urls.length || prepared.graphics.length) throw new Unsupported("beamer: verbatim, tabular, minipage, url or graphics")
-  const first = layout(prepared.src, null)
-  return layout(prepared.src, first.written).result
+  const first = layout(prepared.src, null, epoch)
+  return layout(prepared.src, first.written, epoch).result
 }
 
 /** \begin{document}: \normalcolor, LaTeX's \write, hyperref's \AtBeginDocument (the /DOCVIEW and Catalog pdfmarks, the
@@ -61,7 +62,7 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
  */
 function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, page = ++cx.frames
-  const box = frameBox({ k, decisions: cx.decisions }, f, cx.pre.centered)
+  const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions }, f, cx.pre.centered)
   cx.frameEnds.push(cx.decisions.length)
   const bs = k.sizes.normalsize.baselineskip
   cx.v.box(box, bs)
@@ -73,14 +74,14 @@ function frame(cx: BeamerCtx, f: FrameSource) {
 }
 
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
-function layout(src: string, prev: Aux | null): { result: LayoutResult; written: Aux } {
+function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutResult; written: Aux } {
   const pre = readBeamerPreamble(src)
   const k = pre.k
   hyperDriver.pdftex = false
-  xcolor.on = true; xcolor.normal = "gray 0"; outputOptions.xcolor = true
+  xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev)
-  const cx: BeamerCtx = { pre, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1 }
+  const cx: BeamerCtx = { pre, epoch, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1 }
   for (const f of framesOf(pre.body)) BODY.frame(cx, f)
   // \end{document}: beamerbasemisc.sty's \AtEndDocument \clearpage (its .nav lines are \immediate), then the kernel's
   v.nodes.push(filGlue(), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
@@ -92,7 +93,7 @@ function layout(src: string, prev: Aux | null): { result: LayoutResult; written:
   // each page's head paragraph is broken as it ships, after its frame's paragraphs
   const decisions: ParagraphTrace[] = []
   const shipped: BoxNode[] = columns.map((c, i) => {
-    const { box, trace } = beamerPage(c.outputbox, pages[i].count, k)
+    const { box, trace } = beamerPage(c.outputbox, pages[i].count, k, pre.theme)
     decisions.push(...cx.decisions.slice(i ? cx.frameEnds[i - 1] : 0, cx.frameEnds[i]), trace)
     return box
   })

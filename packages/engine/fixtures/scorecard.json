@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 361,
-  "exact": 359,
+  "fixtures": 380,
+  "exact": 378,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 282879
+  "glyphs": 284666
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 29,
+   "exact": 29
   },
   {
    "area": "bibliography",
@@ -780,6 +780,83 @@
    "issue": "#277"
   },
   {
+   "id": "beamer/colorbox-background",
+   "file": "micro/beamer/colorbox-background.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 65,
+   "covers": "beamer: a beamercolorbox with a background (\\colorbox with \\fboxsep 0), colsep and colsep*, centered lines",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-defaults",
+   "file": "micro/beamer/colorbox-defaults.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 126,
+   "covers": "beamer: a beamercolorbox with its defaults (\\textwidth wide, no sep, ragged right) holding two paragraphs",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-plain",
+   "file": "micro/beamer/colorbox-plain.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "beamer: a beamercolorbox with no background (wd, sep), between paragraphs of a frame; one set left with a skip",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-skips",
+   "file": "micro/beamer/colorbox-skips.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "beamer: a beamercolorbox's leftskip and rightskip (glue, in em), with sep and colsep (colsep unused without a background)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-sloppy",
+   "file": "micro/beamer/colorbox-sloppy.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 143,
+   "covers": "beamer: \\@arrayparboxrestore's \\sloppy in a beamercolorbox (justified lines, a narrow box: \\tolerance 9999 and the emergency pass with \\emergencystretch 3em); an empty box (the paragraph \\leavevmode began); a box lower than \\baselineskip after a paragraph",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-wide",
+   "file": "micro/beamer/colorbox-wide.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "beamer: a beamercolorbox wider than \\textwidth (squeezed into it, into the margins) with a background, right-aligned lines, its height and depth set",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/enumerate",
+   "file": "micro/beamer/enumerate.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "beamer: enumerate with the default template (\\insertenumlabel. in the structure color, flush right in \\labelwidth), items of more than one line, hyperref's item anchors",
+   "issue": "#290"
+  },
+  {
    "id": "beamer/frame-17pt",
    "file": "micro/beamer/frame-17pt.tex",
    "area": "beamer",
@@ -877,6 +954,138 @@
    "glyphs": 59,
    "covers": "beamer: a frame placed at the top ([t]), a frame centered ([c]) in a document whose class option makes [t] the default, and \\textbf and \\emph in the frame's text",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frametitle-17pt",
+   "file": "micro/beamer/frametitle-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "beamer: a frame title and subtitle at 17pt, where the title box is taller",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-command",
+   "file": "micro/beamer/frametitle-command.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 215,
+   "covers": "beamer: \\frametitle (with a short title) and \\framesubtitle in the frame's body; the title box built after the body's paragraphs, on top of them; a long title broken into lines; \\frame with \\frametitle",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-sizes",
+   "file": "micro/beamer/frametitle-sizes.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "beamer: frame titles at 8pt (\\Large and \\footnotesize of size8.clo), an empty title ({}: no title box), a title set twice (the last one counts)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-subtitle",
+   "file": "micro/beamer/frametitle-subtitle.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "beamer: a frame title and subtitle given after \\begin{frame}: the subtitle \\footnotesize in framesubtitle's color, with its own struts",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle",
+   "file": "micro/beamer/frametitle.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "beamer: a frame title (\\begin{frame}{Title}) in the default outer theme's template: a beamercolorbox the text width plus the margins wide, \\Large in the structure color",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/itemize",
+   "file": "micro/beamer/itemize.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "beamer: itemize with the default templates: a \\blacktriangleright (msam) raised 1.25pt in the structure color, beamer's list parameters, ragged right",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/list-20pt",
+   "file": "micro/beamer/list-20pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "beamer: itemize at 20pt (msam10 scaled up), in a frame placed at the top",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/list-in-text",
+   "file": "micro/beamer/list-in-text.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer: an itemize begun right after a paragraph's text (the body color pushed in the paragraph, which \\@trivlist then ends) and text right after it (\\@endpetrue)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/list-sizes",
+   "file": "micro/beamer/list-sizes.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 235,
+   "covers": "beamer: itemize and enumerate at 8pt (msam10 at 8pt, beamer's list skips), ten items (two-digit labels flush right), a list right after another, items of two paragraphs, a frame title over a list, text after a blank line (indented again)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage-17pt",
+   "file": "micro/beamer/titlepage-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "beamer: a title page at 17pt (\\Large and \\scriptsize of size17.clo) with an empty date and a subtitle",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage-minimal",
+   "file": "micro/beamer/titlepage-minimal.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 154,
+   "covers": "beamer: \\maketitle in a frame with only a (short and long) title: the empty author and institute boxes still hold a line each, \\date given; a long title broken into centered lines; at 10pt",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage",
+   "file": "micro/beamer/titlepage.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "beamer: \\titlepage in the default inner theme: title, subtitle, author (with \\and), institute and date (\\today) in centered beamercolorboxes, each in its font and color",
+   "issue": "#290"
   },
   {
    "id": "beamer/two-frames",
