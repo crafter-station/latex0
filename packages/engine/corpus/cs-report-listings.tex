@@ -1,0 +1,90 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{hyperref}
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+  backgroundcolor=\color{backcolour},
+  commentstyle=\color{codegreen},
+  keywordstyle=\color{magenta},
+  numberstyle=\tiny\color{codegray},
+  basicstyle=\ttfamily\footnotesize,
+  breaklines=true,
+  numbers=left,
+  numbersep=5pt,
+  showstringspaces=false,
+  tabsize=2,
+  frame=single
+}
+\lstset{style=mystyle}
+
+\title{CS 2110 Project 2: Building an LRU Cache}
+\author{Ethan Brooks \and Aisha Rahman}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+A least-recently-used (LRU) cache evicts the entry that has gone unused for the longest
+time once its capacity is reached. Both \texttt{get} and \texttt{put} must run in $O(1)$
+time. We combine a hash map with a doubly linked list.
+
+\section{Implementation}
+Listing~\ref{lst:lru} shows our Python implementation.
+
+\begin{lstlisting}[language=Python, caption={LRU cache with an ordered dictionary.}, label={lst:lru}]
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity: int):
+        self.capacity = capacity
+        self.data = OrderedDict()
+
+    def get(self, key):
+        if key not in self.data:
+            return -1
+        self.data.move_to_end(key)   # mark as recently used
+        return self.data[key]
+
+    def put(self, key, value):
+        if key in self.data:
+            self.data.move_to_end(key)
+        self.data[key] = value
+        if len(self.data) > self.capacity:
+            self.data.popitem(last=False)  # evict oldest
+\end{lstlisting}
+
+\section{Testing}
+We tested the cache with the sequence below; inline code such as
+\lstinline{cache.get(1)} returns \lstinline{-1} after eviction.
+
+\begin{lstlisting}[language=Java, numbers=none]
+LRUCache cache = new LRUCache(2);
+cache.put(1, 1);
+cache.put(2, 2);
+cache.get(1);       // returns 1
+cache.put(3, 3);    // evicts key 2
+\end{lstlisting}
+
+\section{Complexity}
+\begin{tabular}{|l|c|c|}
+\hline
+Operation & Time & Space \\
+\hline
+\texttt{get} & $O(1)$ & --- \\
+\texttt{put} & $O(1)$ & $O(n)$ total \\
+\hline
+\end{tabular}
+
+\section{Conclusion}
+The ordered dictionary gives a compact solution. See the course page at
+\url{https://cs2110.example.edu/projects} for the grading rubric.
+
+\end{document}

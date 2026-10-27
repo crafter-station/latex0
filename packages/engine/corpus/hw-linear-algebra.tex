@@ -1,0 +1,68 @@
+\documentclass[12pt]{article}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[letterpaper,margin=1in]{geometry}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{MATH 221 --- Problem Set 5}
+\rhead{Jordan Kim}
+\cfoot{\thepage}
+
+\newtheorem*{claim}{Claim}
+\newcommand{\R}{\mathbb{R}}
+
+\begin{document}
+
+\begin{center}
+  {\Large\bfseries Problem Set 5: Eigenvalues and Diagonalization}\\[4pt]
+  Due Friday, October 9
+\end{center}
+
+\section*{Problem 1}
+Find the eigenvalues and eigenvectors of
+\[
+A = \begin{bmatrix} 4 & 1 \\ 2 & 3 \end{bmatrix}.
+\]
+
+\begin{proof}[Solution]
+The characteristic polynomial is
+\[
+\det(A - \lambda I) = \begin{vmatrix} 4-\lambda & 1 \\ 2 & 3-\lambda \end{vmatrix}
+ = \lambda^2 - 7\lambda + 10 = (\lambda-2)(\lambda-5).
+\]
+For $\lambda_1 = 5$ we solve $(A-5I)\mathbf{v}=\mathbf{0}$ and obtain
+$\mathbf{v}_1 = (1,1)^T$. For $\lambda_2 = 2$ we obtain $\mathbf{v}_2 = (1,-2)^T$.
+\end{proof}
+
+\section*{Problem 2}
+Let $T\colon \R^3 \to \R^3$ be linear with $T^2 = T$.
+\begin{enumerate}[label=(\alph*)]
+  \item Show that every eigenvalue of $T$ is $0$ or $1$.
+  \item Show that $\R^3 = \ker T \oplus \operatorname{im} T$.
+\end{enumerate}
+
+\begin{claim}
+If $T\mathbf{v} = \lambda\mathbf{v}$ with $\mathbf{v}\neq\mathbf{0}$, then $\lambda\in\{0,1\}$.
+\end{claim}
+\begin{proof}
+We have $\lambda\mathbf{v} = T\mathbf{v} = T^2\mathbf{v} = \lambda^2\mathbf{v}$, so
+$\lambda^2 = \lambda$ and therefore $\lambda(\lambda-1)=0$.
+\end{proof}
+
+For (b), write $\mathbf{x} = (\mathbf{x} - T\mathbf{x}) + T\mathbf{x}$. The first
+summand lies in $\ker T$ because $T(\mathbf{x}-T\mathbf{x}) = T\mathbf{x}-T^2\mathbf{x}=\mathbf{0}$,
+and the second lies in $\operatorname{im} T$. If $\mathbf{y}\in\ker T\cap\operatorname{im}T$,
+then $\mathbf{y}=T\mathbf{z}$ and $\mathbf{0}=T\mathbf{y}=T^2\mathbf{z}=T\mathbf{z}=\mathbf{y}$.
+
+\section*{Problem 3}
+Diagonalize $A$ from Problem 1, i.e.\ find $P$ and $D$ with $A = PDP^{-1}$.
+\[
+P = \begin{pmatrix} 1 & 1 \\ 1 & -2 \end{pmatrix}, \qquad
+D = \begin{pmatrix} 5 & 0 \\ 0 & 2 \end{pmatrix}, \qquad
+P^{-1} = \frac{1}{3}\begin{pmatrix} 2 & 1 \\ 1 & -1 \end{pmatrix}.
+\]
+Hence $A^{n} = P D^{n} P^{-1}$ for every $n \ge 1$.
+
+\end{document}

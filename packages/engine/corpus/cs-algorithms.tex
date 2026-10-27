@@ -1,0 +1,72 @@
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[margin=1in]{geometry}
+
+\title{Shortest Paths: Dijkstra and Bellman--Ford}
+\author{Algorithms Study Group, Week 7}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Dijkstra's algorithm}
+Given a graph $G=(V,E)$ with non-negative weights $w\colon E\to\mathbb{R}_{\ge 0}$
+and a source $s$, Algorithm~\ref{alg:dijkstra} computes $d(v)$ for all $v\in V$.
+
+\begin{algorithm}
+\caption{Dijkstra's algorithm}
+\label{alg:dijkstra}
+\begin{algorithmic}[1]
+\Procedure{Dijkstra}{$G, w, s$}
+  \For{each $v \in V$}
+    \State $d[v] \gets \infty$
+    \State $\pi[v] \gets \textsc{nil}$
+  \EndFor
+  \State $d[s] \gets 0$
+  \State $Q \gets V$ \Comment{min-priority queue keyed by $d$}
+  \While{$Q \neq \emptyset$}
+    \State $u \gets \Call{ExtractMin}{Q}$
+    \For{each $v \in \mathrm{Adj}[u]$}
+      \If{$d[v] > d[u] + w(u,v)$}
+        \State $d[v] \gets d[u] + w(u,v)$
+        \State $\pi[v] \gets u$
+      \EndIf
+    \EndFor
+  \EndWhile
+  \State \Return $d$
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+With a binary heap the running time is $O((|V|+|E|)\log|V|)$.
+
+\section{Bellman--Ford}
+When negative edge weights are allowed, Algorithm~\ref{alg:bf} relaxes every edge
+$|V|-1$ times and then checks for negative cycles.
+
+\begin{algorithm}
+\caption{Bellman--Ford}
+\label{alg:bf}
+\begin{algorithmic}[1]
+\Function{BellmanFord}{$G, w, s$}
+  \State initialise $d$ and $\pi$ as in Dijkstra
+  \For{$i \gets 1$ \textbf{to} $|V|-1$}
+    \ForAll{$(u,v) \in E$}
+      \State \Call{Relax}{$u, v, w$}
+    \EndFor
+  \EndFor
+  \ForAll{$(u,v) \in E$}
+    \If{$d[v] > d[u] + w(u,v)$}
+      \State \Return \textsc{false}
+    \EndIf
+  \EndFor
+  \State \Return \textsc{true}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Its running time is $O(|V|\,|E|)$.
+
+\end{document}

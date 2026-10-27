@@ -1,0 +1,74 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Warsaw}
+\usecolortheme{seahorse}
+\usepackage{booktabs}
+
+\title[Thesis Defense]{Low-Power Wireless Sensor Networks for Precision Agriculture}
+\author[I. Novak]{Ivana Novak}
+\institute[UZ]{Faculty of Electrical Engineering\\University of Zagreb}
+\date{9 July 2026}
+
+\AtBeginSection[]{
+  \begin{frame}{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\section{Motivation}
+\begin{frame}{Why monitor soil moisture?}
+  \begin{itemize}
+    \item Agriculture uses about 70\% of global freshwater.
+    \item Over-irrigation leaches nutrients and wastes energy.
+    \item Sensor networks enable irrigation on demand.
+  \end{itemize}
+\end{frame}
+
+\section{System design}
+\begin{frame}{Node architecture}
+  \begin{description}
+    \item[MCU] ARM Cortex-M0+, 48 MHz
+    \item[Radio] LoRa, 868 MHz, SF7--SF12
+    \item[Sensors] capacitive moisture, temperature
+    \item[Power] 2 $\times$ AA cells, solar trickle charge
+  \end{description}
+\end{frame}
+
+\section{Results}
+\begin{frame}{Battery lifetime}
+  \begin{table}
+    \centering
+    \begin{tabular}{lrr}
+      \toprule
+      Duty cycle & Current ($\mu$A) & Lifetime (months) \\
+      \midrule
+      1 sample/min  & 210 & 9 \\
+      1 sample/10 min & 38 & 31 \\
+      Adaptive & 24 & 46 \\
+      \bottomrule
+    \end{tabular}
+    \caption{Measured average current and projected lifetime.}
+  \end{table}
+\end{frame}
+
+\begin{frame}{Field trial}
+  \begin{exampleblock}{Outcome}
+    Adaptive irrigation reduced water use by 23\% with no loss in yield.
+  \end{exampleblock}
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}{Summary}
+  \begin{enumerate}
+    \item Adaptive sampling quadruples battery life.
+    \item LoRa range of 2.1~km is sufficient for most farms.
+    \item Future work: energy harvesting from soil microbial fuel cells.
+  \end{enumerate}
+  \vfill
+  \centering\Large Thank you!
+\end{frame}
+
+\end{document}

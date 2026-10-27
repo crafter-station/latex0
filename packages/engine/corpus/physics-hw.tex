@@ -1,0 +1,57 @@
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage{graphicx}
+\usepackage[margin=1in]{geometry}
+\usepackage{enumitem}
+
+\newcommand{\vect}[1]{\mathbf{#1}}
+\renewcommand{\thesubsection}{\thesection(\alph{subsection})}
+
+\begin{document}
+
+\begin{center}
+\textbf{\large PHYS 2210 Electromagnetism --- Homework 6}\\
+Oliver Grant \quad\textbullet\quad Due 30 October 2026
+\end{center}
+
+\section{Field of a charged ring}
+A ring of radius $R$ carries uniform charge $Q$. Find the electric field on its axis at
+distance $z$ from the centre.
+
+\subsection{Setup}
+By symmetry only the $z$-component survives. A charge element $dq$ contributes
+\[
+dE_z = \frac{1}{4\pi\varepsilon_0}\frac{dq}{z^2+R^2}\cos\theta,
+\qquad \cos\theta = \frac{z}{\sqrt{z^2+R^2}}.
+\]
+
+\subsection{Result}
+Integrating over the ring,
+\begin{equation}
+\vect{E}(z) = \frac{1}{4\pi\varepsilon_0}\frac{Qz}{(z^2+R^2)^{3/2}}\,\hat{\vect{z}}.
+\end{equation}
+For $z\gg R$ this reduces to the field of a point charge.
+
+\section{Numerical example}
+Take $Q = \SI{5.0}{\nano\coulomb}$, $R = \SI{10}{\centi\metre}$ and
+$z = \SI{20}{\centi\metre}$. Then
+\[
+E = \num{8.99e9} \times \frac{\num{5.0e-9}\times 0.20}{(0.05)^{3/2}}
+  \approx \SI{804}{\volt\per\metre}.
+\]
+
+\section{Magnetic field of a solenoid}
+Using Amp\`ere's law with a rectangular loop,
+\[
+\oint \vect{B}\cdot d\vect{l} = \mu_0 I_{\text{enc}}
+\quad\Longrightarrow\quad B = \mu_0 n I.
+\]
+\begin{enumerate}[label=(\roman*)]
+  \item For $n = \SI{1200}{\per\metre}$ and $I = \SI{2.5}{\ampere}$:
+        $B = \SI{3.77}{\milli\tesla}$.
+  \item Doubling the current doubles the field.
+  \item The field outside an ideal solenoid is zero.
+\end{enumerate}
+
+\end{document}

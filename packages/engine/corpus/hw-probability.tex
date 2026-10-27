@@ -1,0 +1,59 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\geometry{a4paper, left=25mm, right=25mm, top=30mm, bottom=30mm}
+\usepackage{xcolor}
+
+\newenvironment{solution}{\par\noindent\textbf{\textcolor{blue}{Solution.}}\ }{\hfill$\square$\par\medskip}
+\newcommand{\Prob}{\mathbb{P}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Var}{\operatorname{Var}}
+
+\begin{document}
+\noindent\textbf{STAT 2001: Probability} \hfill \textbf{Homework 2}\\
+\noindent Name: Priya Raman \hfill Student ID: 4471902
+\par\noindent\rule{\textwidth}{0.4pt}
+
+\paragraph{Question 1.} A fair die is rolled twice. What is the probability that the sum is 8?
+
+\begin{solution}
+The favourable outcomes are $(2,6),(3,5),(4,4),(5,3),(6,2)$, so
+$\Prob(\text{sum}=8) = 5/36$.
+\end{solution}
+
+\paragraph{Question 2.} Let $X\sim\mathrm{Binomial}(n,p)$. Compute $\E[X]$ and $\Var(X)$.
+
+\begin{solution}
+Write $X = \sum_{i=1}^{n} X_i$ with independent $X_i \sim \mathrm{Bernoulli}(p)$. Then
+\[
+\E[X] = \sum_{i=1}^{n}\E[X_i] = np, \qquad
+\Var(X) = \sum_{i=1}^{n}\Var(X_i) = np(1-p).
+\]
+\end{solution}
+
+\paragraph{Question 3.} Bayes' rule. A test for a disease has sensitivity $0.95$ and
+specificity $0.90$. The prevalence is $1\%$. Given a positive test, what is the
+probability of disease?
+
+\begin{solution}
+Let $D$ be the event of disease and $T$ a positive test.
+\begin{equation}
+\Prob(D \mid T) = \frac{\Prob(T\mid D)\Prob(D)}{\Prob(T\mid D)\Prob(D) + \Prob(T\mid D^c)\Prob(D^c)}
+ = \frac{0.95\cdot 0.01}{0.95\cdot0.01 + 0.10\cdot 0.99} \approx 0.0876.
+\label{eq:bayes}
+\end{equation}
+Equation~\eqref{eq:bayes} shows that even a good test gives under 9\% here.
+\end{solution}
+
+\paragraph{Question 4.} Let $X$ have density $f(x) = \lambda e^{-\lambda x}$ for $x\ge 0$.
+Show that $\Prob(X > s+t \mid X > s) = \Prob(X>t)$.
+
+\begin{solution}
+Since $\Prob(X>x) = e^{-\lambda x}$,
+\[
+\Prob(X>s+t\mid X>s) = \frac{e^{-\lambda(s+t)}}{e^{-\lambda s}} = e^{-\lambda t} = \Prob(X>t).
+\]
+\end{solution}
+
+\end{document}

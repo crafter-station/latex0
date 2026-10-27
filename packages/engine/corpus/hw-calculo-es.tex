@@ -1,0 +1,49 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{enumitem}
+
+\title{Cálculo Diferencial --- Taller 3}
+\author{María Fernanda López \\ Código 202312345}
+\date{15 de septiembre de 2026}
+
+\begin{document}
+\maketitle
+
+\section*{Ejercicio 1}
+Calcule los siguientes límites.
+\begin{enumerate}[label=\alph*)]
+  \item $\displaystyle\lim_{x\to 0} \frac{\sin 3x}{x} = 3$, pues $\lim_{u\to0}\frac{\sin u}{u}=1$.
+  \item $\displaystyle\lim_{x\to\infty} \left(1+\frac{2}{x}\right)^{x} = e^{2}$.
+  \item $\displaystyle\lim_{x\to 1} \frac{x^2-1}{x-1} = \lim_{x\to1}(x+1) = 2$.
+\end{enumerate}
+
+\section*{Ejercicio 2}
+Derive $f(x) = x^2 e^{-x}\cos x$.
+
+Usando la regla del producto,
+\begin{align*}
+f'(x) &= 2x e^{-x}\cos x - x^2 e^{-x}\cos x - x^2 e^{-x}\sin x \\
+      &= x e^{-x}\bigl(2\cos x - x\cos x - x\sin x\bigr).
+\end{align*}
+
+\section*{Ejercicio 3}
+Encuentre los puntos críticos de $g(x) = x^3 - 6x^2 + 9x + 1$ y clasifíquelos.
+
+Tenemos $g'(x) = 3x^2 - 12x + 9 = 3(x-1)(x-3)$, de modo que los puntos críticos
+son $x=1$ y $x=3$. Como $g''(x) = 6x - 12$, se tiene $g''(1) = -6 < 0$ (máximo local)
+y $g''(3) = 6 > 0$ (mínimo local).
+
+\section*{Ejercicio 4}
+Demuestre que la ecuación $x^5 + x - 1 = 0$ tiene exactamente una raíz real.
+
+\emph{Existencia.} Sea $h(x) = x^5+x-1$. Como $h(0)=-1<0$ y $h(1)=1>0$, por el
+teorema del valor intermedio existe $c\in(0,1)$ con $h(c)=0$.
+
+\emph{Unicidad.} $h'(x) = 5x^4+1>0$ para todo $x$, así que $h$ es estrictamente
+creciente y no puede tener dos raíces. \hfill$\blacksquare$
+
+\end{document}

@@ -1,0 +1,63 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[a4paper,top=3cm,bottom=3cm,left=2.5cm,right=2.5cm,headheight=14pt]{geometry}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=black,urlcolor=blue]{hyperref}
+
+\definecolor{brand}{RGB}{200,50,30}
+\titleformat{\section}{\Large\bfseries\color{brand}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.5em}{}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Northwind Logistics}
+\fancyhead[R]{Annual Sustainability Report 2026}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\begin{document}
+
+\begin{titlepage}
+\centering
+\includegraphics[width=4cm]{blocks.png}\par\vspace{2cm}
+{\Huge\bfseries Annual Sustainability Report\par}
+\vspace{0.5cm}
+{\Large Fiscal Year 2026\par}
+\vfill
+{\large Northwind Logistics plc\par}
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Message from the CEO}
+This year we cut emissions per tonne-kilometre by 9\% while growing volumes by 4\%. We
+remain on track for our 2030 target of a 45\% reduction against the 2019 baseline.
+
+\section{Emissions}
+\subsection{Scope 1 and 2}
+Direct emissions from our fleet fell to 182\,kt CO\textsubscript{2}e, mainly due to the
+introduction of 140 electric vans in urban depots.
+
+\subsection{Scope 3}
+Purchased transport remains our largest source. We have begun requiring carbon data from
+all subcontractors with more than 50 vehicles.
+
+\section{People}
+\begin{itemize}
+  \item Lost-time injury rate: 0.42 per 200\,000 hours (2025: 0.51).
+  \item Women in management: 31\% (2025: 28\%).
+  \item Training hours per employee: 22.
+\end{itemize}
+
+\section{Governance}
+The Sustainability Committee met four times. Its terms of reference are available at
+\url{https://northwind.example.com/governance}.
+
+\end{document}
