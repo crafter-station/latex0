@@ -82,7 +82,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
     // \par in the text (a group that holds whole paragraphs, {\large … \par}) or skips between paragraphs
     if (needsVerticalMode(b.text)) {
-      if (run.runIn || b.noindent || b.afterThm || b.floats) throw new Unsupported("\\par or a skip here")
+      if (run.runIn) throw new Unsupported("\\par or a skip right after a run-in heading")
+      if (b.noindent || b.afterThm) throw new Unsupported("\\par or a skip right after a list")
       v.par()
       verticalMaterial(cx, b.text, { size: "normalsize", attrs: cx.normalAttrs, align: null }, true)
       return

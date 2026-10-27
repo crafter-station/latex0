@@ -1,0 +1,21 @@
+% fixture: floats/float-in-declared-paragraph
+% tier: T3
+% engine: document
+% covers: floats that start in a paragraph read in vertical mode (after \bigskip, in a size group that ends its paragraph): their \vadjust where they stand
+% issue: #329
+\documentclass{article}
+\begin{document}
+\bigskip
+Text before a float that is in the paragraph
+\begin{figure}[t]
+\centering
+\caption{A caption.}
+\end{figure}
+and the paragraph goes on.
+
+{\large A group paragraph
+\begin{table}[h]
+\caption{Another.}
+\end{table}
+with a float in it.\par}
+\end{document}

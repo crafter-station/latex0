@@ -569,8 +569,9 @@ export function makeDocument(r: () => number): string {
         const env = pick(["itemize", "enumerate", "itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright"]
           .filter((e) => !(e === "itemize" && items >= 4) && !(e === "enumerate" && enums >= 4) && !(depth >= 6 && !["center", "flushleft", "flushright"].includes(e))))
         const deeper = ["center", "flushleft", "flushright"].includes(env) ? depth : depth + 1
+        let lead = ""
         const nest = () => {
-          if (deeper < 6 && r() < 0.25 / depth) {
+          if (!lead && deeper < 6 && r() < 0.25 / depth) {
             list(deeper + (deeper === depth ? 1 : 0), items + (env === "itemize" ? 1 : 0), enums + (env === "enumerate" ? 1 : 0))
             if (r() < 0.3) out.push(text(3 + Math.floor(r() * 20)))
           }
@@ -587,7 +588,7 @@ export function makeDocument(r: () => number): string {
         } else {
           const crs = ["center", "flushleft", "flushright", "verse"].includes(env)
           // (declarations in it, which last to its end)
-          const lead = r() < 0.15 ? pick(["\\large ", "\\bfseries ", "\\Large\\bfseries ", "\\small\\itshape ", "\\em "]) : ""
+          lead = r() < 0.15 ? pick(["\\large ", "\\bfseries ", "\\Large\\bfseries ", "\\small\\itshape ", "\\em "]) : ""
           for (let i = 1 + Math.floor(r() * 3); i > 0; i--) {
             const lines = Array.from({ length: crs ? 1 + Math.floor(r() * 3) : 1 }, () => text(r() < 0.3 ? 20 + Math.floor(r() * 40) : 2 + Math.floor(r() * 10)))
             out.push((i === 1 ? lead : "") + lines.join(" \\\\\n") + (crs && r() < 0.15 ? " \\\\" : ""))
@@ -650,9 +651,10 @@ export function makeDocument(r: () => number): string {
       }
       if (!parts.join("").trim()) parts[0] = text(10)
       // a group that ends its paragraph ({\large … \par}), \centering and friends in one, skips before it
-      const v = r()
+      // (not right after a run-in heading)
+      const v = /\\(?:sub)?paragraph\*?\{[^{}]*\}\s*$|^\\thm$/.test(out[out.length - 1] ?? "") ? 1 : r()
       if (parts.length === 1 && v < 0.06) parts[0] = `{${pick(["\\large", "\\small\\itshape", "\\centering", "\\raggedleft\\bfseries", "\\Large\\raggedright", "\\sffamily"])} ${parts[0]}\\par}`
-      else if (parts.length === 1 && v < 0.1) parts[0] = `${pick(["\\bigskip", "\\medskip", "\\smallskip", "\\vspace*{4pt}"])}\n${parts[0]}`
+      else if (parts.length === 1 && v < 0.1) parts[0] = `${pick(["\\bigskip", isLetter ? "\\bigskip" : "\\medskip", "\\smallskip", "\\vspace*{4pt}"])}\n${parts[0]}`
       out.push("", parts.join("\n"))
       afterPar = true
     }
