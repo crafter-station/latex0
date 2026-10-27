@@ -11,7 +11,7 @@ import { hpack, vpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
 import { centering as centeringShape, raggedleft, raggedright, sloppy } from "./kernel"
-import { copyKeys, runList, setCaptionKeys, type CaptionFont } from "./captionsetup"
+import { copyKeys, runList, setCaptionKeys, type CaptionFont, type CaptionKeys } from "./captionsetup"
 import { widthRegisters } from "./boxes"
 import { singleSpaced } from "./setspace"
 import { Unsupported } from "./unsupported"
@@ -131,19 +131,37 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
     // (\caption@addcontentsline: none for list=false, nor for an empty short caption)
     if (keys.list && short !== "") out.push(lofLine(cx, env, number, short))
   }
-  if (xcolor.on) out.push(colorPush()) // (\caption@normalsize's \normalcolor, popped where its group ends)
+  // the label (\caption@labelformat{\figurename}{\thefigure}; for a subcaption, \subfigurename: empty)
+  const name = isSub ? "" : keys.names[env] ?? (env === "figure" ? "Figure" : "Table"), the = sub ?? counters.the(number)
+  // hyperref without hypcap: \caption@makeanchor, \hyper@@anchor's H.S H.R before the text
+  captionMake(cx, keys, f, { name, the, isSub, star, text, anchor: hyper && !f.hypcap && !star, normalcolor: true }, hsize, out)
+  if (star) return null
+  return { number, label: counters.the(number) + (sub ?? ""), name: labelName(short), ...(sub ? { sub } : {}) }
+}
+
+/** what \caption@@make sets: the label's name and number (\caption@labelformat's arguments), \caption* and the
+ *  text, whether the text starts with hyperref's anchor (at refs.href), whether \caption@normalsize's \normalcolor
+ *  comes first, and the skips when not the keys' */
+export interface CaptionMake { name: string; the: string; isSub: boolean; star: boolean; text: string; anchor: boolean; normalcolor: boolean; skips?: { above: Node; below: Node } }
+
+/** \caption@@make with `keys`: the skips around the caption (the position fixed in `f`), and the caption's paragraph */
+export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAbove: boolean }, c: CaptionMake, hsize: number, out: CaptionOut) {
+  const { refs, run } = cx
+  const { isSub, star, text } = c
+  const color = xcolor.on && c.normalcolor
+  if (color) out.push(colorPush()) // (\caption@normalsize's \normalcolor, popped where its group ends)
   // \caption@normalsize (\normalfont\normalsize), then \captionfont; \captionlabelfont and \captiontextfont after it
   const cf = captionFont(cx, { size: "normalsize", attrs: cx.normalAttrs }, keys.font)
   const lf = captionFont(cx, cf, keys.labelfont), tf = captionFont(cx, cf, keys.textfont)
   const lfont = selectFont(run.k, lf.size, lf.attrs), cfont = selectFont(run.k, cf.size, cf.attrs), sz = run.k.sizes[tf.size]
-  const above = keys.above ?? run.k.dimens.abovecaptionskip, below = keys.below ?? run.k.dimens.belowcaptionskip
+  const above = c.skips?.above ?? glue(keys.above ?? run.k.dimens.abovecaptionskip), below = c.skips?.below ?? glue(keys.below ?? run.k.dimens.belowcaptionskip)
   // (\caption@fixposition: the first caption in a group, or in the float around it, fixes the position)
   const top = f.top ??= keys.position === "auto" ? !f.subAbove && out.prevDepth() === IGNORE_DEPTH : keys.position === "top"
-  if (top) out.push(glue(below))
-  else { out.rule(); out.push(glue(above)) }
-  // the label (\caption@labelformat{\figurename}{\thefigure}; label format original is \fnum@figure, and for a
-  // subcaption, with no \fnum@subfigure, simple), empty for \caption*
-  const name = isSub ? "" : keys.names[env] ?? (env === "figure" ? "Figure" : "Table"), the = sub ?? counters.the(number)
+  if (top) out.push(below)
+  else { out.rule(); out.push(above) }
+  // the label (label format original is \fnum@figure, and for a subcaption, with no \fnum@subfigure, simple),
+  // empty for \caption*
+  const { name, the } = c
   const fmt = keys.labelformat === "original" && isSub ? "simple" : keys.labelformat
   const label = star || fmt === "empty" ? null : { nbsp: fmt === "original" || name !== "", name, the: fmt === "parens" ? `(${the})` : fmt === "brace" ? `${the})` : the }
   // (the separator is none after an empty label, \caption@tempa, or before empty text)
@@ -205,8 +223,7 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
     } else start.push(...sepNodes(false))
   }
   start.push(...strut())
-  // hyperref without hypcap: \caption@makeanchor, \hyper@@anchor's H.S H.R before the text
-  if (hyper && !f.hypcap && !star) start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width))
+  if (c.anchor) start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width))
   lines.push(...out.lines(start, text, opts, tf.size))
   const inner: Node[] = []
   let pd: number | null = IGNORE_DEPTH
@@ -215,11 +232,9 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
     else inner.push(n)
   }
   out.paragraph([hpack([]), glue(left + indent), vpack(inner)], "") // (the \hspace after the \parbox goes at the paragraph's end)
-  if (top) { out.push(glue(above)); out.rule() }
-  else out.push(glue(below))
-  if (xcolor.on) out.push(colorPop())
-  if (star) return null
-  return { number, label: counters.the(number) + (sub ?? ""), name: labelName(short), ...(sub ? { sub } : {}) }
+  if (top) { out.push(above); out.rule() }
+  else out.push(below)
+  if (color) out.push(colorPop())
 }
 
 /** a font and size and the caption font keys after it, as \captionfont and the others select them */

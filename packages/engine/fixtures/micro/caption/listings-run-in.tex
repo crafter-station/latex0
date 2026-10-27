@@ -1,0 +1,24 @@
+% fixture: caption/listings-run-in
+% tier: T3
+% engine: document
+% covers: caption.sty's \lst@MakeCaption b with a bottom frame: \lst@frameExit leaves the frame's paragraph open, so its \@esphack runs in horizontal mode and puts no \nobreak there, although \if@noskipsec is still true from a run-in heading lost to an empty listing
+% issue: #294
+\documentclass{article}
+\usepackage{caption}
+\usepackage{listings}
+\begin{document}
+Text.
+
+\paragraph{to by}
+\begin{lstlisting}
+\end{lstlisting}
+\begin{lstlisting}[frame=single]
+\end{lstlisting}
+\begin{lstlisting}[frame=b]
+x = 1
+\end{lstlisting}
+\begin{lstlisting}
+y = 2
+\end{lstlisting}
+
+\end{document}

@@ -146,11 +146,19 @@ export function setCaptionKeys(k: CaptionKeys, src: string, at: KeysAt, dim: ((v
  *  (\caption@opt@<type>) for figure, table, sub, subfigure and subtable */
 export interface CaptionSetup { keys: CaptionKeys; lists: Record<string, string[]> }
 
-export const CAPTION_LISTS = ["figure", "table", "sub", "subfigure", "subtable"]
+export const CAPTION_LISTS = ["figure", "table", "sub", "subfigure", "subtable", "lstlisting"]
 
 /** a type's option list run on `k` (\caption@setoptions{type}) */
-export function runList(setup: CaptionSetup, type: string, k: CaptionKeys, at: KeysAt, dim: ((v: string) => number) | null, captype: "figure" | "table"): { position: boolean } {
+export function runList(setup: CaptionSetup, type: string, k: CaptionKeys, at: KeysAt, dim: ((v: string) => number) | null, captype?: "figure" | "table"): { position: boolean } {
   let position = false
   for (const src of setup.lists[type] ?? []) position = setCaptionKeys(k, src, at, dim, captype).position || position
   return { position }
+}
+
+/** the \caption@setkeys calls \caption@setoptions{type} makes (each one's \@bsphack and \@esphack): none for a
+ *  type with no list, else one, and one more for each font key (\caption@addtofont's own) */
+export function setkeysCalls(setup: CaptionSetup, type: string): number {
+  const list = setup.lists[type] ?? []
+  if (!list.length) return 0
+  return 1 + list.reduce((n, src) => n + keyvals(src).filter(([key]) => /^(?:label|text)?font\+?$/.test(key)).length, 0)
 }
