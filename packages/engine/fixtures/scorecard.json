@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 497,
-  "exact": 494,
-  "expectedFailures": 1,
+  "fixtures": 507,
+  "exact": 505,
+  "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 332355
+  "glyphs": 333424
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 119,
-   "exact": 118
+   "fixtures": 129,
+   "exact": 129
   },
   {
    "area": "bibliography",
@@ -1433,8 +1433,8 @@
    "file": "micro/beamer/frame-specials.tex",
    "area": "beamer",
    "tier": "T3",
-   "reached": null,
-   "status": "xfail",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 90,
    "covers": "beamer: every special of a frame's page, outside the column too (the shipout/firstpage specials, pgf's PostScript header for the navigation symbols, the page's anchors and colors)",
    "issue": "#296"
@@ -1878,6 +1878,116 @@
    "glyphs": 187,
    "covers": "beamer: math in a frame: inline $…$ (beamer's sans serif math: operators and digits cmss, Latin letters cmss italic with its ligatures, Greek cmmi, \\mathbf cmssbx), a \\[ \\] display in a paragraph, a numbered equation (amsmath's tag and hyperref's anchor), align with two rows, ragged right around them, amsmath's \\, in text, a frame that ends with a display",
    "issue": "#307"
+  },
+  {
+   "id": "beamer/navsymbols-20pt-pdf",
+   "file": "micro/beamer/navsymbols-20pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "beamer under pdflatex: the navigation symbols at the 20pt size (the sidebar's \\Tiny font is the same)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-20pt",
+   "file": "micro/beamer/navsymbols-20pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "beamer: the navigation symbols at the 20pt size (the sidebar's \\Tiny font is the same)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-8pt-pdf",
+   "file": "micro/beamer/navsymbols-8pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "beamer under pdflatex: the navigation symbols at the 8pt size (the sidebar's \\Tiny font is the same)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-8pt",
+   "file": "micro/beamer/navsymbols-8pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "beamer: the navigation symbols at the 8pt size (the sidebar's \\Tiny font is the same)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-pdf",
+   "file": "micro/beamer/navsymbols-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 97,
+   "covers": "beamer under pdflatex: the default navigation symbols (pgf objects replayed in each picture, pdfTeX links)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-sections-pdf",
+   "file": "micro/beamer/navsymbols-sections-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 176,
+   "covers": "beamer under pdflatex: the navigation symbols' links to the slide, frame, subsection, section and document pages the last run's .nav gives (sections, subsections, overlays)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-sections",
+   "file": "micro/beamer/navsymbols-sections.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 176,
+   "covers": "beamer: the navigation symbols' links to the slide, frame, subsection, section and document pages the last run's .nav gives (sections, subsections, overlays)",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-whale-pdf",
+   "file": "micro/beamer/navsymbols-whale-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 164,
+   "covers": "beamer under pdflatex: the navigation symbols in a color theme's colors, with the infolines footline",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols-whale",
+   "file": "micro/beamer/navsymbols-whale.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 164,
+   "covers": "beamer: the navigation symbols in a color theme's colors, with the infolines footline",
+   "issue": "#311"
+  },
+  {
+   "id": "beamer/navsymbols",
+   "file": "micro/beamer/navsymbols.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "beamer: the default navigation symbols (pgf objects in the PostScript header, their pictures and link boxes in the right sidebar)",
+   "issue": "#311"
   },
   {
    "id": "beamer/overlay-boundaries-pdf",

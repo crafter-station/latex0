@@ -27,7 +27,7 @@ import { newOverlay } from "./overlays"
 import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource } from "./frame"
 import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { beamerPage } from "./page"
-import { beamerFirstPage, linkPages, navigationObjects, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
+import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
@@ -71,9 +71,9 @@ export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdft
  *  Doc-Start anchor, the document information, the page labels (frame numbers) the last run wrote), then beamerbasecolor.sty's
  *  \AtBeginDocument colors (four \color's at the outer level). The class's pgf objects (navigation.ts) come after
  *  LaTeX's \write. */
-function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
+function documentBegin(pre: BeamerPreamble, prev: Aux | null, objects: Node[]): Node[] {
   const sdict = (s: string): Node => ({ kind: "whatsit", text: `\\special{ps:SDict begin ${s} end}` })
-  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...navigationObjects(), ...documentStart(prev ? prev.bookmarks : [], true)]
+  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...objects, ...documentStart(prev ? prev.bookmarks : [], true)]
   out.push(...anchor("Doc-Start", pre.k.sizes.normalsize.baselineskip.width, "v", out.at(-1)))
   // (with pdfTeX the document information and the page labels are \pdfinfo and \pdfcatalog: no nodes)
   if (hyperDriver.pdftex) { out.push(colorPush(), colorPush(), colorPush(), colorPush()); return out }
@@ -137,7 +137,8 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
-  v.nodes = documentBegin(pre, prev)
+  const pgf = navigationPgf(driver)
+  v.nodes = documentBegin(pre, prev, pgf.nodes)
   const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
     sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 } }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
@@ -156,7 +157,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   const shipped: BoxNode[] = columns.map((c, i) => {
     const foot: ParagraphTrace[] = []
     const page = pages[i].count
-    const symbols = pre.navigationSymbols ? [navigationSymbols(pre.theme, symbolColors, page, links[page - 1])] : []
+    const symbols = pre.navigationSymbols ? [navigationSymbols(pgf, pre.theme, symbolColors, page, links[page - 1])] : []
     const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, () => footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, cx.pageFrames[i], page), foot), symbols)
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     const shown = pgfBackground(box, i === 0)
