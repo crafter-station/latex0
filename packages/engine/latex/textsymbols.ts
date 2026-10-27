@@ -9,8 +9,8 @@ import type { ClassOptionData, SizeCommand } from "../layout/classdata"
 import { parseDimen } from "../layout/dimen"
 import { QUAD, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { appendText as appendCodes } from "../layout/hmode"
-import { appendText, SYMBOLS as LETTERS } from "./encodings"
-import { charNode, kern, penalty, ssGlue, type Node } from "../layout/nodes"
+import { accentHyphens, appendText, SYMBOLS as LETTERS } from "./encodings"
+import { charNode, glue, kern, penalty, ssGlue, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
 
@@ -94,7 +94,8 @@ export function appendSymbols(list: Node[], text: string, font: Font, env: Symbo
   let run = ""
   const flush = () => { if (run) appendText(list, run, font, state, paragraph); run = "" }
   const em = (d: string) => parseDimen(d, { em: font.params[QUAD], ex: font.params[X_HEIGHT] })
-  for (const ch of text) {
+  const chars = [...text]
+  for (const [at, ch] of chars.entries()) {
     if (!PRIVATE.test(ch)) { run += ch; continue }
     const name = NAMES[ch.charCodeAt(0) - 0xe100], s = SYMBOLS[name]
     if (s[enc] !== undefined) { run += ch; continue } // (encodings.ts puts it in the encoding)
@@ -110,7 +111,15 @@ export function appendSymbols(list: Node[], text: string, font: Font, env: Symbo
     if (s.OMS !== undefined) { appendCodes(list, String.fromCharCode(s.OMS), env.select("OMS"), state, paragraph); continue }
     if (s.OML !== undefined) { appendCodes(list, String.fromCharCode(s.OML), env.select("OML"), state, paragraph); continue }
     // \add@accent{94 or 126}{}: \accent with no letter after it, the space factor 1000
-    if (name === "textasciicircum" || name === "textasciitilde") { list.push(charNode(font, name === "textasciicircum" ? 94 : 126)); state.spaceFactor = 1000; continue }
+    if (name === "textasciicircum" || name === "textasciitilde") {
+      list.push(charNode(font, name === "textasciicircum" ? 94 : 126)); state.spaceFactor = 1000
+      // (spanish.ldf's \~ is \es@accent: \bbl@allowhyphens after it unless a space follows)
+      if (name === "textasciitilde" && accentHyphens.on) {
+        if (at + 1 >= chars.length) throw new Unsupported("spanish.ldf's \\textasciitilde before a command") // (what \futurelet sees)
+        if (chars[at + 1] !== " ") list.push(penalty(10000), glue(0))
+      }
+      continue
+    }
     if (name === "textunderscore") { list.push(kern(em(".06em"), true), vpack([{ kind: "rule", width: em(".3em"), height: 26214, depth: 0 }])); state.spaceFactor = 1000; continue }
     throw new Unsupported(`\\${name} in ${enc}`)
   }
