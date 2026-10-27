@@ -38,8 +38,8 @@ export interface RunState {
   /** caption.sty in the float being read: the number a subcaption stepped its counter to (\caption then takes it,
    *  `pending`, instead of stepping it again), the subcaption counter, and the position the group's first
    *  \caption fixed (\caption@fixposition: on top or not, null before), and whether a subcaption came before
-   *  the float's \caption (\caption@ifsubcaption@above: position=auto is then bottom) */
-  floatCaption: { number: number | null; pending: boolean; sub: number; top: boolean | null; subAbove: boolean }
+   *  the float's \caption (\caption@ifsubcaption@above: position=auto is then bottom); with hyperref, hypcap's anchor name */
+  floatCaption: { number: number | null; pending: boolean; sub: number; top: boolean | null; subAbove: boolean; hypcap?: string }
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box
    *  (`em`: of the font where its \everypar runs, which reads \hskip -\@tempskipa's -1em) */
   runIn: ((em?: number, parindent?: number) => Node[]) | null

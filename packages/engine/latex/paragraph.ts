@@ -696,8 +696,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "ref" || p.kind === "pageref") {
       // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}
       if (p.kind === "ref" && p.sub && !doc.subcaption) throw new Unsupported("\\subref without subcaption")
-      if (p.kind === "ref" && p.sub && doc.refs?.hyper) throw new Unsupported("\\subref with hyperref") // (\hyperref[key]{…})
       const known = doc.refs?.prev?.get(p.key)
+      if (p.kind === "ref" && p.sub && doc.refs?.hyper) {
+        // with hyperref, \hyperref[key]{\ref*{sub@key}}: \ref*'s text and \null, in a link to key's anchor when key is defined
+        let text: Node[] = []
+        if (known) { appendText(text, known.label, font, state, !ctx.restricted); text.push(hpack([])) }
+        else { appendText(text, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false); text = [hpack(text)] }
+        const target = doc.refs.prev?.get(p.key.slice("sub@".length))
+        list.push(...(target ? refLink(text, target.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined) : text))
+        state.spaceFactor = 1000
+        continue
+      }
       if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
         const text: Node[] = []

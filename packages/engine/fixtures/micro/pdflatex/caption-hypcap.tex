@@ -1,0 +1,41 @@
+% fixture: pdflatex/caption-hypcap
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: under pdflatex (hpdftex.def: hypcap's anchor a \pdfdest in vertical mode, links \pdfstartlink … \pdfendlink): caption.sty and subcaption with hyperref: subcaptions (sub's hypcap=0) without an anchor, their \label and sub@ label pointing at the float's figure.caption.n with nameref's name, the float's caption on top after its anchor; \subref as \hyperref[key]{\ref*{sub@key}} (a link around the text and \null), an undefined one as ?? without a link, \ref links to sub labels
+% issue: #273
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{subcaption}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Setup}
+\label{fig:s}
+\end{subfigure}
+\begin{subfigure}{0.45\textwidth}
+\begin{tabular}{c}Y\end{tabular}
+\caption{Period vs length of the pendulum measured in the lab.}\label{fig:p}
+\end{subfigure}
+\caption{The experiment.}
+\label{fig:e}
+\end{figure}
+See \subref{fig:s}, \subref{fig:p}. and \ref{fig:s} in \ref{fig:e}, not \subref{fig:none}.
+\begin{table}[h]
+\caption{Before the subtables.}
+\begin{subtable}{0.3\textwidth}
+\caption{First}\label{tab:a}
+\begin{tabular}{ll}a & b\\\end{tabular}
+\end{subtable}
+\hfill
+\begin{subtable}[b]{0.3\textwidth}
+\begin{tabular}{ll}c & d\\\end{tabular}
+\caption{Second}
+\end{subtable}
+\end{table}
+Table~\ref{tab:a} and \subref{tab:a}.
+\end{document}

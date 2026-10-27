@@ -88,7 +88,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
       // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>
       if (cap.sub !== undefined) {
         if (cx.pre.cleveref) throw new Unsupported("a subcaption's \\label with cleveref")
-        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, refs.name))
+        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, hyper ? cap.name : refs.name))
         continue
       }
       list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: cap.label }))

@@ -1,0 +1,48 @@
+% fixture: caption/hypcap
+% tier: T3
+% engine: document
+% covers: caption.sty with hyperref (hypcap=true): the float's figure.caption.n anchor at its start (\nointerlineskip, \vspace*{-.5\baselineskip}, H.S H.A /DEST, \vspace*{.5\baselineskip}, \prevdepth restored), no anchor in the caption's text, the lof line and \label pointing at it with nameref's name, \ref and \pageref links to it; a heading's section* anchor sharing \Hy@linkcounter; a float with no caption (still its anchor), captions in minipages and two captions in one float (all at the float's anchor), a \vspace after the anchor
+% issue: #273
+\documentclass{article}
+\usepackage{caption}
+\usepackage{hyperref}
+\begin{document}
+Text before the floats.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Short.}
+\label{fig:a}
+\end{figure}
+\section*{Unnumbered}
+\begin{table}[h]
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\label{tab:b}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+See Figure~\ref{fig:a} on page~\pageref{fig:a} and Table~\ref{tab:b}.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}No caption, still an anchor\end{tabular}
+\end{figure}
+\begin{figure}[h]
+\centering
+\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{Left, with a caption long enough to take two lines.}\label{fig:l}
+\end{minipage}\hfill
+\begin{minipage}{0.45\textwidth}
+\centering
+\begin{tabular}{c}B\end{tabular}
+\caption{Right.}\label{fig:r}
+\end{minipage}
+\end{figure}
+\begin{table}[h]
+\vspace{20pt}
+\caption{Above, after a skip.}
+\begin{tabular}{ll}a & b\\\end{tabular}
+\caption{Below, the second caption of the table.}\label{tab:c}
+\end{table}
+Figures \ref{fig:l} and \ref{fig:r}, Table~\ref{tab:c}.
+\end{document}
