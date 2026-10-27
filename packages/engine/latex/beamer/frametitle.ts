@@ -2,7 +2,7 @@
 // template), as beamerbaseframe.sty builds \beamer@frametitlebox once the frame's
 // material is read: \vbox{\vbox{}{\parskip0pt\usebeamertemplate***{frametitle}
 // \vskip0.25em}}, unboxed into the frame. The template is a beamercolorbox
-// [sep=0.3cm,left,wd=\textwidth+the margins]{frametitle} in \usebeamerfont{frametitle}:
+// [sep=0.3cm,left (or right),wd=\textwidth+the margins]{frametitle} in \usebeamerfont{frametitle}:
 // an empty paragraph (\vbox{}), \vskip-1ex, the title between struts, the subtitle in
 // its font and color, \vskip-1ex, and \vskip-.3cm where frametitle has no bg (with
 // one, the box comes after \nointerlineskip, in its bg).
@@ -39,7 +39,9 @@ export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undef
   v.nodes.push(colorPush(outer.fg), colorPush(at.fg))
   if (bg) v.prevDepth = null // \nointerlineskip
   const d = k.dimens
-  const o = { wd: d.textwidth + d["beamer@leftmargin"] + d["beamer@rightmargin"], leftskip: dimen(0), rightskip: { width: 0, stretch: 65536, stretchOrder: 2 as const, shrink: 0, shrinkOrder: 0 as const }, sep: parseDimen("0.3cm", env), colsep: 0, colseps: 0 }
+  // (the template's option: left, or right: \leftskip and \rightskip 0pt plus1fill, 0pt; or the other way round)
+  const fill = { width: 0, stretch: 65536, stretchOrder: 2 as const, shrink: 0, shrinkOrder: 0 as const }, right = theme.frametitle === "right"
+  const o = { wd: d.textwidth + d["beamer@leftmargin"] + d["beamer@rightmargin"], leftskip: right ? fill : dimen(0), rightskip: right ? dimen(0) : fill, sep: parseDimen("0.3cm", env), colsep: 0, colseps: 0 }
   const box = beamercolorbox(k, theme, "frametitle", o, at, (b) => {
     // (\sloppy is in force, but with \rightskip's fill every line has badness 0: its tolerance decides nothing)
     const set = { hsize: b.hsize, leftskip: b.leftskip, rightskip: b.rightskip }

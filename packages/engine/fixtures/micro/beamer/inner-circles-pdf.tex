@@ -1,0 +1,54 @@
+% fixture: beamer/inner-circles-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer: the circles inner theme, navigation symbols on: its itemize and enumerate items to the third level, its table of contents with sections and subsections, the title page and a block
+% issue: #322
+\documentclass{beamer}
+\useinnertheme{circles}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Lists}
+\subsection{Itemize}
+\begin{frame}{Itemize}
+\begin{itemize}
+\item One
+\begin{itemize}
+\item Two
+\begin{itemize}
+\item Three
+\end{itemize}
+\end{itemize}
+\item[x] Labelled
+\end{itemize}
+\end{frame}
+\subsection{Enumerate}
+\begin{frame}{Enumerate}
+\begin{enumerate}
+\item One
+\begin{enumerate}
+\item Two
+\begin{enumerate}
+\item Three
+\end{enumerate}
+\end{enumerate}
+\item Again
+\end{enumerate}
+\end{frame}
+\section{Blocks}
+\begin{frame}{Blocks}
+\begin{block}{Block}
+Text.
+\end{block}
+\end{frame}
+\end{document}

@@ -28,11 +28,14 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...outerVariants([["seahorse"], ["beaver"], ["dolphin"], ["whale", "orchid"]]),
   ...outerVariants([[], ["whale"], ["orchid"]], true),
   ...innerVariants("rounded", [[], ["whale"], ["orchid"], ["whale", "orchid"]], [["whale", "orchid"]]),
-  ...innerVariants("circles", [[]], []),
+  ...innerVariants("circles", [[], ["whale", "orchid"]], []),
+  ...innerVariants("rectangles", [[], ["whale", "orchid"]], []),
   ...outerVariants(COLOR_THEMES.map((c) => [c]), false, true),
   "infolines-headline": { preamble: ["\\useoutertheme{infolines}"], files: ["beamerouterthemeinfolines.sty"] },
   ...presentation("CambridgeUS", true, ["colorthemebeaver", "innerthemerounded", "outerthemeinfolines"]),
   ...presentation("AnnArbor", true, ["colorthemewolverine", "innerthemerounded", "outerthemeinfolines"]),
+  ...presentation("Boadilla", true, ["colorthemerose", "innerthemerounded", "colorthemedolphin", "outerthemeinfolines"]),
+  ...presentation("Pittsburgh", false, ["innerthemecircles"]),
 }
 
 /** A presentation theme (\usetheme, with shadow=false where it has the option) and the theme files it loads */

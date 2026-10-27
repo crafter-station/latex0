@@ -1,0 +1,56 @@
+% fixture: beamer/inner-rectangles-whale
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer: the rectangles inner theme after whale and orchid, no navigation symbols: its items, its table of contents
+% issue: #322
+\documentclass{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useinnertheme{rectangles}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Lists}
+\subsection{Itemize}
+\begin{frame}{Itemize}
+\begin{itemize}
+\item One
+\begin{itemize}
+\item Two
+\begin{itemize}
+\item Three
+\end{itemize}
+\end{itemize}
+\item[x] Labelled
+\end{itemize}
+\end{frame}
+\subsection{Enumerate}
+\begin{frame}{Enumerate}
+\begin{enumerate}
+\item One
+\begin{enumerate}
+\item Two
+\begin{enumerate}
+\item Three
+\end{enumerate}
+\end{enumerate}
+\item Again
+\end{enumerate}
+\end{frame}
+\section{Blocks}
+\begin{frame}{Blocks}
+\begin{block}{Block}
+Text.
+\end{block}
+\end{frame}
+\end{document}

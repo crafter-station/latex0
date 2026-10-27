@@ -13,23 +13,29 @@ export interface ColorState { fg: string; bg: string }
 
 export interface Theme { name: string; data: BeamerThemeData
   /** the inner theme (\useinnertheme): its templates */
-  inner: "default" | "rounded" | "circles"
+  inner: "default" | "rounded" | "circles" | "rectangles"
   /** the outer theme (\useoutertheme): its footline */
   outer: "default" | "infolines"
   /** the headline: the outer theme's, or the default (empty) one */
-  headline: "default" | "infolines" }
+  headline: "default" | "infolines"
+  /** the frame title's alignment (\setbeamertemplate{frametitle}[default][…]) */
+  frametitle: "left" | "right"
+  /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
+  boadillaItems?: true }
 
 /** the presentation themes (\usetheme) the data has: the inner and outer themes they load, the headline they leave */
-const PRESENTATION: Record<string, Pick<Theme, "inner" | "outer" | "headline">> = {
+const PRESENTATION: Record<string, Partial<Theme>> = {
   CambridgeUS: { inner: "rounded", outer: "infolines", headline: "infolines" },
   AnnArbor: { inner: "rounded", outer: "infolines", headline: "infolines" },
+  Boadilla: { inner: "rounded", outer: "infolines", headline: "default", boadillaItems: true },
+  Pittsburgh: { inner: "circles", frametitle: "right" },
 }
 
 export function loadTheme(name: string): Theme {
   const data = beamerThemeFile(name)
-  const t: Theme = { name, data, inner: "default", outer: "default", headline: "default" }
+  const t: Theme = { name, data, inner: "default", outer: "default", headline: "default", frametitle: "left" }
   for (const line of data.preamble) {
-    const inner = line.match(/^\\useinnertheme\{(rounded|circles)\}$/)
+    const inner = line.match(/^\\useinnertheme\{(rounded|circles|rectangles)\}$/)
     if (inner) t.inner = inner[1] as Theme["inner"]
     else if (line === "\\useoutertheme{infolines}") t.outer = t.headline = "infolines"
     else if (line === "\\setbeamertemplate{headline}[default]") t.headline = "default"
