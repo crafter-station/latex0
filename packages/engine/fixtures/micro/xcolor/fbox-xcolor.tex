@@ -1,0 +1,11 @@
+% fixture: xcolor/fbox-xcolor
+% tier: T3
+% engine: document
+% covers: \fbox and \framebox[w][pos] with xcolor loaded: its \XC@frameb@x (kerns inside, \boxframe drawn over the box) in place of the kernel's \@frameb@x, in small caps and in color
+% issue: #336
+\documentclass[11pt]{article}
+\usepackage{xcolor}
+\begin{document}
+An \fbox{framed word}, \textsc{small \framebox[1cm][l]{her}} and \framebox[3cm][r]{right}, \framebox{plain},
+\textcolor{blue}{a blue \fbox{frame $x_i^2$}} and \fbox{\parbox[t]{2cm}{a parbox in a frame that wraps}} after.
+\end{document}

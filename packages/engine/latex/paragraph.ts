@@ -127,6 +127,8 @@ export interface DocState {
   subcaption?: boolean
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
   xcolor?: boolean
+  /** xcolor (not color) is loaded: its \@frameb@x frames \fbox and \framebox */
+  xcolorFbox?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
   float?: (n: number, traces: ParagraphTrace[], club: number) => Node
   /** babel is loaded: its languages, and whether before hyperref */
@@ -843,7 +845,8 @@ const FBOXSEP = 3 * 65536, FBOXRULE = 26214
  * \@frameb@x{between}: \hbox{\lower(\fboxrule+\fboxsep+depth)\hbox{\vbox{\hrule\@height\fboxrule \hbox{\vrule\@width\fboxrule
  * between \vbox{\vskip\fboxsep\box\@tempboxa\vskip\fboxsep} between \vrule\@width\fboxrule} \hrule\@height\fboxrule}}}
  */
-function framed(box: BoxNode, between: Node[]): BoxNode {
+function framed(box: BoxNode, between: Node[], xc = false): BoxNode {
+  if (xc) return xcFramed(box, between, FBOXSEP)
   const vrule = (): Node => ({ kind: "rule", width: FBOXRULE, height: null, depth: null }), hrule = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
   const inner = vpack([hrule(), hpack([vrule(), ...between, vpack([glue(FBOXSEP), box, glue(FBOXSEP)]), ...between.map((n) => ({ ...n })), vrule()]), hrule()])
   const lowered = hpack([inner])
@@ -859,7 +862,7 @@ function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, 
   state.spaceFactor = 1000 // (after a box)
   if (p.cmd === "mbox") { list.push(hpack(content)); return }
   if (p.cmd === "fbox" || (p.cmd === "framebox" && p.opts[0] === undefined)) { // \fbox: \hbox{\kern\fboxsep{text}\kern\fboxsep}, framed
-    list.push(framed(hpack([kern(FBOXSEP, true), ...content, kern(FBOXSEP, true)]), []))
+    list.push(framed(hpack([kern(FBOXSEP, true), ...content, kern(FBOXSEP, true)]), [], ctx.doc.xcolorFbox))
     return
   }
   const natural = hpack(content.slice())
@@ -883,7 +886,7 @@ function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, 
   const width = len(p.opts[0]!)
   if (p.cmd === "makebox") { list.push(hpack(aligned, { exactly: width })); return }
   // \framebox[width][pos]: \hb@xt@ width{\kern\fboxsep \bm@pos \kern\fboxsep}, framed with \kern-\fboxrule inside the rules
-  list.push(framed(hpack([kern(FBOXSEP, true), ...aligned, kern(FBOXSEP, true)], { exactly: width }), [kern(-FBOXRULE, true)]))
+  list.push(framed(hpack([kern(FBOXSEP, true), ...aligned, kern(FBOXSEP, true)], { exactly: width }), [kern(-FBOXRULE, true)], ctx.doc.xcolorFbox))
 }
 
 /**
@@ -904,19 +907,27 @@ function colorboxPiece(list: Node[], p: Extract<Piece, { kind: "colorbox" }>, fo
   const bg = doc.color(p.spec, p.model)
   const block = [push(bg), push(bg), hpack([{ kind: "rule", width: z.width, height: z.height, depth: z.depth }, ssGlue()], { exactly: 0 }), pop(), z, pop()]
   if (!p.frame) { list.push(...block); return }
-  // \fbox with \fboxsep zero: \hbox{\kern\z@{…}\kern\z@}; \XC@frameb@x: \hbox{\lower(\fboxrule+depth)\hbox{\vbox{\kern\fboxrule
-  // \hbox{\kern\fboxrule\vbox{\kern\z@\box\kern\z@}\kern\fboxrule}\kern\fboxrule}}}, \kern-its width, \boxframe{w}{h}{d}
-  const t = hpack([kern(0, true), ...block, kern(0, true)])
-  const lowered = hpack([vpack([kern(FBOXRULE, true), hpack([kern(FBOXRULE, true), vpack([kern(0, true), t, kern(0, true)]), kern(FBOXRULE, true)]), kern(FBOXRULE, true)])])
-  lowered.shift = FBOXRULE + t.depth
+  // \fbox with \fboxsep zero (\hbox{\kern\z@{…}\kern\z@}), framed by \XC@frameb@x
+  list.push(push(doc.color(p.frame.spec, p.frame.model)), xcFramed(hpack([kern(0, true), ...block, kern(0, true)]), [], 0), pop())
+}
+
+/**
+ * xcolor's \XC@frameb@x{between} (its \fbox and \framebox unless kernelfbox): \hbox{\lower(\fboxrule+\fboxsep+depth)
+ * \hbox{\vbox{\kern\fboxrule \hbox{\kern\fboxrule between \vbox{\kern\fboxsep\box\kern\fboxsep} between \kern\fboxrule}
+ * \kern\fboxrule}}, \kern-its width, \boxframe{w}{h}{d}}; \boxframe: \hbox{\lower d\vbox{\hrule\@height\fboxrule
+ * \kern-.5\fboxrule \hbox{\vrule \kern(w-2\fboxrule) \vrule} \kern-.5\fboxrule \hrule}}, the rules \fboxrule wide and
+ * h+d-\fboxrule high
+ */
+function xcFramed(box: BoxNode, between: Node[], sep: number): BoxNode {
+  const inner = hpack([kern(FBOXRULE, true), ...between, vpack([kern(sep, true), box, kern(sep, true)]), ...between.map((n) => ({ ...n })), kern(FBOXRULE, true)])
+  const lowered = hpack([vpack([kern(FBOXRULE, true), inner, kern(FBOXRULE, true)])])
+  lowered.shift = FBOXRULE + sep + box.depth
   const framedBox = hpack([lowered])
-  // \boxframe: \hbox{\lower d\vbox{\hrule\@height\fboxrule \kern-.5\fboxrule \hbox{\vrule \kern(w-2\fboxrule) \vrule} \kern-.5\fboxrule \hrule}},
-  // the rules \fboxrule wide and h+d-\fboxrule high
   const half = -Math.trunc(FBOXRULE / 2) - (FBOXRULE % 2), hr = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
   const side = (): Node => ({ kind: "rule", width: FBOXRULE, height: framedBox.height + framedBox.depth - FBOXRULE, depth: 0 })
   const frame = vpack([hr(), kern(half, true), hpack([side(), kern(framedBox.width - 2 * FBOXRULE, true), side()]), kern(-Math.trunc(FBOXRULE / 2), true), hr()])
   frame.shift = framedBox.depth
-  list.push(push(doc.color(p.frame.spec, p.frame.model)), hpack([framedBox, kern(-framedBox.width, true), hpack([frame])]), pop())
+  return hpack([framedBox, kern(-framedBox.width, true), hpack([frame])])
 }
 
 /** a length in text: em and ex of the current font, \fill, and the document's width registers (\linewidth only in a paragraph) */
@@ -967,7 +978,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       let g: GlueSpec
       try { g = parseGlue(p.skip, lengthEnv(ctx, font)) } catch { throw new Unsupported(`\\hspace{${p.skip}}`) }
       if (g.shrinkOrder !== NORMAL && !ctx.restricted) throw new Unsupported(`\\hspace{${p.skip}}: infinite shrinkage in a paragraph`)
-      if (p.star) list.push({ kind: "rule", width: 0, height: null, depth: null }, penalty(10000))
+      if (p.star) { list.push({ kind: "rule", width: 0, height: null, depth: null }, penalty(10000)); state.spaceFactor = 1000 } // (a rule: § 1056)
       list.push(glueOf(g))
       if (p.star) list.push(glue(0))
     }

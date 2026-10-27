@@ -34,10 +34,9 @@ export class TocWriter {
     return node
   }
 
-  /** The .lof or .lot file, with each line's page (in the order written: floats of a type never pass each other, and
-   *  a chapter's \clearpage outputs them before its \addvspace) */
-  writtenList(file: ListFile, page: (n: Node) => string): ListEntry[] {
-    return this.listWrites.filter((w) => w.file === file).map(({ node, entry }) => ("vspace" in entry ? entry : { ...entry, page: page(node) }))
+  /** The .lof or .lot file: the lines in the order they were shipped out, each with its page */
+  writtenList(file: ListFile, order: (n: Node) => number, page: (n: Node) => string): ListEntry[] {
+    return this.listWrites.filter((w) => w.file === file).sort((x, y) => order(x.node) - order(y.node)).map(({ node, entry }) => ("vspace" in entry ? entry : { ...entry, page: page(node) }))
   }
 
   /** \addcontentsline{toc}'s \write */

@@ -224,6 +224,7 @@ export function blocksOf(body: string): Block[] {
     parts.forEach((p, i) => {
       const t = squeeze(i < parts.length - 1 ? p + " " : p) // the line end before a blank line is a space
       if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe, ...(i === 0 && thmEnd ? { afterThm: true } : {}), ...(/\\LXfloat\{/.test(t) ? { floats: inline } : {}) })
+      if (t || i < parts.length - 1) endpe = false // (\@doendpe ends with the paragraph after it, or a \par; not with a \pagebreak or a mark)
     })
     thmEnd = false
   }
@@ -336,6 +337,7 @@ export function blocksOf(body: string): Block[] {
       const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
         if (p.kind === "list") return walk(p)
         if (/^\s*\\label\b/.test(p.text) && !(l.env === "LXtheorem" && p === l.items[0].parts[0])) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
+        if (/^\s*\\(?:no)?pagebreak(?![A-Za-z])/.test(p.text)) throw new Unsupported(`\\pagebreak in vertical mode in ${l.env}`)
         displaySegments(p.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
       }))
       walk(b)

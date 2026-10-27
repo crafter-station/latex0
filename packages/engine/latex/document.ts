@@ -246,6 +246,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   doc.graphic = (...a) => graphicAt(cx, ...a)
   doc.widths = (lineWidth) => widthRegisters(cx, lineWidth)
   doc.getpen = (n) => getpen(cx, n)
+  if (usesXcolor) doc.xcolorFbox = true
   doc.parbox = (...a) => parboxAt(cx, ...a)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
   const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
@@ -261,7 +262,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const { pages, pageTrace } = built
   // (the glue after a listing caption's paragraph is a breakpoint: a page fired there is output inside its group)
   if (pages.some((p) => run.lstCaptions.some(([a, b]) => p.reached >= a && p.reached < b))) throw new Unsupported("a page output inside a listing's caption")
-  if (refs.cleveref) fillCrefWrites(refs.cleveref.writes, pages, (at) => (v.nodes[at] as { param?: string } | undefined)?.param === "parskip")
+  if (refs.cleveref) fillCrefWrites(refs.cleveref.writes, pages, (at) => (v.nodes[at] as { param?: string } | undefined)?.param === "parskip", (from, to) => v.nodes.slice(from + 1, to).flatMap((n) => (n.kind === "whatsit" && n.hook ? [n.hook] : [])))
   const columns = makeColumns(pages, run.k, cls === "letter")
   const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
   const heads = pageMarks(pages)
@@ -317,7 +318,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
     }
     written = {
       toc: tocFile.written((n) => order.get(n)!, page),
-      lists: { lof: tocFile.writtenList("lof", page), lot: tocFile.writtenList("lot", page) },
+      lists: { lof: tocFile.writtenList("lof", (n) => order.get(n)!, page), lot: tocFile.writtenList("lot", (n) => order.get(n)!, page) },
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
       labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, name: w.name, href: w.href }])),
       bookmarks: bookmarks.written,

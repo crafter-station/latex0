@@ -320,6 +320,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       }
       // a group that starts the paragraph (the paragraph starts in it; a {\color …} group's push goes on the vertical list)
       const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text), inGroup = groupStart(p.text)
+      // (declarations first, then a {\color …} group: its push goes on the vertical list after them, not laid out)
+      if (/^\s*(?:\\[A-Za-z]+(?![A-Za-z])\s*)+\{\\color(?![A-Za-z])/.test(p.text)) throw new Unsupported("a color group after declarations starting a paragraph")
       if (inGroup && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a group starting an item's paragraph here")
       // (later, where \@item's \everypar may still run in the group: the \clubpenalty from before must be \@clubpenalty)
       if (inGroup && (p.start === "par" || p.start === "cr") && itemClub !== undefined && itemClub !== (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)) throw new Unsupported("a group starting an item's later paragraph here")

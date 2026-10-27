@@ -100,7 +100,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
       refs.label = counters.theSectional(0); refs.href = `${counters.anchorType(0)}.${counters.theHSectional(0)}`
       if (refs.cleveref) refs.cleveref.current = { type: "chapter", arabic: counters.sectional[0], prefix: counters.crefPrefix("chapter"), label: refs.label }
       doc.footnote = 0
-    } else if (hyper) refs.href = `chapter*.${++run.linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
+    } else if (hyper) refs.href = `${counters.anchorType(0)}*.${++run.linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
     // hyperref: the anchor, then \addcontentsline's bookmark and toc line
     if (nameref) refs.name = labelName(b.title) // (nameref's \@chapter)
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
@@ -115,7 +115,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   } else {
     if (nameref) refs.name = labelName(b.source ?? b.title) // (nameref's \@schapter)
     if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor
-      refs.href = `chapter*.${++run.linkcounter}`
+      refs.href = `${counters.anchorType(0)}*.${++run.linkcounter}`
       v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     }
   }

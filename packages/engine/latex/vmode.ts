@@ -20,6 +20,7 @@ import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
 import { clearpage, newpage } from "./sectioning"
+import { getpen } from "./body"
 
 export const ALIGNMENTS = ["centering", "raggedright", "raggedleft"] as const
 type Alignment = typeof ALIGNMENTS[number] | null
@@ -120,6 +121,9 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         i = j + 1; continue
       }
     }
+    // \pagebreak[n] and \nopagebreak[n] in vertical mode: \penalty ∓\@getpen{n}
+    const pb = rest.match(/^\\(no)?pagebreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/)
+    if (pb) { v.nodes.push(penalty((pb[1] ? 1 : -1) * getpen(cx, pb[2] === undefined ? 4 : Number(pb[2])))); i += pb[0].length; continue }
     const np = rest.match(/^\\(newpage|clearpage)(?![A-Za-z])\s*/)
     if (np) { if (np[1] === "newpage") newpage(cx); else clearpage(cx); i += np[0].length; continue }
     if (/^\\(?:begin|end|vskip|label|hrule|\\)(?![A-Za-z])/.test(rest)) throw new Unsupported(`${rest.slice(0, 20)} in vertical mode here`)

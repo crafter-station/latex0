@@ -31,6 +31,7 @@ export function preDisplaySize(justBox: BoxNode | null, quad: number): number {
         d = p.width
         if (justBox.glueSign === STRETCHING) { if (justBox.glueOrder === p.stretchOrder && p.stretch !== 0) v = MAX_DIMEN }
         else if (justBox.glueSign === SHRINKING) { if (justBox.glueOrder === p.shrinkOrder && p.shrink !== 0) v = MAX_DIMEN }
+        if (p.leaders) visible = true // (leaders are visible: goto found)
         break
       default: d = 0
     }

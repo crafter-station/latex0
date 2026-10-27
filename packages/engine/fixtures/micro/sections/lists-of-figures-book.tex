@@ -1,0 +1,18 @@
+% fixture: sections/lists-of-figures-book
+% tier: T3
+% engine: document
+% covers: \listoftables in book's front matter, the .lot lines in the order they were shipped out (a table before the first chapter, deferred to a page of floats, and the chapter's \addvspace{10\p@})
+% issue: #336
+\documentclass{book}
+\begin{document}
+\frontmatter
+\listoftables
+\mainmatter
+Text before the first chapter, a paragraph with a table that starts in it
+\begin{table}[tp]\centering\caption{Before any chapter.}\end{table}
+and goes on after it.
+\chapter{First}
+Text.
+\begin{table}[!t]\centering\caption{In the chapter.}\end{table}
+More text.
+\end{document}

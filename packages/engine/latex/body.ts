@@ -192,7 +192,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined)
     return
   }
-  if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b); return }
+  if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }
   if (b.blank) v.par() // a blank line before the list
   const before = { club: v.club, afterheading: v.afterheadingEverypar }
   // \@trivlist's \if@noskipsec\leavevmode (in the environment's group), then \unskip\par and no \partopsep
@@ -216,13 +216,15 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
  * \@beginparpenalty\@lowpenalty, \begin{center}\bfseries\abstractname \@endparpenalty\@M\end{center}, the text (its
  * paragraphs after the center's \@doendpe), then \par\vfil\null\endtitlepage (\newpage, one-sided \setcounter{page}\@ne)
  */
-function reportAbstract(cx: Ctx, b: ListBlock) {
+function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   const { run, v } = cx
   if (!cx.pre.titlepage) throw new Unsupported("abstract in report with notitlepage")
   if (run.runIn || run.noskipsec) throw new Unsupported("an abstract right after a run-in heading")
   v.par()
   if (v.endpePar || v.endpeEverypar) throw new Unsupported("an abstract right after a list")
-  if (v.nobreak || v.afterheadingEverypar) throw new Unsupported("an abstract right after a heading")
+  if (v.nobreak) throw new Unsupported("an abstract right after a heading")
+  // (an \@afterheading \everypar after \tableofcontents, \if@nobreak cleared: the lists' and \@doendpe's take its place
+  // in the environment's group, and the \clubpenalty they leave is \@clubpenalty, which it would set)
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
   v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
   v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
@@ -236,6 +238,9 @@ function reportAbstract(cx: Ctx, b: ListBlock) {
   // (text right after \begin{abstract}: the center's \@doendpe takes its indent)
   if (blocks[0]?.kind === "par" && !/^\s*\n[ \t]*\n/.test(body)) blocks[0].noindent = true
   blocks.forEach((x, i, all) => { if (x.kind !== "par") throw new Unsupported(`a ${x.kind} in report's abstract`); processBlock(cx, x, i, all) })
+  // (\end{abstract} finds \if@endpe false: the center's \@doendpe went with the text's first paragraph; with no text it holds)
+  if (!blocks.length && next) throw new Unsupported("an empty abstract in report")
+  if (next?.kind === "par") next.noindent = false
   v.par()
   v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
   v.box(hpack([]), run.k.sizes.normalsize.baselineskip)

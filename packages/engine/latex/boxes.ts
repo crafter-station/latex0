@@ -65,7 +65,7 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
   let align: "centering" | "raggedright" | "raggedleft" | null = null
   const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph })
   const what = parbox ? "a \\parbox" : "a minipage"
-  const odd = body.match(/\\(?:footnote|begin|item|vspace|noindent|LXlstinline)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
+  const odd = body.match(/\\(?:footnote|begin|item|vspace|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
   if (odd) throw new Unsupported(`${odd[0]} in ${what}`)
   const list: Node[] = []
   let pd: number | null = IGNORE_DEPTH

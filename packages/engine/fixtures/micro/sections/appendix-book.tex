@@ -1,0 +1,19 @@
+% fixture: sections/appendix-book
+% tier: T3
+% engine: document
+% covers: book's \appendix with hyperref: Appendix A, and an unnumbered back-matter chapter after it, whose anchor is of type appendix* (\Hy@chapapp)
+% issue: #336
+\documentclass{book}
+\usepackage{hyperref}
+\begin{document}
+\tableofcontents
+\mainmatter
+\chapter{Main}
+Text.
+\appendix
+\chapter{Extra}
+Text.
+\backmatter
+\chapter{Afterword}
+Text.
+\end{document}

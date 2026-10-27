@@ -1,7 +1,7 @@
 % fixture: sections/appendix-report
 % tier: T3
 % engine: document
-% covers: report's \appendix: \@chapapp (Appendix A), \thechapter \@Alph in the chapter head, its marks, the toc, figures and equations numbered A.1; with hyperref the chapter anchor of type appendix, figure.A.1, equation.A.1
+% covers: report's \appendix: \@chapapp (Appendix A), \thechapter \@Alph in the chapter head, its marks, the toc, figures and equations numbered A.1; with hyperref the chapter anchor of type appendix (and a starred chapter's appendix*), figure.A.1, equation.A.1
 % issue: #336
 \documentclass{report}
 \usepackage{hyperref}
@@ -20,4 +20,7 @@ All scenes.
 Text.
 \vspace*{600pt}
 On the next page, under the chapter's mark.
+\chapter*{Notes}
+\addcontentsline{toc}{chapter}{Notes}
+A starred chapter here.
 \end{document}
