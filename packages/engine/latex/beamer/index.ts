@@ -11,7 +11,7 @@ import { emitBoxes } from "../../emit/boxes"
 import { shipOut, type PageMark } from "../../emit/trace"
 import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layout/nodes"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { anchor, documentStart, hyperDriver, pdfString } from "../hyperref"
+import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
 import type { LayoutResult } from "../result"
 import type { DocumentSource } from "../source"
@@ -19,22 +19,30 @@ import { Unsupported } from "../unsupported"
 import { VerticalList } from "../vlist"
 import { colorPush, xcolor } from "../xcolor"
 import { footlineTemplate, type FootlineAt } from "./footline"
-import { frameBox, framesOf, type FrameSource } from "./frame"
+import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource } from "./frame"
+import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { beamerPage } from "./page"
 import { outerColors } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
-/** What a run writes to the .aux file for the next one: the frames (\inserttotalframenumber, in the .nav lines
- *  \AtEndDocument writes) and the pages (\HyPL@Entry, one per page) */
-interface Aux { frames: number; pages: number }
+/** What a run writes for the next one: the frames (\inserttotalframenumber, in the .nav lines \AtEndDocument writes),
+ *  the pages (\HyPL@Entry, one per page, in the .aux), the .toc lines and the bookmarks (the .out file) */
+interface Aux { frames: number; pages: number; toc: TocEntry[]; bookmarks: Bookmark[] }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per frame the
  *  index in `decisions` after its paragraphs (where its page's head paragraph goes) */
 interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; frameEnds: number[]; frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number
-  /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number }
+  /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number
+  /** the sectioning state, and the .toc lines the last run wrote */
+  sections: Sections; toc: TocEntry[] }
 
-/** The body's constructs: frames (the environment and the \frame command) */
-const BODY: Record<string, (cx: BeamerCtx, f: FrameSource) => void> = { frame: frame }
+/** The body's constructs: frames (the environment and the \frame command), \section and \subsection */
+const BODY: { [K in BodyItem["kind"]]: (cx: BeamerCtx, item: Extract<BodyItem, { kind: K }>) => void } = { frame, section, subsection: section }
+
+/** \section or \subsection: its writes and anchor on the main vertical list, before the next frame's page */
+function section(cx: BeamerCtx, s: SectionSource) {
+  cx.v.nodes.push(...sectionNodes(cx.sections, s, cx.frames + 1, cx.pre.k))
+}
 
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {
   if (driver === "pdftex") throw new Unsupported("beamer with pdfTeX's driver")
@@ -49,7 +57,7 @@ export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdft
  *  objects for the navigation symbols put after LaTeX's \write; whatsits before the first box, which nothing reads.) */
 function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
   const sdict = (s: string): Node => ({ kind: "whatsit", text: `\\special{ps:SDict begin ${s} end}` })
-  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...documentStart([])]
+  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...documentStart(prev ? prev.bookmarks : [], true)]
   out.push(...anchor("Doc-Start", pre.k.sizes.normalsize.baselineskip.width, "v", out.at(-1)))
   out.push(sdict(`[/Producer (dvips + Distiller)/Title (${pre.pdfTitle})/Subject ()/Creator (${pdfString("LaTeX with Beamer class")})/Author (${pre.pdfAuthor})/Keywords () /DOCINFO pdfmark`))
   if (prev) out.push(sdict(`[ {Catalog} <</PageLabels<</Nums[${Array.from({ length: prev.pages }, (_, i) => `${i}<</P(${pdfString(String(i + 1))})>>`).join("")}]>>>> /PUT pdfmark`))
@@ -66,12 +74,14 @@ function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, page = ++cx.frames
   // \beamer@calculateheadfoot (\c@framenumber stepped already) measures the footline
   footlineTemplate(k, cx.pre.theme, cx.pre.info, footlineAt(cx, page, page), cx.decisions)
-  const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions }, f, cx.pre.centered)
+  const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc }, f, cx.pre.centered)
   cx.frameEnds.push(cx.decisions.length)
   const bs = k.sizes.normalsize.baselineskip
   cx.v.box(box, bs)
   const nav = (line: string): Node => ({ kind: "whatsit", text: `\\write1{\\@writefile{nav}{\\protect \\headcommand {\\protect ${line}}}}` })
-  cx.v.nodes.push(nav(`\\slideentry {0}{0}{${page}}{${page}/${page}}{}{0}`), nav(`\\beamer@framepages {${page}}{${page}}`))
+  const st = cx.sections
+  st.subsectionSlide++
+  cx.v.nodes.push(nav(`\\slideentry {${st.section}}{${st.subsection}}{${st.subsectionSlide}}{${page}/${page}}{${st.lastSubsection}}{0}`), nav(`\\beamer@framepages {${page}}{${page}}`))
   cx.v.nodes.push(filGlue(), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
   cx.v.box(emptyBox("vlist"), bs)
   cx.v.nodes.push(penalty(-10001))
@@ -88,10 +98,11 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev)
-  const cx: BeamerCtx = { pre, epoch, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1 }
+  const cx: BeamerCtx = { pre, epoch, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
+    sections: new Sections(), toc: prev ? prev.toc : [] }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
   footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, 0, 1), cx.decisions)
-  for (const f of framesOf(pre.body)) BODY.frame(cx, f)
+  for (const item of bodyOf(pre.body)) (BODY[item.kind] as (cx: BeamerCtx, item: BodyItem) => void)(cx, item)
   // \end{document}: beamerbasemisc.sty's \AtEndDocument \clearpage (its .nav lines are \immediate), then the kernel's
   v.nodes.push(filGlue(), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
   v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
@@ -120,6 +131,6 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
       columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
       notes: [`beamer [${pre.option}]; ${cx.frames} frame(s), ${pages.length} page(s)`],
     },
-    written: { frames: cx.frames, pages: pages.length },
+    written: { frames: cx.frames, pages: pages.length, toc: cx.sections.toc, bookmarks: cx.sections.bookmarks.written },
   }
 }

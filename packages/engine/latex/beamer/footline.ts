@@ -18,7 +18,6 @@ import { emptyBox, fillGlue, glue, kern, paramGlue, penalty, ssGlue, type Node }
 import { hpack } from "../../layout/pack"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { today } from "../frontmatter"
-import { linkBox } from "../hyperref"
 import { sloppy } from "../kernel"
 import { appendToVlist, classParams, selectFont, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
@@ -26,6 +25,7 @@ import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, colorboxOptions, lengthEnv, type ColorboxBody } from "./colorbox"
 import { SANS } from "./frame"
 import type { TitleInfo } from "./preamble"
+import { navigationLink } from "./sections"
 import { fontSize, outerColors, useColor, type ColorState, type Theme } from "./theme"
 
 /** Where the footline is typeset: the frame number (\c@framenumber), \inserttotalframenumber, the page number
@@ -102,8 +102,7 @@ function infolinesBoxes(k: ClassOptionData, t: Theme, info: TitleInfo, at: Footl
     // \insertshorttitle: \hyperlinkpresentationend on the first page (\hyperlink{Navigation<last page>}), else
     // \hyperlinkpresentationstart (\hyperlink{Navigation1}), around the short title's \hbox
     box(`${third},center`, "title in head/foot", (b, f, inner) => {
-      const dest = `Navigation${at.page === 1 ? at.lastPage : 1}`
-      par(b, linkBox([shortBox(plain(info.short.title), f)], inner.fg, `[/Color [.5 .5 .5]/H /N/Border [0 0 0]BorderArrayPatch/Subtype /Link/Dest (${dest}) cvn H.B /ANN pdfmark`))
+      par(b, navigationLink([shortBox(plain(info.short.title), f)], inner.fg, at.page === 1 ? at.lastPage : 1))
     }),
     // \hfill\insertshortdate{}\hfill, then in page number in head/foot's color the totalframenumber template:
     // \makebox[the width of "total\,/\,total"][r]{\insertframenumber\,/\,\inserttotalframenumber}

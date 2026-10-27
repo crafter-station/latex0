@@ -24,15 +24,20 @@ import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
+import { spacingCover, tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
 
 /** a frame as written: its options and what it holds */
-export interface FrameSource { options: string; body: string }
+export interface FrameSource { kind: "frame"; options: string; body: string }
+/** \section[short]{title} or \subsection[short]{title} between frames (the short title is the title without one) */
+export interface SectionSource { kind: "section" | "subsection"; short: string; title: string }
+export type BodyItem = FrameSource | SectionSource
 
-/** The frames of the document body: \begin{frame}[options]…\end{frame} and \frame[options]{…}, nothing else. */
-export function framesOf(body: string): FrameSource[] {
+/** What the document body holds: frames (\begin{frame}[options]…\end{frame} and \frame[options]{…}) and \section's and
+ *  \subsection's between them, nothing else. */
+export function bodyOf(body: string): BodyItem[] {
   const src = body.replace(/(^|[^\\])%.*$/gm, "$1")
-  const frames: FrameSource[] = []
+  const frames: BodyItem[] = []
   let i = 0
   const options = () => {
     if (src[i] === "<") throw new Unsupported("a frame's overlay specification")
@@ -51,7 +56,7 @@ export function framesOf(body: string): FrameSource[] {
       const o = options()
       const end = src.indexOf("\\end{frame}", i)
       if (end < 0) throw new Unsupported("a frame environment not ended")
-      frames.push({ options: o, body: src.slice(i, end) })
+      frames.push({ kind: "frame", options: o, body: src.slice(i, end) })
       i = end + 11
     } else if (/^\\frame(?![A-Za-z])/.test(src.slice(i))) {
       i += 6
@@ -66,8 +71,19 @@ export function framesOf(body: string): FrameSource[] {
         else if (src[j] === "}" && --depth === 0) break
       }
       if (j >= src.length) throw new Unsupported("\\frame's argument not closed")
-      frames.push({ options: o, body: src.slice(i + 1, j) })
+      frames.push({ kind: "frame", options: o, body: src.slice(i + 1, j) })
       i = j + 1
+    } else if (/^\\(?:sub)?section(?![A-Za-z])/.test(src.slice(i))) {
+      const kind = src.startsWith("\\subsection", i) ? "subsection" : "section"
+      i += kind.length + 1
+      while (/\s/.test(src[i] ?? "")) i++
+      if (src[i] === "*" || src[i] === "<") throw new Unsupported(`\\${kind}${src[i]}`)
+      let short: string | undefined
+      if (src[i] === "[") { const j = src.indexOf("]", i); if (j < 0) throw new Unsupported(`\\${kind}'s short title`); short = src.slice(i + 1, j); i = j + 1 }
+      const a = bracedArg(src, i)
+      if (!a) throw new Unsupported(`\\${kind} without a braced argument`)
+      frames.push({ kind, short: short ?? a.arg, title: a.arg })
+      i = a.end
     } else throw new Unsupported(`beamer: material outside frames: ${src.slice(i, i + 40)}`)
   }
 }
@@ -79,7 +95,11 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** a list ended (\@endpetrue) and no \par came since: the next paragraph loses its indentation box */
   endpe?: boolean
   /** the paragraph read last ran into a list's \begin, which ended it */
-  listInParagraph?: boolean }
+  listInParagraph?: boolean
+  /** the .toc lines the last run wrote (\tableofcontents reads them) */
+  toc: TocEntry[]
+  /** \beamer@endpause is \beamer@spacingcover: a \pause came (\tableofcontents' \pause[0]) */
+  endpause?: boolean }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -236,8 +256,16 @@ const titlepage: FrameHandler = (cx, v, text) => {
   return text.replace(/^\\(?:titlepage|maketitle)(?![A-Za-z])/, "")
 }
 
+/** \tableofcontents (sections.ts), without options */
+const toc: FrameHandler = (cx, v, text) => {
+  if (cx.endpe) throw new Unsupported("beamer: a table of contents right after a list")
+  if (/^\\tableofcontents\s*\[/.test(text)) throw new Unsupported("beamer: \\tableofcontents' options")
+  tableOfContents(cx, v)
+  return text.replace(/^\\tableofcontents(?![A-Za-z])/, "")
+}
+
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
@@ -260,6 +288,8 @@ function frameMaterial(cx: FrameCtx, body: string): Node[] {
     if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
     text = handler(cx, v, text)
   }
+  // \end{beamer@framepauses}: \beamer@endpause, \beamer@spacingcover's pair and the one after the group
+  if (cx.endpause) { spacingCover(v); spacingCover(v) }
   return v.nodes
 }
 
