@@ -1,0 +1,14 @@
+% fixture: title/abstract-report-babel
+% tier: T3
+% engine: document
+% covers: report's abstract under babel: its head is \abstractname in the language (Resumo)
+% issue: #336
+\documentclass{report}
+\usepackage[brazil]{babel}
+\begin{document}
+\begin{abstract}
+Um resumo curto.
+\end{abstract}
+\chapter{Introdu\c{c}\~ao}
+Texto.
+\end{document}

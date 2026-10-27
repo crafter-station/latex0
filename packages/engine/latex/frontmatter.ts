@@ -144,7 +144,7 @@ export function tableOfContents(cx: Ctx) {
 export function listOf(cx: Ctx, file: ListFile) {
   const { cls } = cx.pre
   const { lists, marks, mkboth, v } = cx
-  const [name, macro] = file === "lof" ? ["List of Figures", "listfigurename"] : ["List of Tables", "listtablename"]
+  const [name, macro] = file === "lof" ? [cx.pre.names.listfigurename, "listfigurename"] : [cx.pre.names.listtablename, "listtablename"]
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
   // (\@mkboth after the heading, in vertical mode: not in its title as \tableofcontents has it)

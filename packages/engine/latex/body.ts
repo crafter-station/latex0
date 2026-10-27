@@ -11,7 +11,7 @@ import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH, LOW_PENALTY } from "./vlist"
 import { FIL, filGlue, penalty, type Node } from "../layout/nodes"
 import { hpack } from "../layout/pack"
-import { appendText } from "../layout/hmode"
+import { appendText, sourceText } from "./encodings"
 import { loadFont } from "../layout/font"
 import { dataFont } from "./data"
 import { crefWrites, labelWrite } from "./paragraph"
@@ -231,7 +231,7 @@ function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
   const head: Node[] = []
   const bf = run.k.sizes.normalsize.bold
-  appendText(head, "Abstract", loadFont(dataFont(bf.name), bf.at), { spaceFactor: 1000 }, false)
+  appendText(head, sourceText(cx.pre.names.abstractname), loadFont(dataFont(bf.name), bf.at), { spaceFactor: 1000 }, false)
   list(cx, { kind: "list", env: "center", items: [{ label: null, parts: [{ kind: "text", text: "", start: "label", nodes: head }] }], inPar: false, blank: false }, { ...topCtx(cx), beginparpenalty: LOW_PENALTY, endparpenalty: 10000 })
   const body = b.source ?? ""
   const blocks = blocksOf(body)
