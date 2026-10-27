@@ -91,6 +91,11 @@ function specTokens(spec: string, types: ColumnTypes = {}): string[] {
   return toks
 }
 
+/** how many X columns a preamble has once its column types are rewritten (tabularx's \NC@rewrite@X counts them) */
+export function xColumns(spec: string, types: ColumnTypes): number {
+  return specTokens(spec, { ...types, X: { n: 0, spec: "p{\\TX@col@width}" } }).filter((t) => t === "{\\TX@col@width").length
+}
+
 /** array.sty's \@mkpream: the classes of \@testpach (0 a column, 1 a rule or !'s text, 2 <'s, 3 >'s, 5 @'s
  *  text, 6 !, 7 @, 8 <, 9 >, 10 m, p or b, before its width) and what each adds */
 function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {

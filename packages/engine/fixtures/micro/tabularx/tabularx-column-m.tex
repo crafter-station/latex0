@@ -1,0 +1,19 @@
+% fixture: tabularx/tabularx-column-m
+% tier: T3
+% engine: document
+% covers: tabularx.sty with \tabularxcolumn \renewcommand'd to >{\raggedright\arraybackslash}m{#1} (the first trial's X columns still p{…}), in a \small table with \extrarowheight, X entries of two widths, \\[skip]
+% issue: #342
+\documentclass{article}
+\usepackage{tabularx}
+\renewcommand{\tabularxcolumn}[1]{>{\raggedright\arraybackslash}m{#1}}
+\setlength{\extrarowheight}{2pt}
+\begin{document}
+{\small
+\begin{tabularx}{\linewidth}{|r|X|X|}
+\hline
+1 & a middle-aligned entry long enough to take more than two lines in its column & short \\[3pt]
+\hline
+22 & x & another entry of a few words \\
+\hline
+\end{tabularx}\par}
+\end{document}

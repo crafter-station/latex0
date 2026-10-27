@@ -1,0 +1,55 @@
+% fixture: tabularx/tabularx-columns
+% tier: T3
+% engine: document
+% covers: tabularx.sty's X columns: the trial tabulars (each X p{\TX@col@width}) and \TX@arith's steps to the target width, then tabular* to it; one and two X columns, >{\raggedright\arraybackslash}X, a \newcolumntype over X, booktabs rules and \cmidrule, \multirow, \multicolumn over an X column and an X \multicolumn (counted), @{} and @{\extracolsep{\fill}}, [t], a table with no X column, X columns too narrow (\TX@error@width), a span wider than the table (the minimum width reached: backing up), \noindent before one, in a table float, the corpus's risk table
+% issue: #342
+\documentclass{article}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\begin{document}
+\noindent
+\begin{tabularx}{\textwidth}{>{\bfseries}l X >{\centering\arraybackslash}p{2cm}}
+\toprule
+Risk & Description & Severity \\
+\midrule
+Supply & Lead times for chipsets have increased from 8 to 14 weeks, delaying
+hardware shipments in October. & High \\
+Currency & A stronger dollar reduces reported revenue from Europe and Latin America. & Medium \\
+Churn & Two enterprise customers are evaluating competitors at renewal. & Medium \\
+\bottomrule
+\end{tabularx}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{0.8\linewidth}{|l|>{\raggedright\arraybackslash}X|Y|}
+\hline
+\multirow{2}{*}{Key} & first column of text that wraps onto more than one line & centred \\
+\cline{2-3}
+ & short & a centred column of text \\
+\hline
+\multicolumn{2}{|c|}{a span over the X column} & x \\
+\hline
+\end{tabularx}
+\caption{Two X columns.}
+\end{table}
+
+Before \begin{tabularx}{10cm}[t]{@{}lX@{}}
+a & the X column of a table in a paragraph, set at the top \\
+b & \multicolumn{1}{X@{}}{an X multicolumn}
+\end{tabularx} after.
+
+\begin{tabularx}{6cm}{@{\extracolsep{\fill}}lcr}
+no & X & here \\
+\end{tabularx}
+
+\begin{tabularx}{3cm}{lllX}
+a wide first column & another one & and more & x \\
+\end{tabularx}
+
+\begin{tabularx}{5cm}{lX}
+a & b \\
+\multicolumn{2}{l}{a span much wider than the whole table is meant to be} \\
+\end{tabularx}
+\end{document}

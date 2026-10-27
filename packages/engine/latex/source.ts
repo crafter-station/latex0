@@ -14,8 +14,10 @@ import { spanishText } from "./spanish"
 export interface Listing { options: string; lines: string[]; inline?: true }
 /** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
 export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string
-  /** tabular*'s width (the \\halign to it) */
-  width?: string }
+  /** tabular*'s width (the \\halign to it), tabularx's */
+  width?: string
+  /** a tabularx */
+  x?: true }
 /** a minipage environment as typed (taken out of the source after expansion: \LXminipage{n}) */
 export interface MinipageSource {
   /** (null: subcaption's subfigure or subtable with no position, b before the float's \caption and t after it) */
@@ -140,21 +142,24 @@ export function prepareSource(source: string): DocumentSource {
   // fancyhdr's \headrulewidth and \footrulewidth are macros its rules read: \renewcommand'd, \LXfancyrule{name}{width}
   source = source.replace(/\\renewcommand\s*(?:\{\\(headrulewidth|footrulewidth)\}|\\(headrulewidth|footrulewidth)(?![A-Za-z]))\s*\{([^{}]*)\}/g, (all: string, a: string | undefined, b: string | undefined, width: string, offset: number, text: string) =>
     commentedAt(text, offset) ? all : `\\LXfancyrule{${a ?? b}}{${width}}`)
+  // tabularx's \tabularxcolumn, \renewcommand'd: \LXtabularxcolumn{spec}
+  source = source.replace(/\\renewcommand\*?\s*(?:\{\\tabularxcolumn\}|\\tabularxcolumn(?![A-Za-z]))\s*\[1\]\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g, (all: string, spec: string, offset: number, text: string) =>
+    commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
   const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
   // (tabular* first: its {width} before [pos]{cols})
-  const take = (t: string, env: "tabular" | "tabular\\*") => t.replace(new RegExp(`\\\\begin\\{${env}\\}${env === "tabular" ? "" : "\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}"}\\s*(?:\\[([tbc])\\])?\\s*\\{((?:[^{}]|\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})*)\\}([^]*?)\\\\end\\{${env}\\}`, "g"), (all: string, ...m: unknown[]) => {
+  const take = (t: string, env: "tabular" | "tabular\\*" | "tabularx") => t.replace(new RegExp(`\\\\begin\\{${env}\\}${env === "tabular" ? "" : "\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}"}\\s*(?:\\[([tbc])\\])?\\s*\\{((?:[^{}]|\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})*)\\}([^]*?)\\\\end\\{${env}\\}`, "g"), (all: string, ...m: unknown[]) => {
     const [width, pos, spec, body, offset, text] = (env === "tabular" ? [undefined, ...m] : m) as [string | undefined, string | undefined, string, string, number, string]
     if (commented(text, offset)) return all
-    if (/\\begin\{tabular\*?\}|\\LXtabular\{/.test(body)) throw new Unsupported("a tabular in a tabular")
-    tabulars.push({ pos: (pos ?? "c") as "c", spec, body, ...(width !== undefined ? { width } : {}) })
+    if (/\\begin\{tabular[*x]?\}|\\LXtabular\{/.test(body)) throw new Unsupported("a tabular in a tabular")
+    tabulars.push({ pos: (pos ?? "c") as "c", spec, body, ...(width !== undefined ? { width } : {}), ...(env === "tabularx" ? { x: true as const } : {}) })
     return `\\LXtabular{${tabulars.length - 1}}`
   })
-  const src0 = take(take(expanded.text, "tabular\\*"), "tabular")
-  if ([...src0.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
+  const src0 = take(take(take(expanded.text, "tabularx"), "tabular\\*"), "tabular")
+  if ([...src0.matchAll(/\\(?:begin|end)\{tabular[*x]?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
   // minipages: \LXminipage{n}, laid out where they stand
   const minipages: MinipageSource[] = []
   // (and subcaption's subfigure and subtable, minipages too)

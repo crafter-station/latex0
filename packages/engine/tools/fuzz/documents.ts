@@ -117,7 +117,7 @@ export function makeDocument(r: () => number): string {
   // its \@mkboth sets marks under headings and fancy; documents go on from the list with a heading)
   let listNamed = false
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, txOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -196,8 +196,10 @@ export function makeDocument(r: () => number): string {
     if (bt) { if (r() < 0.85) rows.push(pick(["\\bottomrule", "\\bottomrule", "\\bottomrule[0.5pt]"])) }
     else if (r() < 0.5) rows.push("\\hline")
     else if (r() < 0.3 && rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "").trim()) rows[rows.length - 1] = rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "") // (not a blank line)
-    // tabular*: to a width, \extracolsep{\fill} in its first @{} (or none)
-    if (r() < 0.06) return `\\begin{tabular*}{${pick(["\\linewidth", "0.8\\textwidth", "10cm", "4cm"])}}${pos}{${r() < 0.7 ? "@{\\extracolsep{\\fill}}" : ""}${spec}}\n${rows.join("\n")}\n\\end{tabular*}`
+    // tabular*: to a width, \extracolsep{\fill} in its first @{} (or none); tabularx: an X column first
+    const star = r()
+    if (txOn && star < 0.3) return `\\begin{tabularx}{${pick(["\\linewidth", "\\textwidth", "0.9\\textwidth", "12cm"])}}${pos}{${star < 0.1 ? ">{\\raggedright\\arraybackslash}" : ""}X${spec}}\n${rows.join("\n")}\n\\end{tabularx}`
+    if (star < 0.06) return `\\begin{tabular*}{${pick(["\\linewidth", "0.8\\textwidth", "10cm", "4cm"])}}${pos}{${r() < 0.7 ? "@{\\extracolsep{\\fill}}" : ""}${spec}}\n${rows.join("\n")}\n\\end{tabular*}`
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
   // a minipage: one or two paragraphs (words, formulas, fonts), sometimes \centering first or a tabular inside
@@ -462,8 +464,9 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.3) out.splice(out.indexOf(pkg) + 1, 0, `\\sisetup{${siKeys()}}`)
   }
   if (arOn) {
-    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{array}")
-    const at = out.indexOf("\\usepackage{array}") + 1 // (after it: array.sty defines them)
+    txOn = r() < 0.4
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, txOn ? "\\usepackage{tabularx}" : "\\usepackage{array}")
+    const at = out.indexOf(txOn ? "\\usepackage{tabularx}" : "\\usepackage{array}") + 1 // (after it: array.sty defines them)
     out.splice(at, 0, "\\newcolumntype{C}{>{\\centering\\arraybackslash}p{2.5cm}}", "\\newcolumntype{B}{>{\\bfseries}l}", ...(r() < 0.3 ? [`\\setlength{\\extrarowheight}{${pick(["2pt", "1ex", "4pt"])}}`] : []))
   }
   if (colorOn) out.push(`\\definecolor{fz}${pick(["{rgb}{0.1,0.5,0.9}", "{RGB}{255,136,0}", "{HTML}{2CA02C}", "{gray}{.35}", "{cmyk}{0,.5,1,0}", "{rgb}{1.0,0.25,.5}"])}`)
