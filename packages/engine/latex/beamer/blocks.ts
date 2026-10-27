@@ -38,8 +38,8 @@ const THEOREMS: Record<string, { name: string; style: "plain" | "definition" | "
 
 /** the environments this file reads */
 export const BLOCK_NAMES = [...Object.keys(BLOCK_ENVS), ...Object.keys(THEOREMS), "proof"]
-/** where one begins in a frame's text */
-export const BLOCK_BEGIN = new RegExp(`\\\\begin\\{(?:${BLOCK_NAMES.join("|")})\\}`)
+/** where one, or columns (columns.ts, an actionenv too), begins in a frame's text */
+export const BLOCK_BEGIN = new RegExp(`\\\\begin\\{(?:${[...BLOCK_NAMES, "columns"].join("|")})\\}`)
 
 /** A block as written: its kind, overlay specification, title, body font, body and the text after its \end */
 interface BlockSource { env: string; kind: BlockKind; spec?: string; title: string; italic: boolean; qed: boolean; body: string; rest: string }
@@ -98,6 +98,7 @@ function begin(cx: FrameCtx, b: BlockSource): { shown: boolean; nodes: Node[] } 
  * before theirs: none.
  */
 export function blockInParagraph(cx: FrameCtx, text: string): Node[] {
+  if (text.startsWith("\\begin{columns}")) { cx.blockBegun = true; return coverBegin(true) }
   const b = readBlock(text)
   if (!(b.env in BLOCK_ENVS)) return []
   const { shown, nodes } = begin(cx, b)

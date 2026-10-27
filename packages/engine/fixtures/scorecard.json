@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 427,
-  "exact": 424,
+  "fixtures": 430,
+  "exact": 427,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 320345
+  "glyphs": 320612
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 49,
-   "exact": 48
+   "fixtures": 52,
+   "exact": 51
   },
   {
    "area": "bibliography",
@@ -1009,6 +1009,39 @@
    "glyphs": 43,
    "covers": "beamer: the beaver color theme (no outer theme): the title page's boxes and the frame title in their bg, an enumerate in its colors",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/columns-command",
+   "file": "micro/beamer/columns-command.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "beamer: columns[t] with \\column commands, a [b] column, a column that starts with an itemize (the empty paragraph \\leavevmode began, the list's last skip taken by the minipage's \\unskip), a block in a column (\\textwidth the column's)",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/columns-default",
+   "file": "micro/beamer/columns-default.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "beamer: columns with column environments (the default c alignment, widths in \\textwidth): minipages \\vcenter'ed in an \\hbox \\paperwidth less the margins wide, \\hfill between them, ragged right and \\sloppy inside",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/columns-onlytextwidth",
+   "file": "micro/beamer/columns-onlytextwidth.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 55,
+   "covers": "beamer: columns[onlytextwidth] (\\hbox to\\textwidth, the last \\hfill \\unskip'ed) in a [t] frame (columns default to t), a theorem first in a column (the empty paragraph it ends), widths in \\linewidth and in points",
+   "issue": "#307"
   },
   {
    "id": "beamer/enumerate",

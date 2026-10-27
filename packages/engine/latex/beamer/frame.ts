@@ -20,6 +20,7 @@ import { Unsupported } from "../unsupported"
 import { negate, plain, VerticalList } from "../vlist"
 import { colorPush } from "../xcolor"
 import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
+import { frameColumns } from "./columns"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
@@ -105,7 +106,9 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** the nodes each \LXsmuggle{n} in the frame's text stands for (overlay specials) */
   smuggled: Node[][]
   /** a block began in the paragraph read last (blocks.ts): whether it is shown */
-  blockBegun?: boolean }
+  blockBegun?: boolean
+  /** \ifbeamer@centered: the frame's placement is c */
+  centered?: boolean }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -310,8 +313,28 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
 const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
-  ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])),
+  ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
+
+/** The constructs in `text`, each read by its handler into `v` */
+export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
+  for (text = text.trim(); text; text = text.trim()) {
+    const m = text.match(/^\\(?:begin\{)?([A-Za-z]+)/)
+    const handler = FRAME_CONTENT[m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""]
+    if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
+    text = handler(cx, v, text)
+  }
+}
+
+/** A paragraph begun already (\leavevmode) where `text` starts: the paragraph handler reads up to its end (text, or
+ *  nothing before a list or a block), unless something else comes first */
+export function begunParagraph(cx: FrameCtx, v: FrameList, text: string): string {
+  const t = text.trim()
+  const m = t.match(/^\\(?:begin\{)?([A-Za-z]+)/)
+  const name = m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""
+  if (name && !["itemize", "enumerate", ...BLOCK_NAMES].includes(name)) throw new Unsupported(`beamer: \\${name} where a paragraph has begun`)
+  return paragraph(cx, v, t)
+}
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
@@ -328,12 +351,7 @@ function frameMaterial(cx: FrameCtx, body: string): Node[] {
   v.prevDepth = null // a \vbox begins with \prevdepth -1000pt
   v.vskip(negate(cx.k.glue.parskip))
   v.box(emptyBox("vlist"), cx.k.sizes.normalsize.baselineskip)
-  for (let text = body.trim(); text; text = text.trim()) {
-    const m = text.match(/^\\(?:begin\{)?([A-Za-z]+)/)
-    const handler = FRAME_CONTENT[m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""]
-    if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
-    text = handler(cx, v, text)
-  }
+  frameContent(cx, v, body)
   // \end{beamer@framepauses}: \beamer@endpause, then what waits for the group's end
   smuggle(v, groupEnd(cx.overlay, true))
   return v.nodes
@@ -358,6 +376,7 @@ export function frameBox(cx: FrameCtx, f: FrameSource, centered: boolean): BoxNo
     else throw new Unsupported(`a frame's option ${o}`)
   }
   const { top, bottom } = placement(cx.k, centered)
+  cx.centered = centered
   // the material first, then the title's box (\setbox\beamer@frametitlebox after the frame's \vbox is read)
   const material = frameMaterial(cx, f.body)
   const list: Node[] = [penalty(10000), emptyBox("vlist"), penalty(10000), penalty(10000), penalty(10000)]
