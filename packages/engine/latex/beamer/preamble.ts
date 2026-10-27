@@ -161,7 +161,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   }
   const name = themeParts.join("-") || "default"
   if (!THEMES.includes(name)) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
-  const theme = { ...loadTheme(name), shadow }
+  const theme = loadTheme(name, shadow)
   // (the data is for these lines in this order: infolines with its own headline, or another order, has none)
   if (theme.data.preamble.join("\n") !== themeLines.join("\n")) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const cls = classFile("beamer").options[option]
