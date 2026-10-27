@@ -16,6 +16,7 @@ const COLOR_OPS: Record<ColorModel, { op: string; extra: string }> = {
 const smaskClip = (op: string) => `/pgfsmaskinplace dup where {exch get}{pop false} ifelse not {${op}} if`
 
 export class DvipsDriver extends ProtocolDriver implements PgfDriver {
+  readonly namedColors = true
   /** \pgfsys@invoke (dvips.def 17) */
   protected invoke(text: string) { this.state.special(`ps${this.state.sw.psBoxMode ? "" : ":"}: ${text}`) }
 
@@ -132,6 +133,14 @@ export class DvipsDriver extends ProtocolDriver implements PgfDriver {
     this.state.special("ps::[begin]")
     this.invoke("pgfr")
     this.state.space()
+  }
+
+  /** pgfsys.code.tex 1537–1539: the box in a graphic scope, after the transformation (no TeX group) */
+  hboxsynced(box: BoxNode | null, register: boolean, synccm: () => void) {
+    this.beginscope()
+    synccm()
+    this.hbox(box, register)
+    this.endscope()
   }
 
   // dvips.def 47–55

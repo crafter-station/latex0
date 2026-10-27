@@ -6,6 +6,7 @@
 
 import { Unsupported } from "../latex/unsupported"
 import { glue, type BoxNode, type Node } from "../layout/nodes"
+import type { PgfTipSequence } from "./arrows"
 import type { PgfUnits } from "./mathparser"
 
 /** the system layer's switches, saved and restored by TeX's groups */
@@ -45,9 +46,15 @@ export interface PgfLocal {
   baseline: string | null
   trimLeft: string | null
   trimRight: string | null
+  /** \pgf@start@tip@sequence, \pgf@end@tip@sequence (pgfcorearrows.code.tex): the arrow tips at the path's ends */
+  startTips: PgfTipSequence
+  endTips: PgfTipSequence
+  /** \pgf@shorten@start@additional, \pgf@shorten@end@additional (pgfcorepathusage.code.tex) */
+  shortenStart: number
+  shortenEnd: number
 }
 
-const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null }
+const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0 }
 
 /** a box's extent, as pgf's four registers (\pgf@picminx …, \pgf@pathminx …) */
 export interface PgfExtent { minX: number; maxX: number; minY: number; maxY: number }
@@ -78,6 +85,9 @@ export class PgfState {
   path = emptyExtent()
   /** \pgflinewidth (global) */
   lineWidth = 0
+  /** \pgf@strokecolor@global, \pgf@fillcolor@global: the colours last set, as graphicstate.ts keys them (for arrow tips) */
+  strokeColor = ""
+  fillColor = ""
   /** \pgfsyssoftpath@thepath (global) */
   softPath: SoftPathItem[] = []
   /** \pgf@path@lastx, \pgf@path@lasty (global) */

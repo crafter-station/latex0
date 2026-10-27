@@ -1,11 +1,12 @@
-// pgf oracle (#292, #298): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
+// pgf oracle (#292, #298, #304): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
 // `\setbox0\hbox{\nullfont <snippet>}\showbox0` with tikz loaded (a picture's \nullfont: every stray space in
 // pgf's macros is a \glue 0.0) by latex (pgf's dvips driver) and by pdflatex (its pdftex driver), and run
 // through pgf/ for each. The box dumps must agree node by node: every box's size and shift, every \special's
 // and \pdfliteral's text, every space. A tiny reader of the snippet's commands drives the TS side. Fixed
 // snippets cover each primitive, then seeded random sequences of system commands and random pictures (paths
-// under transformations, scopes, groups, graphic state, baselines and trims). A TeX error (a dimension too
-// large) must be the engine's Unsupported.
+// under transformations, scopes, groups, graphic state, baselines and trims) and random pictures of nodes
+// (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext); a node's text is typeset
+// by the engine (latex/paragraph.ts). A TeX error (a dimension too large) must be the engine's Unsupported.
 //   bun engine pgf:check [--n 2000] [--seed 1]
 
 import { spawnSync } from "node:child_process"
@@ -24,12 +25,19 @@ import { TexArith } from "../../pgf/fixed"
 import { DvipsDriver } from "../../pgf/drivers/dvips"
 import { PdftexDriver } from "../../pgf/drivers/pdftex"
 import type { ColorModel, PgfDriver } from "../../pgf/drivers"
-import { pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetMiterLimit, pgfSetStrokeColor } from "../../pgf/graphicstate"
+import { isColorName, pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetMiterLimit, pgfSetStrokeColor } from "../../pgf/graphicstate"
 import { texArgs } from "../../pgf/mathfunctions"
 import { pgfPathCircle, pgfPathClose, pgfPathCurveTo, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfPathRectangle, pgfPathRectangleCorners, pgfUsePath } from "../../pgf/paths"
-import { pgfPoint, pgfPointAdd, pgfPointDiff, pgfPointOrigin, pgfPointPolar, pgfPointScale, pgfPointXY, setLength, type PgfPoint } from "../../pgf/points"
+import {
+  pgfPoint, pgfPointAdd, pgfPointBorderEllipse, pgfPointBorderRectangle, pgfPointDiff, pgfPointNormalised, pgfPointOrigin, pgfPointPolar, pgfPointScale, pgfPointXY,
+  setLength, type PgfPoint,
+} from "../../pgf/points"
 import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope, pgfSetBaseline, pgfSetTrimLeft, pgfSetTrimRight } from "../../pgf/scopes"
 import { PgfState } from "../../pgf/state"
+import { pgfCoordinate, pgfMultipartNode, pgfNode, pgfPointAnchor, pgfPointShapeBorder, pgfText, SHAPE_KEYS, type PgfShapeKeys, type PgfText, type PgfTextOption } from "../../pgf/shapes"
+import { hlistInput } from "../../latex/paragraph"
+import { pgfArrowsMeta, pgfSetArrows, pgfSetArrowsEnd, pgfSetArrowsStart, pgfSetShortenEnd, pgfSetShortenStart } from "../../pgf/arrows"
+import { classData } from "../../latex/classes"
 import {
   pgfLowLevelSyncCm, pgfPointTransformed, pgfTransformCm, pgfTransformReset, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale,
   pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant,
@@ -131,6 +139,42 @@ const PICTURES = [
   "{0pt}{0pt}{1pt}{1pt}\\pgfpathmoveto{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{0sp}{-16383.99998pt}}}\\pgfusepath{fill}",
   "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{0sp}{0pt}}}\\pgfusepath{fill}",
   "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{1sp}{0pt}}}\\pgfusepath{fill}",
+  // nodes (#304): each shape, anchors, the text box, keys, names, anchors and border points of named nodes
+  "\\pgfnode{rectangle}{center}{Hg}{a}{\\pgfusepath{stroke}}",
+  "\\pgftransformshift{\\pgfpoint{1cm}{2pt}}\\pgfnode{circle}{north west}{x}{b}{\\pgfusepath{fill}}\\pgfpathmoveto{\\pgfpointanchor{b}{south}}",
+  "\\pgfnode{coordinate}{center}{}{c}{}\\pgfmultipartnode{coordinate}{center}{c}{} \\pgfnode{rectangle}{base}{}{c}{}\\pgfusepath{stroke}",
+  "\\pgftransformrotate{30}\\pgfnode{rectangle}{center}{Hg}{a}{\\pgfusepath{stroke}}\\pgftransformshift{\\pgfpoint{3pt}{1pt}}\\pgfpathmoveto{\\pgfpointanchor{a}{north east}}\\pgfpathlineto{\\pgfpointanchor{a}{30}}\\pgfusepath{draw}",
+  "\\pgfset{inner sep=2pt,minimum width=1cm}\\pgfnode{rectangle}{south west}{$x^2$ y}{a}{\\pgfusepath{fill,stroke}}{\\pgfset{outer sep=3pt,minimum height=20pt}\\pgfnode{circle}{text}{A}{b}{\\pgfusepath{draw}}}\\pgfnode{circle}{mid east}{}{c}{}",
+  "\\pgfnode{rectangle}{north}{a}{a}{} \\pgfnode{rectangle}{south}{b}{}{} \\pgfnode{rectangle}{west}{c}{}{} \\pgfnode{rectangle}{east}{d}{}{} \\pgfnode{rectangle}{mid}{e}{}{} \\pgfnode{rectangle}{mid west}{f}{}{} \\pgfnode{rectangle}{mid east}{g}{}{}",
+  "\\pgfnode{rectangle}{base west}{a}{}{}\\pgfnode{rectangle}{base east}{b}{}{}\\pgfnode{rectangle}{north west}{c}{}{}\\pgfnode{rectangle}{south east}{d}{}{}\\pgfnode{rectangle}{north east}{e}{}{}\\pgfnode{rectangle}{-45}{f}{}{}\\pgfnode{rectangle}{100}{g}{}{}",
+  "\\pgfnode{circle}{north}{a}{}{}\\pgfnode{circle}{south}{b}{}{}\\pgfnode{circle}{west}{c}{}{}\\pgfnode{circle}{east}{d}{}{}\\pgfnode{circle}{mid}{e}{}{}\\pgfnode{circle}{mid west}{f}{}{}\\pgfnode{circle}{base}{g}{}{}\\pgfnode{circle}{base west}{h}{}{}\\pgfnode{circle}{base east}{i}{}{}",
+  "\\pgfnode{circle}{south west}{a}{}{}\\pgfnode{circle}{south east}{b}{}{}\\pgfnode{circle}{north east}{c}{}{}\\pgfnode{circle}{200}{d}{}{}\\pgfnode{circle}{center}{long text}{}{}",
+  "\\pgfnode{rectangle}{center}{A}{a}{}\\pgfnode{circle}{center}{B}{b}{}\\pgfpathmoveto{\\pgfpointshapeborder{a}{\\pgfpoint{1cm}{2pt}}}\\pgfpathlineto{\\pgfpointshapeborder{b}{\\pgfpoint{-1cm}{-3cm}}}\\pgfpathlineto{\\pgfpointshapeborder{a}{\\pgfpoint{0pt}{0.01pt}}}\\pgfusepath{stroke}",
+  "\\pgfcoordinate{p}{\\pgfpoint{1cm}{1pt}}\\pgftransformscale{2}\\pgfpathmoveto{\\pgfpointanchor{p}{north}}\\pgfpathlineto{\\pgfpointshapeborder{p}{\\pgfpointorigin}}",
+  "\\pgfsetlinewidth{2pt}\\setbox\\pgfnodeparttextbox\\hbox{\\vrule width 2pt height 3pt}\\pgfmultipartnode{rectangle}{north}{m}{\\pgfusepath{stroke}}\\pgfpathmoveto{\\pgfpointanchor{m}{south}}",
+  "\\pgftext{Hg}", "\\pgftext[left,top,at={\\pgfpoint{1cm}{2pt}}]{Hg} \\pgftext[right,bottom,x=3pt,y=-1pt,rotate=20]{a b}\\pgftext[base]{x}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{1pt}{2pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{-1pt}{0.1pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{0.002pt}{-0.001pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{1pt}{2040sp}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{1pt}{2032sp}}{\\pgfqpoint{3pt}{4pt}}}\\pgfusepath{stroke}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{2040sp}{1000sp}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{1000sp}{2040sp}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{2040sp}{1pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{2032sp}{-1pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{-2pt}{1pt}}{\\pgfqpoint{4pt}{2pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{1pt}{-2pt}}{\\pgfqpoint{2pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderrectangle{\\pgfqpoint{0pt}{0pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfusepath{stroke}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpointborderellipse{\\pgfqpoint{1pt}{2pt}}{\\pgfqpoint{3pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderellipse{\\pgfqpoint{-1pt}{0.1pt}}{\\pgfqpoint{5pt}{4pt}}}\\pgfpathlineto{\\pgfpointborderellipse{\\pgfqpoint{1pt}{-1pt}}{\\pgfqpoint{2pt}{2pt}}}\\pgfpathlineto{\\pgfpointborderellipse{\\pgfqpoint{-1pt}{-3pt}}{\\pgfqpoint{2pt}{7pt}}}\\pgfpathlineto{\\pgfpointborderellipse{\\pgfqpoint{2pt}{-1pt}}{\\pgfqpoint{9pt}{1.5pt}}}\\pgfusepath{stroke}",
+  // arrow tips (#304): each kind, instantiated once per line width, at both ends, shortened paths, curves, sequences
+  "\\pgfsetarrowsend{to}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsend{to}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}\\pgfpathmoveto{\\pgfpoint{0pt}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{2cm}}\\pgfusepath{draw}",
+  "\\pgfsetarrowsend{Stealth}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsend{Latex}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{5pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsend{To}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{-1cm}{5pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrows{<->}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{5pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrows{stealth-latex}\\pgfsetlinewidth{1pt}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{1cm}{0pt}}{\\pgfpoint{1cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetarrows{to-to}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfpathmoveto{\\pgfpoint{0pt}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{2cm}{2cm}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsend{>>}\\pgfsetstrokecolor{red}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke} \\pgfsetarrowsend{Stealth[]Latex}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetshortenstart{2pt}\\pgfsetshortenend{+1pt}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsstart{LaTeX}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfusepath{stroke}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfpoint{2cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsend{stealth}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{1cm}{0pt}}{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfusepath{stroke}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{1cm}{0pt}}{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfpathmoveto{\\pgfpoint{3cm}{0pt}}\\pgfusepath{stroke}",
+  "\\pgfsetarrowsend{to}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke} \\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{fill} \\pgfusepath{stroke}",
+  // the fill colour of a tip: the globals \ifx-compared, by name under dvips, restored by \endpgfscope
+  ...["\\pgfsetcolor{red}", "\\pgfsetstrokecolor{red}\\pgfsetfillcolor{red}", "\\pgfsetstrokecolor{red!50}\\pgfsetfillcolor{red!50}", "\\pgfsetstrokecolor{red!50}", "\\pgfsetfillcolor{blue}"]
+    .map((c) => `${c}\\pgfsetarrowsend{>>}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}\\begin{pgfscope}\\pgfsetfillcolor{red}\\end{pgfscope}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}`),
+  // the minimum width met to the sp
+  "\\pgfset{inner sep=1pt,minimum size=131071sp}\\pgfnode{rectangle}{north east}{}{}{\\pgfusepath{stroke}}\\pgfnode{rectangle}{south west}{}{}{\\pgfusepath{stroke}}",
 ]
 
 function rng(seed: number) {
@@ -255,8 +299,128 @@ export function makePictures(n: number, seed: number): string[] {
   })
 }
 
+/** Random pictures of nodes (#304): shapes, anchors, texts and keys under transformations, the named nodes' anchors and border points, \pgftext. */
+export function makeNodes(n: number, seed: number): string[] {
+  const r = rng(seed * 104729 + 3)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const digits = (k: number) => Array.from({ length: k }, () => String(int(0, 9))).join("")
+  const len = () => {
+    const unit = pick(["pt", "pt", "bp", "cm", "mm", "em", "ex"])
+    const whole = unit === "pt" || unit === "bp" ? int(0, 40) : int(0, 2)
+    return `${pick(["", "", "", "-"])}${pick([String(whole), `${whole}.${digits(int(1, 4))}`, `.${digits(int(1, 3))}`])}${unit}`
+  }
+  const size = () => pick([len, () => "0pt", () => `+${len()}`, () => `${len()}+${len()}`])()
+  const factor = () => pick(["1", "2", "0.5", "-1", ".75", `${pick(["", "-"])}${pick(["0", "1"])}.${digits(int(1, 3))}`])
+  const angle = () => pick([String(int(-360, 360)), `${int(-90, 90)}.${digits(int(1, 2))}`, "45", "90", "180"])
+  const shapes = ["rectangle", "rectangle", "circle", "circle", "coordinate"]
+  const anchors = ["center", "north", "south", "east", "west", "mid", "mid west", "mid east", "base", "base west", "base east", "north west", "north east", "south west", "south east", "text"]
+  const anchor = () => r() < 0.15 ? angle() : pick(anchors)
+  const text = () => pick(["", "x", "Hg", "A", "long text", "$x^2$", "fly", "a b", "1", "Wq"])
+  const names: string[] = []
+  const point = (): string => pick([
+    () => `\\pgfpoint{${len()}}{${len()}}`, () => "\\pgfpointorigin", () => `\\pgfpointpolar{${angle()}}{${len()}}`,
+    ...(names.length ? [() => `\\pgfpointanchor{${pick(names)}}{${anchor()}}`, () => `\\pgfpointshapeborder{${pick(names)}}{\\pgfpoint{${len()}}{${len()}}}`] : []),
+  ])()
+  const keys = () => {
+    const ks = ["inner sep", "inner xsep", "inner ysep", "outer sep", "outer xsep", "outer ysep", "minimum width", "minimum height", "minimum size"].filter(() => r() < 0.25)
+    return `\\pgfset{${ks.map((k) => `${k}=${size()}`).join(",")}}`
+  }
+  const uses = () => pick(["", "\\pgfusepath{stroke}", "\\pgfusepath{fill}", "\\pgfusepath{fill,stroke}", "\\pgfusepath{discard}", "\\pgfusepath{clip}"])
+  const node = () => {
+    const name = r() < 0.7 ? pick(["a", "b", "c"]) : ""
+    const out = r() < 0.15
+      ? `\\pgfcoordinate{${name}}{${point()}}`
+      : `\\pgfnode{${pick(shapes)}}{${anchor()}}{${text()}}{${name}}{${uses()}}`
+    if (name && !names.includes(name)) names.push(name)
+    return out
+  }
+  const textOptions = () => {
+    const os = [pick(["", "left", "right"]), pick(["", "top", "bottom", "base"]), ...(r() < 0.3 ? [`at={${point()}}`] : []), ...(r() < 0.2 ? [`rotate=${angle()}`] : []), ...(r() < 0.2 ? [`x=${len()}`] : [])].filter((o) => o)
+    return os.length ? `[${os.join(",")}]` : ""
+  }
+  const commands: (() => string)[] = [
+    node, node, node, node, keys,
+    () => `\\pgftext${textOptions()}{${text() || "x"}}`,
+    () => `\\pgfpathmoveto{${point()}}`, () => `\\pgfpathlineto{${point()}}`, () => "\\pgfusepath{stroke}",
+    () => `\\pgftransformshift{${point()}}`, () => `\\pgftransformrotate{${angle()}}`, () => `\\pgftransformscale{${factor()}}`,
+    () => `\\pgftransformcm{${factor()}}{${factor()}}{${factor()}}{${factor()}}{${point()}}`, () => `\\pgftransformxslant{${factor()}}`,
+    () => `\\pgfsetlinewidth{${pick(["0.4pt", "1pt", "2pt", len()])}}`,
+  ]
+  const body = (depth: number): string => {
+    let out = ""
+    for (let k = int(1, 7); k > 0; k--) {
+      // (lazily: a body made and not picked would still name its nodes)
+      out += depth < 2 && r() < 0.15 ? pick([() => `{${body(depth + 1)}}`, () => `\\begin{pgfscope}${body(depth + 1)}\\end{pgfscope}`])() : pick(commands)()
+      if (r() < 0.15) out += " "
+    }
+    return out
+  }
+  return Array.from({ length: n }, () => {
+    names.length = 0
+    return `\\begin{pgfpicture}${node()}${body(0)}\\end{pgfpicture}`
+  })
+}
+
+/** Random pictures with arrow tips (#304): tip sequences at both ends of random open paths, shortening, line widths, colours, transformations, stray spaces. */
+export function makeArrows(n: number, seed: number): string[] {
+  const r = rng(seed * 15485863 + 11)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const digits = (k: number) => Array.from({ length: k }, () => String(int(0, 9))).join("")
+  const len = () => {
+    const unit = pick(["pt", "pt", "bp", "cm", "mm", "em"])
+    const whole = unit === "pt" || unit === "bp" ? int(0, 60) : int(0, 2)
+    return `${pick(["", "", "-"])}${pick([String(whole), `${whole}.${digits(int(1, 4))}`, `.${digits(int(1, 3))}`])}${unit}`
+  }
+  // (> is To at an end, < at a start; the other way round they are reversed tips)
+  const common = ["to", "To", "stealth", "latex", "Stealth", "Latex", "LaTeX", "Stealth[]Latex", "to[].to", "Latex[] . Stealth", "", ".", "Computer Modern Rightarrow"]
+  const ends = [...common, ">", ">>"], starts = [...common, "<", "<<"]
+  const pts: string[] = []
+  const point = () => pick([
+    () => `\\pgfpoint{${len()}}{${len()}}`, () => "\\pgfpointorigin", () => `\\pgfpointpolar{${int(-180, 180)}}{${len()}}`,
+    ...(pts.length ? [() => pick(pts)] : []), // (a point again: degenerate segments)
+  ])()
+  const keep = (p: string) => { pts.push(p); return p }
+  const path = () => {
+    let out = `\\pgfpathmoveto{${keep(point())}}`
+    for (let k = int(0, 4); k > 0; k--) {
+      out += pick([
+        () => `\\pgfpathlineto{${keep(point())}}`, () => `\\pgfpathlineto{${keep(point())}}`,
+        () => `\\pgfpathcurveto{${keep(point())}}{${keep(point())}}{${keep(point())}}`,
+        () => (r() < 0.2 ? "\\pgfpathclose" : `\\pgfpathmoveto{${keep(point())}}`),
+      ])()
+      if (r() < 0.1) out += " "
+    }
+    return out
+  }
+  const uses = () => `\\pgfusepath{${pick(["stroke", "stroke", "draw", "fill", "fill,stroke", "clip", "discard", "stroke,clip"])}}`
+  const commands: (() => string)[] = [
+    () => `${path()}${pick(["", " "])}${uses()}`, () => `${path()}${pick(["", " "])}${uses()}`, () => `${path()}${uses()}`,
+    () => `\\pgfsetarrowsend{${pick(ends)}}`, () => `\\pgfsetarrowsstart{${pick(starts)}}`, () => `\\pgfsetarrows{${pick(starts)}-${pick(ends)}}`,
+    () => `\\pgfsetshortenstart{${pick([len(), `+${len()}`, "0pt"])}}`, () => `\\pgfsetshortenend{${pick([len(), `+${len()}`, "0pt"])}}`,
+    () => `\\pgfsetlinewidth{${pick(["0.4pt", "1pt", "2pt", ".1pt", len()])}}`,
+    () => `\\${pick(["pgfsetstrokecolor", "pgfsetfillcolor", "pgfsetcolor"])}{${pick(["red", "blue", "red!50", "mine", "dark!25!red", "black"])}}`,
+    () => `\\pgftransformshift{${point()}}`, () => `\\pgftransformrotate{${int(-180, 180)}}`, () => `\\pgftransformscale{${pick(["2", "0.5", "-1"])}}`,
+    () => pick(["\\pgfsetdash{{3pt}{1pt}}{0pt}", "\\pgfsetroundcap", "\\pgfsetbuttcap", "\\pgfsetroundjoin"]),
+  ]
+  const body = (depth: number): string => {
+    let out = ""
+    for (let k = int(1, 7); k > 0; k--) {
+      out += depth < 2 && r() < 0.15 ? pick([() => `{${body(depth + 1)}}`, () => `\\begin{pgfscope}${body(depth + 1)}\\end{pgfscope}`])() : pick(commands)()
+      if (r() < 0.2) out += pick([" ", "  "])
+    }
+    return out
+  }
+  return Array.from({ length: n }, () => {
+    pts.length = 0
+    return `\\begin{pgfpicture}\\pgfsetarrows{${pick(starts)}-${pick(ends)}}${body(0)}\\end{pgfpicture}`
+  })
+}
+
 /** The snippet's commands on a driver: TeX's tokens as the snippet has them (spaces after a control word skipped). */
-export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void {
+export function runSnippet(source: string, driver: PgfDriver, colors: Colors, text: PgfText = TEXT): void {
+  let src = source
   const s = driver.state
   const a = new TexArith({ em: 0, ex: 0 }) // \nullfont's quad and x-height
   const boxes = new Map<string, LayoutBox | null>()
@@ -268,8 +432,11 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
     if (level && !level.has(reg)) level.set(reg, boxes.get(reg) ?? null)
     boxes.set(reg, b)
   }
-  const begingroup = () => { s.begingroup(); saved.push(new Map()) }
-  const endgroup = () => { s.endgroup(); for (const [reg, b] of saved.pop() ?? []) boxes.set(reg, b) }
+  // the shape keys (\pgfset), local
+  let keys = SHAPE_KEYS
+  const keyStack: PgfShapeKeys[] = []
+  const begingroup = () => { s.begingroup(); saved.push(new Map()); keyStack.push(keys) }
+  const endgroup = () => { s.endgroup(); for (const [reg, b] of saved.pop() ?? []) boxes.set(reg, b); keys = keyStack.pop() ?? keys }
   let i = 0
   const skipSpaces = () => { while (/\s/.test(src[i] ?? "")) i++ }
   const controlWord = () => {
@@ -345,6 +512,11 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
       case "pgfpointpolar": return pgfPointPolar(s, as[0], as[1])
       case "pgfpointxy": return pgfPointXY(as[0], as[1], units)
       case "pgfpointtransformed": return pgfPointTransformed(s, point(as[0]))
+      case "pgfpointanchor": return pgfPointAnchor(s, as[0], as[1])
+      case "pgfpointshapeborder": return pgfPointShapeBorder(s, as[0], pt(as[1]))
+      case "pgfpointnormalised": return pgfPointNormalised(point(as[0]), units)
+      case "pgfpointborderrectangle": { const c = point(as[1]); return pgfPointBorderRectangle(point(as[0]), c) }
+      case "pgfpointborderellipse": { const c = point(as[1]); return pgfPointBorderEllipse(pt(as[0]), c, units) }
     }
     throw new Error(`pgf:check: unknown point \\${m[1]}`)
   }
@@ -359,7 +531,9 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
     const name = arg()
     const e = environments[name]
     if (!e) throw new Error(`pgf:check: environment ${name}`)
+    if (k === 0) keyStack.push(keys)
     e[k]()
+    if (k === 1) keys = keyStack.pop() ?? keys
   }
   /** pgf's basic layer; the commands ending in \ignorespaces skip the spaces after them */
   const ignoring = (f: () => void) => () => { f(); skipSpaces() }
@@ -388,16 +562,50 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
     pgfsetbuttcap: ignoring(() => driver.cap("butt")), pgfsetroundcap: ignoring(() => driver.cap("round")), pgfsetrectcap: ignoring(() => driver.cap("rect")),
     pgfsetmiterjoin: ignoring(() => driver.join("miter")), pgfsetroundjoin: ignoring(() => driver.join("round")), pgfsetbeveljoin: ignoring(() => driver.join("bevel")),
     pgfseteorule: ignoring(() => { s.sw.eoRule = true }), pgfsetnonzerorule: ignoring(() => { s.sw.eoRule = false }),
+    pgfnode: () => { const [shape, anchor, t, name, use] = strs(5); pgfNode(s, driver, text, shape, anchor, t, name, () => exec(use), keys) },
+    pgfmultipartnode: () => {
+      const [shape, anchor, name, use] = strs(4)
+      pgfMultipartNode(s, driver, shape, anchor, name, () => exec(use), keys, boxes.get("\\pgfnodeparttextbox") ?? null)
+      boxes.set("\\pgfnodeparttextbox", null)
+    },
+    pgfcoordinate: () => { const name = arg(); pgfCoordinate(s, name, pt(arg())) },
+    pgftext: () => {
+      skipSpaces()
+      const options: PgfTextOption[] = []
+      if (src[i] === "[") {
+        const end = src.indexOf("]", i)
+        for (const o of splitKeys(src.slice(i + 1, end))) {
+          const [k, v] = o
+          if (k === "at") options.push(["at", pt(v)])
+          else if (k === "x" || k === "y" || k === "rotate") options.push([k, v])
+          else options.push([k as "left"])
+        }
+        i = end + 1
+      }
+      pgfText(s, driver, text, options, arg())
+      skipSpaces() // (\pgf@collectresetcolor's \pgfutil@ifnextchar)
+    },
+    pgfset: () => { keys = setKeys(keys, arg()) },
+    pgfsetarrowsstart: () => pgfSetArrowsStart(s, arg()), pgfsetarrowsend: () => pgfSetArrowsEnd(s, arg()), pgfsetarrows: () => pgfSetArrows(s, arg()),
+    pgfsetshortenstart: ignoring(() => pgfSetShortenStart(s, arg())), pgfsetshortenend: ignoring(() => pgfSetShortenEnd(s, arg())),
   }
   const commands: Record<string, () => void> = {
     ...basic, begingroup, endgroup, setbox,
     "pgfsysprotocol@bufferedtrue": () => { s.sw.buffered = true }, "pgfsysprotocol@bufferedfalse": () => { s.sw.buffered = false },
     "pgfsysprotocol@flushcurrentprotocol": () => driver.flush(),
-    pgfsetstrokecolor: () => pgfSetStrokeColor(driver, colors.spec(arg())),
-    pgfsetfillcolor: () => pgfSetFillColor(driver, colors.spec(arg())),
-    pgfsetcolor: () => pgfSetColor(driver, colors.spec(arg())),
+    pgfsetstrokecolor: () => { const e = arg(); pgfSetStrokeColor(driver, colors.spec(e), isColorName(e)) },
+    pgfsetfillcolor: () => { const e = arg(); pgfSetFillColor(driver, colors.spec(e), isColorName(e)) },
+    pgfsetcolor: () => { const e = arg(); pgfSetColor(driver, colors.spec(e), isColorName(e)) },
   }
-  while (i < src.length) {
+  const exec = (code: string) => {
+    const [outerSrc, outerI] = [src, i]
+    src = code
+    i = 0
+    run()
+    src = outerSrc
+    i = outerI
+  }
+  const run = () => { while (i < src.length) {
     const c = src[i]
     if (c === "{") { begingroup(); i++; continue }
     if (c === "}") { endgroup(); i++; continue }
@@ -408,17 +616,62 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
     const f = name.startsWith("pgfsys@") ? sys[name.slice(7)] : commands[name]
     if (!f) throw new Error(`pgf:check: unknown command \\${name}`)
     f()
-  }
+  } }
+  run()
 }
+
+/** `key=value` pairs separated by commas outside braces, the values without their outer braces */
+function splitKeys(list: string): [string, string][] {
+  const out: [string, string][] = []
+  let depth = 0, start = 0
+  const push = (item: string) => {
+    if (!item.trim()) return
+    const eq = item.indexOf("=")
+    const k = (eq < 0 ? item : item.slice(0, eq)).trim(), v = eq < 0 ? "" : item.slice(eq + 1).trim()
+    out.push([k, v.startsWith("{") && v.endsWith("}") ? v.slice(1, -1) : v])
+  }
+  for (let j = 0; j < list.length; j++) {
+    if (list[j] === "{") depth++
+    else if (list[j] === "}") depth--
+    else if (list[j] === "," && depth === 0) { push(list.slice(start, j)); start = j + 1 }
+  }
+  push(list.slice(start))
+  return out
+}
+
+/** \pgfset{…} of the shape keys (pgfmoduleshapes.code.tex 898–906) */
+function setKeys(keys: PgfShapeKeys, list: string): PgfShapeKeys {
+  const k = { ...keys }
+  for (const [name, v] of splitKeys(list)) {
+    switch (name) {
+      case "inner xsep": k.innerXSep = v; break
+      case "inner ysep": k.innerYSep = v; break
+      case "inner sep": k.innerXSep = v; k.innerYSep = v; break
+      case "outer xsep": k.outerXSep = v; break
+      case "outer ysep": k.outerYSep = v; break
+      case "outer sep": k.outerXSep = v; k.outerYSep = v; break
+      case "minimum width": k.minimumWidth = v; break
+      case "minimum height": k.minimumHeight = v; break
+      case "minimum size": k.minimumWidth = v; k.minimumHeight = v; break
+      default: throw new Error(`pgf:check: key ${name}`)
+    }
+  }
+  return k
+}
+
+/** a node's text as the engine typesets it: article's \normalfont at 10pt */
+const TEXT: PgfText = { hlist: (src) => hlistInput(src, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }) }
 
 /** TeX's box for each snippet (or its error), from one run per target, cached while the snippets stay the same */
 function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
   mkdirSync(DIR, { recursive: true })
   const tex = [
-    "\\documentclass{article}", "\\usepackage{tikz}", "\\newbox\\pgfcheckbox", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
+    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta}", "\\newbox\\pgfcheckbox", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}", "\\makeatletter",
+    // (each snippet instantiates its arrow tips afresh, as the engine does)
+    "\\let\\pgfcheck@fullname\\pgf@arrow@fullname\\def\\pgf@arrow@fullname#1{\\pgfcheckn @\\pgfcheck@fullname{#1}}",
     // (the protocol is global: what one snippet leaves buffered must not reach the next)
-    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
+    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
   ].join("\n")
   const file = join(DIR, `${t.name}.tex`), log = join(DIR, `${t.name}.log`)
   if (!existsSync(file) || readFileSync(file, "utf8") !== tex || !existsSync(log) || !/^(No pages of output|Output written)/m.test(readFileSync(log, "latin1"))) {
@@ -442,7 +695,7 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
 export function pgfCheck(n: number, seed: number): number {
   const f = loadFont(dataFont("cmr10"), 10 * UNITY) // \pgfmath@selectfont: the document's \normalfont
   const units: PgfUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...makeSnippets(n, seed), ...makePictures(n, seed)]
+  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed), ...makeArrows(n, seed)]
   let failed = 0
   for (const t of TARGETS) {
     const tex = texBoxes(t, snippets)
@@ -453,6 +706,7 @@ export function pgfCheck(n: number, seed: number): number {
       let problem: string
       try {
         const state = new PgfState(units)
+        pgfArrowsMeta(state)
         const colors = new Colors()
         for (const [name, model, values] of COLORS) colors.define(name, model, values)
         runSnippet(src, t.driver(state), colors)
