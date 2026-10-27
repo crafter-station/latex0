@@ -116,9 +116,7 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
   if (star) {} // (\caption@star: no \caption@refstepcounter, \caption@prepareanchor or lof line)
   else if (isSub) {
     if (keys.list) throw new Unsupported("a subcaption in the list of figures") // (\caption@addsubcontentsline)
-    if (f.number === null || f.pending) f.subAbove = true // (\caption@setsubcaption: flag 4 before the \caption, 8 after)
-    if (f.number === null) { f.number = ++counters[env]; f.pending = true; f.sub = 0 } // (\newcounter{subfigure}[figure])
-    number = f.number
+    number = f.number! // (stepped where the sub-float began, minipageAt; \newcounter{subfigure}[figure])
     const n = ++f.sub
     sub = representation("alph", n)
     // \theHsubfigure: \theHfigure.\arabic{subfigure}; with hypcap, the float's \caption@makecurrentHref (its sub=hypcap=0

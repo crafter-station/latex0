@@ -67,6 +67,12 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   const listWas = f.keys?.list
   const stickList = () => { if (m.sub && listWas === false) f.keys!.list = false }
   if (m.sub && f.keys) {
+    // \caption@subtypehook's \caption@stepcounter\@captype: the float's counter steps at its first sub-float, with a
+    // caption or not, unless the float's caption came first (\caption@ifcounter); a sub-float after the caption and
+    // one before it is ambiguous (caption's warning, its flags cleared: the counter steps again); then
+    // \caption@setsubcaption's flag
+    if (f.number === null || !f.pending && f.subAbove) { f.number = ++counters[m.sub]; f.pending = true; f.sub = 0 }
+    if (f.pending) f.subAbove = true
     const k = f.keys
     k.left = 0; k.right = 0; k.width = 0
     if (runList(cx.pre.caption!, "sub", k, "sub", dim, m.sub).position || runList(cx.pre.caption!, `sub${m.sub}`, k, "sub", dim, m.sub).position) f.top = null

@@ -1,0 +1,50 @@
+% fixture: caption/sub-nocaption
+% tier: T3
+% engine: document
+% covers: subcaption's sub-floats without a caption: \caption@subtypehook's \caption@stepcounter steps the float's counter at the first one all the same (a \caption* after it numbers nothing, a \caption after it takes that number), and \caption@setsubcaption's flag puts the float's caption below (position auto); a sub-float after the caption and one before it, ambiguous: the counter steps again
+% issue: #294
+\documentclass{article}
+\usepackage{subcaption}
+\begin{document}
+Text.
+\begin{table}[h]
+\centering
+\begin{subtable}{0.45\linewidth}
+A table's text without a caption.
+\end{subtable}
+\caption*{Unnumbered}
+\end{table}
+\begin{figure}[h]
+\begin{subfigure}{0.45\linewidth}
+A figure's text without a caption.
+\end{subfigure}
+\begin{subfigure}{0.45\linewidth}
+More.
+\caption{With one}
+\end{subfigure}
+\caption{Numbered}
+\end{figure}
+\begin{table}[h]
+\caption{The second table}
+\begin{subtable}{0.45\linewidth}
+Below the caption.
+\end{subtable}
+\end{table}
+\begin{figure}[h]
+\begin{subfigure}{0.45\linewidth}
+Before the caption.
+\end{subfigure}
+\caption{The second figure}
+\label{fig:2}
+\begin{subfigure}{0.45\linewidth}
+After it.
+\caption{Ambiguous}
+\label{fig:2a}
+\end{subfigure}
+\end{figure}
+\begin{figure}[h]
+\caption{The next figure}
+\label{fig:3}
+\end{figure}
+See \ref{fig:2}, \ref{fig:2a} and \ref{fig:3}.
+\end{document}
