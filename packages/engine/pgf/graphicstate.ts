@@ -15,12 +15,35 @@ function setColor(d: PgfDriver, spec: string, target: ColorTarget) {
   d.color(model as ColorModel, target, values)
 }
 
-/** \pgfsetstrokecolor (126–142), with the colour as xcolor's driver text (`rgb 1 0 0`) */
-export const pgfSetStrokeColor = (d: PgfDriver, spec: string) => setColor(d, spec, "stroke")
+/**
+ * What \pgf@strokecolor@global and \pgf@fillcolor@global hold, which arrow tips compare: xcolor's
+ * definition of pgfstrokecolor or pgffillcolor. A colour given by its name is \colorlet[named]
+ * (pgfutil-latex.def 31–39), whose definition under dvips names the colour it defines; an expression's
+ * does not.
+ */
+const colorKey = (d: PgfDriver, spec: string, named: boolean, target: string) => `${named && d.namedColors ? `named ${target}` : ""}|${spec}`
+
+/**
+ * \pgfsetstrokecolor (126–142), with the colour as xcolor's driver text (`rgb 1 0 0`); `named`: it was
+ * given as a colour's name, not an expression
+ */
+export function pgfSetStrokeColor(d: PgfDriver, spec: string, named: boolean) {
+  d.state.strokeColor = colorKey(d, spec, named, "pgfstrokecolor")
+  setColor(d, spec, "stroke")
+}
 /** \pgfsetfillcolor (161–177) */
-export const pgfSetFillColor = (d: PgfDriver, spec: string) => setColor(d, spec, "fill")
-/** \pgfsetcolor (186–202): \pgfsys@color@<model>, both at once */
-export const pgfSetColor = (d: PgfDriver, spec: string) => setColor(d, spec, "both")
+export function pgfSetFillColor(d: PgfDriver, spec: string, named: boolean) {
+  d.state.fillColor = colorKey(d, spec, named, "pgffillcolor")
+  setColor(d, spec, "fill")
+}
+/** \pgfsetcolor (186–202): \pgfsys@color@<model>, both at once (and both globals pgfstrokecolor's) */
+export function pgfSetColor(d: PgfDriver, spec: string, named: boolean) {
+  d.state.strokeColor = d.state.fillColor = colorKey(d, spec, named, "pgfstrokecolor")
+  setColor(d, spec, "both")
+}
+
+/** a colour expression that is a colour's name */
+export const isColorName = (expr: string) => /^\s*[A-Za-z][A-Za-z0-9]*\s*$/.test(expr) || expr.trim() === "."
 
 /** \pgfsetlinewidth{#1} (9–13): \pgflinewidth, global */
 export function pgfSetLineWidth(s: PgfState, d: PgfDriver, w: string) {

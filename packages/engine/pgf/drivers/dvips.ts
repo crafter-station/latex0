@@ -16,6 +16,7 @@ const COLOR_OPS: Record<ColorModel, { op: string; extra: string }> = {
 const smaskClip = (op: string) => `/pgfsmaskinplace dup where {exch get}{pop false} ifelse not {${op}} if`
 
 export class DvipsDriver extends ProtocolDriver implements PgfDriver {
+  readonly namedColors = true
   /** \pgfsys@invoke (dvips.def 17) */
   protected invoke(text: string) { this.state.special(`ps${this.state.sw.psBoxMode ? "" : ":"}: ${text}`) }
 

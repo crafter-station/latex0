@@ -6,6 +6,7 @@
 // them is not modeled here.
 
 import { Unsupported } from "../latex/unsupported"
+import { addArrow, prepareEndOfPath, prepareStartOfPath } from "./arrows"
 import type { PgfDriver } from "./drivers"
 import { toNumber } from "./fixed"
 import { pgfPoint, qpoint, type PgfPoint, type PgfPointMacro } from "./points"
@@ -158,7 +159,7 @@ export const pgfPathCircle = (s: PgfState, center: PgfPointMacro, r: string) => 
  * \pgfsyssoftpath@invokecurrentpath (42–46): each token's \pgfsys@ command. The coordinates are \the's text,
  * which \pgf@sys@bp scans again (a rectangle's size too large).
  */
-function invoke(s: PgfState, d: PgfDriver) {
+export function invoke(s: PgfState, d: PgfDriver) {
   for (const i of s.softPath) {
     for (const [k, v] of Object.entries(i)) if (k !== "op" && Math.abs(v as number) >= TOO_LARGE) throw new Unsupported(`pgf: a path coordinate of ${toNumber(v as number)}pt`)
     switch (i.op) {
@@ -199,12 +200,18 @@ export function pgfUsePath(s: PgfState, d: PgfDriver, keys: string[]) {
     action?.()
     s.setLocal({ relevant: false })
   } else if (stroke) {
-    // \pgfprocesscheckclosed: a rectangle or a closepath token
+    // \pgfprocesscheckclosed: a rectangle or a closepath token; an open path gets its arrow tips (arrows.ts)
     const open = !s.softPath.some((i) => i.op === "rect" || i.op === "closepath")
+    const end = open ? prepareEndOfPath(s, d) : null
     if (open) s.begingroup()
+    const start = open ? prepareStartOfPath(s, d) : null
     invoke(s, d)
     action?.()
-    if (open) s.endgroup()
+    if (open) {
+      addArrow(s, d, start)
+      s.endgroup()
+      addArrow(s, d, end)
+    }
   } else if (action) {
     invoke(s, d)
     action()

@@ -19,6 +19,7 @@ const COLOR_OPS: Record<ColorModel, { stroke: string; fill: string; extra: strin
 const OFF_PAGE = new TexArith({ em: 0, ex: 0 }).dimen("2000bp")
 
 export class PdftexDriver extends ProtocolDriver implements PgfDriver {
+  readonly namedColors = false
   /** \pgfsys@invoke (pdftex.def 24) */
   protected invoke(text: string) { this.state.out.push({ kind: "whatsit", text: `\\pdfliteral{${text}}` }) }
 

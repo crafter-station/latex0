@@ -13,6 +13,11 @@ export type ColorTarget = "stroke" | "fill" | "both"
 
 export interface PgfDriver {
   readonly state: PgfState
+  /**
+   * xcolor's `named` model is the driver's (dvips): \colorlet[named] then defines a colour as a reference
+   * to its own name; otherwise (pdfTeX) by its driver text alone
+   */
+  readonly namedColors: boolean
   /** \pgfsys@beginpicture, \pgfsys@endpicture */
   beginPicture(): void
   endPicture(): void
@@ -65,6 +70,8 @@ export interface PgfDriver {
   endText(): void
   /** \pgfsysprotocol@flushcurrentprotocol: the literals buffered so far invoked at once */
   flush(): void
+  /** \pgfsysprotocol@literal{#1}: protocolled text (an arrow tip's code) as a literal */
+  protocolLiteral(text: string): void
 }
 
 /** pgfsysprotocol.code.tex, with \pgf@sys@bp (pgfsys.code.tex 36–45) */
@@ -82,6 +89,9 @@ export abstract class ProtocolDriver {
     this.literalBuffered(text)
     if (!this.state.sw.buffered) this.flush()
   }
+
+  /** \pgfsysprotocol@literal: public, for a protocol kept aside */
+  protocolLiteral(text: string) { this.literal(text) }
 
   /** \pgfsysprotocol@flushcurrentprotocol (64–67): an empty protocol invokes nothing */
   flush() {

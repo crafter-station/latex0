@@ -46,7 +46,7 @@ export function beginPgfPicture(s: PgfState, d: PgfDriver, color: string, bbox?:
   d.beginPicture()
   d.beginscope()
   s.begingroup()
-  pgfSetColor(d, color)
+  pgfSetColor(d, color, true) // \pgfsetcolor{.}
   pgfSetLineWidth(s, d, "0.4pt")
   pgfTransformReset(s)
   s.softPath = []
@@ -112,6 +112,9 @@ export function pgfSetTrimLeft(s: PgfState, x: string) {
 /** \pgfsettrimright{#1} (421–428) */
 export function pgfSetTrimRight(s: PgfState, x: string) { s.setLocal({ trimRight: x === "default" ? null : x }) }
 
+/** \pgfscope@stroke@color, \pgfscope@fill@color of each open pgfscope */
+const colorScopes = new WeakMap<PgfState, [string, string][]>()
+
 /** \begin{pgfscope} (\pgfscope 48–55): a graphic scope and a group; the soft path emptied, the path's extent reset */
 export function beginPgfScope(s: PgfState, d: PgfDriver) {
   s.begingroup() // \begin
@@ -119,15 +122,19 @@ export function beginPgfScope(s: PgfState, d: PgfDriver) {
   d.beginscope()
   resetPathSizes(s)
   s.scopes.push(s.lineWidth)
+  const colors = colorScopes.get(s) ?? []
+  colorScopes.set(s, colors)
+  colors.push([s.strokeColor, s.fillColor])
   s.begingroup()
 }
 
-/** \end{pgfscope} (\endpgfscope 56–61): the line width back (globally) */
+/** \end{pgfscope} (\endpgfscope 56–61): the line width and the colours' globals back (globally) */
 export function endPgfScope(s: PgfState, d: PgfDriver) {
   s.endgroup()
   const w = s.scopes.pop()
   if (w === undefined) throw new Unsupported("pgf: \\end{pgfscope} without a scope")
   s.lineWidth = w
+  ;[s.strokeColor, s.fillColor] = colorScopes.get(s)?.pop() ?? ["", ""]
   d.endscope()
   s.endgroup() // \end
 }
