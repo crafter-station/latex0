@@ -232,7 +232,7 @@ export function makeDocument(r: () => number): string {
       return `\\node${at} (${name}) {${nodeText()}};`
     }
     if (inline) return r() < 0.5 ? `\\tikz${pick(["", "[baseline=-0.5ex]", "[scale=0.3]"])} ${r() < 0.2 ? `\\node${nodeOptions()} {${nodeText()}};` : path()}` : `\\tikz[scale=0.2]{${path()}}`
-    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]", "[node distance=2cm]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, () => (r() < 0.4 ? named() : path())).join("\n")}\n\\end{tikzpicture}`
+    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]", "[node distance=2cm]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, () => (r() < 0.4 ? named() : r() < 0.15 ? `\\foreach \\x in {${pick(["0,...,3", "1,2", "0,0.5,...,2"])}} ${path().replace("(0,0)", "(\\x,0)")}` : path())).join("\n")}\n\\end{tikzpicture}`
   }
   const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
   // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)

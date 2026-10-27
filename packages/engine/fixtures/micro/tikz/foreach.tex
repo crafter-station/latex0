@@ -1,0 +1,25 @@
+% fixture: tikz/foreach
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \foreach in pictures: a list, a range of integers, of decimals (TeX's dimension steps), downwards and of letters; several variables with a missing part; count= (from), evaluate= … as … using; a nested loop with its own variable and one reusing the outer's; a group body and a ; body; a point as a value; a variable in options, coordinates, node text and pgfmath
+% issue: #326
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+\noindent Grids: \begin{tikzpicture}
+  \foreach \x in {0,...,4} {\draw (\x,0) -- (\x,2); \node[below] at (\x,0) {$\x$};}
+  \foreach \y in {0,0.5,...,2} \draw[gray] (0,\y) -- (4,\y);
+  \foreach \x/\y in {1/0.5,2/1,3} \fill (\x,\y) circle (2pt);
+  \foreach \l [count=\i from 0] in {a,...,e} \node at (\i,3) {\l};
+  \foreach \x in {1,2} \foreach \y in {1,...,3} \draw[red!\y0] (\x+4,\y) -- +(1,0);
+  \foreach \i in {1,2} {\foreach \i in {3,4} \fill (\i,-1) circle (1pt);}
+  \foreach \a [evaluate=\a as \r using \a/10] in {30,60,...,180} \draw[->] (6,0) -- +(\a:\r);
+  \foreach \p in {(0,-2),(2,-3)} \draw \p -- (4,-2);
+  \foreach \x in {3,1,...,-3} \draw (\x,-4) -- +(0,.5);
+  \foreach \x in {0.1,0.2,...,0.5} \draw (\x,-5) -- +(0,.2);
+  \foreach \x in {3,...,1} \node at (\x,-6) {v\x};
+  \foreach \x in {1, 2 ,3} \node at (\x,-7) {w\x};
+  \foreach \i in {1,2} {\foreach \j in {\i,4} \fill (\j,-8) circle (1pt);}
+\end{tikzpicture}
+\end{document}

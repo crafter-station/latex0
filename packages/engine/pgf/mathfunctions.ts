@@ -376,6 +376,11 @@ export const FUNCTIONS: Record<string, PgfFunction> = {
     return x > 0 ? "1" : x === 0 ? "0" : "-1"
   }),
   real: f1((m, a) => toNumber(pt(m, a))),
+  // pgfmathfunctions.round.code.tex 82–100: the text before the point; 0 for nothing, a sign, or a signed 0
+  int: f1((_m, a) => {
+    const i = a.split(".")[0]
+    return i === "" || "+-+0-0".includes(i) ? "0" : i
+  }),
   round: f1((m, a) => {
     const x = pt(m, a)
     const { value, rest } = intPart(m, x)

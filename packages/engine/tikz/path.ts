@@ -29,6 +29,7 @@ import type { PgfState } from "../pgf/state"
 import { mul, transformPoint, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
 import { chars } from "./keys"
 import { alignLines, type AlignLine, type Baselines } from "./text"
+import { readForeach, substitute } from "./foreach"
 import { LABEL_RESTORE, LABEL_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
 import { pgfArrowsMeta, pgfSetArrows, shareArrows } from "../pgf/arrows"
 import { arg, contains, find, groupEnd, isCs, plain, spdef, str, tokenize, type Tok, type Toks } from "./tokens"
@@ -360,9 +361,10 @@ export class TikzPicture {
   }
 
   /** a picture's or scope's commands, up to \end{<env>} (or the } that ends \tikz's braces) */
-  private body(inp: Input, until: string) {
+  private body(inp: Input, until: string | null) {
     for (;;) {
       const t = inp.peek()
+      if (t === undefined && until === null) return
       if (t === undefined) throw new Unsupported(`tikz: no end of ${until}`)
       if (t === " ") { inp.next(); this.s.space(); continue }
       if (t === "\\par" || t === "\\relax") { inp.next(); continue }
@@ -387,12 +389,30 @@ export class TikzPicture {
         continue
       }
       if (t === "\\tikzset") { inp.next(); this.tz.set(inp.undelimited()); continue }
+      if (t === "\\foreach") { inp.next(); this.foreach(inp); continue }
       if (t === "\\tikzstyle") { inp.next(); inp.i += this.tz.tikzstyle(inp.t.slice(inp.i)); continue }
       if (this.command(inp)) {
         if (until !== "}") throw new Unsupported("tikz: } ends a path")
         return
       }
     }
+  }
+
+  /**
+   * \foreach (tikz/foreach.ts): the loop in a group (\pgffor@atbeginforeach), each iteration's body run as the
+   * picture's commands in a group of its own, its variables replaced by their values
+   */
+  private foreach(inp: Input) {
+    const r = { t: inp.t, i: inp.i }
+    const f = readForeach(r, this.s.units, new Map())
+    inp.i = r.i
+    this.begin()
+    for (const vars of f.iterations) {
+      this.begin()
+      this.body(new Input(substitute(f.body, vars)), null)
+      this.end()
+    }
+    this.end()
   }
 
   /** a path command (\path and the commands \tikz@installcommands defines); true when its } ended \tikz's braces */

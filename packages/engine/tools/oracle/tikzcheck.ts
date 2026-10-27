@@ -146,6 +146,12 @@ const FIXED = [
   pic("\\node[draw,text width=2cm,align=center] {Line one\\\\ line two and more words}; \\node[draw,text width=2cm,align=justify] at (3,0) {Line one\\\\ line two and more words}; \\node[draw,text width=2cm] at (6,0) {Line one \\\\ line two\\\\three};"),
   pic("\\node[node font=\\small,draw,minimum size=2em] {x}; \\node[node font=\\small,font=\\large,draw] at (1,0) {Ag};"),
   pic("\\node (a) {A}; \\node[right=1em of a,xshift=1em] (b) {B}; \\draw (a) -- node[above,node font=\\tiny] {e} (b);", "[every node/.style={node font=\\footnotesize,draw}]"),
+  // \foreach
+  pic("\\foreach \\x in {1,2,3} \\draw (\\x,0) -- (\\x,1); \\foreach \\x in {0,...,4} {\\draw (\\x,0) circle (2pt); \\node at (\\x,1) {\\x};}"),
+  pic("\\foreach \\x in {0,0.25,...,1} \\fill (\\x,0) circle (1pt); \\foreach \\x/\\y in {1/a, 2/b,3} \\node at (\\x,0) {\\y};"),
+  pic("\\foreach \\x [count=\\i] in {a,...,e} \\node at (\\i,0) {\\x}; \\foreach \\x in {1,2} \\foreach \\y in {1,...,3} \\draw[red!\\y0] (\\x,\\y) -- +(1,0);"),
+  pic("\\foreach \\a [evaluate=\\a as \\b using \\a*2] in {10,20} \\draw (0,0) -- (\\a:\\b pt); \\foreach \\x in {5,3,...,-1} \\draw (\\x,0) -- (\\x,1); \\foreach \\x [count=\\n from 0] in {1, 2 ,3} {\\node at (\\n,1) {\\x};}"),
+  pic("\\foreach \\p in {(0,0),(1,2)} \\draw \\p -- (3,3); \\foreach \\x in {0.1,0.2,...,0.5} \\draw (\\x,0) -- (\\x,1); \\foreach \\c in {red,blue} {\\begin{scope}[\\c] \\draw (0,0) -- (1,1); \\end{scope}}"),
   // labels
   pic("\\node[draw,label=x] {A}; \\node[draw,label=right:x,label=below left:{$y$}] at (2,0) {A};"),
   pic("\\node[circle,draw,label={[red,font=\\small]30:lab},label=center:c] at (1,2) {Abc}; \\node[draw,label distance=3pt,label=left:x,label={[label distance=1mm]-45:q}] {A};"),
@@ -158,7 +164,7 @@ const FIXED = [
 const REFUSED = [
   pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[ellipse] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
 pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
-  pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in {1,2} \\draw (\\x,0) -- (0,0);"),
+  pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in \\list \\draw (\\x,0) -- (0,0);"), pic("\\draw (0,0) foreach \\x in {1,2} {-- (\\x,1)};"),
   pic("\\draw (0,0) .. controls (1,1) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
   pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) -- (1cm,1) arc[radius=1, start angle=0, end angle=90];"),
@@ -242,7 +248,8 @@ export function makePictures(n: number, seed: number): string[] {
     const body = (depth: number): string => {
       let out = ""
       for (let k = int(1, 4); k > 0; k--) {
-        out += depth < 2 && r() < 0.15 ? pick([() => `\\begin{scope}${options()}${body(depth + 1)}\\end{scope}`, () => `{${body(depth + 1)}}`])() : path()
+        out += depth < 2 && r() < 0.15 ? pick([() => `\\begin{scope}${options()}${body(depth + 1)}\\end{scope}`, () => `{${body(depth + 1)}}`,
+          () => `\\foreach \\i${pick(["", " [count=\\n]"])} in {${pick(["1,2", "0,...,2", "1,3,...,7", "0.5,1", "2,1.5,...,1"])}} {\\begin{scope}[xshift=\\i mm]${body(depth + 1)}\\end{scope}}`])() : path()
         out += pick(["", "", "\n", " "])
       }
       return out
