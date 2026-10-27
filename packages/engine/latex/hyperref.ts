@@ -107,7 +107,7 @@ export function fileLink(text: Node[], file: string, color?: string): Node[] {
 }
 
 /** The text in an \hbox between H.S and H.R, then the link's pdfmark */
-function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node[] {
+export function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node[] {
   // (with a color package the text's box is a \color@setgroup: the current color pushed and popped)
   const box = hpack(color ? [{ kind: "whatsit", text: `\\special{color push ${color}}` }, ...text, { kind: "whatsit", text: "\\special{color pop}" }] : text)
   // H.S at the box's bottom, \lower\dp in an hbox unless the depth is zero; H.R at its top likewise
@@ -145,8 +145,10 @@ export function pdfString(title: string): string | null {
 
 export interface Bookmark { level: number; anchor: string; title: string; parent: string }
 
-/** \Hy@writebookmark's state: \Hy@currentbookmarklevel, \Parent<level>, and the lines written so far */
+/** \Hy@writebookmark's state: \Hy@currentbookmarklevel, \Parent<level>, and the lines written so far. The .out
+ *  file is \write`stream`; `open` is the open state each line has (- for closed, empty with bookmarksopen). */
 export class Bookmarks {
+  constructor(private stream = 3, private open = "-") {}
   private current = 0
   private checked = false
   private parents = new Map<number, string>()
@@ -162,20 +164,21 @@ export class Bookmarks {
     const parent = this.parents.get(level - 1) ?? ""
     const b = { level, anchor, title: pdf, parent }
     this.written.push(b)
-    return { kind: "whatsit", text: `\\write3{\\protect \\BOOKMARK [${level}][-]{${anchor}}{${pdf}}{${parent}}% ${this.written.length}}` }
+    return { kind: "whatsit", text: `\\write${this.stream}{\\protect \\BOOKMARK [${level}][${this.open}]{${anchor}}{${pdf}}{${parent}}% ${this.written.length}}` }
   }
 }
 
 /**
  * What \AtBeginDocument puts on the main vertical list: the outlines read back from the .out file
- * (/Count is minus the number of children), the /DOCVIEW and Catalog pdfmarks; then the Doc-Start anchor
+ * (/Count is the number of children, negated unless `open`: bookmarksopen), the /DOCVIEW and Catalog pdfmarks;
+ * then the Doc-Start anchor
  */
-export function documentStart(bookmarks: Bookmark[]): Node[] {
+export function documentStart(bookmarks: Bookmark[], open = false): Node[] {
   if (hyperDriver.pdftex) return []
   const children = new Map<string, number>()
   for (const b of bookmarks) if (b.parent) children.set(b.parent, (children.get(b.parent) ?? 0) + 1)
   return [
-    ...bookmarks.map((b) => sdict(`[/Count -${children.get(b.anchor) ?? 0}/Dest (${b.anchor}) cvn/Title (${b.title}) /OUT pdfmark`)),
+    ...bookmarks.map((b) => sdict(`[/Count ${open ? "" : "-"}${children.get(b.anchor) ?? 0}/Dest (${b.anchor}) cvn/Title (${b.title}) /OUT pdfmark`)),
     sdict("[/PageMode /UseOutlines/Page 1/View [/Fit] /DOCVIEW pdfmark"),
     sdict("[ {Catalog}<<>> /PUT pdfmark"),
   ]

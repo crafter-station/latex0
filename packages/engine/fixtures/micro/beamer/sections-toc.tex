@@ -1,0 +1,28 @@
+% fixture: beamer/sections-toc
+% tier: T3
+% engine: document
+% covers: beamer: \section and \subsection between frames (toc, nav and bookmark writes) and \tableofcontents in a frame, in the default inner theme
+% issue: #300
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\title{Results}
+\author{A. Author}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{First}
+Text.
+\end{frame}
+\subsection{Details}
+\begin{frame}{Second}
+More.
+\end{frame}
+\section{Results}
+\subsection{Main result}
+\begin{frame}
+Last.
+\end{frame}
+\end{document}

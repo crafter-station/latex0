@@ -14,6 +14,8 @@ import { texEnv } from "../tex"
 
 const OUT = "packages/engine/data/beamer"
 const OPTIONS = ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"]
+/** the infolines outer theme with beamer's default (empty) headline, as Madrid uses it */
+const INFOLINES = ["\\useoutertheme{infolines}", "\\setbeamertemplate{headline}[default]"]
 /** each theme: the preamble lines that load it, and the files whose \setbeamercolor's and \setbeamerfont's name the
  *  colors and fonts reported (besides the default color and font themes') */
 const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
@@ -21,6 +23,20 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   whale: { preamble: ["\\usecolortheme{whale}"], files: ["beamercolorthemewhale.sty"] },
   orchid: { preamble: ["\\usecolortheme{orchid}"], files: ["beamercolorthemeorchid.sty"] },
   Madrid: { preamble: ["\\usetheme{Madrid}"], files: ["beamerthemeMadrid.sty", "beamercolorthemewhale.sty", "beamercolorthemeorchid.sty", "beamerinnerthemerounded.sty", "beamerouterthemeinfolines.sty"] },
+  ...outerVariants([["seahorse"], ["beaver"], ["dolphin"], ["whale", "orchid"]]),
+  ...outerVariants([[], ["whale"], ["orchid"]], true),
+}
+
+/** Color themes (each \usecolortheme in turn), alone (unless `outerOnly`) and followed by the infolines outer theme
+ *  with the default headline (as Madrid has it): named by their parts joined with "-" (preamble.ts reads them so) */
+function outerVariants(colors: string[][], outerOnly = false): Record<string, { preamble: string[]; files: string[] }> {
+  const out: Record<string, { preamble: string[]; files: string[] }> = {}
+  for (const c of colors) {
+    const preamble = c.map((n) => `\\usecolortheme{${n}}`), files = c.map((n) => `beamercolortheme${n}.sty`)
+    if (!outerOnly) out[c.join("-")] = { preamble, files }
+    out[[...c, "infolines"].join("-")] = { preamble: [...preamble, ...INFOLINES], files: [...files, "beamerouterthemeinfolines.sty"] }
+  }
+  return out
 }
 /** colors and fonts no theme sets that templates use (\usebeamertemplate*{title page}): reported empty */
 const UNSET = ["title page"]
@@ -60,21 +76,43 @@ function probe(option: string, preamble: string[], colors: string[], fonts: stri
   ].join("\n")
 }
 
-function run(theme: string, option: string, colors: string[], fonts: string[]): string[] {
-  const dir = join(".cache/beamer", `${theme}-${option}`)
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(join(dir, "probe.tex"), probe(option, THEMES[theme].preamble, colors, fonts))
-  execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "probe.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
-  return readFileSync(join(dir, "probe.log"), "latin1").split("\n")
+/** the directory a theme's probe at a size option runs in */
+const probeDir = (theme: string, option: string) => join(".cache/beamer", `${theme}-${option}`)
+
+/** Every theme's probe at every size option, run by TeX eight at a time */
+function runAll(themes: string[], names: (theme: string) => { colors: string[]; fonts: string[] }) {
+  const dirs: string[] = []
+  for (const theme of themes) {
+    const { colors, fonts } = names(theme)
+    for (const option of OPTIONS) {
+      const dir = probeDir(theme, option)
+      mkdirSync(dir, { recursive: true })
+      writeFileSync(join(dir, "probe.tex"), probe(option, THEMES[theme].preamble, colors, fonts))
+      dirs.push(dir)
+    }
+  }
+  const script = 'cd "$0" && latex -interaction=batchmode -halt-on-error probe.tex >/dev/null || { echo "TeX failed in $0" >&2; exit 255; }'
+  execFileSync("xargs", ["-0", "-P", "8", "-n", "1", "sh", "-c", script], { input: dirs.join("\0"), env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
 }
 
+const probeLog = (theme: string, option: string): string[] => readFileSync(join(probeDir(theme, option), "probe.log"), "latin1").split("\n")
+
+/** the colors and fonts reported for a theme: the default themes' and those its files set */
+function themeNames(theme: string): { colors: string[]; fonts: string[] } {
+  const { files } = THEMES[theme]
+  return {
+    colors: [...new Set([...names("beamercolorthemedefault.sty", "setbeamercolor"), ...files.flatMap((f) => names(f, "setbeamercolor")), ...UNSET])].sort(),
+    fonts: [...new Set([...names("beamerfontthemedefault.sty", "setbeamerfont"), ...files.flatMap((f) => names(f, "setbeamerfont")), ...UNSET])].sort(),
+  }
+}
+
+/** A theme's data from its probes' logs (runAll ran them) */
 function themeData(theme: string, cls: ClassData): BeamerThemeData {
-  const { preamble, files } = THEMES[theme]
-  const colorNames = [...new Set([...names("beamercolorthemedefault.sty", "setbeamercolor"), ...files.flatMap((f) => names(f, "setbeamercolor")), ...UNSET])].sort()
-  const fontNames = [...new Set([...names("beamerfontthemedefault.sty", "setbeamerfont"), ...files.flatMap((f) => names(f, "setbeamerfont")), ...UNSET])].sort()
+  const { preamble } = THEMES[theme]
+  const { colors: colorNames, fonts: fontNames } = themeNames(theme)
   const data: BeamerThemeData = { theme, tex: "beamer as loaded by `latex`", preamble, colors: {}, fonts: {}, options: {} }
   for (const option of OPTIONS) {
-    const log = run(theme, option, colorNames, fontNames)
+    const log = probeLog(theme, option)
     const dimens: Record<string, number> = {}
     const colors: Record<string, BeamerColor> = {}
     const fonts: Record<string, BeamerFont> = {}
@@ -116,6 +154,7 @@ function themeData(theme: string, cls: ClassData): BeamerThemeData {
 export function codegenBeamer(check: boolean): number {
   const cls = JSON.parse(readFileSync("packages/engine/data/classes/beamer.json", "utf8")) as ClassData
   const stale: string[] = []
+  runAll(Object.keys(THEMES), themeNames)
   for (const theme of Object.keys(THEMES)) {
     const body = JSON.stringify(themeData(theme, cls)) + "\n"
     const file = join(OUT, `${theme}.json`)

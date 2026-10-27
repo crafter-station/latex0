@@ -1,0 +1,41 @@
+% fixture: beamer/overlay-mixed
+% tier: T3
+% engine: document
+% covers: beamer: item specifications <n>, <n-m>, <-m> and lists, an item ended by a blank line, \pause right after a list (the skip it ends with smuggled past the specials) and \pause[n], with the infolines footline over the slides; a range's end alone asking for a second slide
+% issue: #300
+\documentclass{beamer}
+\useoutertheme{infolines}
+\setbeamertemplate{headline}[default]
+\setbeamertemplate{navigation symbols}{}
+\title{Overlays}
+\author{A. Author}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}{Specifications}
+\begin{itemize}
+\item<3> Only on the third
+\item<1-2> On the first two
+\item<-2> Up to the second
+\item<1,4> First and fourth
+
+\end{itemize}
+\pause
+After the list.
+
+\pause[4]
+Last.
+\end{frame}
+\begin{frame}{Second}
+\begin{enumerate}[<+->]
+\item One
+\item Two
+
+\item Three
+\end{enumerate}
+\end{frame}
+\begin{frame}
+\begin{itemize}
+\item<1-2> Shown on two slides
+\end{itemize}
+\end{frame}
+\end{document}

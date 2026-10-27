@@ -1,0 +1,13 @@
+% fixture: beamer/toc-empty
+% tier: T3
+% engine: document
+% covers: beamer: \tableofcontents with no sections (an empty .toc), text after it, at 17pt
+% issue: #300
+\documentclass[17pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\tableofcontents
+Text after the contents.
+\end{frame}
+\end{document}

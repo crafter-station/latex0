@@ -4,9 +4,10 @@
 // sidebars and the headline, then an \hfil that starts an empty paragraph (traced
 // as TeX breaks it when the page is shipped). Its \@oddfoot is the footline. The
 // templates are the default outer theme's (beamerouterthemedefault.sty), in the
-// theme's colors: the canvas is a rule over the whole paper in its bg, the headline,
-// footline and left sidebar are empty, the right sidebar has the logo and the
-// (switched off) navigation symbols. With hyperref, \AtBeginShipout puts beamer's own page anchor
+// theme's colors: the canvas is a rule over the whole paper in its bg, each sidebar's
+// canvas a rule in its bg (of the sidebar's zero width, a paragraph of its own), the
+// headline and left sidebar are empty, the right sidebar has the logo and the
+// (switched off) navigation symbols; the footline is footline.ts's. With hyperref, \AtBeginShipout puts beamer's own page anchor
 // (\Hy@EveryPageAnchor, beamerbasenavigation.sty) before the page.
 
 import type { ClassOptionData } from "../../layout/classdata"
@@ -45,19 +46,31 @@ function hung(b: BoxNode): BoxNode {
   return zeroed(hpack([lowered]))
 }
 
-/** \beamer@typesetheadorfoot: the template in a \vbox \paperwidth wide, from the paper's left edge to its right, then \hfil */
-function headOrFoot(k: ClassOptionData, t: Theme, name: "headline" | "footline"): Node[] {
-  return [hpack([glue(-k.dimens["Gm@lmargin"]), hpack([vpack(emptyTemplate(t, name))]), glue(-k.dimens["Gm@rmargin"])]), filGlue()]
+/** \beamer@typesetheadorfoot: the template's list in a \vbox \paperwidth wide, from the paper's left edge to its right,
+ *  then \hfil */
+function headOrFoot(k: ClassOptionData, template: Node[]): Node[] {
+  return [hpack([glue(-k.dimens["Gm@lmargin"]), hpack([vpack(template)]), glue(-k.dimens["Gm@rmargin"])]), filGlue()]
 }
 
-/** a sidebar: \hskip to its place, its canvas (\usebeamercolor*{sidebar …} in a zeroed \vbox to\sidebarheight), its
- *  template in a \vbox to\sidebarheight ending in \vfil; hung from the baseline */
-function sidebar(k: ClassOptionData, t: Theme, name: "sidebar left" | "sidebar right", skips: Node[], template: Node[]): BoxNode {
+/** a sidebar: \hskip to its place, its canvas (\usebeamercolor*{sidebar …} and the template, in a zeroed \vbox
+ *  to\sidebarheight ending in \vss), its template in a \vbox to\sidebarheight ending in \vfil; hung from the baseline.
+ *  The canvas template (beamerouterthemedefault.sty's), where the theme gives the sidebar a bg: \color{bg}\vrule
+ *  height\sidebarheight width<the sidebar's width>, a paragraph (\hsize \textwidth, \@parboxrestore's \parindent and
+ *  \rightskip), whose trace goes to `traces`. */
+function sidebar(k: ClassOptionData, t: Theme, name: "sidebar left" | "sidebar right", skips: Node[], template: Node[], traces: ParagraphTrace[]): BoxNode {
   const h = k.dimens.sidebarheight
-  // (the canvas template draws a rule in a bg the theme sets)
-  if (!emptyBackground(t, name)) throw new Unsupported(`beamer: a ${name} canvas`)
-  const canvas = zeroed(hpack([vpack([push(outerColors(t).fg), ssGlue()], { exactly: h }), pop()]))
-  return hung(hpack([...skips, canvas, vpack(template, { exactly: h })]))
+  // (\usebeamercolor*{name}: normal text's fg set, name's colors only defined)
+  const canvas: Node[] = [push(outerColors(t).fg)]
+  const pops = [pop()]
+  if (!emptyBackground(t, name)) {
+    const width = k.dimens[name === "sidebar left" ? "beamer@leftsidebar" : "beamer@rightsidebar"]
+    const { vlist, trace } = lineBreak([emptyBox("hlist", 0), { kind: "rule", width, height: h, depth: null }], { ...classParams(k), rightSkip: spec("rightskip", zero) })
+    traces.push(trace)
+    // new_graf: \parskip, then LaTeX's zero \parskip
+    canvas.push(push(useColor(t, name, outerColors(t)).bg), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)), ...vlist)
+    pops.push(pop())
+  }
+  return hung(hpack([...skips, zeroed(hpack([vpack([...canvas, ssGlue()], { exactly: h }), ...pops])), vpack(template, { exactly: h })]))
 }
 
 /** the default sidebar right template: \vfill, \llap{\insertlogo\hskip0.1cm}, \vskip2pt, \llap{navigation symbols
@@ -80,27 +93,28 @@ function rightSidebarTemplate(k: ClassOptionData, t: Theme): Node[] {
  * \baselineskip, \lineskip and \lineskiplimit, then the paragraph \hfil starts (\@parboxrestore: no indentation, no
  * \rightskip), which TeX breaks into one empty line
  */
-function head(k: ClassOptionData, t: Theme): { box: BoxNode; trace: ParagraphTrace } {
+function head(k: ClassOptionData, t: Theme): { box: BoxNode; traces: ParagraphTrace[] } {
   const d = k.dimens
   // the canvas template: \color{bg}\vrule width\paperwidth height\paperheight, nothing when its bg is empty
   const bg = emptyBackground(t, "background canvas") ? [] : [push(useColor(t, "background canvas", outerColors(t)).bg), { kind: "rule", width: d.paperwidth, height: d.paperheight, depth: null } as Node, pop()]
   const canvas = hung(hpack([...templateColors(t, "background canvas").map(push), ...bg, pop(), pop(), special(TRANSITION)]))
   const background = hung(hpack(emptyTemplate(t, "background")))
-  const left = sidebar(k, t, "sidebar left", [glue(-d["Gm@lmargin"])], [...emptyTemplate(t, "sidebar left"), filGlue()])
-  const right = sidebar(k, t, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])], rightSidebarTemplate(k, t))
+  const traces: ParagraphTrace[] = []
+  const left = sidebar(k, t, "sidebar left", [glue(-d["Gm@lmargin"])], [...emptyTemplate(t, "sidebar left"), filGlue()], traces)
+  const right = sidebar(k, t, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])], rightSidebarTemplate(k, t), traces)
   const list: Node[] = []
   let prevDepth = appendToVlist(list, hpack([glue(-d["Gm@lmargin"]), canvas, background]), null, zero, zero, 0)
-  prevDepth = appendToVlist(list, hpack([left, right, ...headOrFoot(k, t, "headline")]), prevDepth, zero, zero, 0)
+  prevDepth = appendToVlist(list, hpack([left, right, ...headOrFoot(k, emptyTemplate(t, "headline"))]), prevDepth, zero, zero, 0)
   const { vlist, trace } = lineBreak([emptyBox("hlist", 0)], { ...classParams(k), rightSkip: spec("rightskip", zero) })
   list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
   for (const n of vlist) if (n.kind === "hlist") prevDepth = appendToVlist(list, n, prevDepth, zero, zero, 0); else list.push(n)
-  return { box: vpack(list), trace }
+  return { box: vpack(list), traces: [...traces, trace] }
 }
 
-/** \@oddfoot: \vbox{\offinterlineskip\hbox{the footline\hfil}\hbox{}}\hfil */
-function foot(k: ClassOptionData, t: Theme): Node[] {
+/** \@oddfoot: \vbox{\offinterlineskip\hbox{the footline\hfil}\hbox{}}\hfil (`footline`: the template's list) */
+function foot(k: ClassOptionData, footline: Node[]): Node[] {
   const list: Node[] = []
-  appendToVlist(list, hpack(headOrFoot(k, t, "footline").concat(filGlue())), null, zero, zero, 0)
+  appendToVlist(list, hpack(headOrFoot(k, footline).concat(filGlue())), null, zero, zero, 0)
   list.push(paramGlue("lineskip", glue(0)), emptyBox("hlist"))
   return [vpack(list), filGlue()]
 }
@@ -118,19 +132,20 @@ function pageAnchor(k: ClassOptionData, page: number): BoxNode {
  * The page \@outputpage ships, its column `outputbox` (\@makecol's \@outputbox) between the head and the foot:
  * \vskip\topmargin, then moved right by \oddsidemargin a \vbox of the head in \vbox to\headheight{\vfil
  * \color@hbox\normalcolor\hb@xt@\textwidth{\@thehead}} (depth 0), \headsep, the column, the foot \footskip below,
- * with \baselineskip, \lineskip and \lineskiplimit zero until then. The head's paragraph comes back as `trace`.
+ * with \baselineskip, \lineskip and \lineskiplimit zero until then. The head's paragraph comes back as `trace`; the
+ * footline's list (footline.ts), typeset after it, is `footline`.
  */
-export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData, t: Theme): { box: BoxNode; trace: ParagraphTrace } {
+export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData, t: Theme, footline: (() => Node[])): { box: BoxNode; traces: ParagraphTrace[] } {
   const d = k.dimens
   const h = head(k, t)
   const headBox = vpack([filGlue(), hpack(setgroup([hpack([h.box], { exactly: d.textwidth })]))], { exactly: d.headheight })
   headBox.depth = 0
-  const footBox = hpack(setgroup([hpack(foot(k, t), { exactly: d.textwidth })]))
+  const footBox = hpack(setgroup([hpack(foot(k, footline()), { exactly: d.textwidth })]))
   const inner: Node[] = [headBox, glue(d.headsep)]
   appendToVlist(inner, outputbox, headBox.depth, zero, zero, 0)
   appendToVlist(inner, footBox, outputbox.depth, { ...zero, width: d.footskip }, zero, 0)
   const body = vpack(inner)
   body.shift = d.oddsidemargin
   const shipped = vpack([special(TRANSITION), vpack([glue(d.topmargin), body])])
-  return { box: vpack([pageAnchor(k, page), paramGlue("lineskip", glue(0)), shipped]), trace: h.trace }
+  return { box: vpack([pageAnchor(k, page), paramGlue("lineskip", glue(0)), shipped]), traces: h.traces }
 }

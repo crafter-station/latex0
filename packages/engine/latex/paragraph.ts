@@ -123,6 +123,8 @@ export interface DocState {
   url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
   /** \includegraphics number n, with \linewidth where it stands */
   graphic?: (n: number, lineWidth: number, units: { em: number; ex: number }) => Node[]
+  /** the nodes number n that beamer's \beamer@smuggle puts where \LXsmuggle{n} stands (beamer/overlays.ts) */
+  smuggle?: (n: number) => Node[]
   /** \href number n around its typeset text */
   href?: (n: number, text: Node[], color: string | undefined) => Node[]
   /** tabular number n (taken out of the source after expansion) at a size in a font: its \hbox */
@@ -240,7 +242,7 @@ type Piece =
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "minipage"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -445,6 +447,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
     const fl = body.slice(i).match(/^\\LXfloat\{(\d+)\}/) // a figure or table, taken out of the paragraph's source
     if (fl) { flushText(); out.push({ kind: "float", n: Number(fl[1]) }); i += fl[0].length; continue }
+    const sm = body.slice(i).match(/^\\LXsmuggle\{(\d+)\}/) // beamer's overlay specials
+    if (sm) { flushText(); out.push({ kind: "smuggle", n: Number(sm[1]) }); i += sm[0].length; continue }
     const gr = body.slice(i).match(/^\\LXgraphic\{(\d+)\}/) // \includegraphics
     if (gr) { flushText(); out.push({ kind: "graphic", n: Number(gr[1]) }); i += gr[0].length; continue }
     const url = body.slice(i).match(/^\\LXurl\{(\d+)\}/) // \url, taken out before expansion
@@ -801,6 +805,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.color = outer
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
       list.push({ kind: "whatsit", text: "\\special{color pop}" })
+    }
+    else if (p.kind === "smuggle") {
+      // \beamer@smuggle in horizontal mode: a \lastskip other than 0.0pt taken off before the nodes, put back after them
+      if (!doc.smuggle) throw new Error("paragraph adapter: beamer's overlay specials outside a beamer frame")
+      const last = list.at(-1)
+      if (last?.kind === "glue" && (last.width || last.stretch || last.shrink)) {
+        list.pop()
+        list.push(...doc.smuggle(p.n), glue(last.width, last.stretch, last.stretchOrder, last.shrink, last.shrinkOrder))
+      } else list.push(...doc.smuggle(p.n))
     }
     else if (p.kind === "graphic") {
       if (!doc.graphic) throw new Error("paragraph adapter: \\includegraphics outside a document")

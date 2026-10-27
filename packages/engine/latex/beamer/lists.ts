@@ -5,7 +5,8 @@
 // {\hss\llap{{\usebeamerfont*{… item}\usebeamercolor[fg]{… item}label}}}, and
 // beamer's \item, which puts \kern0pt after LaTeX's. itemize's label is
 // \raise1.25pt\hbox{$\blacktriangleright$} (msam), enumerate's \insertenumlabel.
-// (arabic). Nested lists, \item[…] and overlays throw Unsupported.
+// (arabic). Items may have overlay specifications. Nested lists and \item[…] throw
+// Unsupported.
 
 import { parseDimen, type GlueSpec } from "../../layout/dimen"
 import type { Font } from "../../layout/font"
@@ -18,6 +19,7 @@ import { LOW_PENALTY, type VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { resetColor } from "./colorbox"
 import { SANS, setParagraph, type FrameCtx } from "./frame"
+import { coverBegin, coverEnd, inSpec, smuggle } from "./overlays"
 import { outerColors, useColor } from "./theme"
 
 /** \blacktriangleright: amssymb's \DeclareMathSymbol{\blacktriangleright}{\mathrel}{AMSa}{"49} */
@@ -29,15 +31,18 @@ function msam(size: number) {
   return fontAt("msam10", size)
 }
 
+/** An item: its overlay specification (\item<spec>) and its text */
+export interface ItemSource { spec?: string; text: string }
+
 /** The items: the text after each \item (at the list's own level), none before the first */
-export function itemsOf(body: string): string[] {
-  const items: string[] = []
+export function itemsOf(body: string): ItemSource[] {
+  const texts: string[] = []
   let depth = 0, from = -1
   for (let i = 0; i < body.length; i++) {
     const c = body[i]
     if (c === "\\" && depth === 0 && /^\\item(?![A-Za-z])/.test(body.slice(i, i + 6))) {
       if (from < 0) { if (body.slice(0, i).trim()) throw new Unsupported("beamer: material before a list's first \\item") }
-      else items.push(body.slice(from, i))
+      else texts.push(body.slice(from, i))
       from = i + 5
       i += 4
     } else if (c === "\\") i++
@@ -45,20 +50,25 @@ export function itemsOf(body: string): string[] {
     else if (c === "}") depth--
   }
   if (from < 0) throw new Unsupported("beamer: a list without \\item")
-  items.push(body.slice(from))
-  for (const it of items) {
-    if (/^\s*[[<]/.test(it)) throw new Unsupported("beamer: \\item with an optional label or overlay")
+  texts.push(body.slice(from))
+  return texts.map((it) => {
     if (/\\begin\{(itemize|enumerate|description)\}/.test(it)) throw new Unsupported("beamer: a nested list")
-  }
-  return items
+    // \item<spec> (\@ifnextchar< skips spaces)
+    const m = it.match(/^\s*<([^<>]*)>/)
+    const item: ItemSource = m ? { spec: m[1], text: it.slice(m[0].length) } : { text: it }
+    if (/^\s*\[/.test(item.text)) throw new Unsupported("beamer: \\item with an optional label")
+    return item
+  })
 }
 
 /**
  * itemize or enumerate in the frame (the first level): `v` is the frame's list. `inParagraph`: the list began right
  * after a paragraph's text, which took the body color's push (\@trivlist then ended the paragraph). The frame's text
- * after \end{…}, read next, comes with \@endpetrue.
+ * after \end{…}, read next, comes with \@endpetrue. An item with an overlay specification (its own, or the list's
+ * `defaultSpec`) is in an uncoverenv (overlays.ts): begun before \@item, ended at the next \item (after its \par)
+ * or, for the last one, at \endtrivlist (in its paragraph unless a blank line ended that).
  */
-export function frameList(cx: FrameCtx, v: VerticalList, kind: "itemize" | "enumerate", body: string, inParagraph: boolean) {
+export function frameList(cx: FrameCtx, v: VerticalList, kind: "itemize" | "enumerate", body: string, inParagraph: boolean, defaultSpec?: string) {
   const { k, theme } = cx
   const outer = outerColors(theme)
   // \usebeamerfont and \usebeamercolor[fg]{itemize/enumerate body} (the template "body begin" is empty)
@@ -75,7 +85,13 @@ export function frameList(cx: FrameCtx, v: VerticalList, kind: "itemize" | "enum
   const font = selectFont(k, "normalsize", SANS)
   const itemColor = useColor(theme, `${kind} item`, bodyColor).fg
   const items = itemsOf(body)
-  items.forEach((text, n) => {
+  /** the uncoverenv the item before is in: shown or covered (null: none) */
+  let env: boolean | null = null
+  items.forEach(({ spec, text }, n) => {
+    if (env !== null) smuggle(v, coverEnd(env))
+    const s = spec ?? defaultSpec
+    env = s === undefined ? null : inSpec(cx.overlay, s)
+    if (env !== null) smuggle(v, coverBegin(env))
     // \@item: the first opens the list (\addpenalty\@beginparpenalty\addvspace\@topsep; \addvspace{-\parskip} adds
     // nothing), the others \addpenalty\@itempenalty\addvspace\itemsep; then beamer's \kern0pt
     if (n === 0) { v.addpenalty(-LOW_PENALTY); v.addvspace(topsep) }
@@ -88,10 +104,14 @@ export function frameList(cx: FrameCtx, v: VerticalList, kind: "itemize" | "enum
     // \everypar: the indentation box taken off, \box\@labels\penalty\z@; \parshape 1 \@totalleftmargin \linewidth
     const pars = text.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean)
     if (!pars.length) throw new Unsupported("beamer: an empty \\item")
+    // (the last item's uncoverenv ends in its last paragraph, unless a blank line ended that)
+    const closing = n === items.length - 1 && env !== null && !/\n[ \t]*\n\s*$/.test(text) ? coverEnd(env) : null
     pars.forEach((p, i) => {
-      const lines = setParagraph(cx, p, { parShape: [[leftmargin, lineWidth]], ...(i === 0 ? { indent: false, start: [labels, penalty(0)] } : {}) })
+      const end = closing && i === pars.length - 1 ? { end: closing } : {}
+      const lines = setParagraph(cx, p, { parShape: [[leftmargin, lineWidth]], ...(i === 0 ? { indent: false, start: [labels, penalty(0)] } : {}), ...end })
       v.paragraph(lines, parsep)
     })
+    if (n === items.length - 1 && env !== null && !closing) smuggle(v, coverEnd(env))
   })
   // \endtrivlist: \@endparenv (\addpenalty\@endparpenalty\addvspace\@topsepadd), then the environment's group ends:
   // the body color's pop (beamer's \reset@color: before the skip that ends the list)

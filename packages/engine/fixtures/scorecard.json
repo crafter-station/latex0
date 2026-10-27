@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 385,
-  "exact": 382,
+  "fixtures": 399,
+  "exact": 396,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 303369
+  "glyphs": 305995
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 30,
-   "exact": 29
+   "fixtures": 44,
+   "exact": 43
   },
   {
    "area": "bibliography",
@@ -846,6 +846,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/colortheme-beaver",
+   "file": "micro/beamer/colortheme-beaver.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "beamer: the beaver color theme (no outer theme): the title page's boxes and the frame title in their bg, an enumerate in its colors",
+   "issue": "#300"
+  },
+  {
    "id": "beamer/enumerate",
    "file": "micro/beamer/enumerate.tex",
    "area": "beamer",
@@ -1022,6 +1033,50 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/infolines-17pt",
+   "file": "micro/beamer/infolines-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 100,
+   "covers": "beamer: the infolines footline at 17pt, with short author, institute and date, and the title page",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/infolines-footline",
+   "file": "micro/beamer/infolines-footline.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 102,
+   "covers": "beamer: the infolines outer theme's footline (author and institute, title, date and frame number n / total in three beamercolorboxes) with the default headline, two frames",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/infolines-ten",
+   "file": "micro/beamer/infolines-ten.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 302,
+   "covers": "beamer: the infolines footline's frame number right-aligned in the width of \"10 / 10\" over ten frames, at 8pt",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/infolines-whale",
+   "file": "micro/beamer/infolines-whale.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 225,
+   "covers": "beamer: whale and orchid color themes with the infolines footline (boxes in the palette's bg), short title, two authors with \\and, no institute, \\today; frame titles in frametitle's bg",
+   "issue": "#300"
+  },
+  {
    "id": "beamer/itemize",
    "file": "micro/beamer/itemize.tex",
    "area": "beamer",
@@ -1066,6 +1121,83 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/overlay-boundaries",
+   "file": "micro/beamer/overlay-boundaries.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 262,
+   "covers": "beamer: overlay commands between letters that kern (AV\\only<2>{V}A, W\\uncover<2>{A}V), between two spaces, with incremental specifications <+->, \\only around a list in vertical mode, \\uncover right after a list (its skip smuggled past the specials), and \\temporal alone asking for a second slide",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-commands",
+   "file": "micro/beamer/overlay-commands.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 285,
+   "covers": "beamer: \\only, \\alt, \\temporal, \\uncover, \\visible, \\invisible and \\onslide in and between paragraphs over three slides (the covered parts between pgf's invisible specials, a space before them smuggled past them)",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-items",
+   "file": "micro/beamer/overlay-items.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "beamer: \\item<n-> in itemize (covered items invisible on the slides before), and [<+->] on enumerate (one more item each slide)",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-mixed",
+   "file": "micro/beamer/overlay-mixed.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 698,
+   "covers": "beamer: item specifications <n>, <n-m>, <-m> and lists, an item ended by a blank line, \\pause right after a list (the skip it ends with smuggled past the specials) and \\pause[n], with the infolines footline over the slides; a range's end alone asking for a second slide",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-pause",
+   "file": "micro/beamer/overlay-pause.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "beamer: \\pause between paragraphs: one page per slide, the paragraphs after a \\pause invisible (pgf's invisible specials) on the slides before",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/sections-short",
+   "file": "micro/beamer/sections-short.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 203,
+   "covers": "beamer: a \\subsection before any \\section, short titles, two frames in one subsection, and the table of contents last, in the whale and orchid colors with the infolines footline",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/sections-toc",
+   "file": "micro/beamer/sections-toc.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 69,
+   "covers": "beamer: \\section and \\subsection between frames (toc, nav and bookmark writes) and \\tableofcontents in a frame, in the default inner theme",
+   "issue": "#300"
+  },
+  {
    "id": "beamer/titlepage-17pt",
    "file": "micro/beamer/titlepage-17pt.tex",
    "area": "beamer",
@@ -1097,6 +1229,28 @@
    "glyphs": 78,
    "covers": "beamer: \\titlepage in the default inner theme: title, subtitle, author (with \\and), institute and date (\\today) in centered beamercolorboxes, each in its font and color",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/toc-current",
+   "file": "micro/beamer/toc-current.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 42,
+   "covers": "beamer: \\tableofcontents[currentsection]: the other sections and their subsections shaded",
+   "issue": "#300"
+  },
+  {
+   "id": "beamer/toc-empty",
+   "file": "micro/beamer/toc-empty.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 21,
+   "covers": "beamer: \\tableofcontents with no sections (an empty .toc), text after it, at 17pt",
+   "issue": "#300"
   },
   {
    "id": "beamer/two-frames",

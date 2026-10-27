@@ -24,15 +24,21 @@ import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
+import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
+import { tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
 
 /** a frame as written: its options and what it holds */
-export interface FrameSource { options: string; body: string }
+export interface FrameSource { kind: "frame"; options: string; body: string }
+/** \section[short]{title} or \subsection[short]{title} between frames (the short title is the title without one) */
+export interface SectionSource { kind: "section" | "subsection"; short: string; title: string }
+export type BodyItem = FrameSource | SectionSource
 
-/** The frames of the document body: \begin{frame}[options]…\end{frame} and \frame[options]{…}, nothing else. */
-export function framesOf(body: string): FrameSource[] {
+/** What the document body holds: frames (\begin{frame}[options]…\end{frame} and \frame[options]{…}) and \section's and
+ *  \subsection's between them, nothing else. */
+export function bodyOf(body: string): BodyItem[] {
   const src = body.replace(/(^|[^\\])%.*$/gm, "$1")
-  const frames: FrameSource[] = []
+  const frames: BodyItem[] = []
   let i = 0
   const options = () => {
     if (src[i] === "<") throw new Unsupported("a frame's overlay specification")
@@ -51,7 +57,7 @@ export function framesOf(body: string): FrameSource[] {
       const o = options()
       const end = src.indexOf("\\end{frame}", i)
       if (end < 0) throw new Unsupported("a frame environment not ended")
-      frames.push({ options: o, body: src.slice(i, end) })
+      frames.push({ kind: "frame", options: o, body: src.slice(i, end) })
       i = end + 11
     } else if (/^\\frame(?![A-Za-z])/.test(src.slice(i))) {
       i += 6
@@ -66,8 +72,19 @@ export function framesOf(body: string): FrameSource[] {
         else if (src[j] === "}" && --depth === 0) break
       }
       if (j >= src.length) throw new Unsupported("\\frame's argument not closed")
-      frames.push({ options: o, body: src.slice(i + 1, j) })
+      frames.push({ kind: "frame", options: o, body: src.slice(i + 1, j) })
       i = j + 1
+    } else if (/^\\(?:sub)?section(?![A-Za-z])/.test(src.slice(i))) {
+      const kind = src.startsWith("\\subsection", i) ? "subsection" : "section"
+      i += kind.length + 1
+      while (/\s/.test(src[i] ?? "")) i++
+      if (src[i] === "*" || src[i] === "<") throw new Unsupported(`\\${kind}${src[i]}`)
+      let short: string | undefined
+      if (src[i] === "[") { const j = src.indexOf("]", i); if (j < 0) throw new Unsupported(`\\${kind}'s short title`); short = src.slice(i + 1, j); i = j + 1 }
+      const a = bracedArg(src, i)
+      if (!a) throw new Unsupported(`\\${kind} without a braced argument`)
+      frames.push({ kind, short: short ?? a.arg, title: a.arg })
+      i = a.end
     } else throw new Unsupported(`beamer: material outside frames: ${src.slice(i, i + 40)}`)
   }
 }
@@ -79,7 +96,13 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** a list ended (\@endpetrue) and no \par came since: the next paragraph loses its indentation box */
   endpe?: boolean
   /** the paragraph read last ran into a list's \begin, which ended it */
-  listInParagraph?: boolean }
+  listInParagraph?: boolean
+  /** the .toc lines the last run wrote (\tableofcontents reads them), and \c@section where the frame is */
+  toc: TocEntry[]; section: number
+  /** the slide being typeset and its overlay state */
+  overlay: Overlay
+  /** the nodes each \LXsmuggle{n} in the frame's text stands for (overlay specials) */
+  smuggled: Node[][] }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -104,7 +127,7 @@ export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape
  *  otherwise); its trace goes to cx.decisions. */
 export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {}): Node[] {
   plainText(text)
-  const doc: DocState = { footnote: 0, xcolor: true }
+  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n] }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = text, prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
@@ -148,20 +171,39 @@ const paragraph: FrameHandler = (cx, v, text) => {
     cx.listInParagraph = true
   }
   if (cx.endpe) { s.indent = false; cx.endpe = false }
-  v.paragraph(setParagraph(cx, par, s), cx.k.glue.parskip)
+  v.paragraph(setParagraph(cx, overlayText(cx.overlay, par, cx.smuggled), s), cx.k.glue.parskip)
   return rest
+}
+
+/** An overlay command in vertical mode (overlays.ts): the specials it begins with go on the frame's list (smuggled past
+ *  a skip that ends it); what takes its place is read next */
+const overlay: FrameHandler = (cx, v, text) => {
+  const c = overlayCommand(cx.overlay, text, cx.smuggled)
+  if (c.begin) smuggle(v, c.begin)
+  return c.text + text.slice(c.end)
+}
+
+/** the specials an overlay command's \LXsmuggle{n} stands for, reached in vertical mode */
+const smuggled: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\LXsmuggle\{(\d+)\}/)!
+  smuggle(v, cx.smuggled[Number(m[1])])
+  return text.slice(m[0].length)
 }
 
 /** itemize and enumerate (lists.ts); a paragraph right after one comes with \@endpetrue */
 const list: FrameHandler = (cx, v, text) => {
   const kind = text.startsWith("\\begin{itemize}") ? "itemize" : "enumerate"
   const begin = `\\begin{${kind}}`, end = `\\end{${kind}}`
-  if (/^\s*[[<]/.test(text.slice(begin.length))) throw new Unsupported(`beamer: ${kind}'s options`)
-  const stop = text.indexOf(end)
+  // [<spec>]: the items' default overlay specification (\beamerdefaultoverlayspecification, <*> giving none)
+  let body = text.slice(begin.length), spec: string | undefined
+  const o = body.match(/^\s*\[\s*<([^<>]*)>\s*\]/)
+  if (o) { if (o[1].trim() !== "*") spec = o[1]; body = body.slice(o[0].length) }
+  if (/^\s*[[<]/.test(body)) throw new Unsupported(`beamer: ${kind}'s options`)
+  const stop = body.indexOf(end)
   if (stop < 0) throw new Unsupported(`beamer: ${kind} not ended`)
-  frameList(cx, v, kind, text.slice(begin.length, stop), cx.listInParagraph === true)
+  frameList(cx, v, kind, body.slice(0, stop), cx.listInParagraph === true, spec)
   cx.listInParagraph = false
-  const rest = text.slice(stop + end.length)
+  const rest = body.slice(stop + end.length)
   cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
   return rest
 }
@@ -171,7 +213,8 @@ function plainText(text: string) {
   let t = text, prev = ""
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
-  const bad = t.replace(/\\quad(?![A-Za-z])/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  // (and the empty groups and placeholders overlay commands leave)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -236,8 +279,26 @@ const titlepage: FrameHandler = (cx, v, text) => {
   return text.replace(/^\\(?:titlepage|maketitle)(?![A-Za-z])/, "")
 }
 
+/** \tableofcontents (sections.ts), and \tableofcontents[currentsection] */
+const toc: FrameHandler = (cx, v, text) => {
+  if (cx.endpe) throw new Unsupported("beamer: a table of contents right after a list")
+  // [currentsection] alone
+  const m = text.match(/^\\tableofcontents(?![A-Za-z])(?:\s*\[([^\]]*)\])?/)!
+  if (m[1] !== undefined && m[1].trim() !== "currentsection") throw new Unsupported(`beamer: \\tableofcontents[${m[1]}]`)
+  tableOfContents(cx, v, m[1] !== undefined)
+  return text.slice(m[0].length)
+}
+
+/** \pause and \pause[n] between paragraphs (overlays.ts) */
+const pauseHandler: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\pause(?![A-Za-z])\s*(?:\[\s*(\d+)\s*\])?/)!
+  pause(cx.overlay, v, m[1] === undefined ? undefined : Number(m[1]))
+  return text.slice(m[0].length)
+}
+
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+  only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
@@ -260,6 +321,8 @@ function frameMaterial(cx: FrameCtx, body: string): Node[] {
     if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
     text = handler(cx, v, text)
   }
+  // \end{beamer@framepauses}: \beamer@endpause, then what waits for the group's end
+  smuggle(v, groupEnd(cx.overlay, true))
   return v.nodes
 }
 
