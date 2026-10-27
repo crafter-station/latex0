@@ -320,8 +320,18 @@ between pgf's invisible specials); the .nav writes and page anchors, with dvips 
 The rounded inner theme without shadows, drawn by pgf/ on the run's one pgf state (#315): ball
 itemize and enumerate items, ball numbers in the table of contents, rounded beamercolorboxes
 (`rounded=true`), rounded blocks and the rounded title page; `\usetheme[shadow=false]{Madrid}`.
-Not yet: the shadows (`shadow=true`, Madrid's default: pgf's fadings), the circles inner theme's
-templates, the shaded table of contents with balls.
+Theme breadth (#322): the albatross, beetle, crane, fly, lily, monarca, rose, spruce and wolverine
+color themes; the circles and rectangles inner themes (bullets, squares, circled and boxed numbers,
+their tables of contents); the infolines headline, and the split, miniframes, tree and sidebar
+outer themes, their navigation read from the last run's .nav (sections, subsections, mini frames,
+the vertical navigation, the headline's height from it); the presentation themes Pittsburgh,
+Malmoe, Copenhagen, Luebeck, Berlin, Dresden, Ilmenau, Szeged, Montpellier, Hannover, Berkeley,
+Rochester, Goettingen and Marburg, and CambridgeUS, AnnArbor, Boadilla and PaloAlto with
+`shadow=false`. Contextual beamer colors (`fg!50!bg`) are evaluated where they are used.
+Not yet: the shadows (`shadow=true`, Madrid's default: pgf's fadings), the smoothbars and shadow outer
+themes and Singapore (fadings: Frankfurt, Darmstadt, Warsaw), font themes and colors with a series
+or shape (dove's and seagull's bold alerts), theme options (`compress`, `secheader`, sidebar widths),
+the shaded table of contents with balls, circles or squares.
 
 ---
 

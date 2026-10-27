@@ -9,18 +9,20 @@
 // \item[label]'s the label. description's labels are \hfil\hspace\labelsep and the
 // description item template, in a \labelwidth and \leftmargin of 2cm plus \labelsep
 // (or the widest label's width plus it). An item's material is paragraphs and nested
-// lists. Items may have overlay specifications.
+// lists. Items may have overlay specifications. The rounded, circles and rectangles
+// inner themes' items are balls, bullets and circled numbers, squares.
 
 import type { SizeCommand } from "../../layout/classdata"
 import { parseDimen, type GlueSpec } from "../../layout/dimen"
-import { SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../../layout/font"
-import { appendText } from "../../layout/hmode"
+import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../../layout/font"
+import { appendText, spaceGlue } from "../../layout/hmode"
 import { charNode, filGlue, glue, kern, penalty, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
+import { pgfPathCircle, pgfUsePath } from "../../pgf/paths"
 import { pgfPoint } from "../../pgf/points"
 import { pgfText, type PgfText } from "../../pgf/shapes"
 import { pgfTransformScale, pgfTransformShift } from "../../pgf/transformations"
-import { fontAt, selectFont } from "../paragraph"
+import { fontAt, hlistInput, selectFont } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { LOW_PENALTY, type VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
@@ -29,14 +31,11 @@ import { addParagraph, SANS, type FrameCtx } from "./frame"
 import { coverBegin, coverEnd, inSpec, smuggle } from "./overlays"
 import { fontSize, outerColors, useColor, type ColorState } from "./theme"
 
-/** \blacktriangleright: amssymb's \DeclareMathSymbol{\blacktriangleright}{\mathrel}{AMSa}{"49} */
-const BLACKTRIANGLERIGHT = 0x49
+/** \blacktriangleright and \bigstar: amssymb's \DeclareMathSymbol{…}{\mathrel}{AMSa}{"49} and {\mathord}{AMSa}{"46} */
+const BLACKTRIANGLERIGHT = 0x49, BIGSTAR = 0x46
 
-/** U/msa/m/n (umsa.fd) at a size: msam10 from 8pt (every beamer \normalsize; msam5 and msam7 below) */
-function msam(size: number) {
-  if (size < 8 * 65536) throw new Unsupported("msam below 8pt")
-  return fontAt("msam10", size)
-}
+/** U/msa/m/n (umsa.fd) at a size: msam5 below 6pt, msam7 below 8pt, msam10 from 8pt */
+const msam = (size: number) => fontAt(size < 6 * 65536 ? "msam5" : size < 8 * 65536 ? "msam7" : "msam10", size)
 
 export type ListKind = "itemize" | "enumerate" | "description"
 /** where a list begins */
@@ -264,16 +263,91 @@ function itemLabel(cx: FrameCtx, kind: "itemize" | "enumerate", level: ListLevel
   const at = useColor(theme, name, { fg: level.fg, bg: outerColors(theme).bg })
   const out: Node[] = [colorPush(at.fg)]
   if (label !== undefined) out.push(...plainText(label, font))
+  else if (kind === "itemize" && theme.boadillaItems && level.itemDepth > 1) out.push(...boadillaItem(cx, level))
   else if (kind === "itemize" && theme.inner === "rounded") out.push(ball(cx, level, at))
   else if (kind === "itemize" && theme.inner === "default") out.push(...triangle(k.sizes[level.size].size, level.itemDepth === 1 ? "1.25pt" : "1.5pt"))
-  else if (kind === "itemize") throw new Unsupported(`beamer: the ${theme.inner} inner theme's itemize items`)
+  else if (kind === "itemize" && theme.inner === "circles") out.push(bullet(cx, level))
+  else if (kind === "itemize") out.push(square(cx, level))
   else if (theme.inner === "rounded") out.push(...ballNumber(cx, level, at, [...level.enum, counter]))
-  else if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's enumerate items`)
+  else if (theme.inner === "circles") out.push(...circleNumber(cx, level, at, [...level.enum, counter]))
+  else if (theme.inner === "rectangles") out.push(...squareNumber(cx, level, at, [...level.enum, counter]))
   else {
     const n = [...level.enum, counter]
     out.push(...plainText(level.enumDepth === 1 ? `${n[0]}.` : n.join("."), font))
   }
   return out
+}
+
+/** the item projected color and font of an enumerate at `level`: item projected, subitem projected, subsubitem
+ *  projected, the last level's font subitem projected's (beamerbaseauxtemplates.sty's) */
+function projected(cx: FrameCtx, level: ListLevel, at: ColorState): { colors: ColorState; font: Font } {
+  const depth = level.enumDepth
+  return { colors: useColor(cx.theme, `${PREFIX[depth - 1]}item projected`, at),
+    font: selectFont(cx.k, fontSize(cx.theme, cx.k, depth === 1 ? "item projected" : "subitem projected", level.size), SANS) }
+}
+
+/** the circles inner theme's itemize items (beamerbaseauxtemplates.sty 348–350): \raise1.25pt\hbox{$\bullet$} (raised
+ *  1.5pt below the first level), in the item's font */
+function bullet(cx: FrameCtx, level: ListLevel): BoxNode {
+  const box = hpack(hlistInput("$\\bullet$", cx.k, level.size, { footnote: 0 }, SANS, undefined, true))
+  box.shift = -parseDimen(level.itemDepth === 1 ? "1.25pt" : "1.5pt", { em: 0, ex: 0 })
+  return box
+}
+
+/** the rectangles inner theme's itemize items (357–359): \hbox{\vrule width 1ex height 1ex}, in \small below the first
+ *  level */
+function square(cx: FrameCtx, level: ListLevel): BoxNode {
+  const f = selectFont(cx.k, level.itemDepth === 1 ? level.size : "small", SANS)
+  const ex = f.params[X_HEIGHT]
+  return hpack([{ kind: "rule", width: ex, height: ex, depth: null }])
+}
+
+/**
+ * The circles inner theme's enumerate items (486–519), a template that begins with a space (in the item's font):
+ * \usebeamerfont*{item projected}\usebeamercolor[bg]{item projected} \begin{pgfpicture}{-1ex}{0ex}{1ex}{2ex}
+ * \pgfpathcircle{\pgfpoint{0pt}{.75ex}}{1.2ex} \pgfusepath{fill} \pgftext[base]{\color{fg}\insertenumlabel}
+ * \end{pgfpicture}: the circle in the bg, the number in the fg. The bg's pop comes with the label's.
+ */
+function circleNumber(cx: FrameCtx, level: ListLevel, at: ColorState, n: number[]): Node[] {
+  const { s, d } = cx.pgf
+  const font = selectFont(cx.k, level.size, SANS)
+  const p = projected(cx, level, at)
+  const number: PgfText = { hlist: () => [colorPush(p.colors.fg), ...plainText(String(n[level.enumDepth - 1]), p.font), colorPop()] }
+  return [spaceGlue(font, 1000), colorPush(p.colors.bg), ...cx.pgf.picture(p.font, p.colors.bg, ["-1ex", "0ex", "1ex", "2ex"], () => {
+    s.space()
+    pgfPathCircle(s, () => pgfPoint(s, "0pt", ".75ex"), "1.2ex")
+    s.space()
+    // (the space after \pgfusepath is skipped)
+    pgfUsePath(s, d, ["fill"])
+    pgfText(s, d, number, [["base"]], "")
+    return 0
+  }), colorPop()]
+}
+
+/**
+ * The rectangles inner theme's enumerate items (423–465), a template that begins with a space: \hbox{\usebeamerfont*
+ * {item projected}\usebeamercolor[bg]{item projected}\vrule width2.25ex height1.85ex depth.4ex\hskip-2.25ex\hbox
+ * to2.25ex{\hfil\color{fg}\insertenumlabel\hfil}}
+ */
+function squareNumber(cx: FrameCtx, level: ListLevel, at: ColorState, n: number[]): Node[] {
+  const p = projected(cx, level, at)
+  const ex = (x: string) => parseDimen(x, { em: p.font.params[QUAD], ex: p.font.params[X_HEIGHT] })
+  // (each \color's pop after the box it is in)
+  const number = [filGlue(), colorPush(p.colors.fg), ...plainText(String(n[level.enumDepth - 1]), p.font), filGlue()]
+  return [spaceGlue(selectFont(cx.k, level.size, SANS), 1000), hpack([colorPush(p.colors.bg), { kind: "rule", width: ex("2.25ex"), height: ex("1.85ex"), depth: ex(".4ex") },
+    glue(-ex("2.25ex")), hpack(number, { exactly: ex("2.25ex") }), colorPop()]), colorPop()]
+}
+
+/** Boadilla's itemize subitem and subsubitem (beamerthemeBoadilla.sty): \tiny\raise1.5pt\hbox{\color{beamerstructure}
+ *  $\blacktriangleright$} and $\bigstar$ */
+function boadillaItem(cx: FrameCtx, level: ListLevel): Node[] {
+  const f = msam(cx.k.sizes.tiny.size)
+  const code = level.itemDepth === 2 ? BLACKTRIANGLERIGHT : BIGSTAR
+  if (f.chars.get(code)!.italic) throw new Unsupported("an italic correction in an msam symbol")
+  const box = hpack([colorPush(useColor(cx.theme, "structure", outerColors(cx.theme)).fg), { kind: "math", on: true, width: 0 }, charNode(f, code), { kind: "math", on: false, width: 0 }])
+  box.shift = -parseDimen("1.5pt", { em: 0, ex: 0 })
+  // (the \color's pop after the box)
+  return [box, colorPop()]
 }
 
 /** A label's text: no commands, braces or special characters */

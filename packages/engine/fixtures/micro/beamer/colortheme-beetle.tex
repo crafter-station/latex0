@@ -1,0 +1,41 @@
+% fixture: beamer/colortheme-beetle
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer: the beetle color theme (default outer and inner themes), navigation symbols on: the title page, the frame title and subtitle, a table of contents, items, blocks
+% issue: #322
+\documentclass{beamer}
+\usecolortheme{beetle}
+\title{Colors}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\section{One}
+\begin{frame}{Outline}{A subtitle}
+\tableofcontents
+\begin{itemize}
+\item First
+\begin{itemize}
+\item Inner
+\end{itemize}
+\end{itemize}
+\begin{enumerate}
+\item Step
+\end{enumerate}
+\end{frame}
+\begin{frame}{Blocks}
+\begin{block}{Block}
+Text.
+\end{block}
+\begin{alertblock}{Alert}
+Text.
+\end{alertblock}
+\begin{exampleblock}{Example}
+Text.
+\end{exampleblock}
+\end{frame}
+\end{document}

@@ -18,6 +18,8 @@ const OPTIONS = ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"]
 const INFOLINES = ["\\useoutertheme{infolines}", "\\setbeamertemplate{headline}[default]"]
 /** each theme: the preamble lines that load it, and the files whose \setbeamercolor's and \setbeamerfont's name the
  *  colors and fonts reported (besides the default color and font themes') */
+/** the color themes alone (beyond default, whale, orchid, seahorse, beaver and dolphin) */
+const COLOR_THEMES = ["albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   default: { preamble: [], files: [] },
   whale: { preamble: ["\\usecolortheme{whale}"], files: ["beamercolorthemewhale.sty"] },
@@ -26,7 +28,38 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...outerVariants([["seahorse"], ["beaver"], ["dolphin"], ["whale", "orchid"]]),
   ...outerVariants([[], ["whale"], ["orchid"]], true),
   ...innerVariants("rounded", [[], ["whale"], ["orchid"], ["whale", "orchid"]], [["whale", "orchid"]]),
-  ...innerVariants("circles", [[]], []),
+  ...innerVariants("circles", [[], ["whale", "orchid"]], []),
+  ...innerVariants("rectangles", [[], ["whale", "orchid"]], []),
+  ...outerVariants(COLOR_THEMES.map((c) => [c]), false, true),
+  "infolines-headline": { preamble: ["\\useoutertheme{infolines}"], files: ["beamerouterthemeinfolines.sty"] },
+  ...presentation("CambridgeUS", true, ["colorthemebeaver", "innerthemerounded", "outerthemeinfolines"]),
+  ...presentation("AnnArbor", true, ["colorthemewolverine", "innerthemerounded", "outerthemeinfolines"]),
+  ...presentation("Boadilla", true, ["colorthemerose", "innerthemerounded", "colorthemedolphin", "outerthemeinfolines"]),
+  ...presentation("Pittsburgh", false, ["innerthemecircles"]),
+  split: { preamble: ["\\useoutertheme{split}"], files: ["beamerouterthemesplit.sty"] },
+  "whale-orchid-split": { preamble: ["\\usecolortheme{whale}", "\\usecolortheme{orchid}", "\\useoutertheme{split}"], files: ["beamercolorthemewhale.sty", "beamercolorthemeorchid.sty", "beamerouterthemesplit.sty"] },
+  ...presentation("Malmoe", false, ["outerthemesplit", "colorthemewhale"]),
+  miniframes: { preamble: ["\\useoutertheme{miniframes}"], files: ["beamerouterthememiniframes.sty"] },
+  ...presentation("Berlin", false, ["outerthememiniframes", "colorthemewhale", "colorthemeorchid", "innerthemerectangles"]),
+  ...presentation("Dresden", false, ["outerthememiniframes", "colorthemewhale"]),
+  ...presentation("Ilmenau", false, ["outerthememiniframes", "colorthemewhale", "colorthemeorchid", "innerthemerounded"]),
+  ...presentation("Szeged", false, ["outerthememiniframes"]),
+  tree: { preamble: ["\\useoutertheme{tree}"], files: ["beamerouterthemetree.sty"] },
+  ...presentation("Montpellier", false, ["outerthemetree"]),
+  sidebar: { preamble: ["\\useoutertheme{sidebar}"], files: ["beamerouterthemesidebar.sty"] },
+  ...presentation("Hannover", false, ["outerthemesidebar", "colorthemeseahorse", "innerthemecircles"]),
+  ...presentation("Berkeley", false, ["outerthemesidebar", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("Rochester", false, ["outerthemesidebar", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("PaloAlto", true, ["outerthemesidebar", "innerthemerounded", "colorthemeorchid", "colorthemewhale"]),
+  ...presentation("Goettingen", false, ["outerthemesidebar"]),
+  ...presentation("Marburg", false, ["outerthemesidebar", "colorthemewhale"]),
+  ...presentation("Copenhagen", false, ["outerthemesplit", "innerthemerounded", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("Luebeck", false, ["outerthemesplit", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
+}
+
+/** A presentation theme (\usetheme, with shadow=false where it has the option) and the theme files it loads */
+function presentation(name: string, shadow: boolean, parts: string[]): Record<string, { preamble: string[]; files: string[] }> {
+  return { [name]: { preamble: [`\\usetheme${shadow ? "[shadow=false]" : ""}{${name}}`], files: [`beamertheme${name}.sty`, ...parts.map((p) => `beamer${p}.sty`)] } }
 }
 
 /** An inner theme after color themes (alone), and after them followed by the infolines outer theme with the default
@@ -44,13 +77,14 @@ function innerVariants(inner: string, colors: string[][], outer: string[][]): Re
 }
 
 /** Color themes (each \usecolortheme in turn), alone (unless `outerOnly`) and followed by the infolines outer theme
- *  with the default headline (as Madrid has it): named by their parts joined with "-" (preamble.ts reads them so) */
-function outerVariants(colors: string[][], outerOnly = false): Record<string, { preamble: string[]; files: string[] }> {
+ *  with the default headline (as Madrid has it; not when `alone`): named by their parts joined with "-" (preamble.ts
+ *  reads them so) */
+function outerVariants(colors: string[][], outerOnly = false, alone = false): Record<string, { preamble: string[]; files: string[] }> {
   const out: Record<string, { preamble: string[]; files: string[] }> = {}
   for (const c of colors) {
     const preamble = c.map((n) => `\\usecolortheme{${n}}`), files = c.map((n) => `beamercolortheme${n}.sty`)
     if (!outerOnly) out[c.join("-")] = { preamble, files }
-    out[[...c, "infolines"].join("-")] = { preamble: [...preamble, ...INFOLINES], files: [...files, "beamerouterthemeinfolines.sty"] }
+    if (!alone) out[[...c, "infolines"].join("-")] = { preamble: [...preamble, ...INFOLINES], files: [...files, "beamerouterthemeinfolines.sty"] }
   }
   return out
 }
@@ -137,7 +171,11 @@ function themeData(theme: string, cls: ClassData): BeamerThemeData {
       if (f[0] === "D" && f.length === 3) dimens[f[1]] = parseScaled(f[2].replace(/pt$/, ""))
       else if (f[0] === "C" && f.length === 4) { const c = (colors[f[1]] ??= {}); if (f[3]) c[f[2] as "fg" | "bg"] = f[3] }
       // an expression with the current fg or bg in it (not a beamer color's X.fg)
-      else if (f[0] === "X" && f.length === 4 && /(^|[!,])\s*(fg|bg)\s*($|[!,])/.test(f[3])) (colors[f[1]] ??= {}).contextual = true
+      else if (f[0] === "X" && f.length === 4 && /(^|[!,])\s*(fg|bg)\s*($|[!,])/.test(f[3])) {
+        const c = (colors[f[1]] ??= {})
+        c.contextual = true
+        c[f[2] === "fg" ? "fgExpr" : "bgExpr"] = f[3]
+      }
       else if (f[0] === "F" && f.length === 8) {
         const [, name, size, fsize, family, series, shape, encoding] = f
         if (!size && fsize !== "SIZE") throw new Error(`${theme} [${option}]: beamer font ${name} sets a size with no size command (${fsize})`)

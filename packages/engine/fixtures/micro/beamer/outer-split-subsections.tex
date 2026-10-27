@@ -1,0 +1,33 @@
+% fixture: beamer/outer-split-subsections
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's split outer theme: three subsections in the first section, one in the last (the headline's height from the most subsections, not the last frame's)
+% issue: #322
+\documentclass{beamer}
+\useoutertheme{split}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\section{A}
+\subsection{a}
+\begin{frame}{1}
+Text.
+\end{frame}
+\subsection{b}
+\begin{frame}{2}
+Text.
+\end{frame}
+\subsection{c}
+\begin{frame}{3}
+Text.
+\end{frame}
+\section{B}
+\subsection{d}
+\begin{frame}{4}
+Text.
+\end{frame}
+\end{document}

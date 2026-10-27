@@ -1,0 +1,52 @@
+% fixture: beamer/theme-ilmenau-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's Ilmenau theme (miniframes, whale, orchid, rounded), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks
+% issue: #322
+\documentclass{beamer}
+\usetheme{Ilmenau}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{Motivation}
+\begin{itemize}
+\item First point.
+\begin{itemize}
+\item A detail.
+\end{itemize}
+\item Second point.
+\end{itemize}
+\begin{enumerate}
+\item Step one.
+\item Step two.
+\end{enumerate}
+\end{frame}
+\section{Results}
+\subsection{Main}
+\begin{frame}{Main result}{With a subtitle}
+\begin{theorem}
+Every bounded monotone sequence converges.
+\end{theorem}
+\begin{exampleblock}{Example}
+The sequence $1 - 1/n$.
+\end{exampleblock}
+\begin{alertblock}{Careful}
+Not every sequence.
+\end{alertblock}
+\end{frame}
+\subsection{More}
+\begin{frame}{Another}
+Some text.
+\end{frame}
+\end{document}

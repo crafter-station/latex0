@@ -1,0 +1,28 @@
+% fixture: beamer/outer-split-sections-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's split outer theme: three sections without subsections (the headline's height from the sections)
+% issue: #322
+\documentclass{beamer}
+\useoutertheme{split}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\section{One}
+\begin{frame}{One}
+Text.
+\end{frame}
+\section{Two}
+\begin{frame}{Two}
+Text.
+\end{frame}
+\section{Three}
+\begin{frame}{Three}
+Text.
+\end{frame}
+\end{document}
