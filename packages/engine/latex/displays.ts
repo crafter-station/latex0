@@ -104,7 +104,7 @@ function stepHref(cx: Ctx, counter: string, n: number): string {
 export function listParagraphWithDisplays(cx: Ctx, text: string, opts: ParagraphOptions, parskip: GlueSpec, size: SizeCommand) {
   const { amsmath } = cx.pre
   const { decisions, doc, run, v, counted } = cx
-  if (size !== "normalsize") throw new Unsupported(`a display in a list in \\${size}`)
+  if (size !== "normalsize" || opts.parSize) throw new Unsupported(`a display in a list in \\${opts.parSize ?? size}`)
   const segs = displaySegments(text)
   const font = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs)
   let prevGraf = 0

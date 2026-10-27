@@ -224,6 +224,8 @@ export interface ParagraphOptions {
   hsize?: number
   /** declarations at the top level read (they last to the paragraph's end; the caller knows what they set at its \par) */
   topDecls?: boolean
+  /** the size in force at the paragraph's \par (declarations in it), when not the one it starts in: its \baselineskip */
+  parSize?: SizeCommand
   /** \\ is \@centercr (\centering and friends), which the caller has taken care of: here it is not laid out */
   centercr?: boolean
 }
