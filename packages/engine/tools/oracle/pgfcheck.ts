@@ -1,8 +1,9 @@
 // pgf system-layer oracle (#292): snippets of pgf's \pgfsys@ commands, typeset by TeX as
 // `\setbox0\hbox{\nullfont <snippet>}\showbox0` with tikz loaded (a picture's \nullfont: every stray space in
-// pgf's macros is a \glue 0.0), and run through pgf/'s driver for the same TeX driver. The box dumps must
-// agree node by node: every \special's text, every space, every box. A tiny reader of the snippet's
-// commands drives the TS side. Fixed snippets cover each primitive, then seeded random sequences.
+// pgf's macros is a \glue 0.0) by latex (pgf's dvips driver) and by pdflatex (its pdftex driver), and run
+// through pgf/'s driver for each. The box dumps must agree node by node: every \special's and \pdfliteral's
+// text, every space, every box. A tiny reader of the snippet's commands drives the TS side. Fixed snippets
+// cover each primitive, then seeded random sequences.
 //   bun engine pgf:check [--n 2000] [--seed 1]
 
 import { spawnSync } from "node:child_process"
@@ -14,6 +15,7 @@ import { hpack } from "../../layout/pack"
 import type { BoxNode as LayoutBox, RuleNode } from "../../layout/nodes"
 import { TexArith } from "../../pgf/fixed"
 import { DvipsDriver } from "../../pgf/drivers/dvips"
+import { PdftexDriver } from "../../pgf/drivers/pdftex"
 import type { ColorModel, PgfDriver } from "../../pgf/drivers"
 import { pgfSetColor, pgfSetFillColor, pgfSetStrokeColor } from "../../pgf/graphicstate"
 import { PgfState } from "../../pgf/state"
@@ -26,7 +28,10 @@ const DIR = ".cache/pgfcheck"
 const COLORS: [string, string, string][] = [["mine", "HTML", "3A7FC0"], ["dark", "rgb", "0.1,0.2,0.3"], ["ink", "cmyk", "0.5,0,.25,1"], ["mid", "gray", "0.4"]]
 
 interface Target { name: string; program: string; driver: (s: PgfState) => PgfDriver }
-const TARGETS: Target[] = [{ name: "dvips", program: "latex", driver: (s) => new DvipsDriver(s) }]
+const TARGETS: Target[] = [
+  { name: "dvips", program: "latex", driver: (s) => new DvipsDriver(s) },
+  { name: "pdftex", program: "pdflatex", driver: (s) => new PdftexDriver(s) },
+]
 
 /** Each primitive, the colour paths, line widths, nested scopes and groups, boxes, spaces. */
 const FIXED = [
