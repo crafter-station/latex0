@@ -28,7 +28,7 @@ const SYMBOLS = (
   "leftarrow gets rightarrow to uparrow downarrow leftrightarrow Leftarrow Rightarrow Uparrow Downarrow Leftrightarrow " +
   "nearrow searrow swarrow nwarrow leftharpoonup leftharpoondown rightharpoonup rightharpoondown rightleftharpoons " +
   "sum prod coprod intop ointop bigcup bigcap bigsqcup bigvee bigwedge bigodot bigotimes bigoplus biguplus " +
-  "ldotp cdotp colon"
+  "ldotp cdotp colon mathdollar"
 ).split(" ")
 // \delimiter commands (fontmath.ltx): what \left takes, a math character elsewhere
 const DELIMITERS = (

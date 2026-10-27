@@ -74,7 +74,7 @@ export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1
 export const mathFonts: { letters: number | null; packages: MathPackages } = { letters: null, packages: {} }
 /** The math packages a document loads beyond amsmath: amsfonts (amssymb loads it; its fonts, \mathbb and \mathfrak, and
  *  the extension font at every size as amsmath declares it), amssymb, mathrsfs */
-export interface MathPackages { amsfonts?: boolean; amssymb?: boolean; mathrsfs?: boolean }
+export interface MathPackages { amsfonts?: boolean; amssymb?: boolean; mathrsfs?: boolean; /** array.sty (its \array) */ array?: boolean }
 /** the families of amssymb's symbol fonts AMSa and AMSb (\mathbb), \mathfrak's and mathrsfs's (\mathscr): 8–11, after
  *  LaTeX's four and the four alphabets' (codegen/math.ts PACKAGE_FAMILIES) */
 const AMS_FONTS = ["msa", "msb", "euf", "rsfs"] as const
@@ -84,14 +84,14 @@ const LETTERS = (fam: number): Record<number, number> => Object.fromEntries([...
 
 /** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's;
  *  `si`: siunitx is loaded, and its view of the text around */
-export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext): MItem[] {
+export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext, where: { display?: boolean; dollarNext?: boolean; font?: Font } = {}): MItem[] {
   const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
   const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
   // (spanish.ldf's \mathspanish: its operators and decimal comma)
   const operators = spanishText.on ? SPANISH_OPERATORS : undefined
   const p = mathFonts.packages
   const packages = [...(amsmath ? ["amsmath"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
-  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...where, ...(p.array ? { arrayPackage: true } : {}), ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
@@ -796,7 +796,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
     }
     if (body[i] === "$") {
-      const j = body.indexOf("$", i + 1)
+      let j = body.indexOf("$", i + 1)
+      while (j > 0 && body[j - 1] === "\\" && (body.slice(i + 1, j).match(/\\*$/)![0].length % 2)) j = body.indexOf("$", j + 1) // (\$ in math)
       if (j < 0) throw new Unsupported("paragraph adapter: unbalanced $")
       flushText(); out.push({ kind: "math", src: body.slice(i + 1, j) }); i = j + 1
     } else if (body[i] === "\\" && FONT_COMMANDS.some((c) => body.startsWith(`\\${c}{`, i) || body.startsWith(`\\${c} {`, i))) {
@@ -1572,7 +1573,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined, { dollarNext: true, font }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else if (p.kind === "thanks") {
       // \maketitle's \thanks: \footnotemark (\stepcounter, \nobreak, \@makefnmark: \rlap{\@textsuperscript{\normalfont

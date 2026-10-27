@@ -49,6 +49,8 @@ export interface MuKern { kind: "mukern"; width: number }
  * \\rootbox at scriptscript style, then a \\mathchoice of \\r@@t, which the first pass expands in its style
  */
 export interface RootItem { kind: "root"; index: Noad; radicand: Field; amsmath: boolean }
+/** \\nonscript (§ 1171): glue of subtype cond_math_glue, which deletes glue or a kern after it below text size (§ 732) */
+export interface NonscriptItem { kind: "nonscript" }
 /** A choice node (§ 689, \\mathchoice): the first pass puts in its place the list for its style (§ 731) */
 export interface ChoiceItem { kind: "choice"; choose: (style: number) => MItem[] }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
@@ -60,7 +62,7 @@ export interface Delimiter { smallFam: number; smallChar: number; largeFam: numb
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
 export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | RootItem | ChoiceItem | Node
+export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | NonscriptItem | RootItem | ChoiceItem | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
 const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
@@ -220,6 +222,11 @@ class Converter {
         if ("kind" in q && q.kind === "style") this.setStyle(q.style)
         else if ("kind" in q && q.kind === "muglue") { const g = mathGlue(q.spec, this.curMu); list[i] = glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) } // § 732
         else if ("kind" in q && q.kind === "mukern") list[i] = kern(mathGlue({ width: q.width, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }, this.curMu).width, true) // math_kern (§ 717)
+        else if ("kind" in q && q.kind === "nonscript") { // § 732: a glue node that stays, printed \glue(\nonscript)
+          list[i] = paramGlue("nonscript", glue(0))
+          const p = list[i + 1]
+          if (this.curSize !== 0 && p && "kind" in p && ["muglue", "mukern", "glue", "kern"].includes(p.kind)) list.splice(i + 1, 1)
+        }
         else if ("kind" in q && q.kind === "root") { list.splice(i, 1, ...this.root(q)); i-- } // § 731: the choice for cur_style
         else if ("kind" in q && q.kind === "choice") { list.splice(i, 1, ...q.choose(this.curStyle).map(colsep)); i-- } // § 731
         else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }

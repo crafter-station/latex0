@@ -7,11 +7,14 @@
 // \quad and \qquad (\hskip1em, \hskip2em), \ne and \neq (\not=), \frac
 // ({\begingroup#1\endgroup\over#2}), \int and \oint (\intop\nolimits), and
 // the prime ' (^\bgroup\prime…\egroup, which takes in a superscript that
-// follows: x'^{ab} is x^{\prime ab}).
+// follows: x'^{ab} is x^{\prime ab}); \mathord … \mathinner, \mkern, \mskip and \nonscript; LaTeX's and
+// amsmath's \dots (amsmath's by the token after it), \cdots, \vdots, \ddots, \colon, \bmod, \pmod, \pod, \mod.
 
 import type { MathData } from "./data"
-import type { GlueSpec } from "../layout/dimen"
-import { glue, kern, penalty } from "../layout/nodes"
+import { Scanner, type GlueSpec } from "../layout/dimen"
+import { charNode, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
+import type { Font } from "../layout/font"
 import { delimiterOf, groupField, groupNoad, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
@@ -46,6 +49,17 @@ const MU_SPACES: Record<string, [1 | -1, "thinmuskip" | "medmuskip" | "thickmusk
   ":": [1, "medmuskip"], ">": [1, "medmuskip"], medspace: [1, "medmuskip"], negmedspace: [-1, "medmuskip"],
   ";": [1, "thickmuskip"], thickspace: [1, "thickmuskip"], negthickspace: [-1, "thickmuskip"],
 }
+/** \mathord … \mathinner (§ 1155): a noad of that class, its nucleus scan_math's */
+const MATH_CLASSES: Record<string, Noad["noad"]> = { mathord: ORD, mathop: OP, mathbin: 2, mathrel: 3, mathopen: 4, mathclose: 5, mathpunct: 6, mathinner: INNER }
+/** \chardef'd characters (latex.ltx): \# \% \& */
+const CHARDEFS = ["#", "%", "&"]
+/** amsmath's macros that start \DOTSB (B) or \DOTSI (I), which \dots looks for after it */
+const DOTS_MACROS: Record<string, "B" | "I"> = {
+  ...Object.fromEntries("coprod bigvee bigwedge biguplus bigcap bigcup prod sum bigotimes bigoplus bigodot bigsqcup implies impliedby And longrightarrow Longrightarrow longleftarrow Longleftarrow longleftrightarrow Longleftrightarrow mapsto longmapsto hookrightarrow hookleftarrow iff doteq".split(" ").map((x) => [x, "B"])),
+  ...Object.fromEntries("int oint iint iiint iiiint idotsint".split(" ").map((x) => [x, "I"])),
+}
+/** amsmath's \rightdelim@: what \dots and \cdots put a thin space before */
+const RIGHT_DELIMS = ["rbrack", "}", "rbrace", "rangle", "rceil", "rfloor", "rgroup", "rmoustache", "right", "bigr", "biggr", "Bigr", "Biggr"]
 /** \quad and \qquad: \hskip in em of the current (text) font */
 const QUADS: Record<string, number> = { quad: 1, qquad: 2 }
 /** delimiters LaTeX defines through others in math: \{ (\lbrace), \} (\rbrace), \| (\Vert); amsmath's \lvert… */
@@ -66,6 +80,14 @@ export interface MathOptions {
   commands?: { arity: Record<string, number>; build: (cmd: string, opt: string | undefined, args: string[], fam: number) => MItem[] }
   /** packages whose symbols and delimiters are defined (MathData.packages: amsmath, amsfonts, amssymb), in loading order */
   packages?: string[]
+  /** the current text font: \hbox{.} in \vdots and \ddots */
+  font?: Font
+  /** amsmath's \if@display: the formula is in a display (\everydisplay sets it), for \pod, \pmod and \mod */
+  display?: boolean
+  /** array.sty is loaded: its \array cells end with \textonly@unskip, LaTeX's with a $ (which \dots looks ahead to) */
+  arrayPackage?: boolean
+  /** a $ follows the formula (inline math, $$ displays), which amsmath's \dots and \cdots look ahead to */
+  dollarNext?: boolean
   /** \mathcode's the document changes (beamer's \DeclareMathSymbol for the Latin letters), by character code */
   mathcodes?: Record<number, number>
   /** operators a language redefines (spanish.ldf's \es@operators: \mathop{\operator@font l\acute{\dotlessi}m}): the
@@ -73,9 +95,18 @@ export interface MathOptions {
   operators?: Record<string, { name: string; nolimits: boolean }>
 }
 
-type Token = { cs: string; value?: number } | { ch: string }
+type Token = { cs: string; value?: number; spec?: GlueSpec } | { ch: string }
 
-function tokenize(src: string): Token[] {
+/** \mkern's mu dimension and \mskip's mu glue (scan_dimen and scan_glue with mu, §§ 448–461), the mu skip registers
+ *  coerced (\mkern-\thinmuskip: its width) */
+function scanMu(src: string, cs: "mkern" | "mskip", muskips?: Record<string, GlueSpec>): { spec: GlueSpec; length: number } {
+  const s = new Scanner(src, { em: 0, ex: 0, internal: (name) => (muskips && name in muskips ? { level: "glue", value: muskips[name] } : undefined) })
+  const spec = cs === "mkern" ? { width: s.scanDimen(true).value, stretch: 0, stretchOrder: 0 as const, shrink: 0, shrinkOrder: 0 as const } : s.scanGlue(true)
+  if (s.errors.length) throw new Error(`math: \\${cs}: ${s.errors[0]}`)
+  return { spec, length: s.pos }
+}
+
+function tokenize(src: string, muskips?: Record<string, GlueSpec>): Token[] {
   const out: Token[] = []
   for (let i = 0; i < src.length;) {
     const c = src[i]
@@ -88,6 +119,9 @@ function tokenize(src: string): Token[] {
         const n = src.slice(i).match(/^([+-\s]*)(\d+) ?/)
         if (!n) throw new Error("math: \\penalty needs an integer")
         out.push({ cs: m[1], value: ((n[1].match(/-/g) ?? []).length % 2 ? -1 : 1) * Number(n[2]) }); i += n[0].length
+      } else if (m[1] === "mkern" || m[1] === "mskip") {
+        const { spec, length } = scanMu(src.slice(i), m[1], muskips)
+        out.push({ cs: m[1], spec }); i += length
       } else out.push({ cs: m[1] })
     } else if (/\s/.test(c)) i++ // spaces are ignored in math mode
     else if (c === "%") { while (i < src.length && src[i] !== "\n") i++ }
@@ -109,7 +143,7 @@ const source = (ts: Token[]) => ts.map((t) => ("ch" in t ? t.ch : `\\${t.cs}${/^
 
 /** Parse a formula (the text between $…$) into an mlist. */
 export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
-  return parseTokens(tokenize(src), withPackages(data, opts.packages ?? []), opts, -1)
+  return parseTokens(tokenize(src, data.muskips), withPackages(data, opts.packages ?? []), opts, -1)
 }
 
 const merged = new WeakMap<MathData, Map<string, MathData>>()
@@ -148,7 +182,44 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     }
     return toks.slice(start, pos++)
   }
-  const sub = (ts: Token[], f = fam) => parseTokens(ts, data, opts, f)
+  // (a list of its own: its end is a } or an \endgroup, not the formula's $)
+  const inner = opts.dollarNext ? { ...opts, dollarNext: false } : opts
+  const sub = (ts: Token[], f = fam) => parseTokens(ts, data, inner, f)
+  /** an \array cell before an &: \@sharp, then the v-part of the template, $ in LaTeX's */
+  const cellBefore = (ts: Token[]) => parseTokens(ts, data, { ...opts, dollarNext: !opts.arrayPackage }, -1)
+  /** amsmath's \dots and its kin as the source they become, by the token after them (the end of the formula: a $ when
+   *  dollarNext); null: not one of them */
+  const dotsMacro = (cs: string): string | null => {
+    const MATHELLIPSIS = "\\mathinner{\\ldotp\\ldotp\\ldotp}", CDOTS = "\\mathinner{\\cdotp\\cdotp\\cdotp}"
+    if (!opts.amsmath) return cs === "dots" || cs === "ldots" || cs === "mathellipsis" ? MATHELLIPSIS : cs === "cdots" ? CDOTS : null
+    const next = toks[pos], atEnd = pos >= toks.length
+    // \extra@: a right delimiter, or $, follows
+    const extra = () => atEnd ? !!opts.dollarNext : "ch" in next ? next.ch === ")" || next.ch === "]" : RIGHT_DELIMS.includes(next.cs)
+    // \extrap@: , ; . or what \extra@ takes
+    const extrap = (d: string) => (!atEnd && "ch" in next && ",;.".includes(next.ch)) || extra() ? `${d}\\,` : d
+    switch (cs) {
+      case "ldots": case "mathellipsis": return MATHELLIPSIS
+      case "cdots": case "dotsb": case "dotsm": return extrap(CDOTS)
+      case "dotso": return extrap(MATHELLIPSIS)
+      case "dotsi": return `\\!${CDOTS}`
+      case "dotsc": return (!atEnd && "ch" in next && ";.".includes(next.ch)) || extra() ? `${MATHELLIPSIS}\\,` : MATHELLIPSIS
+      case "dots": { // \mdots@@: by what the next token is
+        if (atEnd) return extra() ? `${MATHELLIPSIS}\\,` : MATHELLIPSIS // (\dotso@)
+        if ("ch" in next) {
+          if (next.ch === ",") return MATHELLIPSIS // \dotsc before a , (neither ; nor . nor what \extra@ takes)
+          if ("+=<>-*:".includes(next.ch)) return CDOTS // \keybin@
+          return MATHELLIPSIS + (next.ch === ")" || next.ch === "]" ? "\\," : "") // \dotso@ with \extra@
+        }
+        if (next.cs === "boldsymbol") throw new Error("math: \\dots before \\boldsymbol")
+        const code = data.symbols[next.cs]
+        // \not, a \mathchar of class 2 or 3 (\getmathch@; \not is one), or a macro starting \DOTSB: \dotsb@; \DOTSI: \dotsi
+        if ((code !== undefined && !(next.cs in DOTS_MACROS) && ((code >> 12) === 2 || (code >> 12) === 3)) || DOTS_MACROS[next.cs] === "B") return CDOTS
+        if (DOTS_MACROS[next.cs] === "I") return `\\!${CDOTS}`
+        return MATHELLIPSIS + (RIGHT_DELIMS.includes(next.cs) ? "\\," : "")
+      }
+    }
+    return null
+  }
   /** a math alphabet's argument: a math group with \fam set */
   const alphabet = (cs: string): Field | undefined => (opts.alphabets && cs in opts.alphabets ? groupField(sub(argument(), opts.alphabets[cs])) : undefined)
   /** \begin{name}: the environment's name and its body's tokens, to the matching \end */
@@ -175,7 +246,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       else if ("ch" in t && t.ch === "}") depth--
       else if ("cs" in t && t.cs === "begin") depth++
       else if ("cs" in t && t.cs === "end") depth--
-      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(sub(cell, -1)); cell = []; continue }
+      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(cellBefore(cell)); cell = []; continue }
       if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell, -1)); rows.push(row); crs.push(true); row = []; cell = []; continue }
       cell.push(t)
     }
@@ -339,13 +410,48 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         if (opts.amsmath && kind === "o" && "cs" in (toks[pos] ?? {}) && (toks[pos] as { cs: string }).cs === "limits") pos++
         continue
       }
+      if (t.cs === "mkern") { out.push({ kind: "mukern", width: t.spec!.width }); continue }
+      if (t.cs === "mskip") { out.push({ kind: "muglue", spec: t.spec! }); continue }
+      if (t.cs === "vdots" || t.cs === "ddots") { // fontmath.ltx: dots in \hbox'es of the current font, \p@ apart
+        if (!opts.font) throw new Error(`math: \\${t.cs} without the current font`)
+        const f = opts.font, pt = 65536
+        const dot = (raise = 0): BoxNode => { const b = hpack([charNode(f, 46)]); b.shift = -raise; return b }
+        const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null }) // a box in math: an ord noad (§ 1076)
+        if (t.cs === "vdots") { // \vbox{\baselineskip4\p@ \lineskiplimit\z@ \kern6\p@\hbox{.}\hbox{.}\hbox{.}}
+          const v: Node[] = [kern(6 * pt, true)]
+          for (let i = 0; i < 3; i++) { const b = dot(); if (i) v.push(paramGlue("baselineskip", glue(4 * pt - b.height - (v[v.length - 1] as BoxNode).depth))); v.push(b) } // (§ 679, never below \lineskiplimit 0)
+          out.push(box(vpack(v)))
+        } else { // \mathinner{\mkern1mu\raise7\p@\vbox{\kern7\p@\hbox{.}}\mkern2mu\raise4\p@\hbox{.}\mkern2mu\raise\p@\hbox{.}\mkern1mu}
+          const v = vpack([kern(7 * pt, true), dot()]); v.shift = -7 * pt
+          const mu = (n: number): MItem => ({ kind: "mukern", width: n * 65536 })
+          out.push({ noad: INNER, nucleus: { kind: "mlist", list: [mu(1), box(v), mu(2), box(dot(4 * pt)), mu(2), box(dot(pt)), mu(1)] }, sup: null, sub: null })
+        }
+        continue
+      }
+      if (t.cs === "nonscript") { out.push({ kind: "nonscript" }); continue }
+      if (t.cs in MATH_CLASSES) { out.push({ noad: MATH_CLASSES[t.cs], nucleus: scanMath(), sup: null, sub: null }); continue } // math_comp (§ 1176)
+      if (CHARDEFS.includes(t.cs)) { out.push(mathCharNoad(mathcode(t.cs), fam)); continue } // \chardef\#=`\# (latex.ltx): set_math_char of its \mathcode
+      if (t.cs === "$") { out.push(mathCharNoad(data.symbols.mathdollar, fam)); continue } // \ifmmode\mathdollar
+      const dots = dotsMacro(t.cs)
+      if (dots !== null) { toks.splice(pos, 0, ...tokenize(dots, data.muskips)); continue }
+      if (t.cs === "bmod" || t.cs === "pmod" || t.cs === "pod" || (opts.amsmath && t.cs === "mod")) { // latex.ltx's and amsmath's
+        if (t.cs === "bmod") { toks.splice(pos, 0, ...tokenize("\\nonscript\\mskip-\\medmuskip\\mkern5mu\\mathbin{\\mathrm{mod}}\\penalty900\\mkern5mu\\nonscript\\mskip-\\medmuskip", data.muskips)); continue }
+        if (t.cs === "pod" && !opts.amsmath) throw new Error("math: unsupported command \\pod")
+        const arg = argument()
+        const sp = opts.display ? 18 : t.cs === "mod" ? 12 : 8
+        const src = !opts.amsmath ? "\\allowbreak\\mkern18mu({\\mathrm{mod}}\\,\\,#)" // \pmod
+          : t.cs === "pmod" ? `\\allowbreak\\mkern${sp}mu({\\mathrm{mod}}\\mkern6mu#)` : t.cs === "pod" ? `\\allowbreak\\mkern${sp}mu(#)` : `\\allowbreak\\mkern${sp}mu{\\mathrm{mod}}\\,\\,#`
+        const [a, b] = src.split("#")
+        toks.splice(pos, 0, ...tokenize(a, data.muskips), ...arg, ...tokenize(b, data.muskips))
+        continue
+      }
       if (t.cs === "ne" || t.cs === "neq") { toks.splice(pos, 0, { cs: "not" }, { ch: "=" }); continue } // fontmath.ltx: \not=
       if (t.cs in MU_SPACES) { const [sign, reg] = MU_SPACES[t.cs]; out.push({ kind: "muglue", spec: scaled(data.muskips[reg], sign) }); continue }
       if (t.cs in QUADS) {
         if (opts.em === undefined) throw new Error(`math: \\${t.cs} without the current font`)
         out.push(glue(QUADS[t.cs] * opts.em)); continue
       }
-      if (opts.amsmath && t.cs === "colon") throw new Error("math: amsmath's \\colon") // \nobreak\mskip2mu\mathpunct{}…
+      if (opts.amsmath && t.cs === "colon") { toks.splice(pos, 0, ...tokenize("\\nobreak\\mskip2mu\\mathpunct{}\\nonscript\\mkern-\\thinmuskip{:}\\mskip6muplus1mu", data.muskips)); continue }
       const cs = OPERATOR_MACROS[t.cs] ?? t.cs
       if (cs in STYLES) out.push({ kind: "style", style: STYLES[cs] })
       else if (cs === "allowbreak" || cs === "nobreak") out.push(penalty(cs === "nobreak" ? 10000 : 0))

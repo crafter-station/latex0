@@ -2,8 +2,9 @@
 // with \showbox, against the engine's mlist_to_hlist (mathlayout/mlist.ts).
 // Formulas are random trees of math characters, symbols, groups, fractions and
 // big operators with \limits and \nolimits, \overline, \underline and \sqrt, math alphabets (with amsmath:
-// amssymb's symbols, \mathbb, \mathfrak and mathrsfs's \mathscr), math accents (with amsmath, never one
-// inside another: \mathaccentV's nested accents are not modeled), with superscripts, subscripts and
+// amssymb's symbols, \mathbb, \mathfrak and mathrsfs's \mathscr), \dots and its kin, \colon, \bmod, \pmod,
+// \mathbin and the other classes, math accents (with amsmath, never one inside another: \mathaccentV's nested accents
+// are not modeled), with superscripts, subscripts and
 // primes, under \displaystyle, \textstyle, \scriptstyle and
 // \scriptscriptstyle. Each tree is printed as LaTeX, typeset by TeX, and read
 // for the engine by its math parser (mathlayout/parse.ts).
@@ -43,6 +44,8 @@ type Nucleus =
   | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
   | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
   | { kind: "accent"; cs: string; arg: Script }
+  /** a command, with an argument or not: \dots, \colon, \pmod{…}, \mathbin{…} */
+  | { kind: "cmd"; cs: string; arg?: Item[] }
   /** a math alphabet: \mathbf{…}, \mathbb{…} */
   | { kind: "alphabet"; cs: string; items: Item[] }
 type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | { kind: "group"; items: Item[] }
@@ -70,10 +73,15 @@ const ACCENTS = ["hat", "check", "tilde", "acute", "grave", "dot", "ddot", "brev
 /** LaTeX's math alphabets, and those amsfonts (\mathbb, \mathfrak) and mathrsfs (\mathscr) add */
 const ALPHABETS = ["mathrm", "mathnormal", "mathcal", "mathbf", "mathit", "mathsf", "mathtt"]
 const AMS_ALPHABETS = ["mathbb", "mathfrak", "mathscr"]
+/** commands without an argument (amsmath's: its \dots and kin, \colon), and with one */
+const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&"]
+const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon"]
+const ARG_COMMANDS = ["pmod", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
+const AMS_ARG_COMMANDS = ["pod", "mod"]
 
 function generator(r: () => number, pool: number[], busy: number[], symbols: (ams: boolean) => string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
-  // (amsmath redefines \colon: \nobreak\mskip2mu\mathpunct{}\nonscript\mkern-\thinmuskip{:}\mskip6mu plus1mu)
+  // (amsmath's \colon, \nobreak\mskip2mu\mathpunct{}…, is no script: a command, with the others)
   const char = (): Nucleus & Script => {
     if (r() < 0.15) { let name = pick(symbols(ams())); if (name === "colon" && ams()) name = "cdotp"; return { kind: "sym", name } }
     return { kind: "char", code: r() < 0.45 ? pick(busy) : pick(pool) }
@@ -93,6 +101,8 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
       const cs = pick(["overline", "underline", "sqrt"] as const)
       return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: rootIndex(depth + 1) } : {}) }
     }
+    if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
+    if (x >= 0.39 && x < 0.47) return { kind: "cmd", cs: r() < 0.5 ? "dots" : pick(ams() ? [...COMMANDS, ...AMS_COMMANDS] : COMMANDS) }
     if (depth < 3 && x >= 0.33 && x < 0.37) return { kind: "alphabet", cs: pick(ams() ? [...ALPHABETS, ...AMS_ALPHABETS] : ALPHABETS), items: list(depth + 1, 3, true) }
     if (depth < 3 && x >= 0.5 && x < 0.55) { // (with amsmath, a character only)
       const cs = pick(ACCENTS), withAms = ams()
@@ -114,13 +124,15 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
       const bare = (!prev || prev.kind === "style") && r() < 0.1 && !noBare
       const primes = r() < 0.12 ? 1 + Math.floor(r() * 2) : 0
       const s = r()
+      const nuc = bare ? null : nucleus(depth)
       const atom: Item = {
-        kind: "atom", nucleus: bare ? null : nucleus(depth), primes, subFirst: r() < 0.5,
+        kind: "atom", nucleus: nuc, primes, subFirst: r() < 0.5,
         ...(s < 0.25 || (bare && s < 0.6) ? { sup: script(depth) } : {}),
         ...((s > 0.15 && s < 0.4) || (bare && s >= 0.6) ? { sub: script(depth) } : {}),
       }
-      // (a group of one accent noad becomes that noad, § 1187: its scripts and the group's would be doubled)
-      if (loneAccent(atom.nucleus)) { delete atom.sup; delete atom.sub; atom.primes = 0 }
+      // (amsmath's \mod{#1} ends with #1, whose last atom would take the scripts too; a group of one accent noad becomes
+      // that noad, § 1187: its scripts and the group's would be doubled)
+      if ((nuc?.kind === "cmd" && nuc.cs === "mod") || loneAccent(nuc)) { atom.primes = 0; delete atom.sup; delete atom.sub }
       out.push(atom)
     }
     return out
@@ -150,6 +162,7 @@ function print(items: Item[]): string {
       : n.kind === "line" && n.index ? `\\sqrt[${/[\]&]/.test(print(n.index)) ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "line" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : n.cs === "sqrt" && n.arg.kind === "char" && n.arg.code === 91 ? `{${arg(n.arg)}}` : ` ${arg(n.arg)}`}`
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
+      : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
       : n.kind === "alphabet" ? `\\${n.cs}{${print(n.items)}}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""
@@ -205,7 +218,7 @@ export function mathCheck(n: number, seed: number): number {
     cases.forEach((c, i) => {
       total++
       // (\quad's em: the text font, cmr at the size, as family 0's)
-      const hl = mlistToHlist(parseFormula(`\\${STYLES[c.style / 2]} ${print(c.items)}`, withAms, env.fonts[0][0]!.params[6]), env, TEXT, false)
+      const hl = mlistToHlist(parseFormula(`\\${STYLES[c.style / 2]} ${print(c.items)}`, withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]! }), env, TEXT, false)
       const list: Node[] = [{ kind: "math", on: true, width: data.dimens.mathsurround }, ...hl, { kind: "math", on: false, width: data.dimens.mathsurround }]
       const engine = emitBoxes(hpack(list))
       const tex = boxes[i]

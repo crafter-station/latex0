@@ -1,0 +1,21 @@
+% fixture: amsmath/dots-mod-colon
+% tier: T3
+% engine: document
+% covers: amsmath's \dots by the token after it (\dotsc before a comma, \dotsb before + and relations, \dotsi before \int, \dotso with a thin space before a closing delimiter or the closing $), \cdots, \ldots, \vdots and \ddots in the text font; \colon; \pmod, \pod and \mod in text and displays (\if@display), \bmod with \nonscript in scripts; \# \% \& \$ in math
+% issue: #330
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Let $p_1,\dots,p_n$ be primes and $N = p_1p_2\cdots p_n + 1$, so $N\equiv 1 \pmod{p_i}$ for $i=1,\dots$
+and $a_1+\dots+a_n\leq\dots$, with $f\colon A\to B$ and $(x_1,\ldots,x_k)$ ending $x\dots$; also $\dots\int f$
+and $\{1,2,\dots\}$, $\#S = 12\%$ of $\$5 \& 3$, $a\bmod b$ and $x^{a\bmod b}$, $y\pod{3}$ and $z\mod{7}$.
+\[ a \equiv b \pmod{m} \quad \sum_{k=1}^{n} k = 1+2+\cdots+n, \qquad u\mod{5}, \quad v\pod{2} \]
+$$ x_1\dots x_n, \qquad \dots $$
+\begin{equation}
+  \begin{pmatrix} a_{11} & \cdots & a_{1n} \\ \vdots & \ddots & \vdots \\ a_{m1} & \dots & a_{mn} \end{pmatrix}
+\end{equation}
+\begin{align}
+  g\colon X &\to Y, & h &= x_1\dotsm x_k \\
+  s &= 1 + \dotsb + n, & t &\in \{1,\dotsc,n\}
+\end{align}
+\end{document}
