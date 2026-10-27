@@ -41,6 +41,7 @@ type Nucleus =
   | { kind: "group"; items: Item[] } | { kind: "frac"; num: Item[]; den: Item[] }
   | { kind: "op"; name: string; limits?: "limits" | "nolimits" }
   | { kind: "fence"; left: string; items: Item[]; right: string; /** e-TeX's \middle and what follows it */ middle?: { delim: string; items: Item[] } }
+  /** a math accent and its argument (with amsmath none inside: \macc@nested) */
   /** \big … \Biggr and a delimiter */
   | { kind: "big"; cs: string; delim: string }
   | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
@@ -70,7 +71,6 @@ function rng(seed: number) {
 /** \tmspace's commands in math (\mskip), \quad and \qquad (\hskip in em) */
 const SPACES = [",", ":", ">", ";", "!", "thinspace", "negthinspace", "medspace", "negmedspace", "thickspace", "negthickspace", "quad", "qquad"]
 const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix"]
-const ACCENTS = ["hat", "check", "tilde", "acute", "grave", "dot", "ddot", "breve", "bar", "vec", "mathring", "widehat", "widetilde"]
 
 /** LaTeX's math alphabets, and those amsfonts (\mathbb, \mathfrak) and mathrsfs (\mathscr) add */
 const ALPHABETS = ["mathrm", "mathnormal", "mathcal", "mathbf", "mathit", "mathsf", "mathtt"]
@@ -81,6 +81,8 @@ const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "b
 const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby"]
 const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
 const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
+const ACCENTS = "hat check tilde acute grave dot ddot breve bar vec mathring widehat widetilde".split(" ")
+const AMS_ACCENTS = "Hat Check Tilde Acute Grave Dot Ddot Breve Bar Vec".split(" ")
 
 function generator(r: () => number, pool: number[], busy: number[], symbols: (ams: boolean) => string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
@@ -95,6 +97,10 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
     if (depth < 3 && x < 0.12) return { kind: "group", items: list(depth + 1, 3) }
     if (depth < 3 && x < 0.2) return { kind: "frac", num: list(depth + 1, 3), den: list(depth + 1, 3) }
     if (depth < 4 && x < 0.24) return { kind: "fence", left: pick(FENCES), items: list(depth + 1, 4), right: pick(FENCES), ...(r() < 0.3 ? { middle: { delim: pick(FENCES), items: list(depth + 1, 3) } } : {}) }
+    if (depth < 3 && x >= 0.5 && x < 0.55) {
+      const cs = pick(ams() ? [...ACCENTS, ...AMS_ACCENTS] : ACCENTS)
+      for (;;) { const arg = script(depth); if (!ams() || !/\\(hat|check|tilde|acute|grave|dot|ddot|breve|bar|vec|mathring|Hat|Check|Tilde|Acute|Grave|Dot|Ddot|Breve|Bar|Vec)(?![a-zA-Z])/.test(arg.kind === "group" ? print(arg.items) : "")) return { kind: "accent", cs, arg } }
+    }
     if (x >= 0.47 && x < 0.5) return { kind: "big", cs: pick(["big", "Big", "bigg", "Bigg"]) + pick(["", "l", "r", "m"]), delim: pick(FENCES) }
     if (depth < 3 && x < 0.28 && ams()) { // amsmath's matrix environments: rows of cells, sometimes ragged, sometimes a final \\
       const cols = 1 + Math.floor(r() * 3)
@@ -108,10 +114,6 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
     if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
     if (x >= 0.39 && x < 0.47) return { kind: "cmd", cs: r() < 0.5 ? "dots" : pick(ams() ? [...COMMANDS, ...AMS_COMMANDS] : COMMANDS) }
     if (depth < 3 && x >= 0.33 && x < 0.37) return { kind: "alphabet", cs: pick(ams() ? [...ALPHABETS, ...AMS_ALPHABETS] : ALPHABETS), items: list(depth + 1, 3, true) }
-    if (depth < 3 && x >= 0.5 && x < 0.55) { // (with amsmath, a character only)
-      const cs = pick(ACCENTS), withAms = ams()
-      return { kind: "accent", cs, arg: !withAms && r() < 0.5 ? { kind: "group", items: list(depth + 1, 3) } : char() }
-    }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
     return char()
   }
@@ -146,7 +148,7 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
 
 /** a group or alphabet whose list is a lone accent noad (or such a group, in turn): the noad replaces its ord */
 function loneAccent(n: Nucleus | null): boolean {
-  const inside = n?.kind === "group" || n?.kind === "alphabet" ? n.items : []
+  const inside = n?.kind === "group" || n?.kind === "alphabet" ? n.items : n?.kind === "cmd" && n.cs === "mathord" ? n.arg! : []
   return inside.length === 1 && inside[0].kind === "atom" && (inside[0].nucleus?.kind === "accent" || loneAccent(inside[0].nucleus))
 }
 

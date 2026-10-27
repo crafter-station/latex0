@@ -28,21 +28,6 @@ const OPERATORS: Record<string, [string, "o" | "m"]> = {
   max: ["max", "m"], min: ["min", "m"], sup: ["sup", "m"], inf: ["inf", "m"], arg: ["arg", "o"], ker: ["ker", "o"], dim: ["dim", "o"],
   hom: ["hom", "o"], det: ["det", "m"], exp: ["exp", "o"], Pr: ["Pr", "m"], gcd: ["gcd", "m"], deg: ["deg", "o"],
 }
-/** fontmath.ltx's math accents (\mathaccent; amsmath's \mathaccentV is the same for one accent) */
-const MATH_ACCENTS: Record<string, number> = {
-  acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e,
-  dot: 0x705f, mathring: 0x7017, widehat: 0x0362, widetilde: 0x0365,
-}
-/** whether an mlist has an accent noad, at any depth */
-function hasAccent(list: MItem[]): boolean {
-  const inField = (f: Field) => f?.kind === "mlist" && hasAccent(f.list)
-  return list.some((x) => {
-    if (!("noad" in x) || x.noad === "left" || x.noad === "right") return false
-    if (x.noad === "fraction") return hasAccent(x.num) || hasAccent(x.denom)
-    const n = x as Noad
-    return !!n.accent || inField(n.nucleus) || inField(n.sup) || inField(n.sub)
-  })
-}
 /** \tmspace in math (latex.ltx, amsmath): \mskip with a sign and a mu skip register (\> is \:) */
 const MU_SPACES: Record<string, [1 | -1, "thinmuskip" | "medmuskip" | "thickmuskip"]> = {
   ",": [1, "thinmuskip"], thinspace: [1, "thinmuskip"], "!": [-1, "thinmuskip"], negthinspace: [-1, "thinmuskip"],
@@ -60,6 +45,15 @@ const DOTS_MACROS: Record<string, "B" | "I"> = {
 }
 /** amsmath's \rightdelim@: what \dots and \cdots put a thin space before */
 const RIGHT_DELIMS = ["rbrack", "}", "rbrace", "rangle", "rceil", "rfloor", "rgroup", "rmoustache", "right", "bigr", "biggr", "Bigr", "Biggr"]
+/** fontmath.ltx's \DeclareMathAccent's: \mathaccent codes (amsmath's \mathaccentV gives each class 7) */
+const ACCENTS: Record<string, number> = {
+  acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e, dot: 0x705f,
+  widetilde: 0x0365, widehat: 0x0362, mathring: 0x7017,
+}
+/** amsmath's capitalized accents: the accent (\def\Hat{\hat}) */
+const ACCENT_ALIASES = ["Hat", "Check", "Tilde", "Acute", "Grave", "Dot", "Ddot", "Breve", "Bar", "Vec"]
+/** amssymb's AMSb family (codegen/math.ts PACKAGE_FAMILIES) */
+const AMSB = 9
 /** fontmath.ltx's arrows and relations built of others (\joinrel: \mathrel{\mkern-3mu}), and amsmath's (its \DOTSB is \relax) */
 const ARROWS: Record<string, [string | null, string]> = {
   implies: [null, "\\;\\Longrightarrow\\;"], impliedby: [null, "\\;\\Longleftarrow\\;"],
@@ -102,6 +96,8 @@ export interface MathOptions {
   font?: Font
   /** amsmath's \if@display: the formula is in a display (\everydisplay sets it), for \pod, \pmod and \mod */
   display?: boolean
+  /** (internal) amsmath's \accentclass@ is 0 (\noaccents@), not 7 */
+  accentClass0?: boolean
   /** (internal) amsmath's \finsm@sh where the formula starts: t, b or tb */
   finsmash?: "t" | "b" | "tb"
   /** array.sty is loaded: its \array cells end with \textonly@unskip, LaTeX's with a $ (which \dots looks ahead to) */
@@ -183,7 +179,8 @@ function withPackages(data: MathData, packages: string[]): MathData {
 }
 
 /** `fam`: \fam in force (-1: none), which class-7 characters take (§ 1151) */
-function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: number): MItem[] {
+function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: number): MItem[] {
+  const toks = input.slice() // (macros expand in place: a list read twice reads its source)
   const macroOf = (cs: string) => DELIMITER_MACROS[cs] ?? (opts.amsmath ? AMS_DELIMITERS[cs] : undefined) ?? cs
   const mathcode = (ch: string) => opts.mathcodes?.[ch.charCodeAt(0)] ?? data.mathcodes[ch.charCodeAt(0)]
   let pos = 0
@@ -206,13 +203,13 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
   const inner = opts.dollarNext ? { ...opts, dollarNext: false } : opts
   /** \finsm@sh as amsmath's \smash last \edef'ed it in this group (what \relbar's \mathsm@sh then does) */
   let finsmash = opts.finsmash ?? "tb"
-  const sub = (ts: Token[], f = fam) => parseTokens(ts, data, { ...inner, finsmash }, f)
+  const sub = (ts: Token[], f = fam, more: Partial<MathOptions> = {}) => parseTokens(ts, data, { ...inner, finsmash, ...more }, f)
   /** a math group in this list: what it defines ends with it */
   const group = <T>(f: () => T): T => { const saved = finsmash; const x = f(); finsmash = saved; return x }
   /** \mathpalette: a choice node whose list `build` makes for the style (#1: \displaystyle … \scriptscriptstyle, never cramped) */
   const palette = (build: (style: number) => MItem[]): MItem => ({ kind: "choice", choose: (st) => build(2 * (st >> 1)) })
   /** $\m@th#1{#2}$ in an \hbox: a new formula (\fam -1) with the style, then #2 as a math group */
-  const inHbox = (style: number, arg: Token[], fs: typeof finsmash): MItem[] => [{ kind: "style", style }, { noad: ORD, nucleus: groupField(parseTokens(arg, data, { ...inner, finsmash: fs }, -1)), sup: null, sub: null }]
+  const inHbox = (style: number, arg: Token[], fs: typeof finsmash): MItem[] => [{ kind: "style", style }, groupNoad(parseTokens(arg, data, { ...inner, finsmash: fs }, -1))]
   /** \mathpalette\mathsm@sh: \setbox\z@\hbox{$\m@th#1{#2}$}{}\finsm@sh, the box's height and depth (amsmath's [t], [b]) zero */
   const smash = (arg: Token[], mode: "t" | "b" | "tb"): MItem => {
     const fs = finsmash
@@ -254,7 +251,9 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     return null
   }
   /** a math alphabet's argument: a math group with \fam set */
-  const alphabet = (cs: string): Field | undefined => (opts.alphabets && cs in opts.alphabets ? groupField(sub(argument(), opts.alphabets[cs])) : undefined)
+  const alphabet = (cs: string): Field | undefined => (opts.alphabets && cs in opts.alphabets ? groupField(alphabetList(cs)) : undefined)
+  /** an alphabet's argument with its \fam; amsmath: an alphabet of the U, OML or OMS encoding runs \noaccents@ (\M@U …) */
+  const alphabetList = (cs: string) => sub(argument(), opts.alphabets![cs], opts.amsmath && ["mathnormal", "mathcal", "mathbb", "mathfrak", "mathscr"].includes(cs) ? { accentClass0: true } : {})
   /** \begin{name}: the environment's name and its body's tokens, to the matching \end */
   const environment = (): { name: string; body: Token[] } => {
     const nameToks = argument()
@@ -420,7 +419,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
             // \acute{\dotlessi}: {\mathchar"7010} in family 0, one ord, whose group gives up its nucleus
             const b = name[j + 2], base = "cs" in b && b.cs === "dotlessi" ? 0x7010 : "ch" in b ? data.mathcodes[b.ch.charCodeAt(0)] : -1
             if (base < 0) throw new Error(`math: an operator name with \\acute{${"cs" in b ? `\\${b.cs}` : b.ch}}`)
-            nucleus.push({ noad: ORD, accent: mathCharField(MATH_ACCENTS.acute, 0), nucleus: mathCharField(base, 0), sup: null, sub: null }); j += 3
+            nucleus.push({ noad: ORD, accent: mathCharField(ACCENTS.acute, 0), nucleus: mathCharField(base, 0), sup: null, sub: null }); j += 3
           } else throw new Error(`math: an operator name with ${"ch" in x ? x.ch : `\\${x.cs}`}`)
         }
         out.push({ noad: OP, nucleus: { kind: "mlist", list: nucleus }, sup: null, sub: null, ...(op.nolimits ? { limits: "nolimits" as const } : {}) })
@@ -443,6 +442,22 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         out.push({ noad: OP, nucleus: { kind: "mlist", list: nucleus }, sup: null, sub: null, ...(kind === "o" ? { limits: "nolimits" as const } : {}) })
         // \nolimits@: \@ifnextchar\limits{\nolimits\@gobble}{\nolimits}
         if (opts.amsmath && kind === "o" && "cs" in (toks[pos] ?? {}) && (toks[pos] as { cs: string }).cs === "limits") pos++
+        continue
+      }
+      const accent = t.cs in ACCENTS ? t.cs : opts.amsmath && ACCENT_ALIASES.includes(t.cs) ? t.cs.toLowerCase() : null
+      if (accent) {
+        const name = accent, code = ACCENTS[name]
+        if (opts.amsmath && name !== "widehat" && name !== "widetilde") { // \mathaccentV: \mathaccent"\accentclass@ (7) with the family and character
+          const arg = argument()
+          // (an accent in the argument: \macc@nested)
+          if (arg.some((x) => "cs" in x && ((x.cs in ACCENTS && x.cs !== "widehat" && x.cs !== "widetilde") || ACCENT_ALIASES.includes(x.cs)))) throw new Error("math: amsmath's nested accents")
+          out.push({ noad: ORD, accent: mathCharField((opts.accentClass0 ? 0 : 0x7000) | (code & 0xfff), fam), nucleus: groupField(sub(arg)), sup: null, sub: null })
+        } else if (opts.packages?.includes("amsfonts") && (name === "widehat" || name === "widetilde")) { // amsfonts: AMSb's wider accent past 2em
+          const arg = argument()
+          if (opts.em === undefined) throw new Error(`math: \\${name} without the current font`)
+          const large = mathCharField(0x0000 | (AMSB << 8) | (name === "widehat" ? 0x5b : 0x5d))
+          out.push({ noad: ORD, accent: mathCharField(code, fam), wide: { accent: large, width: 2 * opts.em, measure: () => [{ kind: "style", style: 2 }, ...parseTokens(arg, data, { ...opts, dollarNext: true, finsmash }, -1)] }, nucleus: groupField(sub(arg)), sup: null, sub: null })
+        } else out.push({ noad: ORD, accent: mathCharField(code, fam), nucleus: scanMath(), sup: null, sub: null }) // math_ac (§ 1165)
         continue
       }
       if (t.cs in ARROWS && (opts.amsmath || ARROWS[t.cs][0] !== null)) { toks.splice(pos, 0, ...tokenize(ARROWS[t.cs][opts.amsmath ? 1 : 0]!, data.muskips)); continue }
@@ -493,7 +508,10 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         continue
       }
       if (t.cs === "nonscript") { out.push({ kind: "nonscript" }); continue }
-      if (t.cs in MATH_CLASSES) { out.push({ noad: MATH_CLASSES[t.cs], nucleus: scanMath(), sup: null, sub: null }); continue } // math_comp (§ 1176)
+      if (t.cs in MATH_CLASSES) { // math_comp (§ 1176)
+        if (t.cs === "mathord" && isCh(toks[pos], "{")) { pos++; out.push(groupNoad(group(() => list(true)))); continue }
+        out.push({ noad: MATH_CLASSES[t.cs], nucleus: scanMath(), sup: null, sub: null }); continue
+      }
       if (CHARDEFS.includes(t.cs)) { out.push(mathCharNoad(mathcode(t.cs), fam)); continue } // \chardef\#=`\# (latex.ltx): set_math_char of its \mathcode
       if (t.cs === "$") { out.push(mathCharNoad(data.symbols.mathdollar, fam)); continue } // \ifmmode\mathdollar
       const dots = dotsMacro(t.cs)
@@ -525,18 +543,12 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         if (!tail || !("noad" in tail) || tail.noad !== OP) throw new Error("math: Limit controls must follow a math operator")
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
-      else if (cs in MATH_ACCENTS) { // math_ac (§ 1165)
-        const nucleus = scanMath()
-        // (amsmath's \mathaccentV counts the accents in its argument: with more than one, \macc@nucleus and \skew)
-        if (opts.amsmath && nucleus?.kind === "mlist" && hasAccent(nucleus.list)) throw new Error("math: amsmath's nested accents")
-        out.push({ noad: ORD, accent: mathCharField(MATH_ACCENTS[cs], fam), nucleus, sup: null, sub: null })
-      }
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
       else if (cs === "sqrt") { // \sqrtsign: \radical"270370; \sqrt[n] is \root n\of
         if (isCh(toks[pos], "[")) { out.push(root()); continue }
         out.push({ noad: ORD, radical: delimiterOf(0x270370), nucleus: scanMath(), sup: null, sub: null })
       }
-      else if (opts.alphabets && cs in opts.alphabets) out.push({ noad: ORD, nucleus: alphabet(cs)!, sup: null, sub: null })
+      else if (opts.alphabets && cs in opts.alphabets) out.push(groupNoad(alphabetList(cs)))
       else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12, fam)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {
         out.push(mathCharNoad(data.symbols[cs], fam))

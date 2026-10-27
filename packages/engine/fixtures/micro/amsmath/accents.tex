@@ -1,0 +1,16 @@
+% fixture: amsmath/accents
+% tier: T3
+% engine: document
+% covers: math accents (make_math_accent: skew from the \skewchar kern of cmmi, cmsy and rsfs, the charlist's wider accents, scripts on a character inside the accent) with amsmath's \mathaccentV (class 7: the alphabet's family; none in \mathcal, \mathbb, \mathfrak: \noaccents@), \Hat and kin, amsfonts' \widehat and \widetilde (AMSb's past 2em), a lone accent in a group taking its ord's place
+% issue: #330
+\documentclass{article}
+\usepackage{amsmath,amssymb,mathrsfs}
+\newcommand{\vect}[1]{\mathbf{#1}}
+\begin{document}
+The estimator $\hat\theta$ of $\theta$, the mean $\bar{x}_n = \frac{1}{n}\sum x_i$ and the unit vector $\hat{\vect{z}}$,
+with $\vec v\cdot\vec w$, $\tilde{f}(\xi)$, $\dot x + \ddot x$, $\check{a}\breve{b}\acute{c}\grave{d}\mathring{A}$, $\Hat{x}\Bar{y}\Vec{z}$,
+$\hat x^2$, $\bar{f}_i^2$, $\widehat{AB}$, $\widehat{ABCDEFGH}$, $\widetilde{xyz}$, $\widetilde{ABC}$, $\hat{\mathcal{A}}\tilde{\mathcal{F}}\hat{\mathscr{L}}\bar{\mathscr{A}}$, $\mathbf{\vec F}$, $\mathcal{\hat L}$ and ${\hat a}^2$.
+\begin{equation}
+  \vect{E}(z) = \frac{1}{4\pi\varepsilon_0}\frac{Qz}{(z^2+R^2)^{3/2}}\,\hat{\vect{z}}, \qquad \widetilde{\mathbb{R}^n} \to \bar{\mathfrak{g}}
+\end{equation}
+\end{document}

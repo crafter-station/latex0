@@ -8,11 +8,11 @@
 // null delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
 // 18a–f); and the inter-atom spacing and penalties of the second pass
 // (§§ 760–767); \left and \right with var_delimiter's variants and extensible
-// characters (§§ 706–714, 762). Radicals and accents follow in #79–#80.
+// characters (§§ 706–714, 762); e-TeX's \middle; radicals (§ 737); accents (§§ 738–742); \nonscript (§ 732).
 
 import { xnOverD } from "../layout/arith"
 import type { GlueSpec } from "../layout/dimen"
-import { SPACE, type CharMetrics, type Font } from "../layout/font"
+import { SPACE, X_HEIGHT, type CharMetrics, type Font } from "../layout/font"
 import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, charNode, filGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
@@ -43,7 +43,9 @@ export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; 
   /** a radical noad (§ 683, \radical): its left delimiter */
   radical?: Delimiter
   /** an accent noad (§ 687, \mathaccent): its accent character, an ord for spacing */
-  accent?: Field }
+  accent?: Field
+  /** amsfonts' \widehat and \widetilde: the accent above when the argument, in an \hbox in text style, is wider than `width` */
+  wide?: { accent: Field; width: number; measure: () => MItem[] } }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
 /** \\mskip glue (§ 149 mu_glue): in mu, converted with the math unit of its style (§ 732) */
@@ -490,6 +492,10 @@ class Converter {
    * lowered by min(height(x), its x-height); the scripts of a lone character go into x first
    */
   makeMathAccent(q: Noad) {
+    if (q.wide) { // amsfonts: \@mathmeasure\z@\textstyle{#1}, \ifdim\wd\z@>\tw@ em
+      const w = hpack(new Converter(this.env).convert(q.wide.measure(), TEXT, false)).width
+      if (w > q.wide.width) q.accent = q.wide.accent
+    }
     const { f, m } = this.fetch(q as never, "accent")
     if (!m) return
     const a = q.accent as Extract<Field, { kind: "char" }>
@@ -708,8 +714,8 @@ class Converter {
 
 
 /** \skewchar as LaTeX's font families set it (\DeclareFontFamily{OML}{cmm}{\skewchar\font'177}, OMS cmsy's '60; omllmm.fd and
- *  omslmsy.fd the same), else -1 */
-const skewChar = (name: string) => (/^(cm|lm)mib?\d/.test(name) ? 127 : /^(cm|lm)(b?)sy\d/.test(name) ? 48 : -1)
+ *  omslmsy.fd the same; mathrsfs's ursfs.fd '177), else -1 */
+const skewChar = (name: string) => (/^((cm|lm)mib?|rsfs)\d/.test(name) ? 127 : /^(cm|lm)(b?)sy\d/.test(name) ? 48 : -1)
 
 /** char_box (§ 709): a character in an hbox whose width includes its italic correction */
 function charBox(f: Font, c: number): BoxNode {
