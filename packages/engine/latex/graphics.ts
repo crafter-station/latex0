@@ -7,7 +7,7 @@
 // scale= puts it in an \mbox (\Gscale@@box with no size).
 
 import { printScaled } from "../layout/arith"
-import { MAX_DIMEN, parseDimen, type Internal } from "../layout/dimen"
+import { MAX_DIMEN, parseDimen, times } from "../layout/dimen"
 import { hpack } from "../layout/pack"
 import { kern, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { widthRegisters } from "./boxes"
@@ -170,11 +170,6 @@ function keyval(options: string): Map<string, string> {
 
 /** a factor's value, as \ifdim<factor>\p@ compares it */
 const factor = (f: string) => parseDimen(`${f}pt`, { em: 0, ex: 0 })
-
-/** <factor><dimen register>: the register scaled as scan_dimen does it (nx_plus_y, xn_over_d) */
-function times(f: string, value: number): number {
-  return parseDimen(`${f}\\reg`, { em: 0, ex: 0, internal: (name) => (name === "reg" ? { level: "dimen", value } as Internal : undefined) })
-}
 
 /**
  * \Gscale@div: num/den as \strip@pt prints it. The numerator is doubled (and 65536 halved) until it reaches
