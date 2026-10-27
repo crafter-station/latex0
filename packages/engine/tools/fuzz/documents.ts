@@ -96,7 +96,7 @@ export function makeDocument(r: () => number): string {
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
-  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false
+  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false, floatOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // equations' keys (eq:none never defined): never a label with no counter, which \cref of several keys compares (\ifnum: TeX's Missing number)
   const ckey = () => pick(["eq:l1", "eq:l2", "eq:l3", "eq:3-1", "eq:6-1", "eq:2-1", "eq:10-1", "eq:none"])
@@ -473,6 +473,9 @@ export function makeDocument(r: () => number): string {
   }
   // algorithm floats with algpseudocode (noend sometimes)
   algOn = !isLetter && r() < 0.15
+  // float.sty (algorithm.sty loads it): [H] for figures and tables too
+  floatOn = algOn || !isLetter && r() < 0.1
+  if (floatOn && !algOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{float}")
   if (algOn) out.push(...(r() < 0.25 ? ["\\usepackage{algorithm}", "\\usepackage[noend]{algpseudocode}"] : r() < 0.4 ? ["\\usepackage{algorithm,algpseudocode}"] : ["\\usepackage{algorithm}", "\\usepackage{algpseudocode}"]))
   // caption.sty, and subcaption with it sometimes (with hyperref too: hypcap); with algorithms and listing captions
   capOn = !isLetter && r() < 0.2
@@ -579,7 +582,7 @@ export function makeDocument(r: () => number): string {
       const below = table && r() < 0.5
       // a float that starts in the paragraph before it (no blank line), and the paragraph going on after it
       const inPar: boolean = afterPar && r() < 0.4
-      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
+      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", "", ...(floatOn ? ["[H]", "[H]"] : [])])}`, r() < 0.7 ? "\\centering" : "",
         setup, space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}${inPar && r() < 0.3 ? "%" : ""}`)
       afterPar = inPar && r() < 0.6
       if (afterPar) out.push(text(3 + Math.floor(r() * 40)))

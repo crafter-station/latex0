@@ -107,6 +107,8 @@ export interface Preamble {
   names: Captions
   /** between \begin{document} and \end{document} */
   body: string
+  /** float.sty (algorithm.sty loads it): [H] */
+  usesFloat: boolean
 }
 
 export function readPreamble(src: string): Preamble {
@@ -168,6 +170,7 @@ export function readPreamble(src: string): Preamble {
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
   const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
   let usesArray = false
+  let usesFloat = false // float.sty (algorithm.sty loads it)
   let usesSiunitx = false
   let usesGraphicx = false
   let tikz: Preamble["tikz"] = null
@@ -233,7 +236,7 @@ export function readPreamble(src: string): Preamble {
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
-    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm) algorithm.singleHere = true; continue }
+    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm || usesFloat) algorithm.singleHere = true; continue }
     if (setspace && setspaceCommand(setspace, line, option)) continue
     // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
     const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)
@@ -292,10 +295,11 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       // (float.sty after hyperref: its \caption replaces hyperref's, and hyperref saw no float.sty to patch)
-      if (names.includes("algorithm") && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf("algorithm"))) algorithm.afterHyperref = true
+      for (const f of ["algorithm", "float"]) if (names.includes(f) && !usesFloat && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf(f))) algorithm.afterHyperref = true
+      if (names.includes("algorithm") || names.includes("float")) usesFloat = true
       if (names.includes("hyperref")) {
         // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
         if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) throw new Unsupported("hyperref after titlesec")
@@ -449,7 +453,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat }
 }
 
 /** braces balanced in s */
