@@ -1,0 +1,18 @@
+% fixture: title/abstract-report-twoside
+% tier: T3
+% engine: document
+% covers: report's abstract two-sided after \maketitle (its \setcounter{page}\@ne at the start, none at its end), its text starting after a blank line (indented), a size group ending its paragraph in it
+% issue: #336
+\documentclass[twoside]{report}
+\title{Two Sides}
+\author{Someone}
+\begin{document}
+\maketitle
+\begin{abstract}
+
+{\small A short abstract, set small, after a blank line.\par}
+And more text.
+\end{abstract}
+\chapter{Introduction}
+Text of the report.
+\end{document}

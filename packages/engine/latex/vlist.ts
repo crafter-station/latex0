@@ -55,10 +55,10 @@ export class VerticalList {
   vskip(g: GlueSpec) { this.nodes.push(plain(g)) }
   /** \endtrivlist in vertical mode: a skip at the end is redone with the list's \parskip taken out,
    *  then \@endparenv: \addpenalty\@endparpenalty \addvspace\@topsepadd */
-  endtrivlist(parskip: GlueSpec, outerParskip: GlueSpec, topsepadd: GlueSpec) {
+  endtrivlist(parskip: GlueSpec, outerParskip: GlueSpec, topsepadd: GlueSpec, endparpenalty = -LOW_PENALTY) {
     const last = this.lastSkip
     if (last.width > 0) { this.vskip(negate(last)); this.vskip(addGlue(addGlue(last, parskip), negate(outerParskip))) }
-    this.addpenalty(-LOW_PENALTY)
+    this.addpenalty(endparpenalty)
     this.addvspace(topsepadd)
   }
   /** a box appended in vertical mode, after interline glue */

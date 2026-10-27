@@ -3,13 +3,17 @@
 
 import type { GlueSpec } from "../layout/dimen"
 import { parseGlue } from "../layout/dimen"
-import { displaySegments, type Block } from "./blocks"
+import { blocksOf, displaySegments, type Block, type ListBlock } from "./blocks"
 import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
-import { dimen, IGNORE_DEPTH } from "./vlist"
-import { penalty } from "../layout/nodes"
+import { dimen, IGNORE_DEPTH, LOW_PENALTY } from "./vlist"
+import { FIL, filGlue, penalty, type Node } from "../layout/nodes"
+import { hpack } from "../layout/pack"
+import { appendText } from "../layout/hmode"
+import { loadFont } from "../layout/font"
+import { dataFont } from "./data"
 import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
 import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
@@ -175,6 +179,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined)
     return
   }
+  if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b); return }
   if (b.blank) v.par() // a blank line before the list
   const before = { club: v.club, afterheading: v.afterheadingEverypar }
   // \@trivlist's \if@noskipsec\leavevmode (in the environment's group), then \unskip\par and no \partopsep
@@ -191,6 +196,38 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
   v.afterheadingEverypar = false
   v.endpePar = v.doendpe = v.endpeEverypar = true
+}
+
+/**
+ * report's abstract (\if@titlepage): \titlepage (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), \null\vfil,
+ * \@beginparpenalty\@lowpenalty, \begin{center}\bfseries\abstractname \@endparpenalty\@M\end{center}, the text (its
+ * paragraphs after the center's \@doendpe), then \par\vfil\null\endtitlepage (\newpage, one-sided \setcounter{page}\@ne)
+ */
+function reportAbstract(cx: Ctx, b: ListBlock) {
+  const { run, v } = cx
+  if (!cx.pre.titlepage) throw new Unsupported("abstract in report with notitlepage")
+  if (run.runIn || run.noskipsec) throw new Unsupported("an abstract right after a run-in heading")
+  v.par()
+  if (v.endpePar || v.endpeEverypar) throw new Unsupported("an abstract right after a list")
+  if (v.nobreak || v.afterheadingEverypar) throw new Unsupported("an abstract right after a heading")
+  const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
+  v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
+  v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
+  v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+  const head: Node[] = []
+  const bf = run.k.sizes.normalsize.bold
+  appendText(head, "Abstract", loadFont(dataFont(bf.name), bf.at), { spaceFactor: 1000 }, false)
+  list(cx, { kind: "list", env: "center", items: [{ label: null, parts: [{ kind: "text", text: "", start: "label", nodes: head }] }], inPar: false, blank: false }, { ...topCtx(cx), beginparpenalty: LOW_PENALTY, endparpenalty: 10000 })
+  const body = b.source ?? ""
+  const blocks = blocksOf(body)
+  // (text right after \begin{abstract}: the center's \@doendpe takes its indent)
+  if (blocks[0]?.kind === "par" && !/^\s*\n[ \t]*\n/.test(body)) blocks[0].noindent = true
+  blocks.forEach((x, i, all) => { if (x.kind !== "par") throw new Unsupported(`a ${x.kind} in report's abstract`); processBlock(cx, x, i, all) })
+  v.par()
+  v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+  v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
+  v.nodes.push(filGlue(), penalty(-10000))
+  if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
 }
 
 /** \@getpen: 0, \@lowpenalty, \@medpenalty, \@highpenalty (51, 151, 301 in the standard classes; letter.cls sets none), \@M */
