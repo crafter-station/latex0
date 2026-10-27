@@ -1,0 +1,14 @@
+% fixture: xcolor/color-in-declared-paragraph
+% tier: T3
+% engine: document
+% covers: a {\color …} group that starts a paragraph read in vertical mode (in a size group that ends it, after \medskip): the push on the vertical list before \parskip
+% issue: #329
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+Some text first.
+
+{\small\itshape {\color{red!30!black} colored words} then the rest of a paragraph that runs long enough to break onto a second line here.\par}
+\medskip
+{\color{blue} Blue start} and plain after.
+\end{document}

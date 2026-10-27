@@ -15,6 +15,7 @@ import type { Ctx } from "./context"
 import { centering, raggedleft, raggedright } from "./kernel"
 import { BODY_DECLARATIONS, closingBrace, fontDeclaration, paragraphInput, selectFont, SKIP_AMOUNTS, type FontAttrs } from "./paragraph"
 import { groupStart } from "./source"
+import { leadingColor } from "./colors"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
@@ -164,6 +165,8 @@ function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip:
     if (v.nobreak) { v.nobreak = false; v.club = 10000; if (!v.afterindent) indent = false }
     else { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
   }
+  // (a {\color …} group that starts it: the push on the vertical list, before the paragraph)
+  if (/^\{\\color(?![A-Za-z])/.test(text)) text = leadingColor(cx, text)
   const align = end.align === "centering" ? centering() : end.align === "raggedright" ? raggedright() : end.align === "raggedleft" ? raggedleft() : {}
   const start: Node[] = mo.first ?? (indent ? [emptyBox("hlist", st.align ? 0 : run.k.dimens.parindent)] : [])
   const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: mo.club ?? v.club, amsmath, ...align, ...(unskip ? { unskip } : {}) })
