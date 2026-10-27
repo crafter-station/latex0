@@ -18,6 +18,8 @@ const OPTIONS = ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"]
 const INFOLINES = ["\\useoutertheme{infolines}", "\\setbeamertemplate{headline}[default]"]
 /** each theme: the preamble lines that load it, and the files whose \setbeamercolor's and \setbeamerfont's name the
  *  colors and fonts reported (besides the default color and font themes') */
+/** the color themes alone (beyond default, whale, orchid, seahorse, beaver and dolphin) */
+const COLOR_THEMES = ["albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   default: { preamble: [], files: [] },
   whale: { preamble: ["\\usecolortheme{whale}"], files: ["beamercolorthemewhale.sty"] },
@@ -27,6 +29,7 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...outerVariants([[], ["whale"], ["orchid"]], true),
   ...innerVariants("rounded", [[], ["whale"], ["orchid"], ["whale", "orchid"]], [["whale", "orchid"]]),
   ...innerVariants("circles", [[]], []),
+  ...outerVariants(COLOR_THEMES.map((c) => [c]), false, true),
 }
 
 /** An inner theme after color themes (alone), and after them followed by the infolines outer theme with the default
@@ -44,13 +47,14 @@ function innerVariants(inner: string, colors: string[][], outer: string[][]): Re
 }
 
 /** Color themes (each \usecolortheme in turn), alone (unless `outerOnly`) and followed by the infolines outer theme
- *  with the default headline (as Madrid has it): named by their parts joined with "-" (preamble.ts reads them so) */
-function outerVariants(colors: string[][], outerOnly = false): Record<string, { preamble: string[]; files: string[] }> {
+ *  with the default headline (as Madrid has it; not when `alone`): named by their parts joined with "-" (preamble.ts
+ *  reads them so) */
+function outerVariants(colors: string[][], outerOnly = false, alone = false): Record<string, { preamble: string[]; files: string[] }> {
   const out: Record<string, { preamble: string[]; files: string[] }> = {}
   for (const c of colors) {
     const preamble = c.map((n) => `\\usecolortheme{${n}}`), files = c.map((n) => `beamercolortheme${n}.sty`)
     if (!outerOnly) out[c.join("-")] = { preamble, files }
-    out[[...c, "infolines"].join("-")] = { preamble: [...preamble, ...INFOLINES], files: [...files, "beamerouterthemeinfolines.sty"] }
+    if (!alone) out[[...c, "infolines"].join("-")] = { preamble: [...preamble, ...INFOLINES], files: [...files, "beamerouterthemeinfolines.sty"] }
   }
   return out
 }

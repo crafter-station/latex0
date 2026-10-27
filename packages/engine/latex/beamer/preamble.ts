@@ -61,7 +61,8 @@ const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10p
  *  inner theme, then the infolines outer theme with the default headline */
 const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
   "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
-  "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles"]
+  "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles",
+  "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 /** the packages beamer.cls loads (with these, \usepackage does nothing) */
 const LOADED = ["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "xcolor", "geometry", "url", "enumerate"]
 

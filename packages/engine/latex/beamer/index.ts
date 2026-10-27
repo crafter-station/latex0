@@ -76,7 +76,8 @@ export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdft
  *  LaTeX's \write. */
 function documentBegin(pre: BeamerPreamble, prev: Aux | null, objects: Node[]): Node[] {
   const sdict = (s: string): Node => ({ kind: "whatsit", text: `\\special{ps:SDict begin ${s} end}` })
-  const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...objects, ...documentStart(prev ? prev.bookmarks : [], true)]
+  // (\normalcolor: xcolor's \default@color, black; normal text's fg is only set by beamerbasecolor.sty's \AtBeginDocument)
+  const out: Node[] = [colorPush("gray 0"), { kind: "whatsit", text: "\\write-{}" }, ...objects, ...documentStart(prev ? prev.bookmarks : [], true)]
   out.push(...anchor("Doc-Start", pre.k.sizes.normalsize.baselineskip.width, "v", out.at(-1)))
   // (with pdfTeX the document information and the page labels are \pdfinfo and \pdfcatalog: no nodes)
   if (hyperDriver.pdftex) { out.push(colorPush(), colorPush(), colorPush(), colorPush()); return out }
