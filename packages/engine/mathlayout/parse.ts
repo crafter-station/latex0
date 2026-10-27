@@ -64,6 +64,8 @@ export interface MathOptions {
   /** commands a package binding typesets from the source of an optional […] and its braced arguments (siunitx's):
    *  how many braced arguments each takes, and their mlist with \fam in force */
   commands?: { arity: Record<string, number>; build: (cmd: string, opt: string | undefined, args: string[], fam: number) => MItem[] }
+  /** packages whose symbols and delimiters are defined (MathData.packages: amsmath, amsfonts, amssymb), in loading order */
+  packages?: string[]
   /** \mathcode's the document changes (beamer's \DeclareMathSymbol for the Latin letters), by character code */
   mathcodes?: Record<number, number>
   /** operators a language redefines (spanish.ldf's \es@operators: \mathop{\operator@font l\acute{\dotlessi}m}): the
@@ -107,7 +109,23 @@ const source = (ts: Token[]) => ts.map((t) => ("ch" in t ? t.ch : `\\${t.cs}${/^
 
 /** Parse a formula (the text between $…$) into an mlist. */
 export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
-  return parseTokens(tokenize(src), data, opts, -1)
+  return parseTokens(tokenize(src), withPackages(data, opts.packages ?? []), opts, -1)
+}
+
+const merged = new WeakMap<MathData, Map<string, MathData>>()
+/** LaTeX's symbols and delimiters with those the packages declare (DeclareMathSymbol redefines: theirs win) */
+function withPackages(data: MathData, packages: string[]): MathData {
+  if (!packages.length) return data
+  const key = packages.join(",")
+  let m = merged.get(data)
+  if (!m) merged.set(data, (m = new Map()))
+  let d = m.get(key)
+  if (!d) {
+    const ps = packages.map((p) => { const x = data.packages?.[p]; if (!x) throw new Error(`math: no data for ${p}`); return x })
+    d = { ...data, symbols: Object.assign({}, data.symbols, ...ps.map((p) => p.symbols)), delimiters: Object.assign({}, data.delimiters, ...ps.map((p) => p.delimiters)) }
+    m.set(key, d)
+  }
+  return d
 }
 
 /** `fam`: \fam in force (-1: none), which class-7 characters take (§ 1151) */
@@ -147,7 +165,8 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       }
     }
   }
-  /** an \array body: rows split at \\, cells at &, outside braces and inner environments */
+  /** an \array body: rows split at \\, cells at &, outside braces and inner environments; each cell a formula of its
+   *  own, where \fam is -1 (§ 1139) */
   const arrayRows = (body: Token[]) => {
     const rows: MItem[][][] = [], crs: boolean[] = []
     let row: MItem[][] = [], cell: Token[] = [], depth = 0
@@ -156,12 +175,12 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       else if ("ch" in t && t.ch === "}") depth--
       else if ("cs" in t && t.cs === "begin") depth++
       else if ("cs" in t && t.cs === "end") depth--
-      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(sub(cell)); cell = []; continue }
-      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell)); rows.push(row); crs.push(true); row = []; cell = []; continue }
+      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(sub(cell, -1)); cell = []; continue }
+      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell, -1)); rows.push(row); crs.push(true); row = []; cell = []; continue }
       cell.push(t)
     }
     // \crcr: a last row without \\ (an empty one after a final \\ is no row)
-    if (cell.length || row.length) { row.push(sub(cell)); rows.push(row); crs.push(false) }
+    if (cell.length || row.length) { row.push(sub(cell, -1)); rows.push(row); crs.push(false) }
     return { rows, crs }
   }
   /** scan_delimiter (§ 1160): a character's \delcode or a \delimiter command */
@@ -194,10 +213,10 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     const a = alphabet(t.cs)
     if (a !== undefined) return a
     const dname = macroOf(t.cs)
-    if (dname in data.delimiters) return mathCharField(data.delimiters[dname] >> 12) // a \delimiter's \mathchar part
+    if (dname in data.delimiters) return mathCharField(data.delimiters[dname] >> 12, fam) // a \delimiter's \mathchar part
     const code = data.symbols[t.cs]
     if (code === undefined) throw new Error(`math: unsupported script \\${t.cs}`)
-    return mathCharField(code)
+    return mathCharField(code, fam)
   }
   /** \@sqrt[#1]{\root #1\of}: the index, delimited by ] outside braces (one braced group loses its braces), and \r@@t's argument */
   const root = (): MItem => {
@@ -210,7 +229,8 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     let index = toks.slice(start, pos++)
     if (index.length >= 2 && isCh(index[0], "{") && isCh(index.at(-1), "}") && balanced(index.slice(1, -1))) index = index.slice(1, -1)
     if (index.some((t) => "cs" in t && (t.cs === "uproot" || t.cs === "leftroot"))) throw new Error("math: \\uproot and \\leftroot")
-    const item: MItem = { kind: "root", index: groupNoad(sub(index)), radicand: groupField(sub(argument())), amsmath: !!opts.amsmath } // (\rootbox: $\scriptscriptstyle{#1}$)
+    // (each in an \hbox{$…$}, a new formula, where \fam is -1 (§ 1139); \rootbox: $\scriptscriptstyle{#1}$)
+    const item: MItem = { kind: "root", index: groupNoad(sub(index, -1)), radicand: groupField(sub(argument(), -1)), amsmath: !!opts.amsmath }
     // amsmath's \root is \bgroup…\egroup: a math group, an ord noad (§ 1186)
     return opts.amsmath ? { noad: ORD, nucleus: { kind: "mlist", list: [item] }, sup: null, sub: null } : item
   }
@@ -347,9 +367,9 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         out.push({ noad: ORD, radical: delimiterOf(0x270370), nucleus: scanMath(), sup: null, sub: null })
       }
       else if (opts.alphabets && cs in opts.alphabets) out.push({ noad: ORD, nucleus: alphabet(cs)!, sup: null, sub: null })
-      else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12)) // \delimiter: its \mathchar part
+      else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12, fam)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {
-        out.push(mathCharNoad(data.symbols[cs]))
+        out.push(mathCharNoad(data.symbols[cs], fam))
         if (cs !== t.cs) (out[out.length - 1] as Noad).limits = "nolimits"
       } else throw new Error(`math: unsupported command \\${t.cs}`)
     }

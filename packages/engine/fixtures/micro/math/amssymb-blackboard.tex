@@ -1,0 +1,15 @@
+% fixture: math/amssymb-blackboard
+% tier: T3
+% engine: document
+% covers: amssymb without amsmath: \mathbb (AMSb), \mathfrak (euf), mathrsfs's \mathscr, AMSa and AMSb symbols (\square, \blacksquare, \lesssim, \nmid, \varnothing, \leqq, \Box), amsfonts' extension font at every size (a \sum in a superscript), in scripts, displays and \small
+% issue: #330
+\documentclass[11pt]{article}
+\usepackage{amssymb}
+\usepackage{mathrsfs}
+\begin{document}
+Let $x,y\in\mathbb{Z}$ and $f\colon\mathbb{R}^n\to\mathbb{R}$ with $\mathfrak{g}\subsetneq\mathfrak{gl}_n$ and a
+$\sigma$-algebra $\mathscr{F}$ on $\Omega$, where $\emptyset\neq A$ but $B=\varnothing$; also $a\lesssim b$, $p\nmid q$,
+$x\leqq y\gtrsim z$ and $e^{\sum_{k} a_k}$. \hfill $\square$
+\[ \mathbb{P}\left(\bigcup_{i=1}^{\infty} A_i\right)^{\mathbb{N}} \leqslant \sum_{i\in\mathbb{N}} \mathbb{P}(A_i) \quad \blacksquare \]
+{\small In small: $\mathbb{C}^{\mathbb{C}}$, $\mathfrak{A}_{\mathscr{L}}$ and $\Box\lozenge\blacktriangleright$.}
+\end{document}

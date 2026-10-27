@@ -1,7 +1,8 @@
 // Math oracle (#74–#77): random formulas typeset by TeX in \hbox{$…$} and shown
 // with \showbox, against the engine's mlist_to_hlist (mathlayout/mlist.ts).
 // Formulas are random trees of math characters, symbols, groups, fractions and
-// big operators with \limits and \nolimits, \overline, \underline and \sqrt, math accents (with amsmath, never one
+// big operators with \limits and \nolimits, \overline, \underline and \sqrt, math alphabets (with amsmath:
+// amssymb's symbols, \mathbb, \mathfrak and mathrsfs's \mathscr), math accents (with amsmath, never one
 // inside another: \mathaccentV's nested accents are not modeled), with superscripts, subscripts and
 // primes, under \displaystyle, \textstyle, \scriptstyle and
 // \scriptscriptstyle. Each tree is printed as LaTeX, typeset by TeX, and read
@@ -17,7 +18,7 @@ import { loadFont } from "../../layout/font"
 import { hpack } from "../../layout/pack"
 import type { Node } from "../../layout/nodes"
 import { mlistToHlist, TEXT } from "../../mathlayout/mlist"
-import { parseMath } from "../../mathlayout/parse"
+import { mathEnv, mathFonts, parseFormula } from "../../latex/paragraph"
 import { compareBoxLists, type BoxNode } from "../../trace/schema"
 import { classData } from "../classes"
 import { mathData } from "../../latex/data"
@@ -42,6 +43,8 @@ type Nucleus =
   | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
   | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
   | { kind: "accent"; cs: string; arg: Script }
+  /** a math alphabet: \mathbf{…}, \mathbb{…} */
+  | { kind: "alphabet"; cs: string; items: Item[] }
 type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | { kind: "group"; items: Item[] }
 type Item =
   | { kind: "atom"; nucleus: Nucleus | null; sup?: Script; sub?: Script; primes: number; subFirst: boolean }
@@ -64,11 +67,15 @@ const SPACES = [",", ":", ">", ";", "!", "thinspace", "negthinspace", "medspace"
 const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix"]
 const ACCENTS = ["hat", "check", "tilde", "acute", "grave", "dot", "ddot", "breve", "bar", "vec", "mathring", "widehat", "widetilde"]
 
-function generator(r: () => number, pool: number[], busy: number[], symbols: string[], ams: () => boolean) {
+/** LaTeX's math alphabets, and those amsfonts (\mathbb, \mathfrak) and mathrsfs (\mathscr) add */
+const ALPHABETS = ["mathrm", "mathnormal", "mathcal", "mathbf", "mathit", "mathsf", "mathtt"]
+const AMS_ALPHABETS = ["mathbb", "mathfrak", "mathscr"]
+
+function generator(r: () => number, pool: number[], busy: number[], symbols: (ams: boolean) => string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   // (amsmath redefines \colon: \nobreak\mskip2mu\mathpunct{}\nonscript\mkern-\thinmuskip{:}\mskip6mu plus1mu)
   const char = (): Nucleus & Script => {
-    if (r() < 0.15) { let name = pick(symbols); if (name === "colon" && ams()) name = "cdotp"; return { kind: "sym", name } }
+    if (r() < 0.15) { let name = pick(symbols(ams())); if (name === "colon" && ams()) name = "cdotp"; return { kind: "sym", name } }
     return { kind: "char", code: r() < 0.45 ? pick(busy) : pick(pool) }
   }
   const script = (depth: number): Script => (depth < 3 && r() < 0.3 ? { kind: "group", items: list(depth + 1, 3) } : char())
@@ -84,15 +91,18 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: str
     }
     if (depth < 3 && x >= 0.28 && x < 0.33) {
       const cs = pick(["overline", "underline", "sqrt"] as const)
-      return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: list(depth + 1, 2, true) } : {}) }
+      return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: rootIndex(depth + 1) } : {}) }
     }
-    if (depth < 3 && x >= 0.33 && x < 0.38) { // (with amsmath, a character only)
+    if (depth < 3 && x >= 0.33 && x < 0.37) return { kind: "alphabet", cs: pick(ams() ? [...ALPHABETS, ...AMS_ALPHABETS] : ALPHABETS), items: list(depth + 1, 3, true) }
+    if (depth < 3 && x >= 0.5 && x < 0.55) { // (with amsmath, a character only)
       const cs = pick(ACCENTS), withAms = ams()
       return { kind: "accent", cs, arg: !withAms && r() < 0.5 ? { kind: "group", items: list(depth + 1, 3) } : char() }
     }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
     return char()
   }
+  // a \sqrt index without matrices (amsmath's \root cannot take their & and \\)
+  const rootIndex = (depth: number): Item[] => { for (;;) { const l = list(depth, 2, true); if (!print(l).includes("\\begin")) return l } }
   // a bare script (empty nucleus) only where TeX inserts a dummy noad: at the start of a list or after a style change
   const list = (depth: number, max: number, noBare = false): Item[] => {
     const out: Item[] = []
@@ -110,13 +120,18 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: str
         ...((s > 0.15 && s < 0.4) || (bare && s >= 0.6) ? { sub: script(depth) } : {}),
       }
       // (a group of one accent noad becomes that noad, § 1187: its scripts and the group's would be doubled)
-      const n = atom.nucleus, only = n?.kind === "group" && n.items.length === 1 ? n.items[0] : null
-      if (only?.kind === "atom" && only.nucleus?.kind === "accent" && (only.sup || only.sub || only.primes)) { delete atom.sup; delete atom.sub; atom.primes = 0 }
+      if (loneAccent(atom.nucleus)) { delete atom.sup; delete atom.sub; atom.primes = 0 }
       out.push(atom)
     }
     return out
   }
   return () => list(0, 8)
+}
+
+/** a group or alphabet whose list is a lone accent noad (or such a group, in turn): the noad replaces its ord */
+function loneAccent(n: Nucleus | null): boolean {
+  const inside = n?.kind === "group" || n?.kind === "alphabet" ? n.items : []
+  return inside.length === 1 && inside[0].kind === "atom" && (inside[0].nucleus?.kind === "accent" || loneAccent(inside[0].nucleus))
 }
 
 function print(items: Item[]): string {
@@ -130,10 +145,12 @@ function print(items: Item[]): string {
       : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : n.kind === "fence" ? `\\left${n.left}${print(n.items)}\\right${n.right}`
       // a space after \\: amsmath's \new@ifnextchar then sees no [ or *
       // (\sqrt's \@ifnextchar would take a [ as its optional argument: braced)
-      // (\sqrt[index]: braced when the index holds a ], which would end it; \@sqrt strips the braces)
-      : n.kind === "line" && n.index ? `\\sqrt[${print(n.index).includes("]") ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
+      // (\sqrt[index]: braced when the index holds a ], which would end it, or a matrix's &, which an outer alignment would
+      // see; \@sqrt strips the braces)
+      : n.kind === "line" && n.index ? `\\sqrt[${/[\]&]/.test(print(n.index)) ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "line" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : n.cs === "sqrt" && n.arg.kind === "char" && n.arg.code === 91 ? `{${arg(n.arg)}}` : ` ${arg(n.arg)}`}`
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
+      : n.kind === "alphabet" ? `\\${n.cs}{${print(n.items)}}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""
     const primes = "'".repeat(it.primes)
@@ -149,7 +166,11 @@ export function mathCheck(n: number, seed: number): number {
   const r = rng(seed)
   // operators and punctuation weigh more, so spacing and rule 5 come up often
   const busy = pool.filter((c) => (data.mathcodes[c] >> 12) !== 7 && (data.mathcodes[c] >> 12) !== 0)
-  const symbols = [...Object.keys(data.symbols).filter((x) => (data.symbols[x] >> 12) !== 1), ...Object.keys(data.delimiters)] // big operators come as nuclei
+  // big operators come as nuclei; with amsmath, amssymb's symbols too
+  const symbolsOf = (s: Record<string, number>, d: Record<string, number>) => [...Object.keys(s).filter((x) => (s[x] >> 12) !== 1), ...Object.keys(d)]
+  const plain = symbolsOf(data.symbols, data.delimiters)
+  const withAmssymb = [...new Set([...plain, ...["amsmath", "amsfonts", "amssymb"].flatMap((p) => symbolsOf(data.packages![p].symbols, data.packages![p].delimiters))])]
+  const symbols = (ams: boolean) => (ams ? withAmssymb : plain)
   let ams = false
   const gen = generator(r, pool, busy, symbols, () => ams)
   let failed = 0, total = 0
@@ -159,11 +180,12 @@ export function mathCheck(n: number, seed: number): number {
     ams = withAms
     const name = `math-${option}${withAms ? "-ams" : ""}`
     const k = classData("article", option)
-    const m = withAms ? k.sizes.normalsize.mathAms : k.sizes.normalsize.math
-    const fonts = [m.text, m.script, m.scriptscript].map((size) => size.map((f) => loadFont(dataFont(f.name), f.at)))
+    mathFonts.letters = null
+    mathFonts.packages = withAms ? { amsfonts: true, amssymb: true, mathrsfs: true } : {}
+    const env = mathEnv(k, "normalsize", withAms)
     const cases = Array.from({ length: Math.ceil(n / 6) }, () => ({ style: Math.floor(r() * 4) * 2, items: gen() }))
     writeFileSync(join(DIR, `${name}.tex`), [
-      `\\documentclass[${option}]{article}`, ...(withAms ? ["\\usepackage{amsmath}"] : []), "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
+      `\\documentclass[${option}]{article}`, ...(withAms ? ["\\usepackage{amsmath,amssymb,mathrsfs}"] : []), "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
       ...cases.map((c) => `\\setbox0\\hbox{$\\${STYLES[c.style / 2]} ${print(c.items)}$}\\showbox0`), "\\end{document}", "",
     ].join("\n"))
     const run = spawnSync("latex", ["-interaction=nonstopmode", `${name}.tex`], { cwd: DIR, env: texEnv({ max_print_line: "100000" }), stdio: "ignore", timeout: 300_000 })
@@ -182,12 +204,8 @@ export function mathCheck(n: number, seed: number): number {
     }
     cases.forEach((c, i) => {
       total++
-      const hl = mlistToHlist(parseMath(`\\${STYLES[c.style / 2]} ${print(c.items)}`, data, { amsmath: withAms, em: fonts[0][0].params[6] }), { // (the text font: cmr at the size, as family 0's)
-        fonts, muskips: data.muskips as never, binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
-        scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
-        delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
-        arraycolsep: k.dimens.arraycolsep, arstrut: k.sizes.normalsize.strut,
-      }, TEXT, false)
+      // (\quad's em: the text font, cmr at the size, as family 0's)
+      const hl = mlistToHlist(parseFormula(`\\${STYLES[c.style / 2]} ${print(c.items)}`, withAms, env.fonts[0][0]!.params[6]), env, TEXT, false)
       const list: Node[] = [{ kind: "math", on: true, width: data.dimens.mathsurround }, ...hl, { kind: "math", on: false, width: data.dimens.mathsurround }]
       const engine = emitBoxes(hpack(list))
       const tex = boxes[i]

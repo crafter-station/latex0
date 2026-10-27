@@ -71,7 +71,14 @@ export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1
 /** The document's math fonts where they are not LaTeX's: `letters`, the family of the Latin letters' \mathcode
  *  (beamer's pureletters: \DeclareMathSymbol{a}\mathalpha{pureletters}{"61}…, the \mathit alphabet's fonts), null
  *  for LaTeX's (letters, cmmi). document() sets it for each run. */
-export const mathFonts: { letters: number | null } = { letters: null }
+export const mathFonts: { letters: number | null; packages: MathPackages } = { letters: null, packages: {} }
+/** The math packages a document loads beyond amsmath: amsfonts (amssymb loads it; its fonts, \mathbb and \mathfrak, and
+ *  the extension font at every size as amsmath declares it), amssymb, mathrsfs */
+export interface MathPackages { amsfonts?: boolean; amssymb?: boolean; mathrsfs?: boolean }
+/** the families of amssymb's symbol fonts AMSa and AMSb (\mathbb), \mathfrak's and mathrsfs's (\mathscr): 8–11, after
+ *  LaTeX's four and the four alphabets' (codegen/math.ts PACKAGE_FAMILIES) */
+const AMS_FONTS = ["msa", "msb", "euf", "rsfs"] as const
+const packageAlphabets = (p: MathPackages): Record<string, number> => ({ ...(p.amsfonts ? { mathbb: 9, mathfrak: 10 } : {}), ...(p.mathrsfs ? { mathscr: 11 } : {}) })
 /** \mathalpha (class 7) mathcodes for A–Z and a–z in family `fam` */
 const LETTERS = (fam: number): Record<number, number> => Object.fromEntries([..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"].map((c) => [c.charCodeAt(0), 0x7000 | (fam << 8) | c.charCodeAt(0)]))
 
@@ -82,7 +89,9 @@ export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiC
   const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
   // (spanish.ldf's \mathspanish: its operators and decimal comma)
   const operators = spanishText.on ? SPANISH_OPERATORS : undefined
-  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  const p = mathFonts.packages
+  const packages = [...(amsmath ? ["amsmath"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
+  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
@@ -95,10 +104,10 @@ export function siContext(k: ClassOptionData, size: SizeCommand, font: Font, opt
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
-  const m = amsmath ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
+  const m = amsmath || mathFonts.packages.amsfonts ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
   return {
-    // families 0–3, then the math alphabets' (MATH_ALPHABETS)
-    fonts: [m.text, m.script, m.scriptscript].map((fs, s) => [...fs, ...ALPHABET_FONTS.map((a) => k.sizes[size].alphabets[a][s])].map((f) => loadFont(dataFont(f.name), f.at))),
+    // families 0–3, then the math alphabets' (MATH_ALPHABETS), then the packages' (AMS_FONTS)
+    fonts: [m.text, m.script, m.scriptscript].map((fs, s) => [...fs, ...ALPHABET_FONTS.map((a) => k.sizes[size].alphabets[a][s]), ...AMS_FONTS.map((a) => (a === "rsfs" ? mathFonts.packages.mathrsfs : mathFonts.packages.amsfonts) ? k.sizes[size].amsFonts[a][s] : undefined)].map((f) => f && loadFont(dataFont(f.name), f.at))),
     muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
     scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
     delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,

@@ -17,6 +17,7 @@ import type { AlgorithmPackages } from "./algorithm"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
 import type { CrefNameDef, CrefOptions } from "./cleveref"
+import type { MathPackages } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { printScaled } from "../layout/arith"
 import { hyperDefaults, hyperOptions, type HyperOptions } from "./hyperref"
@@ -61,6 +62,8 @@ export interface Preamble {
   tikz: { libraries: string[]; sets: string[] } | null
   usesAmsthm: boolean
   amsmath: boolean
+  /** amsfonts, amssymb, mathrsfs */
+  mathPackages: MathPackages
   /** enumitem: its options and \setlist's keys */
   enumitem: Enumitem | null
   /** hyperref, with the dvips driver */
@@ -197,6 +200,7 @@ export function readPreamble(src: string): Preamble {
   }
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
+  const mathPackages: MathPackages = {}
   let enumitem: Enumitem | null = null
   // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
   // keeps them, and only \@mkboth goes back to \@gobbletwo
@@ -373,7 +377,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics; xspace's \xspace the expander reads)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", ...FONT_PACKAGES].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", ...FONT_PACKAGES].includes(n))
       for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
         if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
         fonts = fontPackage(n, fonts)
@@ -414,6 +418,9 @@ export function readPreamble(src: string): Preamble {
         cleveref = true
       }
       if (names.includes("amsmath")) amsmath = true
+      if (names.includes("amssymb")) mathPackages.amssymb = true
+      if (names.includes("amssymb") || names.includes("amsfonts")) mathPackages.amsfonts = true
+      if (names.includes("mathrsfs")) mathPackages.mathrsfs = true
       if (names.includes("titlesec")) {
         if (cls !== "article") throw new Unsupported(`titlesec with ${cls}`)
         titlesec = titlesecDefaults(); titlesecFont = selected
@@ -564,7 +571,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */
