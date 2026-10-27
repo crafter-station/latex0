@@ -1,0 +1,12 @@
+% fixture: xcolor/definecolor-rgb
+% tier: T3
+% engine: document
+% covers: \definecolor in RGB converted to rgb by xcolor (\XC@cnv@RGB: \rdivide, five digits rounded by the sixth: 30/255 is 0.11766), next to a raw \textcolor[RGB], which the dvips driver divides, truncating (0.11765)
+% issue: #336
+\documentclass{article}
+\usepackage{xcolor}
+\definecolor{masthead}{RGB}{30,60,110}
+\definecolor{other}{RGB}{10,200,30}
+\begin{document}
+\textcolor{masthead}{Defined}, \textcolor{other}{defined too}, \textcolor[RGB]{30,60,110}{raw} and \colorbox{masthead}{boxed}.
+\end{document}
