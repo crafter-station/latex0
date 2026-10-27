@@ -1,0 +1,20 @@
+% fixture: sections/lists-of-figures-report
+% tier: T3
+% engine: document
+% covers: \listoffigures and \listoftables in report (\chapter*, the chapters' \addvspace{10\p@} in the .lof and .lot, between lines and at the start), numbers within chapters, \pagestyle{headings} marks
+% issue: #336
+\documentclass{report}
+\pagestyle{headings}
+\begin{document}
+\listoffigures
+\listoftables
+\chapter{First}
+Text.
+\begin{figure}[h]\centering\caption{One.}\end{figure}
+\begin{figure}[h]\centering\caption{Two.}\end{figure}
+\chapter{Second}
+Text.
+\begin{table}[h]\centering\caption{A table.}\end{table}
+\chapter{Third}
+\begin{figure}[h]\centering\caption{Three.}\end{figure}
+\end{document}

@@ -1,0 +1,20 @@
+% fixture: cleveref/page-counter
+% tier: T3
+% engine: document
+% covers: cleveref's \label writes \arabic{page} as it is read: a \setcounter{page} and a \pagenumbering later on the same page do not change it, one before it does
+% issue: #336
+\documentclass{article}
+\usepackage{cleveref}
+\begin{document}
+\section{One}\label{one}
+Text, see \cref{one,two,three}.
+
+\setcounter{page}{7}
+\section{Two}\label{two}
+More text.
+
+\pagenumbering{roman}
+\newpage
+\section{Three}\label{three}
+Text \label{in-text} here.
+\end{document}

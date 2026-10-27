@@ -1,0 +1,17 @@
+% fixture: sections/addcontentsline-hyperref
+% tier: T3
+% engine: document
+% covers: \addcontentsline{toc} with hyperref (its bookmark and the toc line point to \@currentHref, the starred heading's anchor), report's \chapter* entries
+% issue: #336
+\documentclass{report}
+\usepackage{hyperref}
+\begin{document}
+\tableofcontents
+\chapter*{Introduction}
+\addcontentsline{toc}{chapter}{Introduction}
+Introductory text.
+\chapter{Methods}
+\section*{Setup}
+\addcontentsline{toc}{section}{Setup}
+Text.
+\end{document}

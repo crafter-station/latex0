@@ -318,12 +318,18 @@ export function crefWrite(writes: CrefWrite[], key: string, cref: CrefLabel | nu
 
 /** The page counter for each write: the number of the first page the page builder had not fired then, and \thepage
  *  with that counter at 1 (\pagenumbering changes only after a \cleardoublepage, so that page's numbering was in force) */
-export function fillCrefWrites(writes: CrefWrite[], pages: { count: number; thepage: string; reached: number }[], parskipAt: (at: number) => boolean): void {
+export function fillCrefWrites(writes: CrefWrite[], pages: { count: number; thepage: string; reached: number }[], parskipAt: (at: number) => boolean, hooksIn: (from: number, to: number) => unknown[]): void {
   for (const w of writes) {
     const fired = pages.filter((p) => p.reached < w.at || (p.reached === w.at && w.inPara && parskipAt(w.at)))
-    // the next page's number (a title page sets the counter back to 1 after it)
-    const page = pages[fired.length]?.count ?? (fired.length ? fired[fired.length - 1].count + 1 : 1)
-    const roman = /^[ivxlcdm]+$/.test((pages[fired.length] ?? pages[pages.length - 1])?.thepage ?? "")
+    // \c@page when the \label is read: one past the last page shipped, then what the document set since the page builder
+    // read that far (\setcounter{page}, \pagenumbering; a title page's \setcounter{page}\@ne)
+    const last = fired[fired.length - 1]
+    let page = last ? last.count + 1 : 1
+    let roman = last ? /^[ivxlcdm]+$/.test(last.thepage) : false
+    for (const h of hooksIn(last ? last.reached : -1, w.at)) {
+      if (h === "roman" || h === "arabic") { page = 1; roman = h === "roman" }
+      else if (typeof h === "string" && h.startsWith("page=")) page = Number(h.slice(5))
+    }
     const c = w.cref
     const label = c ? `[${c.type}][${c.arabic}][${c.prefix}]${c.label}` : ""
     w.page = { style: roman ? "i" : "1", arabic: page }

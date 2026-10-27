@@ -1,0 +1,24 @@
+% fixture: pages/page-numbering
+% tier: T3
+% engine: document
+% covers: \thispagestyle{empty} and {plain} in vertical mode, \pagenumbering{roman} and {arabic} mid-document (\global\c@page\@ne), \setcounter{page}{n}, \cleardoublepage one- and two-sided
+% issue: #336
+\documentclass[twoside]{article}
+\begin{document}
+\pagenumbering{roman}
+\thispagestyle{empty}
+Front page text, numbered in roman but with no page number shown.
+
+\newpage
+Second front page, numbered ii.
+\cleardoublepage
+\pagenumbering{arabic}
+The main text starts on page one.
+
+\clearpage
+\setcounter{page}{7}
+\thispagestyle{plain}
+Page seven.
+\cleardoublepage
+After a double clear page from an odd page.
+\end{document}

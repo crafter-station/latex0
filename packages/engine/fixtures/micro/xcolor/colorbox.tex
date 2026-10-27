@@ -1,0 +1,15 @@
+% fixture: xcolor/colorbox
+% tier: T3
+% engine: document
+% covers: xcolor's \colorbox[model]{bg}{text} (\color@b@x: the text in the current color, \fboxsep around, \color@block's \rlap{\vrule}) and \fcolorbox[model]{frame}{bg}{text} (\XC@frameb@x and \boxframe), in a paragraph, in color, around a \parbox
+% issue: #336
+\documentclass{article}
+\usepackage{xcolor}
+\definecolor{masthead}{HTML}{1B4F72}
+\begin{document}
+Text with a \colorbox{yellow}{highlighted phrase} in it, \colorbox[rgb]{0.8,0.9,1}{a light blue $x^2$ one} and
+\textcolor{blue}{a blue \colorbox{lightgray}{boxed} word}. Framed: \fcolorbox{red}{white}{framed},
+\fcolorbox[rgb]{0,0,1}{1,1,0.8}{two models} and \fcolorbox{black}[gray]{0.9}{gray background}. After.
+
+\noindent\colorbox{masthead}{\parbox{\dimexpr\textwidth-2\fboxsep}{{\large\textcolor{white}{A masthead in white}}}}
+\end{document}

@@ -97,8 +97,7 @@ export function captionCall(src: string): CaptionCall | null {
 
 /** \addcontentsline{lof}{figure}{\protect\numberline{n}{text}} (or lot): its \write */
 function lofLine(cx: Ctx, env: "figure" | "table", number: number, text: string): Node {
-  const ext = env === "figure" ? "lof" : "lot"
-  return { kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${env}}{\\protect \\numberline {${cx.counters.the(number)}}{\\ignorespaces ${printTokens(text)}}}{\\thepage }{${cx.pre.hyper ? cx.refs.href : ""}}\\protected@file@percent }}` }
+  return cx.tocFile.listLine(env === "figure" ? "lof" : "lot", cx.counters.the(number), text, cx.pre.hyper ? cx.refs.href : "")
 }
 
 /**

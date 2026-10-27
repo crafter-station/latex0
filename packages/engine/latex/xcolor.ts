@@ -1,6 +1,6 @@
 // xcolor with the dvips driver: color expressions as the \special{color push …} text they become.
-// Named colors are xcolor's base set; \definecolor normalizes its numbers (\XC@calcN); RGB goes through
-// the driver's \divide (truncating), HTML through xcolor's \rdivide (five digits, rounded by the sixth).
+// Named colors are xcolor's base set; \definecolor normalizes its numbers (\XC@calcN); a raw RGB goes through
+// the driver's \divide (truncating), HTML and a defined RGB through xcolor's \rdivide (five digits, rounded by the sixth).
 
 import { printScaled } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
@@ -94,7 +94,8 @@ export class Colors {
       case "rgb": if (v.length !== 3) break; return `rgb ${v.map(n).join(" ")}`
       case "cmyk": if (v.length !== 4) break; return `cmyk ${v.map(n).join(" ")}`
       case "gray": if (v.length !== 1) break; return `gray ${n(v[0])}`
-      case "RGB": if (v.length !== 3 || !v.every((x) => /^\d+$/.test(x) && Number(x) <= 255)) break; return `rgb ${v.map((x) => driverRGB(Number(x))).join(" ")}`
+      // (\definecolor converts to rgb as HTML does, \XC@cnv@RGB's \XC@calc@ :D with \rdivide; a raw [RGB] goes to the driver)
+      case "RGB": if (v.length !== 3 || !v.every((x) => /^\d+$/.test(x) && Number(x) <= 255)) break; return `rgb ${v.map((x) => (normalize ? rdivide255(Number(x)) : driverRGB(Number(x)))).join(" ")}`
       case "HTML": {
         const h = vals.trim()
         if (!/^[0-9A-Fa-f]{6}$/.test(h)) break

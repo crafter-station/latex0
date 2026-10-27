@@ -433,7 +433,7 @@ export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pa
   const even = k.ints.twoside && page % 2 === 0
   // \ps@plain: \@oddfoot{\hfil\thepage\hfil}; \ps@headings: \@oddhead{{\slshape\rightmark}\hfil\thepage},
   // \@evenhead{\thepage\hfil\slshape\leftmark}
-  const headText: Node[] = fancy ? fancy.head : pagestyle !== "headings" ? [] : even ? [...number(), filGlue(), ...mark] : [...mark, filGlue(), ...number()]
+  const headText: Node[] = fancy ? fancy.head : pagestyle !== "headings" && pagestyle !== "myheadings" ? [] : even ? [...number(), filGlue(), ...mark] : [...mark, filGlue(), ...number()]
   const footText: Node[] = fancy ? fancy.foot : pagestyle === "plain" ? [filGlue(), ...number(), filGlue()] : []
   // \vfil, \hb@xt@\textwidth{\@thehead} (\color@hbox\normalcolor with a color package)
   const head = vpack([filGlue(), hpack(setgroup([hpack(headText, { exactly: k.dimens.textwidth })]))], { exactly: k.dimens.headheight })

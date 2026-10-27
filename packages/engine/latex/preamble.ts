@@ -80,6 +80,8 @@ export interface Preamble {
   crefNames: CrefNameDef[]
   /** titlesec: each level's format */
   titlesec: TitleFormats | null
+  /** \if@titlepage: report and book, unless notitlepage (\maketitle and the abstract on pages of their own) */
+  titlepage: boolean
   /** \usepackage[T1]{fontenc} */
   t1: boolean
   /** booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then */
@@ -389,9 +391,11 @@ export function readPreamble(src: string): Preamble {
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     if (fancy && fancyCommand(fancy, line)) continue
     if (titlesec && titleformat(titlesec, line)) continue
-    const m = line.match(/^\\pagestyle\{(plain|empty|headings|fancy)\}$/)
+    const m = line.match(/^\\pagestyle\{(plain|empty|headings|myheadings|fancy)\}$/)
+    if (m && m[1] === "myheadings" && cls === "letter") throw new Unsupported("\\pagestyle{myheadings} in a letter")
+    // (\ps@myheadings: \sectionmark and friends \@gobble, the heads \ps@headings's, from \markboth and \markright alone)
     if (m && (m[1] !== "fancy" || fancy)) {
-      pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"
+      pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; if (pagestyle === "myheadings") markDefs = null
       if (pagestyle === "fancy") fancyGeometry ??= geometryOptions.length // (\headwidth set as \ps@fancy first runs)
       continue
     }
@@ -487,7 +491,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

@@ -1,0 +1,18 @@
+% fixture: pages/myheadings-book
+% tier: T3
+% engine: document
+% covers: \pagestyle{myheadings} in book, after its \ps@headings: \chaptermark and \sectionmark \@gobble, the heads from \markboth alone
+% issue: #336
+\documentclass{book}
+\pagestyle{myheadings}
+\begin{document}
+\chapter{One}
+\markboth{Even side}{Odd side}
+Text of the chapter.
+\section{A section}
+More text.
+\newpage
+Second page.
+\newpage
+Third page.
+\end{document}

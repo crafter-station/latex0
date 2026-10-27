@@ -1,0 +1,14 @@
+% fixture: display/leaders-before-display
+% tier: T3
+% engine: document
+% covers: \predisplaysize (§ 1146) with leaders in the line before the display: visible material, so a stretched \hrulefill or \dotfill makes it max_dimen (\abovedisplayskip), unstretched leaders count their width
+% issue: #336
+\documentclass{article}
+\begin{document}
+Name\hrulefill
+\[ x = y \]
+Short \dotfill
+\[ a + b = c \]
+Short line \hspace{2cm}%
+\[ a + b = c \]
+\end{document}

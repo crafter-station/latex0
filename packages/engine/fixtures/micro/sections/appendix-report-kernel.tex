@@ -1,0 +1,19 @@
+% fixture: sections/appendix-report-kernel
+% tier: T3
+% engine: document
+% covers: report's \appendix without hyperref: the kernel's \theHchapter stays arabic (\@currentHref chapter.1, figure.1.1, section.1.1, a document counter's ex.1.1 in the \newlabel writes) while \thechapter is A
+% issue: #336
+\documentclass{report}
+\newcounter{ex}[chapter]
+\begin{document}
+\appendix
+\chapter{Scenes}\label{scenes}
+See Appendix~\ref{scenes}, Figure~\ref{fig}, Section~\ref{more} and Example~\ref{ex1}.
+\refstepcounter{ex}\label{ex1}
+\begin{figure}[h]\centering\caption{A figure.}\label{fig}\end{figure}
+\section{More}\label{more}
+Text.
+\chapter{Other}
+\section{Last}
+Text.
+\end{document}

@@ -1,0 +1,14 @@
+% fixture: sections/lists-of-figures-hyperref
+% tier: T3
+% engine: document
+% covers: \listoffigures with hyperref: each line's number and title in a link to the float's anchor; an empty \listoftables (\@starttoc's \@nobreakfalse: the paragraph after it keeps its indent)
+% issue: #336
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\listoffigures
+\listoftables
+Text right after the empty list.
+\section{Results}
+\begin{figure}[h]\centering\caption{A figure.}\end{figure}
+\end{document}

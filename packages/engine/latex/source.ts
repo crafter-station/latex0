@@ -17,11 +17,13 @@ export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: strin
 export interface MinipageSource {
   /** (null: subcaption's subfigure or subtable with no position, b before the float's \caption and t after it) */
   pos: "t" | "b" | "c" | null; height: string | null; width: string; body: string
+  /** the inner position (with a height): t, b, c or s; the position when not given */
+  inner?: "t" | "b" | "c" | "s"
   /** subcaption's subfigure or subtable: a minipage whose \caption is a subcaption */
   sub?: "figure" | "table"
 }
 /** commands that take no argument: a { after one opens a group */
-export const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
+export const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "enspace", "thinspace", "hrulefill", "dotfill", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
 
 /** \( and \): LaTeX's robust \relax\ifmmode…\else$\fi, the same formula as $ (outside comments and \\) */
 export function inlineMathParens(src: string): string {
@@ -150,11 +152,11 @@ export function prepareSource(source: string): DocumentSource {
   // minipages: \LXminipage{n}, laid out where they stand
   const minipages: MinipageSource[] = []
   // (and subcaption's subfigure and subtable, minipages too)
-  const src = src0.replace(/\\begin\{(minipage|subfigure|subtable)\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{\1\}/g, (all: string, env: string, pos: string | undefined, height: string | undefined, _inner: string | undefined, width: string, body: string, offset: number, text: string) => {
+  const src = src0.replace(/\\begin\{(minipage|subfigure|subtable)\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{\1\}/g, (all: string, env: string, pos: string | undefined, height: string | undefined, inner: string | undefined, width: string, body: string, offset: number, text: string) => {
     if (commented(text, offset)) return all
     if (/\\begin\{(?:minipage|subfigure|subtable)\}/.test(body)) throw new Unsupported(`a minipage in a ${env}`)
     const sub = env === "minipage" ? undefined : env === "subfigure" ? "figure" : "table"
-    minipages.push({ pos: (pos ?? (sub ? null : "c")) as MinipageSource["pos"], height: height ?? null, width, body, ...(sub ? { sub } : {}) })
+    minipages.push({ pos: (pos ?? (sub ? null : "c")) as MinipageSource["pos"], height: height ?? null, width, body, ...(inner ? { inner: inner as "s" } : {}), ...(sub ? { sub } : {}) })
     return `\\LXminipage{${minipages.length - 1}}`
   })
   if ([...src.matchAll(/\\(?:begin|end)\{(?:minipage|subfigure|subtable)\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")

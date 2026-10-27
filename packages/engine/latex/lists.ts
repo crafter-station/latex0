@@ -33,7 +33,8 @@ const TEXTBULLET = 136 // \textbullet in TS1
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
 export interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; totalLeft: number; lineWidth: number; parskip: GlueSpec; parsep: GlueSpec; itemsep: GlueSpec; topsep: GlueSpec; partopsep: GlueSpec; labelwidth: number; size: SizeCommand; atRightskip: GlueNode | null; finalHyph: number | undefined; /** the enclosing enumerate counters (\p@enumii …) */ enums: number[]
-  /** in an enclosing list: the \clubpenalty in force where this one begins */ club?: number }
+  /** in an enclosing list: the \clubpenalty in force where this one begins */ club?: number
+  /** \@beginparpenalty and \@endparpenalty, when not -\@lowpenalty (report's abstract) */ beginparpenalty?: number; endparpenalty?: number }
 
 /** The outer level: no list yet. */
 export function topCtx(cx: Ctx): EnvCtx {
@@ -226,7 +227,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
     let club: number | undefined
     if (i === 0 && v.nobreak) { v.addvspace(addGlue(ctx.parskip, negate(parsep))); v.nobreak = false; club = 10000 }
-    else if (i === 0) { v.addpenalty(-LOW_PENALTY); v.addvspace(topsepAll); v.addvspace(negate(parsep)) }
+    else if (i === 0) { v.addpenalty(ctx.beginparpenalty ?? -LOW_PENALTY); v.addvspace(topsepAll); v.addvspace(negate(parsep)) }
     else { v.addpenalty(-LOW_PENALTY); v.addvspace(itemsep) }
     // \sbox\@tempboxa{\makelabel{label}}
     let content: Node[]
@@ -319,6 +320,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       }
       // a group that starts the paragraph (the paragraph starts in it; a {\color …} group's push goes on the vertical list)
       const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text), inGroup = groupStart(p.text)
+      // (declarations first, then a {\color …} group: its push goes on the vertical list after them, not laid out)
+      if (/^\s*(?:\\[A-Za-z]+(?![A-Za-z])\s*)+\{\\color(?![A-Za-z])/.test(p.text)) throw new Unsupported("a color group after declarations starting a paragraph")
       if (inGroup && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a group starting an item's paragraph here")
       // (later, where \@item's \everypar may still run in the group: the \clubpenalty from before must be \@clubpenalty)
       if (inGroup && (p.start === "par" || p.start === "cr") && itemClub !== undefined && itemClub !== (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)) throw new Unsupported("a group starting an item's later paragraph here")
@@ -377,7 +380,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     })
   })
   // \endtrivlist: the last item's \par, then \@endparenv
-  v.endtrivlist(parsep, ctx.parskip, topsepadd)
+  v.endtrivlist(parsep, ctx.parskip, topsepadd, ctx.endparpenalty)
   refs.label = outerLabel
   refs.name = outerName
   run.hyperItem = outerHyperItem

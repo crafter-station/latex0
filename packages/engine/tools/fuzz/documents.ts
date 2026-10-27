@@ -255,6 +255,12 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
       if (r() < 0.0015) ws[i] += " " + minipage(pick(["", "[t]", "[b]", "[c]"]), true)
+      // rules, spaces, leaders and boxes in text
+      if (r() < 0.006) ws[i] += pick([` \\rule{${1 + Math.floor(r() * 40)}pt}{${pick(["0.4pt", "1pt", "1ex", "3pt"])}}`, ` \\rule[-${Math.floor(r() * 4)}pt]{1em}{${pick(["2pt", "1.5ex"])}}`, `\\hspace{${pick(["1cm", "2em", "-3pt", "5pt plus 2pt", "\\fill"])}}`,
+        ` \\hspace*{${pick(["1em", "4pt"])}}`, " \\hrulefill", " \\dotfill", "\\enspace", "\\thinspace", ` \\mbox{${words(1 + Math.floor(r() * 3))}}`, ` \\fbox{${words(1 + Math.floor(r() * 3))}}`,
+        ` \\makebox[${pick(["3cm", "0pt", "2\\width", "1.5in"])}]${pick(["", "[l]", "[r]", "[c]"])}{${words(1 + Math.floor(r() * 2))}}`, ` \\framebox[${pick(["3cm", "1cm"])}]${pick(["", "[l]", "[r]"])}{${words(1)}}`,
+        ` \\raisebox{${pick(["2pt", "-.5ex", "1ex"])}}${pick(["", "[0pt]", "[2ex][1pt]"])}{${words(1)}}`, ` \\parbox${pick(["", "[t]", "[b]", "[t][2cm][c]"])}{${pick(["3cm", "0.3\\linewidth", "\\dimexpr 4cm-2\\fboxsep"])}}{${words(2 + Math.floor(r() * 12))}}`,
+        ...(colorOn ? [` \\colorbox{${color()}}{${words(1 + Math.floor(r() * 3))}}`, ` \\fcolorbox{${color()}}{${color()}}{${words(1)}}`] : [])])
       // \underline: words, sometimes a font change or a formula, in an \hbox
       if (r() < 0.004) ws[i] += ` \\underline{${pick(["", "", " "])}${words(1 + Math.floor(r() * 3))}${pick(["", "", ` \\textit{${words(1)}}`, ` ${math()}`])}}`
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
@@ -297,6 +303,8 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.2) inner = `${inner} \\${font()}{${words(1 + Math.floor(r() * 2))}}`
       ws.splice(i, len, `\\${font()}{${inner}}${r() < 0.2 ? pick([",", "."]) : ""}`)
     }
+    // page break hints and \newpage at the paragraph's own level (not in a group)
+    if (top && !isLetter && r() < 0.12) ws.splice(Math.floor(r() * ws.length), 0, pick(["\\pagebreak[2]", "\\nopagebreak", "\\pagebreak", "\\newpage", "\\clearpage"]))
     // a comment that ends a line now and then (with or without a space before it)
     return ws.map((w, i) => (i && r() < 0.004 ? `${pick(["%", " %", "% note"])}\n${pick(["", "  "])}${w}` : w)).join(" ")
   }
@@ -335,7 +343,7 @@ export function makeDocument(r: () => number): string {
   }
   const style = r()
   if (style < 0.2) out.push("\\pagestyle{empty}")
-  else if (style < 0.4 && !isLetter) out.push("\\pagestyle{headings}") // running heads from the section marks
+  else if (style < 0.4 && !isLetter) out.push(style < 0.32 ? "\\pagestyle{headings}" : "\\pagestyle{myheadings}") // running heads from the section marks, or \markboth's
   else if (style < 0.6 && !isLetter) { // fancyhdr: its fields, rules, \chaptermark and \sectionmark (after geometry)
     const field = () => pick(["MATH 201", "Problem Set 3", "\\textbf{Notes}", "\\emph{Draft} copy", "Page \\thepage", "\\thepage", "\\leftmark", "\\rightmark", "\\slshape\\rightmark",
       "\\rmfamily\\thepage", "A. Student -- \\today", "Lecture notes on typesetting, line breaking and the many ways a running head can grow too long for one line", ""])
@@ -556,10 +564,11 @@ export function makeDocument(r: () => number): string {
     out.push("\\end{titlepage}")
   } else if (titled) out.push("\\maketitle")
   if (r() < 0.25 && !isLetter) out.push("\\tableofcontents") // laid out from the .toc file the first run writes
+  if (r() < 0.15 && !isLetter) out.push(...(r() < 0.5 ? ["\\listoffigures"] : []), "\\listoftables") // from the .lof and .lot files
   if (isLetter) out.push(`\\begin{letter}{${words(2)} \\\\ ${words(3)}}`, `\\opening{${words(3)},}`)
   if (front && r() < 0.3) out.push(`\\chapter{${words(2)}}`, text(30))
   if (front) out.push("\\mainmatter")
-  if (cls === "article" && r() < 0.3) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(10 + Math.floor(r() * 30))] : []), "\\end{abstract}")
+  if ((cls === "article" || cls === "report") && r() < 0.3) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(10 + Math.floor(r() * 30))] : []), "\\end{abstract}")
   let afterPar = false
   for (let b = 20 + Math.floor(r() * 40); b > 0; b--) {
     const x0 = r(), x = isLetter && x0 < 0.2 ? 0.5 : x0 // (a letter has no floats or headings)
@@ -591,7 +600,9 @@ export function makeDocument(r: () => number): string {
     } else if (x < 0.2) {
       const level = pick(["section", "section", "subsection", "subsubsection", ...(tsOn ? [] : ["paragraph", "subparagraph"]), ...(cls !== "article" ? ["chapter"] : [])])
       if (macros && r() < 0.3) { out.push("", r() < 0.5 ? "\\thm" : `\\thm ${text(5 + Math.floor(r() * 30))}`); afterPar = false; continue }
-      out.push("", `\\${level}${r() < 0.15 ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}${r() < 0.3 && !level.endsWith("paragraph") ? `\\label{${key()}}` : ""}`)
+      const star = r() < 0.15
+      out.push("", `\\${level}${star ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}${r() < 0.3 && !level.endsWith("paragraph") ? `\\label{${key()}}` : ""}`)
+      if (star && !level.endsWith("paragraph") && r() < 0.5) out.push(`\\addcontentsline{toc}{${level}}{${words(1 + Math.floor(r() * 3))}}`)
       afterPar = false
     } else if (x < 0.3) {
       if (!afterPar || r() < 0.6) out.push("")
@@ -688,10 +699,15 @@ export function makeDocument(r: () => number): string {
       const v = /\\(?:sub)?paragraph\*?\{[^{}]*\}\s*$|^\\thm$/.test(out[out.length - 1] ?? "") ? 1 : r()
       if (parts.length === 1 && v < 0.06) parts[0] = `{${pick(["\\large", "\\small\\itshape", "\\centering", "\\raggedleft\\bfseries", "\\Large\\raggedright", "\\sffamily"])} ${parts[0]}\\par}`
       else if (parts.length === 1 && v < 0.1) parts[0] = `${pick(["\\bigskip", isLetter ? "\\bigskip" : "\\medskip", "\\smallskip", "\\vspace*{4pt}"])}\n${parts[0]}`
+      // page breaks, page styles and marks between paragraphs
+      else if (v < 0.14 && !isLetter) out.push("", pick(["\\newpage", "\\clearpage", "\\cleardoublepage", "\\pagebreak", "\\pagebreak[1]", "\\nopagebreak[3]", "\\thispagestyle{empty}", "\\thispagestyle{plain}", ...(hyper ? [] : ["\\setcounter{page}{7}"]),
+        `\\markboth{${words(2)}}{${words(2)}}`, `\\markright{${words(2)}}`]))
       out.push("", parts.join("\n"))
       afterPar = true
     }
   }
+  // appendices: \appendix, then a heading or two
+  if (!isLetter && !crefOn && !tsOn && r() < 0.15) out.push("", "\\appendix", `\\${cls === "article" ? "section" : "chapter"}{${words(2)}}`, text(10 + Math.floor(r() * 40)), ...(r() < 0.4 ? [`\\section{${words(2)}}`, text(20)] : []))
   // a bibliography: \section*{References} (\chapter*{Bibliography}) and its numbered list
   if (isLetter) out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []), "\\end{letter}")
   if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : []))

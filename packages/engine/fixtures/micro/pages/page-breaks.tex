@@ -1,0 +1,74 @@
+% fixture: pages/page-breaks
+% tier: T3
+% engine: document
+% covers: \pagebreak and \nopagebreak after a list (its \@doendpe still pending) and after \\ under \centering (vertical mode); \newpage between paragraphs, after a run-in heading (its \leavevmode), in a titlepage, in a paragraph (its \par first, the text after it a new paragraph), after a heading (\@nobreakfalse\everypar{}) and after a list (\@doendpe's \par); \clearpage with a float waiting; \pagebreak and \nopagebreak[n] in vertical mode (\penalty\@getpen) and in a paragraph (\vadjust, \@esphack after a space)
+% issue: #336
+\documentclass{article}
+\begin{document}
+First paragraph on the first page, with enough words to make two lines of text so that the page has some body.
+
+\newpage
+Second page starts here and goes on. Then a page break in the middle \newpage of this paragraph, whose rest starts a new one.
+
+\section{A heading}
+\newpage
+After the heading and a page break. Some more words in this paragraph for good measure, running on and on.
+\begin{itemize}
+\item One item.
+\end{itemize}
+\newpage
+After the list. Text with a figure that waits.
+\begin{figure}[t]\centering\caption{A figure.}\end{figure}
+\clearpage
+After clearing the page. A \pagebreak[0] break hint in the paragraph, a \nopagebreak[2]strong no and a
+\pagebreak[2] middle one, then words that keep the paragraph long enough to wrap onto a second line here.
+
+\pagebreak[3]
+After a vertical page break hint.
+
+\nopagebreak
+After a vertical no page break.
+
+\section{Lists}
+\begin{itemize}
+\item One item with a long text that has to break over a couple of lines for the club penalty to matter at all.
+\end{itemize}
+\newpage
+\begin{itemize}
+\item Another item\footnote{With a footnote whose text is long enough to need two lines in the footnote area of the page.} here.
+\end{itemize}
+\begin{itemize}
+\item An item.
+\end{itemize}
+Text right after the list.
+
+\pagebreak[1]
+Indented: the list's doendpe went with the paragraph before.
+\begin{itemize}
+\item Another item.
+\end{itemize}
+\nopagebreak[1]
+Not indented: the hint left the list's doendpe in force.
+
+\begin{itemize}
+\item A third item.
+\end{itemize}
+
+\pagebreak[1]
+Indented: the blank line's par ended the list's doendpe.
+
+{\centering A centered line\\ \nopagebreak more of it\\ \pagebreak[2] and the last\par}
+
+\paragraph{Run in}
+\newpage
+The run-in heading went before the page break.
+\begin{titlepage}
+\centering A title page
+\newpage
+Its second page.
+\clearpage
+Its third page.
+\end{titlepage}
+\pagebreak
+Last page.
+\end{document}

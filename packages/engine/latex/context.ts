@@ -17,7 +17,7 @@ import type { BoundingBox } from "./graphics"
 import type { Image } from "./images"
 import type { GraphicSource, Listing, MinipageSource, TabularSource, UrlSource } from "./source"
 import type { TabularEnv } from "./tabular"
-import type { TocEntry } from "./toc"
+import type { ListEntry, ListFile, TocEntry, TocWriter } from "./toc"
 import type { VerticalList } from "./vlist"
 
 export interface Ctx {
@@ -50,6 +50,10 @@ export interface Ctx {
   decisions: ParagraphTrace[]
   /** the .toc file the run before wrote (null: none yet) */
   toc: TocEntry[] | null
+  /** the .lof and .lot files the run before wrote (null: none yet) */
+  lists: Record<ListFile, ListEntry[]> | null
+  /** what this run writes to the .toc, .lof and .lot files */
+  tocFile: TocWriter
   marks: MarkWriter
   /** \pagestyle{headings}: \@mkboth is \markboth */
   mkboth: boolean

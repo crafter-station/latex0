@@ -1,0 +1,13 @@
+% fixture: sections/lists-of-figures-babel
+% tier: T3
+% engine: document
+% covers: \listoffigures and \listoftables under babel: \listfigurename and \listtablename in the language
+% issue: #336
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+\listoffigures
+\listoftables
+\section{Uno}
+\begin{figure}[h]\centering\caption{Una figura.}\end{figure}
+\end{document}

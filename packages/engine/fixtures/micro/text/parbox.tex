@@ -1,0 +1,23 @@
+% fixture: text/parbox
+% tier: T3
+% engine: document
+% covers: e-TeX's \dimexpr in lengths (+, -, *, /, parentheses, rounding halves away from zero, \relax); \parbox[pos][height][inner]{width}{text} (\@iiiparbox: \vcenter, \vtop, \vbox, to a height with the inner position's \vss), paragraphs in it, \linewidth its width and \textwidth the page's, \centering and \raggedleft with \\ (\@centercr) in it; \fbox{\parbox{…}}
+% issue: #336
+\documentclass{article}
+\begin{document}
+Before \parbox{3cm}{A centered parbox with a few words that wrap onto more lines.} between
+\parbox[t]{2.5cm}{Top aligned box, with text that wraps.} and \parbox[b]{2cm}{Bottom aligned, wrapping text.} after.
+
+\noindent\parbox[t][3cm][b]{4cm}{Inner bottom.\par A second paragraph.}\hfill
+\parbox[c][2cm]{3cm}{Inner centered by default.}\hfill\parbox[b][2cm][t]{3cm}{Inner top.}\hfill
+\parbox[t][1cm][s]{2cm}{Spread out}
+
+\fbox{\parbox{\linewidth}{\centering A framed and centered box\\ on two lines\\[4pt] and a third}}
+
+\parbox{.5\textwidth}{\raggedleft Name Surname\\ Title\\* Place\\} text after.
+\parbox{.5\textwidth}{\rule{.2\textwidth}{1pt} and \rule{.2\linewidth}{1pt}} the page width and its own.
+
+\noindent\rule{\dimexpr 2cm*3/4\relax}{1pt} \rule{\dimexpr(1cm+1pt)/3}{1pt} \rule{\dimexpr\linewidth/7}{1pt}
+\rule{\dimexpr 3sp*1/2\relax}{1pt} \rule{\dimexpr 5sp/2}{1pt} \rule[\dimexpr -5sp/2\relax]{\dimexpr 7sp*3\relax}{1pt}
+\rule{\dimexpr\fboxsep+\fboxrule}{2pt} end.
+\end{document}

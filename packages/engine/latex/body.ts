@@ -3,16 +3,22 @@
 
 import type { GlueSpec } from "../layout/dimen"
 import { parseGlue } from "../layout/dimen"
-import { displaySegments, type Block } from "./blocks"
+import { blocksOf, displaySegments, HEADINGS, type Block, type ListBlock } from "./blocks"
 import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
-import { dimen, IGNORE_DEPTH } from "./vlist"
-import { penalty } from "../layout/nodes"
+import { dimen, IGNORE_DEPTH, LOW_PENALTY } from "./vlist"
+import { FIL, filGlue, penalty, type Node } from "../layout/nodes"
+import { hpack } from "../layout/pack"
+import { appendText, sourceText } from "./encodings"
+import { loadFont } from "../layout/font"
+import { dataFont } from "./data"
 import { crefWrites, labelWrite } from "./paragraph"
-import { bibliography, maketitle, tableOfContents } from "./frontmatter"
-import { chapter, heading, matter } from "./sectioning"
+import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
+import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
+import type { OutputHook } from "./output"
+import { markboth, markright, markValue } from "./marks"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
 import { list, topCtx } from "./lists"
@@ -45,12 +51,41 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
   // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
-  if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+  if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
-  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
+  // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
+  if (b.kind === "newpage") {
+    if (run.runIn) runInAlone(cx)
+    if (b.cmd === "newpage") newpage(cx); else if (b.cmd === "clearpage") clearpage(cx); else cleardoublepage(cx)
+    return
+  }
+  if (b.kind === "pagebreak" || b.kind === "pagestyle") {
+    if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.kind === "pagebreak" ? `${b.no ? "no" : ""}pagebreak` : b.cmd} right after a run-in heading`)
+    if (b.kind === "pagebreak") { v.nodes.push(penalty((b.no ? 1 : -1) * getpen(cx, b.n))); return }
+    // \thispagestyle: \global\@specialpagetrue\gdef\@specialstyle; \pagenumbering: \global\c@page\@ne, \gdef\thepage
+    const hook: OutputHook | null = b.cmd === "thispagestyle" ? (b.style === "plain" || b.style === "empty" ? b.style : null) : b.style === "roman" || b.style === "arabic" ? b.style : null
+    if (!hook) throw new Unsupported(`\\${b.cmd}{${b.style}}`)
+    v.nodes.push({ kind: "whatsit", text: "", hook })
+    return
+  }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
+  if (b.kind === "appendix") { appendix(cx); return }
+  if (b.kind === "contentsline") { // \addcontentsline{toc}: hyperref's bookmark to \@currentHref, then \addtocontents (\protected@write)
+    if (run.runIn || run.noskipsec) throw new Unsupported("\\addcontentsline right after a run-in heading")
+    if (b.level === "chapter" && cls === "article") throw new Unsupported("\\addcontentsline{toc}{chapter} in article")
+    v.nodes.push(...cx.contentsWrites(HEADINGS[b.level], null, b.title, cx.refs.href, v.nobreak))
+    return
+  }
+  if (b.kind === "mark") { // \markboth and \markright in vertical mode: the \marks, \nobreak while \if@nobreak
+    if (run.runIn || run.noskipsec) throw new Unsupported("\\markboth or \\markright right after a run-in heading")
+    const value = (t: string) => markValue([{ text: t.replace(/\s+/g, " ") }], false)
+    cx.v.nodes.push(...cx.marks.insert(b.left === null ? markright(value(b.right)) : markboth(value(b.left), value(b.right)), v.nobreak))
+    return
+  }
+  if (b.kind === "lof") { if (run.runIn) runInAlone(cx); listOf(cx, b.file); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }
   if (b.kind === "letter") { if (run.runIn) runInAlone(cx); letter(cx, b); return }
@@ -84,7 +119,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       if (!b.text) return
     }
     // counter commands in vertical mode make no paragraph
-    if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
+    // (\setcounter{page}{n}: \global\c@page, which the output routine reads when it ships the page)
+    if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text.replace(/\\setcounter\s*\{\s*page\s*\}\s*\{\s*(\d+)\s*\}/g, (_, n: string) => { v.nodes.push({ kind: "whatsit", text: "", hook: `page=${Number(n)}` satisfies OutputHook }); return "{}" })); return }
     // \par in the text (a group that holds whole paragraphs, {\large … \par}) or skips between paragraphs
     if (needsVerticalMode(b.text)) {
       if (run.runIn) throw new Unsupported("\\par or a skip right after a run-in heading")
@@ -156,6 +192,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined)
     return
   }
+  if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }
   if (b.blank) v.par() // a blank line before the list
   const before = { club: v.club, afterheading: v.afterheadingEverypar }
   // \@trivlist's \if@noskipsec\leavevmode (in the environment's group), then \unskip\par and no \partopsep
@@ -172,6 +209,49 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
   v.afterheadingEverypar = false
   v.endpePar = v.doendpe = v.endpeEverypar = true
+}
+
+/**
+ * report's abstract (\if@titlepage): \titlepage (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), \null\vfil,
+ * \@beginparpenalty\@lowpenalty, \begin{center}\bfseries\abstractname \@endparpenalty\@M\end{center}, the text (its
+ * paragraphs after the center's \@doendpe), then \par\vfil\null\endtitlepage (\newpage, one-sided \setcounter{page}\@ne)
+ */
+function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
+  const { run, v } = cx
+  if (!cx.pre.titlepage) throw new Unsupported("abstract in report with notitlepage")
+  if (run.runIn || run.noskipsec) throw new Unsupported("an abstract right after a run-in heading")
+  v.par()
+  if (v.endpePar || v.endpeEverypar) throw new Unsupported("an abstract right after a list")
+  if (v.nobreak) throw new Unsupported("an abstract right after a heading")
+  // (an \@afterheading \everypar after \tableofcontents, \if@nobreak cleared: the lists' and \@doendpe's take its place
+  // in the environment's group, and the \clubpenalty they leave is \@clubpenalty, which it would set)
+  const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
+  v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
+  v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
+  v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+  const head: Node[] = []
+  const bf = run.k.sizes.normalsize.bold
+  appendText(head, sourceText(cx.pre.names.abstractname), loadFont(dataFont(bf.name), bf.at), { spaceFactor: 1000 }, false)
+  list(cx, { kind: "list", env: "center", items: [{ label: null, parts: [{ kind: "text", text: "", start: "label", nodes: head }] }], inPar: false, blank: false }, { ...topCtx(cx), beginparpenalty: LOW_PENALTY, endparpenalty: 10000 })
+  const body = b.source ?? ""
+  const blocks = blocksOf(body)
+  // (text right after \begin{abstract}: the center's \@doendpe takes its indent)
+  if (blocks[0]?.kind === "par" && !/^\s*\n[ \t]*\n/.test(body)) blocks[0].noindent = true
+  blocks.forEach((x, i, all) => { if (x.kind !== "par") throw new Unsupported(`a ${x.kind} in report's abstract`); processBlock(cx, x, i, all) })
+  // (\end{abstract} finds \if@endpe false: the center's \@doendpe went with the text's first paragraph; with no text it holds)
+  if (!blocks.length && next) throw new Unsupported("an empty abstract in report")
+  if (next?.kind === "par") next.noindent = false
+  v.par()
+  v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+  v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
+  v.nodes.push(filGlue(), penalty(-10000))
+  if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
+}
+
+/** \@getpen: 0, \@lowpenalty, \@medpenalty, \@highpenalty (51, 151, 301 in the standard classes; letter.cls sets none), \@M */
+export function getpen(cx: Ctx, n: number): number {
+  if (n === 0 || n >= 4) return n === 0 ? 0 : 10000
+  return cx.pre.cls === "letter" ? 0 : [51, 151, 301][n - 1]
 }
 
 /** a run-in heading followed by another heading: \@startsection's \leavevmode\par makes it a paragraph of its own */

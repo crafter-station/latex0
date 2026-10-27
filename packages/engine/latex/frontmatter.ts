@@ -11,7 +11,7 @@ import { mathGlue } from "../mathlayout/mlist"
 import { hpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
 import { markboth, markValue } from "./marks"
-import { type TocEntry } from "./toc"
+import { type ListFile, type TocEntry } from "./toc"
 import type { Ctx } from "./context"
 import { centering as centeringShape } from "./kernel"
 import { tabular } from "./boxes"
@@ -134,6 +134,28 @@ export function tableOfContents(cx: Ctx) {
   }
   const tocdepth = cls === "article" ? 3 : 2
   for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(cx, e, cx.pre.parskip ? dimen(0) : cx.outerParskip)
+  v.nobreak = false
+}
+
+/**
+ * \listoffigures and \listoftables: \section*{\listfigurename} (report, book: \chapter*), then \@mkboth, \@starttoc{lof}:
+ * each line \l@figure (\@dottedtocline{1}{1.5em}{2.3em}), and report's \addvspace{10\p@} at each chapter
+ */
+export function listOf(cx: Ctx, file: ListFile) {
+  const { cls } = cx.pre
+  const { lists, marks, mkboth, v } = cx
+  const [name, macro] = file === "lof" ? [cx.pre.names.listfigurename, "listfigurename"] : [cx.pre.names.listtablename, "listtablename"]
+  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
+  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
+  // (\@mkboth after the heading, in vertical mode: not in its title as \tableofcontents has it)
+  const value = markValue([{ text: name }], true)
+  if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
+  for (const e of lists?.[file] ?? []) {
+    if ("vspace" in e) { v.addvspace(dimen(10 * 65536)); continue }
+    // ({\ignorespaces title}: a group the line's text is in, no space at its end)
+    if (/\s$/.test(e.title)) throw new Unsupported(`a ${file} line "${e.title}" ending in a space`)
+    tocLine(cx, { level: cls === "article" ? 2 : 1, number: e.number, title: e.title.trimStart(), page: e.page, anchor: e.anchor }, cx.pre.parskip ? dimen(0) : cx.outerParskip)
+  }
   v.nobreak = false
 }
 

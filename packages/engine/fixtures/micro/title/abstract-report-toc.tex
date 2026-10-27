@@ -1,0 +1,15 @@
+% fixture: title/abstract-report-toc
+% tier: T3
+% engine: document
+% covers: report's abstract right after \tableofcontents (the contents' \@afterheading \everypar, \if@nobreak cleared by \@starttoc, back after the environment's group), and a paragraph right after it
+% issue: #336
+\documentclass{report}
+\begin{document}
+\tableofcontents
+\begin{abstract}
+An abstract after the contents, long enough to wrap onto a second line of text on its page here.
+\end{abstract}
+A paragraph right after the abstract, with words enough to make three lines of text so that the club penalty between its first lines shows in the box tree of the page, and more words.
+\chapter{Introduction}
+Text.
+\end{document}

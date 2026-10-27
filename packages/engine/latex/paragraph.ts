@@ -12,12 +12,12 @@
 // shifted right by \oddsidemargin.
 
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../layout/classdata"
-import { parseDimen, parseGlue, Scanner, type GlueSpec } from "../layout/dimen"
+import { parseDimen, parseGlue, Scanner, type GlueSpec, type Internal, type ScanEnv } from "../layout/dimen"
 import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { appendText as appendCodes } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
-import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue, FILL } from "../layout/nodes"
 import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../mathlayout/mlist"
 import { parseMath } from "../mathlayout/parse"
 import { emitBoxes } from "../emit/boxes"
@@ -127,6 +127,8 @@ export interface DocState {
   subcaption?: boolean
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
   xcolor?: boolean
+  /** xcolor (not color) is loaded: its \@frameb@x frames \fbox and \framebox */
+  xcolorFbox?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
   float?: (n: number, traces: ParagraphTrace[], club: number) => Node
   /** babel is loaded: its languages, and whether before hyperref */
@@ -151,6 +153,12 @@ export interface DocState {
   /** (`sfcodes`: the \sfcode changes in force, which the entries keep; `outer`: the paragraph it is in, whose
    *  footnote traces the p{width} entries' paragraphs join and whose \clubpenalty and \finalhyphendemerits they keep) */
   tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter) => Node
+  /** \parbox[pos][height][inner]{width}{text} at a size in a font: its box (\@iiiparbox) */
+  parbox?: (p: { pos: string; height: string | null; inner: string; width: string; src: string }, size: SizeCommand, attrs: FontAttrs, sfcodes: Record<number, number> | undefined, outer: TabularOuter) => Node[]
+  /** \@getpen{n}: the class's \@lowpenalty, \@medpenalty and \@highpenalty */
+  getpen?: (n: number) => number
+  /** \textwidth, \columnwidth and \linewidth (where it is known) in a length */
+  widths?: (lineWidth: number | undefined) => (name: string, s: Scanner) => Internal | undefined
   /** minipage number n (taken out of the source after expansion) at a size in a font: what \@iiiparbox appends */
   minipage?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes: Record<number, number> | undefined, outer: TabularOuter) => Node[]
 }
@@ -282,10 +290,21 @@ type Piece =
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
+  /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
+  | { kind: "pagebreak"; no: boolean; n: number }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
   | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
-  /** \hfill, \hfil, \quad, \qquad */
-  | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
+  /** \hfill, \hfil, \quad, \qquad, \enspace, \hrulefill, \dotfill */
+  | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" | "enspace" | "hrulefill" | "dotfill" }
+  /** \mbox, \makebox[width][pos], \fbox, \framebox[width][pos] and \raisebox{lift}[height][depth]: the command, its
+   *  optional arguments as given (`lift`: \raisebox's first) and its text */
+  | { kind: "box"; cmd: "mbox" | "makebox" | "fbox" | "framebox" | "raisebox"; opts: (string | undefined)[]; lift?: string; inner: Piece[] }
+  /** xcolor's \colorbox[model]{bg}{text} and \fcolorbox[model]{frame}[model]{bg}{text} */
+  | { kind: "colorbox"; model?: string; spec: string; frame?: { model?: string; spec: string }; inner: Piece[] }
+  /** \parbox[pos][height][inner]{width}{text} */
+  | { kind: "parbox"; pos: string; height: string | null; inner: string; width: string; src: string }
+  /** \hspace{skip} and \hspace*{skip}; \rule[raise]{width}{height} */
+  | { kind: "hspace"; star: boolean; skip: string } | { kind: "rule"; raise: string; width: string; height: string }
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
   | { kind: "group"; inner: Piece[] } | { kind: "decl"; name: string; inner: Piece[] }
   /** {\large …}: a size command in a group */
@@ -468,6 +487,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (sym && sym[1] in TEXT_SYMBOLS) { flushText(); out.push({ kind: "symbol", name: sym[1] }); i += sym[0].length; continue }
     // \, in text: \thinspace, \kern.16667em
     if (body.startsWith("\\,", i)) { flushText(); out.push({ kind: "thinspace" }); i += 2; continue }
+    const ts = body.slice(i).match(/^\\thinspace(?![A-Za-z])\s*/) // (\let to \, by the kernel, and again by amsmath)
+    if (ts) { flushText(); out.push({ kind: "thinspace" }); i += ts[0].length; continue }
     if (body[i] === "~" || body[i] === "\u00a0") { flushText(); out.push({ kind: "tie" }); i++; continue } // (U+00A0 is \nobreakspace)
     // a text accent on a letter, \i or \j: the letter and the accent's combining mark (encodings.ts)
     const acc = body.slice(i).match(ACCENT_COMMAND)
@@ -492,10 +513,55 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (ni) { i += ni[0].length; continue }
     const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
+    const pb = body.slice(i).match(/^\\(no)?pagebreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/) // (\@testopt: the spaces before a [ go)
+    if (pb) { flushText(); out.push({ kind: "pagebreak", no: !!pb[1], n: pb[2] === undefined ? 4 : Number(pb[2]) }); i += pb[0].length; continue }
     const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
     if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
-    const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad)(?![A-Za-z])\s*/)
+    const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    // xcolor's \colorbox#1#{\color@box{#1}} and \fcolorbox (the model: what comes before the color's brace)
+    const cb = body.slice(i).match(/^\\(colorbox|fcolorbox)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}(?:\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\})?\s*\{/)
+    if (cb && (cb[1] === "fcolorbox") === (cb[5] !== undefined)) {
+      const open = i + cb[0].length - 1, j = closingBrace(body, open)
+      const inner = pieces(body.slice(open + 1, j), false, { groups: true, grouped: true })
+      flushText()
+      if (cb[1] === "colorbox") out.push({ kind: "colorbox", ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3], inner })
+      else out.push({ kind: "colorbox", ...(cb[4] ?? cb[2]) !== undefined ? { model: cb[4] ?? cb[2] } : {}, spec: cb[5]!, frame: { ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3] }, inner })
+      i = j + 1; continue
+    }
+    // boxes: \@ifnextchar[ skips the spaces before an optional argument, and a macro those before an argument
+    const bx = body.slice(i).match(/^\\(mbox|makebox|fbox|framebox|raisebox|parbox)(?![A-Za-z])/)
+    if (bx) {
+      const cmd = bx[1]
+      let j = i + bx[0].length
+      const opt = (): string | undefined => { const m = body.slice(j).match(/^\s*\[([^[\]{}]*)\]/); if (!m) return undefined; j += m[0].length; return m[1] }
+      const arg = (): string => {
+        const m = body.slice(j).match(/^\s*\{/)
+        if (!m) throw new Unsupported(`\\${cmd} ${body.slice(j, j + 20)}`)
+        const open = j + m[0].length - 1, close = closingBrace(body, open)
+        j = close + 1
+        return body.slice(open + 1, close)
+      }
+      if ((cmd === "makebox" || cmd === "framebox") && /^\s*\(/.test(body.slice(j))) throw new Unsupported(`\\${cmd}(…): a picture box`)
+      flushText()
+      if (cmd === "parbox") {
+        const pos = opt(), height = pos === undefined ? undefined : opt(), inner = height === undefined ? undefined : opt()
+        const width = arg()
+        out.push({ kind: "parbox", pos: pos ?? "c", height: height ?? null, inner: inner ?? (height === undefined ? "s" : pos!), width, src: arg() })
+      } else {
+        const lift = cmd === "raisebox" ? arg() : undefined
+        const opts: (string | undefined)[] = []
+        if (cmd !== "mbox" && cmd !== "fbox") { opts.push(opt()); if (opts[0] !== undefined) opts.push(opt()) }
+        const src = arg()
+        out.push({ kind: "box", cmd: cmd as "mbox", opts, ...(lift !== undefined ? { lift } : {}), inner: pieces(src, false, { groups: true, grouped: true }) })
+      }
+      i = j; continue
+    }
+    // \hspace (\@ifstar skips the spaces before the *); \rule (\@ifnextchar[ skips them before the [)
+    const hs = body.slice(i).match(/^\\hspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
+    if (hs) { flushText(); out.push({ kind: "hspace", star: !!hs[1], skip: hs[2] }); i += hs[0].length; continue }
+    const ru = body.slice(i).match(/^\\rule(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{([^{}]*)\}/)
+    if (ru) { flushText(); out.push({ kind: "rule", raise: ru[1] ?? "0pt", width: ru[2], height: ru[3] }); i += ru[0].length; continue }
     // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
     const tc = body.slice(i).match(/^\\textcolor(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{/) ?? body.slice(i).match(/^\{\\(?:color|LXcolorpushed)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
     if (tc) {
@@ -773,6 +839,102 @@ interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurrou
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
+/** \fboxsep and \fboxrule (3pt and .4pt in every class) */
+const FBOXSEP = 3 * 65536, FBOXRULE = 26214
+/**
+ * \@frameb@x{between}: \hbox{\lower(\fboxrule+\fboxsep+depth)\hbox{\vbox{\hrule\@height\fboxrule \hbox{\vrule\@width\fboxrule
+ * between \vbox{\vskip\fboxsep\box\@tempboxa\vskip\fboxsep} between \vrule\@width\fboxrule} \hrule\@height\fboxrule}}}
+ */
+function framed(box: BoxNode, between: Node[], xc = false): BoxNode {
+  if (xc) return xcFramed(box, between, FBOXSEP)
+  const vrule = (): Node => ({ kind: "rule", width: FBOXRULE, height: null, depth: null }), hrule = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
+  const inner = vpack([hrule(), hpack([vrule(), ...between, vpack([glue(FBOXSEP), box, glue(FBOXSEP)]), ...between.map((n) => ({ ...n })), vrule()]), hrule()])
+  const lowered = hpack([inner])
+  lowered.shift = FBOXRULE + FBOXSEP + box.depth
+  return hpack([lowered])
+}
+
+/** \mbox, \makebox, \fbox, \framebox and \raisebox (latex.ltx): the text in an \hbox (\@begin@tempboxa, with \width,
+ *  \height, \depth and \totalheight in the lengths), then what each makes of it */
+function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  const content: Node[] = []
+  appendPieces(content, p.inner, font, size, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  state.spaceFactor = 1000 // (after a box)
+  if (p.cmd === "mbox") { list.push(hpack(content)); return }
+  if (p.cmd === "fbox" || (p.cmd === "framebox" && p.opts[0] === undefined)) { // \fbox: \hbox{\kern\fboxsep{text}\kern\fboxsep}, framed
+    list.push(framed(hpack([kern(FBOXSEP, true), ...content, kern(FBOXSEP, true)]), [], ctx.doc.xcolorFbox))
+    return
+  }
+  const natural = hpack(content.slice())
+  const base = lengthEnv(ctx, font), outer = base.internal!
+  const dims: Record<string, number> = { width: natural.width, height: natural.height, depth: natural.depth, totalheight: natural.height + natural.depth }
+  const env: ScanEnv = { ...base, internal: (name, s) => (name in dims ? { level: "dimen", value: dims[name] } : outer(name, s)) }
+  const len = (x: string) => { try { return parseDimen(x, env) } catch { throw new Unsupported(`\\${p.cmd} length "${x}"`) } }
+  if (p.cmd === "raisebox") { // \hbox{\raise lift\box\@tempboxa}, then \ht and \dp as given
+    natural.shift = -len(p.lift!)
+    const box = hpack([natural])
+    if (p.opts[0] !== undefined) box.height = len(p.opts[0])
+    if (p.opts[1] !== undefined) box.depth = len(p.opts[1])
+    list.push(box)
+    return
+  }
+  if (p.cmd === "makebox" && p.opts[0] === undefined) { list.push(hpack(content)); return } // \makebox{text}: \mbox
+  // \hb@xt@ width{\bm@pos}: c \hss\unhbox\hss, l (and t) \unhbox\hss, r (and b) \hss\unhbox, s \unhbox
+  const pos = (p.opts[1] ?? "c").trim()
+  if (!/^[clrstb]$/.test(pos)) throw new Unsupported(`\\${p.cmd}[…][${pos}]`)
+  const aligned = [...(pos === "c" || pos === "r" || pos === "b" ? [ssGlue()] : []), ...content, ...(pos === "c" || pos === "l" || pos === "t" ? [ssGlue()] : [])]
+  const width = len(p.opts[0]!)
+  if (p.cmd === "makebox") { list.push(hpack(aligned, { exactly: width })); return }
+  // \framebox[width][pos]: \hb@xt@ width{\kern\fboxsep \bm@pos \kern\fboxsep}, framed with \kern-\fboxrule inside the rules
+  list.push(framed(hpack([kern(FBOXSEP, true), ...aligned, kern(FBOXSEP, true)], { exactly: width }), [kern(-FBOXRULE, true)], ctx.doc.xcolorFbox))
+}
+
+/**
+ * xcolor's \color@b@x: \setbox\z@\hbox{\kern\fboxsep{\set@color text}\kern\fboxsep} (the text in the current color),
+ * \ht and \dp grown by \fboxsep, then {\color{bg}\color@block{\wd\z@}{\ht\z@}{\dp\z@}\box\z@}, \color@block being
+ * {\set@color\rlap{\vrule…}} (no xcdraw). \fcolorbox: {\fboxsep\z@\color{frame}\fbox{that}} with \XC@frameb@x, its
+ * frame drawn by \boxframe over the box
+ */
+function colorboxPiece(list: Node[], p: Extract<Piece, { kind: "colorbox" }>, font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  const { doc } = ctx
+  if (!doc.color) throw new Unsupported(`\\${p.frame ? "f" : ""}colorbox without xcolor`)
+  const push = (spec: string): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` }), pop = (): Node => ({ kind: "whatsit", text: "\\special{color pop}" })
+  const text: Node[] = []
+  appendPieces(text, p.inner, font, size, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  state.spaceFactor = 1000 // (after a box)
+  const z = hpack([kern(FBOXSEP, true), push(ctx.color ?? xcolor.normal), ...text, pop(), kern(FBOXSEP, true)])
+  z.height += FBOXSEP; z.depth += FBOXSEP
+  const bg = doc.color(p.spec, p.model)
+  const block = [push(bg), push(bg), hpack([{ kind: "rule", width: z.width, height: z.height, depth: z.depth }, ssGlue()], { exactly: 0 }), pop(), z, pop()]
+  if (!p.frame) { list.push(...block); return }
+  // \fbox with \fboxsep zero (\hbox{\kern\z@{…}\kern\z@}), framed by \XC@frameb@x
+  list.push(push(doc.color(p.frame.spec, p.frame.model)), xcFramed(hpack([kern(0, true), ...block, kern(0, true)]), [], 0), pop())
+}
+
+/**
+ * xcolor's \XC@frameb@x{between} (its \fbox and \framebox unless kernelfbox): \hbox{\lower(\fboxrule+\fboxsep+depth)
+ * \hbox{\vbox{\kern\fboxrule \hbox{\kern\fboxrule between \vbox{\kern\fboxsep\box\kern\fboxsep} between \kern\fboxrule}
+ * \kern\fboxrule}}, \kern-its width, \boxframe{w}{h}{d}}; \boxframe: \hbox{\lower d\vbox{\hrule\@height\fboxrule
+ * \kern-.5\fboxrule \hbox{\vrule \kern(w-2\fboxrule) \vrule} \kern-.5\fboxrule \hrule}}, the rules \fboxrule wide and
+ * h+d-\fboxrule high
+ */
+function xcFramed(box: BoxNode, between: Node[], sep: number): BoxNode {
+  const inner = hpack([kern(FBOXRULE, true), ...between, vpack([kern(sep, true), box, kern(sep, true)]), ...between.map((n) => ({ ...n })), kern(FBOXRULE, true)])
+  const lowered = hpack([vpack([kern(FBOXRULE, true), inner, kern(FBOXRULE, true)])])
+  lowered.shift = FBOXRULE + sep + box.depth
+  const framedBox = hpack([lowered])
+  const half = -Math.trunc(FBOXRULE / 2) - (FBOXRULE % 2), hr = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
+  const side = (): Node => ({ kind: "rule", width: FBOXRULE, height: framedBox.height + framedBox.depth - FBOXRULE, depth: 0 })
+  const frame = vpack([hr(), kern(half, true), hpack([side(), kern(framedBox.width - 2 * FBOXRULE, true), side()]), kern(-Math.trunc(FBOXRULE / 2), true), hr()])
+  frame.shift = framedBox.depth
+  return hpack([framedBox, kern(-framedBox.width, true), hpack([frame])])
+}
+
+/** a length in text: em and ex of the current font, \fill, and the document's width registers (\linewidth only in a paragraph) */
+function lengthEnv(ctx: PieceContext, font: Font): ScanEnv {
+  const widths = ctx.doc.widths?.(ctx.restricted ? undefined : lineWidthOf(ctx))
+  return { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: (name, s) => (name === "fill" ? { level: "glue", value: { width: 0, stretch: 65536, stretchOrder: FILL, shrink: 0, shrinkOrder: NORMAL } } : widths?.(name, s)) }
+}
 
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
@@ -793,7 +955,41 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push(penalty(10000), filGlue(), penalty(-10000))
       if (!p.skip) ctx.ignoreSpaces = true
     }
-    else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
+    else if (p.kind === "space") {
+      if (p.cmd === "enspace") list.push(kern(parseDimen(".5em", { em: font.params[QUAD], ex: 0 }), true)) // \kern.5em
+      // \leaders\hrule\hfill\kern\z@; \cleaders\hb@xt@.44em{\hss.\hss}\hfill\kern\z@
+      else if (p.cmd === "hrulefill" || p.cmd === "dotfill") {
+        const dot: Node[] = [ssGlue()]
+        if (p.cmd === "dotfill") { appendText(dot, ".", font, { spaceFactor: 1000 }, false); dot.push(ssGlue()) }
+        const box = p.cmd === "hrulefill" ? { kind: "rule" as const, width: null, height: 26214, depth: 0 } : hpack(dot, { exactly: parseDimen(".44em", { em: font.params[QUAD], ex: 0 }) })
+        list.push({ ...fillGlue(), leaders: { kind: p.cmd === "hrulefill" ? "leaders" : "cleaders", box } }, kern(0, true))
+      }
+      else list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
+    }
+    else if (p.kind === "box") boxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "colorbox") colorboxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "parbox") {
+      if (!doc.parbox) throw new Unsupported("\\parbox outside a document")
+      list.push(...doc.parbox(p, size, attrs, state.sfcodes, { notes: ctx.notes, club: ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
+      state.spaceFactor = 1000
+    }
+    else if (p.kind === "hspace") {
+      // \@hspace: \setlength\sp@ce@skip{skip}\hskip\sp@ce@skip; \@hspacer: \vrule\@width\z@\nobreak first, \hskip\z@skip after
+      let g: GlueSpec
+      try { g = parseGlue(p.skip, lengthEnv(ctx, font)) } catch { throw new Unsupported(`\\hspace{${p.skip}}`) }
+      if (g.shrinkOrder !== NORMAL && !ctx.restricted) throw new Unsupported(`\\hspace{${p.skip}}: infinite shrinkage in a paragraph`)
+      if (p.star) { list.push({ kind: "rule", width: 0, height: null, depth: null }, penalty(10000)); state.spaceFactor = 1000 } // (a rule: § 1056)
+      list.push(glueOf(g))
+      if (p.star) list.push(glue(0))
+    }
+    else if (p.kind === "rule") {
+      // \@rule: \leavevmode\hbox{\vrule\@width w\@height h+raise\@depth-raise}, the lengths set in the box (its font)
+      const env = lengthEnv(ctx, font)
+      let raise: number, width: number, height: number
+      try { raise = parseDimen(p.raise, env); width = parseDimen(p.width, env); height = parseDimen(p.height, env) } catch { throw new Unsupported(`\\rule[${p.raise}]{${p.width}}{${p.height}}`) }
+      list.push(hpack([{ kind: "rule", width, height: height + raise, depth: -raise }]))
+      state.spaceFactor = 1000
+    }
     else if (p.kind === "size" || p.kind === "group") {
       // (footnotes in a group that starts the paragraph see the \clubpenalty its \everypar set there)
       const noteClub = ctx.noteClub
@@ -834,6 +1030,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push({ kind: "adjust", list: [...(p.star ? [{ kind: "rule", width: null, height: 0, depth: 0 } as Node, penalty(10000)] : []), glueOf(g), glue(0)] })
+      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+    }
+    else if (p.kind === "pagebreak") {
+      // \@no@pgbk in horizontal mode: \@bsphack, \vadjust{\penalty ±\@getpen{n}}, \@esphack (after a space, \nobreak\hskip\z@skip)
+      if (ctx.restricted) throw new Unsupported(`\\${p.no ? "no" : ""}pagebreak in restricted horizontal mode`)
+      if (!doc.getpen) throw new Unsupported(`\\${p.no ? "no" : ""}pagebreak outside a document`)
+      const last = list[list.length - 1]
+      const savsk = last?.kind === "glue" ? last.width : 0
+      list.push({ kind: "adjust", list: [penalty((p.no ? 1 : -1) * doc.getpen(p.n))] })
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
     else if (p.kind === "float") {

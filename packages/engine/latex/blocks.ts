@@ -8,6 +8,7 @@ import { BODY_DECLARATIONS, squeeze, TEXT_SYMBOLS } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { SI_COMMANDS } from "./siunitx"
 import { TEXT_LETTERS, withoutTextCommands } from "./encodings"
+import { COUNTER_COMMANDS } from "./counters"
 
 export type Block =
   | { kind: "par"; text: string; noindent: boolean; /** the floats that start in it (\LXfloat{n}: the n-th) */ floats?: Extract<Block, { kind: "float" }>[]; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
@@ -20,6 +21,14 @@ export type Block =
   | { kind: "titlepage"; body: string }
   | { kind: "float"; env: "figure" | "table" | "algorithm"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
+  /** \markboth{left}{right} (left null: \markright{right}) in vertical mode */
+  | { kind: "mark"; left: string | null; right: string }
+  /** \addcontentsline{toc}{level}{title} in vertical mode */
+  | { kind: "contentsline"; level: keyof typeof HEADINGS; title: string }
+  /** \appendix */
+  | { kind: "appendix" }
+  /** \listoffigures, \listoftables */
+  | { kind: "lof"; file: "lof" | "lot" }
   | { kind: "matter"; which: "front" | "main" | "back" }
   /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
   | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number }
@@ -27,6 +36,12 @@ export type Block =
   | { kind: "bib"; keys: string[] }
   /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
   | { kind: "listing"; n: number }
+  /** \newpage, \clearpage and \cleardoublepage (in a paragraph: its \par first) */
+  | { kind: "newpage"; cmd: "newpage" | "clearpage" | "cleardoublepage" }
+  /** \pagebreak[n] and \nopagebreak[n] in vertical mode: \penalty -\@getpen{n}, \penalty \@getpen{n} */
+  | { kind: "pagebreak"; no: boolean; n: number }
+  /** \thispagestyle{style} and \pagenumbering{style} in vertical mode */
+  | { kind: "pagestyle"; cmd: "thispagestyle" | "pagenumbering"; style: string }
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
 export const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography", "LXtheorem", "proof"] as const
@@ -37,6 +52,8 @@ export interface ListBlock {
   kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** thebibliography's \bibitem keys */ keys?: string[]; /** enumitem's [options] */ options?: string
   /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
   thm?: { name: string; note: string | null }; proofTitle?: string
+  /** abstract: its body as typed */
+  source?: string
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
@@ -133,7 +150,7 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
     if (!parts.length) parts.push({ kind: "text", text: "", start: "label" })
     return { label: opt ? opt[1] : null, parts }
   })
-  return { kind: "list", env, items, inPar, blank, ...(opts ? { options: opts[1] } : {}), ...(thm ? { thm } : {}), ...(proofTitle !== undefined ? { proofTitle } : {}) }
+  return { kind: "list", env, items, inPar, blank, ...(env === "abstract" ? { source: inner } : {}), ...(opts ? { options: opts[1] } : {}), ...(thm ? { thm } : {}), ...(proofTitle !== undefined ? { proofTitle } : {}) }
 }
 
 export const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
@@ -172,12 +189,22 @@ const TEXT_COMMANDS = [
   "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
-  "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar"
+  "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
+/** \rule and \hspace with their arguments, and the boxes' length arguments (which may name registers: \textwidth, \width) */
+const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS)].join("|")}|the[a-zA-Z]+)\\b)[a-zA-Z]+(?!\\s*=)`)
+
+/** how many groups the text leaves open (\{ and \} do not count) */
+function braceDepth(t: string): number {
+  let d = 0
+  for (let i = 0; i < t.length; i++) { if (t[i] === "\\") i++; else if (t[i] === "{") d++; else if (t[i] === "}") d-- }
+  return d
+}
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 export function blocksOf(body: string): Block[] {
@@ -189,7 +216,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -197,11 +224,18 @@ export function blocksOf(body: string): Block[] {
     parts.forEach((p, i) => {
       const t = squeeze(i < parts.length - 1 ? p + " " : p) // the line end before a blank line is a space
       if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe, ...(i === 0 && thmEnd ? { afterThm: true } : {}), ...(/\\LXfloat\{/.test(t) ? { floats: inline } : {}) })
+      if (t || i < parts.length - 1) endpe = false // (\@doendpe ends with the paragraph after it, or a \par; not with a \pagebreak or a mark)
     })
     thmEnd = false
   }
   for (let m: RegExpExecArray | null; (m = re.exec(body)); ) {
     const before = body.slice(at, m.index)
+    // \pagebreak and \nopagebreak in a paragraph stay in its text (a \vadjust there); \newpage ends it (\par)
+    // (counter commands start no paragraph)
+    const pageInPar = !!(m[15] || m[18] || /^\\(?:no)?pagebreak/.test(m[0])) && inParagraph(before.replace(COUNTER_COMMANDS, ""))
+    if (/^\\(?:no)?pagebreak/.test(m[0]) && pageInPar) continue
+    if ((m[15] || m[18]) && braceDepth(before) !== 0) throw new Unsupported(`\\${m[15] ?? m[18]} in a group`)
+    if (m[18] && pageInPar) throw new Unsupported(`\\${m[18]} in a paragraph`)
     // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
     if (m[6] && m[7] !== "H" && inParagraph(before)) { // the paragraph goes on: the float stands in it (its \vadjust), as \LXfloat{n}
       const ph = `\\LXfloat{${inline.length}}`
@@ -213,8 +247,28 @@ export function blocksOf(body: string): Block[] {
     text(before)
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
     if (m[14] !== undefined) { out.push({ kind: "titlepage", body: m[14] }); at = re.lastIndex; endpe = false; continue }
+    if (m[15]) { out.push({ kind: "newpage", cmd: m[15] as "newpage" }); at = re.lastIndex; endpe = false; continue }
+    if (m[18]) { out.push({ kind: "pagestyle", cmd: m[18] as "thispagestyle", style: m[19].trim() }); at = re.lastIndex; continue }
+    if (/^\\(?:no)?pagebreak/.test(m[0])) {
+      const n = m[17] === undefined ? 4 : /^\s*[0-4]\s*$/.test(m[17]) ? Number(m[17]) : NaN
+      if (Number.isNaN(n)) throw new Unsupported(`${m[0].trim()}`)
+      out.push({ kind: "pagebreak", no: m[16] !== undefined, n }); at = re.lastIndex; continue
+    }
     if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
+    if (m[21]) { out.push({ kind: "appendix" }); at = re.lastIndex; endpe = false; continue }
+    if (m[25] !== undefined) {
+      if (inParagraph(before.replace(COUNTER_COMMANDS, ""))) throw new Unsupported(`${m[0].trim()} in a paragraph`)
+      // (the title as written: spaces in a row one; one at either end would be a glue in the line)
+      const title = m[27].replace(/\s+/g, " ")
+      if (m[25].trim() !== "toc" || !(m[26].trim() in HEADINGS) || /[\\{}$]|^ | $/.test(title)) throw new Unsupported(m[0].trim())
+      out.push({ kind: "contentsline", level: m[26].trim() as "section", title }); at = re.lastIndex; continue
+    }
+    if (m[22] !== undefined || m[24] !== undefined) {
+      if (inParagraph(before.replace(COUNTER_COMMANDS, ""))) throw new Unsupported(`${m[0].trim()} in a paragraph`)
+      out.push({ kind: "mark", left: m[22] ?? null, right: m[23] ?? m[24] }); at = re.lastIndex; continue
+    }
+    if (m[20]) { out.push({ kind: "lof", file: m[20] === "figures" ? "lof" : "lot" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
     if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
       const end = body.indexOf("\\end{letter}", re.lastIndex)
@@ -272,7 +326,7 @@ export function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
@@ -283,11 +337,12 @@ export function blocksOf(body: string): Block[] {
       const walk = (l: ListBlock): void => l.items.forEach((it) => it.parts.forEach((p) => {
         if (p.kind === "list") return walk(p)
         if (/^\s*\\label\b/.test(p.text) && !(l.env === "LXtheorem" && p === l.items[0].parts[0])) throw new Unsupported(`\\label in vertical mode in ${l.env}`)
+        if (/^\s*\\(?:no)?pagebreak(?![A-Za-z])/.test(p.text)) throw new Unsupported(`\\pagebreak in vertical mode in ${l.env}`)
         displaySegments(p.text).filter((_, i) => i % 2 === 0).forEach((t) => check(t as string))
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing") continue
+    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle") continue
     else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out

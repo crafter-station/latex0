@@ -1,0 +1,18 @@
+% fixture: title/abstract-report
+% tier: T3
+% engine: document
+% covers: report's abstract on a title page of its own (\titlepage, \null\vfil, \@beginparpenalty\@lowpenalty, a bold centered \abstractname with \@endparpenalty\@M, the text after the center's \@doendpe, \par\vfil\null\endtitlepage, \setcounter{page}\@ne one-sided)
+% issue: #336
+\documentclass{report}
+\title{A Report}
+\author{Someone}
+\begin{document}
+\maketitle
+\begin{abstract}
+This study examines the urban heat island effect with a long first paragraph of the abstract that has to wrap over several lines of text on the page.
+
+A second paragraph, indented as usual, with \emph{some} emphasis and $x^2$ math.
+\end{abstract}
+\chapter{Introduction}
+Text of the report.
+\end{document}

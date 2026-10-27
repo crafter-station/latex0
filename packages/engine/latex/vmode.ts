@@ -19,6 +19,8 @@ import { leadingColor } from "./colors"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
+import { clearpage, newpage } from "./sectioning"
+import { getpen } from "./body"
 
 export const ALIGNMENTS = ["centering", "raggedright", "raggedleft"] as const
 type Alignment = typeof ALIGNMENTS[number] | null
@@ -63,7 +65,9 @@ function topPar(text: string, from = 0): number {
 }
 
 /** Whether a body paragraph's text needs this mode: a \par, or a skip between paragraphs. */
-export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:vfill|bigskip|medskip|smallskip|null)(?![A-Za-z])/.test(text)
+export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:vfill|bigskip|medskip|smallskip|null)(?![A-Za-z])/.test(text.replace(PARBOX_TEXT, ""))
+/** a \parbox's text, whose \par is the box's */
+const PARBOX_TEXT = /\\parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\}\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g
 
 /**
  * The material of a group or environment in vertical mode. `top`: the body's own level, where a declaration would
@@ -117,7 +121,12 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         i = j + 1; continue
       }
     }
-    if (/^\\(?:begin|end|newpage|clearpage|vskip|label|hrule|\\)(?![A-Za-z])/.test(rest)) throw new Unsupported(`${rest.slice(0, 20)} in vertical mode here`)
+    // \pagebreak[n] and \nopagebreak[n] in vertical mode: \penalty ∓\@getpen{n}
+    const pb = rest.match(/^\\(no)?pagebreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/)
+    if (pb) { v.nodes.push(penalty((pb[1] ? 1 : -1) * getpen(cx, pb[2] === undefined ? 4 : Number(pb[2])))); i += pb[0].length; continue }
+    const np = rest.match(/^\\(newpage|clearpage)(?![A-Za-z])\s*/)
+    if (np) { if (np[1] === "newpage") newpage(cx); else clearpage(cx); i += np[0].length; continue }
+    if (/^\\(?:begin|end|vskip|label|hrule|\\)(?![A-Za-z])/.test(rest)) throw new Unsupported(`${rest.slice(0, 20)} in vertical mode here`)
     // a paragraph: to a blank line, a \par, \vfill, the end, or \@centercr (\\ under \centering and friends)
     let j = i
     let cr: RegExpMatchArray | null = null
@@ -129,7 +138,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         j = k + 1; continue
       }
       if (r[0] === "$") { const k = src.indexOf("$", j + 1); if (k < 0) throw new Unsupported("an unbalanced $"); j = k + 1; continue }
-      if (/^\n[ \t]*\n|^\\(?:par|vfill)(?![A-Za-z])/.test(r)) break
+      if (/^\n[ \t]*\n|^\\(?:par|vfill|newpage|clearpage)(?![A-Za-z])/.test(r)) break // (\newpage's \par)
       if (st.align && (cr = r.match(/^\\\\(\*)?\s*(?:\[([^\]]*)\])?/))) break
       j += r[0] === "\\" ? (r.match(/^\\(?:[A-Za-z]+|[^])/)?.[0].length ?? 1) : 1
     }
