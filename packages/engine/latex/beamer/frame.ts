@@ -18,9 +18,11 @@ import { sloppy } from "../kernel"
 import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { negate, plain, VerticalList } from "../vlist"
+import { colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
-import { outerColors, type Theme } from "./theme"
+import { frameList } from "./lists"
+import { outerColors, useColor, type Theme } from "./theme"
 
 /** a frame as written: its options and what it holds */
 export interface FrameSource { options: string; body: string }
@@ -70,7 +72,11 @@ export function framesOf(body: string): FrameSource[] {
 
 /** What reading a frame's material needs: the class, the theme, the paragraphs' traces in the order TeX breaks them,
  *  and the frame's title and subtitle as \frametitle and \framesubtitle last set them */
-export interface FrameCtx { k: ClassOptionData; theme: Theme; decisions: ParagraphTrace[]; title?: string; subtitle?: string }
+export interface FrameCtx { k: ClassOptionData; theme: Theme; decisions: ParagraphTrace[]; title?: string; subtitle?: string
+  /** a list ended (\@endpetrue) and no \par came since: the next paragraph loses its indentation box */
+  endpe?: boolean
+  /** the paragraph read last ran into a list's \begin, which ended it */
+  listInParagraph?: boolean }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -85,7 +91,11 @@ const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
-export interface ParagraphSetting { size?: SizeCommand; hsize?: number; leftskip?: GlueSpec; rightskip?: GlueSpec; sloppy?: number; start?: Node[]; end?: Node[] }
+export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape?: [number, number][]; leftskip?: GlueSpec; rightskip?: GlueSpec; sloppy?: number; start?: Node[]; end?: Node[]
+  /** false: no indentation box (\@doendpe's \everypar takes it off, \@item's puts the labels in its place) */
+  indent?: boolean
+  /** the text ended in a space that stays (something other than \par follows it) */
+  trailingSpace?: boolean }
 
 /** Paragraph text broken into lines in the sans serif text font (ragged right, \textwidth wide, unless `s` says
  *  otherwise); its trace goes to cx.decisions. */
@@ -95,12 +105,15 @@ export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = text, prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
+  // (an empty group after the space keeps it from being the paragraph's last glue)
+  if (s.trailingSpace) t = `${t.trimEnd()} {}`
   const opts: ParagraphOptions = { attrs: SANS, groups: true }
   if (s.hsize !== undefined) opts.hsize = s.hsize
+  if (s.parShape) opts.parShape = s.parShape
   if (s.leftskip) opts.leftSkip = spec("leftskip", s.leftskip)
   if (s.rightskip) opts.rightSkip = spec("rightskip", s.rightskip)
   if (s.sloppy !== undefined) Object.assign(opts, sloppy(s.sloppy))
-  if (s.start) opts.start = [emptyBox("hlist", cx.k.dimens.parindent), ...s.start]
+  if (s.start || s.indent === false) opts.start = [...(s.indent === false ? [] : [emptyBox("hlist", cx.k.dimens.parindent)]), ...(s.start ?? [])]
   if (s.end) opts.end = s.end
   const { list, params, notes } = paragraphInput(t, cx.k, s.size ?? "normalsize", doc, opts)
   const { vlist, trace } = lineBreak(list, params)
@@ -114,10 +127,39 @@ const upToBlankLine = (text: string): [string, string] => {
   return end < 0 ? [text, ""] : [text.slice(0, end), text.slice(end)]
 }
 
-/** A paragraph of text up to a blank line: broken into lines in the frame's \hsize (\textwidth), ragged right. */
+/** the lists a paragraph's text may run into */
+const LIST_BEGIN = /\\begin\{(?:itemize|enumerate)\}/
+
+/** A paragraph of text up to a blank line or a list: broken into lines in the frame's \hsize (\textwidth), ragged
+ *  right. A list's \begin pushes the list's body color in the paragraph, then \@trivlist ends it (\unskip\par: the
+ *  push is last, so a space before it stays). After a list, \@doendpe's \everypar takes the indentation box off. */
 const paragraph: FrameHandler = (cx, v, text) => {
-  const [par, rest] = upToBlankLine(text)
-  v.paragraph(setParagraph(cx, par), cx.k.glue.parskip)
+  let [par, rest] = upToBlankLine(text)
+  const at = par.search(LIST_BEGIN)
+  const s: ParagraphSetting = {}
+  if (at >= 0) {
+    rest = par.slice(at) + rest
+    par = par.slice(0, at)
+    s.end = [colorPush(useColor(cx.theme, "itemize/enumerate body", outerColors(cx.theme)).fg)]
+    if (/\s$/.test(par)) s.trailingSpace = true
+    cx.listInParagraph = true
+  }
+  if (cx.endpe) { s.indent = false; cx.endpe = false }
+  v.paragraph(setParagraph(cx, par, s), cx.k.glue.parskip)
+  return rest
+}
+
+/** itemize and enumerate (lists.ts); a paragraph right after one comes with \@endpetrue */
+const list: FrameHandler = (cx, v, text) => {
+  const kind = text.startsWith("\\begin{itemize}") ? "itemize" : "enumerate"
+  const begin = `\\begin{${kind}}`, end = `\\end{${kind}}`
+  if (/^\s*[[<]/.test(text.slice(begin.length))) throw new Unsupported(`beamer: ${kind}'s options`)
+  const stop = text.indexOf(end)
+  if (stop < 0) throw new Unsupported(`beamer: ${kind} not ended`)
+  frameList(cx, v, kind, text.slice(begin.length, stop), cx.listInParagraph === true)
+  cx.listInParagraph = false
+  const rest = text.slice(stop + end.length)
+  cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
   return rest
 }
 
@@ -168,6 +210,8 @@ const colorbox: FrameHandler = (cx, v, text) => {
   if (end < 0) throw new Unsupported("a beamercolorbox not ended")
   const body = text.slice(name.end, end)
   if (body.includes("\\begin{beamercolorbox}")) throw new Unsupported("a beamercolorbox in a beamercolorbox")
+  // (\@doendpe's \everypar would take the indentation box off the box's first paragraph)
+  if (cx.endpe) throw new Unsupported("beamer: a beamercolorbox right after a list")
   const { k, theme } = cx
   const font = selectFont(k, "normalsize", SANS)
   const o = colorboxOptions(options, k, lengthEnv(k, font.params[QUAD], font.params[X_HEIGHT]))
@@ -183,7 +227,7 @@ const colorbox: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
