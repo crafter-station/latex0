@@ -1,0 +1,26 @@
+% fixture: algorithm/caption-keys
+% tier: T3
+% engine: document
+% covers: an algorithm caption with caption.sty's \captionsetup[algorithm] (\caption@settype after the ruled style: format=hang, fonts, separator, justification, margin; the single-line check the style turned back on, so the short caption is not hung), and list=no (no loa line)
+% issue: #294
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[singlelinecheck=false]{caption}
+\captionsetup[algorithm]{format=hang,font=small,labelfont={sf,bf},labelsep=colon,justification=centering,margin=20pt,list=no}
+\begin{document}
+Text before.
+\begin{algorithm}[h]
+\caption{A short one}
+\begin{algorithmic}
+\State $x \gets 1$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[h]
+\caption{A caption long enough that it does not fit on one line any longer here, so it wraps}
+\begin{algorithmic}
+\State $y \gets 2$
+\end{algorithmic}
+\end{algorithm}
+Text after.
+\end{document}

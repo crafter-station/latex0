@@ -141,8 +141,9 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
 
 /** what \caption@@make sets: the label's name and number (\caption@labelformat's arguments), \caption* and the
  *  text, whether the text starts with hyperref's anchor (at refs.href), whether \caption@normalsize's \normalcolor
- *  comes first, and the skips when not the keys' */
-export interface CaptionMake { name: string; the: string; isSub: boolean; star: boolean; text: string; anchor: boolean; normalcolor: boolean; skips?: { above: Node; below: Node } }
+ *  comes first, the skips when not the keys' (null: none, \caption@@make alone), and whether label format original
+ *  (\fnum@<type>) has a space between name and number rather than \nobreakspace (float.sty's \fname@<type>{} \the<type>) */
+export interface CaptionMake { name: string; the: string; isSub: boolean; star: boolean; text: string; anchor: boolean; normalcolor: boolean; skips?: { above: Node; below: Node } | null; fnumSpace?: boolean }
 
 /** \caption@@make with `keys`: the skips around the caption (the position fixed in `f`), and the caption's paragraph */
 export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAbove: boolean }, c: CaptionMake, hsize: number, out: CaptionOut) {
@@ -156,14 +157,15 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
   const lfont = selectFont(run.k, lf.size, lf.attrs), cfont = selectFont(run.k, cf.size, cf.attrs), sz = run.k.sizes[tf.size]
   const above = c.skips?.above ?? glue(keys.above ?? run.k.dimens.abovecaptionskip), below = c.skips?.below ?? glue(keys.below ?? run.k.dimens.belowcaptionskip)
   // (\caption@fixposition: the first caption in a group, or in the float around it, fixes the position)
-  const top = f.top ??= keys.position === "auto" ? !f.subAbove && out.prevDepth() === IGNORE_DEPTH : keys.position === "top"
-  if (top) out.push(below)
-  else { out.rule(); out.push(above) }
+  const skips = c.skips !== null
+  const top = skips && (f.top ??= keys.position === "auto" ? !f.subAbove && out.prevDepth() === IGNORE_DEPTH : keys.position === "top")
+  if (skips && top) out.push(below)
+  else if (skips) { out.rule(); out.push(above) }
   // the label (label format original is \fnum@figure, and for a subcaption, with no \fnum@subfigure, simple),
   // empty for \caption*
   const { name, the } = c
   const fmt = keys.labelformat === "original" && isSub ? "simple" : keys.labelformat
-  const label = star || fmt === "empty" ? null : { nbsp: fmt === "original" || name !== "", name, the: fmt === "parens" ? `(${the})` : fmt === "brace" ? `${the})` : the }
+  const label = star || fmt === "empty" ? null : { nbsp: fmt === "original" ? !c.fnumSpace : name !== "", space: fmt === "original" && !!c.fnumSpace, name, the: fmt === "parens" ? `(${the})` : fmt === "brace" ? `${the})` : the }
   // (the separator is none after an empty label, \caption@tempa, or before empty text)
   const sep = !label || text === "" ? "none" : keys.labelsep
   const state = { spaceFactor: 1000 }
@@ -172,6 +174,7 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
     if (!label) return l
     if (label.name) appendText(l, label.name, lfont, state, false)
     if (label.nbsp) l.push(penalty(10000), glue(lfont.params[SPACE], lfont.params[SPACE_STRETCH], 0, lfont.params[SPACE_SHRINK], 0)) // \nobreakspace
+    else if (label.space) appendText(l, " ", lfont, state, false)
     appendText(l, label.the, lfont, state, false)
     return l
   }
@@ -184,8 +187,8 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
     else if (sep === "newline" && !centercr) l.push(penalty(10000), filGlue(), penalty(-10000)) // \\ as \@normalcr: \nobreak\hfil\break
     return l
   }
-  const strut = (): Node[] => [{ kind: "rule", width: 0, height: sz.strut.height, depth: null }, penalty(10000), glue(0)]
-  const end: Node[] = [penalty(10000), { kind: "rule", width: 0, height: 0, depth: sz.strut.depth }]
+  const strut = (): Node[] => [...(keys.strut ? [{ kind: "rule", width: 0, height: sz.strut.height, depth: null } as const] : []), penalty(10000), glue(0)]
+  const end: Node[] = keys.strut ? [penalty(10000), { kind: "rule", width: 0, height: 0, depth: sz.strut.depth }] : []
   // the width (\caption@calcmargin): \hsize less the margins, or the margins half of what the width leaves
   if (keys.left !== keys.right && keys.twoside) throw new Unsupported("unequal caption margins in a twoside document") // (\caption@ifoddpage)
   const width = keys.width ? keys.width : hsize - keys.left - keys.right
@@ -200,8 +203,10 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
   // (a single-line caption has format=hang's single-line format, plain's; with more lines, newline is an error there)
   const hang = keys.format === "hang" && !single
   if (sep === "newline" && hang) throw new Unsupported("labelsep=newline with format=hang")
-  const indent = single ? 0 : keys.indent
-  const justification = single ? "centering" : keys.justification
+  // (the single-line style's options: the default style's indent=0pt,justification=centering)
+  const slsty = single && keys.style === "default"
+  const indent = slsty ? 0 : keys.indent
+  const justification = slsty ? "centering" : keys.justification
   const shape: ParagraphOptions = justification === "centering" ? centeringShape() : justification === "raggedright" ? raggedright() : justification === "raggedleft" ? raggedleft()
     : justification === "centerlast" ? { leftSkip: paramGlue("leftskip", glue(0, 65536, FIL)), rightSkip: paramGlue("rightskip", glue(0, -65536, FIL)), parFillSkip: paramGlue("parfillskip", glue(0, 2 * 65536, FIL)) } : {}
   const centercr = justification !== "justified" // (\\ is \@centercr after \centering, \raggedright … and \centerlast)
@@ -232,8 +237,8 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
     else inner.push(n)
   }
   out.paragraph([hpack([]), glue(left + indent), vpack(inner)], "") // (the \hspace after the \parbox goes at the paragraph's end)
-  if (top) { out.push(above); out.rule() }
-  else out.push(below)
+  if (skips && top) { out.push(above); out.rule() }
+  else if (skips) out.push(below)
   if (color) out.push(colorPop())
 }
 
@@ -259,7 +264,7 @@ const FONT_COMMANDS = { bf: "bfseries", md: "mdseries", it: "itshape", sl: "slsh
  * \vspace*{-\caption@hypcapspace} (.5\baselineskip), \hyper@anchorstart{name}\hyper@anchorend,
  * \vspace*{\caption@hypcapspace}, then \prevdepth restored (-1000pt: the float's list was empty)
  */
-function hypcapAnchor(name: string, baselineskip: number): Node[] {
+export function hypcapAnchor(name: string, baselineskip: number): Node[] {
   const half = Math.trunc(baselineskip / 2) // (.5\baselineskip: xn_over_d, the sign applied after)
   const vspace = (w: number): Node[] => [{ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000), glue(w), glue(0)] // \@vspacer
   return [...vspace(-half), ...anchor(name, baselineskip, "v", glue(0)), ...vspace(half)]
@@ -291,7 +296,6 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
 function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const { run, v } = cx
   if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
-  if (cx.pre.usesCaption && cx.pre.hyper) throw new Unsupported("an [H] float with caption.sty and hyperref")
   // (right after a heading, \@setnobreak clears \if@nobreak in the box and \@endfloatbox's \outer@nobreak sets it again)
   // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
   const pending = b.inPar ? cx.decisions.pop() : undefined
@@ -327,7 +331,6 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     else throw new Unsupported(`float option ${c}`)
   }
   if (b.env === "algorithm") {
-    if (cx.pre.usesCaption && hyper) throw new Unsupported("an algorithm float with caption.sty and hyperref") // (hypcap's anchor)
     const spaced = run.k
     run.k = singleSpaced(spaced) // (setspace's \@xfloat)
     let box: BoxNode
