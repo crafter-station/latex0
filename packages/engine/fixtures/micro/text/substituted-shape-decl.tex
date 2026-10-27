@@ -1,0 +1,10 @@
+% fixture: text/substituted-shape-decl
+% tier: T3
+% engine: document
+% covers: with T1, \bfseries in a group in a paragraph, in typewriter slanted: bx/sl is undeclared and substituted, so a later \slshape from bx/n takes sl
+% issue: #340
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+Roman {\ttfamily typewriter {\slshape slanted \bfseries bold}} and {\ttfamily\bfseries bold \slshape slanted} and back.
+\end{document}

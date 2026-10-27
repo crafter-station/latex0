@@ -1,5 +1,5 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
-// lays out — classes, sizes, papers, one or two sides, the geometry package, OT1 or T1 fonts, Latin Modern (lmodern), page styles, paragraphs with inline math,
+// lays out — classes, sizes, papers, one or two sides, the geometry package, OT1 or T1 fonts, Latin Modern, Times, Helvetica and Courier, page styles, paragraphs with inline math,
 // \textbf and the other font commands, and footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
 // lists (nested, \item[label]), description, quote, quotation, verse, center, flushleft,
 // flushright and abstract, started in or out of a paragraph, with text right after them or after a
@@ -368,8 +368,10 @@ export function makeDocument(r: () => number): string {
   }
   const t1 = r() < 0.3
   if (t1) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
-  // lmodern: the Latin Modern families and math fonts (not with letter; first in the preamble, before any length in em)
-  const lm = !isLetter && r() < 0.15
+  // font packages: lmodern (the Latin Modern families and math fonts), times, helvet (scaled) and courier (not with letter
+  // or listings; first in the preamble)
+  const fontPkg = !isLetter && r() < 0.2 ? pick(["\\usepackage{lmodern}", "\\usepackage{lmodern}", "\\usepackage{times}", "\\usepackage{helvet}",
+    "\\usepackage[scaled=.92]{helvet}", "\\usepackage{courier}", "\\usepackage{times}\n\\usepackage[scaled]{helvet}"]) : null
   const ams = r() < 0.35
   amsOn = ams
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))
@@ -377,7 +379,7 @@ export function makeDocument(r: () => number): string {
   const enumitem = r() < 0.15
   if (enumitem) out.push("\\usepackage{enumitem}")
   // listings: code with keywords, comments, strings, spaces and tabulators, in the styles and columns it offers
-  const lst = r() < 0.2 && !t1 && !lm
+  const lst = r() < 0.2 && !t1 && !fontPkg
   colorOn = r() < 0.25
   btOn = r() < 0.3
   mrOn = r() < 0.2
@@ -557,7 +559,7 @@ export function makeDocument(r: () => number): string {
     else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${lang}]{babel}`)
     es = lang === "spanish"; esAscii = hyper
   }
-  if (lm) out.splice(1, 0, "\\usepackage{lmodern}")
+  if (fontPkg) out.splice(1, 0, fontPkg)
   // parskip.sty (not with titlesec or theorems yet), first in the preamble
   if (!isLetter && !tsOn && !thms.length && r() < 0.12) out.splice(1, 0, "\\usepackage{parskip}")
   out.push("\\begin{document}")

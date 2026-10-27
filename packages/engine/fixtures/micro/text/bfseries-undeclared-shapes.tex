@@ -1,0 +1,11 @@
+% fixture: text/bfseries-undeclared-shapes
+% tier: T3
+% engine: document
+% covers: with T1, an undeclared shape: \bfseries in typewriter slanted or small caps keeps bx (\DeclareFontSeriesChangeRule{m}{bx}{bx}{b}: cmtt has no b), and \selectfont's \wrong@fontshape loads bx/n (ectt1000) in \define@newfont's group, so the attributes stay: \mdseries returns to the small caps, \itshape to italic (the data's entry for bx/sl, ecit1000, is \fontshape's merge, not \wrong@fontshape's)
+% issue: #340
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+Roman {\ttfamily typewriter {\scshape caps \bfseries bold \mdseries medium} and
+{\slshape slanted \bfseries bold \itshape italic \mdseries medium}} and back.
+\end{document}

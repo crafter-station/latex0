@@ -1,0 +1,10 @@
+% fixture: text/substituted-shape-textcmd
+% tier: T3
+% engine: document
+% covers: with T1, \textbf in typewriter \textsl: bx/sl is undeclared, \wrong@fontshape loads bx/n and lets bx/sl be it, so a later \slshape from bx/n (rule [sl, it]) takes sl, not the italic
+% issue: #340
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+Roman {\ttfamily typewriter \textsl{slanted \textbf{bold}}} and {\ttfamily\bfseries bold \slshape slanted} and back.
+\end{document}

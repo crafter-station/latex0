@@ -64,7 +64,9 @@ export interface ClassData { class: string; tex: string; options: Record<string,
 
 /** A font family past Computer Modern (data/nfss/<family>.json, #340): at each font size (sp), the font NFSS selects
  *  for each "encoding/series/shape", its \hyphenchar, and whether the .fd file declares that shape */
-export interface FamilyData { family: string; tex: string; sizes: Record<string, Record<string, FontRef & { hyphenchar: number; declared: boolean }>> }
+export interface FamilyData {
+  family: string; tex: string
+  sizes: Record<string, Record<string, FontRef & { hyphenchar: number; declared: boolean }>> }
 
 /** A package's math fonts (data/nfss/math-<package>.json): by "\f@size:\sf@size:\ssf@size" in sp, the math families
  *  0–3 (also after amsmath) and the math alphabets' fonts */

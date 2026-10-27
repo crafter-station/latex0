@@ -1,0 +1,16 @@
+% fixture: fonts/lmodern-titlesec
+% tier: T3
+% engine: document
+% covers: titlesec after lmodern: its default spacing (\the of 3.5ex, 2.3ex … at load time) in ex of cmr10, the font selected then, while the headings and text are Latin Modern's
+% issue: #340
+\documentclass{article}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\begin{document}
+\section{One}
+Text of the first section.
+\subsection{Two}
+Text of the subsection.
+\section{Three}
+More text.
+\end{document}

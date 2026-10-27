@@ -88,6 +88,8 @@ export interface Preamble {
   t1: boolean
   /** booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then */
   booktabsFont: FontRef | null
+  /** titlesec loaded: the em and ex of the font selected then, which its default spacing takes */
+  titlesecUnits: { em: number; ex: number } | null
   thmDefs: Map<string, TheoremDef>
   /** \definecolor{name}{model}{spec} */
   colorDefs: [string, string, string][]
@@ -121,11 +123,26 @@ export interface Preamble {
 /** The font in effect in the preamble: T1 or not, in the families of the font packages loaded by then */
 interface PreambleFont { t1: boolean; fonts: FontSetup }
 
-/** The font packages (#340) and what each sets: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and its math fonts */
-const FONT_PACKAGES = ["lmodern"]
-function fontPackage(name: string, f: FontSetup): FontSetup {
+/** The font packages (#340) and what each sets: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and its math fonts;
+ *  PSNFSS's times.sty (all three), helvet.sty (\sfdefault, its scaled= option read by ot1phv.fd and the others as they load)
+ *  and courier.sty (\ttdefault) */
+const FONT_PACKAGES = ["lmodern", "times", "helvet", "courier"]
+function fontPackage(name: string, f: FontSetup, options: string | null = null): FontSetup {
+  if (options !== null && name !== "helvet") throw new Unsupported(`preamble: \\usepackage[${options}]{${name}}`)
   switch (name) {
-    case "lmodern": return { rm: "lmr", sf: "lmss", tt: "lmtt", math: "lmodern" }
+    case "lmodern": return { ...f, rm: "lmr", sf: "lmss", tt: "lmtt", math: "lmodern" }
+    case "times": return { ...f, rm: "ptm", sf: "phv", tt: "pcr" }
+    case "courier": return { ...f, tt: "pcr" }
+    case "helvet": {
+      // \define@key{Hel}{scaled}[.95]{\def\Hv@scale{#1}}
+      let scale = f.phvScale
+      for (const o of (options ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+        const m = o.match(/^scaled\s*(?:=\s*(\d*\.?\d+))?$/)
+        if (!m) throw new Unsupported(`helvet option ${o}`)
+        scale = m[1] ?? ".95"
+      }
+      return { ...f, sf: "phv", phvScale: scale }
+    }
   }
   throw new Unsupported(`preamble: \\usepackage{${name}}`)
 }
@@ -193,6 +210,7 @@ export function readPreamble(src: string): Preamble {
   const kClass = k
   const selectedFont = (p: PreambleFont) => { let x = withFonts(kClass, p.fonts); if (p.t1) x = withT1(x, cls); const r = x.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at) }
   const geometryOptions: string[] = []
+  let titlesecFont: PreambleFont = selected // the font selected when titlesec loaded (its spacing, \the at load time)
   let geometryFont: PreambleFont = { t1: false, fonts: CM_FONTS } // the font selected when geometry read its keys
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
   const lengths: [string, string, PreambleFont][] = [] // \setlength in the preamble (and the font selected by then: its em and ex)
@@ -327,6 +345,8 @@ export function readPreamble(src: string): Preamble {
     // \hypersetup{keys} after hyperref, as its options
     const hs = line.match(/^\\hypersetup\s*\{(.*)\}$/)
     if (hs) { if (!hyper) throw new Unsupported(`preamble: ${line}`); hyperOptions(hyperOpts, hs[1]); continue }
+    const hv = line.match(/^\\usepackage\[([^\]]*)\]\{helvet\}$/)
+    if (hv) { if (cls === "letter") throw new Unsupported("helvet with letter"); fonts = fontPackage("helvet", fonts, hv[1]); continue }
     const hpo = line.match(/^\\usepackage\[(.*)\]\{hyperref\}$/)
     if (hpo) {
       if (hyper) throw new Unsupported("hyperref loaded twice with options") // (LaTeX: Option clash)
@@ -380,7 +400,7 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("amsmath")) amsmath = true
       if (names.includes("titlesec")) {
         if (cls !== "article") throw new Unsupported(`titlesec with ${cls}`)
-        titlesec = titlesecDefaults()
+        titlesec = titlesecDefaults(); titlesecFont = selected
       }
       if (names.includes("fancyhdr")) {
         fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
@@ -524,7 +544,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

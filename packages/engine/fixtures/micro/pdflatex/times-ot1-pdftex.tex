@@ -1,0 +1,36 @@
+% fixture: pdflatex/times-ot1-pdftex
+% tier: T3
+% engine: document
+% oracle: pdflatex
+% covers: under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), \usepackage{times} without fontenc at 12pt: ptm, phv and pcr in OT1 (ptmr7t …), every shape and series (bx as ssub of b), NFSS's substitutes, ligatures and kerns, hyphenation, \textbullet and footnote marks from ptm at \sf@size, math in Computer Modern
+% issue: #340
+\documentclass[12pt]{article}
+\usepackage{times}
+\usepackage{amsmath}
+\title{Times\thanks{A thanks.}}
+\author{A. Author}
+\date{}
+\begin{document}
+\maketitle
+\section{Times in OT1}
+The office staff found a difficult affair: efficient workflows, offline coffee, ``quoted words'' and pages 10--20 --- with an em dash. Hyphenation works with the PostScript fonts as well: typesetting, composition, paragraphs, demerits.\footnote{A footnote in Times, with fluffy waffles.} Math stays the same: $x^2+y^2=z^2$ and $\mathbf{v}$.
+
+{\itshape italic} {\slshape slanted} {\scshape Small Caps} {\bfseries bold \itshape bold italic \slshape bold slanted \scshape bold caps}
+{\sffamily sans \itshape italic \slshape slanted \bfseries bold \scshape caps} {\ttfamily typewriter \itshape italic \slshape slanted \scshape caps \bfseries bold}
+{\itshape\scshape it sc} {\scshape\slshape sc sl} and \emph{emphasis \emph{inside} it}, 90\textdegree{} and 45° in \textsection 2.
+
+{\tiny tiny} {\scriptsize script} {\footnotesize foot} {\small small} {\large large} {\Large Large} {\LARGE LARGE} {\huge huge} {\Huge Huge}
+
+\begin{itemize}
+\item one
+  \begin{itemize}
+  \item a bold en dash label
+    \begin{itemize}
+    \item an asterisk
+      \begin{itemize}
+      \item a centred dot
+      \end{itemize}
+    \end{itemize}
+  \end{itemize}
+\end{itemize}
+\end{document}

@@ -13,7 +13,7 @@ import { hpack } from "../layout/pack"
 import { displaySegments } from "./blocks"
 import type { Ctx } from "./context"
 import { centering, raggedleft, raggedright } from "./kernel"
-import { BODY_DECLARATIONS, closingBrace, fontDeclaration, paragraphInput, selectFont, SKIP_AMOUNTS, type FontAttrs } from "./paragraph"
+import { BODY_DECLARATIONS, closingBrace, fontDeclaration, noteSubstitution, paragraphInput, selectFont, SKIP_AMOUNTS, type FontAttrs } from "./paragraph"
 import { groupStart } from "./source"
 import { leadingColor } from "./colors"
 import { Unsupported } from "./unsupported"
@@ -34,7 +34,9 @@ export const isDeclaration = (name: string) => BODY_DECLARATIONS.includes(name) 
 export function declare(cx: Ctx, st: DeclState, name: string): DeclState {
   if (isSize(name)) return { ...st, size: name as SizeCommand }
   if ((ALIGNMENTS as readonly string[]).includes(name)) return { ...st, align: name as Alignment }
-  return { ...st, attrs: fontDeclaration(name, st.attrs, cx.run.k, st.size, cx.doc, selectFont(cx.run.k, st.size, st.attrs))! }
+  const attrs = fontDeclaration(name, st.attrs, cx.run.k, st.size, cx.doc, selectFont(cx.run.k, st.size, st.attrs))!
+  noteSubstitution(cx.run.k, st.size, attrs, cx.doc)
+  return { ...st, attrs }
 }
 
 /** the declarations at the top level of paragraph text (not in a group, a formula or an argument), in order */

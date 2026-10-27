@@ -4,6 +4,7 @@
 import { xnOverD } from "../layout/arith"
 import type { ClassOptionData, FontRef, SizeCommand } from "../layout/classdata"
 import { loadFont, QUAD } from "../layout/font"
+import { times } from "../layout/dimen"
 import { glue } from "../layout/nodes"
 import { classFile, dataFont, familyFile, mathFontsFile } from "./data"
 import { Unsupported } from "./unsupported"
@@ -64,8 +65,8 @@ export function withT1(k: ClassOptionData, cls: string): ClassOptionData {
 
 /** The fonts the preamble's font packages select (#340): the families \rmdefault, \sfdefault and \ttdefault name, and
  *  the package that set the math fonts (\SetSymbolFont, \SetMathAlphabet), null for fontmath.ltx's */
-export interface FontSetup { rm: string; sf: string; tt: string; math: string | null }
-export const CM_FONTS: FontSetup = { rm: "cmr", sf: "cmss", tt: "cmtt", math: null }
+export interface FontSetup { rm: string; sf: string; tt: string; math: string | null; /** helvet.sty's scaled=: \Hv@scale */ phvScale: string | null }
+export const CM_FONTS: FontSetup = { rm: "cmr", sf: "cmss", tt: "cmtt", math: null, phvScale: null }
 
 /** NFSS's font for "encoding/series/shape" of a family at a font size in sp (\fontsize{size}\selectfont) */
 export function familyFont(family: string, key: string, size: number): FontRef & { hyphenchar: number; declared: boolean } {
@@ -85,7 +86,9 @@ export function withFonts(k: ClassOptionData, setup: FontSetup): ClassOptionData
     for (const [slot, family] of slots) {
       for (const key of Object.keys(s.fonts).filter((x) => x.split("/")[1] === slot)) {
         const [enc, , ser, shape] = key.split("/")
-        fonts[key] = familyFont(family, `${enc}/${ser}/${shape}`, s.size)
+        const r = familyFont(family, `${enc}/${ser}/${shape}`, s.size)
+        // (the .fd's s*[\Hv@scale]: \@tempdimb\f@size\p@, then \@tempdimb\Hv@scale\@tempdimb)
+        fonts[key] = family === "phv" && setup.phvScale ? { ...r, at: times(setup.phvScale, r.at) } : r
       }
     }
     const ref = (key: string): FontRef => ({ name: fonts[key].name, at: fonts[key].at })

@@ -1,0 +1,12 @@
+% fixture: text/substituted-shape-vmode
+% tier: T3
+% engine: document
+% covers: with T1, \bfseries in a group around a paragraph (its \par inside), in typewriter slanted: bx/sl is undeclared and substituted, so a later \slshape from bx/n takes sl
+% issue: #340
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+{\ttfamily\slshape\bfseries A paragraph in bold slanted typewriter, ended in its group.\par}
+
+Roman and {\ttfamily\bfseries bold \slshape slanted} and back.
+\end{document}

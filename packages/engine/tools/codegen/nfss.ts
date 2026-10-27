@@ -15,12 +15,13 @@ import { texEnv } from "../tex"
 import { ALPHABETS } from "./classes"
 
 const OUT = "packages/engine/data/nfss"
-/** the families (lmodern.sty's \rmdefault, \sfdefault and \ttdefault) */
-export const FAMILIES = ["lmr", "lmss", "lmtt"]
+/** the families: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and PSNFSS's Times, Helvetica and Courier (times.sty, helvet.sty, courier.sty) */
+export const FAMILIES = ["lmr", "lmss", "lmtt", "ptm", "phv", "pcr"]
 /** the packages that set up math fonts, as a preamble loads them */
 export const MATH_PACKAGES: Record<string, string> = { lmodern: "\\usepackage{lmodern}" }
 /** the encodings, series and shapes the engine selects (FontAttrs) */
 const SHAPES = ["OT1", "T1", "TS1"].flatMap((e) => ["m", "bx"].flatMap((s) => ["n", "it", "sl", "sc", "scit", "scsl"].map((h) => `${e}/${s}/${h}`)))
+const BOLD = SHAPES.filter((s) => s.split("/")[1] === "m").map((s) => s.replace("/m/", "/b/"))
 /** the classes whose sizes the data covers (beamer's are its own) */
 const CLASSES = ["article", "report", "book", "letter"]
 
@@ -55,7 +56,10 @@ function familyData(family: string, sizes: number[]): FamilyData {
     // which shapes the .fd files declare, read before any substitution (which declares the shape it replaces)
     ...["OT1", "T1", "TS1"].map((e) => `{\\fontencoding{${e}}\\fontfamily{${family}}\\fontseries{m}\\fontshape{n}\\selectfont}`),
     ...SHAPES.map((s) => { const [e, ser, sh] = s.split("/"); return `\\immediate\\write16{D:${s}:\\ifcsname ${e}/${family}/${ser}/${sh}\\endcsname 1\\else 0\\fi}` }),
-    ...sizes.map((sp) => `{\\fontsize{${sizeText(sp)}}{${sizeText(sp)}}${SHAPES.map((s) => { const [e, ser, sh] = s.split("/"); return `{\\fontencoding{${e}}\\fontfamily{${family}}\\fontseries{${ser}}\\fontshape{${sh}}\\selectfont\\immediate\\write16{N:\\f@size:${s}:\\fontname\\font:\\the\\hyphenchar\\font}}` }).join("")}}`),
+    // series b too (\bfseries's when bx lacks a shape, \DeclareFontSeriesChangeRule{m}{bx}{bx}{b}; and the series itself
+    // for families outside latex.ltx's \init@series@setup list): checked against bx below, not kept
+    ...BOLD.map((s) => { const [e, ser, sh] = s.split("/"); return `\\immediate\\write16{D:${s}:\\ifcsname ${e}/${family}/${ser}/${sh}\\endcsname 1\\else 0\\fi}` }),
+    ...sizes.map((sp) => `{\\fontsize{${sizeText(sp)}}{${sizeText(sp)}}${[...SHAPES, ...BOLD].map((s) => { const [e, ser, sh] = s.split("/"); return `{\\fontencoding{${e}}\\fontfamily{${family}}\\fontseries{${ser}}\\fontshape{${sh}}\\selectfont\\immediate\\write16{N:\\f@size:${s}:\\fontname\\font:\\the\\hyphenchar\\font}}` }).join("")}}`),
     "\\end{document}", "",
   ].join("\n")
   const log = tex(join(".cache/nfss", family), "family", src)
@@ -68,8 +72,16 @@ function familyData(family: string, sizes: number[]): FamilyData {
       ;(data.sizes[String(parseScaled(m[1]))] ??= {})[m[2]] = { ...ref(m[3], m[4]), hyphenchar: Number(m[5]), declared: declared.get(m[2]) ?? false }
     }
   }
-  const missing = sizes.filter((sp) => SHAPES.some((s) => !data.sizes[String(sp)]?.[s]))
+  const missing = sizes.filter((sp) => [...SHAPES, ...BOLD].some((s) => !data.sizes[String(sp)]?.[s]))
   if (missing.length) throw new Error(`${family}: TeX did not report the fonts at ${missing.map(sizeText).join(", ")}`)
+  // The engine's \bfseries is bx. For a family in \init@series@setup's list (lm…) that holds when b declares no shape bx
+  // lacks; for one outside it (\bfseries@rm is b: ptm…), when b and bx declare the same shapes with the same fonts.
+  const kernelList = ["cmr", "cmss", "cmtt", "lcmss", "lcmtt", "lmr", "lmss", "lmtt"].includes(family)
+  for (const b of BOLD) {
+    const bx = b.replace("/b/", "/bx/")
+    if (kernelList ? declared.get(b) && !declared.get(bx) : declared.get(b) !== declared.get(bx) || sizes.some((sp) => declared.get(b) && data.sizes[String(sp)][b].name !== data.sizes[String(sp)][bx].name)) throw new Error(`${family}: series b and bx differ at ${b}`)
+  }
+  for (const s of Object.values(data.sizes)) for (const b of BOLD) delete s[b]
   return data
 }
 

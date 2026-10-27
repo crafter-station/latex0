@@ -96,15 +96,15 @@ export function titleformat(formats: TitleFormats, line: string): boolean {
 export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const formats = cx.pre.titlesec!
   const { hyper } = cx.pre
-  const { bodyUnits, contentsWrites, counted, counters, headings, lastNode, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
+  const { contentsWrites, counted, counters, headings, lastNode, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
   if (heading.level < 1 || heading.level > 3) throw new Unsupported(`a titlesec ${["\\part", "", "", "", "\\paragraph", "\\subparagraph"][heading.level]}`)
   if (headings) throw new Unsupported("titlesec with running heads")
   const level = heading.level as 1 | 2 | 3
   const f = formats[level]
   const b = { ...heading, title: counted(heading.title) }
   // \ttl@extract: \titlespacing*{\cmd}{indent}{-beforeskip}{afterskip}, \the of each at load time (which
-  // scans back to the same skip)
-  const units = bodyUnits
+  // scans back to the same skip), in the font selected when titlesec loaded
+  const units = cx.pre.titlesecUnits!
   const before = parseGlue(level === 1 ? "3.5ex plus 1ex minus .2ex" : "3.25ex plus 1ex minus .2ex", units)
   const after = parseGlue(level === 1 ? "2.3ex plus .2ex" : "1.5ex plus .2ex", units)
   noskipsecPar("a heading") // \if@noskipsec \leavevmode \fi

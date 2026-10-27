@@ -1,7 +1,7 @@
 % fixture: fonts/lmodern-ot1
 % tier: T3
 % engine: document
-% covers: \usepackage{lmodern} without fontenc: lmr, lmss and lmtt in OT1 (rm-lmr*, rm-lmss*, rm-lmtt*) at every size, every shape and series the .fd files declare and NFSS's substitutes, ligatures and kerns, hyphenation, \textbullet from ts1-lmr, footnote marks at \sf@size
+% covers: \usepackage{lmodern} without fontenc: lmr, lmss and lmtt in OT1 (rm-lmr*, rm-lmss*, rm-lmtt*) at every size, every shape and series the .fd files declare and NFSS's substitutes, ligatures and kerns, hyphenation, \textbullet from ts1-lmr, footnote marks at \sf@size, \textdegree and ° from ts1-lmr10, \textsection
 % issue: #340
 \documentclass{article}
 \usepackage{lmodern}
@@ -12,7 +12,7 @@ The office staff found a difficult affair: efficient workflows, offline coffee, 
 \subsection{Shapes}
 {\itshape italic} {\slshape slanted} {\scshape Small Caps} {\bfseries bold \itshape bold italic \slshape bold slanted \scshape bold caps}
 {\sffamily sans \itshape italic \slshape slanted \bfseries bold \scshape caps} {\ttfamily typewriter \itshape italic \slshape slanted \scshape caps \bfseries bold} {\ttfamily\bfseries bold tt \itshape italic}
-{\itshape\scshape it sc} {\scshape\slshape sc sl} and \emph{emphasis \emph{inside} it}.
+{\itshape\scshape it sc} {\scshape\slshape sc sl} and \emph{emphasis \emph{inside} it}, 90\textdegree{} and 45° in \textsection 2.
 
 {\tiny tiny} {\scriptsize script} {\footnotesize foot} {\small small} {\large large} {\Large Large} {\LARGE LARGE} {\huge huge} {\Huge Huge}
 
