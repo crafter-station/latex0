@@ -1,0 +1,30 @@
+% fixture: templates/corpus-recipe
+% tier: T3
+% engine: document
+% covers: the starter-corpus recipe (corpus/recipe.tex): xcolor's \textcolor, enumitem lists, sections and subsections, \textdegree
+% issue: #272
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+\begin{document}
+\section*{Banana Bread}
+\textcolor{gray}{Serves 8 \quad Prep 15 min \quad Bake 60 min}
+
+\subsection*{Ingredients}
+\begin{itemize}[noitemsep]
+  \item 3 ripe bananas
+  \item 1/3 cup melted butter
+  \item 3/4 cup sugar
+  \item 1 egg
+  \item 1 1/2 cups flour
+\end{itemize}
+
+\subsection*{Steps}
+\begin{enumerate}
+  \item Heat the oven to 175\,\textdegree C.
+  \item Mash the bananas and mix in the butter.
+  \item Stir in the sugar, egg and flour.
+  \item Bake for an hour.
+\end{enumerate}
+\end{document}
