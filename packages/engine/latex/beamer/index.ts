@@ -20,6 +20,7 @@ import { VerticalList } from "../vlist"
 import { colorPush, xcolor } from "../xcolor"
 import { frameBox, framesOf, type FrameSource } from "./frame"
 import { beamerPage } from "./page"
+import { outerColors } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
 /** What a run writes to the .aux file for the next one: the frames (\inserttotalframenumber, in the .nav lines
@@ -77,7 +78,7 @@ function layout(src: string, prev: Aux | null): { result: LayoutResult; written:
   const pre = readBeamerPreamble(src)
   const k = pre.k
   hyperDriver.pdftex = false
-  xcolor.on = true; xcolor.normal = "gray 0"; outputOptions.xcolor = true
+  xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev)
   const cx: BeamerCtx = { pre, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1 }
@@ -92,7 +93,7 @@ function layout(src: string, prev: Aux | null): { result: LayoutResult; written:
   // each page's head paragraph is broken as it ships, after its frame's paragraphs
   const decisions: ParagraphTrace[] = []
   const shipped: BoxNode[] = columns.map((c, i) => {
-    const { box, trace } = beamerPage(c.outputbox, pages[i].count, k)
+    const { box, trace } = beamerPage(c.outputbox, pages[i].count, k, pre.theme)
     decisions.push(...cx.decisions.slice(i ? cx.frameEnds[i - 1] : 0, cx.frameEnds[i]), trace)
     return box
   })

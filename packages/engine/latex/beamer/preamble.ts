@@ -9,14 +9,17 @@ import type { ClassOptionData } from "../../layout/classdata"
 import { classFile } from "../data"
 import { pdfString } from "../hyperref"
 import { Unsupported } from "../unsupported"
+import { loadTheme, type Theme } from "./theme"
 
 export interface BeamerPreamble {
   /** the size option (beamer's \beamer@size: the .clo it inputs) */
   option: string
   /** \ifbeamer@centered: frames centered vertically by default (the c option, beamer's default) or at the top (t) */
   centered: boolean
-  /** the class's parameters at that size */
+  /** the class's parameters at that size, with the theme's sizes */
   k: ClassOptionData
+  /** the theme (data/beamer): its colors, fonts and sizes */
+  theme: Theme
   /** hyperref's /Title and /Author (\pdfstringdef'd), from \title (with \subtitle) and \author */
   pdfTitle: string
   pdfAuthor: string
@@ -39,7 +42,6 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     else if (o === "t" || o === "c") centered = o === "c"
     else throw new Unsupported(`beamer option ${o}`)
   }
-  const k = classFile("beamer").options[option]
   // \begin{document} and \end{document} outside comments
   const at = (re: RegExp) => { for (const x of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", x.index!) + 1, x.index))) return x.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
@@ -59,12 +61,15 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     throw new Unsupported(`beamer preamble: ${line}`)
   }
   if (navigationSymbols) throw new Unsupported("beamer's navigation symbols")
+  const theme = loadTheme("default")
+  const cls = classFile("beamer").options[option]
+  const k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens } }
   // beamerbasetitle.sty's \beamer@firstminutepatches: pdftitle={\inserttitle\ - \insertsubtitle}; \beamer@author:
   // pdfauthor={\beamer@andstripped}
   const title = pdfInfo(info.title + (info.subtitle ? ` - ${info.subtitle}` : ""))
   // (\beamer@stripands, then \and as ", ")
   const author = pdfInfo(info.author.replace(/\s*\\and(?![A-Za-z])\s*/g, ", "))
-  return { option, centered, k, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end) }
+  return { option, centered, k, theme, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end) }
 }
 
 /** a document information string as hyperref's \pdfstringdef makes it ("" for none) */
