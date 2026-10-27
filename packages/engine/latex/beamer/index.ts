@@ -12,6 +12,7 @@
 import { emitBoxes } from "../../emit/boxes"
 import { shipOut, type PageMark } from "../../emit/trace"
 import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layout/nodes"
+import { hpack } from "../../layout/pack"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
@@ -22,11 +23,11 @@ import type { DocumentSource } from "../source"
 import { Unsupported } from "../unsupported"
 import { VerticalList } from "../vlist"
 import { colorPush, xcolor } from "../xcolor"
-import { footlineTemplate, type FootlineAt } from "./footline"
+import { footlineTemplate, headlineTemplate, type FootlineAt, type Heads } from "./footline"
 import { newOverlay } from "./overlays"
 import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource } from "./frame"
 import { Sections, sectionNodes, type TocEntry } from "./sections"
-import { beamerPage } from "./page"
+import { beamerPage, headOrFoot } from "./page"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { BeamerPgf } from "./pgf"
 import { outerColors, useColor } from "./theme"
@@ -40,6 +41,8 @@ interface Aux { frames: number; pages: number; pageFrames: number[]; toc: TocEnt
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per page the
  *  index in `decisions` after its slide's paragraphs (where its head paragraph goes) and its frame's number */
 interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; pageEnds: number[]; pageFrames: number[]
+  /** per page, the section and subsection heads where it is shipped (the frame's) */
+  pageHeads: Heads[]
   frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number
   /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number
   /** the sectioning state, and the .toc lines the last run wrote */
@@ -98,8 +101,8 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null, objects: Node[]): 
  */
 function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, number = ++cx.frames
-  // \beamer@calculateheadfoot (\c@framenumber stepped already) measures the footline
-  footlineTemplate(k, cx.pre.theme, cx.pre.info, footlineAt(cx, number, cx.pageFrames.length + 1), cx.decisions)
+  // \beamer@calculateheadfoot (\c@framenumber stepped already)
+  calculateHeadFoot(cx, number, cx.pageFrames.length + 1)
   const bs = k.sizes.normalsize.baselineskip
   const first = cx.pageFrames.length + 1, equations = cx.equations.n, footnotes = cx.footnotes.n
   for (let slide = 1; ; slide++) {
@@ -111,6 +114,7 @@ function frame(cx: BeamerCtx, f: FrameSource) {
       footnotes: cx.footnotes, footins: [], pgf: cx.pgf }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
+    cx.pageHeads.push(heads(cx))
     cx.v.box(box, bs)
     if (!overlay.another) break
   }
@@ -129,8 +133,21 @@ function clearpage(cx: BeamerCtx) {
   cx.v.nodes.push(penalty(-10001))
 }
 
-/** The footline's counters and the date for frame `frame` on page `page` */
-const footlineAt = (cx: BeamerCtx, frame: number, page: number): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch })
+/** The head and foot lines' counters, the date and the section heads (`h`: the current ones) for frame `frame` on page
+ *  `page` */
+const footlineAt = (cx: BeamerCtx, frame: number, page: number, h = heads(cx)): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch, heads: h })
+const heads = (cx: BeamerCtx): Heads => ({ section: cx.sections.sectionHead, subsection: cx.sections.subsectionHead })
+
+/** \beamer@calculateheadfoot: the footline and the headline typeset (their paragraphs traced) and measured. The sizes
+ *  are the theme data's (\beamer@calculateheadfoot's at \begin{document}): a headline or footline of another height
+ *  would change them. */
+function calculateHeadFoot(cx: BeamerCtx, frame: number, page: number) {
+  const { k, theme, info } = cx.pre, d = k.dimens
+  const at = footlineAt(cx, frame, page)
+  const foot = hpack(headOrFoot(k, footlineTemplate(k, theme, info, at, cx.decisions)))
+  const head = hpack(headOrFoot(k, headlineTemplate(k, theme, at, cx.decisions)))
+  if (foot.height + foot.depth + 4 * 65536 !== d.footheight || head.height + head.depth !== d.headheight || head.depth !== d.headdp) throw new Unsupported("beamer: a headline or footline of another height")
+}
 
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
 function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux } {
@@ -143,10 +160,10 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   const v = new VerticalList(k)
   const pgf = navigationPgf(driver)
   v.nodes = documentBegin(pre, prev, pgf.nodes)
-  const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
+  const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
     sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d) }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
-  footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, 0, 1), cx.decisions)
+  calculateHeadFoot(cx, 0, 1)
   for (const item of bodyOf(pre.body)) (BODY[item.kind] as (cx: BeamerCtx, item: BodyItem) => void)(cx, item)
   // \end{document}: beamerbasemisc.sty's \AtEndDocument \clearpage (its .nav lines are \immediate), then the kernel's
   clearpage(cx)
@@ -162,7 +179,8 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
     const foot: ParagraphTrace[] = []
     const page = pages[i].count
     const symbols = pre.navigationSymbols ? [navigationSymbols(pgf, pre.theme, symbolColors, page, links[page - 1])] : []
-    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, () => footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, cx.pageFrames[i], page), foot), symbols)
+    const at = footlineAt(cx, cx.pageFrames[i], page, cx.pageHeads[i])
+    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, (traces) => headlineTemplate(k, pre.theme, at, traces), () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     const shown = pgfBackground(box, i === 0)
     return i === 0 ? beamerFirstPage(shown, k) : shown

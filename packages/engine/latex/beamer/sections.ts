@@ -30,6 +30,9 @@ import { fontSize, outerColors, useColor, type ColorState } from "./theme"
  *  {subsection}{title}{page}{part}{toc number} */
 export interface TocEntry { kind: "section" | "subsection"; section: number; subsection: number; title: string; page: number }
 
+/** \insertsectionhead's or \insertsubsectionhead's link: its text and page */
+export interface Head { short: string; page: number }
+
 /** The sectioning state: the counters, the pages the section and subsection began on, \lastsubsection, the
  *  \c@subsectionslide the next frame steps, the .toc lines written and the bookmarks */
 export class Sections {
@@ -41,6 +44,9 @@ export class Sections {
   subsectionStart = 1
   lastSubsection = ""
   subsectionSlide = 0
+  /** \insertsectionhead and \insertsubsectionhead: the short title, a link to the page the (sub)section began on */
+  sectionHead: Head | null = null
+  subsectionHead: Head | null = null
   readonly toc: TocEntry[] = []
   /** hyperref's .out is \write5 in beamer, with bookmarksopen */
   readonly bookmarks = new Bookmarks(5, "")
@@ -80,6 +86,7 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
     out.push(nav(`\\beamer@sectionpages {${st.sectionStart}}{${page - 1}}`), nav(`\\beamer@subsectionpages {${st.subsectionStart}}{${page - 1}}`),
       nav(`\\sectionentry {${st.section}}{${short}}{${page}}{${title}}{0}`))
     st.sectionStart = page
+    st.sectionHead = { short, page }; st.subsectionHead = null
     name = `Outline0.${st.section}`; level = 2
   } else {
     st.subsection++; st.subsectionSlide = 0; st.lastSubsection = short
@@ -89,6 +96,7 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
     }
     out.push(nav(`\\beamer@subsectionpages {${st.subsectionStart}}{${page - 1}}`),
       nav(`\\beamer@subsectionentry {0}{${st.section}}{${st.subsection}}{${page}}{${short}}`))
+    st.subsectionHead = { short, page }
     name = `Outline0.${st.section}.${st.subsection}.${page}`; level = 3
   }
   st.subsectionStart = page

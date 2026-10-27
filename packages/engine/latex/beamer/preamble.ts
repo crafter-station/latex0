@@ -2,8 +2,8 @@
 // loads geometry (paper 128mm × 96mm, 1cm side margins), xcolor, hyperref,
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
 // of one of them changes nothing. The themes are the default ones, color themes,
-// the rounded and circles inner themes and the infolines outer theme (with the
-// default headline), and Madrid without its shadows, as data/beamer has them, with
+// the rounded and circles inner themes and the infolines outer theme, and Madrid,
+// CambridgeUS and AnnArbor without their shadows, as data/beamer has them, with
 // the default navigation symbols or none: any other theme or template setting
 // throws Unsupported.
 
@@ -62,6 +62,7 @@ const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10p
 const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
   "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
   "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles",
+  "infolines-headline", "CambridgeUS", "AnnArbor",
   "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 /** the packages beamer.cls loads (with these, \usepackage does nothing) */
 const LOADED = ["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "xcolor", "geometry", "url", "enumerate"]
@@ -108,11 +109,12 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     }
     const color = line.match(/^\\usecolortheme\{([A-Za-z]+)\}$/)
     if (color) { themeLines.push(line); themeParts.push(color[1]); continue }
-    if (line === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts.push("infolines"); continue }
+    // (with its own headline until the next line sets the default one back)
+    if (line === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts.push("infolines-headline"); continue }
     const inner = line.match(/^\\useinnertheme\{(rounded|circles)\}$/)
     if (inner) { themeLines.push(line); themeParts.push(inner[1]); continue }
     // (infolines' headline set back to the default one, as Madrid does)
-    if (line === "\\setbeamertemplate{headline}[default]" && themeLines.at(-1) === "\\useoutertheme{infolines}") { themeLines.push(line); continue }
+    if (line === "\\setbeamertemplate{headline}[default]" && themeLines.at(-1) === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts[themeParts.length - 1] = "infolines"; continue }
     // Madrid (beamerthemeMadrid.sty): the whale and orchid color themes, the rounded inner theme, the infolines outer
     // theme with the default headline; without its shadows (the rounded theme's shadow=true: pgf's fadings) only
     if (/^\\usetheme(?:\[[^\]]*\])?\{Madrid\}$/.test(line)) {
@@ -120,6 +122,15 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
       if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
       themeLines.push("\\usecolortheme{whale}", "\\usecolortheme{orchid}", "\\useinnertheme{rounded}", "\\useoutertheme{infolines}", "\\setbeamertemplate{headline}[default]")
       themeParts.push("whale", "orchid", "rounded", "infolines")
+      continue
+    }
+    // the presentation themes data/beamer has whole (with shadow=false where the theme has shadows: the rounded inner
+    // theme's shadow=true needs pgf's fadings)
+    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor)\}$/)
+    if (p) {
+      if (p[1] !== "shadow=false") throw new Unsupported(`beamer: ${p[2]}'s shadows (pgf's fadings)`)
+      if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
+      themeLines.push(line); themeParts.push(p[2])
       continue
     }
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }

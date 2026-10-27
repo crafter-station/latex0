@@ -13,12 +13,33 @@ export interface ColorState { fg: string; bg: string }
 
 export interface Theme { name: string; data: BeamerThemeData
   /** the inner theme (\useinnertheme): its templates */
-  inner: "default" | "rounded" | "circles" }
+  inner: "default" | "rounded" | "circles"
+  /** the outer theme (\useoutertheme): its footline */
+  outer: "default" | "infolines"
+  /** the headline: the outer theme's, or the default (empty) one */
+  headline: "default" | "infolines" }
+
+/** the presentation themes (\usetheme) the data has: the inner and outer themes they load, the headline they leave */
+const PRESENTATION: Record<string, Pick<Theme, "inner" | "outer" | "headline">> = {
+  CambridgeUS: { inner: "rounded", outer: "infolines", headline: "infolines" },
+  AnnArbor: { inner: "rounded", outer: "infolines", headline: "infolines" },
+}
 
 export function loadTheme(name: string): Theme {
   const data = beamerThemeFile(name)
-  const inner = data.preamble.map((l) => l.match(/^\\useinnertheme\{(rounded|circles)\}$/)?.[1]).find((x) => x) as Theme["inner"] | undefined
-  return { name, data, inner: inner ?? "default" }
+  const t: Theme = { name, data, inner: "default", outer: "default", headline: "default" }
+  for (const line of data.preamble) {
+    const inner = line.match(/^\\useinnertheme\{(rounded|circles)\}$/)
+    if (inner) t.inner = inner[1] as Theme["inner"]
+    else if (line === "\\useoutertheme{infolines}") t.outer = t.headline = "infolines"
+    else if (line === "\\setbeamertemplate{headline}[default]") t.headline = "default"
+    else {
+      const p = line.match(/^\\usetheme(?:\[[^\]]*\])?\{([A-Za-z]+)\}$/)
+      if (p && p[1] in PRESENTATION) Object.assign(t, PRESENTATION[p[1]])
+      else if (!line.startsWith("\\usecolortheme{")) throw new Unsupported(`beamer theme line ${line}`)
+    }
+  }
+  return t
 }
 
 function color(t: Theme, name: string): BeamerColor {

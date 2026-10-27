@@ -1,4 +1,4 @@
-// The footline (beamerbaseframecomponents.sty's \beamer@typesetheadorfoot{footline}):
+// The footline and the headline (beamerbaseframecomponents.sty's \beamer@typesetheadorfoot):
 // the template in a \vbox \paperwidth wide, with \parskip zero and \offinterlineskip,
 // typeset when \beamer@calculateheadfoot measures it (at \begin{document} and at each
 // frame's start) and when the page is shipped. The default outer theme's is empty;
@@ -7,9 +7,11 @@
 // (with the short institute in parentheses), the short title (a link to the last page
 // on the first page, to the first one on the others), and the short date with the
 // frame number "n / total". Each box's paragraph and the template's own are traced
-// where TeX breaks them: inside out, as each \par comes.
+// where TeX breaks them: inside out, as each \par comes. The infolines headline is
+// two such boxes half the paper wide: the section's head (a link to the page the
+// section began on) and the subsection's.
 
-import type { ClassOptionData } from "../../layout/classdata"
+import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
 import { QUAD, X_HEIGHT, type Font } from "../../layout/font"
 import { appendText, spaceGlue } from "../../layout/hmode"
@@ -25,15 +27,17 @@ import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, colorboxOptions, lengthEnv, type ColorboxBody } from "./colorbox"
 import { SANS } from "./frame"
 import type { TitleInfo } from "./preamble"
-import { navigationLink } from "./sections"
+import { navigationLink, type Head } from "./sections"
 import { fontSize, outerColors, useColor, type ColorState, type Theme } from "./theme"
 
 /** Where the footline is typeset: the frame number (\c@framenumber), \inserttotalframenumber, the page number
  *  (\c@page), the last page (\beamer@endpageofdocument, from the last run's .nav) and the date \today prints */
-export interface FootlineAt { frame: number; total: number; page: number; lastPage: number; epoch: number }
+export interface FootlineAt { frame: number; total: number; page: number; lastPage: number; epoch: number
+  /** \insertsectionhead and \insertsubsectionhead */
+  heads: Heads }
 
-/** whether the theme's outer theme is infolines */
-export const infolines = (t: Theme): boolean => t.data.preamble.includes("\\useoutertheme{infolines}")
+export interface Heads { section: Head | null; subsection: Head | null }
+
 
 const ZERO = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } as const
 
@@ -44,19 +48,71 @@ const ZERO = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 
 export function footlineTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, at: FootlineAt, decisions: ParagraphTrace[]): Node[] {
   const outer = outerColors(t), colors = useColor(t, "footline", outer)
   const list: Node[] = [colorPush(outer.fg), colorPush(colors.fg)]
-  if (infolines(t)) {
-    // \leavevmode (new_graf: \parskip, then LaTeX's zero \parskip), \hbox{the three boxes}, \vskip0pt (\par): one line,
-    // \hsize the paper's width, \parindent, \leftskip and \rightskip zero (\@parboxrestore's, beamer's \parindent)
-    const boxes = hpack(infolinesBoxes(k, t, info, at, colors, decisions))
-    const { vlist, trace } = lineBreak([emptyBox("hlist", 0), boxes], { ...classParams(k), hsize: k.dimens.paperwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO) })
-    decisions.push(trace)
-    list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
-    let prevDepth: number | null = null
-    for (const n of vlist) if (n.kind === "hlist") prevDepth = appendToVlist(list, n, prevDepth, ZERO, ZERO, 0); else list.push(n)
-    list.push(glue(0))
-  }
+  if (t.outer === "infolines") boxesLine(k, list, infolinesBoxes(k, t, info, at, colors, decisions), decisions)
   list.push(colorPop(), colorPop())
   return list
+}
+
+/** \usebeamertemplate***{headline}'s list in the \vbox, as the footline's */
+export function headlineTemplate(k: ClassOptionData, t: Theme, at: FootlineAt, decisions: ParagraphTrace[]): Node[] {
+  const outer = outerColors(t), colors = useColor(t, "headline", outer)
+  const list: Node[] = [colorPush(outer.fg), colorPush(colors.fg)]
+  if (t.headline === "infolines") boxesLine(k, list, infolinesHeadBoxes(k, t, at, colors, decisions), decisions)
+  list.push(colorPop(), colorPop())
+  return list
+}
+
+/** \leavevmode (new_graf: \parskip, then LaTeX's zero \parskip), \hbox{boxes}, \vskip0pt (\par): one line, \hsize the
+ *  paper's width, \parindent, \leftskip and \rightskip zero (\@parboxrestore's, beamer's \parindent), onto `list` */
+function boxesLine(k: ClassOptionData, list: Node[], boxes: Node[], decisions: ParagraphTrace[]) {
+  const { vlist, trace } = lineBreak([emptyBox("hlist", 0), hpack(boxes)], { ...classParams(k), hsize: k.dimens.paperwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO) })
+  decisions.push(trace)
+  list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+  let prevDepth: number | null = null
+  for (const n of vlist) if (n.kind === "hlist") prevDepth = appendToVlist(list, n, prevDepth, ZERO, ZERO, 0); else list.push(n)
+  list.push(glue(0))
+}
+
+/** A beamercolorbox in a head or foot line: `size` the font its options' lengths are in, `colors` the template's; the
+ *  body's list, in the font of size `bodySize` and the box's colors, set as a paragraph of its own */
+function headFootBox(k: ClassOptionData, t: Theme, size: SizeCommand, bodySize: SizeCommand, colors: ColorState, decisions: ParagraphTrace[], options: string, name: string,
+  body: (f: Font, inner: ColorState) => { list: Node[]; after?: Node[] }) {
+  const font = selectFont(k, size, SANS)
+  const env = lengthEnv(k, font.params[QUAD], font.params[X_HEIGHT])
+  const f = selectFont(k, bodySize, SANS)
+  return beamercolorbox(k, t, name, colorboxOptions(options, k, env), colors, (b) => {
+    const { list, after } = body(f, useColor(t, name, colors))
+    // \@arrayparboxrestore (\parindent zero, \sloppy in the box's font), the box's skips
+    const { vlist, trace } = lineBreak([emptyBox("hlist", 0), ...list], { ...classParams(k), hsize: b.hsize, leftSkip: spec("leftskip", b.leftskip), rightSkip: spec("rightskip", b.rightskip), ...sloppy(f.params[QUAD]) })
+    decisions.push(trace)
+    b.v.lines(vlist, k.sizes[bodySize].baselineskip)
+    return after
+  })
+}
+
+/** \hspace*{2ex}: \vrule width0pt, \nobreak, \hskip 2ex, \hskip\z@skip */
+const hspaceStar = (f: Font): Node[] => [{ kind: "rule", width: 0, height: null, depth: null }, penalty(10000), glue(parseDimen("2ex", { em: f.params[QUAD], ex: f.params[X_HEIGHT] })), glue(0)]
+
+/** \insertsectionhead or \insertsubsectionhead: \hyperlink{Navigation<page>}{short title}, nothing when empty */
+function headLink(head: Head | null, f: Font, color: string): Node[] {
+  if (!head) return []
+  const text: Node[] = []
+  appendText(text, plain(head.short), f, { spaceFactor: 1000 }, false)
+  return navigationLink(text, color, head.page)
+}
+
+/** the infolines headline's two boxes, half the paper wide each, in section in head/foot's font: the section's head
+ *  right-aligned then \hspace*{2ex}, \hspace*{2ex} then the subsection's head left-aligned (each line's last space
+ *  taken off by \par) */
+function infolinesHeadBoxes(k: ClassOptionData, t: Theme, at: FootlineAt, colors: ColorState, decisions: ParagraphTrace[]): Node[] {
+  const size = fontSize(t, k, "section in head/foot", fontSize(t, k, "headline", "normalsize"))
+  const half = "wd=.5\\paperwidth,ht=2.65ex,dp=1.5ex"
+  // (each box's font: headline's, then its own)
+  const sized = (name: string) => fontSize(t, k, name, fontSize(t, k, "headline", size))
+  return [
+    headFootBox(k, t, size, sized("section in head/foot"), colors, decisions, `${half},right`, "section in head/foot", (f, inner) => ({ list: [...headLink(at.heads.section, f, inner.fg), ...hspaceStar(f), spaceGlue(f, 1000)] })),
+    headFootBox(k, t, size, sized("subsection in head/foot"), colors, decisions, `${half},left`, "subsection in head/foot", (f, inner) => ({ list: [...hspaceStar(f), ...headLink(at.heads.subsection, f, inner.fg), spaceGlue(f, 1000)] })),
+  ]
 }
 
 /** Text the head and foot lines print as it is: no commands, braces or special characters */

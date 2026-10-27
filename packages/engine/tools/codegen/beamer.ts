@@ -30,6 +30,14 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...innerVariants("rounded", [[], ["whale"], ["orchid"], ["whale", "orchid"]], [["whale", "orchid"]]),
   ...innerVariants("circles", [[]], []),
   ...outerVariants(COLOR_THEMES.map((c) => [c]), false, true),
+  "infolines-headline": { preamble: ["\\useoutertheme{infolines}"], files: ["beamerouterthemeinfolines.sty"] },
+  ...presentation("CambridgeUS", true, ["colorthemebeaver", "innerthemerounded", "outerthemeinfolines"]),
+  ...presentation("AnnArbor", true, ["colorthemewolverine", "innerthemerounded", "outerthemeinfolines"]),
+}
+
+/** A presentation theme (\usetheme, with shadow=false where it has the option) and the theme files it loads */
+function presentation(name: string, shadow: boolean, parts: string[]): Record<string, { preamble: string[]; files: string[] }> {
+  return { [name]: { preamble: [`\\usetheme${shadow ? "[shadow=false]" : ""}{${name}}`], files: [`beamertheme${name}.sty`, ...parts.map((p) => `beamer${p}.sty`)] } }
 }
 
 /** An inner theme after color themes (alone), and after them followed by the infolines outer theme with the default

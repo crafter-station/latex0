@@ -6,8 +6,8 @@
 // templates are the default outer theme's (beamerouterthemedefault.sty), in the
 // theme's colors: the canvas is a rule over the whole paper in its bg, each sidebar's
 // canvas a rule in its bg (of the sidebar's zero width, a paragraph of its own), the
-// headline and left sidebar are empty, the right sidebar has the logo and the
-// navigation symbols (navigation.ts); the footline is footline.ts's. With hyperref, \AtBeginShipout puts pdfmark.def's
+// left sidebar is empty, the right sidebar has the logo and the navigation
+// symbols (navigation.ts); the headline and footline are footline.ts's. With hyperref, \AtBeginShipout puts pdfmark.def's
 // \Hy@DistillerDestFix and beamer's own page anchor (\Hy@EveryPageAnchor, beamerbasenavigation.sty) before the page.
 
 import type { ClassOptionData } from "../../layout/classdata"
@@ -50,7 +50,7 @@ function hung(b: BoxNode): BoxNode {
 
 /** \beamer@typesetheadorfoot: the template's list in a \vbox \paperwidth wide, from the paper's left edge to its right,
  *  then \hfil */
-function headOrFoot(k: ClassOptionData, template: Node[]): Node[] {
+export function headOrFoot(k: ClassOptionData, template: Node[]): Node[] {
   return [hpack([glue(-k.dimens["Gm@lmargin"]), hpack([vpack(template)]), glue(-k.dimens["Gm@rmargin"])]), filGlue()]
 }
 
@@ -96,7 +96,7 @@ function rightSidebarTemplate(k: ClassOptionData, t: Theme, symbols: Node[]): No
  * \baselineskip, \lineskip and \lineskiplimit, then the paragraph \hfil starts (\@parboxrestore: no indentation, no
  * \rightskip), which TeX breaks into one empty line
  */
-function head(k: ClassOptionData, t: Theme, symbols: Node[]): { box: BoxNode; traces: ParagraphTrace[] } {
+function head(k: ClassOptionData, t: Theme, headline: (traces: ParagraphTrace[]) => Node[], symbols: Node[]): { box: BoxNode; traces: ParagraphTrace[] } {
   const d = k.dimens
   // the canvas template: \color{bg}\vrule width\paperwidth height\paperheight, nothing when its bg is empty
   const bg = emptyBackground(t, "background canvas") ? [] : [push(useColor(t, "background canvas", outerColors(t)).bg), { kind: "rule", width: d.paperwidth, height: d.paperheight, depth: null } as Node, pop()]
@@ -107,7 +107,7 @@ function head(k: ClassOptionData, t: Theme, symbols: Node[]): { box: BoxNode; tr
   const right = sidebar(k, t, "sidebar right", [glue(d.textwidth), glue(d["beamer@rightmargin"])], rightSidebarTemplate(k, t, symbols), traces)
   const list: Node[] = []
   let prevDepth = appendToVlist(list, hpack([glue(-d["Gm@lmargin"]), canvas, background]), null, zero, zero, 0)
-  prevDepth = appendToVlist(list, hpack([left, right, ...headOrFoot(k, emptyTemplate(t, "headline"))]), prevDepth, zero, zero, 0)
+  prevDepth = appendToVlist(list, hpack([left, right, ...headOrFoot(k, headline(traces))]), prevDepth, zero, zero, 0)
   const { vlist, trace } = lineBreak([emptyBox("hlist", 0)], { ...classParams(k), rightSkip: spec("rightskip", zero) })
   list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
   for (const n of vlist) if (n.kind === "hlist") prevDepth = appendToVlist(list, n, prevDepth, zero, zero, 0); else list.push(n)
@@ -140,9 +140,9 @@ function pageAnchor(k: ClassOptionData, page: number): BoxNode {
  * with \baselineskip, \lineskip and \lineskiplimit zero until then. The head's paragraph comes back as `trace`; the
  * footline's list (footline.ts), typeset after it, is `footline`; the navigation symbols' (navigation.ts), `symbols`.
  */
-export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData, t: Theme, footline: (() => Node[]), symbols: Node[]): { box: BoxNode; traces: ParagraphTrace[] } {
+export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData, t: Theme, headline: (traces: ParagraphTrace[]) => Node[], footline: (() => Node[]), symbols: Node[]): { box: BoxNode; traces: ParagraphTrace[] } {
   const d = k.dimens
-  const h = head(k, t, symbols)
+  const h = head(k, t, headline, symbols)
   const headBox = vpack([filGlue(), hpack(setgroup([hpack([h.box], { exactly: d.textwidth })]))], { exactly: d.headheight })
   headBox.depth = 0
   const footBox = hpack(setgroup([hpack(foot(k, footline()), { exactly: d.textwidth })]))
