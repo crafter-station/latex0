@@ -142,7 +142,7 @@ function clearpage(cx: BeamerCtx) {
 
 /** The head and foot lines' counters, the date and the section heads (`h`: the current ones) for frame `frame` on page
  *  `page` */
-const footlineAt = (cx: BeamerCtx, frame: number, page: number, h = heads(cx, 0)): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch, heads: h, nav: cx.nav })
+const footlineAt = (cx: BeamerCtx, frame: number, page: number, h = heads(cx, 0)): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch, heads: h, nav: cx.nav, pgf: cx.pgf })
 /** the heads and counters now; `step`: what the frame begun steps \c@subsectionslide by (the engine counts it at its end) */
 const heads = (cx: BeamerCtx, step: number): Heads => {
   const st = cx.sections

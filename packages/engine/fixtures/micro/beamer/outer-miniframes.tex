@@ -1,0 +1,52 @@
+% fixture: beamer/outer-miniframes
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's miniframes outer theme alone, no navigation symbols: the sections with a mini frame per frame, the current one filled, in the headline, the subsection below; the empty footline
+% issue: #322
+\documentclass{beamer}
+\useoutertheme{miniframes}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{Motivation}
+\begin{itemize}
+\item First point.
+\begin{itemize}
+\item A detail.
+\end{itemize}
+\item Second point.
+\end{itemize}
+\begin{enumerate}
+\item Step one.
+\item Step two.
+\end{enumerate}
+\end{frame}
+\section{Results}
+\subsection{Main}
+\begin{frame}{Main result}{With a subtitle}
+\begin{theorem}
+Every bounded monotone sequence converges.
+\end{theorem}
+\begin{exampleblock}{Example}
+The sequence $1 - 1/n$.
+\end{exampleblock}
+\begin{alertblock}{Careful}
+Not every sequence.
+\end{alertblock}
+\end{frame}
+\subsection{More}
+\begin{frame}{Another}
+Some text.
+\end{frame}
+\end{document}

@@ -39,6 +39,11 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   split: { preamble: ["\\useoutertheme{split}"], files: ["beamerouterthemesplit.sty"] },
   "whale-orchid-split": { preamble: ["\\usecolortheme{whale}", "\\usecolortheme{orchid}", "\\useoutertheme{split}"], files: ["beamercolorthemewhale.sty", "beamercolorthemeorchid.sty", "beamerouterthemesplit.sty"] },
   ...presentation("Malmoe", false, ["outerthemesplit", "colorthemewhale"]),
+  miniframes: { preamble: ["\\useoutertheme{miniframes}"], files: ["beamerouterthememiniframes.sty"] },
+  ...presentation("Berlin", false, ["outerthememiniframes", "colorthemewhale", "colorthemeorchid", "innerthemerectangles"]),
+  ...presentation("Dresden", false, ["outerthememiniframes", "colorthemewhale"]),
+  ...presentation("Ilmenau", false, ["outerthememiniframes", "colorthemewhale", "colorthemeorchid", "innerthemerounded"]),
+  ...presentation("Szeged", false, ["outerthememiniframes"]),
   ...presentation("Copenhagen", false, ["outerthemesplit", "innerthemerounded", "colorthemewhale", "colorthemeorchid"]),
   ...presentation("Luebeck", false, ["outerthemesplit", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
 }

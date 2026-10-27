@@ -31,6 +31,8 @@ import { beamercolorbox, colorboxOptions, lengthEnv, type ColorboxBody } from ".
 import { SANS } from "./frame"
 import type { TitleInfo } from "./preamble"
 import { navMax, type NavHead } from "./headnav"
+import { miniframesFootline, miniframesHeadline } from "./miniframes"
+import type { BeamerPgf } from "./pgf"
 import { navigationLink, type Head } from "./sections"
 import { fontSize, outerColors, useColor, type ColorState, type Theme } from "./theme"
 
@@ -40,7 +42,9 @@ export interface FootlineAt { frame: number; total: number; page: number; lastPa
   /** \insertsectionhead and \insertsubsectionhead, the sectioning counters */
   heads: Heads
   /** the last run's .nav entries */
-  nav: NavHead[] }
+  nav: NavHead[]
+  /** pgf's state in the run (the mini frames) */
+  pgf: BeamerPgf }
 
 export interface Heads { section: Head | null; subsection: Head | null
   /** \c@section, \c@subsection and \c@subsectionslide */
@@ -56,8 +60,9 @@ const ZERO = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 
 export function footlineTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, at: FootlineAt, decisions: ParagraphTrace[]): Node[] {
   const outer = outerColors(t), colors = useColor(t, "footline", outer)
   const list: Node[] = [colorPush(outer.fg), colorPush(colors.fg)]
-  if (t.outer === "infolines") boxesLine(k, list, infolinesBoxes(k, t, info, at, colors, decisions), decisions)
-  else if (t.outer === "split") boxesLine(k, list, splitFootBoxes(k, t, info, at, colors, decisions), decisions)
+  if (t.footline === "infolines") boxesLine(k, list, infolinesBoxes(k, t, info, at, colors, decisions), decisions)
+  else if (t.footline === "split") boxesLine(k, list, splitFootBoxes(k, t, info, at, colors, decisions), decisions)
+  else if (t.footline !== "default") miniframesFootline(k, t, info, at, colors, list, decisions)
   list.push(colorPop(), colorPop())
   return list
 }
@@ -67,6 +72,7 @@ export function headlineTemplate(k: ClassOptionData, t: Theme, at: FootlineAt, d
   const outer = outerColors(t), colors = useColor(t, "headline", outer)
   const list: Node[] = [colorPush(outer.fg), colorPush(colors.fg)]
   if (t.headline === "infolines") boxesLine(k, list, infolinesHeadBoxes(k, t, at, colors, decisions), decisions)
+  else if (t.headline === "miniframes") miniframesHeadline(k, t, at, colors, list, decisions)
   else if (t.headline === "split") {
     // \leavevmode, then the boxes in a group: no \par, so the paragraph (one line) ends with the template's pops, at
     // the \vbox's end
@@ -92,14 +98,17 @@ function boxesLine(k: ClassOptionData, list: Node[], boxes: Node[], decisions: P
   list.push(glue(0))
 }
 
+/** the class's parameters as the head and foot lines have them: \beamer@typesetheadorfoot's \textwidth=\paperwidth */
+export const headFootK = (k: ClassOptionData): ClassOptionData => ({ ...k, dimens: { ...k.dimens, textwidth: k.dimens.paperwidth } })
+
 /** A beamercolorbox in a head or foot line: `size` the font its options' lengths are in, `colors` the template's; the
  *  body's list, in the font of size `bodySize` and the box's colors, set as a paragraph of its own */
-function headFootBox(k: ClassOptionData, t: Theme, size: SizeCommand, bodySize: SizeCommand, colors: ColorState, decisions: ParagraphTrace[], options: string, name: string,
+export function headFootBox(k: ClassOptionData, t: Theme, size: SizeCommand, bodySize: SizeCommand, colors: ColorState, decisions: ParagraphTrace[], options: string, name: string,
   body: (f: Font, inner: ColorState) => { list: Node[]; after?: Node[] }) {
-  const font = selectFont(k, size, SANS)
-  const env = lengthEnv(k, font.params[QUAD], font.params[X_HEIGHT])
+  const font = selectFont(k, size, SANS), hk = headFootK(k)
+  const env = lengthEnv(hk, font.params[QUAD], font.params[X_HEIGHT])
   const f = selectFont(k, bodySize, SANS)
-  return beamercolorbox(k, t, name, colorboxOptions(options, k, env), colors, (b) => {
+  return beamercolorbox(hk, t, name, colorboxOptions(options, hk, env), colors, (b) => {
     const { list, after } = body(f, useColor(t, name, colors))
     // \@arrayparboxrestore (\parindent zero, \sloppy in the box's font), the box's skips
     const { vlist, trace } = lineBreak([emptyBox("hlist", 0), ...list], { ...classParams(k), hsize: b.hsize, leftSkip: spec("leftskip", b.leftskip), rightSkip: spec("rightskip", b.rightskip), ...sloppy(f.params[QUAD]) })
@@ -113,7 +122,7 @@ function headFootBox(k: ClassOptionData, t: Theme, size: SizeCommand, bodySize: 
 const hspaceStar = (f: Font): Node[] => [{ kind: "rule", width: 0, height: null, depth: null }, penalty(10000), glue(parseDimen("2ex", { em: f.params[QUAD], ex: f.params[X_HEIGHT] })), glue(0)]
 
 /** \insertsectionhead or \insertsubsectionhead: \hyperlink{Navigation<page>}{short title}, nothing when empty */
-function headLink(head: Head | null, f: Font, color: string): Node[] {
+export function headLink(head: Head | null, f: Font, color: string): Node[] {
   if (!head) return []
   const text: Node[] = []
   appendText(text, plain(head.short), f, { spaceFactor: 1000 }, false)
@@ -135,13 +144,13 @@ function infolinesHeadBoxes(k: ClassOptionData, t: Theme, at: FootlineAt, colors
 }
 
 /** Text the head and foot lines print as it is: no commands, braces or special characters */
-function plain(text: string): string {
+export function plain(text: string): string {
   if (/[\\{}$&#^_~%]/.test(text)) throw new Unsupported(`beamer: commands in the footline's text: ${text}`)
   return text.trim().replace(/\s+/g, " ")
 }
 
 /** \beamer@insertshort: the text in an \hbox */
-function shortBox(text: string, font: Font) {
+export function shortBox(text: string, font: Font) {
   const list: Node[] = []
   appendText(list, text, font, { spaceFactor: 1000 }, false)
   return hpack(list)
@@ -204,14 +213,14 @@ function infolinesBoxes(k: ClassOptionData, t: Theme, info: TitleInfo, at: Footl
 }
 
 /** a beamer color's fg and bg as xcolor's fg and bg, for mixing (fg!50!bg) */
-function mixer(c: ColorState): Colors {
+export function mixer(c: ColorState): Colors {
   const mix = new Colors()
   for (const [n, spec] of [["fg", c.fg], ["bg", c.bg]]) { const [model, ...x] = spec.split(" "); mix.define(n, model, x.join(",")) }
   return mix
 }
 
 /** the text of a section's or subsection's short title in the font `f` */
-function titleText(text: string, f: Font): Node[] {
+export function titleText(text: string, f: Font): Node[] {
   const list: Node[] = []
   appendText(list, plain(text), f, { spaceFactor: 1000 }, false)
   return list

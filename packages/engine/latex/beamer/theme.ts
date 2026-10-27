@@ -14,10 +14,11 @@ export interface ColorState { fg: string; bg: string }
 export interface Theme { name: string; data: BeamerThemeData
   /** the inner theme (\useinnertheme): its templates */
   inner: "default" | "rounded" | "circles" | "rectangles"
-  /** the outer theme (\useoutertheme): its footline */
-  outer: "default" | "infolines" | "split"
+  /** the footline: the outer theme's (\useoutertheme; the miniframes theme's by its footline option), or the default
+   *  (empty) one */
+  footline: "default" | "infolines" | "split" | "authorinstitutetitle" | "institutetitle"
   /** the headline: the outer theme's, or the default (empty) one */
-  headline: "default" | "infolines" | "split"
+  headline: "default" | "infolines" | "split" | "miniframes"
   /** the frame title's alignment (\setbeamertemplate{frametitle}[default][…]) */
   frametitle: "left" | "right"
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
@@ -25,23 +26,28 @@ export interface Theme { name: string; data: BeamerThemeData
 
 /** the presentation themes (\usetheme) the data has: the inner and outer themes they load, the headline they leave */
 const PRESENTATION: Record<string, Partial<Theme>> = {
-  CambridgeUS: { inner: "rounded", outer: "infolines", headline: "infolines" },
-  AnnArbor: { inner: "rounded", outer: "infolines", headline: "infolines" },
-  Boadilla: { inner: "rounded", outer: "infolines", headline: "default", boadillaItems: true },
+  CambridgeUS: { inner: "rounded", footline: "infolines", headline: "infolines" },
+  AnnArbor: { inner: "rounded", footline: "infolines", headline: "infolines" },
+  Boadilla: { inner: "rounded", footline: "infolines", headline: "default", boadillaItems: true },
   Pittsburgh: { inner: "circles", frametitle: "right" },
-  Malmoe: { outer: "split", headline: "split" },
-  Copenhagen: { inner: "rounded", outer: "split", headline: "split" },
-  Luebeck: { inner: "rectangles", outer: "split", headline: "split" },
+  Malmoe: { footline: "split", headline: "split" },
+  Copenhagen: { inner: "rounded", footline: "split", headline: "split" },
+  Luebeck: { inner: "rectangles", footline: "split", headline: "split" },
+  Berlin: { inner: "rectangles", footline: "authorinstitutetitle", headline: "miniframes" },
+  Dresden: { footline: "authorinstitutetitle", headline: "miniframes" },
+  Ilmenau: { inner: "rounded", footline: "authorinstitutetitle", headline: "miniframes" },
+  Szeged: { footline: "institutetitle", headline: "miniframes" },
 }
 
 export function loadTheme(name: string): Theme {
   const data = beamerThemeFile(name)
-  const t: Theme = { name, data, inner: "default", outer: "default", headline: "default", frametitle: "left" }
+  const t: Theme = { name, data, inner: "default", footline: "default", headline: "default", frametitle: "left" }
   for (const line of data.preamble) {
     const inner = line.match(/^\\useinnertheme\{(rounded|circles|rectangles)\}$/)
     if (inner) t.inner = inner[1] as Theme["inner"]
-    else if (line === "\\useoutertheme{infolines}") t.outer = t.headline = "infolines"
-    else if (line === "\\useoutertheme{split}") t.outer = t.headline = "split"
+    else if (line === "\\useoutertheme{infolines}") t.footline = t.headline = "infolines"
+    else if (line === "\\useoutertheme{split}") t.footline = t.headline = "split"
+    else if (line === "\\useoutertheme{miniframes}") t.headline = "miniframes"
     else if (line === "\\setbeamertemplate{headline}[default]") t.headline = "default"
     else {
       const p = line.match(/^\\usetheme(?:\[[^\]]*\])?\{([A-Za-z]+)\}$/)

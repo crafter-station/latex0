@@ -1,0 +1,50 @@
+% fixture: beamer/miniframes-slides-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's Dresden theme (miniframes): mini frames in rows by subsection (frames in no subsection first), several per row, a two-slide frame (its mini frame's link goes to its last slide from the first), a short section title padded to its mini frames' width, a short section title of its own
+% issue: #322
+\documentclass{beamer}
+\usetheme{Dresden}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}{Title}
+Text.
+\end{frame}
+\section{A}
+\begin{frame}{1}
+Text.
+\end{frame}
+\begin{frame}{2}
+Text.
+\end{frame}
+\begin{frame}{3}
+Text.
+\end{frame}
+\subsection{a1}
+\begin{frame}{4}
+Text.
+\end{frame}
+\begin{frame}{Two}
+\begin{itemize}
+\item One
+\item<2-> Two
+\end{itemize}
+\end{frame}
+\subsection{a2}
+\begin{frame}{5}
+Text.
+\end{frame}
+\section[Bee]{Section B}
+\subsection{b}
+\begin{frame}{6}
+Text.
+\end{frame}
+\begin{frame}{7}
+Text.
+\end{frame}
+\end{document}
