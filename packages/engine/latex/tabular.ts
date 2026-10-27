@@ -381,9 +381,11 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     /** the entry's text, then <{decl}'s after \textonly@unskip, and >{decl}'s before, in a group of their own */
     const withDecls = (t: string) => {
       if (post) {
-        if (cr.length) throw new TabularUnsupported("a <{decl} column's entry before \\\\[skip]")
         t = t.replace(/\s+$/, "")
         if (/(?:\\(?:[hv]fil{1,2}|hss|quad|qquad|enspace|enskip|thinspace|hspace\*?\s*\{[^{}]*\}|[ ,;:!>])|~)$/.test(t)) throw new TabularUnsupported(`a <{decl} column's entry "${t.slice(-30)}"`)
+        // (after \\[skip], its \unskip and then \textonly@unskip: a second glue would go, one ending a group)
+        if (cr.length && "pmb".includes(col.align)) throw new TabularUnsupported("a <{decl} column's entry before \\\\[skip]")
+        if (cr.length && /(?:\s|\\(?:[hv]fil{1,2}|hss|quad|qquad|enspace|enskip|thinspace|hspace\*?\s*\{[^{}]*\}|[ ,;:!>])|~)\}+$/.test(t)) throw new TabularUnsupported(`a <{decl} column's entry "${t.slice(-30)}" before \\\\[skip]`)
         // (\textonly@unskip between: no ligature or kern across, and \check@icr sees no . or ,; in a formula that >{$}
         // opened, nothing: {} there would be an atom)
         t = /\$/.test(pre) ? cat(t, post) : `${t}{}${post}`
@@ -423,7 +425,9 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     // (an empty entry: \textonly@unskip takes the \hskip1sp, before the <{decl})
     const empty = post && !text.trim()
     if (empty && content(`{${pre}}`, { ...st }).length) throw new TabularUnsupported(`>{${col.pre}} with an empty entry`)
+    // (after \\[skip], whose \unskip took the \hskip1sp, a glue before it)
     if (!empty) l.push(glue(1))
+    else if (cr.length) unskip(l)
     l.push(...content(body, st))
     if (!post) { unskip(l); if (cr.length) unskip(l) }
     l.push(...cr)
