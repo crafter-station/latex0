@@ -176,7 +176,7 @@ function roundedBlock(cx: FrameCtx, v: VerticalList, b: BlockSource, normal: Fon
   if (!pars.length) throw new Unsupported(`beamer: an empty ${b.env}`)
   if (b.qed && /\n[ \t]*\n\s*$/.test(b.body)) throw new Unsupported("beamer: a proof whose qed symbol starts a paragraph")
   v.box(roundedBox(cx, outerColors(theme), normal, {
-    upper: titleName, lower: bodyName, width: k.dimens.textwidth,
+    upper: titleName, lower: bodyName, width: k.dimens.textwidth, shadow: theme.shadow,
     // (an empty title begins no paragraph: the head is empty)
     head: b.title.trim() === "" ? null : (hv) => boxParagraph(hv, setParagraph(cx, overlayText(cx.overlay, b.title, cx.smuggled), { ...par, size: titleSize }), k.sizes[titleSize].baselineskip),
     body: (bv) => pars.forEach((p, n) => {

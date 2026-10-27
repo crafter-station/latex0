@@ -1,0 +1,74 @@
+% fixture: beamer/shadow-pages
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's Madrid shadows over many pages: the numbers of pdfTeX's masks (/pgfsmask<N>) count the objects made before them (the class's, the outlines of sections and subsections, the openaction, the links typeset in frames, the table of contents and the head and foot, and each page shipped: its resources, contents, fonts, destinations, /Pages nodes every sixth page, the object streams of 100 objects), shadows on late pages and one first made on an overlay's second slide (\only in a block); dvips's fadings at the tops of their pages
+% issue: #324
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Many Pages}
+\author{An Author}
+\date{3 March 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{Frame 1}
+Text of frame 1.
+\end{frame}
+\subsection{Part 1}
+\begin{frame}{Frame 2}
+\begin{block}{Block 2}
+A block on frame 2.
+\end{block}
+\begin{exampleblock}{Example}
+Another one, gpq.
+\end{exampleblock}
+\end{frame}
+\section{Methods}
+\begin{frame}{Frame 3}
+Text of frame 3.
+\end{frame}
+\subsection{Part 2}
+\begin{frame}{Frame 4}
+\begin{itemize}
+\item<1-> One.
+\item<2-> Two.
+\end{itemize}
+\begin{block}<2->{Later}
+A block on the second slide.\only<2>{ With more words on the second slide, enough for a second line.}
+\end{block}
+\end{frame}
+\section{Results}
+\begin{frame}{Frame 5}
+Text of frame 5.
+\end{frame}
+\subsection{Part 3}
+\begin{frame}{Frame 6}
+\begin{block}{Block 6}
+A block on frame 6, whose text is long enough to take two lines in the box.
+
+And a second paragraph.
+\end{block}
+\begin{exampleblock}{Example}
+Another one, gpq.
+\end{exampleblock}
+\end{frame}
+\section{Discussion}
+\begin{frame}{Frame 7}
+\begin{block}{Block 7}
+A block on frame 7, whose text is long enough to take two lines and so to give the box a size of its own.
+\end{block}
+\begin{exampleblock}{Example}
+Another one, gpq.
+\end{exampleblock}
+\end{frame}
+\subsection{Part 4}
+\begin{frame}{Frame 8}
+Text of frame 8.
+\end{frame}
+\end{document}

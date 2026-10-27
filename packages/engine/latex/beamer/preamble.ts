@@ -6,7 +6,7 @@
 // miniframes, tree and sidebar outer themes, the presentation themes Pittsburgh,
 // Malmoe, Copenhagen, Luebeck, Berlin, Dresden, Ilmenau, Szeged, Montpellier,
 // Hannover, Berkeley, Rochester, Goettingen and Marburg, and Madrid, CambridgeUS,
-// AnnArbor, Boadilla and PaloAlto without their shadows, as data/beamer has them,
+// AnnArbor, Boadilla and PaloAlto with their shadows or without, as data/beamer has them,
 // with the default navigation symbols or none: any other theme or template setting
 // throws Unsupported.
 
@@ -69,6 +69,14 @@ const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "
   "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 /** the presentation themes with the rounded inner theme's shadows on by default */
 const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla", "PaloAlto"]
+/** a presentation theme's option (\DeclareOptionBeamer{shadow}[true], the theme's \PassOptionsToPackage{shadow=true}
+ *  first): whether its rounded boxes have shadows */
+function shadowOption(theme: string, option: string | undefined): boolean {
+  const o = option?.trim()
+  if (o !== undefined && !/^shadow(?:\s*=\s*(?:true|false))?$/.test(o)) throw new Unsupported(`beamer: ${theme}'s option ${o}`)
+  return !o?.endsWith("false")
+}
+
 /** the packages beamer.cls loads (with these, \usepackage does nothing) */
 const LOADED = ["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "xcolor", "geometry", "url", "enumerate"]
 
@@ -103,15 +111,15 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     pre = pre.slice(0, at) + pre.slice(a.end)
   }
   let navigationSymbols = true
+  /** \beamer@themerounded@shadow */
+  let shadow = false
   const info: TitleInfo = { title: "", subtitle: "", author: "", institute: "", date: "\\today", short: { title: "", subtitle: "", author: "", institute: "", date: "\\today" } }
   /** the theme lines (other than the default themes'), and the theme they name */
   const themeLines: string[] = [], themeParts: string[] = []
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
-    if (/^\\use(?:color|font|inner|outer)?theme\{default\}$/.test(line)) {
-      // (the class loads the default themes; after another theme, loading one again would set some things back)
-      if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
-      continue
-    }
+    // (the class loaded the default themes: beamerbasethemes.sty's \beamer@calltheme is a \usepackage, which does
+    // nothing again, before or after another theme)
+    if (/^\\use(?:color|font|inner|outer)?theme\{default\}$/.test(line)) continue
     const color = line.match(/^\\usecolortheme\{([A-Za-z]+)\}$/)
     if (color) { themeLines.push(line); themeParts.push(color[1]); continue }
     // (with its own headline until the next line sets the default one back)
@@ -122,22 +130,24 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     if (inner) { themeLines.push(line); themeParts.push(inner[1]); continue }
     // (infolines' headline set back to the default one, as Madrid does)
     if (line === "\\setbeamertemplate{headline}[default]" && themeLines.at(-1) === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts[themeParts.length - 1] = "infolines"; continue }
-    // Madrid (beamerthemeMadrid.sty): the whale and orchid color themes, the rounded inner theme, the infolines outer
-    // theme with the default headline; without its shadows (the rounded theme's shadow=true: pgf's fadings) only
-    if (/^\\usetheme(?:\[[^\]]*\])?\{Madrid\}$/.test(line)) {
-      if (line !== "\\usetheme[shadow=false]{Madrid}") throw new Unsupported("beamer: Madrid's shadows (pgf's fadings)")
+    // Madrid (beamerthemeMadrid.sty): the whale and orchid color themes, the rounded inner theme (shadow=true unless its
+    // shadow option says false), the infolines outer theme with the default headline
+    const madrid = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{Madrid\}$/)
+    if (madrid) {
+      shadow = shadowOption("Madrid", madrid[1])
       if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
       themeLines.push("\\usecolortheme{whale}", "\\usecolortheme{orchid}", "\\useinnertheme{rounded}", "\\useoutertheme{infolines}", "\\setbeamertemplate{headline}[default]")
       themeParts.push("whale", "orchid", "rounded", "infolines")
       continue
     }
-    // the presentation themes data/beamer has whole (with shadow=false where the theme has shadows: the rounded inner
-    // theme's shadow=true needs pgf's fadings)
+    // the presentation themes data/beamer has whole (the data of those with shadows made with shadow=false: the
+    // shadows change no color, font or size)
     const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover|Berkeley|PaloAlto|Rochester|Goettingen|Marburg)\}$/)
     if (p) {
-      if (SHADOWS.includes(p[2]) ? p[1] !== "shadow=false" : p[1] !== undefined) throw new Unsupported(`beamer: ${p[2]}'s options or shadows (pgf's fadings)`)
+      if (!SHADOWS.includes(p[2]) && p[1] !== undefined) throw new Unsupported(`beamer: ${p[2]}'s options`)
+      if (SHADOWS.includes(p[2])) shadow = shadowOption(p[2], p[1])
       if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
-      themeLines.push(line); themeParts.push(p[2])
+      themeLines.push(SHADOWS.includes(p[2]) ? `\\usetheme[shadow=false]{${p[2]}}` : line); themeParts.push(p[2])
       continue
     }
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }
@@ -151,7 +161,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   }
   const name = themeParts.join("-") || "default"
   if (!THEMES.includes(name)) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
-  const theme = loadTheme(name)
+  const theme = { ...loadTheme(name), shadow }
   // (the data is for these lines in this order: infolines with its own headline, or another order, has none)
   if (theme.data.preamble.join("\n") !== themeLines.join("\n")) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const cls = classFile("beamer").options[option]

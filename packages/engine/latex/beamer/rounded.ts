@@ -1,4 +1,4 @@
-// beamer's rounded boxes (beamerbaseboxes.sty's beamerboxesrounded, without shadow or bgopacity), which the
+// beamer's rounded boxes (beamerbaseboxes.sty's beamerboxesrounded, without bgopacity), which the
 // rounded inner theme's blocks and a beamercolorbox with rounded=true are: in a \vbox, \vskip4bp, the head
 // (a [b] minipage of the box's width, in the upper color's fg) after a pgfpicture that fills the head's
 // rounded top in upper.bg (lower.bg when the head is empty, a box of height 1.5pt), then, below a head,
@@ -6,29 +6,36 @@
 // then the body (a [b] minipage after \vskip2pt, in the lower color's fg) after a picture that fills its
 // rounded bottom in lower.bg, and \vskip2bp. The pictures use the old syntax's bounding box (each of size
 // zero but the transition's); the spaces between their commands are \glue 0.0 there, as the .sty's lines
-// end. Line numbers cite beamerbaseboxes.sty.
+// end. With shadow=true (the rounded inner theme's option, Madrid's default) the box's end first declares
+// the shadow's shadings, the ones named after the box's size again each time, and a fading of the box's
+// size (pgf/fadings.ts: under dvips at the top of the page, under pdfTeX a form and, at its first use, the
+// mask /pgfsmask<N>); the bottom's picture then fills, in a scope, the shadow's rectangle through that
+// fading before the bottom, and \vskip4bp minus 2bp ends the box. Line numbers cite beamerbaseboxes.sty.
 
 import { printScaled } from "../../layout/arith"
 import { parseDimen } from "../../layout/dimen"
 import type { Font } from "../../layout/font"
 import { glue, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
-import { pgfSetColor } from "../../pgf/graphicstate"
+import { toNumber } from "../../pgf/fixed"
+import { pgfDeclareFading, pgfSetFading } from "../../pgf/fadings"
+import { pgfSetColor, pgfSetFillColor } from "../../pgf/graphicstate"
 import { pgfPathCurveTo, pgfPathLineTo, pgfPathRectangle, pgfUsePath } from "../../pgf/paths"
-import { pgfPoint } from "../../pgf/points"
+import { pgfPoint, pgfPointOrigin } from "../../pgf/points"
 import { pgfPathQCurveTo, pgfPathQMoveTo } from "../../pgf/quick"
-import { pgfText } from "../../pgf/shapes"
+import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope } from "../../pgf/scopes"
+import { pgfText, type PgfTextOption } from "../../pgf/shapes"
 import { pgfTransformShift } from "../../pgf/transformations"
-import { pgfUseShading } from "../../pgf/shade"
+import { pgfDeclareShading, pgfUseShading } from "../../pgf/shade"
 import { Unsupported } from "../unsupported"
 import { VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import type { FrameCtx } from "./frame"
 import { useColor, type ColorState } from "./theme"
 
-/** What a rounded box is made of: its upper and lower beamer colors, its width, and what its head and body minipages
- *  hold (`head` null: \beamerboxesrounded{}'s empty head) */
-export interface RoundedBox { upper: string; lower: string; width: number; head: ((v: VerticalList) => void) | null; body: (v: VerticalList) => void }
+/** What a rounded box is made of: its upper and lower beamer colors, its width, whether it has a shadow, and what its
+ *  head and body minipages hold (`head` null: \beamerboxesrounded{}'s empty head) */
+export interface RoundedBox { upper: string; lower: string; width: number; shadow: boolean; head: ((v: VerticalList) => void) | null; body: (v: VerticalList) => void }
 
 const pt = (x: number) => `${printScaled(x)}pt`
 const bp = (x: string) => parseDimen(x, { em: 0, ex: 0 })
@@ -104,9 +111,25 @@ export function roundedBox(cx: FrameCtx, at: ColorState, f: Font, b: RoundedBox)
   // 125–133, 138–143: the body, raised by its depth and .5pt
   const mini = hpack([minipage(cx, (v) => { v.nodes.push(glue(bp("2pt")), colorPush(lower.fg)); b.body(v); v.nodes.push(colorPop()) })])
   const body = { ...hpack([{ ...hpack([mini]), shift: -(mini.depth + bp(".5pt")) }]), depth: 0 }
-  // 222–249: \hbox{the picture\box\bmb@box}; \bmb@colorbox's \pgfsetcolor{lower.bg} under \pgfpicturetrue
+  // 144–147: \bmb@boxheight
+  const height = body.height + bp("4bp") + (empty ? -bp("4.5pt") : head.height)
+  const mask = b.shadow ? shadowFading(cx, f, w, height) : ""
+  // 210–242: \hbox{the picture\box\bmb@box}; \bmb@colorbox's \pgfsetcolor{lower.bg} under \pgfpicturetrue
   const bottom = pgf.picture(f, at.fg, ["0bp", "0bp", "0bp", "0bp"], () => {
     s.space()
+    if (b.shadow) {
+      // 212–221: the shadow, black through the fading
+      beginPgfScope(s, d)
+      s.space()
+      pgfSetFillColor(d, pgf.colors.spec("beamer@safeblack"), true)
+      pgfPathRectangle(s, point("0bp", "-7bp"), point(`${pt(w)}+8bp`, `${pt(height)}+6bp`))
+      s.space()
+      pgfSetFading(s, d, mask, () => pgfTransformShift(s, point(`0.5*${pt(w)}+6bp`, `0.5*${pt(height)}-4bp`)))
+      s.space()
+      pgfUsePath(s, d, ["fill"])
+      endPgfScope(s, d)
+      s.space()
+    }
     pgfSetColor(d, lower.bg, false)
     pgfPathQMoveTo(s, "-4bp", "1bp")
     s.space()
@@ -126,11 +149,70 @@ export function roundedBox(cx: FrameCtx, at: ColorState, f: Font, b: RoundedBox)
     s.space()
     return 0
   })
-  out.push(hpack([...bottom, body]), glue(bp("2bp")))
+  // 243–247
+  out.push(hpack([...bottom, body]), b.shadow ? glue(bp("4bp"), 0, 0, bp("2bp")) : glue(bp("2bp")))
   return vpack(out)
 }
 
-/** shadow=true (the shadow's fading) is not modeled */
-export function noShadow(value: string | undefined) {
-  if (value !== undefined && value !== "false") throw new Unsupported(`beamer: a rounded box's shadow=${value}`)
+/** the shadow's shadings' stops (151–170) */
+const BALL = "color(0bp)=(pgftransparent!50); color(4bp)=(pgftransparent!100) "
+const LARGE = "color(0bp)=(pgftransparent!0); color(8bp)=(pgftransparent!100) "
+const VERT = "color(0bp)=(pgftransparent!100); color(8bp)=(pgftransparent!0) "
+
+/**
+ * The shadow of a box `w` wide and `height` high (\bmb@boxwidth, \bmb@boxheight) in the font `f` (148–206): its
+ * shadings declared, then in \selectcolormodel{gray} the fading bmb@shadowmask<w><height> (a picture of the shadings
+ * at the corners and along the edges, the box's inside black, then \hskip4bp); its name. The spaces at the ends of
+ * the lines are in vertical mode there (none) or in the fading's pictures (\glue 0.0).
+ */
+function shadowFading(cx: FrameCtx, f: Font, w: number, height: number): string {
+  const { pgf } = cx
+  const { s, d, colors } = pgf
+  const W = pt(w), H = pt(height)
+  const point = (x: string, y: string) => () => pgfPoint(s, x, y)
+  pgf.font(f)
+  const declared = pgf.nodes(() => {
+    pgfDeclareShading(s, d, "radial", "", "bmb@shadowball", pgfPointOrigin, BALL, colors)
+    pgfDeclareShading(s, d, "radial", "", "bmb@shadowballlarge", pgfPointOrigin, LARGE, colors)
+    pgfDeclareShading(s, d, "horizontal", "", `bmb@shadowhorz${H}`, `${H}-5.5bp`, LARGE, colors)
+    pgfDeclareShading(s, d, "vertical", "", `bmb@shadowvert${W}`, `${W}-4bp`, VERT, colors)
+  })
+  if (declared.length) throw new Unsupported("beamer: a shadow's shadings left material")
+  // \pgftext[options]{\pgfuseshading{name}}, the shading outside the picture (\pgfinterruptpicture)
+  const shading = (options: PgfTextOption[], name: string) => pgfText(s, d, { hlist: () => pgf.nodes(() => {
+    s.inPicture = false
+    pgfUseShading(s, d, name, colors)
+    s.inPicture = true
+  }) }, options, "")
+  const mask = `bmb@shadowmask${toNumber(w)}pt${toNumber(height)}pt`
+  // (\selectcolormodel{gray}: the fading's colours, white, black and pgftransparent's, are gray already)
+  pgfDeclareFading(s, d, mask, (white) => {
+    beginPgfPicture(s, d, white)
+    shading([["at", point("4bp", "4bp")]], "bmb@shadowball")
+    if (height > bp("9.5bp")) {
+      shading([["at", point(W, "8bp")]], "bmb@shadowballlarge")
+      shading([["at", point(`${W}+4bp`, `${H}+2bp`)]], "bmb@shadowball")
+      shading([["base"], ["at", point(`${W}+4bp`, "7.5bp")]], `bmb@shadowhorz${H}`)
+    } else shading([["at", point(W, "4bp")]], "bmb@shadowball")
+    shading([["left"], ["at", point("4bp", "4bp")]], `bmb@shadowvert${W}`)
+    // the inside, clipped away from the shadow (187–201)
+    beginPgfScope(s, d)
+    s.space()
+    pgfSetColor(d, colors.spec("beamer@safeblack"), true)
+    s.space()
+    pgfPathRectangle(s, point("4bp", "8.1bp"), point(W, `${H}-2bp`))
+    s.space()
+    pgfUsePath(s, d, ["fill"])
+    endPgfScope(s, d)
+    s.space()
+    endPgfPicture(s, d)
+    s.out.push(glue(bp("4bp")))
+  }, colors)
+  return mask
+}
+
+/** a rounded box's shadow= value: true or false (and nothing else) */
+export function shadowValue(value: string): boolean {
+  if (value !== "true" && value !== "false") throw new Unsupported(`beamer: a rounded box's shadow=${value}`)
+  return value === "true"
 }

@@ -7,11 +7,16 @@
 // routine (output.ts) ships each page through \@outputpage with beamer's head and
 // foot (page.ts). LaTeX runs twice: the second run reads the .aux the first wrote
 // (\inserttotalframenumber, hyperref's page labels). What the document body holds
-// is read by the handlers in BODY, one per construct.
+// is read by the handlers in BODY, one per construct. With pdfTeX, pgf's masks (a shadow's
+// fading) print object numbers, which count every object pdfTeX made before (pgf/pdfforms.ts):
+// the format's, the outlines', the links typeset, and the pages shipped before the slide.
+// A run knows what those pages make objects of only once they are laid out: such a
+// document is laid out once more, the pages' objects taken from the run before where
+// TeX ships them.
 
 import { emitBoxes } from "../../emit/boxes"
 import { shipOut, type PageMark } from "../../emit/trace"
-import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layout/nodes"
+import { emptyBox, filGlue, penalty, type BoxNode, type Node, type WhatsitNode } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
 import type { ClassOptionData } from "../../layout/classdata"
 import type { ParagraphTrace } from "../../trace/decisions"
@@ -37,6 +42,8 @@ import { selectFont } from "../paragraph"
 import { SANS } from "./frame"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { BeamerPgf } from "./pgf"
+import { pgfSetPage, pgfTakePageTop } from "../../pgf/fadings"
+import { pdfObjects, pdfOpenActionPage1, pdfOutline, pdfPageObjects, pdfShipPage, pgfPdfForms, type PdfPageObjects } from "../../pgf/pdfforms"
 import { evaluate, outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
@@ -46,6 +53,9 @@ import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 interface Aux { frames: number; pages: number; pageFrames: number[]; toc: TocEntry[]; bookmarks: Bookmark[]; nav: NavLine[]
   /** the .nav's section, slide and subsection entries */
   heads: NavHead[] }
+
+/** With pdfTeX, per page shipped: what it makes objects of, and the links its head and foot typeset (each an object) */
+interface Ships { pages: PdfPageObjects[]; outputLinks: number[] }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per page the
  *  index in `decisions` after its slide's paragraphs (where its head paragraph goes) and its frame's number */
@@ -61,7 +71,11 @@ interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decis
   /** \c@equation and \c@footnote */
   equations: { n: number }; footnotes: { n: number }
   /** pgf's state in the run */
-  pgf: BeamerPgf }
+  pgf: BeamerPgf
+  /** per page, what pgf put at its top (\pgfutil@abb: dvips's fadings) while its slide was typeset */
+  pageTops: Node[][]
+  /** pdfTeX: the pages' objects from the run before (null: not known), and how many pages are shipped so far */
+  ships: Ships | null; shipped: number }
 
 /** the sidebar canvas's shading */
 const CANVAS_SHADING = "beamer@sidebarcanvasshading"
@@ -83,8 +97,19 @@ function section(cx: BeamerCtx, s: SectionSource) {
 
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {
   if (prepared.listings.length || prepared.tabulars.length || prepared.minipages.length || prepared.urls.length || prepared.graphics.length) throw new Unsupported("beamer: verbatim, tabular, minipage, url or graphics")
-  const first = layout(prepared.src, null, epoch, driver)
-  return layout(prepared.src, first.written, epoch, driver).result
+  const first = layout(prepared.src, null, epoch, driver, null)
+  const second = layout(prepared.src, first.written, epoch, driver, null)
+  if (!second.masks) return second.result
+  return layout(prepared.src, first.written, epoch, driver, second.ships).result
+}
+
+/** pdfTeX: the pages before `page` shipped, as the slide on `page` is typeset: each one's head and foot links, then its
+ *  objects */
+function shipBefore(cx: BeamerCtx, page: number) {
+  for (; cx.ships && cx.shipped < page - 1; cx.shipped++) {
+    pdfObjects(cx.pgf.s, cx.ships.outputLinks[cx.shipped])
+    pdfShipPage(cx.pgf.s, cx.ships.pages[cx.shipped])
+  }
 }
 
 /** \begin{document}: \normalcolor, LaTeX's \write, hyperref's \AtBeginDocument (the /DOCVIEW and Catalog pdfmarks, the
@@ -115,13 +140,14 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null, objects: Node[]): 
  */
 function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, number = ++cx.frames
+  shipBefore(cx, cx.pageFrames.length + 1)
   // \beamer@calculateheadfoot (\c@framenumber stepped already)
   // (before beamer@frameslide steps \c@subsectionslide)
   frameHeadFoot(cx, number, cx.pageFrames.length + 1)
   const bs = k.sizes.normalsize.baselineskip
   const first = cx.pageFrames.length + 1, equations = cx.equations.n, footnotes = cx.footnotes.n
   for (let slide = 1; ; slide++) {
-    if (slide > 1) clearpage(cx)
+    if (slide > 1) { clearpage(cx); shipBefore(cx, cx.pageFrames.length + 1) }
     const overlay = newOverlay(slide)
     // (\resetcounteronoverlays{equation}: each slide starts the counter where the frame does)
     cx.equations.n = equations; cx.footnotes.n = footnotes
@@ -130,6 +156,7 @@ function frame(cx: BeamerCtx, f: FrameSource) {
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
     cx.pageHeads.push(heads(cx, 1))
+    cx.pageTops.push(pgfTakePageTop(cx.pgf.s))
     cx.v.box(box, bs)
     if (!overlay.another) break
   }
@@ -179,16 +206,34 @@ function frameHeadFoot(cx: BeamerCtx, frame: number, page: number) {
   if (HEADFOOT.some((n) => sizes[n] !== cx.pre.k.dimens[n])) throw new Unsupported("beamer: a headline or footline that changes its height")
 }
 
-/** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
-function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux } {
+/** One LaTeX run: `prev` is what the run before wrote (null: none yet); `ships`, with pdfTeX, the pages' objects (null:
+ *  not known). It returns whether pgf made a mask (whose number shows) and the pages' objects. */
+function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex", ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ships: Ships } {
+  try { return run(src, prev, epoch, driver, ships) } finally { hyperDriver.onLink = null }
+}
+
+function run(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex", ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ships: Ships } {
   const pre = readBeamerPreamble(src)
   hyperDriver.pdftex = driver === "pdftex"
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const pgf = navigationPgf(driver)
+  // (what fadings put at the top of a page measures against \normalsize's \strutbox, the frames' size)
+  const strut = pre.k.sizes.normalsize.strut
+  pgfSetPage(pgf.s, { hoffset: pre.k.dimens.hoffset, strutHeight: strut.height, strutDepth: strut.depth })
+  if (driver === "pdftex") {
+    // the objects made before the document's body: the class's (pgf's three resources, pgfsys-pdftex.def 354–356; the
+    // default inner theme's six \pgfdeclareimage's, each a \pdfximage), then hyperref's \AtBeginDocument outlines
+    // (the bookmarks the last run wrote, hpdftex.def's \Hy@OutlineName) and openaction (hpdftex.def 535); each link
+    // typeset from here on takes one
+    pdfObjects(pgf.s, 9)
+    for (const b of prev?.bookmarks ?? []) pdfOutline(pgf.s, b.anchor)
+    pdfOpenActionPage1(pgf.s)
+    hyperDriver.onLink = () => pdfObjects(pgf.s)
+  }
   const cx: BeamerCtx = { pre, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
-    lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d) }
+    lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d), pageTops: [], ships, shipped: 0 }
   // the sidebar canvas's shading (beamerbaseauxtemplates.sty's \beamer@calcvertshading, as the theme loads): from the
   // bottom color at 0cm to the top one at \paperheight, the sidebar's width wide
   const canvas = pre.theme.sidebarCanvas
@@ -216,16 +261,23 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   // (the navigation symbols' links: to the pages the last run's .nav gives)
   const links = linkPages(prev ? prev.nav : null, pages.length)
   const symbolColors = useColor(pre.theme, "navigation symbols", outerColors(pre.theme))
+  // (pdfTeX: the links the output routine typesets, and what each page makes objects of, for a run that needs them)
+  const written: Ships = { pages: [], outputLinks: [] }, linksShipped = new WeakSet<WhatsitNode>()
   const shipped: BoxNode[] = columns.map((c, i) => {
     const foot: ParagraphTrace[] = []
     const page = pages[i].count
+    let outputLinks = 0
+    hyperDriver.onLink = () => { outputLinks++ }
     const symbols = pre.navigationSymbols ? [navigationSymbols(pgf, pre.theme, symbolColors, page, links[page - 1])] : []
     const at = footlineAt(cx, cx.pageFrames[i], page, cx.pageHeads[i])
     const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, { headline: (traces) => headlineTemplate(k, pre.theme, pre.info, at, traces), sidebar: (traces) => sidebarTemplate(k, pre.theme, pre.info, at, symbols, traces),
       canvas: (name) => (pre.theme.sidebarCanvas && name === `sidebar ${pre.theme.sidebar}` ? cx.pgf.shading(CANVAS_SHADING, selectFont(k, "normalsize", SANS), outerColors(pre.theme).bg, outerColors(pre.theme).bg) : null) }, () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
+    hyperDriver.onLink = null
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
-    const shown = pgfBackground(box, i === 0)
-    return i === 0 ? beamerFirstPage(shown, k) : shown
+    const shown = pgfBackground(box, i === 0, cx.pageTops[i])
+    const out = i === 0 ? beamerFirstPage(shown, k) : shown
+    if (hyperDriver.pdftex) { written.outputLinks.push(outputLinks); written.pages.push(pdfPageObjects(pgf.s, out, linksShipped)) }
+    return out
   })
   // (pdfTeX: the color specials as its color stack's nodes, in the columns too, which are inside the pages)
   if (hyperDriver.pdftex) shipped.forEach(pdftexColors)
@@ -244,5 +296,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
     },
     written: { frames: cx.frames, pages: pages.length, pageFrames: cx.pageFrames, toc: cx.sections.toc, bookmarks: cx.sections.bookmarks.written,
       nav: navLines(v.nodes, cx.sections, pages.length), heads: navHeads(v.nodes) },
+    masks: pgfPdfForms(pgf.s).some((f) => f.kind === "mask"),
+    ships: written,
   }
 }

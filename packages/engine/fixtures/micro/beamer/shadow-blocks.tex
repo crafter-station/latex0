@@ -1,0 +1,34 @@
+% fixture: beamer/shadow-blocks
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded blocks with shadow=true (Madrid's default): each box's shadow shadings declared again (named after its size), the fading of its size (dvips: at the top of its page between pdfmarks, named after \pgf@objectcount; pdfTeX: a form, the mask /pgfsmask<N> made at its first use and kept for a box of the same size), the shadow filled through it before the box's bottom, \vskip4bp minus 2bp after; a block, an alertblock and an exampleblock of the same size, a block without a title, a theorem and a proof, on two frames, overlays (a block on the second slide only), navigation symbols off
+% issue: #324
+\documentclass{beamer}
+\usetheme{Madrid}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Blocks}
+Some text before.
+\begin{block}{A block}
+Body text that is long enough to break into a second line inside the rounded block's body.
+\end{block}
+\begin{alertblock}{Alert}
+Same size.
+\end{alertblock}
+\begin{exampleblock}{Example}
+Same size.
+\end{exampleblock}
+\end{frame}
+\begin{frame}
+\begin{block}{}
+A block without a title.
+\end{block}
+\begin{theorem}[Main]
+For every number there is a larger one.
+\end{theorem}
+\begin{proof}<2->
+Take the successor.
+\end{proof}
+\end{frame}
+\end{document}

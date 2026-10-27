@@ -1,0 +1,22 @@
+% fixture: beamer/shadow-colorbox
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer: beamercolorbox with rounded=true and shadow=true (shadow, the key's default true, and shadow=true): beamerboxesrounded's shadow around an empty head, both branches of its fading (a box higher than 9.5bp: the balls at three corners and the right edge; a lower one, ht and dp set: the two balls only), a narrower width
+% issue: #324
+\documentclass{beamer}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{beamercolorbox}[rounded=true,shadow=true,sep=4pt]{title}
+A rounded box in the title color, with words enough to take a second line in the frame.
+\end{beamercolorbox}
+\begin{beamercolorbox}[rounded=true,shadow,wd=5cm,colsep=2pt]{palette primary}
+Narrow, gpq
+\end{beamercolorbox}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=3cm,ht=2pt,dp=1pt]{palette secondary}
+low
+\end{beamercolorbox}
+\end{frame}
+\end{document}

@@ -1,0 +1,41 @@
+% fixture: beamer/madrid-shadow
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's Madrid theme with its shadows (\usetheme{Madrid}: whale, orchid, rounded, infolines with the default headline), navigation symbols on: the rounded title page, a table of contents with ball numbers, ball items, rounded blocks, the infolines footline
+% issue: #324
+\documentclass{beamer}
+\usetheme{Madrid}
+\title[Short]{A Talk on Things}
+\author{A. Author}
+\institute{Institute}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{Motivation}
+\begin{itemize}
+\item First point.
+\item Second point.
+\end{itemize}
+\begin{enumerate}
+\item Step one.
+\item Step two.
+\end{enumerate}
+\end{frame}
+\section{Results}
+\subsection{Main}
+\begin{frame}{Main result}
+\begin{theorem}
+Every bounded monotone sequence converges.
+\end{theorem}
+\begin{exampleblock}{Example}
+The sequence $1 - 1/n$.
+\end{exampleblock}
+\end{frame}
+\end{document}

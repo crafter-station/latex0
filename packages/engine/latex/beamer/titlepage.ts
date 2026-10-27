@@ -30,8 +30,8 @@ export function titlePage(cx: FrameCtx, v: VerticalList) {
   v.nodes.push(colorPush(at.fg))
   v.box(emptyBox("vlist"), bs)
   v.vskip(fillGlue())
-  // (the rounded inner theme's title page: [colsep=-4bp,rounded=true,shadow=false] too)
-  const o = colorboxOptions(`sep=8pt,center${theme.inner === "rounded" ? ",colsep=-4bp,rounded=true,shadow=false" : ""}`, k, lengthEnv(k, env.em, env.ex))
+  // (the rounded inner theme's title page: [colsep=-4bp,rounded=true,shadow=\beamer@themerounded@shadow] too)
+  const o = colorboxOptions(`sep=8pt,center${theme.inner === "rounded" ? `,colsep=-4bp,rounded=true,shadow=${theme.shadow}` : ""}`, k, lengthEnv(k, env.em, env.ex))
   // each template: \begin{beamercolorbox}[sep=8pt,center]{name}\usebeamerfont{name}text…\end{beamercolorbox}
   // (\sloppy is in force, but with the skips' fill every line has badness 0: its tolerance decides nothing)
   const text = (cx: FrameCtx, b: ColorboxBody, s: SizeCommand, t: string) =>

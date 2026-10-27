@@ -9,14 +9,18 @@ import { glue, kern, penalty, type BoxNode, type Node, ssGlue } from "../layout/
 import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
 
-/** the document's driver: set for each layout (DocumentOptions.driver) */
-export const hyperDriver = { pdftex: false }
+/** the document's driver: set for each layout (DocumentOptions.driver); `onLink`, where a layout counts pdfTeX's
+ *  objects, is told of each \pdfstartlink typeset (it takes an object number then) */
+export const hyperDriver: { pdftex: boolean; onLink: (() => void) | null } = { pdftex: false, onLink: null }
 
 const special = (ps: string): Node => ({ kind: "whatsit", text: `\\special{${ps}}` })
 /** hpdftex.def's \Hy@DestName: \pdfdest name{…} xyz (\@pdfview) */
 export const pdfdest = (name: string): Node => ({ kind: "whatsit", text: `\\pdfdest name{${name}} xyz` })
 /** \pdfstartlink with its running size, and \pdfendlink (\close@pdflink) */
-const startLink = (action: string): Node => ({ kind: "whatsit", text: `\\pdfstartlink(*+*)x* ${action}` })
+function startLink(action: string): Node {
+  hyperDriver.onLink?.()
+  return { kind: "whatsit", text: `\\pdfstartlink(*+*)x* ${action}` }
+}
 const endLink = (): Node => ({ kind: "whatsit", text: "\\pdfendlink" })
 /** a pdfTeX link around the text where it stands: \pdfstartlink with its attributes and action, \pdfendlink */
 export const pdftexLink = (action: string, text: Node[]): Node[] => [startLink(action), ...text, endLink()]

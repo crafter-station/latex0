@@ -1,0 +1,31 @@
+% fixture: templates/corpus-slides
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: the starter-corpus slides (corpus/slides.tex): beamer with \usetheme{Madrid} (its shadows), \frame{\titlepage}, itemize and enumerate frames, the infolines footline, the navigation symbols
+% issue: #324
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Quarterly Review}
+\author{Data Team}
+\date{\today}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}{Highlights}
+  \begin{itemize}
+    \item Revenue up 12\%
+    \item Churn down to 3.1\%
+    \item Two new data pipelines
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Next quarter}
+  \begin{enumerate}
+    \item Migrate the warehouse
+    \item Launch self-serve dashboards
+  \end{enumerate}
+\end{frame}
+\end{document}
