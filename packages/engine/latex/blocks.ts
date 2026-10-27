@@ -163,7 +163,7 @@ export function inParagraph(before: string): boolean {
 const TEXT_COMMANDS = [
   "footnote", "noindent", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
-  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "cite", "cref", "Cref", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
+  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "cref", "Cref", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
   "LXurl", "LXfloat", "LXgraphic", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
@@ -265,7 +265,7 @@ export function blocksOf(body: string): Block[] {
   // text, inline math and footnotes only; other commands are not laid out yet
   const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
-    if (/\\(?:label|ref|pageref)\b(?!\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
+    if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }
   for (const b of out) {

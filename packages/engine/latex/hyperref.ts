@@ -7,6 +7,7 @@
 import { printScaled } from "../layout/arith"
 import { glue, kern, penalty, type BoxNode, type Node, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
+import { Unsupported } from "./unsupported"
 
 /** the document's driver: set for each layout (DocumentOptions.driver) */
 export const hyperDriver = { pdftex: false }
@@ -49,6 +50,13 @@ export function raisedlink(material: Node[], baselineskip: number): Node[] {
   const raised = hpack(material); raised.shift = -baselineskip
   const smash = hpack([raised]); smash.height = 0; smash.depth = 0
   return [penalty(10000), smash]
+}
+
+/** \MakeLinkTarget* in horizontal mode (\__hyp_target_raise:n): \penalty\@M and \smash of the anchor
+ *  (\hyper@anchorstart…\hyper@anchorend; with pdfTeX the \pdfdest, not raised again) in an \hbox raised by
+ *  \normalbaselineskip */
+export function linkTarget(name: string, baselineskip: number, normalBaselineskip: number): Node[] {
+  return raisedlink(hyperDriver.pdftex ? [pdfdest(name), penalty(10000)] : anchor(name, baselineskip, "h", undefined), normalBaselineskip)
 }
 
 /** \Hy@RestoreLastskip after an anchor */
@@ -198,4 +206,24 @@ export function labelName(title: string, stripPeriod = true): string {
     out += title[i++]
   }
   return stripPeriod ? out.replace(/\.$/, "") : out
+}
+
+/** \<type>autorefname (hyperref's english defaults; \Itemautorefname is \itemautorefname) and listings' \lstlistingname,
+ *  for the anchors' types the document makes */
+const AUTOREF_NAMES: Record<string, string> = {
+  equation: "Equation", Item: "item", figure: "Figure", table: "Table", chapter: "chapter", section: "section",
+  subsection: "subsection", subsubsection: "subsubsection", theorem: "Theorem", lstlisting: "Listing",
+}
+/** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
+const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "appendix", "paragraph", "subparagraph", "FancyVerbLine", "page"]
+
+/**
+ * \HyRef@testreftype: \autoref's name for an anchor, from its type (the anchor up to its first period):
+ * \<type>autorefname, else \<type>name, else either for the type without a final * (\HyRef@StripStar);
+ * null with neither (hyperref's warning "No autoref name", and no name)
+ */
+export function autorefName(href: string): string | null {
+  const type = href.split(".")[0]
+  if (AUTOREF_OTHERS.includes(type.replace(/\*$/, ""))) throw new Unsupported(`\\autoref to a ${type} anchor`)
+  return AUTOREF_NAMES[type] ?? (type.endsWith("*") ? AUTOREF_NAMES[type.slice(0, -1)] : undefined) ?? null
 }

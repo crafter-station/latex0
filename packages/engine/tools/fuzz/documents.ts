@@ -86,7 +86,7 @@ export function makeDocument(r: () => number): string {
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
-  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false
+  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, subOn = false, urlOn = false, amsOn = false, graphOn = false
@@ -225,6 +225,11 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
+      // hyperref's \autoref and nameref's \nameref (with hyperref, or nameref alone)
+      if ((hyper || nrOn) && r() < 0.01) {
+        const k = r() < 0.6 ? key() : `${pick(["figure", "table", "thm"])}:${20 + Math.floor(r() * 40)}`
+        ws[i] += hyper && r() < 0.5 ? pick([` \\autoref{${k}}`, `~\\autoref*{${k}}`]) : pick([` \\nameref{${k}}`, ` \\nameref*{${k}}`, ` \\Nameref{${k}}`, ` (\\nameref{${k}})`])
+      }
       if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`])
       if (r() < 0.006) ws[i] += natOn // natbib with no .bbl: every key undefined
         ? pick([" \\citep{b1}", "~\\citet{b2,b1}", " \\cite{b3}", " \\citep[p.~4]{b1}", " \\citet[see][ch.~2]{b2}", " \\citealp{b1}", " \\citeauthor{b3}", " \\citeyearpar{b1}", "~\\cite[][p.~9]{nobody}", " (\\citealt{b1,b2})"])
@@ -392,8 +397,11 @@ export function makeDocument(r: () => number): string {
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25 && !isLetter
   if (hyper) out.push("\\usepackage{hyperref}")
+  // nameref alone (not with titlesec or cleveref yet)
+  nrOn = !hyper && !isLetter && r() < 0.12
+  if (nrOn) out.push("\\usepackage{nameref}")
   // titlesec (after hyperref): its defaults, or \titleformat's font, label, sep and \titlerule
-  tsOn = cls === "article" && !out.includes("\\pagestyle{headings}") && !out.includes("\\usepackage{fancyhdr}") && r() < 0.2
+  tsOn = cls === "article" && !nrOn && !out.includes("\\pagestyle{headings}") && !out.includes("\\usepackage{fancyhdr}") && r() < 0.2
   if (tsOn) {
     out.push("\\usepackage{titlesec}")
     for (const name of ["section", "subsection", "subsubsection"]) {
@@ -446,14 +454,15 @@ export function makeDocument(r: () => number): string {
   const macros = r() < 0.3 && !isLetter && !tsOn
   if (macros) out.push("\\newcounter{thm}", "\\newcommand{\\thm}{\\stepcounter{thm}\\paragraph{Theorem \\thethm.}}")
   // amsthm: theorem-like environments in the three styles, numbered alone, within sections, sharing a counter, or not at all
+  // (with hyperref, numbered ones only)
   const thms: string[] = []
-  if (r() < 0.25 && !isLetter && !hyper) {
-    out.push("\\usepackage{amsthm}", `\\newtheorem{theorem}{Theorem}${pick(["", "", "[section]"])}`, "\\newtheorem{lemma}[theorem]{Lemma}", "\\newtheorem*{claim}{Claim}",
-      "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", "\\newtheorem*{remark}{Remark}", "\\newtheorem{note}{Note}")
-    thms.push("theorem", "lemma", "claim", "definition", "remark", "note")
+  if (r() < 0.25 && !isLetter) {
+    out.push("\\usepackage{amsthm}", `\\newtheorem{theorem}{Theorem}${pick(["", "", "[section]"])}`, "\\newtheorem{lemma}[theorem]{Lemma}", ...(hyper ? [] : ["\\newtheorem*{claim}{Claim}"]),
+      "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", ...(hyper ? [] : ["\\newtheorem*{remark}{Remark}"]), "\\newtheorem{note}{Note}")
+    thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
-  crefOn = !hyper && !isLetter && r() < 0.2
+  crefOn = !hyper && !nrOn && !isLetter && r() < 0.2
   if (crefOn) { const at = out.indexOf("\\usepackage{amsthm}"); if (at >= 0 && r() < 0.5) out.splice(at + 1, 0, "\\usepackage{cleveref}"); else out.push("\\usepackage{cleveref}") }
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter

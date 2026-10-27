@@ -235,6 +235,13 @@ Not yet: other keys (ragged2e's justifications, textformat, size, box, style, â€
 text outside a minipage or under setspace, capt-of (not installed), `\subcaptionbox`, subcaption
 lof entries, captions with commands or math.
 
+ðŸŸ¡ hyperref's `\autoref`, `\autoref*` and nameref's `\nameref`, `\nameref*`, `\Nameref` (#280), with hyperref
+or nameref alone: the anchor's type names the reference (`\<type>autorefname`, `\lstlistingname`, a starred type's
+base), the `\newlabel`'s name field (headings, captions with and without caption.sty, listings, amsthm notes), links
+under dvips and pdfTeX; amsthm theorems with hyperref (`\MakeLinkTarget*`'s raised anchor). Not yet: babel's names,
+`\appendix`, footnote and `\tag` anchors, names with macros (`\contentsname`, `\thethm`), unnumbered theorems
+with hyperref.
+
 ### 4.7 Pages: the exact layout engine
 
 | Component | Source |

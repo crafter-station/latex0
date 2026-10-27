@@ -409,7 +409,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}
     m = it.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
     if (m && cap) { // nameref: the caption
-      content.push(...captionXref(cx), labelWrite(refs, m[1], cap.label, refs.href, hyper ? cap.name : refs.name), ...crefWrites(refs, m[1], false, { type: b.env, arabic: cap.number, prefix: counters.crefPrefix(b.env), label: cap.label }))
+      content.push(...captionXref(cx), labelWrite(refs, m[1], cap.label, refs.href, cx.pre.nameref ? cap.name : refs.name), ...crefWrites(refs, m[1], false, { type: b.env, arabic: cap.number, prefix: counters.crefPrefix(b.env), label: cap.label }))
       continue
     }
     if (/^\\label\b/.test(it)) throw new Unsupported(m ? "\\label before the caption" : `${it} in a ${b.env}`)

@@ -34,7 +34,7 @@ import { VerticalList } from "./vlist"
 import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, type Bookmark } from "./hyperref"
 import { Colors, colorPush, xcolor } from "./xcolor"
-import { paragraphInput, selectFont, type DocState, type FontAttrs, type Refs } from "./paragraph"
+import { paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
@@ -80,10 +80,10 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 }
 
 /** The commands that read what the run before wrote to the .aux file: with one, LaTeX runs twice. */
-const READS_AUX = /\\(?:ref|pageref|eqref|cite|cref|Cref)\{/
+const READS_AUX = /\\(?:ref|pageref|eqref|cite|cref|Cref|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: string; href: string }>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
+interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -104,7 +104,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   xcolor.normal = usesXcolor ? "gray 0" : " Black"
   outputOptions.xcolor = usesColor
   if (usesColor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
-  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, cites: prev?.cites }
+  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
@@ -252,7 +252,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     written = {
       toc: tocFile.written((n) => order.get(n)!, page),
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
-      labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, href: w.href }])),
+      labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, name: w.name, href: w.href }])),
       bookmarks: bookmarks.written,
       // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),

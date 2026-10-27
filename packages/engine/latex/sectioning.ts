@@ -59,7 +59,7 @@ export function matter(cx: Ctx, which: "front" | "main" | "back") {
 }
 
 export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
-  const { cls, hyper } = cx.pre
+  const { cls, hyper, nameref } = cx.pre
   const { contentsWrites, counters, doc, headings, lastNode, marks, outerParskip, refs, run, typeset, v } = cx
   if (cls !== "report" && cls !== "book") throw new Unsupported(`\\chapter in ${cls}`)
   v.par()
@@ -77,7 +77,8 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
       doc.footnote = 0
     } else if (hyper) refs.href = `chapter*.${++run.linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
     // hyperref: the anchor, then \addcontentsline's bookmark and toc line
-    if (hyper) { refs.name = labelName(b.title); v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
+    if (nameref) refs.name = labelName(b.title) // (nameref's \@chapter)
+    if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
     // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
     if (headings) {
@@ -85,9 +86,12 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
       v.nodes.push(...marks.insert(run.k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
     for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
-  } else if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor
-    refs.href = `chapter*.${++run.linkcounter}`; refs.name = labelName(b.source ?? b.title)
-    v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+  } else {
+    if (nameref) refs.name = labelName(b.source ?? b.title) // (nameref's \@schapter)
+    if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor
+      refs.href = `chapter*.${++run.linkcounter}`
+      v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+    }
   }
   // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
   const pd = v.prevDepth
@@ -118,7 +122,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
  * box: {\normalfont\normalsize\bfseries\hskip #3 title}, the toc line, \unskip\hskip 1em
  */
 export function runInHeading(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
-  const { amsmath, hyper } = cx.pre
+  const { amsmath, hyper, nameref } = cx.pre
   const { bodyUnits, contentsWrites, counted, doc, noskipsecPar, refs, romanFont, run, v } = cx
   const name = b.level === 4 ? "paragraph" : "subparagraph"
   const before = new Scanner("3.25ex plus1ex minus.2ex", bodyUnits).scanGlue()
@@ -133,7 +137,8 @@ export function runInHeading(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   v.nobreak = false // \@nobreakfalse
   // hyperref: \Hy@MakeCurrentHrefAuto now, its anchor box at the start of the title
   const anchorName = hyper ? `section*.${++run.linkcounter}` : ""
-  if (hyper) { refs.href = anchorName; refs.name = labelName(b.title) }
+  if (hyper) refs.href = anchorName
+  if (nameref) refs.name = labelName(b.title) // (nameref's \@ssect)
   // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
   run.runIn = (em = romanFont.params[QUAD], parindent = run.k.dimens.parindent) => {
     const title = counted(b.title)
@@ -181,13 +186,13 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
     if (refs.cleveref) refs.cleveref.current = { type, arabic: counters.sectional[b.level], prefix: counters.crefPrefix(type), label: number }
   }
   // hyperref: \refstepcounter's anchor on the vertical list; an unnumbered heading's (\Hy@MakeCurrentHrefAuto)
-  // in an \hbox to 0pt at the start of its title; nameref's \@currentlabelname is the title
+  // in an \hbox to 0pt at the start of its title; nameref's \@currentlabelname is the title (its \@sect and \@ssect)
   let anchorName = ""
   if (hyper) {
     if (numbered) { anchorName = refs.href; v.nodes.push(...anchor(anchorName, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
     else { anchorName = `section*.${++run.linkcounter}`; refs.href = anchorName }
-    refs.name = labelName(heading.source ?? heading.title)
   }
+  if (cx.pre.nameref) refs.name = labelName(heading.source ?? heading.title)
   const bold = run.k.sizes[size].bold
   const bf = loadFont(dataFont(bold.name), bold.at)
   const label: Node[] = [glue(0)] // \hskip #3 (\z@)

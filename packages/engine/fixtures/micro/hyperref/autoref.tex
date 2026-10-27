@@ -1,0 +1,25 @@
+% fixture: hyperref/autoref
+% tier: T3
+% engine: document
+% covers: hyperref's \autoref: the anchor's type before its first period (section, subsection, subsubsection, figure, table, equation, Item, lstlisting (no autoref name: \lstlistingname), section* via \HyRef@StripStar) gives \<type>autorefname, then ~, the label and \null, all in the link; \autoref* without the link; an undefined key as bold ??
+% issue: #280
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{hyperref}
+\begin{document}
+\section{First}\label{s1}
+Text here.
+\subsection{Second}\label{s2}
+\subsubsection{Third}\label{s3}
+\begin{enumerate}\item one\label{i1} \item two\end{enumerate}
+\begin{equation} a=b \label{e1}\end{equation}
+\section*{Star}\label{st}
+\begin{figure}[h]\centering\caption{Cap}\label{f1}\end{figure}
+\begin{table}[h]\centering\caption{Tab}\label{t1}\end{table}
+\begin{lstlisting}[caption={Code},label=l1]
+x = 1
+\end{lstlisting}
+See \autoref{s1}, \autoref{s2}, \autoref{s3}, \autoref{i1}, \autoref{e1}, \autoref{st},
+\autoref{f1}, \autoref{t1} and \autoref{l1}. Starred \autoref*{s1} and \autoref*{f1}; undefined \autoref{nowhere}.
+\end{document}
