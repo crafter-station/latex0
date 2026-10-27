@@ -1,0 +1,19 @@
+% fixture: beamer/rounded-blocks-plain
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme with the default colors (block title and body without a bg: white pictures on white), and a block with an empty title (the empty head: its picture in lower.bg, no transition)
+% issue: #315
+\documentclass{beamer}
+\useinnertheme{rounded}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{block}{Plain}
+White on white: the default theme's block colors have no bg.
+\end{block}
+\begin{block}{}
+No title.
+\end{block}
+\end{frame}
+\end{document}

@@ -334,7 +334,7 @@ const colorbox: FrameHandler = (cx, v, text) => {
     const pars = body.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean)
     if (!pars.length) pars.push("")
     for (const par of pars) boxParagraph(b.v, setParagraph(cx, par, { hsize: b.hsize, leftskip: b.leftskip, rightskip: b.rightskip, sloppy: font.params[QUAD] }), bs)
-  })
+  }, cx)
   v.box(box, bs)
   return text.slice(end + "\\end{beamercolorbox}".length)
 }

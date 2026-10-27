@@ -22,6 +22,7 @@ import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { addParagraph, bracedArg, SANS, setParagraph, type FrameCtx } from "./frame"
 import { coverBegin, coverEnd, inSpec, overlayText, smuggle } from "./overlays"
+import { roundedBox } from "./rounded"
 import { emptyBackground, fontSize, outerColors, useColor } from "./theme"
 
 /** the three kinds of block: their beamer colors and fonts are "block title", "block title alerted", … */
@@ -112,7 +113,7 @@ export function blockInParagraph(cx: FrameCtx, text: string): Node[] {
 export function frameBlock(cx: FrameCtx, v: VerticalList, text: string): string {
   const b = readBlock(text)
   const { k, theme } = cx
-  if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's blocks`)
+  if (theme.inner === "circles") throw new Unsupported("beamer: the circles inner theme's blocks")
   let shown: boolean
   if (cx.blockBegun !== undefined) { shown = cx.blockBegun; cx.blockBegun = undefined }
   else { const o = begin(cx, b); shown = o.shown; smuggle(v, o.nodes) }
@@ -124,6 +125,7 @@ export function frameBlock(cx: FrameCtx, v: VerticalList, text: string): string 
   const colseps = (f: Font) => parseDimen(".75ex", { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
   // \par\vskip\medskipamount
   v.vskip(k.glue.medskipamount)
+  if (theme.inner === "rounded") { roundedBlock(cx, v, b, normal); smuggle(v, coverEnd(shown)); return b.rest }
   // the title: \usebeamerfont*{block title …}\insertblocktitle after \leavevmode; the box's \vskip colsep* at its end
   // is .75ex in that font
   const titleName = `block title${b.kind}`, bodyName = `block body${b.kind}`
@@ -157,6 +159,33 @@ export function frameBlock(cx: FrameCtx, v: VerticalList, text: string): string 
   v.vskip(k.glue.smallskipamount)
   smuggle(v, coverEnd(shown))
   return b.rest
+}
+
+/**
+ * The rounded inner theme's block (beamerbaseauxtemplates.sty 765–796): \begin{beamerboxesrounded}[upper=block title …,
+ * lower=block body …]{\raggedright\usebeamerfont*{block title …}\insertblocktitle}\raggedright\usebeamerfont{block
+ * body …}, the body, \end{beamerboxesrounded}\vskip\smallskipamount (rounded.ts); in the minipages \@parboxrestore's
+ * \sloppy and beamer's \raggedright
+ */
+function roundedBlock(cx: FrameCtx, v: VerticalList, b: BlockSource, normal: Font) {
+  const { k, theme } = cx
+  const titleName = `block title${b.kind}`, bodyName = `block body${b.kind}`
+  const titleSize = fontSize(theme, k, titleName, "normalsize"), bodySize = fontSize(theme, k, bodyName, "normalsize")
+  const attrs: FontAttrs = b.italic ? { ...SANS, shape: "it" } : SANS
+  const par = { hsize: k.dimens.textwidth, leftskip: dimen(0), rightskip: { ...dimen(0), stretch: 65536, stretchOrder: 1 as const }, sloppy: normal.params[QUAD] }
+  const pars = b.body.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean)
+  if (!pars.length) throw new Unsupported(`beamer: an empty ${b.env}`)
+  if (b.qed && /\n[ \t]*\n\s*$/.test(b.body)) throw new Unsupported("beamer: a proof whose qed symbol starts a paragraph")
+  v.box(roundedBox(cx, outerColors(theme), normal, {
+    upper: titleName, lower: bodyName, width: k.dimens.textwidth,
+    // (an empty title begins no paragraph: the head is empty)
+    head: b.title.trim() === "" ? null : (hv) => boxParagraph(hv, setParagraph(cx, overlayText(cx.overlay, b.title, cx.smuggled), { ...par, size: titleSize }), k.sizes[titleSize].baselineskip),
+    body: (bv) => pars.forEach((p, n) => {
+      const end = b.qed && n === pars.length - 1 ? { end: qed(cx, bodySize, attrs) } : {}
+      addParagraph(cx, bv, overlayText(cx.overlay, p, cx.smuggled), { ...par, size: bodySize, attrs, ...end }, dimen(0))
+    }),
+  }), k.sizes.normalsize.baselineskip)
+  v.vskip(k.glue.smallskipamount)
 }
 
 /**

@@ -3,7 +3,7 @@
 // right skips and the separations its options set, inside an \hbox in the beamer
 // color's fg; where the color has a bg, that \hbox in a \colorbox{bg} (\fboxsep
 // zero) widened by colsep*; then, wider than \textwidth, squeezed into the text
-// margins. Rounded boxes and shadows (pgf) throw Unsupported.
+// margins. A rounded box (rounded=true) is rounded.ts's; shadows (pgf's fadings) throw Unsupported.
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { parseDimen, parseGlue, type GlueSpec, type ScanEnv } from "../../layout/dimen"
@@ -12,13 +12,18 @@ import { hpack, vpack } from "../../layout/pack"
 import { Unsupported } from "../unsupported"
 import { dimen, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
+import { selectFont } from "../paragraph"
+import { SANS, type FrameCtx } from "./frame"
+import { roundedBox } from "./rounded"
 import { emptyBackground, useColor, type ColorState, type Theme } from "./theme"
 
 /** \setkeys{beamercolbox}'s results: the width, the height and depth when set, the left and right skips, sep, colsep
  *  and colsep* */
 export interface ColorboxOptions { wd: number; ht?: number; dp?: number; leftskip: GlueSpec; rightskip: GlueSpec; sep: number; colsep: number; colseps: number
   /** colsep* at the box's end, where the body changed the font its ex is in (it is kept as written) */
-  colsepsEnd?: number }
+  colsepsEnd?: number
+  /** rounded=true (rounded.ts) */
+  rounded?: boolean }
 
 /** What the body of a box is set with: \hsize, \leftskip and \rightskip, and the \vbox's list so far */
 export interface ColorboxBody { hsize: number; leftskip: GlueSpec; rightskip: GlueSpec; v: VerticalList }
@@ -56,7 +61,8 @@ export function colorboxOptions(written: string, k: ClassOptionData, env: ScanEn
     else if (key === "sep") o.sep = len(need())
     else if (key === "colsep") o.colsep = len(need())
     else if (key === "colsep*") o.colseps = len(need())
-    else if ((key === "shadow" || key === "rounded" || key === "ignorebg") && value === "false") continue
+    else if (key === "rounded" && (value === "true" || value === "false")) o.rounded = value === "true"
+    else if ((key === "shadow" || key === "ignorebg") && value === "false") continue
     else throw new Unsupported(`beamercolorbox option ${item.trim()}`)
   }
   return o
@@ -80,7 +86,7 @@ function splitKeys(s: string): string[] {
  * and colsep* (with a background), sep, the body, then the same skips in reverse order. What `body` returns goes after
  * the \vbox (the pops of colors set in it, which its group's end puts there).
  */
-export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: ColorboxOptions, at: ColorState, body: (b: ColorboxBody) => Node[] | void): BoxNode {
+export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: ColorboxOptions, at: ColorState, body: (b: ColorboxBody) => Node[] | void, cx?: FrameCtx): BoxNode {
   const bg = !emptyBackground(t, name)
   const inner = useColor(t, name, at)
   const v = new VerticalList(k)
@@ -103,6 +109,13 @@ export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: Co
   let box = hpack([colorPush(inner.fg), vpack(v.nodes), ...after, colorPop()])
   if (o.ht !== undefined) box.height = o.ht
   if (o.dp !== undefined) box.depth = o.dp
+  if (o.rounded) {
+    // in beamerboxesrounded[lower=name,upper=normal text,width=wd]{} where the color has a bg; otherwise, wider than
+    // \textwidth, centred in it (\hbox to\textwidth{\hss…\hss})
+    if (!cx) throw new Unsupported("beamer: a rounded beamercolorbox here")
+    if (bg) return roundedBox(cx, at, selectFont(k, "normalsize", SANS), { upper: "normal text", lower: name, width: o.wd, head: null, body: (v) => { v.nodes.push(box) } })
+    return box.width > k.dimens.textwidth ? hpack([ssGlue(), box, ssGlue()], { exactly: k.dimens.textwidth }) : box
+  }
   if (bg) box = background(box, inner.bg, at.fg, o.colseps)
   // \hbox to\textwidth{\hskip0pt minus\beamer@leftmargin\box…\hskip0pt minus\beamer@rightmargin}
   if (box.width > k.dimens.textwidth) box = hpack([glue(0, 0, 0, k.dimens["beamer@leftmargin"]), box, glue(0, 0, 0, k.dimens["beamer@rightmargin"])], { exactly: k.dimens.textwidth })

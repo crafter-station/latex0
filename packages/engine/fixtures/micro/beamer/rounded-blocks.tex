@@ -1,0 +1,33 @@
+% fixture: beamer/rounded-blocks
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme with whale and orchid: block, alertblock and exampleblock as beamerboxesrounded (head minipage after a picture filling its rounded top in upper.bg, the bmb@transition shading clipped to the width, the body minipage after a picture filling its rounded bottom in lower.bg), a body of two lines, a title with a descender, a theorem and a proof with its qed symbol
+% issue: #315
+\documentclass{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useinnertheme{rounded}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Blocks}
+Some text before.
+\begin{block}{A block}
+Body text that is long enough to break into a second line inside the rounded block's body.
+\end{block}
+\begin{alertblock}{Alert}
+Careful, with a descender: gypsy.
+\end{alertblock}
+\begin{exampleblock}{Example}
+An example.
+\end{exampleblock}
+\end{frame}
+\begin{frame}
+\begin{theorem}[Main]
+For every number there is a larger one.
+\end{theorem}
+\begin{proof}
+Take the successor.
+\end{proof}
+\end{frame}
+\end{document}
