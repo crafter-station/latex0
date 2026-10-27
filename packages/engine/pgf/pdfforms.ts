@@ -17,7 +17,8 @@
 // sixth page; then the page, its links, its destinations and its resources are written to the object
 // stream. What a page makes objects of is read from its box (pdfPageObjects) and applied in pdfTeX's order
 // where the page is shipped, which may be before the document lays the page out. Text in a form (its fonts'
-// objects), a form first written with a page and a link shipped twice (a new number) are refused.
+// objects), a form first written with a page, a link shipped twice (a new number) and a destination placed
+// twice are refused.
 
 import type { BoxNode, Node, WhatsitNode } from "../layout/nodes"
 import { Unsupported } from "../latex/unsupported"
@@ -177,7 +178,7 @@ export function pdfPageObjects(s: PgfState, box: BoxNode, links: WeakSet<Whatsit
 /**
  * \shipout of a page with pdfTeX (19166–19300): its resources, its object (unless made), its contents, then what
  * `p` lists (pdfPageObjects); the page's /Pages node every sixth page (19414); the page written, its links (19601,
- * a link's new destination name taking an object), its destinations (19633, each name placed once) and its resources
+ * a link's new destination name taking an object), its destinations (19633) and its resources
  */
 export function pdfShipPage(s: PgfState, p: PdfPageObjects) {
   const m = objects(s)
@@ -186,9 +187,12 @@ export function pdfShipPage(s: PgfState, p: PdfPageObjects) {
   if (!m.pages.has(page)) { m.pages.add(page); pdfObjects(s) }
   pdfObjects(s) // the contents
   for (const f of p.fonts) font(s, f)
-  // (a name placed again is ignored: do_dest's warning)
+  // (a name placed again, which do_dest ignores, is refused: not checked yet)
   let placed = 0
-  for (const d of p.dests) if (!m.placed.has(d)) { m.placed.add(d); dest(s, d); placed++ }
+  for (const d of p.dests) {
+    if (m.placed.has(d)) throw new Unsupported(`pdfTeX: the destination ${d} placed again`)
+    m.placed.add(d); dest(s, d); placed++
+  }
   m.shipped = page
   if (page % 6 === 1) pdfObjects(s)
   toStream(s) // the page

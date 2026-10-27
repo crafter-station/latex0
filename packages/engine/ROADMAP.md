@@ -326,9 +326,13 @@ their tables of contents); the infolines headline, and the split, miniframes, tr
 outer themes, their navigation read from the last run's .nav (sections, subsections, mini frames,
 the vertical navigation, the headline's height from it); the presentation themes Pittsburgh,
 Malmoe, Copenhagen, Luebeck, Berlin, Dresden, Ilmenau, Szeged, Montpellier, Hannover, Berkeley,
-Rochester, Goettingen and Marburg, and CambridgeUS, AnnArbor, Boadilla and PaloAlto with
-`shadow=false`. Contextual beamer colors (`fg!50!bg`) are evaluated where they are used.
-Not yet: the shadows (`shadow=true`, Madrid's default: pgf's fadings), the smoothbars and shadow outer
+Rochester, Goettingen and Marburg, and CambridgeUS, AnnArbor, Boadilla and PaloAlto. Contextual
+beamer colors (`fg!50!bg`) are evaluated where they are used.
+The rounded boxes' shadows (`shadow=true`, the default of Madrid, CambridgeUS, AnnArbor, Boadilla and
+PaloAlto, #324): pgf's fadings at the top of each page (dvips) and pdfTeX's masks, whose numbers count
+every object pdfTeX made before them (the format's, the outlines, the links, each page shipped:
+pgf/pdfforms.ts), the document laid out once more to know them.
+Not yet: the smoothbars and shadow outer
 themes and Singapore (fadings: Frankfurt, Darmstadt, Warsaw), font themes and colors with a series
 or shape (dove's and seagull's bold alerts), theme options (`compress`, `secheader`, sidebar widths),
 the shaded table of contents with balls, circles or squares.
