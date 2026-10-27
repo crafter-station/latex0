@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 380,
-  "exact": 378,
-  "expectedFailures": 0,
+  "fixtures": 385,
+  "exact": 382,
+  "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 284666
+  "glyphs": 303369
  },
  "areas": [
   {
@@ -31,7 +31,7 @@
   },
   {
    "area": "beamer",
-   "fixtures": 29,
+   "fixtures": 30,
    "exact": 29
   },
   {
@@ -91,8 +91,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 17,
-   "exact": 17
+   "fixtures": 19,
+   "exact": 19
   },
   {
    "area": "hyphenation",
@@ -136,13 +136,13 @@
   },
   {
    "area": "pages",
-   "fixtures": 13,
-   "exact": 13
+   "fixtures": 14,
+   "exact": 14
   },
   {
    "area": "pdflatex",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "sections",
@@ -932,6 +932,17 @@
    "glyphs": 1765,
    "covers": "beamer with the smaller option (10pt): a frame at the top whose paragraph is taller than the page",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-specials",
+   "file": "micro/beamer/frame-specials.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": null,
+   "status": "xfail",
+   "glyphs": 90,
+   "covers": "beamer: every special of a frame's page, outside the column too (the shipout/firstpage specials, pgf's PostScript header for the navigation symbols, the page's anchors and colors)",
+   "issue": "#296"
   },
   {
    "id": "beamer/frame-text",
@@ -2072,6 +2083,17 @@
    "issue": "#30"
   },
   {
+   "id": "hyperref/first-page-geometry",
+   "file": "micro/hyperref/first-page-geometry.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2964,
+   "covers": "the first page's shipout/firstpage specials with hyperref, geometry and xcolor under dvips: hyperref's (pdfmark test, /DOCINFO, the H.S … procedures, its papersize), l3backend's header, then geometry's and dvips.def's papersize; \\Hy@DistillerDestFix before each page's anchor",
+   "issue": "#296"
+  },
+  {
    "id": "hyperref/item-displays-plain",
    "file": "micro/hyperref/item-displays-plain.tex",
    "area": "hyperref",
@@ -2158,6 +2180,17 @@
    "glyphs": 291,
    "covers": "nameref's \\nameref with hyperref: the \\newlabel's third field typeset in a link to the anchor (a heading's title (a hyphen in the link's box: no discretionary; the space factor after its last letter), a caption, its final period dropped, an enumerate or description item keeping the heading's (\\descriptionlabel's name is lost with its box's group)), nothing for an empty name, \\nameref* without the link and with \\null, \\Nameref (`name' on page~page), an undefined key as bold ??",
    "issue": "#280"
+  },
+  {
+   "id": "hyperref/page-labels",
+   "file": "micro/hyperref/page-labels.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7717,
+   "covers": "hyperref's page labels under dvips: \\HyPL@EveryPage's entries where the numbering changes (book's \\frontmatter roman, \\mainmatter arabic from 1, numbers that follow on making none), read back by \\HyPL@SetPageLabels in the next run as a Catalog /PageLabels pdfmark after the Doc-Start anchor",
+   "issue": "#296"
   },
   {
    "id": "hyperref/report-toc",
@@ -3246,6 +3279,17 @@
    "issue": "#30"
   },
   {
+   "id": "pages/geometry-landscape",
+   "file": "micro/pages/geometry-landscape.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 305,
+   "covers": "the first page's shipout/firstpage specials with geometry in landscape and graphicx: l3backend's PostScript header, geometry's \\AtBeginDvi papersize (the paper swapped) and /landplus90, then dvips.def's papersize",
+   "issue": "#296"
+  },
+  {
    "id": "pages/geometry-margin",
    "file": "micro/pages/geometry-margin.tex",
    "area": "pages",
@@ -3427,6 +3471,17 @@
    "glyphs": 265,
    "covers": "amsmath's multline and multline* with hyperref (pdfTeX): the equation's anchor (\\make@display@tag's \\refstepcounter) right before the number, after \\hskip\\multlinetaggap (\\Hy@RestoreLastskip puts it back) at \\baselineskip plus \\jot; for a number below the last row, in the \\vtop's \\hbox after the \\strut@ at \\normalbaselines; no anchor without a number (multline*, \\notag); one row, three rows, an integral in the last row, a multline in an item",
    "issue": "#277"
+  },
+  {
+   "id": "pdflatex/hyperref-page-labels",
+   "file": "micro/pdflatex/hyperref-page-labels.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7717,
+   "covers": "under pdflatex, hyperref's page labels (book's \\frontmatter roman, \\mainmatter arabic) go to the catalog with \\pdfcatalog: no node on the page",
+   "issue": "#296"
   },
   {
    "id": "pdflatex/math-sqrt-index",
