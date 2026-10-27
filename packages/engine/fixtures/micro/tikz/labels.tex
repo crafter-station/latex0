@@ -1,0 +1,21 @@
+% fixture: tikz/labels
+% tier: T3
+% engine: document
+% covers: nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped, above and below, a coordinate on a line; nodes at the ends of a path and in \tikz; a line to a circle node's border; math in a node
+% issue: #320
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+\noindent Labels:
+\begin{tikzpicture}[auto]
+  \coordinate (a) at (0,0);
+  \node[draw,circle] (b) at (3,1) {$b_1$};
+  \draw[->] (a) -- node {up} (b);
+  \draw[->] (b) to node[swap] {back} (a);
+  \draw (a) -- node[sloped, above, pos=0.3] {sloped} (3,-1) |- node[near end] {bend} (b);
+  \draw (0,-2) rectangle node {box} (2,-1) -- coordinate (m) (3,-2);
+  \fill[red] (m) circle (2pt);
+  \draw (4,0) node[below] {start} -- (5,1) node[right] {end};
+\end{tikzpicture}
+and \tikz \draw (0,0) node[left] {$x$} -- (1,0) node[right] {$y$}; after.
+\end{document}

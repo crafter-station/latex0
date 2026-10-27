@@ -261,7 +261,18 @@ cache a document), rounded corners (pgf/round.ts), pgf driven as tikz.code.tex d
 by `bun engine tikz:check` (whole pictures under latex/dvips and pdflatex, box for box). In documents
 (`latex/tikz.ts`): `\usepackage{tikz}` (xcolor, graphicx, pgf's \newwrite before hyperref's), `\usetikzlibrary`
 positioning, arrows.meta and calc, preamble style definitions, pictures in paragraphs, center and figures.
-Not yet: nodes (but coordinates), `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
+
+🟡 TikZ's nodes (#320, `tikz/path.ts` on `pgf/shapes.ts`): `\node`, `node` and `coordinate` on a path, named nodes
+global to the document, `(name)` and `(name.anchor)` (a line to or from a node ends on its border: \tikz@moveto@waiting,
+\pgfpointshapeborder), labels on `--`, `-|`, `|-`, `to`, `rectangle` and `cycle` placed by the operation's timer
+(`pos=`, midway and the other positions, `auto`, `swap`, `sloped`), the shapes rectangle, circle and coordinate with
+draw/fill, colors and `text=`, inner/outer sep, minimum sizes, anchors (named and by angle), `above`/`left`…=,
+`right of=`, positioning's `right=of …` (and `and`, on grid), node distance, `every node`/`every <shape> node`,
+`name=`, `at=`, `transform shape`, `font=` (sizes and font declarations); the node's text typeset by the engine as an
+\hbox's list in the font where the picture stands. Checked by `bun engine tikz:check` (fixed and random pictures
+with nodes). Not yet: `text width`/`align` (the minipage), `node font`, `label=`/`pin=`, other shapes, `node also`,
+nodes in `foreach`, pics, matrices, `edge`, `remember picture`.
+Not yet (paths): `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
 grids, plots, `\foreach`, calc's coordinates, coordinate options, x/y vectors, custom to paths, pgf's dvips
 header specials on the first page (`! /pgfHrgb…`, outside the column).
 

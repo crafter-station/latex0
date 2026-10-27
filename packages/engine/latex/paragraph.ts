@@ -131,8 +131,8 @@ export interface DocState {
   url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
   /** \includegraphics number n, with \linewidth where it stands */
   graphic?: (n: number, lineWidth: number, units: { em: number; ex: number }) => Node[]
-  /** TikZ's picture number n, with xcolor's current color and the current font's em and ex */
-  tikz?: (n: number, color: string, units: { em: number; ex: number }) => Node[]
+  /** TikZ's picture number n, with xcolor's current color, the current font's em and ex, and the size and font its nodes' text is in */
+  tikz?: (n: number, color: string, units: { em: number; ex: number }, size: SizeCommand, attrs: FontAttrs) => Node[]
   /** the nodes number n that beamer's \beamer@smuggle puts where \LXsmuggle{n} stands (beamer/overlays.ts) */
   smuggle?: (n: number) => Node[]
   /** \href number n around its typeset text */
@@ -385,7 +385,7 @@ function swSlant(list: Node[]) {
 /** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
 interface PieceOptions { groups?: boolean; grouped?: boolean }
-const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
+export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const inner: PieceOptions = { ...po, grouped: true }
@@ -834,7 +834,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "tikz") {
       if (!doc.tikz) throw new Unsupported("a tikzpicture outside a document")
-      list.push(...doc.tikz(p.n, ctx.color ?? xcolor.normal, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }))
+      list.push(...doc.tikz(p.n, ctx.color ?? xcolor.normal, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }, size, attrs))
       state.spaceFactor = 1000 // after a box
     }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}

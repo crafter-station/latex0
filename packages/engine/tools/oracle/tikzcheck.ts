@@ -15,6 +15,7 @@ import { UNITY } from "../../layout/arith"
 import { loadFont, QUAD, X_HEIGHT } from "../../layout/font"
 import { hpack } from "../../layout/pack"
 import type { Node } from "../../layout/nodes"
+import { classData } from "../../latex/classes"
 import { pdftexColors } from "../../latex/pdftex"
 import { Unsupported } from "../../latex/unsupported"
 import { Colors, xcolor } from "../../latex/xcolor"
@@ -23,7 +24,8 @@ import { PdftexDriver } from "../../pgf/drivers/pdftex"
 import type { PgfDriver } from "../../pgf/drivers"
 import type { PgfUnits } from "../../pgf/mathparser"
 import { PgfState } from "../../pgf/state"
-import { TikzDocument } from "../../tikz/path"
+import { TikzDocument, type TikzText } from "../../tikz/path"
+import { nodeHlist } from "../../latex/tikz"
 import { compareBoxLists, type BoxNode } from "../../trace/schema"
 import { dataFont } from "../fonts"
 import { texEnv } from "../tex"
@@ -74,6 +76,7 @@ const FIXED = [
   pic("\\draw[help lines] (0,0) -- (2,0); \\draw[very thick,gray] (0,0) -- (0,2);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=3pt]"),
   pic("\\draw (0,0) -- (1,0);", "[scale=0.5,thick]"),
+  pic("\\coordinate (a) at (0,0); \\draw (a.text) -- (1,0);"),
   pic("\\tikzset{every path/.style={red}} \\draw (0,0) -- (1,0);"),
   pic("\\draw (1,2 |- 3,4) -- (1,2 -| 3,4) -- (1,2|-3,4);"),
   pic("\\draw (0,0) -- (1,0);\n\n\\draw (0,1) -- (1,1); % comment\n\\draw (0,2) -- (1,2);"),
@@ -100,16 +103,42 @@ const FIXED = [
   "\\tikz[baseline=-0.5ex] \\draw (0,0) circle (2pt);",
   "\\tikz{\\draw (0,0) -- (1,0); \\fill (0,0) circle (1pt);}",
   "\\tikz[red]{\\draw (0,0) -- (1,0)}",
+  // nodes
+  pic("\\node {x};"),
+  pic("\\node at (1,2) {Start}; \\node {};"),
+  pic("\\node[draw] (a) {A}; \\node[draw,circle] (b) at (2,0) {B}; \\draw[->] (a) -- (b);"),
+  pic("\\node (A) {Start};\n\\node (B) [right of=A] {Process};\n\\node (C) [right of=B] {End};\n\\draw[->] (A) -- (B);\n\\draw[->] (B) -- (C);", "[node distance=2cm, auto]"),
+  pic("\\node (a) {Ingest};\n\\node (b) [right=of a] {Clean};\n\\node (c) [right=of b] {Model};\n\\draw[-Stealth] (a) -- (b);\n\\draw[-Stealth] (b) -- (c);", "[node distance=2cm, every node/.style={draw, rounded corners}]"),
+  pic("\\draw (0,0) node {x} -- (1,0) node[above] {y}; \\draw (0,1) node[left] {L} -- (1,2) node[right] {R};"),
+  pic("\\draw (0,0) -- node {m} (2,1); \\draw (0,0) -- node[midway,above] {a} node[pos=0.2,below] {b} (2,0);"),
+  pic("\\draw[->] (0,0) -| node[near start] {c} (2,1); \\draw (0,0) |- node[auto] {d} (2,1) -| node[auto,swap,pos=0.7] {e} (3,-1);"),
+  pic("\\draw (0,0) to node[auto,swap] {t} (2,1) to node[sloped,above] {s} (3,3); \\draw (0,0) -- node[sloped,below] {u} (-2,1);"),
+  pic("\\node[draw,inner sep=2pt,minimum size=1cm] {x}; \\node[fill=red,text=blue] at (2,0) {y}; \\node[draw,anchor=north west,outer sep=3pt] at (0,0) {z};"),
+  pic("\\node[draw] (a) {A}; \\node[draw, right of=a] (b) {B}; \\node[draw, below of=b, node distance=2cm] (c) {C}; \\draw (a) |- (c); \\draw (a) -| (c); \\draw (c) to (a.north);"),
+  pic("\\node[circle,draw] (a) at (0,0) {A}; \\node[draw] (b) at (3,1) {Bb}; \\draw (a) -- (b) -- (2,-1) -- (a);"),
+  pic("\\path (0,0) node[draw] (p) {P} (2,2) node[draw] (q) {Q}; \\draw[->] (p) -- (q); \\draw (p.east) -- (q.west) (p.north east) -- (q.south);"),
+  pic("\\draw (0,0) rectangle node {r} (2,1); \\draw (0,0) -- (1,0) -- node {c} cycle; \\draw (0,0) -- coordinate (m) (2,0); \\fill (m) circle (1pt);"),
+  pic("\\node (e) at (1,1) {}; \\draw (e) -- (0,0); \\node[red] at (0,1) {x}; \\node[draw=blue,thick,fill=green] at (1,2) {a b};"),
+  pic("\\node[draw,below right=2pt and 1cm of e] {f}; \\node[draw,above=of e,on grid] {g}; \\node[draw] (e) at (1,1) {Ee};"),
+  pic("\\node[draw] (a) {A}; \\node[draw,above=5mm of a] (b) {B}; \\node[draw,below left=of a] (c) {C}; \\draw[<->] (b) -- (a) -- (c);"),
+  pic("\\node[draw,rotate=30] (a) {A}; \\node[draw,xshift=1cm,scale=2] at (1,1) (b) {B}; \\draw (a) -- (b);"),
+  pic("\\begin{scope}[shift={(1,1)},rotate=20] \\node[draw] (a) {A}; \\node[draw,transform shape] (b) at (2,0) {B}; \\draw (a) -- (b); \\end{scope}"),
+  pic("\\node[draw,rounded corners=2pt,dashed] (a) {fine}; \\node[circle,fill=blue!20,draw=red] (b) at (0,-1) {$x^2$}; \\draw[->,thick] (a) -- (b);"),
+  pic("\\draw (0,0) node[coordinate] (z) {} -- (1,1); \\draw (z) -- (2,0) node[at end,above] {end} node[at start,below] {start};"),
+  pic("\\node[draw] (a) at (0,0) {A}; \\draw (a) -- ++(2,1) -- (a); \\draw (a) to[red] +(0,2);"),
+  pic("\\node[draw,font=\\small] (a) {Small text}; \\node[font=\\bfseries\\itshape] at (2,0) {Bold}; \\node[font=\\footnotesize,circle,draw] at (0,1) {f};"),
+  "\\tikz \\node[draw] {x};",
+  "\\tikz \\draw (0,0) node {a} -- (1,0) node {b};",
 ]
 
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
-  pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node at (0,0) {x};"), pic("\\draw (0,0) node {x} -- (1,0);"),
+  pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[text width=2cm] {x};"), pic("\\node[node font=\\small] {x};"), pic("\\node[ellipse] {x};"),
 pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
   pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in {1,2} \\draw (\\x,0) -- (0,0);"),
   pic("\\draw (0,0) .. controls (1,1) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
-  pic("\\coordinate (a) at (0,0); \\draw (a.text) -- (1,0);"), pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) -- (1cm,1) arc[radius=1, start angle=0, end angle=90];"),
+  pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) -- (1cm,1) arc[radius=1, start angle=0, end angle=90];"),
 ]
 
 function rng(seed: number) {
@@ -156,15 +185,29 @@ export function makePictures(n: number, seed: number): string[] {
     ])()
     const options = () => (r() < 0.5 ? "" : `[${Array.from({ length: int(1, 3) }, option).join(",")}]`)
     const name = () => { const x = `${pick(["a", "b", "c", "p", "q"])}${k}`; pending.push(x); return x }
+    // nodes: their text, options (shape, sizes, colors, placement, a label's position, positioning) and names
+    const nodeText = () => pick(["x", "Ab", "$y$", "a b", "", "fi"])
+    const nodeOption = () => pick([
+      () => pick(["draw", "fill=red!20", "circle", "rectangle", "inner sep=2pt", "minimum size=5mm", "minimum width=1cm", "outer sep=1pt", "rounded corners", "thick", "red", "text=blue", "draw=mine", "font=\\small", "font=\\bfseries"]),
+      () => pick(["anchor=north", "anchor=south west", "anchor=30", "above", "below left", "right=2pt", "left=1mm", "above right=3pt and 1pt"]),
+      () => pick(["pos=0.3", "near end", "near start", "midway", "at end", "sloped", "auto", "auto,swap", "transform shape"]),
+      transform,
+      () => (names.length ? pick([`right=of ${pick(names)}`, `below=2mm of ${pick(names)}`, `right of=${pick(names)}`, `above left=of ${pick(names)}`]) : "draw"),
+    ])()
+    const nodeOptions = () => (r() < 0.3 ? "" : `[${Array.from({ length: int(1, 3) }, nodeOption).join(",")}]`)
+    const node = () => `node${nodeOptions()}${r() < 0.3 ? ` (${name()})` : ""} {${nodeText()}}`
     const operation = (): string => pick([
       () => ` -- ${target()}`, () => ` -- ${target()}`, () => ` -| ${coord()}`, () => ` |- ${coord()}`, () => ` rectangle ${target()}`,
       () => ` circle (${pick([len, num])()})`, () => ` ellipse (${num()} and ${num()})`, () => ` circle[radius=${pick([len, num])()}${r() < 0.3 ? `,${transform()}` : ""}]`,
       () => " -- cycle", () => ` to${r() < 0.2 ? `[${option()}]` : ""} ${target()}`, () => ` ${coord()}`, () => ` [${option()}]`,
       () => ` coordinate${r() < 0.2 ? `[${transform()}]` : ""} (${name()})`, () => ` {[${option()}] -- ${target()}}`,
+      () => ` ${node()}`, () => ` -- ${node()} ${target()}`, () => ` ${pick(["-|", "|-"])} ${node()} ${coord()}`, () => ` to ${node()} ${target()}`,
+      () => ` -- coordinate (${name()}) ${target()}`, () => ` rectangle ${node()} ${target()}`,
     ])()
     const path = () => {
       names.push(...pending.splice(0))
       if (r() < 0.12) return `\\coordinate${r() < 0.2 ? `[${transform()}]` : ""} (${name()}) at ${target()};`
+      if (r() < 0.12) return `\\node${nodeOptions()} (${name()}) at ${target()} {${nodeText()}};`
       // (a clipping path takes no options: TeX's error, kept to the fixed pictures)
       const cmd = pick(["\\draw", "\\draw", "\\fill", "\\filldraw", "\\path", "\\clip", "\\useasboundingbox"])
       const ops = Array.from({ length: int(1, 5) }, operation).join("")
@@ -191,7 +234,7 @@ export function makePictures(n: number, seed: number): string[] {
 function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   mkdirSync(DIR, { recursive: true })
   const tex = [
-    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
+    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta,positioning}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
     // (pgf's globals one picture leaves must not reach the next)
     ...pictures.map((x, i) => `\\immediate\\write16{C:${i}}\\makeatletter\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\makeatother\\setbox0\\hbox{${x}}\\showbox0`), "\\end{document}", "",
@@ -215,11 +258,14 @@ function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   return out
 }
 
+/** a node's text as the engine typesets it: article's \normalfont at 10pt */
+const TEXT: TikzText = { hlist: (text, font) => nodeHlist(text, font, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, false) }
+
 /** TikZ in the check's document (its arrow tips instantiated once, as TeX's are) */
 function tikzDocument(units: PgfUnits): TikzDocument {
   const colors = new Colors()
   for (const [name, model, values] of COLORS) colors.define(name, model, values)
-  return new TikzDocument({ units, colors, arrowsMeta: true })
+  return new TikzDocument({ units, colors, arrowsMeta: true, positioning: true, text: TEXT })
 }
 
 /** the engine's box for a picture under a target */

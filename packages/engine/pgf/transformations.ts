@@ -8,7 +8,7 @@ import { Unsupported } from "../latex/unsupported"
 import type { PgfDriver } from "./drivers"
 import { TexArith, toNumber } from "./fixed"
 import type { PgfUnits } from "./mathparser"
-import { parse, pgfPoint, pgfPointOrigin, reciprocalOf, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
+import { parse, pgfPoint, pgfPointLineAtTime, pgfPointNormalised, pgfPointOrigin, reciprocalOf, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
 import { IDENTITY, type PgfState, type PgfTransform } from "./state"
 
 /** `<factor><dimen register>` as TeX scans it; past max_dimen TeX would complain (not modeled) */
@@ -113,6 +113,27 @@ export function pgfTransformRotate(s: PgfState, angle: string) {
   const sin = trig("sin", a, s.units), cos = trig("cos", a, s.units)
   const x = new TexArith(s.units).dimen(`${sin}pt`)
   pgfTransformCm(s, cos, sin, toNumber(-x), cos, pgfPointOrigin)
+}
+
+/** \ifpgfresetnontranslationattime, \ifpgfslopedattime, \ifpgfallowupsidedownattime */
+export interface AtTime { resetNonTranslations: boolean; sloped: boolean; upsideDown: boolean }
+
+/**
+ * \pgftransformlineattime{#1}{#2}{#3} (468–497): a shift to the point at time #1 on the line from #2 to #3,
+ * the rest of the transformation dropped unless kept, then turned along the line when sloped (not upside
+ * down unless allowed)
+ */
+export function pgfTransformLineAtTime(s: PgfState, time: string, start: PgfPointMacro, end: PgfPointMacro, o: AtTime) {
+  const b = start()
+  const c = end()
+  pgfTransformShift(s, () => pgfPointLineAtTime(time, () => b, () => c, s.units))
+  if (o.resetNonTranslations) pgfTransformResetNonTranslations(s)
+  if (o.sloped) {
+    let xc = c.x - b.x, yc = c.y - b.y
+    if (!o.upsideDown && xc < 0) { xc = -xc; yc = -yc }
+    const n = pgfPointNormalised({ x: xc, y: yc }, s.units)
+    pgfTransformCm(s, toNumber(n.x), toNumber(n.y), toNumber(-n.y), toNumber(n.x), pgfPointOrigin)
+  }
 }
 
 /** \pgflowlevelsynccm (414–421): the transformation handed to the driver, then reset; what follows does not enlarge the picture */

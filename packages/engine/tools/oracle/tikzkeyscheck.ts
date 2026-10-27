@@ -130,7 +130,7 @@ function makeDefs(r: () => number): { defs: Def[]; styles: string[]; reads: stri
 }
 
 /** option lists outside the subset: TeX has the keys, the engine refuses them */
-const UNSUPPORTED = ["outer sep=auto", "stroke", "x=2cm", "cap=round", "double", "opacity=0.5", "dash=on 1pt off 1pt phase 0pt", "name prefix=x", "-{Stealth[length=2pt]}", "line width=2\\pgflinewidth"]
+const UNSUPPORTED = ["outer sep=auto", "stroke", "x=2cm", "cap=round", "double", "opacity=0.5", "dash=on 1pt off 1pt phase 0pt", "text height=1ex", "-{Stealth[length=2pt]}", "line width=2\\pgflinewidth"]
 
 /** option lists TeX reports an error for (each in a document of its own: TeX goes on in a state of its own) */
 const ERRORS: [Lib, string][] = [
@@ -324,12 +324,13 @@ function optionText(o: OptionCall): string {
 function transformText(t: TransformCall): string {
   switch (t.op) {
     case "shift": return `\\tikz@scan@one@point \\pgftransformshift ${meaning(t.point, false)}\\relax `
+    case "poscall": return "\\tikz@lib@pos@call "
     case "of": return `\\expandafter \\tikz@extract@node@dist \\tikz@node@distance and\\pgf@stop \\pgftransformshift {\\pgfpointpolar {${t.angle}}{\\tikz@extracted@node@distance }}`
     default: return `\\pgftransform${t.op} {${meaning(t.arg, false)}}`
   }
 }
 
-const nodeAtText = (n: NodeAt | null) => (n === null ? "undefined" : n.kind === "of" ? `macro:->\\pgfpointanchor {\\tikz@pp@name {${meaning(n.node, false)}}}{center}` : `macro:->\\pgfpointanchor {${n.node}}{${n.anchor}}`)
+const nodeAtText = (n: NodeAt | null) => (n === null ? "undefined" : n.kind === "of" ? `macro:->\\pgfpointanchor {\\tikz@pp@name {${meaning(n.node, false)}}}{center}` : n.kind === "point" ? "a point" : `macro:->\\pgfpointanchor {${n.node}}{${n.anchor}}`)
 
 /** \pgf@ar@means@> before >=… (the package's) */
 const DEFAULT_MEANS = "macro:->\\pgf@arrow@handle@shorthand@empty {\\pgf@ar@means@To }"
@@ -345,7 +346,11 @@ function spec(colors: Colors, t: Toks): string {
 function engineLines(c: Case, units: PgfUnits): Map<string, string[]> {
   const colors = new Colors()
   for (const [n, m, v] of COLORS) colors.define(n, m, v)
-  const tz = new Tikz({ units, colors, positioning: c.lib === "lib", arrowsMeta: c.lib === "lib", nodes: new Set(["a", "b"]) })
+  const tz = new Tikz({ units, colors, positioning: c.lib === "lib", arrowsMeta: c.lib === "lib", scanOf: (t) => {
+    const n = t.join("")
+    if (n !== "a" && n !== "b") throw new Error(`tikzkeys:check: of ${n}`)
+    return { point: () => ({ x: 0, y: 0 }), border: n }
+  } })
   for (const d of c.defs) {
     if (d.kind === "set") tz.set(tokenize(d.text))
     else {
