@@ -130,7 +130,7 @@ function makeDefs(r: () => number): { defs: Def[]; styles: string[]; reads: stri
 }
 
 /** option lists outside the subset: TeX has the keys, the engine refuses them */
-const UNSUPPORTED = ["outer sep=auto", "stroke", "x=2cm", "cap=round", "double", "opacity=0.5", "dash=on 1pt off 1pt phase 0pt", "text height=1ex", "-{Stealth[length=2pt]}", "line width=2\\pgflinewidth"]
+const UNSUPPORTED = ["outer sep=auto", "stroke", "x=2cm", "cap=round", "double", "text opacity=0.5", "dash=on 1pt off 1pt phase 0pt", "text height=1ex", "-{Stealth[length=2pt]}", "line width=2\\pgflinewidth"]
 
 /** option lists TeX reports an error for (each in a document of its own: TeX goes on in a state of its own) */
 const ERRORS: [Lib, string][] = [
@@ -317,6 +317,11 @@ function optionText(o: OptionCall): string {
     case "strokecolor": return `\\pgfsetstrokecolor {${meaning(o.color, false)}}`
     case "fillcolor": return `\\pgfsetfillcolor {${meaning(o.color, false)}}`
     case "compatcolor": return `\\tikz@compat@color@set {${o.color}}`
+    case "cap": return `\\csname pgfset${o.kind}cap\\endcsname `
+    case "join": return `\\csname pgfset${o.kind}join\\endcsname `
+    case "miterlimit": return `\\pgfsetmiterlimit {${meaning(o.arg, false)}}`
+    case "strokeopacity": return `\\pgfsetstrokeopacity {${meaning(o.arg, false)}}`
+    case "fillopacity": return `\\pgfsetfillopacity {${meaning(o.arg, false)}}`
     case "color": return `${meaning(tex(COLOR_CODE))}\\pgfutil@colorlet {tikz@color}{${meaning(o.color, false)}}\\pgfutil@colorlet {.}{tikz@color}\\pgfsetcolor {.}\\pgfsys@color@reset@inordertrue `
   }
 }

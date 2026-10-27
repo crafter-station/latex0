@@ -19,6 +19,7 @@ import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "../pgf/mathparser
 import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import { arrowDb, setArrows, tipSequence, type ArrowDb, type Tip } from "./arrows"
+import { DEFAULT_VECTORS, type PgfVectors } from "../pgf/state"
 import { chars, Keys, NOVALUE } from "./keys"
 import { arg, contains, find, groupEnd, isCs, plain, same, str, type Tok, type Toks } from "./tokens"
 
@@ -36,6 +37,12 @@ export type OptionCall =
   | { op: "color"; color: Toks }
   /** a color name as an option: \tikz@compat@color@set{name} */
   | { op: "compatcolor"; color: string }
+  /** \pgfset<kind>cap, \pgfset<kind>join (line cap=, line join=), \pgfsetmiterlimit{#1} */
+  | { op: "cap"; kind: "butt" | "round" | "rect" }
+  | { op: "join"; kind: "miter" | "round" | "bevel" }
+  | { op: "miterlimit"; arg: Toks }
+  /** \pgfsetstrokeopacity{#1}, \pgfsetfillopacity{#1} */
+  | { op: "strokeopacity" | "fillopacity"; arg: Toks }
 
 /** \tikz@mode's switches, \tikz@mode@<name> */
 export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue"
@@ -166,6 +173,7 @@ export interface TikzSetup {
   /** \usetikzlibrary{positioning}, \usetikzlibrary{arrows.meta} */
   positioning?: boolean
   arrowsMeta?: boolean
+  calc?: boolean
   /**
    * positioning's `of`: \tikz@scan@one@point(#2), the point and, for a node's name, the node whose border it
    * is on (\iftikz@shapeborder)
@@ -181,6 +189,9 @@ export interface TikzSetup {
   corners?: (st: TikzState) => void
   /** an arrow specification: \pgfsetarrows (pgf's picture) */
   arrows?: (v: Toks, st: TikzState) => void
+  /** x=… and y=…: the vectors set (pgf's picture), and the vectors in force */
+  vector?: (axis: "x" | "y", v: Toks) => void
+  vectors?: () => PgfVectors
   /** a blank TikZ's code leaves where it runs: \glue 0.0 in the picture (\nullfont) */
   space?: () => void
   /** tikz@label@post with the distance: a label's place by the node it labels (\tikzlastnode) */
@@ -214,6 +225,9 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   style/.style={#1}, every to/.style={}, every curve to/.style={}, every edge/.style={draw},
   x radius/.initial=0pt, y radius/.initial=0pt, start angle/.initial=, end angle/.initial=, delta angle/.initial=, every arc/.style={},
   every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={},
+  transparent/.style={opacity=0}, ultra nearly transparent/.style={opacity=0.05}, very nearly transparent/.style={opacity=0.1},
+  nearly transparent/.style={opacity=0.25}, semitransparent/.style={opacity=0.5}, nearly opaque/.style={opacity=0.75},
+  very nearly opaque/.style={opacity=0.9}, ultra nearly opaque/.style={opacity=0.95}, opaque/.style={opacity=1},
   every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none}, every pin edge/.style={help lines},
   ultra thin/.style={line width=0.1pt}, very thin/.style={line width=0.2pt}, thin/.style={line width=0.4pt},
   semithick/.style={line width=0.6pt}, thick/.style={line width=0.8pt}, very thick/.style={line width=1.2pt},
@@ -299,6 +313,8 @@ export class Tikz {
 
   /** \usetikzlibrary{positioning} */
   get positioning(): boolean { return !!this.setup.positioning }
+  /** \usetikzlibrary{calc} */
+  get calc(): boolean { return !!this.setup.calc }
 
   constructor(setup: TikzSetup) {
     this.setup = setup
@@ -505,16 +521,15 @@ export class Tikz {
       first = arg(nums.slice(0, i))
       second = arg(nums.slice(i + 3))
     } else first = second = arg(nums)
-    // \pgfpointxy with pgf's default vectors (1cm, 0pt) and (0pt, 1cm); its \pgfmathparse of a
-    // \pgfmathresult gives it back as it is
-    const cm = pgfmathSetLength("1cm", this.setup.units).value
+    // \pgfpointxy on the vectors in force; its \pgfmathparse of a \pgfmathresult gives it back as it is
+    const vs = this.setup.vectors?.() ?? DEFAULT_VECTORS
     const h = this.parse(plain(second, "distance"))
     let xa: number, ya: number
     if (h.units) { xa = a.dimen(`${h.result}pt`); ya = 0 }
-    else { xa = a.times(h.result, cm); ya = 0 }
+    else { xa = a.times(h.result, vs.xx); ya = a.times(h.result, vs.xy) }
     const v = this.parse(plain(first, "distance"))
     if (v.units) ya += a.dimen(`${v.result}pt`)
-    else ya += a.times(v.result, cm)
+    else { xa += a.times(v.result, vs.yx); ya += a.times(v.result, vs.yy) }
     return { x: xa, y: ya }
   }
 
@@ -762,6 +777,23 @@ export class Tikz {
       st().toRelative = true
     }, "")
     ifKey("relative", (b) => { st().toRelative = b })
+    // line caps, joins and opacity (107–109, 189, 243, 248): \csname pgfset#1cap\endcsname is \relax for another name
+    opt("line cap", (v) => {
+      const k = plain(v, "line cap")
+      if (k === "butt" || k === "round" || k === "rect") st().options.push({ op: "cap", kind: k })
+      else throw new Unsupported(`tikz: line cap=${k}`)
+    })
+    opt("line join", (v) => {
+      const k = plain(v, "line join")
+      if (k === "miter" || k === "round" || k === "bevel") st().options.push({ op: "join", kind: k })
+      else throw new Unsupported(`tikz: line join=${k}`)
+    })
+    opt("miter limit", (v) => { st().options.push({ op: "miterlimit", arg: v }) })
+    opt("draw opacity", (v) => { st().options.push({ op: "strokeopacity", arg: v }) })
+    opt("fill opacity", (v) => { st().options.push({ op: "fillopacity", arg: v }) })
+    opt("opacity", (v) => { st().options.push({ op: "strokeopacity", arg: v }, { op: "fillopacity", arg: v }) })
+    opt("x", (v) => { if (!this.setup.vector) throw new Unsupported("tikz: x= outside a picture"); this.setup.vector("x", v) })
+    opt("y", (v) => { if (!this.setup.vector) throw new Unsupported("tikz: y= outside a picture"); this.setup.vector("y", v) })
     // grids (471–478): step= a point or both steps
     opt("xstep", (v) => { st().gridX = v })
     opt("ystep", (v) => { st().gridY = v })

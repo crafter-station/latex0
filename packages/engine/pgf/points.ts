@@ -9,7 +9,7 @@ import { TexArith, toNumber } from "./fixed"
 import { reciprocal } from "./mathfunctions"
 import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "./mathparser"
 import { TRIGONOMETRIC } from "./mathtrig"
-import type { PgfState } from "./state"
+import { DEFAULT_VECTORS, type PgfState, type PgfVectors } from "./state"
 
 export interface PgfPoint { x: number; y: number }
 
@@ -167,11 +167,10 @@ export function pgfPointPolar(s: PgfState, angle: string, radius: string): PgfPo
   return { x: scaled(trig("cos", a, s.units), x), y: scaled(trig("sin", a, s.units), y) }
 }
 
-/** \pgfpointxy{#1}{#2} (433–441), on the default vectors \pgf@xx … \pgf@yy: \pgfpoint{1cm}{0cm}, \pgfpoint{0cm}{1cm} (500–501) */
-export function pgfPointXY(x: string, y: string, units: PgfUnits): PgfPoint {
+/** \pgfpointxy{#1}{#2} (433–441) on the vectors \pgf@xx … \pgf@yy (by default \pgfpoint{1cm}{0cm}, \pgfpoint{0cm}{1cm}: 500–501) */
+export function pgfPointXY(x: string, y: string, units: PgfUnits, v: PgfVectors = DEFAULT_VECTORS): PgfPoint {
   const tx = parse(x, units), ty = parse(y, units)
-  const cm = pgfmathSetLength("1cm", units).value
-  return { x: scaled(tx, cm) + scaled(ty, 0), y: scaled(tx, 0) + scaled(ty, cm) }
+  return { x: scaled(tx, v.xx) + scaled(ty, v.yx), y: scaled(tx, v.xy) + scaled(ty, v.yy) }
 }
 
 /** \pgfmathreciprocal@{#1} */

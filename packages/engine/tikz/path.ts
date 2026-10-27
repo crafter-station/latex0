@@ -19,7 +19,8 @@ import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import type { PgfDriver } from "../pgf/drivers"
 import { TexArith, toNumber } from "../pgf/fixed"
-import { isColorName, pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetStrokeColor } from "../pgf/graphicstate"
+import { isColorName, pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetMiterLimit, pgfSetStrokeColor } from "../pgf/graphicstate"
+import { pgfSetFillOpacity, pgfSetStrokeOpacity } from "../pgf/objects"
 import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "../pgf/mathparser"
 import { pgfPathClose, pgfPathCurveTo, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfUsePath, resetPathSizes } from "../pgf/paths"
 import { pgfPoint, pgfPointAdd, pgfPointDiff, pgfPointNormalised, pgfPointOrigin, pgfPointScale, pgfPointPolar, pgfPointXY, parse, qpoint, setLength, trig, type PgfPoint, type PgfPointMacro } from "../pgf/points"
@@ -482,6 +483,11 @@ export class TikzPicture {
         this.s.sw.colorResetInOrder = true
         return
       }
+      case "cap": this.d.cap(o.kind); return
+      case "join": this.d.join(o.kind); return
+      case "miterlimit": pgfSetMiterLimit(this.s, this.d, text(o.arg, "miter limit")); return
+      case "strokeopacity": pgfSetStrokeOpacity(this.s, this.d, text(o.arg, "opacity")); return
+      case "fillopacity": pgfSetFillOpacity(this.s, this.d, text(o.arg, "opacity")); return
       case "compatcolor": {
         // \tikz@compat@color@set (1689–1695): xcolor's \color (\XC@bcolor is \pgfsys@color@reset), then pgffillcolor;
         // \color{.} pushes what dvips.def's driver makes of xcolor's name for it (not modeled)
@@ -547,6 +553,17 @@ export class TikzPicture {
     const p = this.scanPoint(inp)
     if (inp.t.slice(inp.i).some((x) => x !== " ")) throw new Unsupported("tikz: text after at's point")
     st.nodeAt = { kind: "point", point: p }
+  }
+
+  /**
+   * x=…, y=… (tikz.code.tex 306–315): \pgfsetxvec of a point, or of \pgfpoint{#1}{0pt} (\pgfpoint{0pt}{#1})
+   * (pgfcorepoints.code.tex 489–498)
+   */
+  vector(axis: "x" | "y", v: Toks) {
+    const t = v.filter((x, i) => x !== " " || i > 0)
+    const p = t[0] === "(" ? this.scanPoint(new Input([...t]))() : axis === "x" ? pgfPoint(this.s, text(t, "x"), "0pt") : pgfPoint(this.s, "0pt", text(t, "y"))
+    const vs = this.s.local.vectors
+    this.s.setLocal({ vectors: axis === "x" ? { ...vs, xx: p.x, xy: p.y } : { ...vs, yx: p.x, yy: p.y } })
   }
 
   /** baseline=…: \pgfsetbaseline */
@@ -948,7 +965,7 @@ export class TikzPicture {
     const vec = (t: Toks, axis: "x" | "y"): PgfPoint => {
       const u = this.checkUnit(t)
       if (u.units) return axis === "x" ? pgfPoint(this.s, `${u.result}pt`, "0pt") : pgfPoint(this.s, "0pt", `${u.result}pt`)
-      return axis === "x" ? pgfPointXY(text(t, "step"), "0", this.s.units) : pgfPointXY("0", text(t, "step"), this.s.units)
+      return axis === "x" ? pgfPointXY(text(t, "step"), "0", this.s.units, this.s.local.vectors) : pgfPointXY("0", text(t, "step"), this.s.units, this.s.local.vectors)
     }
     const vx = vec(gx, "x"), vy = vec(gy, "y")
     pgfPathGrid(this.s, vx.x + vy.x, vx.y + vy.y, a, b, () => this.s.space())
@@ -1008,14 +1025,14 @@ export class TikzPicture {
       const ax = new TexArith(s.units)
       this.arcTimer = { start, end, zero: { x: ax.dimen(`${x.result}pt`), y: 0 }, ninety: { x: 0, y: ax.dimen(`${y.result}pt`) } }
     } else {
-      pgfPathArcAxes(s, start, end, pgfPointXY(x.result, "0", s.units), pgfPointXY("0", y.result, s.units), space)
+      pgfPathArcAxes(s, start, end, pgfPointXY(x.result, "0", s.units, s.local.vectors), pgfPointXY("0", y.result, s.units, s.local.vectors), space)
       s.space()
       const a = this.polarXY(start, `${x.result} and ${y.result}`)
       s.space()
       this.arcEnds = [a, this.polarXY(end, `${x.result} and ${y.result}`)]
       // the timer's axes, each \pgf@process and \edef on a line
       for (let k = 0; k < 4; k++) s.space()
-      this.arcTimer = { start, end, zero: pgfPointXY(x.result, "0", s.units), ninety: pgfPointXY("0", y.result, s.units) }
+      this.arcTimer = { start, end, zero: pgfPointXY(x.result, "0", s.units, s.local.vectors), ninety: pgfPointXY("0", y.result, s.units, s.local.vectors) }
     }
   }
 
@@ -1100,7 +1117,7 @@ export class TikzPicture {
     const { result: x, units } = this.checkUnit(r)
     const a = new TexArith(this.s.units)
     if (units) pgfPathEllipse(this.s, pgfPointOrigin, qpoint(a.dimen(`${x}pt`), 0), () => pgfPoint(this.s, "0pt", `${x}pt`))
-    else pgfPathEllipse(this.s, pgfPointOrigin, () => pgfPointXY(x, "0", this.s.units), () => pgfPointXY("0", x, this.s.units))
+    else pgfPathEllipse(this.s, pgfPointOrigin, () => pgfPointXY(x, "0", this.s.units, this.s.local.vectors), () => pgfPointXY("0", x, this.s.units, this.s.local.vectors))
   }
 
   /** \tikz@do@ellipse (3600–3626), its body beginning with a space */
@@ -1110,7 +1127,7 @@ export class TikzPicture {
     const y = this.checkUnit(ry)
     if (x.units !== y.units) throw new Unsupported("tikz: dimensions and dimensionless values mixed in an ellipse")
     if (x.units) pgfPathEllipse(this.s, pgfPointOrigin, qpoint(new TexArith(this.s.units).dimen(`${x.result}pt`), 0), () => pgfPoint(this.s, "0pt", `${y.result}pt`))
-    else pgfPathEllipse(this.s, pgfPointOrigin, () => pgfPointXY(x.result, "0", this.s.units), () => pgfPointXY("0", y.result, this.s.units))
+    else pgfPathEllipse(this.s, pgfPointOrigin, () => pgfPointXY(x.result, "0", this.s.units, this.s.local.vectors), () => pgfPointXY("0", y.result, this.s.units, this.s.local.vectors))
   }
 
   /** \tikz@to, \tikz@to@or@edge, \tikz@do@to (2983–3101), with the default to path `-- (\tikztotarget) \tikztonodes` */
@@ -1766,8 +1783,7 @@ export class TikzPicture {
       // and the options' transformations applied to it
       inp.next()
       const options = inp.delimited(["]"])
-      if (inp.ifNext("$")) throw new Unsupported("tikz: coordinate calculation")
-      const q = this.coordinateText(inp.delimited([")"]))()
+      const q = inp.ifNext("$") ? this.calc(inp)() : this.coordinateText(inp.delimited([")"]))()
       this.begin()
       pgfTransformReset(this.s)
       this.tz.st.transform = []
@@ -1777,8 +1793,101 @@ export class TikzPicture {
       this.end()
       return qpoint(r.x, r.y)
     }
-    if (inp.ifNext("$")) throw new Unsupported("tikz: coordinate calculation")
+    if (inp.ifNext("$")) return this.calc(inp)
     return this.coordinateText(inp.delimited([")"]))
+  }
+
+  /**
+   * calc's \tikz@parse@calculator … \tikz@cc@end (tikzlibrarycalc.code.tex 67–330), its `(` taken: `$` terms
+   * `±factor*(point)!modifiers!` `$)`, summed in a group
+   */
+  private calc(inp: Input): PgfPointMacro {
+    if (!this.tz.calc) throw new Unsupported("tikz: coordinate calculation without the calc library")
+    inp.literal("$")
+    const s = this.s
+    this.begin()
+    let xa = 0, ya = 0
+    let sign = "1"
+    for (let first = true; ; first = false) {
+      inp.skipSpaces()
+      if (inp.peek() === "$") {
+        // \tikz@cc@end$#1)
+        inp.next()
+        inp.delimited([")"])
+        break
+      }
+      if (!first || inp.peek() === "+" || inp.peek() === "-") {
+        const t = inp.next()
+        if (t !== "+" && t !== "-") throw new Unsupported("tikz: + or - expected in a calculation")
+        sign = t === "+" ? "1" : "-1"
+      } else sign = "1"
+      let factor = sign
+      inp.skipSpaces()
+      if (inp.peek() !== "(") {
+        // \tikz@cc@parse@factor#1*(
+        const j = find(inp.t, ["*", "("], inp.i)
+        if (j < 0) throw new Unsupported("tikz: *( expected in a calculation")
+        const f = inp.t.slice(inp.i, j)
+        inp.i = j + 1
+        factor = this.checkUnit([...f, "*", ...chars(sign)]).result
+      }
+      // \tikz@scan@absolute
+      let b = this.scanAbsolute(inp)()
+      // \tikz@cc@mid@checks: partway, distance, projection modifiers
+      while (inp.ifNext("!")) {
+        inp.next()
+        if (inp.ifNext("(")) {
+          // `!(c)!(p)`: the second ! taken first (\tikz@cc@scan@ex)
+          const c = this.scanPoint(inp)()
+          if (!inp.ifNext("!")) throw new Unsupported("tikz: ! expected in a calculation")
+          inp.next()
+          const p = this.calcRot(inp, b)
+          // \tikz@cc@after@project: b plus the projection of c − b on the direction of p − b
+          const n = pgfPointNormalised({ x: p.x - b.x, y: p.y - b.y }, s.units)
+          const xc = mul(toNumber(c.x - b.x), n.x) + mul(toNumber(c.y - b.y), n.y)
+          b = { x: b.x + mul(toNumber(xc), n.x), y: b.y + mul(toNumber(xc), n.y) }
+          continue
+        }
+        const j = find(inp.t, ["!"], inp.i)
+        if (j < 0) throw new Unsupported("tikz: ! expected in a calculation")
+        const m = this.checkUnit(inp.t.slice(inp.i, j))
+        inp.i = j + 1
+        const p = this.calcRot(inp, b)
+        if (m.units) {
+          // \tikz@cc@after@unit: the distance towards p
+          const n = pgfPointNormalised({ x: p.x - b.x, y: p.y - b.y }, s.units)
+          b = { x: b.x + mul(m.result, n.x), y: b.y + mul(m.result, n.y) }
+        } else {
+          // \tikz@cc@after@num: (1 − f)·b + f·p
+          const one = this.checkUnit(chars(`1-${m.result}`)).result
+          b = { x: mul(one, b.x) + mul(m.result, p.x), y: mul(one, b.y) + mul(m.result, p.y) }
+        }
+      }
+      // (\advance by<factor>\pgf@xb takes the end of its line as the dimension's optional blank)
+      xa += mul(factor, b.x)
+      ya += mul(factor, b.y)
+    }
+    this.end()
+    return qpoint(xa, ya)
+  }
+
+  /** \tikz@cc@scan@rot (288–330): a point, or `angle:point` rotated by the angle about `b` */
+  private calcRot(inp: Input, b: PgfPoint): PgfPoint {
+    if (inp.ifNext("(")) return this.scanPoint(inp)()
+    const j = find(inp.t, [":"], inp.i)
+    if (j < 0) throw new Unsupported("tikz: a point or angle:point expected in a calculation")
+    const angle = text(inp.t.slice(inp.i, j), "angle")
+    inp.i = j + 1
+    const c = this.scanPoint(inp)()
+    const s = this.s
+    s.begingroup()
+    pgfTransformReset(s)
+    pgfTransformShift(s, qpoint(b.x, b.y))
+    pgfTransformRotate(s, angle)
+    pgfTransformShift(s, qpoint(-b.x, -b.y))
+    const q = transformPoint(s, c)
+    s.endgroup()
+    return q
   }
 
   /** the macros a pin's edge names its nodes by, expanded */
@@ -1830,7 +1939,7 @@ export class TikzPicture {
     return x ? () => pgfPointPolar(this.s, a, r) : () => this.polarXY(a, r)
   }
 
-  /** \pgfpointpolarxy (pgfcorepoints.code.tex 692–713), on pgf's default vectors */
+  /** \pgfpointpolarxy (pgfcorepoints.code.tex 692–713) */
   private polarXY(angle: string, radius: string): PgfPoint {
     const and = radius.indexOf("and ")
     const [rx, ry] = and < 0 ? [radius, radius] : [radius.slice(0, and), radius.slice(and + 4)]
@@ -1838,8 +1947,8 @@ export class TikzPicture {
     const a = parse(angle, this.s.units)
     xa = mul(trig("cos", a, this.s.units), xa)
     ya = mul(trig("sin", a, this.s.units), ya)
-    const cm = new TexArith(this.s.units).dimen("1cm")
-    return { x: mul(toNumber(xa), cm) + mul(toNumber(ya), 0), y: mul(toNumber(xa), 0) + mul(toNumber(ya), cm) }
+    const v = this.s.local.vectors
+    return { x: mul(toNumber(xa), v.xx) + mul(toNumber(ya), v.yx), y: mul(toNumber(xa), v.xy) + mul(toNumber(ya), v.yy) }
   }
 
   /** \tikz@parse@regular … \tikz@@@parse@regular (5341–5374) */
@@ -1856,9 +1965,9 @@ export class TikzPicture {
     const xs = text(xt, "x"), ys = text(yt, "y")
     const s = this.s
     if (x.units && y.units) return () => pgfPoint(s, xs, ys)
-    if (x.units) return () => { const a = pgfPoint(s, xs, "0pt"); return pgfPointAdd(a, pgfPointXY("0", ys, s.units)) }
-    if (y.units) return () => { const a = pgfPoint(s, "0pt", ys); return pgfPointAdd(a, pgfPointXY(xs, "0", s.units)) }
-    return () => pgfPointXY(xs, ys, s.units)
+    if (x.units) return () => { const a = pgfPoint(s, xs, "0pt"); return pgfPointAdd(a, pgfPointXY("0", ys, s.units, s.local.vectors)) }
+    if (y.units) return () => { const a = pgfPoint(s, "0pt", ys); return pgfPointAdd(a, pgfPointXY(xs, "0", s.units, s.local.vectors)) }
+    return () => pgfPointXY(xs, ys, s.units, s.local.vectors)
   }
 
   /**
@@ -1930,6 +2039,8 @@ export class TikzDocument {
       corners: (st) => this.at("rounded corners").corners(st),
       at: (v, st) => this.at("at").atOption(v, st),
       labelPost: (v, st) => this.at("label").labelPost(v, st),
+      vector: (axis, v) => this.at("a vector").vector(axis, v),
+      vectors: () => this.at("vectors").s.local.vectors,
       space: () => this.at("a blank").s.space(),
     })
   }

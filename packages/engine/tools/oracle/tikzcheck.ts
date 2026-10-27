@@ -168,6 +168,15 @@ const FIXED = [
   pic("\\draw (0,0) arc (0:90:1) node[midway] {x} node[pos=0.2,sloped] {s}; \\draw (1,0) arc (0:200:1cm and 5mm) node[near end,auto] {y} node[pos=0,above,sloped] {z} coordinate (c) arc (0:30:1);"),
   pic("\\draw[rotate=20] (1,0) arc[start angle=30,delta angle=-75,x radius=2,y radius=1] node[at end,sloped,below] {e} arc (0:-90:1pt) node[midway,right] {f};"),
   pic("\\draw (0,0) grid (2,2); \\draw[step=0.5] (-1,-1) grid (1.2,1.3); \\draw[help lines,step=5mm] (0,0) grid (3,2) (4,1) grid[xstep=1cm,ystep=2mm] (3,0); \\draw[rotate=30,step=0.7] (0.3,0.3) grid (2,2);"),
+  // calc, vectors, caps, joins, opacity
+  pic("\\draw ($(0,0)+(1,0)$) -- ($(1,1)!0.5!(3,2)$) -- ($2*(1,0)-(0,1)$) -- ($(0,0)!.3!-20:(2,2)$) -- ([xshift=2pt]$(1,1)+(0,1)$);"),
+  pic("\\node[draw] (a) {A}; \\node[draw] (b) at (3,1) {B}; \\draw ($(a)!.25!(b)$) circle (2pt) ($(a.east)!1cm!(b.west)$) circle (1pt) ($(a)!(1,2)!(b)$) -- (1,2) ($(a)!0.5!30:(b)$) -- (a); \\draw[->] ($(a.north)+(0,0.5)$) -- ($(b)+.5*(1,1)$);"),
+  pic("\\draw (0,0) -- (1,1) -- (2,0) circle (1) (0,0) grid (2,2); \\draw (30:1) -- (0,0) arc (0:90:1); \\node[right=of {(1,1)}] {x};", "[x=2cm,y=0.5cm]"),
+  pic("\\draw (0,0) -- (1,1) -- (2,0); \\node[right=1 of {(1,1)}] {x};", "[x={(1cm,0.5cm)},y={(0cm,1cm)}]"),
+  pic("\\draw (0,0) rectangle (1,1); \\draw[x=5mm] (0,0) -- (3,0); \\begin{scope}[y=2] \\draw (0,0) -- (0,1); \\end{scope}", "[scale=2,x=1.5cm]"),
+  pic("\\draw[line cap=round,line join=bevel,line width=3pt] (0,0) -- (1,1) -- (2,0); \\draw[line cap=rect,line join=miter,miter limit=4] (0,1) -- (1,2) -- (2,1);"),
+  pic("\\fill[red,opacity=0.5] (0,0) circle (1); \\filldraw[fill=blue,fill opacity=0.3,draw opacity=0.7] (0,0) rectangle (1,1); \\fill[semitransparent,green] (2,0) circle (1); \\node[draw,fill=red,fill opacity=0.2] at (3,0) {x};"),
+  pic("\\draw (0,0) -- (1,1);", "[nearly transparent]"),
   // labels
   pic("\\node[draw,label=x] {A}; \\node[draw,label=right:x,label=below left:{$y$}] at (2,0) {A};"),
   pic("\\node[circle,draw,label={[red,font=\\small]30:lab},label=center:c] at (1,2) {Abc}; \\node[draw,label distance=3pt,label=left:x,label={[label distance=1mm]-45:q}] {A};"),
@@ -178,9 +187,9 @@ const FIXED = [
 
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
-  pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[ellipse] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
+  pic("\\draw let \\p1=(1,0) in (\\p1) -- (0,0);"), pic("\\node[ellipse] {x};"), pic("\\node[text opacity=0.5] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
   pic("\\foreach \\x in \\list \\draw (\\x,0) -- (0,0);"), pic("\\draw (0,0) foreach \\x in {1,2} {-- (\\x,1)};"),
-  pic("\\draw (0,0) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
+  pic("\\draw (0,0) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[line cap=square] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
   pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) parabola (1,1);"), pic("\\draw (0,0) sin (1,1);"), pic("\\draw[step=(1,1)] (0,0) grid (1,1);"),
   pic("\\draw (0,0) edge[loop] ();"),
@@ -227,6 +236,8 @@ export function makePictures(n: number, seed: number): string[] {
       transform,
       () => pick(["rounded corners", "rounded corners=2pt", "rounded corners=1mm", "sharp corners"]),
       () => pick(["->", "<-", "<->", "-latex", "-stealth", "-{Stealth}", "-Latex", "-To", "->>", "arrows=-to"]),
+      () => pick(["line cap=round", "line join=bevel", "line cap=rect,line join=round", "opacity=0.5", "fill opacity=0.3", "draw opacity=.8", "semitransparent", "miter limit=2"]),
+      () => pick(["x=2cm", "y=5mm", "x={(1cm,0.2cm)}", "y=0.5"]),
     ])()
     const options = () => (r() < 0.5 ? "" : `[${Array.from({ length: int(1, 3) }, option).join(",")}]`)
     const name = () => { const x = `${pick(["a", "b", "c", "p", "q"])}${k}`; pending.push(x); return x }
@@ -256,6 +267,8 @@ export function makePictures(n: number, seed: number): string[] {
       () => ` edge${r() < 0.5 ? `[${pick(["->", "bend left", "red,dashed", "out=0,in=90"])}]` : ""} ${r() < 0.3 ? `${node()} ` : ""}${coord()}`,
       () => ` arc (${int(-180, 180)}:${int(-180, 360)}:${pick([num, len])()})`, () => ` arc[start angle=${int(0, 90)},delta angle=${int(-200, 200)},radius=${pick([num, len])()}]`,
       () => ` grid${r() < 0.3 ? `[step=${pick(["0.5", "3mm", "1"])}]` : ""} (${int(-2, 3)}${pick(["", ".5"])},${int(-2, 3)})`,
+      () => ` -- ($${coord()}${pick(["+", "-", "+.5*"])}${coord()}$)`, () => ` -- ($${coord()}!${pick(["0.3", ".5", "1cm", "-0.2"])}!${pick(["", "30:"])}${coord()}$)`,
+      () => ` -- ($${coord()}!${coord()}!${coord()}$)`, () => ` -- ([${transform()}]${coord().slice(1)}`,
     ])()
     const path = () => {
       names.push(...pending.splice(0))
@@ -288,7 +301,7 @@ export function makePictures(n: number, seed: number): string[] {
 function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   mkdirSync(DIR, { recursive: true })
   const tex = [
-    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta,positioning}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
+    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta,positioning,calc}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
     // (pgf's globals one picture leaves must not reach the next)
     ...pictures.map((x, i) => `\\immediate\\write16{C:${i}}\\makeatletter\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\makeatother\\setbox0\\hbox{${x}}\\showbox0`), "\\end{document}", "",
@@ -324,7 +337,7 @@ const TEXT: TikzText = {
 function tikzDocument(units: PgfUnits): TikzDocument {
   const colors = new Colors()
   for (const [name, model, values] of COLORS) colors.define(name, model, values)
-  return new TikzDocument({ units, colors, arrowsMeta: true, positioning: true, text: TEXT })
+  return new TikzDocument({ units, colors, arrowsMeta: true, positioning: true, calc: true, text: TEXT })
 }
 
 /** the engine's box for a picture under a target */
