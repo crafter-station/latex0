@@ -302,7 +302,10 @@ function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const spaced = run.k
   if (cx.pre.algorithm.singleHere) run.k = singleSpaced(spaced)
   let box: BoxNode
+  const writes = cx.refs.cleveref?.writes, w0 = writes?.length ?? 0
   try { box = algorithmBox(cx, b.body, traces, v.club, true) } finally { run.k = spaced }
+  // (in a paragraph its \label's page counter is the one when the paragraph was read: its lines not on the list yet)
+  if (b.inPar) for (const w of writes?.slice(w0) ?? []) w.at = v.paraStart
   if (pending) cx.decisions.push(...traces, pending)
   else cx.decisions.push(...traces)
   v.vskip(run.k.glue.intextsep)

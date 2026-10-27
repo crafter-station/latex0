@@ -87,8 +87,12 @@ export class VerticalList {
     this.nodes.push(spec("parskip", parskip), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip
     this.lines(vlist, baselineskip, lineskip, lineskiplimit)
   }
+  /** where the last paragraph's lines (or, after a display, the rest of them) went on the list: all the page builder
+   *  had seen while that paragraph was read (up to its \parskip, or to the display) */
+  paraStart = 0
   /** lines of a paragraph (no \parskip: the part after a display) */
   lines(vlist: Node[], baselineskip = this.k.sizes.normalsize.baselineskip, lineskip = this.k.glue.lineskip, lineskiplimit = this.k.dimens.lineskiplimit) {
+    this.paraStart = this.nodes.length
     for (const n of vlist) {
       if (n.kind === "hlist") this.prevDepth = appendToVlist(this.nodes, n, this.prevDepth, baselineskip, lineskip, lineskiplimit)
       else this.nodes.push(n)
