@@ -24,7 +24,8 @@ import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
-import { spacingCover, tableOfContents, type TocEntry } from "./sections"
+import { groupEnd, pause, smuggle, type Overlay } from "./overlays"
+import { tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
 
 /** a frame as written: its options and what it holds */
@@ -98,8 +99,8 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   listInParagraph?: boolean
   /** the .toc lines the last run wrote (\tableofcontents reads them) */
   toc: TocEntry[]
-  /** \beamer@endpause is \beamer@spacingcover: a \pause came (\tableofcontents' \pause[0]) */
-  endpause?: boolean }
+  /** the slide being typeset and its overlay state */
+  overlay: Overlay }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -176,12 +177,16 @@ const paragraph: FrameHandler = (cx, v, text) => {
 const list: FrameHandler = (cx, v, text) => {
   const kind = text.startsWith("\\begin{itemize}") ? "itemize" : "enumerate"
   const begin = `\\begin{${kind}}`, end = `\\end{${kind}}`
-  if (/^\s*[[<]/.test(text.slice(begin.length))) throw new Unsupported(`beamer: ${kind}'s options`)
-  const stop = text.indexOf(end)
+  // [<spec>]: the items' default overlay specification (\beamerdefaultoverlayspecification, <*> giving none)
+  let body = text.slice(begin.length), spec: string | undefined
+  const o = body.match(/^\s*\[\s*<([^<>]*)>\s*\]/)
+  if (o) { if (o[1].trim() !== "*") spec = o[1]; body = body.slice(o[0].length) }
+  if (/^\s*[[<]/.test(body)) throw new Unsupported(`beamer: ${kind}'s options`)
+  const stop = body.indexOf(end)
   if (stop < 0) throw new Unsupported(`beamer: ${kind} not ended`)
-  frameList(cx, v, kind, text.slice(begin.length, stop), cx.listInParagraph === true)
+  frameList(cx, v, kind, body.slice(0, stop), cx.listInParagraph === true, spec)
   cx.listInParagraph = false
-  const rest = text.slice(stop + end.length)
+  const rest = body.slice(stop + end.length)
   cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
   return rest
 }
@@ -264,8 +269,15 @@ const toc: FrameHandler = (cx, v, text) => {
   return text.replace(/^\\tableofcontents(?![A-Za-z])/, "")
 }
 
+/** \pause and \pause[n] between paragraphs (overlays.ts) */
+const pauseHandler: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\pause(?![A-Za-z])\s*(?:\[\s*(\d+)\s*\])?/)!
+  pause(cx.overlay, v, m[1] === undefined ? undefined : Number(m[1]))
+  return text.slice(m[0].length)
+}
+
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
@@ -288,8 +300,8 @@ function frameMaterial(cx: FrameCtx, body: string): Node[] {
     if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
     text = handler(cx, v, text)
   }
-  // \end{beamer@framepauses}: \beamer@endpause, \beamer@spacingcover's pair and the one after the group
-  if (cx.endpause) { spacingCover(v); spacingCover(v) }
+  // \end{beamer@framepauses}: \beamer@endpause, then what waits for the group's end
+  smuggle(v, groupEnd(cx.overlay, true))
   return v.nodes
 }
 

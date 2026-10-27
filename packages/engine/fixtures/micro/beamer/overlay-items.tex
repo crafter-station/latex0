@@ -1,0 +1,23 @@
+% fixture: beamer/overlay-items
+% tier: T3
+% engine: document
+% covers: beamer: \item<n-> in itemize (covered items invisible on the slides before), and [<+->] on enumerate (one more item each slide)
+% issue: #300
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Items}
+\begin{itemize}
+\item First
+\item<2-> Second
+\item<3-> Third
+\end{itemize}
+\end{frame}
+\begin{frame}
+\begin{enumerate}[<+->]
+\item One
+\item Two
+\end{enumerate}
+Text after.
+\end{frame}
+\end{document}

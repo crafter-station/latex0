@@ -15,14 +15,13 @@ import { appendText } from "../../layout/hmode"
 import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, fillGlue, glue, paramGlue, penalty, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
-import { DvipsDriver } from "../../pgf/drivers/dvips"
-import { PgfState } from "../../pgf/state"
 import { Bookmarks, dest, HA, HS, linkBox } from "../hyperref"
 import { classParams, selectFont, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
-import { dimen, plain, type VerticalList } from "../vlist"
+import { dimen, type VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { SANS, type FrameCtx, type SectionSource } from "./frame"
+import { groupEnd, pause, smuggle } from "./overlays"
 import { fontSize, outerColors, useColor } from "./theme"
 
 /** a .toc line: \beamer@sectionintoc {section}{title}{page}{part}{toc number} or \beamer@subsectionintoc {section}
@@ -90,28 +89,8 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
   return out
 }
 
-/** \pgfsys@begininvisible\pgfsys@endinvisible (dvips) */
-function invisiblePair(): Node[] {
-  const d = new DvipsDriver(new PgfState())
-  d.beginInvisible()
-  d.endInvisible()
-  return d.state.out
-}
-
-/** \beamer@smuggle{\pgfsys@begininvisible\pgfsys@endinvisible} (\beamer@@spacingcover): a \lastskip other than 0.0pt
- *  is taken off before the pair and put back after it (\vskip\lastskip: plain glue) */
-export function spacingCover(v: VerticalList) {
-  const i = v.nodes.findLastIndex((x) => !(x.kind === "whatsit" && x.hook))
-  const last = v.nodes[i]
-  if (last?.kind === "glue" && (last.width || last.stretch || last.shrink)) {
-    v.nodes.splice(i, 1)
-    v.nodes.push(...invisiblePair(), plain(last))
-  } else v.nodes.push(...invisiblePair())
-}
-
 /**
- * \tableofcontents in the frame's vertical list `v`. \pause[0] (\onslide<0->: visible) puts an invisible pair, another
- * after the group, and makes \beamer@endpause one (at the frame's end).
+ * \tableofcontents in the frame's vertical list `v`. \pause[0] (\onslide<0->: shown) in its group (overlays.ts).
  */
 export function tableOfContents(cx: FrameCtx, v: VerticalList) {
   const { k, theme } = cx
@@ -121,8 +100,9 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList) {
   v.nodes.push({ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000))
   v.vskip(dimen(-parseDimen(".5em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] })))
   v.vskip(dimen(0))
-  spacingCover(v)
-  cx.endpause = true
+  const o = cx.overlay, outerQueue = o.queue
+  o.queue = 0
+  pause(o, v, 0)
   const outer = outerColors(theme)
   // \usebeamertemplate**{… in toc}: normal text's fg and the template's pushed, its font; the title a link to its
   // page, in a paragraph (\parindent zero, beamer's \raggedright), the subsection's \leftskip 1.5em
@@ -151,5 +131,6 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList) {
     }
   }
   v.nodes.push(fillGlue())
-  spacingCover(v)
+  smuggle(v, groupEnd(o, false))
+  o.queue = outerQueue
 }

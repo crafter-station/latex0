@@ -1,0 +1,21 @@
+% fixture: beamer/overlay-pause
+% tier: T3
+% engine: document
+% covers: beamer: \pause between paragraphs: one page per slide, the paragraphs after a \pause invisible (pgf's invisible specials) on the slides before
+% issue: #300
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Pauses}
+First paragraph.
+
+\pause
+Second paragraph.
+
+\pause
+Third paragraph.
+\end{frame}
+\begin{frame}
+After.
+\end{frame}
+\end{document}
