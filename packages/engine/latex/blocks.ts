@@ -172,10 +172,13 @@ const TEXT_COMMANDS = [
   "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
-  "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar"
+  "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace",
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
+/** \rule and \hspace with their arguments (lengths, which may name registers: \textwidth) */
+const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\})/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS)].join("|")}|the[a-zA-Z]+)\\b)[a-zA-Z]+(?!\\s*=)`)
 
@@ -272,7 +275,7 @@ export function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")

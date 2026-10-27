@@ -1,0 +1,27 @@
+% fixture: text/rules-and-spaces
+% tier: T3
+% engine: document
+% covers: \rule[raise]{w}{h} in text (\leavevmode\hbox{\vrule}, lengths in the current font and with \textwidth, \linewidth), a paragraph of a rule alone; \hspace and \hspace* (\vrule width0pt\nobreak\hskip\hskip\z@skip) with glue and \fill; \hrulefill and \dotfill (leaders, \kern\z@); \enspace, \thinspace
+% issue: #336
+\documentclass{article}
+\begin{document}
+\noindent Name: \rule{7cm}{0.4pt} \hfill Student number: \rule{4cm}{0.4pt}
+
+A rule \rule[-2pt]{1em}{3ex} in \textit{italic \rule[1pt]{2em}{0.5ex} text}, then \rule{0pt}{20pt}tall and
+\rule[-6pt]{3pt}{2pt} below. Stop.\rule{1pt}{1pt} Go on.
+\par\noindent\rule{\textwidth}{0.4pt}\par
+Words\hspace{1cm}apart, \hspace{2em plus 1fil} and a starred one at the line start of a long paragraph that
+breaks here and there so it goes on\hspace*{3em}after it, more text here and there to make the lines; one
+\hspace{\fill} fill.
+
+\hspace*{1cm}Indented by hand, and \hspace{-3pt}back.
+
+Chapter one\dotfill 1\\
+Chapter two\hrulefill 23\\
+A\enspace B\thinspace C \enspace D.
+
+\begin{itemize}
+\item In a list \rule{\linewidth}{1pt}
+\item \rule{.5\linewidth}{2pt} half \hspace{.1\textwidth} done
+\end{itemize}
+\end{document}

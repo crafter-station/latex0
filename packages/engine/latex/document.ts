@@ -40,7 +40,7 @@ import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, o
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { COLOR_STY, Colors, colorPush, xcolor } from "./xcolor"
 import { mathFonts, paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
-import { minipageAt, tabularAt } from "./boxes"
+import { minipageAt, tabularAt, widthRegisters } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
 import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
@@ -244,6 +244,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   doc.url = (...a) => urlAt(cx, ...a)
   doc.href = (...a) => hrefAt(cx, ...a)
   doc.graphic = (...a) => graphicAt(cx, ...a)
+  doc.widths = (lineWidth) => widthRegisters(cx, lineWidth)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
   const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
