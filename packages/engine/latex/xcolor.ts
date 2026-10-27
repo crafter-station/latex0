@@ -137,6 +137,11 @@ export class Colors {
   }
 }
 
+/** color.sty's colors (dvips driver): its black and white gray, red, green and blue rgb, cyan, magenta and yellow cmyk */
+export const COLOR_STY: Record<string, string> = {
+  black: "gray 0", white: "gray 1", red: "rgb 1 0 0", green: "rgb 0 1 0", blue: "rgb 0 0 1", cyan: "cmyk 1 0 0 0", magenta: "cmyk 0 1 0 0", yellow: "cmyk 0 0 1 0",
+}
+
 /** \color[model]{spec} in a style */
 export const COLOR_CMD = /\\color\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}/g
 

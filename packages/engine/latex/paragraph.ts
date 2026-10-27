@@ -1070,11 +1070,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "href") {
       if (!doc.href) throw new Unsupported("paragraph adapter: \\href outside a document")
-      if (hyperDriver.pdftex) { // \pdfstartlink, the text where it stands (it may break), \pdfendlink
-        const [start, end] = doc.href(p.n, [], undefined)
-        list.push(start)
+      if (hyperDriver.pdftex) { // \pdfstartlink, the text where it stands (it may break), \pdfendlink (with colorlinks, in its color)
+        const around = doc.href(p.n, [], undefined)
+        list.push(...around.slice(0, around.length / 2))
         appendPieces(list, p.inner, font, size, state, ctx, attrs)
-        list.push(end)
+        list.push(...around.slice(around.length / 2))
         continue
       }
       // the text in the link's box, which starts with the space factor before it and leaves its own after it

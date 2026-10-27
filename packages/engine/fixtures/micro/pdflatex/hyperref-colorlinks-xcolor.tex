@@ -1,0 +1,22 @@
+% fixture: pdflatex/hyperref-colorlinks-xcolor
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: hyperref's colorlinks set by \hypersetup with xcolor's colors (teal, black, a mix): links in them, anchors (a figure's caption, a footnote's) in \@anchorcolor
+% issue: #332
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage[linkcolor=black]{hyperref}
+\hypersetup{colorlinks=true, urlcolor=teal,
+  citecolor=blue!50!black}
+\begin{document}
+\tableofcontents
+\section{One}\label{one}
+See section~\ref{one}, \textcolor{red}{\ref{one} and \url{https://example.org}} and \href{https://example.com}{a link}.\footnote{A note.}
+\begin{figure}[h]\centering\begin{tabular}{c}A\end{tabular}\caption{A caption}\label{f}\end{figure}
+Figure~\ref{f}, \cite{k}.
+\begin{thebibliography}{9}
+\bibitem{k} A. Author. A title.
+\end{thebibliography}
+\end{document}

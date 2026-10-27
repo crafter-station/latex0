@@ -1,0 +1,18 @@
+% fixture: hyperref/pdfinfo-border
+% tier: T3
+% engine: document
+% specials: compare
+% covers: hyperref's document information (pdftitle, pdfauthor, pdfsubject, pdfkeywords, pdfcreator as \pdfstringdef makes them) in the first page's /DOCINFO, pdfborder in every link's /Border, bookmarksopen (each \BOOKMARK line and /OUT pdfmark open); options over more than one line
+% issue: #332
+\documentclass{article}
+\usepackage[pdftitle={A Study of Things},
+  pdfauthor={A. Author},pdfsubject=Things,
+  pdfkeywords={one, two},pdfcreator={My Editor},
+  pdfborder={0 0 2},bookmarksopen=true]{hyperref}
+\begin{document}
+\section{One}\label{one}
+\subsection{Inner}\label{inner}
+See section~\ref{one} and \ref{inner} on page \pageref{inner}, \url{https://example.org}.
+\section{Two}
+Text.
+\end{document}

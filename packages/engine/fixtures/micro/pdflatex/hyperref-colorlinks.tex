@@ -1,0 +1,18 @@
+% fixture: pdflatex/hyperref-colorlinks
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: hyperref's colorlinks with its colors: the color package loaded at \begin{document}, each link's text in \@<type>color (\Hy@colorlink), the border /Border [0 0 0]; linkcolor, citecolor, urlcolor and filecolor set as package options
+% issue: #332
+\documentclass{article}
+\usepackage[colorlinks,citecolor=blue,urlcolor=cyan]{hyperref}
+\begin{document}
+\tableofcontents
+\section{One}\label{one}
+See section~\ref{one} on page \pageref{one}, \url{https://example.org}, \href{https://example.com}{a link}
+and \href{other.pdf}{a file}. Cite \cite{k}.\footnote{A note.}
+\begin{thebibliography}{9}
+\bibitem{k} A. Author. A title.
+\end{thebibliography}
+\end{document}

@@ -10,9 +10,24 @@ import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
 import { sourceText, withoutTextCommands } from "./encodings"
 
+/** a link's type, as \pdf@linktype or \hyper@link's first argument names it: its \@<type>color and \@<type>bordercolor */
+export type LinkType = "link" | "cite" | "url" | "file" | "anchor"
+
 /** the document's driver: set for each layout (DocumentOptions.driver); `onLink`, where a layout counts pdfTeX's
- *  objects, is told of each \pdfstartlink typeset (it takes an object number then) */
-export const hyperDriver: { pdftex: boolean; onLink: (() => void) | null } = { pdftex: false, onLink: null }
+ *  objects, is told of each \pdfstartlink typeset (it takes an object number then); and hyperref's link options:
+ *  \@pdfborder, and with colorlinks each link type's color as the driver's color special (\Hy@colorlink) */
+export const hyperDriver: { pdftex: boolean; onLink: (() => void) | null; border: string; colors: Record<LinkType, string> | null } = { pdftex: false, onLink: null, border: "0 0 1", colors: null }
+/** hyperref's defaults, for a layout whose options are not hyperref's own (beamer's) */
+export const HYPER_LINK_DEFAULTS = { border: "0 0 1", colors: null }
+
+/** pdfmark.def's Border key (\@pdfborder) as the /ANN pdfmark has it, and hpdftex.def's \Hy@setpdfborder */
+const border = () => `/Border [${hyperDriver.border}]BorderArrayPatch`
+const pdfBorder = () => `/Border[${hyperDriver.border}]`
+/** \Hy@colorlink … \Hy@endcolorlink with colorlinks: the color pushed, popped at the group's end */
+function colored(type: LinkType, nodes: Node[]): Node[] {
+  const c = hyperDriver.colors?.[type]
+  return c === undefined ? nodes : [{ kind: "whatsit", text: `\\special{color push ${c}}` }, ...nodes, { kind: "whatsit", text: "\\special{color pop}" }]
+}
 
 const special = (ps: string): Node => ({ kind: "whatsit", text: `\\special{${ps}}` })
 /** hpdftex.def's \Hy@DestName: \pdfdest name{…} xyz (\@pdfview) */
@@ -81,7 +96,7 @@ function restoreLastskip(mode: "v" | "h", last: Node | undefined): Node[] {
  */
 export function spotAnchor(name: string, mode: "v" | "h", last: Node | undefined, baselineskip = 0): Node[] {
   if (hyperDriver.pdftex && mode === "h") return raisedlink([pdfdest(name), ...restoreLastskip("h", undefined)], baselineskip)
-  return [...(hyperDriver.pdftex ? [pdfdest(name)] : [HS(), HR(), dest(name)]), ...restoreLastskip(mode, last)]
+  return [...(hyperDriver.pdftex ? [pdfdest(name)] : colored("anchor", [HS(), HR(), dest(name)])), ...restoreLastskip(mode, last)]
 }
 
 /** \Hy@@SectionAnchor: \hbox to 0pt{\kern-\Hy@SectionHShift <anchor> \hss}, at the start of a heading's title */
@@ -96,21 +111,21 @@ export function sectionAnchorBox(name: string, shift: number, baselineskip: numb
  */
 export function refLink(text: Node[], name: string, color?: string, type: "link" | "cite" = "link"): Node[] {
   // \@linkbordercolor, or \@citebordercolor for \hyper@@link[cite]
-  const border = type === "cite" ? "0 1 0" : "1 0 0"
-  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[${border}]} action goto name{${name}}`), ...text, endLink()] // (find@pdflink)
-  return linkBox(text, color, `[/Color [${border}]/H /I/Border [0 0 1]BorderArrayPatch/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`)
+  const bc = type === "cite" ? "0 1 0" : "1 0 0"
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[${bc}]} action goto name{${name}}`), ...colored(type, text), endLink()] // (find@pdflink)
+  return colored(type, linkBox(text, hyperDriver.colors?.[type] ?? color, `[/Color [${bc}]/H /I${border()}/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`))
 }
 
 /** \hyper@linkurl (hdvips.def): a link to a URI around the typeset text, as for \ref */
 export function uriLink(text: Node[], uri: string, color?: string): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[0 1 1]} action user{/Subtype/Link/A<</Type/Action/S/URI/URI(${uri})>>}`), ...text, endLink()]
-  return linkBox(text, color, `[/H /I/Border [0 0 1]BorderArrayPatch/Color [0 1 1]/Action <</Subtype/URI/URI(${uri})>>/Subtype /Link H.B /ANN pdfmark`)
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[0 1 1]} action user{/Subtype/Link/A<</Type/Action/S/URI/URI(${uri})>>}`), ...colored("url", text), endLink()]
+  return colored("url", linkBox(text, hyperDriver.colors?.url ?? color, `[/H /I${border()}/Color [0 1 1]/Action <</Subtype/URI/URI(${uri})>>/Subtype /Link H.B /ANN pdfmark`))
 }
 
 /** \hyper@linkfile (pdfmark.def): a link to page 1 of another PDF file, in \@filecolor */
 export function fileLink(text: Node[], file: string, color?: string): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[0 .5 .5]} action user{/Subtype/Link/A<</F(${file})/S/GoToR/D[0/Fit]>>}`), ...text, endLink()]
-  return linkBox(text, color, `[/Subtype /Link/H /I/Border [0 0 1]BorderArrayPatch/Color [0 .5 .5]/Action <</S/GoToR/F(${file})/D[0/Fit]>> H.B /ANN pdfmark`)
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[0 .5 .5]} action user{/Subtype/Link/A<</F(${file})/S/GoToR/D[0/Fit]>>}`), ...colored("file", text), endLink()]
+  return colored("file", linkBox(text, hyperDriver.colors?.file ?? color, `[/Subtype /Link/H /I${border()}/Color [0 .5 .5]/Action <</S/GoToR/F(${file})/D[0/Fit]>> H.B /ANN pdfmark`))
 }
 
 /** The text in an \hbox between H.S and H.R, then the link's pdfmark */
@@ -130,13 +145,13 @@ export function linkBox(text: Node[], color: string | undefined, pdfmark: string
 /** A toc line's or a footnote mark's link (\hyper@linkstart … \hyper@linkend): an hbox with H.S, \Hy@AllowHyphens,
  *  the entry, H.L, the /ANN pdfmark; with pdfTeX the link nodes around the entry where it stands */
 export function tocLink(content: Node[], name: string, baselineskip: number): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{/Border[0 0 1]/H/I/C[1 0 0]} action goto name{${name}}`), ...content, endLink()]
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[1 0 0]} action goto name{${name}}`), ...colored("link", content), endLink()]
   return [tocBox(content, name, baselineskip)]
 }
 function tocBox(content: Node[], name: string, baselineskip: number): BoxNode {
   // in restricted horizontal mode no empty discretionary follows a hyphen (§ 1039)
   content = content.filter((n) => !(n.kind === "disc" && !n.pre.length && !n.post.length && !n.replaceCount))
-  return hpack([HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (${name}) cvn/H /I/Border [0 0 1]BorderArrayPatch/Color [1 0 0] H.B /ANN pdfmark`)])
+  return hpack(colored("link", [HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (${name}) cvn/H /I${border()}/Color [1 0 0] H.B /ANN pdfmark`)]))
 }
 
 /**
@@ -223,15 +238,97 @@ export const putPageLabels = (nums: string): Node => sdict(`[ {Catalog} <</PageL
 /** pdfmark.def's \Hy@DistillerDestFix, the first thing \Hy@EveryPageAnchor puts in every page (dvips only) */
 export const distillerDestFix = (): Node => sdict("/product where{pop product(Distiller)search{pop pop pop version(.)search{exch pop exch pop(3011)eq{gsave newpath 0 0 moveto closepath clip/Courier findfont 10 scalefont setfont 72 72 moveto(.)show grestore}if}{pop}ifelse}{pop}ifelse}if")
 
+/** hyperref's options that change the page: package options, then \hypersetup in the preamble, in order */
+export interface HyperOptions {
+  /** \ifHy@colorlinks at \begin{document} */
+  colorlinks: boolean
+  /** \@pdfborder (colorlinks makes it 0 0 0 at \begin{document}) */
+  border: string
+  /** \@<type>color: a color expression, used with colorlinks */
+  colors: Record<LinkType, string>
+  /** the /DOCINFO strings, as \pdfstringdef made them (the creator's and producer's defaults as they are) */
+  info: { producer: string; title: string; subject: string; creator: string; author: string; keywords: string }
+  /** bookmarksopen */
+  bookmarksOpen: boolean
+}
+
+export const hyperDefaults = (): HyperOptions => ({
+  colorlinks: false, border: "0 0 1",
+  colors: { link: "red", anchor: "black", cite: "green", file: "cyan", url: "magenta" },
+  info: { producer: "dvips + Distiller", title: "", subject: "", creator: "LaTeX with hyperref", author: "", keywords: "" },
+  bookmarksOpen: false,
+})
+
+/** a key=value list as kvsetkeys reads it: split at commas outside braces, each side trimmed, one pair of braces off a value */
+export function keyvals(list: string): [string, string | null][] {
+  const out: [string, string | null][] = []
+  let depth = 0, from = 0
+  const take = (part: string) => {
+    if (!part.trim()) return
+    const eq = part.indexOf("=")
+    const key = (eq < 0 ? part : part.slice(0, eq)).trim()
+    let value = eq < 0 ? null : part.slice(eq + 1).trim()
+    if (value !== null && /^\{[^]*\}$/.test(value) && balancedBraces(value.slice(1, -1))) value = value.slice(1, -1)
+    out.push([key, value])
+  }
+  for (let i = 0; i < list.length; i++) {
+    if (list[i] === "\\") { i++; continue }
+    if (list[i] === "{") depth++
+    else if (list[i] === "}") depth--
+    else if (list[i] === "," && depth === 0) { take(list.slice(from, i)); from = i + 1 }
+  }
+  take(list.slice(from))
+  return out
+}
+function balancedBraces(s: string): boolean {
+  let depth = 0
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === "\\") { i++; continue }
+    if (s[i] === "{") depth++
+    else if (s[i] === "}" && --depth < 0) return false
+  }
+  return depth === 0
+}
+
+const INFO_KEYS: Record<string, keyof HyperOptions["info"]> = { pdftitle: "title", pdfauthor: "author", pdfsubject: "subject", pdfkeywords: "keywords", pdfcreator: "creator", pdfproducer: "producer" }
+
+/** hyperref's keys (\usepackage[…]{hyperref}, \hypersetup{…}) into the options; a key not modeled throws */
+export function hyperOptions(o: HyperOptions, list: string): void {
+  const bool = (key: string, v: string | null) => {
+    if (v === null || v === "true") return true
+    if (v === "false") return false
+    throw new Unsupported(`hyperref option ${key}=${v}`)
+  }
+  for (const [key, v] of keyvals(list)) {
+    const color = key.match(/^(link|anchor|cite|file|url)color$/)
+    if (key === "colorlinks") o.colorlinks = bool(key, v)
+    // (\Hy@colorlink as \begingroup, the border 0 0 0; \begin{document} defines \Hy@colorlink again from \ifHy@colorlinks)
+    else if (key === "hidelinks" && v === null) { o.colorlinks = false; o.border = "0 0 0" }
+    else if (color && v !== null && /^[A-Za-z][A-Za-z0-9.!@-]*$/.test(v)) o.colors[color[1] as LinkType] = v
+    else if (key === "allcolors" && v !== null && /^[A-Za-z][A-Za-z0-9.!@-]*$/.test(v)) o.colors = { link: v, anchor: v, cite: v, file: v, url: v }
+    // (\Hy@Match: three non-negative numbers; a dash array not modeled)
+    else if (key === "pdfborder" && v !== null && /^\d*\.?\d+ \d*\.?\d+ \d*\.?\d+$/.test(v)) o.border = v
+    else if (key in INFO_KEYS && v !== null) {
+      const pdf = pdfString(v)
+      if (pdf === null) throw new Unsupported(`hyperref option ${key}=${v}`)
+      o.info[INFO_KEYS[key]] = pdf
+    }
+    else if (key === "bookmarksopen") o.bookmarksOpen = bool(key, v)
+    // what the defaults are already: unicode strings, bookmarks, final
+    else if (["unicode", "bookmarks", "final"].includes(key) && bool(key, v)) continue
+    else throw new Unsupported(`hyperref option ${key}${v === null ? "" : `=${v}`}`)
+  }
+}
+
 /**
  * hyperref's shipout/firstpage code under dvips, as the specials print: \Hy@FirstPageHook (pdfmark.def's
- * \headerps@out testing for pdfmark, \PDF@FinishDoc's /DOCINFO with the default document information, hdvips.def's
+ * \headerps@out testing for pdfmark, \PDF@FinishDoc's /DOCINFO with the document information, hdvips.def's
  * PostScript procedures for H.S, H.R, H.A …), then hdvips.def's \special{papersize=\the\paperwidth,\the\paperheight}
  */
-export function hyperFirstPage(paperwidth: number, paperheight: number): string[] {
+export function hyperFirstPage(paperwidth: number, paperheight: number, info = hyperDefaults().info): string[] {
   return [
     "\\special{! systemdict /pdfmark known{userdict /?pdfmark systemdict /exec get put}{userdict /?pdfmark systemdict /pop get put userdict /pdfmark systemdict /cleartomark get put}ifelse}",
-    "\\special{ps:SDict begin [/Producer (dvips + Distiller)/Title ()/Subject ()/Creator (LaTeX with hyperref)/Author ()/Keywords () /DOCINFO pdfmark end}",
+    `\\special{ps:SDict begin [/Producer (${info.producer})/Title (${info.title})/Subject (${info.subject})/Creator (${info.creator})/Author (${info.author})/Keywords (${info.keywords}) /DOCINFO pdfmark end}`,
     "\\special{! /DvipsToPDF{72.27 mul Resolution div} def/PDFToDvips{72.27 div Resolution mul} def/BPToDvips{72 div Resolution mul}def product (Ghostscript) search {pop pop pop revision 927 gt}{pop false} ifelse{/BorderArrayPatch{} def}{/BorderArrayPatch{[exch{dup dup type/integertype eq exch type/realtype eq or{BPToDvips}if}forall]}def} ifelse /HyperBorder {1 PDFToDvips} def/H.V {pdf@hoff pdf@voff null} def/H.B {/Rect[pdf@llx pdf@lly pdf@urx pdf@ury]} def/H.S {currentpoint HyperBorder add /pdf@lly exch def dup DvipsToPDF 72 add /pdf@hoff exch def HyperBorder sub /pdf@llx exch def} def/H.L {2 sub dup/HyperBasePt exch def PDFToDvips /HyperBaseDvips exch def currentpoint HyperBaseDvips sub /pdf@ury exch def/pdf@urx exch def} def/H.A {H.L currentpoint exch pop vsize 72 sub exch DvipsToPDF HyperBasePt sub sub /pdf@voff exch def} def/H.R {currentpoint HyperBorder sub /pdf@ury exch def HyperBorder add /pdf@urx exch def currentpoint exch pop vsize 72 sub exch DvipsToPDF sub /pdf@voff exch def} def}",
     papersize(paperwidth, paperheight),
   ]
@@ -246,7 +343,7 @@ export const papersize = (w: number, h: number): string => `\\special{papersize=
  */
 export function pageAnchor(page: string, topmargin: number, sidemargin: number): BoxNode {
   const bp = 65781 // 1bp
-  const mark = hyperDriver.pdftex ? [pdfdest(`page.${page}`)] : [HS(), HR(), dest(`page.${page}`)]
+  const mark = hyperDriver.pdftex ? [pdfdest(`page.${page}`)] : colored("anchor", [HS(), HR(), dest(`page.${page}`)])
   const h = hpack([kern(0, true), kern(sidemargin, true), kern(-bp, true), ...mark, penalty(10000), ssGlue()], { exactly: 0 })
   return vpack([kern(0, true), kern(topmargin, true), kern(-bp, true), h, ssGlue()], { exactly: 0 })
 }

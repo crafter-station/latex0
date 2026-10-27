@@ -18,6 +18,7 @@ import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
 import type { CrefNameDef, CrefOptions } from "./cleveref"
 import { Unsupported } from "./unsupported"
+import { hyperDefaults, hyperOptions, type HyperOptions } from "./hyperref"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
 import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type Captions } from "./babel"
 import { markAccentHyphens } from "./spanish"
@@ -61,6 +62,8 @@ export interface Preamble {
   enumitem: boolean
   /** hyperref, with the dvips driver */
   hyper: boolean
+  /** hyperref's options and \hypersetup's */
+  hyperOpts: HyperOptions
   /** geometry loaded (its \\AtBeginDvi papersize under dvips), and whether landscape */
   geometry: { landscape: boolean } | null
   /** the graphics bundle's dvips.def loaded (graphicx, xcolor; siunitx loads color): its \\AtBeginDvi papersize */
@@ -148,6 +151,7 @@ export function readPreamble(src: string): Preamble {
   let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
   let fancy: FancyHdr | null = null
   let hyper = false // hyperref, with the dvips driver
+  const hyperOpts = hyperDefaults()
   let hyperNotes = true
   let nameref = false // (hyperref loads it)
   let cleveref = false
@@ -187,9 +191,9 @@ export function readPreamble(src: string): Preamble {
     if (opts !== null) captionOps.push({ list: "sub", src: opts, t1, babel: !!babel })
   }
   // \captionsetup and caption's options over more than one line: on one
-  pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:sub)?caption\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
+  pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:(?:sub)?caption|hyperref)\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
   const chars = pre.split("")
-  for (const m of pre.matchAll(/\\captionsetup\b[^{]*\{/g)) { // (spaces for newlines: the indices stay)
+  for (const m of pre.matchAll(/\\(?:captionsetup|hypersetup)\b[^{]*\{/g)) { // (spaces for newlines: the indices stay)
     for (let j = m.index! + m[0].length, depth = 1; j < chars.length && depth; j++) {
       if (chars[j] === "{") depth++; else if (chars[j] === "}") depth--; else if (chars[j] === "\n") chars[j] = " "
     }
@@ -275,7 +279,15 @@ export function readPreamble(src: string): Preamble {
       if (!cleveref) throw new Unsupported(`preamble: ${line}`)
       crefNames.push([crn[1] === "crefname" ? "cref" : "Cref", crn[2], crn[3], crn[4]]); continue
     }
-    const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
+    // \hypersetup{keys} after hyperref, as its options
+    const hs = line.match(/^\\hypersetup\s*\{(.*)\}$/)
+    if (hs) { if (!hyper) throw new Unsupported(`preamble: ${line}`); hyperOptions(hyperOpts, hs[1]); continue }
+    const hpo = line.match(/^\\usepackage\[(.*)\]\{hyperref\}$/)
+    if (hpo) {
+      if (hyper) throw new Unsupported("hyperref loaded twice with options") // (LaTeX: Option clash)
+      hyperOptions(hyperOpts, hpo[1])
+    }
+    const pk = hpo ? [line, "hyperref"] : line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
@@ -437,7 +449,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts }
 }
 
 /** braces balanced in s */

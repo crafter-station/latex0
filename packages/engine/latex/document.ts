@@ -38,7 +38,7 @@ import { Unsupported } from "./unsupported"
 import { VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
-import { Colors, colorPush, xcolor } from "./xcolor"
+import { COLOR_STY, Colors, colorPush, xcolor } from "./xcolor"
 import { mathFonts, paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
@@ -116,8 +116,10 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
 
   const v = new VerticalList(run.k)
   v.alwaysIndent = isSpanish(pre.babel) // (spanish.ldf's layout: \@afterindentfalse is \@afterindenttrue)
-  // a color package: xcolor, or the color package siunitx loads at \begin{document} (its default color named Black)
-  const usesColor = usesXcolor || pre.usesSiunitx
+  // a color package: xcolor, or the color package siunitx or hyperref's colorlinks loads at \begin{document} (its
+  // default color named Black)
+  const colorlinks = hyper && pre.hyperOpts.colorlinks
+  const usesColor = usesXcolor || pre.usesSiunitx || colorlinks
   xcolor.on = usesColor
   xcolor.normal = usesXcolor ? "gray 0" : " Black"
   outputOptions.xcolor = usesColor
@@ -129,7 +131,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   // (its .out file is \write3, or \write4 after pgf's \newwrite\w@pgf@writea: pgfsys.code.tex 67)
-  const bookmarks = new Bookmarks(pre.tikz ? 4 : 3)
+  const bookmarks = new Bookmarks(pre.tikz ? 4 : 3, pre.hyperOpts.bookmarksOpen ? "" : "-")
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
   // babel's \AtBeginDocument: \selectlanguage of the main language, its \write to the .aux file (before or after
@@ -138,7 +140,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   if (pre.babel?.beforeHyperref) babelStart()
   if (hyper) {
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
-    v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
+    v.nodes.push(...documentStart(prev ? prev.bookmarks : [], pre.hyperOpts.bookmarksOpen))
     v.nodes.push(...anchor("Doc-Start", run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     if (prev?.pageLabels && !hyperDriver.pdftex) v.nodes.push(putPageLabels(prev.pageLabels))
   }
@@ -151,6 +153,13 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const colorSpec = (spec: string, model?: string) => {
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
+  }
+  // hyperref's \@pdfborder, and with colorlinks each link type's color (xcolor's, or color.sty's named ones)
+  hyperDriver.border = colorlinks ? "0 0 0" : pre.hyperOpts.border
+  hyperDriver.colors = null
+  if (colorlinks) {
+    const c = pre.hyperOpts.colors, spec = (x: string) => (usesXcolor ? colors.spec(x) : COLOR_STY[x] ?? colorSpec(x))
+    hyperDriver.colors = { link: spec(c.link), anchor: spec(c.anchor), cite: spec(c.cite), file: spec(c.file), url: spec(c.url) }
   }
   const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
   const decisions: ParagraphTrace[] = []
@@ -274,10 +283,10 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   else if (shipped.length) {
     const { paperwidth: pw, paperheight: ph } = run.k.dimens
     shipped[0] = firstPage(shipped[0], [
-      ...(hyper ? hyperFirstPage(pw, ph) : []),
+      ...(hyper ? hyperFirstPage(pw, ph, pre.hyperOpts.info) : []),
       L3BACKEND_HEADER,
       ...(pre.geometry ? [papersize(pw, ph), ...(pre.geometry.landscape ? ["\\special{! /landplus90 true store}"] : [])] : []),
-      ...(pre.graphicsDriver ? [papersize(pw, ph)] : []),
+      ...(pre.graphicsDriver || colorlinks ? [papersize(pw, ph)] : []), // (colorlinks loads color)
     ])
   }
   if (pageTraces.length) {

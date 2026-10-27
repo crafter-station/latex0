@@ -436,7 +436,15 @@ export function makeDocument(r: () => number): string {
   }
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25 && !isLetter
-  if (hyper) out.push("\\usepackage{hyperref}")
+  if (hyper) {
+    // its options or \hypersetup's: colorlinks and the link colors (color.sty's names, xcolor's with it), hidelinks,
+    // pdfborder, the document information, bookmarksopen
+    const names = colorOn ? ["red", "blue", "teal", "black", "blue!50!black", "magenta"] : ["red", "blue", "black", "cyan", "magenta", "green"]
+    const keys = r() < 0.4 ? [...new Set(Array.from({ length: 1 + Math.floor(r() * 4) }, () => pick(["colorlinks", "colorlinks=true", "colorlinks=false", "hidelinks", "pdfborder={0 0 2}", "pdftitle={A Title}", "pdfauthor={A. Author}", "bookmarksopen", `linkcolor=${pick(names)}`, `citecolor=${pick(names)}`, `urlcolor=${pick(names)}`, `filecolor=${pick(names)}`])))] : []
+    if (!keys.length) out.push("\\usepackage{hyperref}")
+    else if (r() < 0.5) out.push(`\\usepackage[${keys.join(",")}]{hyperref}`)
+    else out.push("\\usepackage{hyperref}", `\\hypersetup{${keys.join(", ")}}`)
+  }
   // nameref alone (not with titlesec or cleveref yet)
   nrOn = !hyper && !isLetter && r() < 0.12
   if (nrOn) out.push("\\usepackage{nameref}")
