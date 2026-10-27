@@ -225,7 +225,7 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
       if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
       number = ++counters.algorithm
       refs.href = `algorithm.${number}` // global; \@currentlabel ends with the float's group
-      if (keys && hyper) name = labelName(text) // (caption.sty's \caption@gettitle: nameref's name, in the float's group)
+      if (keys && cx.pre.nameref) name = labelName(text) // (caption.sty's \caption@gettitle: nameref's name, in the float's group)
       // float.sty after hyperref (and no caption.sty): its \caption's \refstepcounter, hyperref's, anchors here
       if (!keys && hyper && algorithm.afterHyperref) content.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", content.at(-1)))
       // \addcontentsline{loa}{algorithm}{\protect\numberline{n}{\ignorespaces text}} (caption.sty's: not for list=false)

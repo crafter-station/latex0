@@ -1,0 +1,35 @@
+% fixture: algorithm/caption-nameref
+% tier: T3
+% engine: document
+% covers: an algorithm caption with caption.sty and nameref (no hyperref): \caption@gettitle sets nameref's name, the \label's third field
+% issue: #294
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{caption}
+\usepackage{nameref}
+\begin{document}
+\section{Sorting}
+Text before.
+\begin{algorithm}
+\caption{Insertion sort}
+\label{alg:a}
+\begin{algorithmic}[1]
+\State $x \gets 1$
+\State $y \gets 2$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State $z \gets 3$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\caption{Here}
+\label{alg:b}
+\begin{algorithmic}
+\State $w \gets 4$
+\end{algorithmic}
+\end{algorithm}
+Text after, see Algorithm~\ref{alg:a} and~\ref{alg:b}.
+\end{document}
