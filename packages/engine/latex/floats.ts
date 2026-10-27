@@ -181,8 +181,10 @@ function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   if (run.k.singleSizes) throw new Unsupported("an [H] float with setspace")
   // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
   const pending = b.inPar ? cx.decisions.pop() : undefined
-  const box = algorithmBox(cx, b.body, cx.decisions, v.club, true)
-  if (pending) cx.decisions.push(pending)
+  const traces: ParagraphTrace[] = []
+  const box = algorithmBox(cx, b.body, traces, v.club, true)
+  if (pending) cx.decisions.push(...traces, pending)
+  else cx.decisions.push(...traces)
   v.vskip(run.k.glue.intextsep)
   v.box(box, run.k.sizes.normalsize.baselineskip)
   v.vskip(run.k.glue.intextsep)
