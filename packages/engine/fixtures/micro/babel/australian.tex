@@ -1,0 +1,19 @@
+% fixture: babel/australian
+% tier: T3
+% engine: document
+% covers: babel's language as a class option (\documentclass[australian]{report}, \usepackage{babel}): english.ldf's AU \today, the british patterns, \chaptername and \bibname
+% issue: #63
+\documentclass[australian]{report}
+\usepackage{babel}
+\title{Australian}
+\author{An Author}
+\begin{document}
+\maketitle
+\chapter{Start}
+\begin{minipage}{60pt}
+The abdication, abbreviation, abdominal abbreviators, abbreviations and abdications.
+\end{minipage}
+\begin{thebibliography}{9}
+\bibitem{a} An item.
+\end{thebibliography}
+\end{document}

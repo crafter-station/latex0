@@ -8,6 +8,7 @@ import { printScaled } from "../layout/arith"
 import { glue, kern, penalty, type BoxNode, type Node, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
+import { sourceText, withoutTextCommands } from "./encodings"
 
 /** the document's driver: set for each layout (DocumentOptions.driver); `onLink`, where a layout counts pdfTeX's
  *  objects, is told of each \pdfstartlink typeset (it takes an object number then) */
@@ -146,9 +147,12 @@ export function pdfString(title: string): string | null {
   // \textbf{…} and friends keep their text; \# \% \& \$ are the characters; ~ is a space
   let t = title.replace(/\\(?:textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{([^{}]*)\}/g, "$1")
   t = t.replace(/\\([#%&$])/g, "$1").replace(/~/g, " ")
-  if (/[\\{}$^_]/.test(t) || /[^\x20-\x7e]/.test(t)) return null
+  // (accented letters, typed or as commands, are their characters: PU's UTF-16; spanish.ts's marks go)
+  if (/[\\{}$^_]/.test(withoutTextCommands(t))) return null
+  t = sourceText(t).replace(/\ue000/g, "").replace(/ı(?=[\u0300-\u036f])/g, "i").normalize("NFC") // (\'{\i}: í)
+  if (/[^\x20-\x7e\xa0-\xff]/.test(t)) return null
   let out = "\\376\\377"
-  for (const c of t) out += " ()\\#%&$".includes(c) ? `\\000\\${c.charCodeAt(0).toString(8).padStart(3, "0")}` : `\\000${c}`
+  for (const c of t) out += " ()\\#%&$".includes(c) || c >= "\xa0" ? `\\000\\${c.charCodeAt(0).toString(8).padStart(3, "0")}` : `\\000${c}`
   return out
 }
 
@@ -269,16 +273,34 @@ const AUTOREF_NAMES: Record<string, string> = {
   equation: "Equation", Item: "item", figure: "Figure", table: "Table", chapter: "chapter", section: "section",
   subsection: "subsection", subsubsection: "subsubsection", theorem: "Theorem", lstlisting: "Listing",
 }
+/** hyperref's \HyLang@spanish, which babel's \extrasspanish runs when babel was loaded first (LaTeX source) */
+const SPANISH_AUTOREF_NAMES: Record<string, string> = {
+  equation: "Ecuaci\\'on", Item: "Elemento", figure: "Figura", table: "Tabla", chapter: "Cap\\'itulo", section: "Secci\\'on",
+  subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing",
+}
+/** hyperref's \HyLang@portuges, for brazil, brazilian and portuguese (not portuges) */
+const PORTUGUESE_AUTOREF_NAMES: Record<string, string> = {
+  equation: "Equa\\c c\\~ao", Item: "Item", figure: "Figura", table: "Tabela", chapter: "Cap\\'itulo", section: "Se\\c c\\~ao",
+  subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing",
+}
 /** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
 const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "appendix", "paragraph", "subparagraph", "FancyVerbLine", "page"]
+
+/** The language of hyperref's names (\HyLang@DeclareLang): the main language's, when babel came first (its \extras<lang> are
+ *  there to add them to) or the class has it as an option; english (null) for the english ones and the others */
+export function autorefLanguage(b: { main: string; global: string[]; beforeHyperref?: boolean } | null | undefined): "spanish" | "portuges" | null {
+  if (!b || !(b.beforeHyperref || b.global.includes(b.main))) return null
+  return b.main === "spanish" ? "spanish" : ["brazil", "brazilian", "portuguese"].includes(b.main) ? "portuges" : null
+}
 
 /**
  * \HyRef@testreftype: \autoref's name for an anchor, from its type (the anchor up to its first period):
  * \<type>autorefname, else \<type>name, else either for the type without a final * (\HyRef@StripStar);
  * null with neither (hyperref's warning "No autoref name", and no name)
  */
-export function autorefName(href: string): string | null {
+export function autorefName(href: string, lang: "spanish" | "portuges" | null = null): string | null {
   const type = href.split(".")[0]
   if (AUTOREF_OTHERS.includes(type.replace(/\*$/, ""))) throw new Unsupported(`\\autoref to a ${type} anchor`)
-  return AUTOREF_NAMES[type] ?? (type.endsWith("*") ? AUTOREF_NAMES[type.slice(0, -1)] : undefined) ?? null
+  const names = lang === "spanish" ? SPANISH_AUTOREF_NAMES : lang === "portuges" ? PORTUGUESE_AUTOREF_NAMES : AUTOREF_NAMES
+  return names[type] ?? (type.endsWith("*") ? names[type.slice(0, -1)] : undefined) ?? null
 }

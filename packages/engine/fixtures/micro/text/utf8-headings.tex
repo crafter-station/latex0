@@ -1,0 +1,26 @@
+% fixture: text/utf8-headings
+% tier: T3
+% engine: document
+% covers: UTF-8 in headings, the table of contents, running heads (\MakeUppercase of accented letters), captions, the list of figures' write, description labels, theorem names and notes; \write and \marks texts print UTF-8 as bytes
+% issue: #63
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{teo}{Teorema}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\section{Introducción a la teoría}\label{s}
+Véase la sección~\ref{s} y la figura~\ref{f}.
+\begin{figure}[h]
+\caption{Descripción del método numérico}\label{f}
+\end{figure}
+\begin{teo}[Pitágoras]
+Un teorema clásico.
+\end{teo}
+\begin{description}
+\item[Señal] Una descripción.
+\item[Último] Otra más.
+\end{description}
+\subsection{Conclusión}
+Fin del artículo.
+\end{document}

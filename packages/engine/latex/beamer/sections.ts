@@ -12,7 +12,7 @@
 import type { ClassOptionData } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
 import { QUAD, X_HEIGHT, type Font } from "../../layout/font"
-import { appendText } from "../../layout/hmode"
+import { appendText } from "../encodings"
 import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, filGlue, fillGlue, glue, kern, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
 import { pgfPathCircle, pgfUsePath } from "../../pgf/paths"

@@ -1,0 +1,16 @@
+% fixture: babel/british
+% tier: T3
+% engine: document
+% covers: \usepackage[british]{babel}: TeX Live's ukenglish patterns (hyph-en-gb), english.ldf's UK \today (1st~January 2025: an ordinal and \nobreakspace) in \maketitle
+% issue: #63
+\documentclass{article}
+\usepackage[british]{babel}
+\title{British}
+\author{An Author}
+\begin{document}
+\maketitle
+\begin{minipage}{60pt}
+The abdication, abbreviation, abdominal abbreviators, abbreviations and abdications,
+characterisation of hyperconsciousness, the organisation of programmes.
+\end{minipage}
+\end{document}

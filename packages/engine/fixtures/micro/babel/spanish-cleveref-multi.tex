@@ -1,0 +1,23 @@
+% fixture: babel/spanish-cleveref-multi
+% tier: T3
+% engine: document
+% covers: cleveref's spanish option with several keys: its plural names and conjunctions (y, a), ranges, groups of types
+% issue: #63
+\documentclass[spanish]{article}
+\usepackage{amsmath}
+\usepackage{babel}
+\usepackage{cleveref}
+\begin{document}
+\section{Uno}\label{s1}
+\section{Dos}\label{s2}
+\section{Tres}\label{s3}
+\section{Cuatro}\label{s4}
+Véase \cref{s1,s2}, \cref{s1,s2,s3}, \cref{s1,s3,s4} y \Cref{s2,e}; también \cref{e,f,t}, \cref{e,s1,f,t}, \crefrange{s1}{s3} y \Crefrange{s2}{s4}.
+\begin{equation}x = 2\label{e}\end{equation}
+\begin{figure}[h]
+\caption{Una figura}\label{f}
+\end{figure}
+\begin{table}[h]
+\caption{Una tabla}\label{t}
+\end{table}
+\end{document}

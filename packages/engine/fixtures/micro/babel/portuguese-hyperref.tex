@@ -1,0 +1,27 @@
+% fixture: babel/portuguese-hyperref
+% tier: T3
+% engine: document
+% covers: babel's portuguese before hyperref: hyperref's \HyLang@portuges \autoref names (Se\c c\~ao, Equa\c c\~ao, Figura, Tabela, Item, Teorema)
+% issue: #63
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage[portuguese]{babel}
+\usepackage{hyperref}
+\newtheorem{theorem}{Teorema}
+\begin{document}
+\section{Introdução}\label{s}
+\subsection{Parte}\label{ss}
+Veja \autoref{s}, \autoref{ss}, \autoref{e}, \autoref{f}, \autoref{t}, \autoref{i} e \autoref{th}.
+\begin{equation}x = 2\label{e}\end{equation}
+\begin{figure}[h]
+\caption{Uma figura}\label{f}
+\end{figure}
+\begin{table}[h]
+\caption{Uma tabela}\label{t}
+\end{table}
+\begin{enumerate}
+\item um\label{i}
+\end{enumerate}
+\begin{theorem}\label{th}Um teorema.\end{theorem}
+\end{document}

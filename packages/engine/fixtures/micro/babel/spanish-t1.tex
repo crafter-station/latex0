@@ -1,0 +1,14 @@
+% fixture: babel/spanish-t1
+% tier: T3
+% engine: document
+% covers: spanish with T1 at 11pt: composites (no \bbl@allowhyphens: only OT1's \' and \~ are \es@accent), guillemets as characters, the spanish patterns on words with accented letters
+% issue: #63
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\begin{document}
+Texto <<entre comillas>> y más. Un "<pingüino"> con ping"uino, ping"Uino, "c. Acción, canción y \'{\i}ndice.
+\begin{minipage}{60pt}
+Transformación, comunicación, electrónica, información, almacenamiento, canción, pingüino.
+\end{minipage}
+\end{document}

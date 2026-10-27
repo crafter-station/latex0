@@ -5,7 +5,7 @@
 import type { SizeCommand } from "../layout/classdata"
 import { parseDimen, parseGlue } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { fillGlue, glue, kern, penalty, type Node } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"

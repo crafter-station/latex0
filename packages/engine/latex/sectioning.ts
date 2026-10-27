@@ -5,7 +5,7 @@
 import { dataFont } from "./data"
 import { loadFont, QUAD } from "../layout/font"
 import { Scanner } from "../layout/dimen"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"
@@ -18,6 +18,7 @@ import { type OutputHook } from "./output"
 import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
 import { titlesecHeading } from "./titlesec"
+import { isSpanish } from "./babel"
 
 /**
  * report's \chapter: \clearpage, \thispagestyle{plain}, \global\@topnum\z@, \@afterindentfalse; then
@@ -52,6 +53,7 @@ export function matter(cx: Ctx, which: "front" | "main" | "back") {
   const { cls } = cx.pre
   const { run, v } = cx
   if (cls !== "book") throw new Unsupported(`\\${which}matter in ${cls}`)
+  if (which === "front" && isSpanish(cx.pre.babel)) throw new Unsupported("\\frontmatter with spanish.ldf (its \\@roman page numbers in small capitals)")
   v.par()
   cleardoublepage(cx) // \backmatter's when openright, as book is
   run.mainmatter = which === "main"
@@ -82,7 +84,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
     v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
     // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
     if (headings) {
-      const cv = markValue(numbered ? [{ text: "Chapter" }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
+      const cv = markValue(numbered ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
       v.nodes.push(...marks.insert(run.k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
     for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
@@ -103,7 +105,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
   const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club }) // \parindent\z@ \raggedright
   if (numbered) {
-    typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
+    typeset(`${cx.pre.names.chaptername} ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
     v.nodes.push(penalty(10000))
     v.vskip(dimen(20 * 65536))
   }
@@ -198,7 +200,8 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const bold = run.k.sizes[size].bold
   const bf = loadFont(dataFont(bold.name), bold.at)
   const label: Node[] = [glue(0)] // \hskip #3 (\z@)
-  if (numbered) { appendText(label, number, bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
+  // (spanish.ldf's layout: \@seccntformat is \csname the#1\endcsname.\quad)
+  if (numbered) { appendText(label, number + (isSpanish(cx.pre.babel) ? "." : ""), bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
   const box = hpack(label)
   const start = hyper && !numbered ? [box, sectionAnchorBox(anchorName, 0, run.k.sizes[size].baselineskip.width)] : [box]
   typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub, ...(heading.end ? { end: heading.end } : {}) }, outerParskip, size)

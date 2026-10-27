@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 705,
-  "exact": 705,
+  "fixtures": 750,
+  "exact": 750,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 396064
+  "glyphs": 403958
  },
  "areas": [
   {
@@ -28,6 +28,11 @@
    "area": "array",
    "fixtures": 6,
    "exact": 6
+  },
+  {
+   "area": "babel",
+   "fixtures": 35,
+   "exact": 35
   },
   {
    "area": "beamer",
@@ -116,8 +121,8 @@
   },
   {
    "area": "math",
-   "fixtures": 13,
-   "exact": 13
+   "fixtures": 15,
+   "exact": 15
   },
   {
    "area": "minipage",
@@ -171,8 +176,8 @@
   },
   {
    "area": "text",
-   "fixtures": 14,
-   "exact": 14
+   "fixtures": 22,
+   "exact": 22
   },
   {
    "area": "tikz",
@@ -904,6 +909,391 @@
    "glyphs": 105,
    "covers": "a size in >{decl} of p, m and b columns: \\insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\\@endpbox's \\par): the entry's lines at its \\baselineskip; with \\bfseries, after \\centering\\arraybackslash, an empty entry, a row ended by \\\\[skip]",
    "issue": "#277"
+  },
+  {
+   "id": "babel/australian",
+   "file": "micro/babel/australian.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "babel's language as a class option (\\documentclass[australian]{report}, \\usepackage{babel}): english.ldf's AU \\today, the british patterns, \\chaptername and \\bibname",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/brazil-hyperref-global",
+   "file": "micro/babel/brazil-hyperref-global.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 44,
+   "covers": "brazil as a class option with hyperref loaded before babel: hyperref's brazil key adds \\HyLang@portuges to \\extrasbrazil",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/brazil-report",
+   "file": "micro/babel/brazil-report.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 259,
+   "covers": "\\usepackage[brazil]{babel} in report with T1: portuges.ldf's brazil captions (Cap\\'{\\i}tulo, Sum\\'ario, Refer\\^encias Bibliogr\\'aficas), \"< and \"> as T1's guillemets, the portuguese patterns on accented letters",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/british",
+   "file": "micro/babel/british.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 177,
+   "covers": "\\usepackage[british]{babel}: TeX Live's ukenglish patterns (hyph-en-gb), english.ldf's UK \\today (1st~January 2025: an ordinal and \\nobreakspace) in \\maketitle",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/caption-names",
+   "file": "micro/babel/caption-names.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 31,
+   "covers": "caption.sty's figurename= and tablename= with babel: they set the names at \\begin{document} (\\caption@newfloat's \\AtBeginDocument), so before babel loaded its captions win (Figura), after it they stay (Tab.)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/english-basic",
+   "file": "micro/babel/english-basic.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 370,
+   "covers": "\\usepackage[english]{babel}: \\begin{document}'s \\selectlanguage and its \\write to the .aux file, \\markboth and \\markright in \\foreignlanguage (running heads, the table of contents' marks), english.ldf's captions and \\today, the .toc's \\babel@toc lines on the second run",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/english-hyperref",
+   "file": "micro/babel/english-hyperref.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 67,
+   "covers": "babel loaded after hyperref: its \\begin{document} \\write after hyperref's anchors; \\autoref and bookmarks in english",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/english-switch",
+   "file": "micro/babel/english-switch.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 177,
+   "covers": "babel's \\selectlanguage (between paragraphs, right after a heading with its \\nobreak, in a paragraph), otherlanguage (its \\begin and \\end write to the .aux file and \\ignorespaces), otherlanguage* (no write, spaces kept) and \\foreignlanguage, all to the main language",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/english-umlaut",
+   "file": "micro/babel/english-umlaut.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 144,
+   "covers": "babel's OT1 \\\" composites (\\AtBeginDocument: \\bbl@umlauta and \\bbl@umlaute, \\umlauthigh's \\accent127 with \\bbl@allowhyphens in a group, space factor 1000) on a e i \\i o u A E I O U, and \\\" on other letters (\\add@accent)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/portuges-hyperref",
+   "file": "micro/babel/portuges-hyperref.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "babel's portuges before hyperref: hyperref declares no portuges language (english \\autoref names)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/portuguese-basic",
+   "file": "micro/babel/portuguese-basic.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 433,
+   "covers": "\\usepackage[portuguese]{babel} (portuges.ldf): its captions (Resumo, \\'Indice in the contents' heading and running heads, Figura, Tabela, Demonstra\\c{c}\\~ao, Refer\\^encias), \\today, the portuguese patterns (hyphenmins 2 3, no \\frenchspacing), its \" shorthands (\"\" \"- and \"< \"> as babel's OT1 guillemets), babel's OT1 umlauts",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/portuguese-hyperref",
+   "file": "micro/babel/portuguese-hyperref.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 153,
+   "covers": "babel's portuguese before hyperref: hyperref's \\HyLang@portuges \\autoref names (Se\\c c\\~ao, Equa\\c c\\~ao, Figura, Tabela, Item, Teorema)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-active",
+   "file": "micro/babel/spanish-active.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 50,
+   "covers": "spanish.ldf's active characters ~ < > (shorthands): their lookahead, an undelimited argument, skips the spaces after them (~ x is ~x, < < is <<, a < b is a <b), ~} and ~{} as ties",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-amsthm",
+   "file": "micro/babel/spanish-amsthm.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 124,
+   "covers": "spanish with amsthm: \\proofname (Demostraci\\'{o}n), theorem names with accents, amsthm's \\frenchspacing (\\@addpunct), \\tablename",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-basic",
+   "file": "micro/babel/spanish-basic.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 680,
+   "covers": "\\usepackage[spanish]{babel} (spanish.ldf 5.0q, defaults): \\captionsspanish (Resumen, \\'{I}ndice, Figura, Cuadro, Referencias), \\spanishdate's \\today in \\maketitle, \\frenchspacing, the spanish patterns with hyphenmins 2 2, \\es@accent's \\bbl@allowhyphens after OT1 \\' and \\~ unless a space follows, \\layoutspanish (numbers with a period in headings and the contents, the first paragraph after a heading indented), \\% with a thin space",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-boxes",
+   "file": "micro/babel/spanish-boxes.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 56,
+   "covers": "spanish.ldf's accents (\\bbl@allowhyphens) in what the engine takes out of the source first: tabular entries, a minipage, a listing's caption; spanish as a class option",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-cleveref-multi",
+   "file": "micro/babel/spanish-cleveref-multi.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 234,
+   "covers": "cleveref's spanish option with several keys: its plural names and conjunctions (y, a), ranges, groups of types",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-cleveref",
+   "file": "micro/babel/spanish-cleveref.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 133,
+   "covers": "spanish as a class option: cleveref's spanish option (apartado, ecuaci\\'on, figura, cuadro, punto; capitalized with \\Cref), with spanish.ldf's accents",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-enumitem",
+   "file": "micro/babel/spanish-enumitem.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "spanish with enumitem: leftmargin=* measures spanish.ldf's labels (the square, \\textbullet, $\\circ$)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-hyperref-accents",
+   "file": "micro/babel/spanish-hyperref-accents.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 194,
+   "covers": "spanish with hyperref: headings with accents (UTF-8 and commands) in bookmarks (\\pdfstringdef's UTF-16: \\000\\363 for ó, \\'{\\i} as í), the contents and nameref",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-hyperref-first",
+   "file": "micro/babel/spanish-hyperref-first.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "spanish with hyperref loaded before babel: its english autoref names; ASCII headings in bookmarks",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-hyperref-global",
+   "file": "micro/babel/spanish-hyperref-global.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 47,
+   "covers": "spanish as a class option with hyperref before babel: hyperref reads the global option, its spanish autoref names",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-hyperref",
+   "file": "micro/babel/spanish-hyperref.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 132,
+   "covers": "spanish with hyperref loaded after babel: hyperref's \\HyLang@spanish autoref names (Secci\\'on, Figura, Tabla, Ecuaci\\'on, Elemento), with spanish.ldf's accents; ASCII headings in bookmarks",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-listings-tilde",
+   "file": "micro/babel/spanish-listings-tilde.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "~ in listings with spanish.ldf: listings' \\~{} is spanish.ldf's OT1 \\es@accent, \\bbl@allowhyphens after it (a space next or not)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-lists",
+   "file": "micro/babel/spanish-lists.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "spanish.ldf's \\layoutspanish lists: \\spanishsymbitems (a square, \\textbullet, $\\circ$, $\\diamond$), \\es@enumerate{1.}{a)}{1)}{a$'$} (\\emph{\\alph} with its italic correction, the prime), \\p@enum… in \\label (\\emph robust)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-math-ams",
+   "file": "micro/babel/spanish-math-ams.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 89,
+   "covers": "spanish.ldf's operators with amsmath loaded (\\mathop{\\operator@font …}, no \\qopname kern, which \\sin keeps), the decimal comma in align, amsgen's \\frenchspacing (. 1006 … , 1001)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-math",
+   "file": "micro/babel/spanish-math.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 217,
+   "covers": "spanish.ldf's \\mathspanish: the decimal comma (. active in math: {,} before a digit, after spaces too; the period elsewhere, \\left.), \\es@operators (\\lim, \\max, \\min, \\inf, \\limsup, \\liminf with \\acute{\\dotlessi} or \\acute{a} in the operator font, display limits; \\sen, \\tg, \\arcsen, \\arccos, \\arctg, \\cotg, \\cosec, \\senh, \\tgh with \\nolimits), math accents (make_math_accent: skew, a larger accent, scripts of a character)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-quotes",
+   "file": "micro/babel/spanish-quotes.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 148,
+   "covers": "spanish.ldf's shorthands in OT1: << and >> (quoting: \\layoutspanish's lasy guillemets, \\penalty\\@M and \\save@sf@q), \"< and \">, \"u \"U \"i \"I \"c \"C, the umlauts' \\es@umlaut (\\add@accent, \\bbl@allowhyphens)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-quoting-start",
+   "file": "micro/babel/spanish-quoting-start.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 200,
+   "covers": "spanish.ldf's quoting (<<) starting the second paragraph after a heading: the paragraph starts in its group, where \\@afterheading's \\everypar sets \\clubpenalty back to \\@clubpenalty only until >>, so the lines see \\@M",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-report",
+   "file": "micro/babel/spanish-report.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 620,
+   "covers": "spanish in report with \\pagestyle{headings}: \\chaptername (Cap\\'{\\i}tulo), \\contentsname (\\'{I}ndice general), \\bibname (Bibliograf\\'{\\i}a), the marks in \\foreignlanguage{spanish} and their \\MakeUppercase'd accents",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-t1",
+   "file": "micro/babel/spanish-t1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 170,
+   "covers": "spanish with T1 at 11pt: composites (no \\bbl@allowhyphens: only OT1's \\' and \\~ are \\es@accent), guillemets as characters, the spanish patterns on words with accented letters",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-thanks-t1",
+   "file": "micro/babel/spanish-thanks-t1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 163,
+   "covers": "spanish.ldf's \\@fnsymbol asterisks for \\thanks in T1 (the EC font of \\sf@size)",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-tikz",
+   "file": "micro/babel/spanish-tikz.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9,
+   "covers": "TikZ with spanish.ldf, without arrows (its active < and > in them are a TeX error without \\usetikzlibrary{babel})",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-title-breaks",
+   "file": "micro/babel/spanish-title-breaks.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 174,
+   "covers": "spanish.ldf's accents in a \\title with \\\\ and \\thanks, its \\@fnsymbol (*, **, ***) for the \\thanks marks, a UTF-8 \\author, spanish \\today as the date",
+   "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-titlepage",
+   "file": "micro/babel/spanish-titlepage.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 107,
+   "covers": "report's titlepage in spanish: accents in a \\title with \\\\, a UTF-8 \\author, spanish \\today",
+   "issue": "#63"
   },
   {
    "id": "beamer/block-default-pdf",
@@ -6120,6 +6510,28 @@
    "issue": "#30"
   },
   {
+   "id": "math/accents-amsmath",
+   "file": "micro/math/accents-amsmath.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 158,
+   "covers": "with amsmath (\\mathaccentV: the primitive for a single accent): math accents (\\mathaccent, make_math_accent §§ 738–742): \\hat \\check \\tilde \\acute \\grave \\dot \\ddot \\breve \\bar \\vec \\mathring, the skew of a lone character (its kern with the \\skewchar: cmmi's '177, cmsy's '60), \\widehat and \\widetilde taking the largest variant no wider than the nucleus, a box lower than the x-height, scripts of a lone character moved into the box, accents in scripts and in displays",
+   "issue": "#82"
+  },
+  {
+   "id": "math/accents",
+   "file": "micro/math/accents.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 167,
+   "covers": "math accents (\\mathaccent, make_math_accent §§ 738–742): \\hat \\check \\tilde \\acute \\grave \\dot \\ddot \\breve \\bar \\vec \\mathring, the skew of a lone character (its kern with the \\skewchar: cmmi's '177, cmsy's '60), \\widehat and \\widetilde taking the largest variant no wider than the nucleus, a box lower than the x-height, scripts of a lone character moved into the box, accents in scripts and in displays",
+   "issue": "#82"
+  },
+  {
    "id": "math/alphabets",
    "file": "micro/math/alphabets.tex",
    "area": "math",
@@ -7121,6 +7533,72 @@
    "covers": "a table float with a \\multicolumn wider than its columns, \\hline\\hline, a span to the end, \\cline from the first column, \\small entries"
   },
   {
+   "id": "text/accent-commands-headings",
+   "file": "micro/text/accent-commands-headings.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 262,
+   "covers": "text accent commands in headings, the contents (their \\write prints \\'{\\i }: a control word and a space), running heads, captions and the list of figures' write, \\title, \\author and \\item labels",
+   "issue": "#63"
+  },
+  {
+   "id": "text/accents-hyphenation",
+   "file": "micro/text/accents-hyphenation.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 235,
+   "covers": "hyphenation of words with OT1 accents (the kern for accent ends the word, § 897) and with T1-like letters, in a narrow column",
+   "issue": "#63"
+  },
+  {
+   "id": "text/accents-ot1",
+   "file": "micro/text/accents-ot1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 242,
+   "covers": "OT1 text accents (\\add@accent, make_accent: kerns for accent, the accent shifted over capitals), \\'{\\i} and \\'i alike (ot1enc.def's composites), \\c on a base 1ex high, the space factor after an accented capital",
+   "issue": "#63"
+  },
+  {
+   "id": "text/accents-t1",
+   "file": "micro/text/accents-t1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 218,
+   "covers": "T1's composites (characters of the font, which kern and ligature with their neighbours), \\i composites, \\=\\i and \\~i as \\accent over \\i or i, accents without a composite, capitals' space factor (999 for \"C0–\"DF)",
+   "issue": "#63"
+  },
+  {
+   "id": "text/accents-utf8",
+   "file": "micro/text/accents-utf8.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 197,
+   "covers": "UTF-8 input as utf8.def reads it in OT1: accented letters (í and ï as accents on \\i), ß æ œ ø Æ Œ Ø, “quotes” and ‘single’ ones, en and em dashes, ¡ and ¿ (the ligatures !` and ?`), the no-break space, ° § ª º (TS1)",
+   "issue": "#63"
+  },
+  {
+   "id": "text/control-space-display",
+   "file": "micro/text/control-space-display.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 158,
+   "covers": "a control space (\\␣) at the end of a paragraph or before a display: its glue is the one line_break removes (§ 816), the tie before it stays; TeX skips the blanks after \\␣ (§ 354)",
+   "issue": "#63"
+  },
+  {
    "id": "text/declarations-in-groups-t1",
    "file": "micro/text/declarations-in-groups-t1.tex",
    "area": "text",
@@ -7256,6 +7734,28 @@
    "status": "pass",
    "glyphs": 174,
    "covers": "\\underline in text ($\\@@underline{\\hbox{…}}\\m@th$) with words, descenders, fonts and math; \\underline and \\overline in formulas"
+  },
+  {
+   "id": "text/utf8-headings",
+   "file": "micro/text/utf8-headings.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 284,
+   "covers": "UTF-8 in headings, the table of contents, running heads (\\MakeUppercase of accented letters), captions, the list of figures' write, description labels, theorem names and notes; \\write and \\marks texts print UTF-8 as bytes",
+   "issue": "#63"
+  },
+  {
+   "id": "text/utf8-title-breaks",
+   "file": "micro/text/utf8-title-breaks.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 110,
+   "covers": "accents and UTF-8 in a \\title with \\\\ and \\thanks and an \\author with \\\\, in T1, and a \\date with accents",
+   "issue": "#63"
   },
   {
    "id": "text/vspace-in-paragraph",

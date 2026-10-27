@@ -42,6 +42,17 @@ const ENGLISH: Record<string, [string, string]> = {
   algorithm: ["algorithm", "algorithms"], listing: ["listing", "listings"], line: ["line", "lines"],
 }
 
+/** the spanish option's names (\crefname@preamble, \Crefname@preamble; no abbreviations), singular and plural, by type
+ *  (LaTeX source) */
+const SPANISH: Record<string, [string, string]> = {
+  equation: ["ecuaci\\'on", "ecuaciones"], figure: ["figura", "figuras"], table: ["cuadro", "cuadros"], page: ["p\\'agina", "p\\'aginas"],
+  part: ["parte", "partes"], chapter: ["cap\\'itulo", "cap\\'itulos"], section: ["apartado", "apartados"], appendix: ["ap\\'endice", "ap\\'endices"],
+  enumi: ["punto", "puntos"], footnote: ["nota", "notas"], theorem: ["teorema", "teoremas"], lemma: ["lema", "lemas"],
+  corollary: ["corolario", "corolarios"], proposition: ["proposici\\'on", "proposiciones"], definition: ["definici\\'on", "definiciones"],
+  result: ["resultado", "resultados"], example: ["ejemplo", "ejemplos"], remark: ["observaci\\'on", "observaciones"], note: ["nota", "notas"],
+  algorithm: ["algoritmo", "algoritmos"], listing: ["listado", "listados"], line: ["l\\'inea", "l\\'ineas"],
+}
+
 /** \@crefcopyformats at \begin{document}: a type with no names of its own takes its parent's (and its formats) */
 const COPIES: [string, string][] = [
   ["section", "subsection"], ["subsection", "subsubsection"], ["appendix", "subappendix"], ["subappendix", "subsubappendix"],
@@ -59,9 +70,16 @@ const MakeLowercase = (s: string) => s.charAt(0).toLowerCase() + BREAK + s.slice
 /** What \cref and friends print with: the options and each type's names, as \begin{document} leaves them */
 export class CrefSetup {
   private readonly names = new Map<string, Names>()
+  /** the conjunctions: \crefmiddleconjunction, \creflastconjunction (\crefpairconjunction alike), the group ones, \crefrangeconjunction */
+  readonly conj: { middle: CrefOut[]; last: CrefOut[]; pairGroup: CrefOut[]; middleGroup: CrefOut[]; lastGroup: CrefOut[]; range: CrefOut[] }
 
-  constructor(readonly options: CrefOptions, thms: Map<string, TheoremDef>, defs: CrefNameDef[]) {
-    const { capitalise, abbrev } = options
+  /** `spanish`: the spanish option, a class option with babel's spanish (its names, and the same again in \extrasspanish), and
+   *  how its names' LaTeX source turns into text */
+  constructor(readonly options: CrefOptions, thms: Map<string, TheoremDef>, defs: CrefNameDef[], spanish?: (src: string) => string) {
+    const { capitalise } = options
+    const abbrev = options.abbrev && !spanish
+    const and = spanish ? " y" : " and"
+    this.conj = { middle: [text(", ")], last: [text(and), TIE], pairGroup: [text(and), TIE], middleGroup: [text(", ")], lastGroup: [text(spanish ? " y" : ", and"), TIE], range: [text(spanish ? " a" : " to"), TIE] }
     // \crefname and \Crefname in the preamble: the other variant's name, if it has none yet, the first token's case changed
     // (\MakeUppercase; \MakeLowercase unless capitalise), from the singular and plural each
     const own = new Map<string, Partial<Names>>()
@@ -86,7 +104,8 @@ export class CrefSetup {
       const t = d.title
       preamble.set(type, t === "" ? { cref: ["", null], Cref: ["", null] } : { cref: [capitalise ? MakeUppercase(t) : MakeLowercase(t), null], Cref: [MakeUppercase(t), null] })
     }
-    for (const [type, [s, p]] of Object.entries(ENGLISH)) {
+    for (const [type, [s0, p0]] of Object.entries(spanish ? SPANISH : ENGLISH)) {
+      const s = spanish ? spanish(s0) : s0, p = spanish ? spanish(p0) : p0
       // (abbreviated, unless noabbrev: eq. and fig.)
       const c: [string, string] = abbrev && type === "equation" ? ["eq.", "eqs."] : abbrev && type === "figure" ? ["fig.", "figs."] : [s, p]
       preamble.set(type, { cref: capitalise ? [upperFirst(c[0]), upperFirst(c[1])] : c, Cref: [upperFirst(s), upperFirst(p)] })
@@ -140,11 +159,6 @@ type Pos = "" | "@first" | "@middle" | "@last"
 
 const text = (s: string): CrefOut => ({ t: "text", s })
 const TIE: CrefOut = { t: "tie" }
-/** the english option's conjunctions (\crefpairconjunction and \creflastconjunction alike … \creflastgroupconjunction,
- *  \crefrangeconjunction) */
-const CONJ: Record<Exclude<Pos, "" | "@first">, CrefOut[]> = { "@middle": [text(", ")], "@last": [text(" and"), TIE] }
-const PAIR_GROUP = [text(" and"), TIE], MIDDLE_GROUP = [text(", ")], LAST_GROUP = [text(", and"), TIE]
-const RANGE_CONJ = [text(" to"), TIE]
 
 /** One reference's fields, \cref@getlabel and friends (or \cpageref@…: the page's) */
 interface Ref { key: string; type: string; counter: number; prefix: string; label: string }
@@ -205,7 +219,7 @@ export function crefOutput(setup: CrefSetup, prev: Map<string, CrefEntry> | null
     }
     if (group === 1) group++
     else {
-      out.push(...(stack.length ? MIDDLE_GROUP : group === 2 ? PAIR_GROUP : LAST_GROUP))
+      out.push(...(stack.length ? setup.conj.middleGroup : group === 2 ? setup.conj.pairGroup : setup.conj.lastGroup))
       group++
       family = "cref" // (\lowercase{\def\cref@variant{#1}})
     }
@@ -272,7 +286,7 @@ function single(setup: CrefSetup, family: Family, r: Ref | null, pos: Pos, page:
   const name = setup.name(type, family, pos !== "")
   if (name === null) return [{ t: "qq" }, TIE, text(r.label)]
   const pr = page ? { ...r, type: "page" } : r
-  if (pos === "@middle" || pos === "@last") return [...CONJ[pos], ...labelFormat(setup, pr, true, true, links)]
+  if (pos === "@middle" || pos === "@last") return [...(pos === "@middle" ? setup.conj.middle : setup.conj.last), ...labelFormat(setup, pr, true, true, links)]
   // the first: the name (an empty one: the label alone), \nobreakspace, the label
   if (name === "") return labelFormat(setup, pr, true, true, links)
   if (setup.options.nameinlink && links) return joinLink(r.key, [text(name), TIE], labelFormat(setup, pr, false, true, links))
@@ -283,8 +297,8 @@ function single(setup: CrefSetup, family: Family, r: Ref | null, pos: Pos, page:
 function range(setup: CrefSetup, family: Family, a: Ref, b: Ref, pos: Pos, links: boolean): CrefOut[] {
   const name = setup.name(a.type, family, true)
   if (name === null) return [{ t: "qq" }, TIE, text(`${a.label}--${b.label}`)]
-  const second = [...RANGE_CONJ, ...labelFormat(setup, b, true, true, links)]
-  if (pos === "@middle" || pos === "@last") return [...CONJ[pos], ...labelFormat(setup, a, true, true, links), ...second]
+  const second = [...setup.conj.range, ...labelFormat(setup, b, true, true, links)]
+  if (pos === "@middle" || pos === "@last") return [...(pos === "@middle" ? setup.conj.middle : setup.conj.last), ...labelFormat(setup, a, true, true, links), ...second]
   // (the single range format leaves out the name when the singular one is empty, the multi one when the plural is)
   if ((pos === "" ? setup.name(a.type, family, false) : name) === "") return [...labelFormat(setup, a, true, true, links), ...second]
   if (setup.options.nameinlink && links) return [...joinLink(a.key, [text(name), TIE], labelFormat(setup, a, false, true, links)), ...second]

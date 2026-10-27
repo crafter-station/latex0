@@ -1,0 +1,15 @@
+% fixture: text/utf8-title-breaks
+% tier: T3
+% engine: document
+% covers: accents and UTF-8 in a \title with \\ and \thanks and an \author with \\, in T1, and a \date with accents
+% issue: #63
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\title{Über die Ähnlichkeit\\ der \"Ubersetzung\thanks{Gef\"ordert von der Stiftung.}}
+\author{Jürgen Müller\\ Universität Zürich}
+\date{1.~März 2025}
+\begin{document}
+\maketitle
+Schöne Grüße.
+\end{document}

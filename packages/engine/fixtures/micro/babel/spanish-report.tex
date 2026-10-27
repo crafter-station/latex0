@@ -1,0 +1,20 @@
+% fixture: babel/spanish-report
+% tier: T3
+% engine: document
+% covers: spanish in report with \pagestyle{headings}: \chaptername (Cap\'{\i}tulo), \contentsname (\'{I}ndice general), \bibname (Bibliograf\'{\i}a), the marks in \foreignlanguage{spanish} and their \MakeUppercase'd accents
+% issue: #63
+\documentclass{report}
+\usepackage[spanish]{babel}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\chapter{Introducción}
+Texto con acción y canción.
+\section{Antecedentes}
+La teoría de la información estudia la cuantificación, el almacenamiento y la comunicación de la información digital. Fue establecida por Claude Shannon en los años cuarenta. La teoría de la información estudia la cuantificación, el almacenamiento y la comunicación de la información digital. Fue establecida por Claude Shannon en los años cuarenta. La teoría de la información estudia la cuantificación, el almacenamiento y la comunicación de la información digital.
+\chapter{Conclusión}
+Fin.
+\begin{thebibliography}{9}
+\bibitem{a} Un ítem.
+\end{thebibliography}
+\end{document}

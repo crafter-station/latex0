@@ -2,9 +2,9 @@
 // and its lines (\l@section, \l@chapter, \@dottedtocline), and thebibliography's heading.
 
 import { dataFont } from "./data"
-import { loadFont, QUAD, X_HEIGHT, type Font } from "../layout/font"
+import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { Scanner } from "../layout/dimen"
-import { appendText } from "../layout/hmode"
+import { appendText, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mathGlue } from "../mathlayout/mlist"
@@ -24,6 +24,7 @@ import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularLines } from "./tabular"
 import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
 import { ALIGNMENTS, topDeclarations, verticalMaterial } from "./vmode"
+import { babelToday, isSpanish, type Babel } from "./babel"
 
 /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
  *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
@@ -83,7 +84,7 @@ export function maketitle(cx: Ctx) {
   // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
   // {\large \@date \par}, with \large's)
   // (article: its \par is \endtrivlist's, after the group, with the normal size's \baselineskip)
-  const date = squeeze((title.date ?? "\\today").replace(/\\today(?![A-Za-z])\s*/g, today(epoch)))
+  const date = squeeze((title.date ?? "\\today").replace(/\\today(?![A-Za-z])\s*/g, today(epoch, cx.pre.babel)))
   // (report: a group in vertical mode that ends its paragraphs, \\ as \@centercr)
   if (date && titlepage) verticalMaterial(cx, date, { size: "large", attrs: cx.normalAttrs, align: "centering" }, false, { club: run.k.ints.clubpenalty })
   else if (date) {
@@ -119,10 +120,11 @@ export function tableOfContents(cx: Ctx) {
   const { marks, mkboth, toc, v } = cx
   const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
   // with running heads, \@mkboth is \markboth: its marks in the title's line, which they leave (§ 655)
-  const contents = markValue([{ text: "Contents" }], true)
+  const name = cx.pre.names.contentsname
+  const contents = markValue([{ text: name }], true)
   const end = mkboth ? marks.insert(markboth(contents, contents), false) : undefined
-  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: "Contents", source, end })
-  else chapter(cx, { kind: "heading", level: 0, star: true, title: "Contents", source, end })
+  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source, end })
+  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source, end })
   const tocdepth = cls === "article" ? 3 : 2
   for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(cx, e)
   v.nobreak = false
@@ -147,11 +149,11 @@ export function tocLine(cx: Ctx, e: TocEntry) {
   const font = e.level === top ? bold : roman
   const f = loadFont(dataFont(font.name), font.at)
   const fUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  // \numberline{n}: \hb@xt@\@tempdima{n\hfil}
+  // \numberline{n}: \hb@xt@\@tempdima{n\hfil} (spanish.ldf's layout: n.)
   const numberline = (width: number): Node[] => {
     if (e.number === null) return []
     const l: Node[] = []
-    appendText(l, e.number, f, { spaceFactor: 1000 }, false)
+    appendText(l, e.number + (isSpanish(cx.pre.babel) && e.number !== "" ? "." : ""), f, { spaceFactor: 1000 }, false)
     return [hpack([...l, filGlue()], { exactly: width })]
   }
   // the page number: \hb@xt@\@pnumwidth (in the line's font) {\hss or \hfil, #2, \kern-\p@\kern\p@}
@@ -212,16 +214,14 @@ export function tocLine(cx: Ctx, e: TocEntry) {
 export function bibliography(cx: Ctx) {
   const { cls, hyper } = cx.pre
   const { marks, mkboth, v } = cx
-  const [name, macro] = cls === "article" ? ["References", "refname"] : ["Bibliography", "bibname"]
+  const [name, macro] = cls === "article" ? [cx.pre.names.refname, "refname"] : [cx.pre.names.bibname, "bibname"]
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
   const value = markValue([{ text: name }], true)
   if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
 }
 
-/** \today: "January 1, 2025" */
-export function today(epoch: number): string {
-  const d = new Date(epoch * 1000)
-  const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-  return `${months[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
+/** \today: "January 1, 2025", or babel's main language's (LaTeX source: ~ is \nobreakspace) */
+export function today(epoch: number, babel: Babel | null = null): string {
+  return babelToday(babel, new Date(epoch * 1000))
 }

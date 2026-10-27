@@ -1,14 +1,22 @@
 // Horizontal-mode list building for character text (§§ 1030–1044): words become
 // lig/kern runs, spaces become interword glue adjusted by the space factor.
 
-import { xnOverD } from "./arith"
-import { EXTRA_SPACE, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "./font"
+import { texRound, xnOverD } from "./arith"
+import { EXTRA_SPACE, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "./font"
 import { appendRun } from "./mainloop"
-import { glue, type Node } from "./nodes"
+import { charNode, glue, type Node } from "./nodes"
+import { hpack } from "./pack"
 
-/** \sfcode table as set by LaTeX's \nonfrenchspacing (plain.tex / latex.ltx). */
+/** \frenchspacing in force for the document being laid out (babel's languages select it): . ? ! : ; , are 1000, or
+ *  with amsgen's (amsmath's) or amsthm's \frenchspacing 1006 1005 1004 1003 1002 1001 (which \@addpunct tells apart) */
+export const spacing: { french: false | "latex" | "ams" } = { french: false }
+const AMS_FRENCH: Record<string, number> = { ".": 1006, "?": 1005, "!": 1004, ":": 1003, ";": 1002, ",": 1001 }
+
+/** \sfcode table as set by LaTeX's \nonfrenchspacing (plain.tex / latex.ltx), or \frenchspacing. */
 export function sfCode(c: number): number {
-  if (c >= 65 && c <= 90) return 999 // uppercase letters
+  // uppercase letters: A–Z and (latex.ltx, 8-bit) "80–"9C and "C0–"DF
+  if (c >= 65 && c <= 90 || c >= 0x80 && c <= 0x9c || c >= 0xc0 && c <= 0xdf) return 999
+  if (spacing.french && ".?!:;,".includes(String.fromCharCode(c))) return spacing.french === "ams" ? AMS_FRENCH[String.fromCharCode(c)] : 1000
   switch (String.fromCharCode(c)) {
     case ")": case "'": case "]": return 0
     case ".": case "?": case "!": return 3000
@@ -60,4 +68,20 @@ export function appendText(list: Node[], text: string, font: Font, state: { spac
     else state.spaceFactor = s
   }
   flush()
+}
+
+/**
+ * \accent a followed by the character `base` (make_accent, §§ 1123–1125): the accent shifted to the base's
+ * height when that is not the x-height, between kerns that center it over the base (corrected by the font's
+ * slant), then the base. Space factor 1000 after it.
+ */
+export function makeAccent(list: Node[], f: Font, a: number, base: number, state: { spaceFactor: number }) {
+  const p = charNode(f, a), q = charNode(f, base)
+  const x = f.params[X_HEIGHT], s = Math.floor(f.params[SLANT] / 16) / 65536 // (slant(f): the TFM's fix_word in sp)
+  const h = q.height
+  let acc: Node = p
+  if (h !== x) { acc = hpack([p]); acc.shift = x - h }
+  const delta = texRound((q.width - p.width) / 2 + h * s - x * s)
+  list.push({ kind: "kern", width: delta, accent: true }, acc, { kind: "kern", width: -p.width - delta, accent: true }, q)
+  state.spaceFactor = 1000
 }

@@ -11,7 +11,7 @@
 import type { SizeCommand } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../../layout/font"
-import { appendText } from "../../layout/hmode"
+import { appendText } from "../encodings"
 import { filGlue, kern, penalty, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
 import { ORD, TEXT, mlistToHlist } from "../../mathlayout/mlist"

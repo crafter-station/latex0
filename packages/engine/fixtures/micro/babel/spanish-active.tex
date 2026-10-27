@@ -1,0 +1,12 @@
+% fixture: babel/spanish-active
+% tier: T3
+% engine: document
+% covers: spanish.ldf's active characters ~ < > (shorthands): their lookahead, an undelimited argument, skips the spaces after them (~ x is ~x, < < is <<, a < b is a <b), ~} and ~{} as ties
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+A~ b. C \textbf{d~} e. F < g. H~\textbf{i}. J~
+K. L~  % comment
+M. N > o. P~{}q. R < < cita > > y S << otra >> fin.
+\end{document}

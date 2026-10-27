@@ -1,0 +1,15 @@
+% fixture: babel/spanish-hyperref-global
+% tier: T3
+% engine: document
+% covers: spanish as a class option with hyperref before babel: hyperref reads the global option, its spanish autoref names
+% issue: #63
+\documentclass[spanish]{article}
+\usepackage{hyperref}
+\usepackage{babel}
+\begin{document}
+\section{Intro}\label{s}
+Véase \autoref{s} y \autoref{t}.
+\begin{table}[h]
+\caption{Una tabla}\label{t}
+\end{table}
+\end{document}

@@ -1,0 +1,14 @@
+% fixture: babel/spanish-quoting-start
+% tier: T3
+% engine: document
+% covers: spanish.ldf's quoting (<<) starting the second paragraph after a heading: the paragraph starts in its group, where \@afterheading's \everypar sets \clubpenalty back to \@clubpenalty only until >>, so the lines see \@M
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+\section{Intro}
+Primer párrafo.
+
+<<Segundo párrafo>> que empieza con comillas y sigue con texto suficiente para ocupar más de una línea en
+la página, de modo que la penalización de la primera línea importe en el resultado final del párrafo.
+\end{document}

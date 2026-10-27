@@ -1,0 +1,24 @@
+% fixture: babel/spanish-hyperref-first
+% tier: T3
+% engine: document
+% covers: spanish with hyperref loaded before babel: its english autoref names; ASCII headings in bookmarks
+% issue: #63
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage[spanish]{babel}
+\begin{document}
+\section{Intro}\label{s}
+\subsection{Detalles}\label{ss}
+Véase \autoref{s}, \autoref{ss}, \autoref{f}, \autoref{t}, \autoref{e} y \autoref{i}.
+\begin{figure}[h]
+\caption{Una figura}\label{f}
+\end{figure}
+\begin{table}[h]
+\caption{Una tabla}\label{t}
+\end{table}
+\begin{equation}x = 1.5\label{e}\end{equation}
+\begin{enumerate}
+\item uno\label{i}
+\end{enumerate}
+\end{document}

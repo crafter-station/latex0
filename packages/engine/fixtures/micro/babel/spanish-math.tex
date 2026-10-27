@@ -1,0 +1,14 @@
+% fixture: babel/spanish-math
+% tier: T3
+% engine: document
+% covers: spanish.ldf's \mathspanish: the decimal comma (. active in math: {,} before a digit, after spaces too; the period elsewhere, \left.), \es@operators (\lim, \max, \min, \inf, \limsup, \liminf with \acute{\dotlessi} or \acute{a} in the operator font, display limits; \sen, \tg, \arcsen, \arccos, \arctg, \cotg, \cosec, \senh, \tgh with \nolimits), math accents (make_math_accent: skew, a larger accent, scripts of a character)
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+Con $3.14$ y $x. y$, $3 . 5$, $x_{1.5}$, $\{0.5\}$, $3.$ y $\left. x \right.$; también
+$\lim_{n} a_n$, $\max$, $\min$, $\inf$, $\sin x$, $\arccos x$, $\sen x$, $\tg x$, $\arcsen x$, $\arctg x$, $\cotg x$,
+$\cosec x$, $\senh x$ y $\tgh x$.
+\[ \lim_{n\to\infty} \frac{1}{n} = 0.5, \quad \max_{x} f(x), \quad \liminf_{k} a_k, \quad \limsup_{k} b_k, \quad \sen_{0} x \]
+Acentos: $\hat{x}\bar{y}\vec{v}\tilde{a}\acute{e}\hat{A}\dot{x}\ddot{y}\check{z}\breve{u}\grave{o}\mathring{a}$, $\hat{x}^2$ y $\bar{x}_i$.
+\end{document}

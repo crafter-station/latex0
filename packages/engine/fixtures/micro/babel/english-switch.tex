@@ -1,0 +1,28 @@
+% fixture: babel/english-switch
+% tier: T3
+% engine: document
+% covers: babel's \selectlanguage (between paragraphs, right after a heading with its \nobreak, in a paragraph), otherlanguage (its \begin and \end write to the .aux file and \ignorespaces), otherlanguage* (no write, spaces kept) and \foreignlanguage, all to the main language
+% issue: #63
+\documentclass{article}
+\usepackage[english]{babel}
+\begin{document}
+\selectlanguage{english}
+Some text first.
+
+\section{Head}
+\selectlanguage{english}
+Text right after the heading. Then \selectlanguage{english} more text,
+\begin{otherlanguage}{english} inside the environment \end{otherlanguage} after it,
+\begin{otherlanguage*}{english} starred \end{otherlanguage*} and a \foreignlanguage{english}{foreign} word.
+
+\begin{otherlanguage}{english}
+A paragraph in the environment.
+
+Another one.
+\end{otherlanguage}
+
+\begin{otherlanguage*}{english}
+Starred environment.
+\end{otherlanguage*}
+The end, after \selectlanguage{english}
+\end{document}

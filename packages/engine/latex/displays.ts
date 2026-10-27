@@ -3,7 +3,7 @@
 // paragraph broken from a prepared list.
 
 import { QUAD, type Font } from "../layout/font"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { displayLine, finishDisplay, preDisplaySize } from "../layout/display"

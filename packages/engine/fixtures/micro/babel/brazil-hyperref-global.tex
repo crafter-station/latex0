@@ -1,0 +1,13 @@
+% fixture: babel/brazil-hyperref-global
+% tier: T3
+% engine: document
+% covers: brazil as a class option with hyperref loaded before babel: hyperref's brazil key adds \HyLang@portuges to \extrasbrazil
+% issue: #63
+\documentclass[brazil]{article}
+\usepackage{hyperref}
+\usepackage{babel}
+\begin{document}
+\section{Introdução}\label{s}
+Veja \autoref{s} e \autoref{e}.
+\begin{equation}x = 2\label{e}\end{equation}
+\end{document}

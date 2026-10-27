@@ -1,0 +1,23 @@
+% fixture: babel/spanish-cleveref
+% tier: T3
+% engine: document
+% covers: spanish as a class option: cleveref's spanish option (apartado, ecuaci\'on, figura, cuadro, punto; capitalized with \Cref), with spanish.ldf's accents
+% issue: #63
+\documentclass[spanish]{article}
+\usepackage{amsmath}
+\usepackage{babel}
+\usepackage{cleveref}
+\begin{document}
+\section{Intro}\label{s}
+Véase \cref{s}, \cref{e}, \cref{f}, \cref{t} y \cref{i}; \Cref{s}, \Cref{e} y \Cref{t}.
+\begin{equation}x = 2\label{e}\end{equation}
+\begin{figure}[h]
+\caption{Una figura}\label{f}
+\end{figure}
+\begin{table}[h]
+\caption{Una tabla}\label{t}
+\end{table}
+\begin{enumerate}
+\item uno\label{i}
+\end{enumerate}
+\end{document}

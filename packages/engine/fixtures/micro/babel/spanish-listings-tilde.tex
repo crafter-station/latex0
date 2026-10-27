@@ -1,0 +1,17 @@
+% fixture: babel/spanish-listings-tilde
+% tier: T3
+% engine: document
+% covers: ~ in listings with spanish.ldf: listings' \~{} is spanish.ldf's OT1 \es@accent, \bbl@allowhyphens after it (a space next or not)
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{listings}
+\begin{document}
+\begin{lstlisting}
+a~b ~ c ~~ x~
+\end{lstlisting}
+\begin{lstlisting}[basicstyle=\ttfamily]
+a~b ~ c ~~ x~
+\end{lstlisting}
+Texto \lstinline|p~q ~| y \lstinline[basicstyle=\ttfamily]|r~ s|.
+\end{document}

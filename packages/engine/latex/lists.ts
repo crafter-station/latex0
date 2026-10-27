@@ -7,7 +7,8 @@ import { type SizeCommand } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT, type Font } from "../layout/font"
 import { parseGlue, Scanner } from "../layout/dimen"
-import { appendText, spaceGlue } from "../layout/hmode"
+import { spaceGlue } from "../layout/hmode"
+import { appendText, sourceText } from "./encodings"
 import { emptyBox, glue, kern, paramGlue, penalty, type GlueNode, type Node, charNode, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
@@ -22,6 +23,8 @@ import { setgroup } from "./xcolor"
 import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
 import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
+import { isSpanish } from "./babel"
+import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
 
 /** the environments whose text may hold declarations here: no labels, one item */
 const DECLARING: string[] = ["center", "flushleft", "flushright", "quote", "quotation", "verse"]
@@ -103,7 +106,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       else if (o === "leftmargin=*" && b.env === "itemize") {
         const lvl = ctx.itemDepth + 1
         const f = lvl === 2 ? loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at) : loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
-        labelwidth = f.chars.get(lvl === 2 ? (run.k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
+        labelwidth = isSpanish(cx.pre.babel) // (spanish.ldf's labels)
+          ? hpack(spanishItemLabel(lvl, run.k, ctx.size, sizeFont, loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at), cx.pre.amsmath)).width
+          : f.chars.get(lvl === 2 ? (run.k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
         leftmargin = labelwidth + run.k.dimens.labelsep
       } else if (o.startsWith("leftmargin=") && o !== "leftmargin=*") {
         try { leftmargin = parseGlue(o.slice(11), { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).width } catch { throw new Unsupported(`enumitem ${o}`) }
@@ -189,6 +194,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   if (b.env === "enumerate") run.enums[level - 1] = 0 // \usecounter
   if (b.env === "thebibliography") run.enums[3] = 0
   const alph = (n: number) => (n > 0 && n <= 26 ? String.fromCharCode(96 + n) : "") // \@alph: \ifcase (\@ctrerr past z)
+  const spanish = isSpanish(cx.pre.babel) // (spanish.ldf's layout: its labels)
   const roman = (n: number) => { // \@roman (TeX's \romannumeral)
     let out = ""
     for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (n >= v) { out += r; n -= v }
@@ -224,30 +230,32 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     let content: Node[]
     if (b.env === "itemize" || b.env === "enumerate") {
       const l: Node[] = []
-      if (given !== null) appendText(l, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false)
+      if (given !== null) appendText(l, sourceText(given.replace(/\s+/g, " ")), font, { spaceFactor: 1000 }, false)
       else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
-        if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
+        if (spanish) l.push(...spanishItemLabel(level, run.k, ctx.size, font, companion, cx.pre.amsmath))
+        else if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
         else l.push(charNode(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
       } else { // \labelenumi … iv: 1. (a) i. A.
         const n = ++counter
         // \refstepcounter{enum…}: \p@enum… \theenum… (1, 1a, 1(a)i, 1(a)iA), and \@currentHref enum….n
         const [v1, v2, v3] = [...ctx.enums, n]
-        refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
+        refs.label = spanish ? spanishEnumRef(level, [...ctx.enums, n]) : [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
         refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
         run.enums[level - 1] = n // (no counter resets another: \@definecounter; cleveref's prefix only names the chain)
         if (refs.cleveref) refs.cleveref.current = { type: `enum${["i", "ii", "iii", "iv"][level - 1]}`, arabic: n, prefix: run.enums.slice(0, level - 1).join(","), label: refs.label }
         // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
         if (hyper) { refs.href = `Item.${++run.items}`; run.hyperItem = false; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
-        appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
+        if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
+        else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
       }
       content = [...(enumitem ? [penalty(10000)] : []), ssGlue(), hpack([ssGlue(), ...l], { exactly: 0 })] // \hss\llap{#1}; enumitem's \nobreak first
     } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \hskip\z@\nobreak, the label, \hfil)
       content = enumitem ? [glue(0), penalty(10000)] : [glue(ls)]
-      if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
+      if (given) appendText(content, sourceText(given.replace(/\s+/g, " ")), bold, { spaceFactor: 1000 }, false)
       if (enumitem) content.push(filGlue())
     } else if (b.env === "proof") { // \item[\hskip\labelsep\itshape title\@addpunct{.}]
-      const title = (b.proofTitle ?? "Proof").replace(/\s+/g, " ").trim()
+      const title = (b.proofTitle ?? sourceText(cx.pre.names.proofname)).replace(/\s+/g, " ").trim()
       if (/[{}$%&#^_]/.test(title.replace(/\\ref\{[A-Za-z0-9:._-]+\}/g, "")) || /\\(?!ref\{)/.test(title)) throw new Unsupported(`proof title "${title}"`)
       if (hyper && /\\ref/.test(title)) throw new Unsupported("a \\ref in a proof title with hyperref")
       const it = selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" })
@@ -264,11 +272,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         st.spaceFactor = 1000
       }
       if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
-    } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, given, font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
+    } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, sourceText(given), font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
     else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
       content = [filGlue()]
       const l = b.env === "thebibliography" ? `[${i + 1}]` : given
-      if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
+      if (l) appendText(content, sourceText(l), font, { spaceFactor: 1000 }, false)
       // \refstepcounter{enumiv}; with hyperref (\@skiphyperreftrue) \@currentHref stays what it was
       if (b.env === "thebibliography") {
         refs.label = String(i + 1); if (!hyper) refs.href = `enumiv.${i + 1}`
@@ -385,7 +393,7 @@ export function abstract(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const small = { ...ctx, size: "small" as SizeCommand }
   const bf = loadFont(dataFont(run.k.sizes.small.bold.name), run.k.sizes.small.bold.at)
   const head: Node[] = []
-  appendText(head, "Abstract", bf, { spaceFactor: 1000 }, false)
+  appendText(head, sourceText(cx.pre.names.abstractname), bf, { spaceFactor: 1000 }, false)
   const em = bf.params[QUAD]
   // \vspace in a paragraph: \vadjust{\vskip#1\vskip\z@skip}
   head.push({ kind: "adjust", list: [glue(-xnOverD(em, 32768, 65536)), glue(0)] }, { kind: "adjust", list: [glue(0), glue(0)] })

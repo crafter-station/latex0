@@ -1,0 +1,16 @@
+% fixture: babel/spanish-hyperref-accents
+% tier: T3
+% engine: document
+% covers: spanish with hyperref: headings with accents (UTF-8 and commands) in bookmarks (\pdfstringdef's UTF-16: \000\363 for ó, \'{\i} as í), the contents and nameref
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{hyperref}
+\begin{document}
+\tableofcontents
+\section{Introducción}\label{s}
+Véase \nameref{s} y \nameref{t}.
+\section{Teor\'{\i}a y pr\'actica}\label{t}
+\subsection{Año, niño y pingüino}
+Fin.
+\end{document}

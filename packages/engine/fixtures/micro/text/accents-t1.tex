@@ -1,0 +1,14 @@
+% fixture: text/accents-t1
+% tier: T3
+% engine: document
+% covers: T1's composites (characters of the font, which kern and ligature with their neighbours), \i composites, \=\i and \~i as \accent over \i or i, accents without a composite, capitals' space factor (999 for "C0–"DF)
+% issue: #63
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+Caf\'e, na\"{\i}ve, ma\~nana, \^{a}ge, \`a la, \=a, \.z, \u{a}, \v{s}, \H{o}, \r{u}, fa\c{c}ade and \k{a}.
+\'Eric, \"Uber, \^Etre, \`A, \~N, \=O, \.I, \u{G}, \v{C}, \H{O} and \r{U}: the letter \'E stands
+alone, \'I too. Then \'{\i}, \'i, \`{\i}, \^\i, \"i, \=i, \.i, \~{\i}, \~i and \u\i\ in a row.
+T\'e V\'a W\'e Y\'o f\'e \'eff\'e fi\'e A\'V \'AV, \v{x}, \'x, \^{w} and \=e.
+\textit{Caf\'e na\"{\i}ve \'Eric \^O}, \textbf{\'e \"O}, {\large \'e \'E} and \textsc{\'e\'E}, Ångström.
+\end{document}

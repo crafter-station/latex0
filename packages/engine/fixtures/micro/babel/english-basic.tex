@@ -1,0 +1,32 @@
+% fixture: babel/english-basic
+% tier: T3
+% engine: document
+% covers: \usepackage[english]{babel}: \begin{document}'s \selectlanguage and its \write to the .aux file, \markboth and \markright in \foreignlanguage (running heads, the table of contents' marks), english.ldf's captions and \today, the .toc's \babel@toc lines on the second run
+% issue: #63
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage[english]{babel}
+\pagestyle{headings}
+\title{A Title}
+\author{An Author}
+\begin{document}
+\maketitle
+\begin{abstract}
+An abstract of the paper.
+\end{abstract}
+\tableofcontents
+\section{Introduction}\label{s}
+Text in section~\ref{s} with a figure~\ref{f}.\footnote{A note.}
+\begin{figure}[h]
+\caption{A caption}\label{f}
+\end{figure}
+\begin{proof}
+A proof.
+\end{proof}
+\subsection{More}
+Characterization of hyperconsciousness and representational transformations in long paragraphs which
+break across lines with hyphens where TeX's patterns allow them.
+\begin{thebibliography}{9}
+\bibitem{a} An item.
+\end{thebibliography}
+\end{document}

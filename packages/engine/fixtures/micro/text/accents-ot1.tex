@@ -1,0 +1,13 @@
+% fixture: text/accents-ot1
+% tier: T3
+% engine: document
+% covers: OT1 text accents (\add@accent, make_accent: kerns for accent, the accent shifted over capitals), \'{\i} and \'i alike (ot1enc.def's composites), \c on a base 1ex high, the space factor after an accented capital
+% issue: #63
+\documentclass{article}
+\begin{document}
+Caf\'e, na\"{\i}ve, ma\~nana, \^{a}ge, \`a la, \=a, \.z, \u{a}, \v{s}, \H{o}, \r{u} and fa\c{c}ade.
+\'Eric, \"Uber, \^Etre, \`A, \~N, \=O, \.I, \u{G}, \v{C}, \H{O} and \r{U}: the letter \'E stands
+alone, \'I too. Then \'{\i}, \'i, \`{\i}, \^\i, \"i, \=i, \.i, \~{\i} and \u\i\ in a row; \' e and \'{e}.
+\textit{Caf\'e na\"{\i}ve \'Eric \^O \c{c}a}, \textsl{\'e\`e\^e \'A}, \textbf{\'e \"O},
+{\large \'e \'E} and {\footnotesize \'e \'E} with \textsf{\'e \'E} and \texttt{\'e \'E}.
+\end{document}

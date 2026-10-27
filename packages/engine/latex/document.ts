@@ -24,7 +24,12 @@ import { blocksOf, displaySegments } from "./blocks"
 import { listParagraphWithDisplays } from "./displays"
 import { prepareSource, type DocumentSource } from "./source"
 import { Counters } from "./counters"
-import { markText, MarkWriter, pageMarks } from "./marks"
+import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
+import { babelAux, babelFrenchspacing, isSpanish } from "./babel"
+import { markAccentHyphens, spanishLayout } from "./spanish"
+import { portugueseLayout } from "./portuguese"
+import { accentHyphens, babelUmlauts, sourceText } from "./encodings"
+import { spacing } from "../layout/hmode"
 import { TocWriter, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
 import { runState } from "./run"
@@ -72,7 +77,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
       try { return layout(prepared, notHere, aux, epoch, images, driver) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
-      }
+      } finally { spacing.french = false; markLanguage.name = null; accentHyphens.on = spanishLayout.on = portugueseLayout.on = false; babelUmlauts.mode = null } // (babel's, for this document only)
     }
   }
   // the oracle runs LaTeX twice: the second run reads the .toc and .aux files the first one wrote
@@ -90,16 +95,27 @@ interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings: listings0, tabulars: tabulars0, minipages: minipages0, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
+  // spanish.ldf's accents in what was taken out of the source: tabulars, minipages, listings' options (captions)
+  const es = isSpanish(pre.babel)
+  const tabulars = es ? tabulars0.map((t) => ({ ...t, body: markAccentHyphens(t.body) })) : tabulars0
+  const minipages = es ? minipages0.map((m) => ({ ...m, body: markAccentHyphens(m.body) })) : minipages0
+  const listings = es ? listings0.map((l) => ({ ...l, options: markAccentHyphens(l.options) })) : listings0
+  // (listings prints % with \%, which spanish.ldf's \es@sppercent makes $\,$%)
+  if (es && listings0.some((l) => l.lines.some((x) => x.includes("%")))) throw new Unsupported("% in a listing with spanish.ldf")
   const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
   const run = runState(pre.k)
-  const blocks = blocksOf(body)
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(body) : body)
+  accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
+  portugueseLayout.on = ["portuguese", "portuges", "brazil", "brazilian"].includes(pre.babel?.main ?? "")
+  babelUmlauts.mode = !pre.babel ? null : isSpanish(pre.babel) ? "spanish" : "high"
 
   const v = new VerticalList(run.k)
+  v.alwaysIndent = isSpanish(pre.babel) // (spanish.ldf's layout: \@afterindentfalse is \@afterindenttrue)
   // a color package: xcolor, or the color package siunitx loads at \begin{document} (its default color named Black)
   const usesColor = usesXcolor || pre.usesSiunitx
   xcolor.on = usesColor
@@ -116,12 +132,19 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
   const bookmarks = new Bookmarks(pre.tikz ? 4 : 3)
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
+  // babel's \AtBeginDocument: \selectlanguage of the main language, its \write to the .aux file (before or after
+  // hyperref's, as the packages were loaded)
+  const babelStart = () => { if (pre.babel) v.nodes.push({ kind: "whatsit", text: babelAux(pre.babel.main) }) }
+  if (pre.babel?.beforeHyperref) babelStart()
   if (hyper) {
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
     v.nodes.push(...anchor("Doc-Start", run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     if (prev?.pageLabels && !hyperDriver.pdftex) v.nodes.push(putPageLabels(prev.pageLabels))
   }
+  if (pre.babel && !pre.babel.beforeHyperref) babelStart()
+  markLanguage.name = pre.babel?.main ?? null
+  spacing.french = babelFrenchspacing(pre.babel) ? (pre.amsmath || pre.usesAmsthm ? "ams" : "latex") : false
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
   for (const [n, m, x] of colorDefs) colors.define(n, m, x)
@@ -129,7 +152,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
   }
-  const doc: DocState = { footnote: 0, refs, xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
+  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
@@ -176,7 +199,13 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
   const counters = new Counters(cls, newCounters, () => doc.footnote)
-  if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames) }
+  // (cleveref's language options among the class's, with babel: its brazilian not modeled; its english and spanish also
+  // \crefname in babel's \extras<lang>, over the preamble's)
+  if (pre.cleveref && pre.babel?.global.includes("brazilian")) throw new Unsupported("cleveref's brazilian option")
+  if (pre.cleveref && pre.crefNames.length && pre.babel?.global.some((o) => o === "english" || o === "spanish")) throw new Unsupported(`\\crefname with cleveref's ${pre.babel.global} option`)
+  // (cleveref's spanish option, the class's: its names, with spanish.ldf's accents)
+  const crefSpanish = isSpanish(pre.babel) && pre.babel!.global.includes("spanish") ? (n: string) => sourceText(markAccentHyphens(n)) : undefined
+  if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames, crefSpanish) }
   /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
   const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h

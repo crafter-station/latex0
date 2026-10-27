@@ -23,7 +23,7 @@ export interface GlueNode {
   /** \leaders, \cleaders, \xleaders: the box repeated in the glue's space (§ 149 a_leaders…x_leaders) */
   leaders?: { kind: "leaders" | "cleaders" | "xleaders"; box: BoxNode | RuleNode }
 }
-export interface KernNode { kind: "kern"; width: number; /** \kern from the source (vs. a font kern); explicit kerns are breakpoints (§ 155, 866) */ explicit?: boolean }
+export interface KernNode { kind: "kern"; width: number; /** \kern from the source (vs. a font kern); explicit kerns are breakpoints (§ 155, 866) */ explicit?: boolean; /** an \accent's (acc_kern, § 155): no breakpoint, and it ends a word for hyphenation (§ 897) */ accent?: boolean }
 export interface PenaltyNode { kind: "penalty"; penalty: number }
 /** null dimensions are "running" and take the enclosing box's size (§ 138). */
 export interface RuleNode { kind: "rule"; width: number | null; height: number | null; depth: number | null }

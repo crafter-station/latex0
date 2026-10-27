@@ -1,0 +1,13 @@
+% fixture: babel/portuges-hyperref
+% tier: T3
+% engine: document
+% covers: babel's portuges before hyperref: hyperref declares no portuges language (english \autoref names)
+% issue: #63
+\documentclass{article}
+\usepackage[portuges]{babel}
+\usepackage{hyperref}
+\begin{document}
+\section{Introdução}\label{s}
+Veja \autoref{s} e \autoref{e}.
+\begin{equation}x = 2\label{e}\end{equation}
+\end{document}

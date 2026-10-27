@@ -7,6 +7,7 @@ import { hpack, vpack } from "../layout/pack"
 import { appendRun } from "../layout/mainloop"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../layout/font"
 import { Unsupported } from "./unsupported"
+import { accentHyphens } from "./encodings"
 
 export class LstUnsupported extends Unsupported {}
 
@@ -251,7 +252,9 @@ export function lstScan(p: LstScanParams): LstEvent[] {
         return [kern(Math.floor((em * 3932) / 65536), true), vpack([rule])]
       }
     }
-    if (e === "^" || e === "~") return [lstChar(f, c)] // \^{} and \~{}: an accent with nothing to go on
+    // \^{} and \~{}: an accent with nothing to go on (spanish.ldf's OT1 \~, \es@accent: then \bbl@allowhyphens)
+    if (e === "~" && accentHyphens.on) return [lstChar(f, c), { kind: "penalty", penalty: 10000 }, glue(0)]
+    if (e === "^" || e === "~") return [lstChar(f, c)]
     return { f, c }
   }
   /** elements typeset in order: runs of characters through the main loop (restricted horizontal mode) */

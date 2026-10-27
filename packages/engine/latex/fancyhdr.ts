@@ -86,7 +86,7 @@ export function fancyPage(cx: Ctx, f: FancyHdr, even: boolean, thepage: string, 
     const sep = (before: string) => (/\\[A-Za-z]+$/.test(before) ? " " : "")
     text = expandFancyplain(text)
       .replace(/\\thepage(?![A-Za-z])\s*/g, (_, at: number, s: string) => sep(s.slice(0, at)) + thepage)
-      .replace(/\\today(?![A-Za-z])\s*/g, (_, at: number, s: string) => sep(s.slice(0, at)) + today(cx.epoch))
+      .replace(/\\today(?![A-Za-z])\s*/g, (_, at: number, s: string) => sep(s.slice(0, at)) + today(cx.epoch, cx.pre.babel))
       .replace(/\\(left|right)mark(?![A-Za-z])\s*/g, (_, lr: string, at: number, s: string) => sep(s.slice(0, at)) + markSource(lr === "left" ? marks.left : marks.right))
     // declarations that start the field (\slshape, \rmfamily …) set its font, which the parbox's group ends
     let attrs = cx.normalAttrs
