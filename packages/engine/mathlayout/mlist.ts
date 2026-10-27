@@ -30,6 +30,12 @@ export type Field =
   /** \array{*\c@MaxMatrixCols c} in a \vcenter (amsmath's matrix environments): each cell's formula, and
    *  whether \\ ended each row (its \@arraycr leaves ${} in the last cell) */
   | { kind: "array"; rows: MItem[][][]; crs: boolean[] }
+  /** \big … \Bigg's box (fontmath.ltx: \hbox{$\left#1\vbox to8.5\p@{}\right.\n@space$}; amsmath's \bBigg@: \left#1\vcenter
+   *  to `factor`\big@size{}\right. in an \hbox, \nulldelimiterspace zero), which needs the text size's fonts */
+  | { kind: "big"; delim: Delimiter; height: number } | { kind: "big"; delim: Delimiter; factor: [number, number] }
+  /** \hbox{$\m@th<style>{…}$}, as \mathpalette's \mathsm@sh and \mathph@nt set it: `list` from the style node on; then
+   *  \smash's \finsm@sh (zero height, depth or both) or \phantom's \finph@nt (an empty box with its height and depth, width) */
+  | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh" }
   | null
 /** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal;
  *  `vcenter` makes it a vcenter noad (§ 687) and `line` an over or under noad (§ 687), ords for spacing */
@@ -48,7 +54,7 @@ export interface MuKern { kind: "mukern"; width: number }
  * \\root index\\of radicand (latex.ltx; amsmath's \\plainroot@ with \\uproot and \\leftroot zero): the index in
  * \\rootbox at scriptscript style, then a \\mathchoice of \\r@@t, which the first pass expands in its style
  */
-export interface RootItem { kind: "root"; index: Noad; radicand: Field; amsmath: boolean }
+export interface RootItem { kind: "root"; /** fresh noads each time (the list converted is used up) */ index: () => Noad; radicand: () => Field; amsmath: boolean }
 /** \\nonscript (§ 1171): glue of subtype cond_math_glue, which deletes glue or a kern after it below text size (§ 732) */
 export interface NonscriptItem { kind: "nonscript" }
 /** A choice node (§ 689, \\mathchoice): the first pass puts in its place the list for its style (§ 731) */
@@ -60,12 +66,12 @@ export interface StyleNode { kind: "style"; style: number }
 /** A delimiter field (§ 683): small and large variants; all zero is the null delimiter. */
 export interface Delimiter { smallFam: number; smallChar: number; largeFam: number; largeChar: number }
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
-export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
+export interface FenceNoad { noad: "left" | "right" | "middle"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
 export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | NonscriptItem | RootItem | ChoiceItem | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
-const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
+const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right" || x.noad === "middle")
 /** A 24-bit \\delcode or a \\delimiter code without its class: small fam, small char, large fam, large char. */
 export const delimiterOf = (d: number): Delimiter => ({ smallFam: (d >> 20) & 15, smallChar: (d >> 12) & 255, largeFam: (d >> 8) & 15, largeChar: d & 255 })
 
@@ -233,7 +239,7 @@ class Converter {
         continue
       }
       if (isFence(q)) { // § 733: done_with_noad
-        if (q.noad === "right") { // a final bin becomes an ord; r_type is then left_noad, in the list's style
+        if (q.noad !== "left") { // a final bin becomes an ord; r_type is then left_noad, in the list's style (e-TeX's \middle: a right noad)
           if (rType === BIN && r) (r as Noad).noad = ORD
           this.setStyle(style)
         }
@@ -263,13 +269,17 @@ class Converter {
           if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
         } else p = []
       } else if (!n) p = []
+      else if (n.kind === "big" || n.kind === "hmath") { const b = n.kind === "big" ? this.big(n) : this.hmath(n); q.nucleus = { kind: "box", box: b }; p = [b] }
       else if (n.kind === "array") {
         const b = this.array(n)
         if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
         q.nucleus = { kind: "box", box: b }
         p = [b]
       }
-      else if (n.kind === "box") p = [n.box]
+      else if (n.kind === "box") {
+        if (q.vcenter) { const b = n.box, delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
+        p = [n.box]
+      }
       else {
         const save = this.curStyle
         const inner = this.convert(n.list, this.curStyle, false)
@@ -310,7 +320,7 @@ class Converter {
         const nx = list[i + 1]
         if (!(!isNoad(nx) && "kind" in nx && nx.kind === "penalty") && !(isNoad(nx) && nx.noad === REL)) out.push(penalty(pen))
       }
-      prev = isFence(q) && q.noad === "right" ? OPEN : t
+      prev = isFence(q) && q.noad !== "left" ? OPEN : t
     }
     return out
   }
@@ -335,6 +345,34 @@ class Converter {
     const v: Node[] = []
     boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
     return vpack(v)
+  }
+
+  /** \big … \Bigg (Field "big"): a formula in text style, in an \hbox, with \mathsurround and \nulldelimiterspace zero */
+  big(n: Extract<Field, { kind: "big" }>): BoxNode {
+    let inner: Noad
+    if ("height" in n) inner = { noad: ORD, nucleus: { kind: "box", box: vpack([], { exactly: n.height }) }, sup: null, sub: null }
+    else {
+      // amsmath's \big@size: 1.2\ht\Mathstrutbox@ plus 1.2\dp\Mathstrutbox@, the height and depth of ( in \textfont0 (§ 455's
+      // decimal factor times an internal dimension: nx_plus_y with xn_over_d of the fraction); the \vcenter to that times the factor
+      const paren = this.font(0, 0)?.chars.get(40)
+      if (!paren) throw new Error("math: \\big without ( in \\textfont0")
+      const times = (n: number, f: number, v: number) => nxPlusY(n, v, xnOverD(v, f, 0o200000))
+      const size = times(1, 13107, paren.height) + times(1, 13107, paren.depth)
+      inner = { noad: ORD, vcenter: true, nucleus: { kind: "box", box: vpack([], { exactly: times(n.factor[0], n.factor[1], size) }) }, sup: null, sub: null }
+    }
+    const list: MItem[] = [{ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: n.delim }, inner, { noad: "right", delim: { smallFam: 0, smallChar: 0, largeFam: 0, largeChar: 0 } }] }, sup: null, sub: null }]
+    return hpack([{ kind: "math", on: true, width: 0 }, ...new Converter({ ...this.env, nulldelimiterspace: 0 }).convert(list, TEXT, false), { kind: "math", on: false, width: 0 }])
+  }
+
+  /** Field "hmath": the formula in an \hbox, then smashed or a phantom */
+  hmath(n: Extract<Field, { kind: "hmath" }>): BoxNode {
+    const b = hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list, TEXT, false), { kind: "math", on: false, width: 0 }])
+    if (n.smash) { if (n.smash !== "b") b.height = 0; if (n.smash !== "t") b.depth = 0; return b }
+    if (!n.phantom) return b
+    const e = emptyBox("hlist") // \setbox\tw@\null
+    if (n.phantom !== "h") { e.height = b.height; e.depth = b.depth }
+    if (n.phantom !== "v") e.width = b.width
+    return e
   }
 
   /** make_left_right (§ 762): a delimiter for the list's height and depth around the axis */
@@ -391,7 +429,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" || field.kind === "array" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "big" || field.kind === "hmath" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }
@@ -513,9 +551,9 @@ class Converter {
    * the index, zero kerns, and 1.667\\wd of an empty \\mskip to \\dimen@). A box in math is an ord noad (§ 1076).
    */
   root(q: RootItem): (Noad | MuKern)[] {
-    const mathBox = (l: MItem[], style: number) => hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(structuredClone(l), style, false), { kind: "math", on: false, width: 0 }])
-    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, q.index], TEXT)
-    const box0 = mathBox([{ noad: ORD, radical: delimiterOf(0x270370), nucleus: q.radicand, sup: null, sub: null }], this.curStyle)
+    const mathBox = (l: MItem[], style: number) => hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, style, false), { kind: "math", on: false, width: 0 }])
+    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, q.index()], TEXT)
+    const box0 = mathBox([{ noad: ORD, radical: delimiterOf(0x270370), nucleus: q.radicand(), sup: null, sub: null }], this.curStyle)
     rootbox.shift = -xnOverD(box0.height - box0.depth, 39322, 0o200000) // .6 (round_decimals, § 452) times \\dimen@ (§ 455)
     const zero: MuKern[] = q.amsmath ? [{ kind: "mukern", width: 0 }] : []
     const ord = (box: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box }, sup: null, sub: null })

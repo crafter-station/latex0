@@ -1,0 +1,12 @@
+% fixture: math/big-arrows-plain
+% tier: T3
+% engine: document
+% covers: LaTeX's \big … \Bigg (\vbox to 8.5pt …) with l, r and m, e-TeX's \middle, \longrightarrow and the other \joinrel arrows, \iff, \smash, \phantom, \mathstrut, in text, \small, scripts and displays
+% issue: #330
+\documentclass[11pt]{article}
+\begin{document}
+Since $\bigl(a+b\bigr)^2 \geq 0$ and $\Bigl\{x \Bigm| x>0\Bigr\}$ we get $p\iff q$ and $f: A\longrightarrow B$,
+$x\mapsto x^2$, $\iota: U\hookrightarrow X$; also $\biggl\langle u, v\biggr\rangle$ and $\Biggl[\Biggr]$, {\small $\bigl(\frac{1}{2}\bigr)$ and $\Big|_{0}^{1}$}.
+\[ f'(x) = x e^{-x}\bigl(2\cos x - x\sin x\bigr) \Longrightarrow \left\{ x \;\middle|\; \frac{1}{x} > 0 \right\} \]
+\[ \mathrm{KHC_8H_4O_4} + \mathrm{NaOH} \longrightarrow \mathrm{H_2O}, \quad \smash{\sum_{i}} a \longleftarrow \phantom{xy}\mathstrut b \Longleftrightarrow c \]
+\end{document}

@@ -40,7 +40,9 @@ type Nucleus =
   | { kind: "char"; code: number } | { kind: "sym"; name: string }
   | { kind: "group"; items: Item[] } | { kind: "frac"; num: Item[]; den: Item[] }
   | { kind: "op"; name: string; limits?: "limits" | "nolimits" }
-  | { kind: "fence"; left: string; items: Item[]; right: string }
+  | { kind: "fence"; left: string; items: Item[]; right: string; /** e-TeX's \middle and what follows it */ middle?: { delim: string; items: Item[] } }
+  /** \big … \Biggr and a delimiter */
+  | { kind: "big"; cs: string; delim: string }
   | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
   | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
   | { kind: "accent"; cs: string; arg: Script }
@@ -74,10 +76,11 @@ const ACCENTS = ["hat", "check", "tilde", "acute", "grave", "dot", "ddot", "brev
 const ALPHABETS = ["mathrm", "mathnormal", "mathcal", "mathbf", "mathit", "mathsf", "mathtt"]
 const AMS_ALPHABETS = ["mathbb", "mathfrak", "mathscr"]
 /** commands without an argument (amsmath's: its \dots and kin, \colon), and with one */
-const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&"]
-const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon"]
-const ARG_COMMANDS = ["pmod", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
-const AMS_ARG_COMMANDS = ["pod", "mod"]
+const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&", "mathstrut", "relbar", "Relbar", "joinrel",
+  ..."longrightarrow Longrightarrow longleftarrow Longleftarrow longleftrightarrow Longleftrightarrow mapsto longmapsto hookrightarrow hookleftarrow iff models bowtie".split(" ")]
+const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby"]
+const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
+const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
 
 function generator(r: () => number, pool: number[], busy: number[], symbols: (ams: boolean) => string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
@@ -91,7 +94,8 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
     const x = r()
     if (depth < 3 && x < 0.12) return { kind: "group", items: list(depth + 1, 3) }
     if (depth < 3 && x < 0.2) return { kind: "frac", num: list(depth + 1, 3), den: list(depth + 1, 3) }
-    if (depth < 4 && x < 0.24) return { kind: "fence", left: pick(FENCES), items: list(depth + 1, 4), right: pick(FENCES) }
+    if (depth < 4 && x < 0.24) return { kind: "fence", left: pick(FENCES), items: list(depth + 1, 4), right: pick(FENCES), ...(r() < 0.3 ? { middle: { delim: pick(FENCES), items: list(depth + 1, 3) } } : {}) }
+    if (x >= 0.47 && x < 0.5) return { kind: "big", cs: pick(["big", "Big", "bigg", "Bigg"]) + pick(["", "l", "r", "m"]), delim: pick(FENCES) }
     if (depth < 3 && x < 0.28 && ams()) { // amsmath's matrix environments: rows of cells, sometimes ragged, sometimes a final \\
       const cols = 1 + Math.floor(r() * 3)
       const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: r() < 0.2 ? 1 + Math.floor(r() * cols) : cols }, () => list(depth + 1, 2, true)))
@@ -154,7 +158,7 @@ function print(items: Item[]): string {
     if (it.kind === "space") return `\\${it.cs}${/^[a-z]/.test(it.cs) ? " " : ""}`
     const n = it.nucleus
     let out = !n ? "" : n.kind === "group" ? `{${print(n.items)}}` : n.kind === "frac" ? `\\frac{${print(n.num)}}{${print(n.den)}}`
-      : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : n.kind === "fence" ? `\\left${n.left}${print(n.items)}\\right${n.right}`
+      : n.kind === "op" ? `\\${n.name}${n.limits ? `\\${n.limits}` : ""} ` : n.kind === "fence" ? `\\left${n.left}${print(n.items)}${n.middle ? `\\middle${n.middle.delim}${print(n.middle.items)}` : ""}\\right${n.right}`
       // a space after \\: amsmath's \new@ifnextchar then sees no [ or *
       // (\sqrt's \@ifnextchar would take a [ as its optional argument: braced)
       // (\sqrt[index]: braced when the index holds a ], which would end it, or a matrix's &, which an outer alignment would
@@ -162,6 +166,7 @@ function print(items: Item[]): string {
       : n.kind === "line" && n.index ? `\\sqrt[${/[\]&]/.test(print(n.index)) ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "line" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : n.cs === "sqrt" && n.arg.kind === "char" && n.arg.code === 91 ? `{${arg(n.arg)}}` : ` ${arg(n.arg)}`}`
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
+      : n.kind === "big" ? `\\${n.cs}${n.delim}`
       : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
       : n.kind === "alphabet" ? `\\${n.cs}{${print(n.items)}}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
