@@ -221,9 +221,9 @@ Column spec grammar (`l c r p{} m{} b{} | || @{} >{} <{} *{n}{}` + tabularx
 Placement `[htbp!H]` via the real float algorithm (§4.7), `\includegraphics`
 full option set (`angle trim clip keepaspectratio`), `\graphicspath`,
 extensionless lookup, PDF/EPS rasterized at upload (server side), `\caption`
-variants + caption package, subcaption/subfigure/subfig, wrapfig, TikZ subset
-→ SVG (paths, nodes, styles, `\foreach`, arrow tips, positioning), pgfplots
-basic axis, xy/amscd.
+variants + caption package, subcaption/subfigure/subfig, wrapfig, a TikZ subset
+exact to TeX (pgf's \special/\pdfliteral strings: paths, nodes, styles, `\foreach`, arrow tips,
+positioning), pgfplots basic axis, xy/amscd.
 
 🟡 caption.sty and subcaption (#269, #279, #282): `\caption` with position=auto, the
 single-line check and struts; `subfigure`/`subtable` with (a) subcaptions, `\subref`; hyperref
@@ -241,6 +241,16 @@ base), the `\newlabel`'s name field (headings, captions with and without caption
 under dvips and pdfTeX; amsthm theorems with hyperref (`\MakeLinkTarget*`'s raised anchor). Not yet: babel's names,
 `\appendix`, footnote and `\tag` anchors, names with macros (`\contentsname`, `\thethm`), unnumbered theorems
 with hyperref.
+
+🟡 TikZ's keys and options (#302, `tikz/`): pgfkeys (paths, `.cd`, `.style`, `.append style`, `.prefix style`,
+`.code` made of `\pgfkeysalso`/`\pgfkeys`/`\tikzset`, `.initial`, `.default`, `.is choice`, `.is family`, `.try`,
+`.unknown`, TeX's groups), `\tikzset`, `\tikzstyle`, and TikZ's options as the state TikZ keeps in TeX: `\tikz@options`,
+`\tikz@mode`, `\tikz@transform`, `\pgflinewidth`, colors (names and xcolor expressions as options, draw/fill/color/text),
+line widths, dash patterns, corners, anchors, placement (above=…, right of=…, positioning's right=of …, on grid),
+node distance, auto/swap, inner/outer sep, minimum sizes, text width, align, font, shapes, arrow specifications
+(the core's and arrows.meta's tips, `>=`), scale/shift/rotate; checked by `bun engine tikzkeys:check` against
+TeX's macros. Not yet: pictures, paths and nodes themselves (T2–T4), other keys, arrow options, `.store in`/`.is if`
+and other handlers, transformations applied at once (pgf's matrix, P4).
 
 ### 4.7 Pages: the exact layout engine
 
@@ -344,8 +354,8 @@ the scorecard. Order within a phase is `census × telemetry` frequency.
 
 - Interpreting arbitrary `.sty`/`.cls` source. Unknown packages are a warning
   plus a public issue; they get a binding when telemetry says so.
-- Full TikZ/pgf. The SVG subset real papers use first; exotic libraries later,
-  tracked as issues like everything else.
+- Full TikZ/pgf. The subset real papers use first, exact to TeX (pgf's literals, no SVG
+  approximation); exotic libraries later, tracked as issues like everything else.
 - Proprietary fonts: `times`/`mathptmx`/`newtx`/`helvet`/`courier` map to the
   free TeX Gyre families, vendored as assets, with their own TFM metrics.
 - PDF/EPS figures are rasterized once at upload, server side.

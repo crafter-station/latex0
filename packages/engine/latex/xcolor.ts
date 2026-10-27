@@ -104,6 +104,9 @@ export class Colors {
     throw new ColorUnsupported(`color [${model}]{${vals}}`)
   }
 
+  /** whether the name is a defined color (\@ifundefinedcolor) */
+  has(name: string) { return this.defs.has(name) }
+
   /** \definecolor{name}{model}{values} */
   define(name: string, model: string, vals: string) { this.defs.set(name.trim(), this.modelSpec(model.trim(), vals, true)) }
 
