@@ -142,6 +142,8 @@ export interface Refs {
   writes: { node: Node; key: string; label: string; href: string }[]
   /** hyperref: \ref and \pageref are links to the label's anchor */
   hyper?: boolean
+  /** hyperref's \@footnotetext: an anchor in each note */
+  hyperNotes?: boolean
   /** hyperref's \c@Hfootnote: footnotes so far, never reset */
   hfootnotes?: number
   /** cleveref: \cref@currentlabel (local where \@currentlabel is), each \refstepcounter's by its \@currentHref, the
@@ -542,7 +544,7 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0) {
   const markBox = hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
-  if (hn) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
+  if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
   appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox

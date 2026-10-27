@@ -88,7 +88,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
 function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
-  const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
+  const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   const run = runState(pre.k)
   const blocks = blocksOf(body)
@@ -100,7 +100,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   xcolor.normal = usesXcolor ? "gray 0" : " Black"
   outputOptions.xcolor = usesColor
   if (usesColor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
-  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
+  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
