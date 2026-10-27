@@ -16,7 +16,7 @@ import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, plain } from "./vlist"
 import type { ParagraphTrace } from "../trace/decisions"
 import { type Float } from "./output"
-import { labelName, spotAnchor } from "./hyperref"
+import { anchor, labelName, spotAnchor } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { classParams, appendToVlist, crefWrites, labelWrite, paragraphInput, selectFont, type ParagraphOptions } from "./paragraph"
 import { representation } from "./counters"
@@ -87,7 +87,6 @@ function lofLine(cx: Ctx, env: "figure" | "table", number: number, text: string)
  */
 function captionPackage(cx: Ctx, env: "figure" | "table", text: string, hsize: number, out: CaptionOut, isSub: boolean): Captioned {
   const { counters, refs, run } = cx
-  if (cx.pre.hyper) throw new Unsupported("caption with hyperref") // (hypcap's anchor at the float's start)
   const f = run.floatCaption
   let number: number, sub: string | undefined
   if (isSub) {
@@ -96,11 +95,13 @@ function captionPackage(cx: Ctx, env: "figure" | "table", text: string, hsize: n
     number = f.number
     const n = ++f.sub
     sub = representation("alph", n)
-    refs.href = `sub${counters.href(env, number)}.${n}` // \theHsubfigure: \theHfigure.\arabic{subfigure}
+    // \theHsubfigure: \theHfigure.\arabic{subfigure}; with hypcap, the float's \caption@makecurrentHref (its sub=hypcap=0
+    // leaves the float's definition in force): the float's anchor, and no anchor in the text
+    refs.href = f.hypcap ?? `sub${counters.href(env, number)}.${n}`
   } else {
     if (f.pending) { number = f.number!; f.pending = false }
     else { number = ++counters[env]; f.number = number; f.sub = 0 }
-    refs.href = counters.href(env, number)
+    refs.href = f.hypcap ?? counters.href(env, number)
     out.push(lofLine(cx, env, number, text))
   }
   if (xcolor.on) out.push(colorPush()) // (\caption@normalsize's \normalcolor, popped where its group ends)
@@ -137,6 +138,17 @@ function captionPackage(cx: Ctx, env: "figure" | "table", text: string, hsize: n
   return { number, label: counters.the(number) + (sub ?? ""), name: labelName(text), ...(sub ? { sub } : {}) }
 }
 
+/**
+ * caption.sty's \caption@startanchor in vertical mode, at the float's start: \nointerlineskip,
+ * \vspace*{-\caption@hypcapspace} (.5\baselineskip), \hyper@anchorstart{name}\hyper@anchorend,
+ * \vspace*{\caption@hypcapspace}, then \prevdepth restored (-1000pt: the float's list was empty)
+ */
+function hypcapAnchor(name: string, baselineskip: number): Node[] {
+  const half = Math.trunc(baselineskip / 2) // (.5\baselineskip: xn_over_d, the sign applied after)
+  const vspace = (w: number): Node[] => [{ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000), glue(w), glue(0)] // \@vspacer
+  return [...vspace(-half), ...anchor(name, baselineskip, "v", glue(0)), ...vspace(half)]
+}
+
 /** caption.sty's \label in a float (\caption@xlabel): the first one writes \caption@xref's definition first;
  *  in a minipage, amsmath's \@arrayparboxrestore (\let\label\ltx@label) put LaTeX's \label back */
 export function captionXref(cx: Ctx, minipage = false): Node[] {
@@ -163,6 +175,7 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
 function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const { run, v } = cx
   if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
+  if (cx.pre.usesCaption && cx.pre.hyper) throw new Unsupported("an [H] float with caption.sty and hyperref")
   if (v.nobreak) throw new Unsupported("an [H] float right after a heading")
   // (setspace's \@xfloat runs for [H] only when it loads after float.sty)
   if (run.k.singleSizes) throw new Unsupported("an [H] float with setspace")
@@ -194,6 +207,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     else throw new Unsupported(`float option ${c}`)
   }
   if (b.env === "algorithm") {
+    if (cx.pre.usesCaption && hyper) throw new Unsupported("an algorithm float with caption.sty and hyperref") // (hypcap's anchor)
     const spaced = run.k
     run.k = singleSpaced(spaced) // (setspace's \@xfloat)
     let box: BoxNode
@@ -234,6 +248,10 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   const spaced = run.k
   run.k = singleSpaced(spaced)
   try {
+  if (cx.pre.usesCaption && hyper) { // caption.sty's \caption@xfloat: \caption@start, hypcap's anchor (\Hy@linkcounter)
+    run.floatCaption.hypcap = `${b.env}.caption.${++run.linkcounter}`
+    content.push(...hypcapAnchor(run.floatCaption.hypcap, run.k.sizes.normalsize.baselineskip.width))
+  }
   for (let ii = 0; ii < items.length; ii++) {
     const it = items[ii]
     if (it === "\\centering") { centered = true; continue }

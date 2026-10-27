@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 304,
-  "exact": 302,
+  "fixtures": 307,
+  "exact": 305,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 265796
+  "glyphs": 266473
  },
  "areas": [
   {
@@ -41,8 +41,8 @@
   },
   {
    "area": "caption",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "classes",
@@ -136,8 +136,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "sections",
@@ -782,6 +782,28 @@
    "glyphs": 288,
    "covers": "the lab-report shape: a booktabs table with a caption below, subfigures holding \\includegraphics[width=\\linewidth], a long main caption",
    "issue": "#269"
+  },
+  {
+   "id": "caption/hypcap-sub",
+   "file": "micro/caption/hypcap-sub.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 166,
+   "covers": "subcaption with hyperref: subcaptions (sub's hypcap=0) without an anchor, their \\label and sub@ label pointing at the float's figure.caption.n with nameref's name, the float's caption on top after its anchor; \\subref as \\hyperref[key]{\\ref*{sub@key}} (a link around the text and \\null), an undefined one as ?? without a link, \\ref links to sub labels",
+   "issue": "#273"
+  },
+  {
+   "id": "caption/hypcap",
+   "file": "micro/caption/hypcap.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 345,
+   "covers": "caption.sty with hyperref (hypcap=true): the float's figure.caption.n anchor at its start (\\nointerlineskip, \\vspace*{-.5\\baselineskip}, H.S H.A /DEST, \\vspace*{.5\\baselineskip}, \\prevdepth restored), no anchor in the caption's text, the lof line and \\label pointing at it with nameref's name, \\ref and \\pageref links to it; a heading's section* anchor sharing \\Hy@linkcounter; a float with no caption (still its anchor), captions in minipages and two captions in one float (all at the float's anchor), a \\vspace after the anchor",
+   "issue": "#273"
   },
   {
    "id": "caption/listings",
@@ -2644,6 +2666,17 @@
    "glyphs": 900,
    "covers": "\\Huge lines deeper than \\maxdepth (5pt) over two pages: page_depth is capped and the excess moves into \\pagetotal (§ 1003)",
    "issue": "#115"
+  },
+  {
+   "id": "pdflatex/caption-hypcap",
+   "file": "micro/pdflatex/caption-hypcap.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 166,
+   "covers": "under pdflatex (hpdftex.def: hypcap's anchor a \\pdfdest in vertical mode, links \\pdfstartlink … \\pdfendlink): caption.sty and subcaption with hyperref: subcaptions (sub's hypcap=0) without an anchor, their \\label and sub@ label pointing at the float's figure.caption.n with nameref's name, the float's caption on top after its anchor; \\subref as \\hyperref[key]{\\ref*{sub@key}} (a link around the text and \\null), an undefined one as ?? without a link, \\ref links to sub labels",
+   "issue": "#273"
   },
   {
    "id": "pdflatex/fancyhdr-default",

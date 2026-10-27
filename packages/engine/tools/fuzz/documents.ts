@@ -385,8 +385,8 @@ export function makeDocument(r: () => number): string {
   // algorithm floats with algpseudocode (noend sometimes); not with hyperref or cleveref yet
   algOn = !hyper && !crefOn && !isLetter && r() < 0.15
   if (algOn) out.push(...(r() < 0.25 ? ["\\usepackage{algorithm}", "\\usepackage[noend]{algpseudocode}"] : r() < 0.4 ? ["\\usepackage{algorithm,algpseudocode}"] : ["\\usepackage{algorithm}", "\\usepackage{algpseudocode}"]))
-  // caption.sty, and subcaption with it sometimes; not with hyperref (hypcap), algorithms or listing captions yet
-  capOn = !hyper && !algOn && !isLetter && r() < 0.2
+  // caption.sty, and subcaption with it sometimes (with hyperref too: hypcap); not with algorithms or listing captions yet
+  capOn = !algOn && !isLetter && r() < 0.2
   subOn = capOn && r() < 0.5
   if (capOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? pick(["\\usepackage{subcaption}", "\\usepackage{caption}\n\\usepackage{subcaption}"]) : "\\usepackage{caption}")
   urlOn = !hyper && r() < 0.15
