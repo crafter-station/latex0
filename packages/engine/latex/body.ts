@@ -9,6 +9,7 @@ import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH } from "./vlist"
+import { penalty } from "../layout/nodes"
 import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, maketitle, tableOfContents } from "./frontmatter"
 import { chapter, heading, matter } from "./sectioning"
@@ -58,15 +59,17 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
     // the \nobreak of \protected@write and of \@esphack
     // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
-    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
+    // (\vspace*: \@vspacer's \hrule\@height\z@ \nobreak first, \prevdepth kept)
+    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
     if (lead) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
-      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\{([^{}]*)\}|\\hrule/g)) {
+      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule/g)) {
         if (m[1] !== undefined) {
           for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
-        } else if (m[2] !== undefined) {
+        } else if (m[3] !== undefined) {
           let g: GlueSpec
-          try { g = parseGlue(m[2], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[2]}}`) }
+          try { g = parseGlue(m[3], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[3]}}`) }
+          if (m[2]) v.nodes.push({ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000))
           v.vskip(g); v.vskip(dimen(0))
         } else { v.nodes.push({ kind: "rule", width: null, height: 26214, depth: 0 }); v.prevDepth = IGNORE_DEPTH } // 0.4pt
       }
