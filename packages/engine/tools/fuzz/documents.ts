@@ -512,8 +512,8 @@ export function makeDocument(r: () => number): string {
       "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", ...(hyper ? [] : ["\\newtheorem*{remark}{Remark}"]), "\\newtheorem{note}{Note}")
     thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
-  // babel, its option or the class's (not with siunitx or titlesec in spanish: not modeled; nor in letters)
-  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(siOn || tsOn ? [] : ["spanish", "spanish", "spanish"])]) : null
+  // babel, its option or the class's (not with siunitx or titlesec in spanish: not modeled; nor TikZ, whose arrows are a TeX error with its active < and >; nor in letters)
+  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(siOn || tsOn || tikzOn ? [] : ["spanish", "spanish", "spanish"])]) : null
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
   // (after hyperref; its options sometimes, and \crefname: not with cleveref's spanish, which redefines them)
   crefOn = !nrOn && !isLetter && r() < 0.2

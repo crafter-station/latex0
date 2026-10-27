@@ -1,0 +1,15 @@
+% fixture: babel/spanish-tikz
+% tier: T3
+% engine: document
+% covers: TikZ with spanish.ldf, without arrows (its active < and > in them are a TeX error without \usetikzlibrary{babel})
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{tikz}
+\begin{document}
+Texto \tikz \draw (0,0) -- (1,0) node {a};.
+\begin{tikzpicture}
+\draw[thick] (0,0) rectangle (1,1);
+\node at (0.5,0.5) {b};
+\end{tikzpicture}
+\end{document}
