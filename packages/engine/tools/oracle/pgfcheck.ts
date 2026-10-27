@@ -4,8 +4,9 @@
 // through pgf/ for each. The box dumps must agree node by node: every box's size and shift, every \special's
 // and \pdfliteral's text, every space. A tiny reader of the snippet's commands drives the TS side. Fixed
 // snippets cover each primitive, then seeded random sequences of system commands and random pictures (paths
-// under transformations, scopes, groups, graphic state, rounded corners, baselines and trims) and random pictures of nodes
-// (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext); a node's text is typeset
+// under transformations, scopes, groups, graphic state, rounded corners, baselines and trims), random pictures of nodes
+// (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext), random shadings (declared, used,
+// \pgfshadepath) and random objects and opacities; a node's text is typeset
 // by the engine (latex/paragraph.ts). A TeX error (a dimension too large) must be the engine's Unsupported.
 //   bun engine pgf:check [--n 2000] [--seed 1]
 
@@ -33,6 +34,7 @@ import {
   setLength, type PgfPoint,
 } from "../../pgf/points"
 import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope, pgfSetBaseline, pgfSetTrimLeft, pgfSetTrimRight } from "../../pgf/scopes"
+import { pgfDefObject, pgfSetFillOpacity, pgfSetStrokeOpacity, pgfUseObject, sysDefObject, sysFillOpacity, sysStrokeOpacity, sysUseObject } from "../../pgf/objects"
 import { pgfSetCornersArced } from "../../pgf/round"
 import { pgfDeclareShading, pgfShadePath, pgfUseShading } from "../../pgf/shade"
 import { PgfState } from "../../pgf/state"
@@ -213,6 +215,15 @@ const SHADINGS = [
   // a horizontal line has nothing to shade; a shading declared again with the same colours is made again
   "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0); rgb(2cm)=(0,0,1)}\\begin{pgfpicture}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfshadepath{h}{0}\\pgfshadepath{h}{10}\\pgfusepath{discard}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfshadepath{h}{0}\\end{pgfpicture}",
   "\\colorlet{ca}{red}\\pgfdeclarehorizontalshading[ca]{h}{1cm}{color(0pt)=(ca); rgb(2cm)=(0,0,1)}\\pgfuseshading{h}\\pgfdeclarehorizontalshading[ca]{h}{2cm}{color(0pt)=(ca); rgb(1cm)=(0,1,1)}\\pgfuseshading{h}",
+  // objects and opacities
+  "\\pgfsys@beginpicture\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpoint{1pt}{1pt}}{\\pgfsys@moveto{0pt}{0pt}\\pgfsys@lineto{1pt}{2pt}\\pgfsys@stroke}\\pgfsys@useobject{o}{}\\pgfsys@useobject{o}{\\pgfsys@transformshift{3pt}{4pt}} \\pgfsys@useobject{o}{\\pgfsys@transformxyscale{2}{.5}\\pgfsys@color@gray@fill{0.5}}\\pgfsys@endpicture",
+  "\\pgfsys@beginpicture\\pgfsysprotocol@bufferedtrue\\pgfsys@stroke\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfsys@rect{0pt}{0pt}{1pt}{1pt} \\pgfsys@fill}\\pgfsys@useobject{o}{\\pgfsys@fill}\\pgfsys@defobject{p}{\\pgfpointorigin}{\\pgfpointorigin}{}\\pgfsys@useobject{p}{}\\pgfsysprotocol@flushcurrentprotocol\\pgfsys@endpicture",
+  "\\begin{pgfpicture}\\pgfpathmoveto{\\pgfpoint{1pt}{1pt}}\\pgfdefobject{a}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfpathmoveto{\\pgfpoint{5cm}{0pt}}\\pgfpathlineto{\\pgfpoint{1cm}{3cm}}\\pgfsys@stroke} \\pgfpathlineto{\\pgfpoint{2pt}{0pt}}\\pgfusepath{stroke}\\pgfuseobject{a}\\pgfpathclose\\pgfusepath{stroke}\\end{pgfpicture}",
+  "\\pgfsys@beginpicture\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfsys@fill}\\pgfsys@useobject{o}{\\pgfsysprotocol@bufferedtrue\\pgfsys@stroke}\\pgfsys@endpicture",
+  // the last moveto restored after an object's code (a closepath carries it, which rounding reads)
+  "\\begin{pgfpicture}\\pgfpathmoveto{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{2pt}{0pt}}\\pgfdefobject{a}{\\pgfpointorigin}{\\pgfpointorigin}{\\pgfpathmoveto{\\pgfpoint{5cm}{0pt}}}\\pgfpathclose\\pgfsetcornersarced{\\pgfpoint{2pt}{2pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfusepath{stroke}\\end{pgfpicture}",
+  "\\pgfsys@beginpicture\\pgfsys@stroke@opacity{0.5}\\pgfsys@fill@opacity{.3}\\pgfsys@stroke@opacity{0.5}\\pgfsetstrokeopacity{1/3}\\pgfsetfillopacity{0.25*2}\\pgfsys@endpicture",
+  "\\begin{pgfpicture}\\pgfsetfillopacity{.5}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{fill}{\\pgfsysprotocol@bufferedtrue\\pgfsetstrokeopacity{0.8}}\\pgfsys@stroke\\end{pgfpicture}",
   // errors: an undefined shading; one stop (an ill-formed specification is an endless loop of errors)
   "\\pgfuseshading{nothing}",
   "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0)}",
@@ -523,6 +534,36 @@ export function makeShadings(n: number, seed: number): string[] {
   })
 }
 
+/** Random objects and opacities: system-layer code defined as objects, used under transformations and opacities. */
+export function makeObjects(n: number, seed: number): string[] {
+  const r = rng(seed * 15485863 + 11)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const dim = () => `${pick(["", "-"])}${int(0, 99)}.${int(0, 99)}${pick(["pt", "bp", "mm"])}`
+  const opacity = () => pick(["0", "1", "0.5", ".3", "0.25", `0.${int(0, 999)}`])
+  const code = (depth: number): string => {
+    let out = ""
+    for (let k = int(0, 6); k > 0; k--) {
+      out += pick([
+        () => `\\pgfsys@moveto{${dim()}}{${dim()}}`, () => `\\pgfsys@lineto{${dim()}}{${dim()}}`, () => `\\pgfsys@rect{${dim()}}{${dim()}}{${dim()}}{${dim()}}`,
+        () => pick(["\\pgfsys@stroke", "\\pgfsys@fill", "\\pgfsys@fillstroke", "\\pgfsys@closepath", "\\pgfsys@clipnext", "\\pgfsys@discardpath"]),
+        () => `\\pgfsys@color@gray@fill{${opacity()}}`, () => `\\pgfsys@setlinewidth{${dim()}}`,
+        () => `\\pgfsys@${pick(["stroke", "fill"])}@opacity{${opacity()}}`, () => `\\${pick(["pgfsetstrokeopacity", "pgfsetfillopacity"])}{${pick([opacity(), "1/4", "0.5*0.5"])}}`,
+        () => `\\pgfsys@transformshift{${dim()}}{${dim()}}`, () => " ",
+        () => (depth < 1 ? `{${code(depth + 1)}}` : ""), () => (depth < 1 ? `\\pgfsys@beginscope${code(depth + 1)}\\pgfsys@endscope` : ""),
+      ])()
+    }
+    return out
+  }
+  return Array.from({ length: n }, () => {
+    let out = `\\pgfsys@beginpicture${pick(["", "\\pgfsysprotocol@bufferedtrue"])}`
+    const names = ["oa", "ob"]
+    for (const name of names) out += `\\pgfsys@defobject{${name}}{\\pgfpointorigin}{\\pgfpointorigin}{${code(0)}}${code(1)}`
+    for (let k = int(1, 5); k > 0; k--) out += pick([() => `\\pgfsys@useobject{${pick(names)}}{${code(1)}}`, () => code(1), () => `\\pgfsys@defobject{${pick(names)}}{\\pgfpointorigin}{\\pgfpointorigin}{${code(0)}}`])()
+    return `${out}\\pgfsysprotocol@flushcurrentprotocol\\pgfsys@endpicture`
+  })
+}
+
 /** The snippet's commands on a driver: TeX's tokens as the snippet has them (spaces after a control word skipped). */
 export function runSnippet(source: string, driver: PgfDriver, colors: Colors, text: PgfText = TEXT): void {
   let src = source
@@ -600,6 +641,9 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     hbox: () => { const reg = arg(); driver.hbox(boxes.get(reg) ?? null, reg.startsWith("\\")); boxes.set(reg, null) },
     begininvisible: () => driver.beginInvisible(), endinvisible: () => driver.endInvisible(),
     "begin@text": () => driver.beginText(), "end@text": () => driver.endText(),
+    "stroke@opacity": () => sysStrokeOpacity(s, driver, arg()), "fill@opacity": () => sysFillOpacity(s, driver, arg()),
+    defobject: () => { const name = arg(); strs(2); const body = arg(); sysDefObject(s, driver, name, () => exec(body)) },
+    useobject: () => { const name = arg(); const before = arg(); sysUseObject(s, driver, name, () => exec(before)) },
   }
   const units = s.units
   /** a point: one of pgf's point commands and its arguments, evaluated */
@@ -670,6 +714,9 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     pgftransformreset: () => pgfTransformReset(s), pgftransformresetnontranslations: () => pgfTransformResetNonTranslations(s),
     pgflowlevelsynccm: () => pgfLowLevelSyncCm(s, driver),
     pgfsetcornersarced: () => pgfSetCornersArced(s, pt(arg())),
+    pgfsetstrokeopacity: () => pgfSetStrokeOpacity(s, driver, arg()), pgfsetfillopacity: () => pgfSetFillOpacity(s, driver, arg()),
+    pgfdefobject: ignoring(() => { const name = arg(); strs(2); const body = arg(); pgfDefObject(s, driver, name, () => exec(body)) }),
+    pgfuseobject: () => pgfUseObject(s, driver, arg()),
     pgfdeclarehorizontalshading: () => declare("horizontal"), pgfdeclareverticalshading: () => declare("vertical"), pgfdeclareradialshading: () => declare("radial"),
     pgfuseshading: () => pgfUseShading(s, driver, arg(), colors),
     pgfshadepath: () => pgfShadePath(s, driver, arg(), arg(), colors),
@@ -789,8 +836,8 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}", "\\makeatletter",
     // (each snippet instantiates its arrow tips afresh, as the engine does)
     "\\let\\pgfcheck@fullname\\pgf@arrow@fullname\\def\\pgf@arrow@fullname#1{\\pgfcheckn @\\pgfcheck@fullname{#1}}",
-    // (the protocol and the last moveto are global: what one snippet leaves must not reach the next)
-    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
+    // (the protocol, the last moveto and the objects' count are global: what one snippet leaves must not reach the next)
+    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\ifdefined\\pgf@objectcount\\global\\pgf@objectcount=0 \\fi\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
   ].join("\n")
   const file = join(DIR, `${t.name}.tex`), log = join(DIR, `${t.name}.log`)
   if (!existsSync(file) || readFileSync(file, "utf8") !== tex || !existsSync(log) || !/^(No pages of output|Output written)/m.test(readFileSync(log, "latin1"))) {
@@ -814,7 +861,7 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
 export function pgfCheck(n: number, seed: number): number {
   const f = loadFont(dataFont("cmr10"), 10 * UNITY) // \pgfmath@selectfont: the document's \normalfont
   const units: PgfUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...SHADINGS, ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed), ...makeArrows(n, seed), ...makeShadings(Math.ceil(n / 4), seed)]
+  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...SHADINGS, ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed), ...makeArrows(n, seed), ...makeShadings(Math.ceil(n / 4), seed), ...makeObjects(Math.ceil(n / 4), seed)]
   let failed = 0
   for (const t of TARGETS) {
     const tex = texBoxes(t, snippets)
