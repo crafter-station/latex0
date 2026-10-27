@@ -18,7 +18,7 @@ import { dimen, IGNORE_DEPTH, negate } from "./vlist"
 import { anchor, labelName } from "./hyperref"
 import { COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, type LstFrame, type LstOptions } from "./listings"
-import { fontAt, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs } from "./paragraph"
+import { crefWrites, fontAt, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs } from "./paragraph"
 import { styleColors } from "./colors"
 
 /**
@@ -101,9 +101,11 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
     lstAnchor(refs.href)
     if (o.label !== null) {
       if (!/^[A-Za-z0-9:._-]+$/.test(o.label)) throw new Unsupported(`listing label ${o.label}`)
-      if (refs.cleveref) throw new Unsupported("a listing's label with cleveref")
       v.nodes.push(labelWrite(refs, o.label, String(n), counters.href("lstlisting", n), hyper ? labelName(text) : refs.name)) // nameref: the caption
       v.nodes.push(...esphackNobreaks(v.nobreak))
+      // cleveref's second write, \crefalias{lstlisting}{listing} (a counter within nothing in article)
+      const cref = crefWrites(refs, o.label, false, { type: "listing", arabic: n, prefix: "", label: String(n) })
+      if (cref.length) v.nodes.push(...cref, ...esphackNobreaks(v.nobreak))
     }
     v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
     if (v.nobreak) v.nodes.push(penalty(10000)) // \protected@write's \nobreak

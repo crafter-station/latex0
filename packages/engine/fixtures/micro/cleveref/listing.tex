@@ -1,0 +1,23 @@
+% fixture: cleveref/listing
+% tier: T3
+% engine: document
+% covers: a listing's caption and label with cleveref: \refstepcounter{lstlisting} under \crefalias{lstlisting}{listing}, the \newlabel{key@cref}{{[listing][n][]n}…} after the kernel's write, each with its \@esphack; \cref and \Cref to it; a listing with no label after it; one right after a heading (\@esphack's \nobreak after each write)
+% issue: #277
+\documentclass{article}
+\usepackage{listings}
+\usepackage{cleveref}
+\begin{document}
+\Cref{lst:a} prints a number, as \cref{lst:a} shows.
+\begin{lstlisting}[caption={Printing a number},label={lst:a}]
+print(42)
+\end{lstlisting}
+Text after it.
+\begin{lstlisting}[caption={Two}]
+x = 1
+\end{lstlisting}
+\section{After a heading}
+\begin{lstlisting}[caption={Three},label={lst:c}]
+y = 2
+\end{lstlisting}
+See \cref{lst:c}.
+\end{document}
