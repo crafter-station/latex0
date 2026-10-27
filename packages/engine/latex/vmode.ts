@@ -68,7 +68,11 @@ export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:v
  * The material of a group or environment in vertical mode. `top`: the body's own level, where a declaration would
  * last past this text (not laid out). A group's \clubpenalty and \everypar settings end with it.
  */
-export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boolean) {
+/** `first`: what starts the first paragraph in place of the indent box (\@item's \box\@labels), and the \clubpenalty
+ *  its \everypar sets (`club`: \@item's, in place of \@afterheading's) */
+export interface MaterialOptions { first?: Node[]; club?: number }
+
+export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boolean, mo: MaterialOptions = {}) {
   const { run, v } = cx
   const font = () => selectFont(run.k, st.size, st.attrs)
   const units = () => ({ em: font().params[QUAD], ex: font().params[X_HEIGHT] })
@@ -107,7 +111,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         for (let p = last; p >= 0; p = topPar(inner, p + 4)) end = p
         if (!/^\s*$/.test(inner.slice(end + 4))) throw new Unsupported("a paragraph starting in a group that ends after it")
         const saved = { club: v.club, everypar: v.afterheadingEverypar }
-        verticalMaterial(cx, inner, { ...st }, false)
+        verticalMaterial(cx, inner, { ...st }, false, mo)
         v.club = saved.club; v.afterheadingEverypar = saved.everypar
         i = j + 1; continue
       }
@@ -132,7 +136,8 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     if (top && topDeclarations(text).length) throw new Unsupported("a declaration for the paragraphs after it")
     const end = topDeclarations(text).reduce((s, d) => declare(cx, s, d), st)
     if (end.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
-    paragraph(cx, text, st, end, cr ? 1 : 0)
+    paragraph(cx, text, st, end, cr ? 1 : 0, mo)
+    delete mo.first
     st = end
     i = j
     if (cr) { // \@centercr: \par, \nobreak for \\*, \addvspace{-\parskip}, \vskip skip for [skip]
@@ -145,22 +150,23 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
 }
 
 /** a paragraph read from `st` to its \par in `end` */
-function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip: number) {
+function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip: number, mo: MaterialOptions) {
   const { amsmath } = cx.pre
   const { counted, decisions, doc, outerParskip, run, v } = cx
   if (displaySegments(text).length > 1) throw new Unsupported("a display in a paragraph here")
   let indent = !/^\\noindent(?![A-Za-z])/.test(text)
+  if (!indent && mo.first) throw new Unsupported("\\noindent where \\@item's labels go")
   v.par()
   if (v.endpeEverypar) throw new Unsupported("a paragraph after a list here")
   // \@afterheading's \everypar
-  if (v.afterheadingEverypar) {
+  if (v.afterheadingEverypar && mo.club === undefined) {
     if (groupStart(text)) throw new Unsupported("a paragraph starting in a group after a heading here")
     if (v.nobreak) { v.nobreak = false; v.club = 10000; if (!v.afterindent) indent = false }
     else { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
   }
   const align = end.align === "centering" ? centering() : end.align === "raggedright" ? raggedright() : end.align === "raggedleft" ? raggedleft() : {}
-  const start: Node[] = indent ? [emptyBox("hlist", st.align ? 0 : run.k.dimens.parindent)] : []
-  const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: v.club, amsmath, ...align, ...(unskip ? { unskip } : {}) })
+  const start: Node[] = mo.first ?? (indent ? [emptyBox("hlist", st.align ? 0 : run.k.dimens.parindent)] : [])
+  const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: mo.club ?? v.club, amsmath, ...align, ...(unskip ? { unskip } : {}) })
   const { vlist, trace } = lineBreak(list, params)
   decisions.push(...notes, trace)
   v.paragraph(vlist, outerParskip, run.k.sizes[end.size].baselineskip)

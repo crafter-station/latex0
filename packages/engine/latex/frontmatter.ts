@@ -21,14 +21,17 @@ import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { type OutputHook } from "./output"
 import { tocLink } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
-import { preamble } from "./tabular"
-import { mathEnv, paragraphInput, spec } from "./paragraph"
+import { preamble, tabularLines } from "./tabular"
+import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
+import { ALIGNMENTS, topDeclarations, verticalMaterial } from "./vmode"
 
 /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
  *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
  *  {\large date}, then \vskip 1.5em */
 export function maketitle(cx: Ctx) {
-  const { amsmath, cls, title } = cx.pre
+  const { amsmath, cls } = cx.pre
+  // (\let\footnote\thanks)
+  const title = Object.fromEntries(Object.entries(cx.pre.title).map(([k, x]) => [k, x?.replace(/\\footnote(?![A-Za-z])/g, "\\thanks")])) as typeof cx.pre.title
   const { decisions, doc, epoch, outerParskip, romanFont, run, typeset, v } = cx
   if (!title.title) throw new Unsupported("\\maketitle without \\title")
   const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
@@ -36,6 +39,9 @@ export function maketitle(cx: Ctx) {
   // \null\vfil\vskip60\p@; article: \newpage, \global\@topnum\z@ (no float at the top of this page), and
   // \@maketitle's \newpage, \null, \vskip2em
   const titlepage = cls !== "article"
+  // \thanks (and \footnote): marks in \@fnsymbol, texts at \@thanks (report's titlepage: \small, no \footnoterule: not here)
+  if (/\\(?:thanks|footnote)(?![A-Za-z])/.test(`${title.title}${title.author ?? ""}${title.date ?? ""}`) && (titlepage || cx.pre.hyper)) throw new Unsupported(`\\thanks in ${titlepage ? cls : "hyperref"}'s \\maketitle`)
+  doc.thanks = []
   v.par()
   v.nobreak = false
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
@@ -55,18 +61,19 @@ export function maketitle(cx: Ctx) {
   const labelsep = run.k.dimens.labelsep
   const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
   const centering = centeringShape()
-  const check = (t: string, what: string) => { if (/[\\{}%&#^_~$]/.test(t.replace(/\\[#%&$]/g, ""))) throw new Unsupported(`${what} "${t}"`) }
-  check(title.title, "\\title")
-  typeset(title.title, { ...centering, start: [labels, penalty(0)], clubPenalty: run.k.ints.clubpenalty }, outerParskip, "LARGE")
+  // (in center, \\ is \@centercr: the title may be paragraphs, each with \LARGE's \baselineskip or the size declared)
+  if (!title.title.trim()) throw new Unsupported("an empty \\title")
+  verticalMaterial(cx, title.title, { size: "LARGE", attrs: cx.normalAttrs, align: "centering" }, false, { first: [labels, penalty(0)], club: run.k.ints.clubpenalty })
   v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
   // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
   const large = loadFont(dataFont(run.k.sizes.large.font.name), run.k.sizes.large.font.at)
-  const authors = (title.author ?? "").split(/\\and\b/).map((a) => a.split(/\\\\/).map((r) => r.trim()))
-  authors.flat().forEach((r) => check(r, "\\author"))
+  const author = title.author ?? ""
+  if (/&|\\(?:hline|cline|multicolumn)(?![A-Za-z])/.test(author)) throw new Unsupported(`\\author{${author}}`)
+  const authors = author.split(/\\and(?![A-Za-z])/).map((a) => tabularLines(a))
   const start: Node[] = [hpack([])] // \parindent is zero in center
   authors.forEach((rows, i) => {
     if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
-    start.push(tabular(cx, rows.map((r) => ({ cells: [{ text: r }] })), preamble("c"), "large", "t"))
+    start.push(tabular(cx, rows, preamble("c"), "large", "t"))
   })
   const authorPar = paragraphInput("", run.k, "large", doc, { ...centering, start, clubPenalty: run.k.ints.clubpenalty, amsmath })
   const ab = lineBreak(authorPar.list, authorPar.params)
@@ -75,14 +82,16 @@ export function maketitle(cx: Ctx) {
   v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
   // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
   // {\large \@date \par}, with \large's)
-  const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch))
-  check(date, "\\date")
-  if (date) {
-    const dp = paragraphInput("", run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath })
-    appendText(dp.list, date, large, { spaceFactor: 1000 })
+  // (article: its \par is \endtrivlist's, after the group, with the normal size's \baselineskip)
+  const date = squeeze((title.date ?? "\\today").replace(/\\today(?![A-Za-z])\s*/g, today(epoch)))
+  // (report: a group in vertical mode that ends its paragraphs, \\ as \@centercr)
+  if (date && titlepage) verticalMaterial(cx, date, { size: "large", attrs: cx.normalAttrs, align: "centering" }, false, { club: run.k.ints.clubpenalty })
+  else if (date) {
+    const dp = paragraphInput(cx.counted(date, true), run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath, groups: true, topDecls: true, centercr: true })
     const db = lineBreak(dp.list, dp.params)
-    decisions.push(db.trace)
-    v.paragraph(db.vlist, outerParskip, titlepage ? run.k.sizes.large.baselineskip : run.k.sizes.normalsize.baselineskip)
+    decisions.push(...dp.notes, db.trace)
+    if (topDeclarations(date).some((d) => (ALIGNMENTS as readonly string[]).includes(d))) throw new Unsupported(`\\date{${date}}`)
+    v.paragraph(db.vlist, outerParskip, run.k.sizes.normalsize.baselineskip)
   }
   v.endtrivlist(outerParskip, outerParskip, topsepadd)
   if (titlepage) {
@@ -92,10 +101,16 @@ export function maketitle(cx: Ctx) {
     v.nodes.push(filGlue(), penalty(-10000))
     if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
   } else {
-    // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}
+    // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
     v.vskip(dimen(em("1.5em", romanFont)))
     v.nodes.push(hook("plain"))
+    for (const t of doc.thanks) {
+      const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, v.club, amsmath)
+      v.nodes.push(ins)
+      decisions.push(trace)
+    }
   }
+  delete doc.thanks
   doc.footnote = 0 // \setcounter{footnote}{0}
 }
 

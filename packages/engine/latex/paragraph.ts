@@ -113,6 +113,8 @@ export function classParams(k: ClassOptionData): LineBreakParams {
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
 export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
+  /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
+  thanks?: { n: number; src: string }[]
   /** siunitx is loaded: its options */
   siunitx?: SiOptions
   /** subcaption is loaded (\subref) */
@@ -254,7 +256,7 @@ export function closingBrace(body: string, open: number): number {
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece =
-  | { kind: "text" | "math" | "footnote"; src: string }
+  | { kind: "text" | "math" | "footnote" | "thanks"; src: string }
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
@@ -573,6 +575,9 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       const open = body.indexOf("{", i), j = closingBrace(body, open)
       const src = body.slice(open + 1, j)
       flushText(); out.push({ kind: "font", cmd, src, inner: pieces(src, footnotes, inner), next: body[j + 1] ?? "" }); i = j + 1
+    } else if (/^\\thanks\s*\{/.test(body.slice(i))) { // (\maketitle's: in a tabular entry too)
+      const open = body.indexOf("{", i), j = closingBrace(body, open)
+      flushText(); out.push({ kind: "thanks", src: body.slice(open + 1, j) }); i = j + 1
     } else if (footnotes && body.startsWith("\\footnote{", i)) {
       let depth = 0, j = i + 9
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
@@ -593,6 +598,28 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  * \@makefnmark at a size: \hbox{\@textsuperscript{\normalfont N}}, that is
  * \hbox{$^{\mbox{N}}$} with \mathsurround=0pt and N in roman at \sf@size.
  */
+/** \@textsuperscript{\normalfont\@fnsymbol n} at a size: $^{\mbox{…}}$, at \sf@size: \textasteriskcentered, \textdagger,
+ *  \textdaggerdbl, \textsection, \textparagraph, \textbardbl (TS1's; \textsection T1's with T1), then doubled */
+function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): Node[] {
+  const kinds = ["*", "dagger", "ddagger", "section", "paragraph", "bardbl", "**", "dagger2", "ddagger2"]
+  const kind = kinds[n - 1]
+  if (!kind) throw new Unsupported(`\\thanks number ${n}`) // (\@ctrerr)
+  const sf = k.sizes[size].scriptSize, pt = String(Math.round(sf / 655.36)).padStart(4, "0")
+  const font = (name: string) => loadFont(dataFont(name), sf)
+  const [f, code] = kind === "section" && k.ints.T1 ? [font(`ecrm${pt}`), 159]
+    : [font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
+  const chars = kind.endsWith("2") || kind === "**" ? [code, code] : [code]
+  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: hpack(chars.map((c) => charNode(f, c))) }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
+  return [{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }]
+}
+
+/** \@thanks: \footnotetext[n]{text} in vertical mode, with \maketitle's \@makefntext (\parindent 1em\noindent
+ *  \hb@xt@1.8em{\hss\@textsuperscript{\normalfont\@thefnmark}}#1): the insertion and its paragraph's trace */
+export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: DocState, club: number, amsmath = false) {
+  const ctx: PieceContext = { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], noteClub: club, amsmath, base: { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" } }
+  return footnoteInsert(src, n, ctx, 0, fnsymbolMark(n, k, "footnotesize", amsmath))
+}
+
 function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
   // \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size
   const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
@@ -619,7 +646,7 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0) {
+function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[]) {
   const k = singleSpaced(outer.k) // setspace's \@footnotetext: \def\baselinestretch{\setspace@singlespace}
   const ctx = { ...outer, k }
   const fs: SizeCommand = "footnotesize"
@@ -634,7 +661,7 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0) {
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   params.hyphenation = hyphenation(k, font)
-  const markBox = hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
@@ -1009,6 +1036,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
       list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
+    } else if (p.kind === "thanks") {
+      // \maketitle's \thanks: \footnotemark (\stepcounter, \nobreak, \@makefnmark: \rlap{\@textsuperscript{\normalfont
+      // \@fnsymbol\c@footnote}}, the space factor kept); the text waits for \@thanks
+      if (!doc.thanks) throw new Unsupported("\\thanks outside \\maketitle")
+      const n = ++doc.footnote
+      list.push(penalty(10000), hpack([...fnsymbolMark(n, k, size, ctx.amsmath), ssGlue()], { exactly: 0 }))
+      doc.thanks.push({ n, src: p.src })
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
       const n = ++doc.footnote
@@ -1030,7 +1064,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
 export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
   const list: Node[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
+  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups, grouped: groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
   return list
 }
 

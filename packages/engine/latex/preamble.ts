@@ -180,6 +180,14 @@ export function readPreamble(src: string): Preamble {
       if (chars[j] === "{") depth++; else if (chars[j] === "}") depth--; else if (chars[j] === "\n") chars[j] = " "
     }
   }
+  // \title, \author and \date over more than one line: on one (a line's end is a space; a blank line, \par, is an error)
+  for (const m of pre.matchAll(/\\(?:title|author|date)\s*\{/g)) {
+    for (let j = m.index! + m[0].length, depth = 1; j < chars.length && depth; j++) {
+      if (chars[j] === "\\") j++
+      else if (chars[j] === "{") depth++; else if (chars[j] === "}") depth--
+      else if (chars[j] === "\n") { if (/^\n[ \t]*\n/.test(pre.slice(j))) throw new Unsupported(`a blank line in ${m[0]}…}`); chars[j] = " " }
+    }
+  }
   pre = chars.join("")
   const columnTypes: Preamble["columnTypes"] = {}
   const letterInfo: { signature?: string; address?: string; name?: string } = {}

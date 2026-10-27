@@ -1,0 +1,14 @@
+% fixture: title/maketitle-declarations-report
+% tier: T3
+% engine: document
+% covers: report's \maketitle with a bold title that changes shape before its end, \and with \\[skip] and \texttt in a row, and a \date of two paragraphs ({\large \@date \par}, \\ as \@centercr, \small in the second)
+% issue: #329
+\documentclass[11pt]{report}
+\title{\bfseries STAT 330 Final Project:\\Predicting House Prices in King County \itshape with a Long Title That Wraps}
+\author{Ethan Brooks \and Aisha Rahman\\[2pt]\texttt{aisha@example.edu}}
+\date{Spring 2026\\\small draft}
+\begin{document}
+\maketitle
+\chapter{Introduction}
+Some text.
+\end{document}
