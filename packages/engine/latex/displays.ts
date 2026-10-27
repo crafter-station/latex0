@@ -177,6 +177,9 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   let eqno: BoxNode | null = null
   if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
     mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
+    // (hyperref's \refstepcounter socket with cleveref, hyperref/fixcleveref: after the anchor, the first aid's
+    // {\firstaid@cref@updatelabeldata{\@currentcounter}}, here an empty ord noad)
+    if (hyper && cx.refs.cleveref) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null })
     // hyperref: \refstepcounter's anchor in a math group before it (an ord noad)
     if (hyper && hyperDriver.pdftex) mlist.unshift(...mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width))
     else if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 547,
-  "exact": 546,
+  "fixtures": 553,
+  "exact": 552,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 1,
-  "glyphs": 337652
+  "glyphs": 339266
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 21,
+   "exact": 21
   },
   {
    "area": "display",
@@ -3053,6 +3053,72 @@
    "glyphs": 166,
    "covers": "algorithm floats with cleveref: the \\label after the caption writes \\newlabel{key@cref}{{[algorithm][n][]n}…} (float.sty's \\refstepcounter{algorithm}); cleveref's algorithmicx support refsteps ALG@line at each \\ALG@step (not for \\Require or \\Statex), in the label's group, but its \\@currentHref is global: a \\label after the algorithmic, in the float or in the text, goes to ALG@line.n; \\cref and \\Cref to them; a ruled [H] one",
    "issue": "#277"
+  },
+  {
+   "id": "cleveref/cref-hyperref-displays-pdftex",
+   "file": "micro/cleveref/cref-hyperref-displays-pdftex.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 293,
+   "covers": "under pdflatex (\\pdfstartlink … \\pdfendlink around a link's text in the paragraph, the anchor \\pdfdest raised): cleveref with hyperref in displays: \\refstepcounter in math mode leaves hyperref/fixcleveref's first aid group ({\\firstaid@cref@updatelabeldata…}, an empty ord) after the anchor of an amsmath equation (numbered align, gather and multline rows step theirs in the tag's box: nothing); \\cref, \\Cref, \\cref* (no link) and \\cpageref to equations; \\crefrange and \\Crefrange (a link to each end), \\crefrange*; \\autoref and \\nameref beside \\cref",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-hyperref-displays",
+   "file": "micro/cleveref/cref-hyperref-displays.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 293,
+   "covers": "cleveref with hyperref in displays: \\refstepcounter in math mode leaves hyperref/fixcleveref's first aid group ({\\firstaid@cref@updatelabeldata…}, an empty ord) after the anchor of an amsmath equation (numbered align, gather and multline rows step theirs in the tag's box: nothing); \\cref, \\Cref, \\cref* (no link) and \\cpageref to equations; \\crefrange and \\Crefrange (a link to each end), \\crefrange*; \\autoref and \\nameref beside \\cref",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-hyperref-floats-pdftex",
+   "file": "micro/cleveref/cref-hyperref-floats-pdftex.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 266,
+   "covers": "under pdflatex (\\pdfstartlink … \\pdfendlink around a link's text in the paragraph): cleveref with hyperref and subcaption: \\label{key} and \\label{sub@key} in a subfigure and a subtable, each with its key@cref write, \\cref and \\Cref of sub-figures (links to the float's caption anchor) and of the floats; listings' captions (\\crefalias{lstlisting}{listing}) and an algorithm float with algorithmicx lines (ALG@line: every line's anchor in its label, at \\footnotesize's \\baselineskip after a number), \\cref and \\cpageref to them; nameref beside cleveref",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-hyperref-floats",
+   "file": "micro/cleveref/cref-hyperref-floats.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 266,
+   "covers": "cleveref with hyperref and subcaption: \\label{key} and \\label{sub@key} in a subfigure and a subtable, each with its key@cref write, \\cref and \\Cref of sub-figures (links to the float's caption anchor) and of the floats; listings' captions (\\crefalias{lstlisting}{listing}) and an algorithm float with algorithmicx lines (ALG@line: every line's anchor in its label, at \\footnotesize's \\baselineskip after a number), \\cref and \\cpageref to them; nameref beside cleveref",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-hyperref-pdftex",
+   "file": "micro/cleveref/cref-hyperref-pdftex.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 248,
+   "covers": "under pdflatex (\\pdfstartlink … \\pdfendlink around a link's text in the paragraph): cleveref with hyperref: \\cref and \\Cref of one label, the link (\\hyper@@link[link] to the label's anchor) around the number only, the name before it; an equation's \\textup{(link)}, in an italic theorem; amsthm theorems with cleveref (hyperref leaves \\@thm unpatched: \\refstepcounter's anchor in vertical mode after \\trivlist, none in the paragraph), a lemma sharing the counter; undefined labels; the \\newlabel{key@cref} lines with hyperref",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-hyperref",
+   "file": "micro/cleveref/cref-hyperref.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 248,
+   "covers": "cleveref with hyperref: \\cref and \\Cref of one label, the link (\\hyper@@link[link] to the label's anchor) around the number only, the name before it; an equation's \\textup{(link)}, in an italic theorem; amsthm theorems with cleveref (hyperref leaves \\@thm unpatched: \\refstepcounter's anchor in vertical mode after \\trivlist, none in the paragraph), a lemma sharing the counter; undefined labels; the \\newlabel{key@cref} lines with hyperref",
+   "issue": "#318"
   },
   {
    "id": "cleveref/cref-pages",

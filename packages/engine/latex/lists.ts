@@ -131,6 +131,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     // the label from \@currentcounter unless \iftag@)
     const crefType = run.tagFlag && thmDef.counter !== b.thm!.name && thmDef.crefNamed ? b.thm!.name : thmDef.counter
     if (refs.cleveref) refs.cleveref.current = { type: crefType, arabic: counters.value(thmDef.counter), prefix: counters.crefPrefix(thmDef.counter), label: thmNumber }
+    // (with cleveref hyperref leaves \@thm unpatched: \refstepcounter's own anchor, in vertical mode after \trivlist)
+    if (hyper && refs.cleveref) v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode()))
   }
   // the body's font: \itshape for plain theorems
   const bodyAttrs: FontAttrs | undefined = thmDef?.style === "plain" ? { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" } : undefined
@@ -313,7 +315,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
       // (with hyperref, \Hy@theorem@refstepcounter's anchor first: \MakeLinkTarget* at the paragraph's para/begin, raised
       // by \normalbaselineskip; then \dth@everypar's \lastbox finds no indent box: \kern-\itemindent)
-      const thmAnchor = thmDef && hyper
+      const thmAnchor = thmDef && hyper && !refs.cleveref
         ? [...linkTarget(refs.href, run.k.sizes[ctx.size].baselineskip.width, run.k.sizes.normalsize.baselineskip.width), kern(0, true)] : []
       const start = thmDef ? [...thmAnchor, ...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
       const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) && !p.parEnd ? { end: qed() } : {}) }

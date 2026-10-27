@@ -1,0 +1,54 @@
+% fixture: cleveref/cref-hyperref-floats
+% tier: T3
+% engine: document
+% specials: compare
+% covers: cleveref with hyperref and subcaption: \label{key} and \label{sub@key} in a subfigure and a subtable, each with its key@cref write, \cref and \Cref of sub-figures (links to the float's caption anchor) and of the floats; listings' captions (\crefalias{lstlisting}{listing}) and an algorithm float with algorithmicx lines (ALG@line: every line's anchor in its label, at \footnotesize's \baselineskip after a number), \cref and \cpageref to them; nameref beside cleveref
+% issue: #318
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{subcaption}
+\usepackage{cleveref}
+\begin{document}
+\section{Floats}\label{sec:f}
+Text.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Setup}
+\label{fig:s}
+\end{subfigure}
+\begin{subfigure}{0.45\textwidth}
+\begin{tabular}{c}Y\end{tabular}
+\caption{Period}\label{fig:p}
+\end{subfigure}
+\caption{The experiment.}
+\label{fig:e}
+\end{figure}
+\begin{table}[h]
+\caption{Before the subtables.}\label{tab:all}
+\begin{subtable}{0.3\textwidth}
+\caption{First}\label{tab:a}
+\begin{tabular}{ll}a & b\\\end{tabular}
+\end{subtable}
+\end{table}
+See \cref{fig:s}, \Cref{fig:p}, \cref{fig:e}, \cref{tab:a} and \Cref{tab:all}, named \nameref{fig:e}.
+\begin{lstlisting}[caption={Printing a number},label={lst:a}]
+print(42)
+\end{lstlisting}
+
+\begin{algorithm}[H]
+\caption{Euclid}\label{alg:a}
+\begin{algorithmic}[2]
+\State $x \gets a$
+\State $y \gets b$
+\State $z \gets c$
+\end{algorithmic}
+\label{alg:line}
+\end{algorithm}
+\Cref{lst:a} prints and \cref{alg:a} computes, its \cref{alg:line} on \cpageref{alg:line}.
+\end{document}

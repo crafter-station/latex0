@@ -1,0 +1,35 @@
+% fixture: cleveref/cref-hyperref
+% tier: T3
+% engine: document
+% specials: compare
+% covers: cleveref with hyperref: \cref and \Cref of one label, the link (\hyper@@link[link] to the label's anchor) around the number only, the name before it; an equation's \textup{(link)}, in an italic theorem; amsthm theorems with cleveref (hyperref leaves \@thm unpatched: \refstepcounter's anchor in vertical mode after \trivlist, none in the paragraph), a lemma sharing the counter; undefined labels; the \newlabel{key@cref} lines with hyperref
+% issue: #318
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\begin{document}
+\section{Linear maps}\label{sec:maps}
+Some text about maps.
+\begin{lemma}\label{lem:cyclic}
+A lemma about traces.
+\end{lemma}
+\begin{theorem}\label{thm:similar}
+By \cref{lem:cyclic} and \Cref{eq:main}, similar matrices have the same trace.
+\end{theorem}
+\begin{equation}\label{eq:main}
+a = b
+\end{equation}
+\subsection{More}\label{sec:more}
+\Cref{eq:main} follows from \cref{thm:similar}; see \cref{sec:maps}, \Cref{sec:more}, \cref{fig:one} and \cref{item:two}. Not \cref{nowhere} or \Cref{nowhere}.
+\begin{enumerate}
+\item One.
+\item Two.\label{item:two}
+\end{enumerate}
+\begin{figure}[h]
+\centering
+\caption{A caption.}\label{fig:one}
+\end{figure}
+\end{document}

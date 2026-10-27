@@ -166,7 +166,11 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
     const label: Node[] = [filGlue()]
     if (it.kind === "entity" && !notext) {
       line++; rem++
-      if (String(rem) === String(freq)) { rem = 0; appendText(label, `${line}:`, footnotesize, { spaceFactor: 1000 }, false) }
+      const numbered = String(rem) === String(freq)
+      if (numbered) { rem = 0; appendText(label, `${line}:`, footnotesize, { spaceFactor: 1000 }, false) }
+      // cleveref's \refstepcounter{ALG@line} at the end of \ALG@step: with hyperref its anchor, in the label's box (at
+      // \footnotesize's \baselineskip after a number)
+      if (cx.pre.hyper && cx.pre.cleveref) label.push(...anchor(`ALG@line.${line}`, k.sizes[numbered ? "footnotesize" : "normalsize"].baselineskip.width, "h", label.at(-1)))
     } else if (it.kind === "label") {
       appendText(label, it.label!, bold, { spaceFactor: 1000 }, false)
       label.push(kern(0, true)) // \textbf's \check@icr (no italic correction after the colon)
