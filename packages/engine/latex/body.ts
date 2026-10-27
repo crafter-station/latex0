@@ -23,7 +23,13 @@ export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
   if (b.kind !== "par" || !b.floats) return block(cx, b, bi, blocks)
   const floats = b.floats
-  cx.doc.float = (n, traces, club) => floatMarker(cx, floats[n], traces, club)
+  // (a \label in one is read in the paragraph: the page builder has seen its \parskip, or all up to a display)
+  cx.doc.float = (n, traces, club) => {
+    const writes = cx.refs.cleveref?.writes, w0 = writes?.length ?? 0
+    const marker = floatMarker(cx, floats[n], traces, club)
+    for (const w of writes?.slice(w0) ?? []) w.inPara = true
+    return marker
+  }
   try { block(cx, b, bi, blocks) } finally { delete cx.doc.float }
 }
 

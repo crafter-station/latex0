@@ -1,0 +1,61 @@
+% fixture: cleveref/float-in-paragraph-page
+% tier: T3
+% engine: document
+% covers: cleveref's page counter for a \label in a float standing in a paragraph (reduced from fuzz doc-2-146): read in the paragraph, after the page builder saw its \parskip, so a page that fired at that \parskip has been shipped
+% issue: #294
+\documentclass[twoside]{report}
+\usepackage{multirow}
+\usepackage[group-digits=integer]{siunitx}
+\usepackage{url}
+\usepackage{cleveref}
+\begin{document}
+\begin{figure}[!b]
+\begin{tabular}{p{2cm}@{}l@{\quad}l}
+\end{tabular}
+\caption{between in of back (indeed) some}
+\end{figure}
+\chapter{her come get}
+fifteen $\max_i x_i\le\det A$ be \underline{much official and $\lim_{n\to\infty} a_n$} great by $\max_i x_i\le\det A$ now both such they any just staff take \cite{b2,b1} has any at this them get London. year into too affluent make them should used may $f(x)\ne 0$ made offline \SIrange{2}{3}{\degree} see against the by also Really?\% each last other most used like get who as like year algorithm~\SI{42}{\per\second} \Cref{eq:6-1} Paris day fluffy men office \begin{tabular}{c||S[table-format=-1.3]cp{3cm}@{}}
+ & -0.5 & stuff this &  \\
+ & 99.99 & \multicolumn{1}{r|}{\SI{-3.5}{m/s}} & work hyphenation take way my that just state would years \\
+\multicolumn{2}{|l}{\texttt{may}} & old Typesetting & \multicolumn{1}{|l}{an official} \\
+\SI[quantity-product={}]{.5}{\kilo\gram} & -0.5 & should official little & many indeed his Plass so fluffy year \\
+\end{tabular} off can \textit{still \texttt{staff}}
+
+just very much Knuth there like \textit{as to} than only staff take two those~\num{e5} first paragraphs both before have all might long demerits own $\langle u, v\rangle$ both demerits too office has $x^{\sqrt{\frac{1}{2}}}$ \qty{1.74 \pm 0.02}{m/s}\footnote{Knuth at still efficient to} they $\qtylist{1;2;3;4}{\metre\per\second}$\footnote{because year get at old than time see see different my each efficient is own such when them back year as which than make then tolerance but your algorithm a can since be} made \qty[list-pair-separator={ or }]{-3.5}{\metre} how any into take how would Yes! badness make can their since on page~\pageref{figure:20} see \url{www.data.example.com/a/x-y/} it \cref{figure:20} as against her efficient \textit{up badness \textup{a her}}. the\footnote{time while never when these paragraphs when an some get see London. state can no not while at way first} should most much own their people just get baffled \\ stuff where all \qty{.5}{\milli\litre} \cref{nowhere} Really? then only have also now on \begin{minipage}[c]{2.5in}
+too also these for over off man great paragraphs each work my his own in that by been might old life at came
+\end{minipage} been is own it where even such this tolerance against last came now composition Paris $\int\!\!\int f\,dx\,dy$ so made \textit{work \begin{tabular}[c]{|l|ll@{\quad}S[table-format=2.2]}
+\multirow{2}{*}{may take was} x & \multicolumn{3}{r|}{being offline} \\
+\hline\hline
+\textbf{office} & \multirow[c]{3}{*}{\(\langle u, v\rangle\)} more & \emph{their these do} & .5 \\
+ & which composition & \multicolumn{2}{|c|}{$\sqrt{2}$}
+\end{tabular} Yes! sufficient there} much most composition after little \label{s:1} not under way \textsf{by all after \emph{even}} also on with which Knuth right
+\begin{figure}[!h]
+\caption{been paragraphs your fluffy}
+\begin{tabular}{*{4}{r}}
+\end{tabular}
+\end{figure}
+Really? must under our work come many day only fifteen state affluent
+sufficient state badness \qtylist{1;2;3;4}{\kilo\ohm} offline very Knuth\,\textdegree.\footnote{when their office my other state such (indeed) out used then over when} each state \textup{them must\qquad \unit{\ohm} each $\lim_{n\to\infty} a_n$ been} to most may different \&  year \underline{demerits \textit{there}} world never not \hfill our in office another three see good were much must there same made \(\sqrt[3]{x}\)~\ref{s:2} still in badness into time this who \si{\metre} year \SI{3.45d-4}{\electronvolt} being new but know or \emph{most up even} affluent way paragraphs demerits through \qtyrange{1}{1.74 \pm 0.02}{\electronvolt} my life was has up know in people \SIlist{3.45d-4;1.5(2)}{\degreeCelsius} day your \textsl{own own old $\SI{e5}{\degree}$ my\footnote{composition and but well Yes! know from well-known office other came London. they difficult have way my difficult old no fifteen man people when good do most before another composition both an demerits fluffy will}} that much of other any were his might Yes! up other came only while there difficult off not were a when any demerits even take sufficient on time now which\footnote{on were than not years badness both those after which all came} will her day \(f(x)\ne 0\) three right sufficient \textup{through from \textbf{(indeed) demerits}}
+
+did which Typesetting baffled two over off any other will \SI{42}{\hertz} take to this their first them can under \hfill long $\SI{+2}{\volt\ampere}$ no through after fluffy were affluent any how all stuff should of just these (indeed) this may fifty came can still must his \url{ftp://host.example.net:8080} them most \num[per-mode=fraction, separate-uncertainty]{3.45d-4} well\footnote{a over for Paris time time algorithm demerits same same sufficient know since been for could at did by my} \ref{s:3} must see this so \textup{year year while were} of other made off may must did with at which there while it well just at came her $\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}$ \emph{must with for offline} \textit{over}
+\begin{equation} \SI{1,5}{\dB} + \num{1.5}\end{equation}
+Plass other Paris 21\textdegree{} tolerance people staff here \url{ftp://host.example.net:8080} know it know a this their badness $\sin x+\log_2 n$ man after know other Knuth men of very Knuth right those did which still such must to tolerance as too fluffy\footnote{up and so her has time before who any might will tolerance composition little see} through their well get might are will great
+\[ \SI{1234567.89012}{\hertz} \]
+Really? $\alpha\to\beta$ of just Yes! know Paris on $\sqrt[3]{x}$ go \textmd{only~\ang{12.5;30} another \textmd{way be}}, go office \(\sqrt{x^2+y^2}\) one over and $\alpha\to\beta$ see a are fifty of Knuth their no than his used used\footnote{see would against for old paragraphs demerits could just office before many efficient} might not many $\mathbf{v}_\mathrm{max}$ back very Yes! little make our offline never right two difficult made $a\,b\:c\;d\!e$ state back this $x^2+y^2=z^2$ demerits which can last staff before by just much $\cos^2\theta$
+
+back $\unit{\per\second}$ with see then could \textsl{two then them when \textbf{Typesetting staff}} up Plass but them other any if \begin{tabular}[b]{r}
+\end{tabular} make of no is \qtyrange{1}{42}{\micro\metre} \emph{world being} our not at these when would was \si{\percent} only where $x$ still way still \textbf{can} there take offline composition most are is more her Yes! fifty \emph{than come} that then between
+\begin{figure}[!b]
+\begin{tabular}{@{: }c|l@{\quad}p{25mm}@{}}
+\end{tabular}
+\caption{world must been difficult like}
+\label{figure:22}
+\end{figure}
+\begin{enumerate}
+\item but that difficult~\cite{b1} tolerance must~\url{www.user@mail.example.org/docs?q=x+y} people if some~\ang{1;2;3} life still her if up because should where in London. \qty{100}{\metre\per\second} make little since were\% at see $\mathbf{v}_\mathrm{max}$ when back day most an some by\% hyphenation very this fifteen has would since make three \url{user@mail.example.org/x-y/q/file_name/a!} those tolerance as into affluent staff different not might \cref{nowhere} where paragraphs three most
+\begin{flushleft}
+\end{flushleft}
+\item still them offline where the where badness 5\,\textdegree C has only~\url{example.org/file_name/2024} how \numlist{1;2;3} to them one Paris Typesetting Paris been these the at in would while\footnote{such must well-known than their made your over well-known difficult could are so for paragraphs difficult my much a while now Plass after not who great baffled Yes! are since way different between so have} one an just~\ref{t:1} \emph{up office}. hyphenation be long most \(a_{i\,j}\neq b^{n\;m}\) has way hyphenation will $\cos^2\theta$~\cite{b1} people $\max_i x_i\le\det A$ algorithm
+\end{enumerate}
+\end{document}
