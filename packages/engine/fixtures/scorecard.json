@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 796,
-  "exact": 796,
+  "fixtures": 798,
+  "exact": 798,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 459821
+  "glyphs": 459966
  },
  "areas": [
   {
@@ -156,8 +156,8 @@
   },
   {
    "area": "sections",
-   "fixtures": 21,
-   "exact": 21
+   "fixtures": 22,
+   "exact": 22
   },
   {
    "area": "setspace",
@@ -191,8 +191,8 @@
   },
   {
    "area": "title",
-   "fixtures": 13,
-   "exact": 13
+   "fixtures": 14,
+   "exact": 14
   },
   {
    "area": "titlesec",
@@ -7554,6 +7554,17 @@
    "issue": "#336"
   },
   {
+   "id": "sections/lists-of-figures-babel",
+   "file": "micro/sections/lists-of-figures-babel.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 96,
+   "covers": "\\listoffigures and \\listoftables under babel: \\listfigurename and \\listtablename in the language",
+   "issue": "#336"
+  },
+  {
    "id": "sections/lists-of-figures-book",
    "file": "micro/sections/lists-of-figures-book.tex",
    "area": "sections",
@@ -8410,6 +8421,17 @@
    "glyphs": 74,
    "covers": "rounded corners; rectangles, circles and ellipses drawn, filled and both; scopes with options (shift, scale, rotate, colors), \\tikzset and every path in a picture, picture options, a centered picture",
    "issue": "#309"
+  },
+  {
+   "id": "title/abstract-report-babel",
+   "file": "micro/title/abstract-report-babel.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "report's abstract under babel: its head is \\abstractname in the language (Resumo)",
+   "issue": "#336"
   },
   {
    "id": "title/abstract-report-toc",
