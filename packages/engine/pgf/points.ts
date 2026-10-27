@@ -9,7 +9,7 @@ import { TexArith, toNumber } from "./fixed"
 import { reciprocal } from "./mathfunctions"
 import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "./mathparser"
 import { TRIGONOMETRIC } from "./mathtrig"
-import type { PgfState } from "./state"
+import { DEFAULT_VECTORS, type PgfState, type PgfVectors } from "./state"
 
 export interface PgfPoint { x: number; y: number }
 
@@ -136,6 +136,22 @@ export function pgfPointLineAtTime(time: string, a: PgfPointMacro, b: PgfPointMa
   return { x: p.x + scaled(t, c.x - p.x), y: p.y + scaled(t, c.y - p.y) }
 }
 
+/**
+ * \pgfpointcurveattime{#1}{#2}{#3}{#4}{#5} (528–563): the point at time #1 on the curve from #2 with supports #3 and
+ * #4 to #5 by de Casteljau's three steps, each `t\pgf@x` and `s\pgf@xa` TeX's products; and the tangent's two
+ * points (the second step's), \pgf@xb and \pgf@xa
+ */
+export function pgfPointCurveAtTime(time: string, p0: PgfPoint, p1: PgfPoint, p2: PgfPoint, p3: PgfPoint, units: PgfUnits): { p: PgfPoint; a: PgfPoint; b: PgfPoint } {
+  const s = parse(time, units)
+  const t = toNumber(65536 - new TexArith(units).dimen(`${s}pt`))
+  const mix = (u: PgfPoint, v: PgfPoint): PgfPoint => ({ x: scaled(t, u.x) + scaled(s, v.x), y: scaled(t, u.y) + scaled(s, v.y) })
+  let x = mix(p0, p1), xa = mix(p1, p2)
+  const xb = mix(p2, p3)
+  x = mix(x, xa)
+  xa = mix(xa, xb)
+  return { p: mix(x, xa), a: xa, b: x }
+}
+
 /** \pgfpointscale{#1}{#2} (72–77) */
 export function pgfPointScale(factor: string, p: PgfPoint, units: PgfUnits): PgfPoint {
   const f = parse(factor, units)
@@ -151,11 +167,10 @@ export function pgfPointPolar(s: PgfState, angle: string, radius: string): PgfPo
   return { x: scaled(trig("cos", a, s.units), x), y: scaled(trig("sin", a, s.units), y) }
 }
 
-/** \pgfpointxy{#1}{#2} (433–441), on the default vectors \pgf@xx … \pgf@yy: \pgfpoint{1cm}{0cm}, \pgfpoint{0cm}{1cm} (500–501) */
-export function pgfPointXY(x: string, y: string, units: PgfUnits): PgfPoint {
+/** \pgfpointxy{#1}{#2} (433–441) on the vectors \pgf@xx … \pgf@yy (by default \pgfpoint{1cm}{0cm}, \pgfpoint{0cm}{1cm}: 500–501) */
+export function pgfPointXY(x: string, y: string, units: PgfUnits, v: PgfVectors = DEFAULT_VECTORS): PgfPoint {
   const tx = parse(x, units), ty = parse(y, units)
-  const cm = pgfmathSetLength("1cm", units).value
-  return { x: scaled(tx, cm) + scaled(ty, 0), y: scaled(tx, 0) + scaled(ty, cm) }
+  return { x: scaled(tx, v.xx) + scaled(ty, v.yx), y: scaled(tx, v.xy) + scaled(ty, v.yy) }
 }
 
 /** \pgfmathreciprocal@{#1} */

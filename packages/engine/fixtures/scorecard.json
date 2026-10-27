@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 798,
-  "exact": 798,
+  "fixtures": 812,
+  "exact": 812,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 459966
+  "glyphs": 460838
  },
  "areas": [
   {
@@ -186,8 +186,8 @@
   },
   {
    "area": "tikz",
-   "fixtures": 18,
-   "exact": 18
+   "fixtures": 32,
+   "exact": 32
   },
   {
    "area": "title",
@@ -8247,6 +8247,72 @@
    "issue": "#309"
   },
   {
+   "id": "tikz/calc-pdftex",
+   "file": "micro/tikz/calc-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "calc's coordinates (sums, factors, partway, distance and projection modifiers, rotation, between nodes' anchors, with coordinate options); x= and y= as lengths and as points (pgfpointxy everywhere: coordinates, circles, arcs, grids, positioning's distances); scale with a vector; line cap, line join, miter limit; opacity, fill opacity, draw opacity and the transparency styles",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/calc",
+   "file": "micro/tikz/calc.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "calc's coordinates (sums, factors, partway, distance and projection modifiers, rotation, between nodes' anchors, with coordinate options); x= and y= as lengths and as points (pgfpointxy everywhere: coordinates, circles, arcs, grids, positioning's distances); scale with a vector; line cap, line join, miter limit; opacity, fill opacity, draw opacity and the transparency styles",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/current-color-pdftex",
+   "file": "micro/tikz/current-color-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "a picture in a color set by \\color[model]{…} (rgb, cmyk, gray with values like .5, RGB, HTML) and in mixes: pgf's \\pgfsetcolor{.} reads xcolor's normalized values (\\XC@calcN, RGB by \\rdivide), not the driver's",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/current-color",
+   "file": "micro/tikz/current-color.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "a picture in a color set by \\color[model]{…} (rgb, cmyk, gray with values like .5, RGB, HTML) and in mixes: pgf's \\pgfsetcolor{.} reads xcolor's normalized values (\\XC@calcN, RGB by \\rdivide), not the driver's",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/curves-pdftex",
+   "file": "micro/tikz/curves-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 26,
+   "covers": ".. controls .. curves (one or two supports, relative ones, to a node's border, .. cycle, labels on them, sloped), to[out=,in=] and bend left/right (relative curves between nodes, looseness, min distance, every curve to), edges (after a point and a node, with options, labels and bends), pins (pin distance, pin edge, every pin edge), arcs (both syntaxes, ellipses, delta angle, labels on an arc), grids (step, xstep, ystep), coordinate options ([shift=…], [xshift=…])",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/curves",
+   "file": "micro/tikz/curves.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 26,
+   "covers": ".. controls .. curves (one or two supports, relative ones, to a node's border, .. cycle, labels on them, sloped), to[out=,in=] and bend left/right (relative curves between nodes, looseness, min distance, every curve to), edges (after a point and a node, with options, labels and bends), pins (pin distance, pin edge, every pin edge), arcs (both syntaxes, ellipses, delta angle, labels on an arc), grids (step, xstep, ystep), coordinate options ([shift=…], [xshift=…])",
+   "issue": "#326"
+  },
+  {
    "id": "tikz/figure-pdftex",
    "file": "micro/tikz/figure-pdftex.tex",
    "area": "tikz",
@@ -8267,6 +8333,28 @@
    "glyphs": 169,
    "covers": "tikzpictures in figures (two side by side with \\hfill) with \\centering and a caption; coordinates by name, polar and relative coordinates, to, |- and -|; a clip",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/foreach-pdftex",
+   "file": "micro/tikz/foreach-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "\\foreach in pictures: a list, a range of integers, of decimals (TeX's dimension steps), downwards and of letters; several variables with a missing part; count= (from), evaluate= … as … using; a nested loop with its own variable and one reusing the outer's; a group body and a ; body; a point as a value; a variable in options, coordinates, node text and pgfmath",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/foreach",
+   "file": "micro/tikz/foreach.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "\\foreach in pictures: a list, a range of integers, of decimals (TeX's dimension steps), downwards and of letters; several variables with a missing part; count= (from), evaluate= … as … using; a nested loop with its own variable and one reusing the outer's; a group body and a ; body; a point as a value; a variable in options, coordinates, node text and pgfmath",
+   "issue": "#326"
   },
   {
    "id": "tikz/hyperref-pdftex",
@@ -8311,6 +8399,28 @@
    "glyphs": 129,
    "covers": "\\tikz in a paragraph: one path up to its semicolon, braces, a baseline option; spaces after the picture; xcolor's \\textcolor around one",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/label-option-pdftex",
+   "file": "micro/tikz/label-option-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 40,
+   "covers": "label= on nodes and coordinates: the default position (label position= read where the label's node is made), named positions and angles, north and center, options ([red], [label distance=…], [anchor=…]), label distance, every label, label position= in a scope, angles in a coordinate's labels (negative, near the anchors' thresholds), several labels on a node, a label of a node on a path (and a line from it), in a rotated picture with and without transform shape, text with a colon",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/label-option",
+   "file": "micro/tikz/label-option.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 40,
+   "covers": "label= on nodes and coordinates: the default position (label position= read where the label's node is made), named positions and angles, north and center, options ([red], [label distance=…], [anchor=…]), label distance, every label, label position= in a scope, angles in a coordinate's labels (negative, near the anchors' thresholds), several labels on a node, a label of a node on a path (and a line from it), in a rotated picture with and without transform shape, text with a colon",
+   "issue": "#326"
   },
   {
    "id": "tikz/labels-pdftex",
@@ -8379,6 +8489,28 @@
    "issue": "#320"
   },
   {
+   "id": "tikz/node-text-pdftex",
+   "file": "micro/tikz/node-text-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 295,
+   "covers": "node text in lines (align= without a text width: \\\\ and \\\\[skip], an empty line, flush and justified alignments, a font option's baselines), in a minipage of a text width (each text action's skips, \\spaceskip and \\xspaceskip, \\\\ as \\@centercr and in justified text, a text color in the paragraph, an empty text), node font= (the node's em for its inner sep and shifts), in the first paragraph after a heading (\\clubpenalty 10000)",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/node-text",
+   "file": "micro/tikz/node-text.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 295,
+   "covers": "node text in lines (align= without a text width: \\\\ and \\\\[skip], an empty line, flush and justified alignments, a font option's baselines), in a minipage of a text width (each text action's skips, \\spaceskip and \\xspaceskip, \\\\ as \\@centercr and in justified text, a text color in the paragraph, an empty text), node font= (the node's em for its inner sep and shifts), in the first paragraph after a heading (\\clubpenalty 10000)",
+   "issue": "#326"
+  },
+  {
    "id": "tikz/nodes-pdftex",
    "file": "micro/tikz/nodes-pdftex.tex",
    "area": "tikz",
@@ -8399,6 +8531,28 @@
    "glyphs": 132,
    "covers": "named nodes (rectangle and circle, drawn, filled, rounded corners, minimum height, inner sep) with styles from \\tikzset, positioning's right=of, below=of and above=… of with node distance, lines between nodes ending on their borders, an anchor (in.south), -| and |- to and from nodes, labels on lines, the nodes' text in the document's fonts (\\textbf, \\small around \\tikz)",
    "issue": "#320"
+  },
+  {
+   "id": "tikz/plots-pdftex",
+   "file": "micro/tikz/plots-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "plot coordinates (moved and lined to, a node's anchor among them), plot (\\x,{f(\\x)}) over a domain and samples (sin with r, products, exp, a parametric circle, samples at, variable=), marks (*, +, x and plotmarks' o, mark size, mark options, only marks), the plot's last point as the current one; ellipse nodes of shapes.geometric (anchors, borders, minimum height, a label and an edge)",
+   "issue": "#326"
+  },
+  {
+   "id": "tikz/plots",
+   "file": "micro/tikz/plots.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "plot coordinates (moved and lined to, a node's anchor among them), plot (\\x,{f(\\x)}) over a domain and samples (sin with r, products, exp, a parametric circle, samples at, variable=), marks (*, +, x and plotmarks' o, mark size, mark options, only marks), the plot's last point as the current one; ellipse nodes of shapes.geometric (anchors, borders, minimum height, a label and an edge)",
+   "issue": "#326"
   },
   {
    "id": "tikz/shapes-pdftex",

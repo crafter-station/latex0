@@ -4,7 +4,8 @@
 import { texRound, xnOverD } from "./arith"
 import { EXTRA_SPACE, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "./font"
 import { appendRun } from "./mainloop"
-import { charNode, glue, type Node } from "./nodes"
+import type { GlueSpec } from "./dimen"
+import { charNode, glue, paramGlue, type Node } from "./nodes"
 import { hpack } from "./pack"
 
 /** \frenchspacing in force for the document being laid out (babel's languages select it): . ? ! : ; , are 1000, or
@@ -38,6 +39,23 @@ export function spaceGlue(font: Font, sf: number): Node {
   )
 }
 
+/** what horizontal mode reads besides the font: the space factor, \sfcode changes, \spaceskip and \xspaceskip (both set, or both zero) */
+export interface HState { spaceFactor: number; sfcodes?: Record<number, number>; spaceSkips?: { space: GlueSpec; xspace: GlueSpec } }
+
+const skipGlue = (param: string, g: GlueSpec): Node => paramGlue(param, glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
+
+/**
+ * A space (§§ 1041–1044) with \spaceskip and \xspaceskip set: \spaceskip at space factor 1000, \xspaceskip from 2000,
+ * else \spaceskip's stretch and shrink by the space factor; the font's glue when they are zero
+ */
+export function interwordGlue(font: Font, state: HState): Node {
+  const { spaceSkips: k, spaceFactor: sf } = state
+  if (!k) return spaceGlue(font, sf)
+  if (sf === 1000) return skipGlue("spaceskip", k.space)
+  if (sf >= 2000) return skipGlue("xspaceskip", k.xspace)
+  return glue(k.space.width, xnOverD(k.space.stretch, sf, 1000), k.space.stretchOrder, xnOverD(k.space.shrink, 1000, sf), k.space.shrinkOrder)
+}
+
 /** \hyphenchar of every font (LaTeX's \defaulthyphenchar). */
 export const HYPHEN_CHAR = 45
 
@@ -46,7 +64,7 @@ export const HYPHEN_CHAR = 45
  * word goes through TeX's main loop (§§ 1034–1040); in a paragraph (unrestricted
  * horizontal mode) an explicit hyphen gets an empty discretionary.
  */
-export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number; /** \sfcode changes in force */ sfcodes?: Record<number, number> }, paragraph = true, hyphenChar = font.hyphenChar ?? HYPHEN_CHAR) {
+export function appendText(list: Node[], text: string, font: Font, state: HState, paragraph = true, hyphenChar = font.hyphenChar ?? HYPHEN_CHAR) {
   let run: number[] = []
   const flush = () => {
     if (!run.length) return
@@ -56,7 +74,7 @@ export function appendText(list: Node[], text: string, font: Font, state: { spac
   for (const ch of text) {
     if (ch === " ") {
       flush()
-      list.push(spaceGlue(font, state.spaceFactor))
+      list.push(interwordGlue(font, state))
       continue
     }
     const c = ch.codePointAt(0)!

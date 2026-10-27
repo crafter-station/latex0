@@ -215,14 +215,20 @@ export function makeDocument(r: () => number): string {
   const tikzPic = (inline: boolean) => {
     const num = () => pick(["0", "1", "2", "0.5", "-1", "1.5", "3"])
     const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
-    const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", ""])
-    const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]"])
-    const node = () => `node${nodeOptions()} {${nodeText()}}`
+    const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", "", "A longer text, in a node."])
+    const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]",
+      "[align=center]", "[draw,text width=2cm,align=center]", "[ellipse,draw]", "[text width=15mm]", "[node font=\\footnotesize,draw]", "[label=above:$a$]", "[draw,label={[red]right:r}]"])
+    // (\\ only where lines are set: align= or a text width)
+    const node = () => { const o = nodeOptions(); return `node${o} {${/align|text width/.test(o) && r() < 0.5 ? "Two\\\\lines" : nodeText()}}` }
     const names: string[] = []
     const target = () => (names.length && r() < 0.4 ? `(${pick(names)})` : coord())
     const op = () => pick([` -- ${target()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${target()}`, ` |- ${coord()}`, ` to ${target()}`,
-      ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`])
-    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+      ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`,
+      ` .. controls ${coord()} and ${coord()} .. ${target()}`, ` to[${pick(["bend left", "out=90,in=180", "bend right=20"])}] ${target()}`, ` ${coord().replace(/^\+\+?/, "")} edge[->] ${target()}`,
+      ` arc (${pick(["0:90", "30:200", "180:-45"])}:${pick(["1", "5mm", "0.5"])})`, ` grid${pick(["", "[step=0.5]"])} ${coord().replace(/^\+\+?/, "")}`,
+      ` -- ($(${num()},${num()})!0.5!(${num()},${num()})$)`, ` -- ($(${num()},${num()})+(1,0)$)`,
+      ` -- plot${pick(["", "[mark=*]"])} coordinates {${coord().replace(/^\+\+?/, "")} ${coord().replace(/^\+\+?/, "")}}`, ` -- plot[domain=0:1,samples=4] (\\x,{\\x*\\x})`])
+    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]", "[opacity=0.5]", "[line cap=round,line join=round]", "[x=0.5cm]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
     const named = () => {
       const name = `n${names.length}`
       const at = names.length && r() < 0.5 ? `[draw,${pick(["right", "below", "above"])} of=${pick(names)}]` : `${pick(["[draw]", "[draw,circle]", "[fill=yellow!20]", ""])} at ${coord().replace(/^\+\+?/, "")}`
@@ -230,7 +236,7 @@ export function makeDocument(r: () => number): string {
       return `\\node${at} (${name}) {${nodeText()}};`
     }
     if (inline) return r() < 0.5 ? `\\tikz${pick(["", "[baseline=-0.5ex]", "[scale=0.3]"])} ${r() < 0.2 ? `\\node${nodeOptions()} {${nodeText()}};` : path()}` : `\\tikz[scale=0.2]{${path()}}`
-    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]", "[node distance=2cm]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, () => (r() < 0.4 ? named() : path())).join("\n")}\n\\end{tikzpicture}`
+    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]", "[node distance=2cm]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, () => (r() < 0.4 ? named() : r() < 0.15 ? `\\foreach \\i in {${pick(["0,...,3", "1,2", "0,0.5,...,2"])}} ${path().replace("(0,0)", "(\\i,0)")}` : path())).join("\n")}\n\\end{tikzpicture}`
   }
   const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
   // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)
@@ -507,7 +513,7 @@ export function makeDocument(r: () => number): string {
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
   // TikZ (which loads xcolor and graphicx)
   tikzOn = !isLetter && r() < 0.15
-  if (tikzOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{tikz}")
+  if (tikzOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{tikz}", "\\usetikzlibrary{calc,shapes.geometric}")
   const titled = r() < 0.5 && !isLetter // report: a title page
   if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {

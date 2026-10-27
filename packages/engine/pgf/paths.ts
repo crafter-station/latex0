@@ -54,16 +54,16 @@ export function resetPathSizes(s: PgfState) { s.path = emptyExtent() }
 function add(s: PgfState, item: SoftPathItem) { s.softPath.push(item) }
 
 /** \pgf@nlt@moveto, the linear one (34–37) */
-function moveto(s: PgfState, x: number, y: number) {
+export function moveto(s: PgfState, x: number, y: number) {
   protocolSizes(s, x, y)
   add(s, { op: "moveto", x, y })
   s.lastMoveTo = { x, y }
 }
-function lineto(s: PgfState, x: number, y: number) {
+export function lineto(s: PgfState, x: number, y: number) {
   protocolSizes(s, x, y)
   add(s, { op: "lineto", x, y })
 }
-function curveto(s: PgfState, x1: number, y1: number, x2: number, y2: number, x: number, y: number, staleY1?: number) {
+export function curveto(s: PgfState, x1: number, y1: number, x2: number, y2: number, x: number, y: number, staleY1?: number) {
   protocolSizes(s, x1, y1, staleY1)
   protocolSizes(s, x2, y2)
   protocolSizes(s, x, y)

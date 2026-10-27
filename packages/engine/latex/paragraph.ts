@@ -14,7 +14,7 @@
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../layout/classdata"
 import { parseDimen, parseGlue, Scanner, type GlueSpec, type Internal, type ScanEnv } from "../layout/dimen"
 import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
-import { appendText as appendCodes } from "../layout/hmode"
+import { appendText as appendCodes, type HState } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
 import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue, FILL } from "../layout/nodes"
@@ -121,6 +121,9 @@ export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
   /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
   thanks?: { n: number; src: string }[]
+  /** \clubpenalty in vertical mode where the paragraph being read starts, when it is not the paragraph's own (a box
+   *  built before \leavevmode, a TikZ picture's, sees it: the \everypar of \@afterheading has not run yet) */
+  vmodeClub?: number
   /** siunitx is loaded: its options */
   siunitx?: SiOptions
   /** subcaption is loaded (\subref) */
@@ -144,7 +147,7 @@ export interface DocState {
   /** \includegraphics number n, with \linewidth where it stands */
   graphic?: (n: number, lineWidth: number, units: { em: number; ex: number }) => Node[]
   /** TikZ's picture number n, with xcolor's current color, the current font's em and ex, and the size and font its nodes' text is in */
-  tikz?: (n: number, color: string, units: { em: number; ex: number }, size: SizeCommand, attrs: FontAttrs) => Node[]
+  tikz?: (n: number, color: string, units: { em: number; ex: number }, size: SizeCommand, attrs: FontAttrs, outer: TabularOuter) => Node[]
   /** the nodes number n that beamer's \beamer@smuggle puts where \LXsmuggle{n} stands (beamer/overlays.ts) */
   smuggle?: (n: number) => Node[]
   /** \href number n around its typeset text */
@@ -246,6 +249,8 @@ export interface ParagraphOptions {
   parSize?: SizeCommand
   /** \\ is \@centercr (\centering and friends), which the caller has taken care of: here it is not laid out */
   centercr?: boolean
+  /** \spaceskip and \xspaceskip, when set (not zero) */
+  spaceSkips?: { space: GlueSpec; xspace: GlueSpec }
 }
 
 /**
@@ -936,8 +941,13 @@ function lengthEnv(ctx: PieceContext, font: Font): ScanEnv {
   return { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: (name, s) => (name === "fill" ? { level: "glue", value: { width: 0, stretch: 65536, stretchOrder: FILL, shrink: 0, shrinkOrder: NORMAL } } : widths?.(name, s)) }
 }
 
+/** append_normal_space (§ 1041): \spaceskip when it is set, else the font's interword glue */
+const normalSpace = (font: Font, state: HState): Node => state.spaceSkips
+  ? paramGlue("spaceskip", glueOf(state.spaceSkips.space))
+  : glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL)
+
 /** Text, formulas and footnotes into a horizontal list. */
-function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
+function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: HState, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
     if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
@@ -1082,10 +1092,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       appendText(list, "]", font, state, !ctx.restricted)
     }
     else if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
-      list.push(penalty(10000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+      list.push(penalty(10000), normalSpace(font, state))
     }
-    // \␣ (§ 1041): the font's interword glue, whatever the space factor, which stays
-    else if (p.kind === "ctlspace") list.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+    // \␣ (§ 1041): the font's interword glue (or \spaceskip), whatever the space factor, which stays
+    else if (p.kind === "ctlspace") list.push(normalSpace(font, state))
     else if (p.kind === "label") {
       // \@bsphack, the write, \@esphack: after a space, \nobreak\hskip\z@skip and \ignorespaces
       if (!doc.refs) throw new Unsupported("paragraph adapter: \\label outside a document")
@@ -1244,7 +1254,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "tikz") {
       if (!doc.tikz) throw new Unsupported("a tikzpicture outside a document")
-      list.push(...doc.tikz(p.n, ctx.color ?? xcolor.normal, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }, size, attrs))
+      // (its nodes' paragraphs, with a text width, are broken where it stands, like a minipage's; a picture that starts
+      // the paragraph is made before \leavevmode)
+      const vmode = p === ctx.lead && !ctx.params.prevGraf ? doc.vmodeClub : undefined // (not after a display)
+      const outer = { notes: ctx.notes, club: vmode ?? ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }
+      list.push(...doc.tikz(p.n, ctx.color ?? xcolor.normal, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }, size, attrs, outer))
       state.spaceFactor = 1000 // after a box
     }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}
@@ -1415,7 +1429,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
   const pctx: PieceContext = { k, params, mathSurround, doc, notes, lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
-  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, pctx)
+  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}), ...(opts.spaceSkips ? { spaceSkips: opts.spaceSkips } : {}) }, pctx)
   if (pctx.quoting) throw new Unsupported("spanish.ldf's quoting over paragraphs") // (\es@quotcont in \everypar)
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   if (opts.end) list.push(...opts.end)

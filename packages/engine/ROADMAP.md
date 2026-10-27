@@ -260,7 +260,7 @@ operations --, -|, |-, rectangle, circle, ellipse, cycle and to, path groups `{�
 cache a document), rounded corners (pgf/round.ts), pgf driven as tikz.code.tex does with every space its macros leave on the picture's list; checked
 by `bun engine tikz:check` (whole pictures under latex/dvips and pdflatex, box for box). In documents
 (`latex/tikz.ts`): `\usepackage{tikz}` (xcolor, graphicx, pgf's \newwrite before hyperref's), `\usetikzlibrary`
-positioning, arrows.meta and calc, preamble style definitions, pictures in paragraphs, center and figures.
+positioning, arrows.meta, calc, plotmarks and shapes.geometric, preamble style definitions, pictures in paragraphs, center and figures.
 
 🟡 TikZ's nodes (#320, `tikz/path.ts` on `pgf/shapes.ts`): `\node`, `node` and `coordinate` on a path, named nodes
 global to the document, `(name)` and `(name.anchor)` (a line to or from a node ends on its border: \tikz@moveto@waiting,
@@ -270,10 +270,18 @@ draw/fill, colors and `text=`, inner/outer sep, minimum sizes, anchors (named an
 `right of=`, positioning's `right=of …` (and `and`, on grid), node distance, `every node`/`every <shape> node`,
 `name=`, `at=`, `transform shape`, `font=` (sizes and font declarations); the node's text typeset by the engine as an
 \hbox's list in the font where the picture stands. Checked by `bun engine tikz:check` (fixed and random pictures
-with nodes). Not yet: `text width`/`align` (the minipage), `node font`, `label=`/`pin=`, other shapes, `node also`,
-nodes in `foreach`, pics, matrices, `edge`, `remember picture`.
-Not yet (paths): `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
-grids, plots, `\foreach`, calc's coordinates, coordinate options, x/y vectors, custom to paths.
+with nodes).
+
+🟡 TikZ's breadth (#326): node text in lines (`align=`, `\\`, the halign of `tikz/text.ts`) and in a minipage of a
+`text width` (each text action's skips, `\spaceskip`/`\xspaceskip`, `\\` as `\@centercr`), `node font=`, `label=` and
+`pin=` (after paths, edges from `\tikzlastnode`), the ellipse shape of shapes.geometric; `\foreach` in pictures
+(`tikz/foreach.ts`: lists, number and letter ranges, several variables, `count=`, `evaluate=`); `.. controls ..`,
+`to[out=,in=]`, `bend left/right` and the loosenesses (topaths), `edge`, arcs (both syntaxes, `pgf/arcs.ts`), grids
+(`pgf/grid.ts`); calc's coordinates (sums, factors, partway, distance, projection, rotation), coordinate options,
+`x=`/`y=` vectors; `plot coordinates` and `plot (\x,{f(\x)})` with marks *, +, x, o; line caps and joins, miter
+limit, opacity. A picture's `.` is what pgf reads of xcolor's current color (`\colorlet`'s normalized values).
+Not yet: arrow tip options and other tips (`Triangle`, `|`), `>=`, double lines, shadings, patterns, smooth plots,
+other shapes (diamond, rounded rectangle), `fit`, matrices, `node also`, pics, `let`, `remember picture`, text opacity.
 Under dvips, what pgf writes outside pictures is exact too (TikZ fixtures compare specials): its shipout/background
 box on every page with the PostScript header on the first (`! /pgfHrgb…`), and the objects pgf.sty's compatibility
 arrows define in the preamble (`! /pgf1{…} bind def`, on the main vertical list after xcolor's color push).

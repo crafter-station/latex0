@@ -15,7 +15,7 @@ import { hpack } from "../layout/pack"
 import { Unsupported } from "../latex/unsupported"
 import type { PgfDriver } from "./drivers"
 import { TexArith, toNumber } from "./fixed"
-import { pgfPathCircle, pgfPathRectangleCorners, protocolSizes } from "./paths"
+import { pgfPathCircle, pgfPathEllipse, pgfPathRectangleCorners, protocolSizes } from "./paths"
 import { parse, pgfPointAdd, pgfPointBorderEllipse, pgfPointBorderRectangle, pgfPointNormalised, pgfPointScale, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
 import type { PgfState, PgfTransform } from "./state"
 import { applyTransform, mul, pgfLowLevelSyncCm, pgfTransformInvert, pgfTransformRotate, pgfTransformShift, pgfTransformXShift, pgfTransformYShift, transformPoint } from "./transformations"
@@ -229,7 +229,69 @@ const circle: Shape = {
   parts: ["text"],
 }
 
-const SHAPES: Record<string, Shape> = { coordinate, rectangle, circle }
+/**
+ * an ellipse's anchor (pgflibraryshapes.geometric.code.tex 67–162): the centre plus the radii by `fx`, `fy`; `blanks`
+ * the ends of line in its code (after its `{` and each \pgf@process line; an \advance's dimension takes its own)
+ */
+const ellipseAnchor = (fx: string, fy: string, blanks: number, y?: (s: PgfState) => number): Anchor => (s, v) => {
+  for (let k = 0; k < blanks; k++) s.space()
+  const c = pt(v, "centerpoint"), r = pt(v, "radius")
+  return { x: fx === "0" ? c.x : c.x + mul(fx, r.x), y: y ? y(s) : fy === "0" ? c.y : c.y + mul(fy, r.y) }
+}
+
+/** the ellipse shape of shapes.geometric (12–197) */
+const ellipse: Shape = {
+  save: (s, t, keys) => {
+    const centerpoint = { x: half(t.w), y: half(t.h) + mul("-.5", t.d) }
+    // \radius (22–62)
+    let y = half(t.h) + half(t.d)
+    y += keyLength(s, keys.innerYSep)
+    let x = half(t.w)
+    x += keyLength(s, keys.innerXSep)
+    x = mul("1.4142136", x)
+    y = mul("1.4142136", y)
+    const yc = keyLength(s, keys.minimumHeight)
+    if (y < half(yc)) y = half(yc)
+    const xc = keyLength(s, keys.minimumWidth)
+    if (x < half(xc)) x = half(xc)
+    x += keyLength(s, keys.outerXSep)
+    y += keyLength(s, keys.outerYSep)
+    return { centerpoint, radius: { x, y } }
+  },
+  anchors: {
+    center: (_s, v) => pt(v, "centerpoint"),
+    mid: (s, v) => ({ x: pt(v, "centerpoint").x, y: midY(s) }),
+    base: (_s, v) => ({ x: pt(v, "centerpoint").x, y: 0 }),
+    north: ellipseAnchor("0", "1", 3),
+    south: ellipseAnchor("0", "-1", 3),
+    west: ellipseAnchor("-1", "0", 3),
+    east: ellipseAnchor("1", "0", 2),
+    "mid west": ellipseAnchor("-1", "0", 2, midY),
+    "mid east": ellipseAnchor("1", "0", 2, midY),
+    "base west": ellipseAnchor("-1", "0", 2, () => 0),
+    "base east": ellipseAnchor("1", "0", 2, () => 0),
+    "north west": ellipseAnchor("-0.707107", "0.707107", 3),
+    "south west": ellipseAnchor("-0.707107", "-0.707107", 3),
+    "north east": ellipseAnchor("0.707107", "0.707107", 3),
+    "south east": ellipseAnchor("0.707107", "-0.707107", 3),
+  },
+  // (163–176)
+  border: (s, v, dir) => {
+    const p = pgfPointBorderEllipse(() => dir, pt(v, "radius"), s.units)
+    const c = pt(v, "centerpoint")
+    return { x: c.x + p.x, y: c.y + p.y }
+  },
+  // (181–193): the end of line after `{` a blank
+  background: (s, v, keys) => {
+    s.space()
+    const r = pt(v, "radius")
+    const a = r.x - keyLength(s, keys.outerXSep), b = r.y - keyLength(s, keys.outerYSep)
+    pgfPathEllipse(s, () => pt(v, "centerpoint"), () => ({ x: a, y: 0 }), () => ({ x: 0, y: b }))
+  },
+  parts: ["text"],
+}
+
+const SHAPES: Record<string, Shape> = { coordinate, rectangle, circle, ellipse }
 
 /** what pgf keeps of a named node (\pgf@sh@ns@, \pgf@sh@np@, \pgf@sh@nt@): its shape, saved anchors and transformation */
 export interface PgfNodeRecord { shape: string; saved: Saved; transform: PgfTransform }

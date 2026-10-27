@@ -19,6 +19,7 @@ import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "../pgf/mathparser
 import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import { arrowDb, setArrows, tipSequence, type ArrowDb, type Tip } from "./arrows"
+import { DEFAULT_VECTORS, type PgfVectors } from "../pgf/state"
 import { chars, Keys, NOVALUE } from "./keys"
 import { arg, contains, find, groupEnd, isCs, plain, same, str, type Tok, type Toks } from "./tokens"
 
@@ -36,6 +37,12 @@ export type OptionCall =
   | { op: "color"; color: Toks }
   /** a color name as an option: \tikz@compat@color@set{name} */
   | { op: "compatcolor"; color: string }
+  /** \pgfset<kind>cap, \pgfset<kind>join (line cap=, line join=), \pgfsetmiterlimit{#1} */
+  | { op: "cap"; kind: "butt" | "round" | "rect" }
+  | { op: "join"; kind: "miter" | "round" | "bevel" }
+  | { op: "miterlimit"; arg: Toks }
+  /** \pgfsetstrokeopacity{#1}, \pgfsetfillopacity{#1} */
+  | { op: "strokeopacity" | "fillopacity"; arg: Toks }
 
 /** \tikz@mode's switches, \tikz@mode@<name> */
 export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue"
@@ -50,6 +57,8 @@ export type TransformCall =
   | { op: "of"; angle: string }
   /** positioning's \tikz@lib@pos@call, read when the transformation runs (each node's first) */
   | { op: "poscall" }
+  /** \pgftransformshift{point}: a point computed when the transformation runs */
+  | { op: "point"; point: () => { x: number; y: number } }
 
 /** \tikz@text@action: how a node's text with a text width is set */
 export type TextAction = "ragged" | "badly ragged" | "ragged left" | "badly ragged left" | "justified" | "centered" | "badly centered"
@@ -118,6 +127,39 @@ export interface TikzState {
   endTips: Tip[]
   /** \pgf@ar@means@> as >=… declared it (undefined: the package's, To) */
   arrowMeans?: Tip[]
+  /** \tikz@after@path: what append after command (label=, pin=) puts after a node */
+  afterPath: Tok[]
+  /** \tikz@label@angle, \tikz@label@distance, \tikz@label@default@pos, \iftikz@absolute */
+  labelAngle: Toks
+  labelDistance: Toks
+  labelPosition: Toks
+  absolute: boolean
+  /** \tikz@pin@distance, \tikz@pin@default@pos, \tikz@pin@edge@style */
+  pinDistance: Toks
+  pinPosition: Toks
+  pinEdge: Toks
+  /** \iftikz@current@point@local */
+  currentPointLocal: boolean
+  /** \tikz@plot@handler (its name), \tikz@plot@mark, \tikz@plot@samples, \tikz@plot@domain, \tikz@plot@samplesat, \tikz@plot@var */
+  plotHandler: string
+  plotMark: Toks
+  plotSamples: string
+  plotDomain: string
+  plotSamplesAt: Toks
+  plotVar: Tok
+  /** \pgfplotmarksize (sp) */
+  plotMarkSize: number
+  /** \tikz@grid@x, \tikz@grid@y */
+  gridX: Toks
+  gridY: Toks
+  /** topaths: \tikz@to@path the curve (\tikz@to@switch@on), \tikz@to@out, \tikz@to@in, \tikz@to@bend, \iftikz@to@relative,
+   *  the loosenesses and the distances' bounds (their text) */
+  toCurve: boolean
+  toOut: Toks
+  toIn: Toks
+  toBend: string
+  toRelative: boolean
+  toLooseness: { out: string; in: string; outMin: string; outMax: string; inMin: string; inMax: string }
 }
 
 const clone = (s: TikzState): TikzState => ({
@@ -128,6 +170,8 @@ const clone = (s: TikzState): TikzState => ({
   dashPattern: [...s.dashPattern],
   startTips: [...s.startTips],
   endTips: [...s.endTips],
+  afterPath: [...s.afterPath],
+  toLooseness: { ...s.toLooseness },
 })
 
 export interface TikzSetup {
@@ -138,6 +182,10 @@ export interface TikzSetup {
   /** \usetikzlibrary{positioning}, \usetikzlibrary{arrows.meta} */
   positioning?: boolean
   arrowsMeta?: boolean
+  calc?: boolean
+  plotmarks?: boolean
+  /** \usetikzlibrary{shapes.geometric} (or shapes): its ellipse */
+  geometric?: boolean
   /**
    * positioning's `of`: \tikz@scan@one@point(#2), the point and, for a node's name, the node whose border it
    * is on (\iftikz@shapeborder)
@@ -153,6 +201,13 @@ export interface TikzSetup {
   corners?: (st: TikzState) => void
   /** an arrow specification: \pgfsetarrows (pgf's picture) */
   arrows?: (v: Toks, st: TikzState) => void
+  /** x=… and y=…: the vectors set (pgf's picture), and the vectors in force */
+  vector?: (axis: "x" | "y", v: Toks) => void
+  vectors?: () => PgfVectors
+  /** a blank TikZ's code leaves where it runs: \glue 0.0 in the picture (\nullfont) */
+  space?: () => void
+  /** tikz@label@post with the distance: a label's place by the node it labels (\tikzlastnode) */
+  labelPost?: (distance: Toks, st: TikzState) => void
 }
 
 /** pgf's styles and keys that TikZ's options reach (pgfmoduleshapes.code.tex 887–897) */
@@ -179,10 +234,15 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   align/justify/.style={text justified,node halign header=\\tikz@align@left@header},
   align/none/.style={text justified,node halign header=},
   help lines/.style={color=gray,line width=0.2pt},
-  style/.style={#1}, every to/.style={},
-  x radius/.initial=0pt, y radius/.initial=0pt,
+  style/.style={#1}, every to/.style={}, every curve to/.style={}, every edge/.style={draw},
+  x radius/.initial=0pt, y radius/.initial=0pt, start angle/.initial=, end angle/.initial=, delta angle/.initial=, every arc/.style={},
   every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={},
-  every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none},
+  transparent/.style={opacity=0}, ultra nearly transparent/.style={opacity=0.05}, very nearly transparent/.style={opacity=0.1},
+  nearly transparent/.style={opacity=0.25}, semitransparent/.style={opacity=0.5}, nearly opaque/.style={opacity=0.75},
+  very nearly opaque/.style={opacity=0.9}, ultra nearly opaque/.style={opacity=0.95}, opaque/.style={opacity=1},
+  no marks/.style={mark=none}, no markers/.style={mark=none}, every plot/.style={}, every mark/.style={},
+  mark options/.style={every mark/.style={#1}},
+  every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none}, every pin edge/.style={help lines},
   ultra thin/.style={line width=0.1pt}, very thin/.style={line width=0.2pt}, thin/.style={line width=0.4pt},
   semithick/.style={line width=0.6pt}, thick/.style={line width=0.8pt}, very thick/.style={line width=1.2pt},
   ultra thick/.style={line width=1.6pt},
@@ -246,6 +306,15 @@ const OF: Record<string, string> = {
 const TEXT_ACTIONS: TextAction[] = ["ragged", "badly ragged", "ragged left", "badly ragged left", "justified", "centered", "badly centered"]
 
 const pt = (sp: number): Tok[] => chars(`${printScaled(sp)}pt`)
+const trimmed = (t: Toks): Tok[] => { let a = 0; while (t[a] === " ") a++; return t.slice(a) }
+
+/**
+ * \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name\tikz@node@is@a@labelfalse} and
+ * \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name} around a label's node
+ */
+export const LABEL_SAVE = "\\pgfextra@tikz@label@save", LABEL_RESTORE = "\\pgfextra@tikz@label@restore"
+/** \pgfextra{\let\tikz@save@last@node=\tikzlastnode\tikz@node@is@a@labelfalse} before a pin's node */
+export const PIN_SAVE = "\\pgfextra@tikz@pin@save"
 
 /** TikZ inside a picture: its keys and its state, both local to TeX's groups */
 export class Tikz {
@@ -258,6 +327,12 @@ export class Tikz {
 
   /** \usetikzlibrary{positioning} */
   get positioning(): boolean { return !!this.setup.positioning }
+  /** \usetikzlibrary{calc} */
+  get calc(): boolean { return !!this.setup.calc }
+  /** \usetikzlibrary{plotmarks} */
+  get plotmarks(): boolean { return !!this.setup.plotmarks }
+  /** whether pgf declares the shape (\pgf@sh@s@<name>) */
+  hasShape(name: string): boolean { return SHAPES.has(name) || (name === "ellipse" && !!this.setup.geometric) }
 
   constructor(setup: TikzSetup) {
     this.setup = setup
@@ -275,6 +350,12 @@ export class Tikz {
       textWidth: [], textFont: [], nodeFont: [], textAction: "ragged",
       figName: "", time: "", sloped: false, upsideDown: false, resetNonTranslations: true, fullyTransformed: false,
       currentArrows: chars("-"), startTips: [], endTips: [],
+      afterPath: [], labelAngle: [], labelDistance: chars("0pt"), labelPosition: chars("above"), absolute: false, currentPointLocal: false,
+      pinDistance: chars("3ex"), pinPosition: chars("above"), pinEdge: [],
+      gridX: chars("1cm"), gridY: chars("1cm"),
+      plotHandler: "lineto", plotMark: [], plotSamples: "25", plotDomain: "-5:5", plotSamplesAt: chars("-5,-4.5833333,...,5"), plotVar: "\\x", plotMarkSize: 2 * 65536,
+      toCurve: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
+      toLooseness: { out: "1", in: "1", outMin: "0pt", outMax: "10000pt", inMin: "0pt", inMax: "10000pt" },
     }
     this.install()
   }
@@ -358,7 +439,7 @@ export class Tikz {
   }
 
   /** \tikz@addtransform: appended to \tikz@transform, or applied at once when it is \relax */
-  private addTransform(t: TransformCall) {
+  addTransform(t: TransformCall) {
     if (this.st.transform) { this.st.transform.push(t); return }
     if (!this.setup.transform) throw new Unsupported("tikz: a transformation applied at once")
     this.setup.transform(t, this.st)
@@ -459,17 +540,39 @@ export class Tikz {
       first = arg(nums.slice(0, i))
       second = arg(nums.slice(i + 3))
     } else first = second = arg(nums)
-    // \pgfpointxy with pgf's default vectors (1cm, 0pt) and (0pt, 1cm); its \pgfmathparse of a
-    // \pgfmathresult gives it back as it is
-    const cm = pgfmathSetLength("1cm", this.setup.units).value
+    // \pgfpointxy on the vectors in force; its \pgfmathparse of a \pgfmathresult gives it back as it is
+    const vs = this.setup.vectors?.() ?? DEFAULT_VECTORS
     const h = this.parse(plain(second, "distance"))
     let xa: number, ya: number
     if (h.units) { xa = a.dimen(`${h.result}pt`); ya = 0 }
-    else { xa = a.times(h.result, cm); ya = 0 }
+    else { xa = a.times(h.result, vs.xx); ya = a.times(h.result, vs.xy) }
     const v = this.parse(plain(first, "distance"))
     if (v.units) ya += a.dimen(`${v.result}pt`)
-    else ya += a.times(v.result, cm)
+    else { xa += a.times(v.result, vs.yx); ya += a.times(v.result, vs.yy) }
     return { x: xa, y: ya }
+  }
+
+  /** \tikz@pin@edge@style@smuggle (global) */
+  private pinEdgeSmuggle: Tok[] = []
+
+  /**
+   * a label's or pin's value `[options]position:text`: \tikz@parse@label@nonactive (878–891) and the pin's (729–736); with
+   * no position (or an empty one) the default's macro, expanded when the node reads its angle
+   */
+  private labelParts(v: Toks, def: string, emptyIsDefault = true): { options: Tok[]; position: Tok[]; text: Tok[] } {
+    let t = [...v]
+    let options: Tok[] = []
+    while (t[0] === " ") t = t.slice(1)
+    if (t[0] === "[") {
+      const e = find(t, ["]"], 1)
+      if (e < 0) throw new Unsupported("tikz: ] expected in a label")
+      options = t.slice(1, e)
+      t = t.slice(e + 1)
+    }
+    const c = find(t, [":"])
+    if (c < 0) return { options, position: [def], text: arg(t) }
+    if (c === 0 && emptyIsDefault) return { options, position: [def], text: arg(t.slice(1)) }
+    return { options, position: arg(t.slice(0, c)), text: arg(t.slice(c + 1)) }
   }
 
   /** \tikz@processarrows (1201–1208) */
@@ -499,7 +602,7 @@ export class Tikz {
     // (xcolor's current color "." is a color too)
     if (name === "." || this.setup.colors.has(name)) return this.compatColor(name)
     if (contains(key, ["-"])) return this.arrows(key)
-    if (SHAPES.has(name)) { this.st.shape = name; return }
+    if (this.hasShape(name)) { this.st.shape = name; return }
     throw new Unsupported(`tikz: I do not know the key '/tikz/${name}'`)
   }
 
@@ -635,6 +738,130 @@ export class Tikz {
       if (v.length && (same(v, ["["]) || same(v, ["]"]))) throw new Unsupported("pgf: arrow tip means a bracket")
       st().arrowMeans = tipSequence(v, this.db, false)
     })
+    // labels (tikz.code.tex 759–905): label=[options]position:text appends to \tikz@after@path a node of its own
+    opt("append after command", (v) => { st().afterPath.push(...v) })
+    opt("label distance", (v) => { st().labelDistance = v })
+    opt("label position", (v) => { st().labelPosition = v })
+    opt("tikz@label@angle", (v) => { st().labelAngle = v })
+    ifKey("absolute", (b) => { st().absolute = b })
+    ifKey("current point is local", (b) => { st().currentPointLocal = b })
+    opt("tikz@label@post", (v) => {
+      if (!this.setup.labelPost) throw new Unsupported("tikz: a label outside a picture")
+      // (.code 2 args: #1 the value's first argument, \tikz@label@distance or \tikz@pin@distance, expanded where it is used)
+      if (same(v, ["\\tikz@label@distance"])) this.setup.labelPost(st().labelDistance, st())
+      else if (same(v, ["\\tikz@pin@distance"])) this.setup.labelPost(st().pinDistance, st())
+      else throw new Unsupported("tikz: tikz@label@post")
+    })
+    // pins (659–757)
+    opt("pin distance", (v) => { st().pinDistance = v })
+    opt("pin position", (v) => { st().pinPosition = v })
+    opt("pin edge", (v) => { st().pinEdge = v })
+    opt("tikz@pin@post", () => { this.pinEdgeSmuggle = [...st().pinEdge] }, "")
+    opt("tikz@pre@pin@edge", () => { k.pgfqkeys("/tikz", [...chars("tikz@pin@options/.style="), "{", ...this.pinEdgeSmuggle, "}"]) }, "")
+    opt("pin", (v) => {
+      // \tikz@parse@pin@nonactive[#1]#2:#3\pgf@nil on `value:\pgf@nil`
+      const { options, position, text } = this.labelParts(v, "\\tikz@pin@default@pos", false)
+      st().afterPath.push("{", "[", ...chars("current point is local = true"), "]", PIN_SAVE,
+        ...chars("node"), "[", ...chars("tikz@label@angle = "), "{", ...position, "}", ",", ...chars("anchor=@auto, every pin,"), ...options, ",",
+        ...chars("append after command = "), "{", "(", "\\tikz@save@last@node", ")", ...chars("edge [every pin edge, tikz@pre@pin@edge, tikz@pin@options]"),
+        "(", "\\tikzlastnode", ")", "}", ",", ...chars("tikz@label@post = "), "\\tikz@pin@distance", ",", ...chars("tikz@pin@post"), "]", "{", ...text, "}", "}")
+    })
+    opt("label", (v) => {
+      // \tikz@parse@label@nonactive[#1]#2:#3\pgf@nil on `value:\pgf@nil`
+      const { options, position, text } = this.labelParts(v, "\\tikz@label@default@pos")
+      st().afterPath.push("{", "[", ...chars("current point is local=true"), "]", LABEL_SAVE,
+        ...chars("node"), "[", ...chars("tikz@label@angle="), "{", ...position, "}", ",", ...chars("anchor=@auto,every label,"), ...options,
+        ",", ...chars("tikz@label@post="), "\\tikz@label@distance", "]", "{", ...text, "}", LABEL_RESTORE, "}")
+    })
+    // topaths (tikzlibrarytopaths.code.tex 27–128): curved to paths
+    const macro = (v: Toks) => this.parse(plain(this.expand(v), "a number")).result // \pgfmathsetmacro
+    opt("out", (v) => { st().toOut = v; st().toCurve = true })
+    opt("in", (v) => { st().toIn = v; st().toCurve = true })
+    opt("bend angle", (v) => { st().toBend = macro(v) })
+    opt("bend left", (v) => {
+      if (v.length) st().toBend = macro(v)
+      st().toOut = chars(st().toBend)
+      st().toIn = chars(macro(chars(`180-(${st().toBend})`)))
+      st().toCurve = true
+      st().toRelative = true
+    }, "")
+    opt("bend right", (v) => {
+      if (v.length) st().toBend = macro(v)
+      // (its two \pgfmathsetmacro lines end with blanks: a space each, in the picture)
+      st().toOut = chars(macro(chars(`-(${st().toBend})`)))
+      this.setup.space?.()
+      st().toIn = chars(macro(chars(`180-(${str(st().toOut)})`)))
+      this.setup.space?.()
+      st().toCurve = true
+      st().toRelative = true
+    }, "")
+    ifKey("relative", (b) => { st().toRelative = b })
+    // line caps, joins and opacity (107–109, 189, 243, 248): \csname pgfset#1cap\endcsname is \relax for another name
+    opt("line cap", (v) => {
+      const k = plain(v, "line cap")
+      if (k === "butt" || k === "round" || k === "rect") st().options.push({ op: "cap", kind: k })
+      else throw new Unsupported(`tikz: line cap=${k}`)
+    })
+    opt("line join", (v) => {
+      const k = plain(v, "line join")
+      if (k === "miter" || k === "round" || k === "bevel") st().options.push({ op: "join", kind: k })
+      else throw new Unsupported(`tikz: line join=${k}`)
+    })
+    opt("miter limit", (v) => { st().options.push({ op: "miterlimit", arg: v }) })
+    opt("draw opacity", (v) => { st().options.push({ op: "strokeopacity", arg: v }) })
+    opt("fill opacity", (v) => { st().options.push({ op: "fillopacity", arg: v }) })
+    opt("opacity", (v) => { st().options.push({ op: "strokeopacity", arg: v }, { op: "fillopacity", arg: v }) })
+    opt("x", (v) => { if (!this.setup.vector) throw new Unsupported("tikz: x= outside a picture"); this.setup.vector("x", v) })
+    opt("y", (v) => { if (!this.setup.vector) throw new Unsupported("tikz: y= outside a picture"); this.setup.vector("y", v) })
+    // plots (1225–1319)
+    const recalc = () => {
+      // \tikz@plot@samples@recalc: start, start + the step, ..., end
+      const [a, b] = st().plotDomain.split(":")
+      if (b === undefined) throw new Unsupported("tikz: domain without :")
+      const start = this.parse(a).result, end = this.parse(b).result
+      const diff = this.parse(`(${end}-${start})/(${st().plotSamples}-1)`).result
+      const abs = this.parse(`abs(${diff})`).result
+      const ta = new TexArith(this.setup.units)
+      st().plotSamplesAt = chars(ta.dimen(`${abs}pt`) < ta.dimen("0.0001pt") ? `${start},${end}` : `${start},${this.parse(`${start}+${diff}`).result},...,${end}`)
+    }
+    opt("domain", (v) => { st().plotDomain = plain(this.expand(v), "domain"); recalc() })
+    opt("samples", (v) => { st().plotSamples = this.parse(`max(2,${plain(v, "samples")})`).result; recalc() })
+    opt("samples at", (v) => { st().plotSamplesAt = v })
+    opt("variable", (v) => {
+      const t = v.filter((x) => x !== " ")
+      if (t.length !== 1 || !isCs(t[0])) throw new Unsupported("tikz: variable")
+      st().plotVar = t[0]
+    })
+    for (const [name, handler] of [["smooth", "curveto"], ["smooth cycle", "closedcurve"], ["sharp plot", "lineto"], ["sharp cycle", "polygon"], ["only marks", "discard"],
+      ["xcomb", "xcomb"], ["ycomb", "ycomb"], ["polar comb", "polarcomb"], ["ybar", "ybar"], ["xbar", "xbar"], ["const plot", "constantlineto"]] as const) {
+      opt(name, () => { st().plotHandler = handler }, "")
+    }
+    opt("mark", (v) => { st().plotMark = plain(v, "mark").trim() === "none" ? [] : v })
+    opt("mark size", (v) => { st().plotMarkSize = this.length(v) })
+    // grids (471–478): step= a point or both steps
+    opt("xstep", (v) => { st().gridX = v })
+    opt("ystep", (v) => { st().gridY = v })
+    opt("step", (v) => {
+      // (a point: TeX loops on \tikz@handle@vec's \relax, not modeled)
+      const t = trimmed(v)
+      if (t[0] === "(") throw new Unsupported("tikz: step=(…)")
+      st().gridX = st().gridY = t
+    })
+    // (each also switches the curve on)
+    const loose = (name: string, set: (l: TikzState["toLooseness"], v: Toks) => void) => opt(name, (v) => { set(st().toLooseness, v); st().toCurve = true })
+    const dist = (v: Toks) => plain(this.expand(v), "a distance")
+    loose("looseness", (l, v) => { l.out = l.in = macro(v) })
+    loose("out looseness", (l, v) => { l.out = macro(v) })
+    loose("in looseness", (l, v) => { l.in = macro(v) })
+    loose("min distance", (l, v) => { l.inMin = l.outMin = dist(v) })
+    loose("max distance", (l, v) => { l.inMax = l.outMax = dist(v) })
+    loose("distance", (l, v) => { l.inMin = l.inMax = l.outMin = l.outMax = dist(v) })
+    loose("out min distance", (l, v) => { l.outMin = dist(v) })
+    loose("out max distance", (l, v) => { l.outMax = dist(v) })
+    loose("out distance", (l, v) => { l.outMin = l.outMax = dist(v) })
+    loose("in min distance", (l, v) => { l.inMin = dist(v) })
+    loose("in max distance", (l, v) => { l.inMax = dist(v) })
+    loose("in distance", (l, v) => { l.inMin = l.inMax = dist(v) })
     k.pgfqkeys("/tikz", TIKZ_STYLES)
     k.define("/tikz/.unknown", [{ kind: "native", run: (kk, v) => this.unknown(kk, v) }])
 

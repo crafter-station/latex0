@@ -1,0 +1,30 @@
+% fixture: tikz/label-option-pdftex
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: label= on nodes and coordinates: the default position (label position= read where the label's node is made), named positions and angles, north and center, options ([red], [label distance=…], [anchor=…]), label distance, every label, label position= in a scope, angles in a coordinate's labels (negative, near the anchors' thresholds), several labels on a node, a label of a node on a path (and a line from it), in a rotated picture with and without transform shape, text with a colon
+% issue: #326
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+\noindent Labels: \begin{tikzpicture}[every label/.style={blue}]
+  \node[draw,label=x] (a) {A};
+  \node[draw,circle,label=right:r,label=below left:{$y$},label={[red]30:q}] (b) at (2,0) {B};
+  \node[draw,label distance=3pt,label=left:l,label={[label distance=1mm]-45:d}] at (4,0) {C};
+  \coordinate[label=below:c] (c) at (1,-1);
+  \draw (a) -- (c) -- (b);
+  \draw (0,-2) -- node[label=above:mid] {m} (2,-2) -- (2,-3) node[draw,label=north:N,label=center:c] {E};
+  \draw (3,-2) node[label={[anchor=west]east:w}] {} |- (5,-3);
+  \node[draw,label={above:a:b},label position=below,label=d] at (6,0) {D};
+  \begin{scope}[label position=below]
+    \node[draw,label=e] at (8,0) {E};
+    \coordinate[label=-45:q,label=85:p,label=175:o] (o) at (8,-2);
+  \end{scope}
+\end{tikzpicture}
+
+\begin{tikzpicture}[rotate=30]
+  \node[draw,label=above:x] {A};
+  \node[draw,label=right:r,transform shape] at (2,0) {B};
+\end{tikzpicture}
+\end{document}
