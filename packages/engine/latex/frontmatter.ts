@@ -4,7 +4,7 @@
 import { dataFont } from "./data"
 import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { Scanner } from "../layout/dimen"
-import { appendText, sourceText } from "./encodings"
+import { appendText, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mathGlue } from "../mathlayout/mlist"

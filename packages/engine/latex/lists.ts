@@ -230,7 +230,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     let content: Node[]
     if (b.env === "itemize" || b.env === "enumerate") {
       const l: Node[] = []
-      if (given !== null) appendText(l, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false)
+      if (given !== null) appendText(l, sourceText(given.replace(/\s+/g, " ")), font, { spaceFactor: 1000 }, false)
       else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
         if (spanish) l.push(...spanishItemLabel(level, run.k, ctx.size, font, companion, cx.pre.amsmath))
         else if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
@@ -252,7 +252,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       content = [...(enumitem ? [penalty(10000)] : []), ssGlue(), hpack([ssGlue(), ...l], { exactly: 0 })] // \hss\llap{#1}; enumitem's \nobreak first
     } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \hskip\z@\nobreak, the label, \hfil)
       content = enumitem ? [glue(0), penalty(10000)] : [glue(ls)]
-      if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
+      if (given) appendText(content, sourceText(given.replace(/\s+/g, " ")), bold, { spaceFactor: 1000 }, false)
       if (enumitem) content.push(filGlue())
     } else if (b.env === "proof") { // \item[\hskip\labelsep\itshape title\@addpunct{.}]
       const title = (b.proofTitle ?? sourceText(cx.pre.names.proofname)).replace(/\s+/g, " ").trim()
@@ -272,11 +272,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         st.spaceFactor = 1000
       }
       if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
-    } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, given, font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
+    } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, sourceText(given), font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
     else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
       content = [filGlue()]
       const l = b.env === "thebibliography" ? `[${i + 1}]` : given
-      if (l) appendText(content, l, font, { spaceFactor: 1000 }, false)
+      if (l) appendText(content, sourceText(l), font, { spaceFactor: 1000 }, false)
       // \refstepcounter{enumiv}; with hyperref (\@skiphyperreftrue) \@currentHref stays what it was
       if (b.env === "thebibliography") {
         refs.label = String(i + 1); if (!hyper) refs.href = `enumiv.${i + 1}`

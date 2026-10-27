@@ -8,6 +8,7 @@ import { printScaled } from "../layout/arith"
 import { glue, kern, penalty, type BoxNode, type Node, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
+import { sourceText, withoutTextCommands } from "./encodings"
 
 /** the document's driver: set for each layout (DocumentOptions.driver); `onLink`, where a layout counts pdfTeX's
  *  objects, is told of each \pdfstartlink typeset (it takes an object number then) */
@@ -146,9 +147,12 @@ export function pdfString(title: string): string | null {
   // \textbf{…} and friends keep their text; \# \% \& \$ are the characters; ~ is a space
   let t = title.replace(/\\(?:textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{([^{}]*)\}/g, "$1")
   t = t.replace(/\\([#%&$])/g, "$1").replace(/~/g, " ")
-  if (/[\\{}$^_]/.test(t) || /[^\x20-\x7e]/.test(t)) return null
+  // (accented letters, typed or as commands, are their characters: PU's UTF-16; spanish.ts's marks go)
+  if (/[\\{}$^_]/.test(withoutTextCommands(t))) return null
+  t = sourceText(t).replace(/\ue000/g, "").replace(/ı(?=[\u0300-\u036f])/g, "i").normalize("NFC") // (\'{\i}: í)
+  if (/[^\x20-\x7e\xa0-\xff]/.test(t)) return null
   let out = "\\376\\377"
-  for (const c of t) out += " ()\\#%&$".includes(c) ? `\\000\\${c.charCodeAt(0).toString(8).padStart(3, "0")}` : `\\000${c}`
+  for (const c of t) out += " ()\\#%&$".includes(c) || c >= "\xa0" ? `\\000\\${c.charCodeAt(0).toString(8).padStart(3, "0")}` : `\\000${c}`
   return out
 }
 

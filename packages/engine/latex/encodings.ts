@@ -26,6 +26,15 @@ export function accentText(m: RegExpMatchArray): string {
   return (base === "\\i" ? "ı" : base === "\\j" ? "ȷ" : base) + ACCENT_MARKS[m[1]]
 }
 
+/** the source without its text accents and letter commands (\'e, \'{\i}, \~n, \ss …): what checks for other commands see */
+export function withoutTextCommands(src: string): string {
+  return src.replace(new RegExp(ACCENT_COMMAND.source.slice(1), "g"), "")
+    .replace(/\\([A-Za-z]+)(?![A-Za-z])\s*(\{\})?/g, (all, name: string) => (Object.hasOwn(TEXT_LETTERS, name) ? "" : all))
+}
+
+/** a text's tokens as TeX prints them (\write, \marks): a control word with one space after it (\'{\i }, \c {c}) */
+export const printTokens = (src: string): string => src.replace(/\\([A-Za-z]+)\s*/g, "\\$1 ")
+
 /** LaTeX source of letters and accents (a caption name, \'{I}ndice) as text */
 export function sourceText(src: string): string {
   let out = ""

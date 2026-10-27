@@ -34,7 +34,7 @@ import { Unsupported } from "./unsupported"
 import { babelAux, babelLanguage, isSpanish, type Babel } from "./babel"
 import { babelGuillemet, portugueseHyphen, portugueseLayout, portugueseShorthand } from "./portuguese"
 import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
-import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text } from "./encodings"
+import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
 import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
@@ -960,7 +960,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref
         if (refs.hyper && !p.star && !known.name) continue
         // (a macro in it, \contentsname or \thethm, means what it means here, not where the name was taken)
-        if (/\\/.test(known.name.replace(/\$[^$]*\$/g, ""))) throw new Unsupported(`\\nameref to "${known.name}"`)
+        if (/\\/.test(withoutTextCommands(known.name.replace(/\$[^$]*\$/g, "")))) throw new Unsupported(`\\nameref to "${known.name}"`)
         appendPieces(text, pieces(known.name, false), font, size, state, inner, attrs)
       }
       // \null (a linked name's box leaves the space factor its text ended with: \Hy@RestoreSpaceFactor)

@@ -4,7 +4,7 @@
 import type { GlueSpec } from "../layout/dimen"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT } from "../layout/font"
 import { parseDimen, parseGlue } from "../layout/dimen"
-import { appendText, sourceText } from "./encodings"
+import { appendText, printTokens, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { FIL, glue, paramGlue, penalty, type BoxNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
@@ -51,7 +51,7 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   const { counters, refs, romanFont, run } = cx
   const clean = (t: string) => {
     const c = t.replace(/\s+/g, " ").trim()
-    if (/[\\{}$%&#^_~]/.test(c)) throw new Unsupported(`caption "${c}"`)
+    if (/[\\{}$%&#^_~]/.test(withoutTextCommands(c))) throw new Unsupported(`caption "${c}"`) // (accents: \'o)
     return c
   }
   const text = clean(source.text), short = source.short === null ? null : clean(source.short)
@@ -72,8 +72,8 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   appendText(l, name, romanFont, state, false)
   l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
   // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
-  if (hyper) { appendText(l, `${counters.the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); appendText(l, text, romanFont, state, false) }
-  else appendText(l, `${counters.the(number)}: ${text}`, romanFont, state, false)
+  if (hyper) { appendText(l, `${counters.the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); appendText(l, sourceText(text), romanFont, state, false) }
+  else appendText(l, `${counters.the(number)}: ${sourceText(text)}`, romanFont, state, false)
   const cap = hpack(setgroup(l)) // \sbox
   if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
     const start: Node[] = [hpack([])]
@@ -98,7 +98,7 @@ export function captionCall(src: string): CaptionCall | null {
 /** \addcontentsline{lof}{figure}{\protect\numberline{n}{text}} (or lot): its \write */
 function lofLine(cx: Ctx, env: "figure" | "table", number: number, text: string): Node {
   const ext = env === "figure" ? "lof" : "lot"
-  return { kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${env}}{\\protect \\numberline {${cx.counters.the(number)}}{\\ignorespaces ${text}}}{\\thepage }{${cx.pre.hyper ? cx.refs.href : ""}}\\protected@file@percent }}` }
+  return { kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\contentsline {${env}}{\\protect \\numberline {${cx.counters.the(number)}}{\\ignorespaces ${printTokens(text)}}}{\\thepage }{${cx.pre.hyper ? cx.refs.href : ""}}\\protected@file@percent }}` }
 }
 
 /**
@@ -203,7 +203,7 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
   let single = false
   if (keys.slc) {
     const words: Node[] = []
-    appendText(words, text, selectFont(run.k, tf.size, tf.attrs), { spaceFactor: 1000 }, false)
+    appendText(words, sourceText(text), selectFont(run.k, tf.size, tf.attrs), { spaceFactor: 1000 }, false)
     single = hpack([...labelNodes(), ...sepNodes(false), ...strut(), ...words, ...end]).width <= width
   }
   // (a single-line caption has format=hang's single-line format, plain's; with more lines, newline is an error there)

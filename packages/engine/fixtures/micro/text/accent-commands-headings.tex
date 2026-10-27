@@ -1,0 +1,24 @@
+% fixture: text/accent-commands-headings
+% tier: T3
+% engine: document
+% covers: text accent commands in headings, the contents (their \write prints \'{\i }: a control word and a space), running heads, captions and the list of figures' write, \title, \author and \item labels
+% issue: #63
+\documentclass{article}
+\pagestyle{headings}
+\title{T\'itulo con acentos: Garc\'{\i}a}
+\author{Jos\'e P\'erez \and Fran\c{c}ois}
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Introducci\'on y \'{\i}ndice}\label{s}
+Texto.
+\begin{figure}[h]
+\caption{Descripci\'on del m\'etodo de Garc\'{\i}a y \c{c}}\label{f}
+\end{figure}
+\begin{description}
+\item[Se\~nal] Una descripci\'on.
+\item[\"Uber] Otra.
+\end{description}
+\subsection{Conclusi\'on con \ss{} y \o}
+Fin.
+\end{document}
