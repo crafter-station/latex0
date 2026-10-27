@@ -611,7 +611,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!doc.float) throw new Unsupported("a float inside a paragraph here")
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
-      list.push({ kind: "adjust", list: [doc.float(p.n, ctx.notes, ctx.params.clubPenalty)] }) // (its paragraphs' traces where its footnotes' go)
+      list.push({ kind: "adjust", list: [doc.float(p.n, ctx.notes, ctx.noteClub ?? ctx.params.clubPenalty)] }) // (its paragraphs' traces where its footnotes' go, read with their \clubpenalty)
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
     else if (p.kind === "natcite" || p.kind === "cite" && doc.natbib) {
