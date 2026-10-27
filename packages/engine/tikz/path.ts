@@ -6,9 +6,9 @@
 // subset modeled: \path, \draw, \fill, \filldraw, \clip, \useasboundingbox, \coordinate, the scope
 // environment, \tikzset, options anywhere (tikz/options.ts), the coordinates (x,y) with and without units,
 // (a:r), +(…), ++(…), (a |- b), (a -| b) and named coordinates, and the operations --, -|, |-, rectangle,
-// circle, ellipse, cycle and to, with arrow tips (pgf/arrows.ts, instantiated once a document). Nodes and
-// rounded corners go through TikzHooks, which refuse until they are modeled; every other construct throws
-// Unsupported.
+// circle, ellipse, cycle and to, with arrow tips (pgf/arrows.ts, instantiated once a document) and rounded
+// corners (pgf/round.ts). Nodes go through TikzHooks, which refuse until they are modeled; every other
+// construct throws Unsupported.
 
 import { printScaled } from "../layout/arith"
 import type { Node } from "../layout/nodes"
@@ -32,12 +32,10 @@ import { arg, contains, find, groupEnd, isCs, plain, str, tokenize, type Tok, ty
 
 /**
  * What a path reaches that other units model: each throws Unsupported until it is plugged in. `node` is a
- * node on or as a path (\tikz@fig ode, node on a path, \node); `corners` a path built with rounded
- * corners (\pgfsetcornersarced).
+ * node on or as a path (\tikz@fig ode, node on a path, \node).
  */
 export interface TikzHooks {
   node?: (p: TikzPicture) => void
-  corners?: (p: TikzPicture) => void
 }
 
 /** TikZ's macros and registers a path changes, local to TeX's groups */
@@ -450,6 +448,9 @@ export class TikzPicture {
   /** baseline=…: \pgfsetbaseline */
   baseline(v: Toks) { pgfSetBaseline(this.s, text(v, "baseline")) }
 
+  /** \pgfsetcornersarced{\pgfpoint{#1}{#1}} (tikz.code.tex 279–280): pgf rounds the corners the path makes from here on (pgf/round.ts) */
+  corners(st: TikzState) { this.s.setLocal({ cornerArc: st.arcCorners && st.corner ? { ...st.corner } : null }) }
+
   /** \tikz@processarrows (1201–1208): \pgfsetarrows{#1}, as pgf reads it (pgf/arrows.ts); >=… is not modeled there */
   arrows(v: Toks, st: TikzState) {
     if (st.arrowMeans) throw new Unsupported("tikz: >= with an arrow specification")
@@ -580,21 +581,12 @@ export class TikzPicture {
    * labels on a path read)
    */
   private movetoSave(p: PgfPointMacro) {
-    this.corners()
     pgfPathMoveTo(this.s, p)
   }
 
   /** \tikz@path@lineto (2843–2856), not snaked */
   private pathLineto(p: PgfPointMacro) {
-    this.corners()
     pgfPathLineTo(this.s, p)
-  }
-
-  /** rounded corners make pgf's path construction keep corner tokens (pgf/round.ts) */
-  private corners() {
-    if (!this.tz.st.arcCorners) return
-    this.hooks.corners?.(this)
-    throw new Unsupported("tikz: rounded corners")
   }
 
   /** \tikz@moveto, \tikz@@moveto (2654–2668) */
@@ -652,7 +644,6 @@ export class TikzPicture {
       if (i.op === "moveto") { this.lastMoveTo = { x: i.x, y: i.y }; break }
     }
     this.makeLast(qpoint(this.lastMoveTo.x, this.lastMoveTo.y))
-    this.corners()
     pgfPathClose(this.s)
   }
 
@@ -684,7 +675,6 @@ export class TikzPicture {
 
   /** \tikz@circle, \tikz@ellipse, \tikz@@circle (3542–3585) */
   private circle(inp: Input) {
-    this.corners()
     if (inp.ifNext("(")) {
       inp.next()
       const r = inp.delimited([")"])
@@ -1003,6 +993,7 @@ export class TikzDocument {
       transform: (t) => this.at("a transformation").transform(t),
       baseline: (v) => this.at("baseline").baseline(v),
       arrows: (v, st) => this.at("arrows").arrows(v, st),
+      corners: (st) => this.at("rounded corners").corners(st),
     })
   }
 

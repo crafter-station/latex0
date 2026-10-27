@@ -257,11 +257,11 @@ environment, `\path`, `\draw`, `\fill`, `\filldraw`, `\clip`, `\useasboundingbox
 anywhere (every picture/scope/path, clip, use as bounding box, baseline, radius, xslant/yslant), coordinates (x,y)
 with and without units, (a:r) and its direction names, +(…), ++(…), (a |- b), (a -| b) and named coordinates, the
 operations --, -|, |-, rectangle, circle, ellipse, cycle and to, path groups `{…}`, arrow tips (pgf/arrows.ts, one
-cache a document), pgf driven as tikz.code.tex does with every space its macros leave on the picture's list; checked
+cache a document), rounded corners (pgf/round.ts), pgf driven as tikz.code.tex does with every space its macros leave on the picture's list; checked
 by `bun engine tikz:check` (whole pictures under latex/dvips and pdflatex, box for box). In documents
 (`latex/tikz.ts`): `\usepackage{tikz}` (xcolor, graphicx, pgf's \newwrite before hyperref's), `\usetikzlibrary`
 positioning, arrows.meta and calc, preamble style definitions, pictures in paragraphs, center and figures.
-Not yet: nodes (but coordinates), rounded corners, `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
+Not yet: nodes (but coordinates), `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
 grids, plots, `\foreach`, calc's coordinates, coordinate options, x/y vectors, custom to paths, pgf's dvips
 header specials on the first page (`! /pgfHrgb…`, outside the column).
 

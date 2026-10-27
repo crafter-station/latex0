@@ -88,6 +88,8 @@ const FIXED = [
   pic("\\draw[-Latex,blue] (0,0) -- (1,0) -- cycle; \\draw[-To,line width=2pt] (0,2) -- (1,2); \\draw[stealth-] (0,3) -- (1,3);"),
   pic("\\draw[draw=blue,fill=green,red,->] (0,0) -- (1,0); \\draw[draw=blue,red!50,->] (0,1) -- (1,1); \\draw[draw=blue,fill=green,->] (0,2) -- (1,2);"),
   pic("\\draw[draw=red,fill=red,->] (0,0) -- (1,0); \\draw[red,fill=red,->] (0,1) -- (1,1); \\draw[draw=red!50,fill=red!50,->] (0,2) -- (1,2); \\draw[draw=red,fill=red!100,->] (0,3) -- (1,3);"),
+  pic("\\draw[rounded corners] (0,0) -- (1,0) -- (1,1); \\draw[rounded corners=2mm] (2,0) rectangle (4,1) (5,0) -- (6,1) -| (7,0) -- cycle;"),
+  pic("\\draw[rounded corners=3pt,->] (0,0) -| (1,1) [sharp corners] -- (2,0) [rounded corners] |- (3,3); \\begin{scope}[rounded corners=4pt] \\fill (0,2) -- (1,3) -- (2,2) -- cycle; \\end{scope}"),
   pic("\\draw[->] (1,1);"),
   pic("\\draw[->] (0,0) circle (1);"),
   pic("\\draw[->] (0,0) -- (1,0) -- cycle;"),
@@ -103,7 +105,7 @@ const FIXED = [
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
   pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node at (0,0) {x};"), pic("\\draw (0,0) node {x} -- (1,0);"),
-pic("\\draw[rounded corners] (0,0) -- (1,0) -- (1,1);"), pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
+pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
   pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in {1,2} \\draw (\\x,0) -- (0,0);"),
   pic("\\draw (0,0) .. controls (1,1) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
@@ -149,6 +151,7 @@ export function makePictures(n: number, seed: number): string[] {
       () => pick(["dashed", "dotted", "densely dotted", "loosely dashed", "dash dot", "solid", "dash pattern=on 2pt off 1pt", "dash phase=1pt"]),
       () => pick([`draw=${color()}`, `fill=${color()}`, `color=${color()}`, color().replace(".", "red"), "draw", "fill", "draw=none", "fill=none"]),
       transform,
+      () => pick(["rounded corners", "rounded corners=2pt", "rounded corners=1mm", "sharp corners"]),
       () => pick(["->", "<-", "<->", "-latex", "-stealth", "-{Stealth}", "-Latex", "-To", "->>", "arrows=-to"]),
     ])()
     const options = () => (r() < 0.5 ? "" : `[${Array.from({ length: int(1, 3) }, option).join(",")}]`)

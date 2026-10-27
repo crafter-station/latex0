@@ -129,6 +129,8 @@ export interface TikzSetup {
   transform?: (t: TransformCall, st: TikzState) => void
   /** baseline=…: \pgfsetbaseline (pgf's picture) */
   baseline?: (v: Toks) => void
+  /** rounded corners=…, sharp corners: \pgfsetcornersarced (pgf's picture), with \pgf@corner@arc set */
+  corners?: (st: TikzState) => void
   /** an arrow specification: \pgfsetarrows (pgf's picture) */
   arrows?: (v: Toks, st: TikzState) => void
 }
@@ -525,8 +527,9 @@ export class Tikz {
       const x = this.length(v), y = this.length(v)
       st().corner = { x, y }
       st().arcCorners = x !== 0 || y !== 0
+      this.setup.corners?.(st())
     }, "4pt")
-    opt("sharp corners", () => { st().corner = { x: 0, y: 0 }; st().arcCorners = false }, "")
+    opt("sharp corners", () => { st().corner = { x: 0, y: 0 }; st().arcCorners = false; this.setup.corners?.(st()) }, "")
     // tikz.code.tex 533–534
     opt("clip", () => { st().mode.push("cliptrue") }, "")
     opt("use as bounding box", () => { st().mode.push("boundarytrue") }, "")
