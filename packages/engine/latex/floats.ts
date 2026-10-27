@@ -176,7 +176,7 @@ function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const { run, v } = cx
   if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
   if (cx.pre.usesCaption && cx.pre.hyper) throw new Unsupported("an [H] float with caption.sty and hyperref")
-  if (v.nobreak) throw new Unsupported("an [H] float right after a heading")
+  // (right after a heading, \@setnobreak clears \if@nobreak in the box and \@endfloatbox's \outer@nobreak sets it again)
   // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
   const pending = b.inPar ? cx.decisions.pop() : undefined
   const traces: ParagraphTrace[] = []
