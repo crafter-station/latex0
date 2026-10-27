@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 355,
-  "exact": 353,
+  "fixtures": 361,
+  "exact": 359,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 281225
+  "glyphs": 282879
  },
  "areas": [
   {
@@ -156,8 +156,8 @@
   },
   {
    "area": "siunitx",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "tabular",
@@ -3502,6 +3502,28 @@
    "issue": "#267"
   },
   {
+   "id": "siunitx/math-amsmath",
+   "file": "micro/siunitx/math-amsmath.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "siunitx's commands in amsmath's displays (align, gather, multline, equation) and in a display in a list and a theorem (\\text{to} in the theorem's italics), and \\, around them",
+   "issue": "#278"
+  },
+  {
+   "id": "siunitx/math",
+   "file": "micro/siunitx/math.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 278,
+   "covers": "siunitx's commands in math mode (inline, \\[…\\], equation): the number and the unit join the formula (no formula of their own), \\nobreak and \\, as \\mskip\\thinmuskip between them; ranges and lists with \\ (the text font's space), \\text{to} and \\text{and} (\\mathchoice), the list's , a punctuation atom; \\ang; \\micro (\\text{\\textmu}); numbers in sub- and superscripts",
+   "issue": "#278"
+  },
+  {
    "id": "siunitx/numbers",
    "file": "micro/siunitx/numbers.tex",
    "area": "siunitx",
@@ -3513,6 +3535,39 @@
    "issue": "#267"
   },
   {
+   "id": "siunitx/options-numbers",
+   "file": "micro/siunitx/options-numbers.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 377,
+   "covers": "siunitx's number options in a command's [...]: group-digits (none, integer, decimal), group-minimum-digits, group-separator (\\, , {,} as \\mathord{,}, \\;), output-decimal-marker ({,} as \\mathord{,}, \\cdot), exponent-product (\\cdot), uncertainty-mode = separate and separate-uncertainty (value \\pm uncertainty with the value's decimals, in brackets before an exponent and in a quantity); in text and in math",
+   "issue": "#278"
+  },
+  {
+   "id": "siunitx/options-rounding",
+   "file": "micro/siunitx/options-rounding.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 319,
+   "covers": "siunitx's round-mode = places and figures with round-precision: rounded half up on the digits, carries into the integer part and a new leading digit (figures then drops a decimal), padding with zeros (round-pad = false: none), integer digits dropped as zeros, a value that rounds to zero without its minus (round-zero-positive = false keeps it), zeros, exponents and uncertainties left alone; in \\num, quantities, ranges and lists, set in the preamble and per command",
+   "issue": "#278"
+  },
+  {
+   "id": "siunitx/options-units",
+   "file": "micro/siunitx/options-units.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 244,
+   "covers": "siunitx's unit and phrase options: per-mode = symbol (numerator, \\! after a power, per-symbol, the denominator in brackets when its last unit follows another, 1 for no numerator, which a quantity leaves out with its \\nobreak and product), per-mode = fraction (\\frac, 1 for no numerator), per-mode = power; inter-unit-product (\\cdot, {}, \\,) in macro and literal units; quantity-product ({}, \\,); range-phrase, list-separator, list-final-separator and list-pair-separator as text (a -- ligature, ~ not allowed) and in math; \\usepackage[...]{siunitx} and \\sisetup in the preamble",
+   "issue": "#278"
+  },
+  {
    "id": "siunitx/quantities",
    "file": "micro/siunitx/quantities.tex",
    "area": "siunitx",
@@ -3522,6 +3577,17 @@
    "glyphs": 415,
    "covers": "siunitx's \\SI and \\qty (number, \\nobreak, \\, of the current font, unit; no \\, for \\degree, \\arcminute and \\arcsecond alone), \\numrange, \\SIrange and \\qtyrange (\\text{to} between), \\numlist, \\SIlist and \\qtylist (\", \" and \\text{and}), \\ang, in bold and small text, in a tabular with array.sty's columns and rules (siunitx loads array), and breaks around them in a narrow paragraph",
    "issue": "#267"
+  },
+  {
+   "id": "siunitx/s-column",
+   "file": "micro/siunitx/s-column.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 258,
+   "covers": "siunitx's S column (a c column around \\siunitx_cell_begin:w … \\siunitx_cell_end:): an entry's tokens without spaces, text in braces alone between \\hskip 0pt plus .5fill's, empty entries; numbers in marker mode (integer and decimal boxes aligned on the decimal marker, the wider side padded with \\hfil), with exponents, compact and separate uncertainties, no integer or no decimals, and the column's options (output-decimal-marker, group-separator, round-mode); table-format (the model's integer width, 0 for none, a number wider than it squeezed with \\hss, the decimal carry after it; an exponent or separate uncertainty the model lacks dropped) with signs and none, per column and from \\sisetup; \\\\[skip] after an S entry (its \\unskip takes the \\hskip1sp); the space factor an S entry leaves (1000 after a number, its text's after text, none changed when empty); S with rules, booktabs and \\multicolumn headers",
+   "issue": "#278"
   },
   {
    "id": "siunitx/units",
