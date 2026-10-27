@@ -336,7 +336,7 @@ export function makeDocument(r: () => number): string {
   const style = r()
   if (style < 0.2) out.push("\\pagestyle{empty}")
   else if (style < 0.4 && !isLetter) out.push("\\pagestyle{headings}") // running heads from the section marks
-  else if (style < 0.6 && cls === "article" && !geo) { // fancyhdr: its fields, rules and \sectionmark
+  else if (style < 0.6 && !isLetter) { // fancyhdr: its fields, rules, \chaptermark and \sectionmark (after geometry)
     const field = () => pick(["MATH 201", "Problem Set 3", "\\textbf{Notes}", "\\emph{Draft} copy", "Page \\thepage", "\\thepage", "\\leftmark", "\\rightmark", "\\slshape\\rightmark",
       "\\rmfamily\\thepage", "A. Student -- \\today", "Lecture notes on typesetting, line breaking and the many ways a running head can grow too long for one line", ""])
     out.push("\\usepackage{fancyhdr}")

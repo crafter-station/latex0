@@ -83,9 +83,10 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
     // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
+    // (fancyhdr's: \markboth one- or two-sided, the number whenever \c@secnumdepth > -1, outside the main matter too)
     if (headings) {
-      const cv = markValue(numbered ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
-      v.nodes.push(...marks.insert(run.k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
+      const cv = markValue(numbered || headings === "fancyhdr" ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
+      v.nodes.push(...marks.insert(run.k.ints.twoside || headings === "fancyhdr" ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
     for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
   } else {

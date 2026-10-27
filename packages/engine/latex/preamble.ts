@@ -155,6 +155,7 @@ export function readPreamble(src: string): Preamble {
   // keeps them, and only \@mkboth goes back to \@gobbletwo
   let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
   let fancy: FancyHdr | null = null
+  let fancyGeometry: number | null = null // how many geometry calls came before the first \pagestyle{fancy}
   let hyper = false // hyperref, with the dvips driver
   const hyperOpts = hyperDefaults()
   let hyperNotes = true
@@ -347,7 +348,6 @@ export function readPreamble(src: string): Preamble {
         titlesec = titlesecDefaults()
       }
       if (names.includes("fancyhdr")) {
-        if (cls !== "article") throw new Unsupported(`fancyhdr with ${cls}`) // (its \chaptermark and \sectionmark there)
         fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
       }
       continue
@@ -390,7 +390,11 @@ export function readPreamble(src: string): Preamble {
     if (fancy && fancyCommand(fancy, line)) continue
     if (titlesec && titleformat(titlesec, line)) continue
     const m = line.match(/^\\pagestyle\{(plain|empty|headings|fancy)\}$/)
-    if (m && (m[1] !== "fancy" || fancy)) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; continue }
+    if (m && (m[1] !== "fancy" || fancy)) {
+      pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"
+      if (pagestyle === "fancy") fancyGeometry ??= geometryOptions.length // (\headwidth set as \ps@fancy first runs)
+      continue
+    }
     throw new Unsupported(`preamble: ${line}`)
   }
   const kOT1 = k
@@ -458,7 +462,11 @@ export function readPreamble(src: string): Preamble {
     for (const d of thmDefs.values()) d.title = markAccentHyphens(d.title)
     if (fancy) for (const f of Object.keys(fancy.fields)) fancy.fields[f] = markAccentHyphens(fancy.fields[f])
   }
-  if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
+  // fancyhdr's \headwidth: the \textwidth when \ps@fancy first ran, the class's before geometry loaded (geometry sets it as it loads)
+  if (fancy && fancyGeometry !== null && fancyGeometry !== geometryOptions.length) {
+    if (fancyGeometry) throw new Unsupported("\\geometry after \\pagestyle{fancy}")
+    fancy.headwidth = classTextwidth
+  }
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   // (parskip.sty's patches of titlesec's \ttl@straight@ii and of amsthm's \deferred@thm@head)
   if (parskip && (titlesec || thmDefs.size)) throw new Unsupported(`parskip with ${titlesec ? "titlesec" : "amsthm's theorems"}`)
