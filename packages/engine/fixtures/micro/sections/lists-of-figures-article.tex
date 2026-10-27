@@ -1,0 +1,20 @@
+% fixture: sections/lists-of-figures-article
+% tier: T3
+% engine: document
+% covers: \listoffigures and \listoftables in article (\section*{\listfigurename}, \@starttoc: \l@figure as \@dottedtocline{1}{1.5em}{2.3em}), read from the .lof and .lot the first run wrote: short captions, pages of floats that moved
+% issue: #336
+\documentclass{article}
+\begin{document}
+\tableofcontents
+\listoffigures
+\listoftables
+\section{Results}
+Some text before the floats.
+\begin{figure}[h]\centering\caption[Short title]{A long caption that the list of figures leaves out.}\end{figure}
+\begin{table}[t]\centering\caption{Measurements, with a caption long enough to need more than a single line in the list of tables here.}\end{table}
+\begin{figure}[p]\centering\caption{On a page of floats.}\end{figure}
+More text after them.
+\section{Discussion}
+\begin{table}[b]\centering\caption{Last one.}\end{table}
+The end.
+\end{document}

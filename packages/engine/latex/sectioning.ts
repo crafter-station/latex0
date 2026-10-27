@@ -95,7 +95,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
       const cv = markValue(numbered || headings === "fancyhdr" ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
       v.nodes.push(...marks.insert(run.k.ints.twoside || headings === "fancyhdr" ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
-    for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
+    v.nodes.push(cx.tocFile.listSpace("lof"), cx.tocFile.listSpace("lot"))
   } else {
     if (nameref) refs.name = labelName(b.source ?? b.title) // (nameref's \@schapter)
     if (hyper) { // \@schapter: \Hy@MakeCurrentHrefAuto{chapter*} and its anchor

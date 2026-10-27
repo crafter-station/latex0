@@ -30,7 +30,7 @@ import { markAccentHyphens, spanishLayout } from "./spanish"
 import { portugueseLayout } from "./portuguese"
 import { accentHyphens, babelUmlauts, sourceText } from "./encodings"
 import { spacing } from "../layout/hmode"
-import { TocWriter, type TocEntry } from "./toc"
+import { TocWriter, type ListEntry, type ListFile, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
 import { runState } from "./run"
 import type { Ctx } from "./context"
@@ -89,7 +89,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry> }
+interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -247,7 +247,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   doc.widths = (lineWidth) => widthRegisters(cx, lineWidth)
   doc.getpen = (n) => getpen(cx, n)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
-  const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
+  const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
 
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
@@ -305,7 +305,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc") || READS_AUX.test(body) || hyper || pre.natbib) { // (natbib: the .aux's \bibstyle)
+  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof") || READS_AUX.test(body) || hyper || pre.natbib) { // (natbib: the .aux's \bibstyle)
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>()
     const walk = (n: Node, page: string) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
     shipped.forEach((b, i) => walk(b, pages[i].thepage))
@@ -316,6 +316,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
     }
     written = {
       toc: tocFile.written((n) => order.get(n)!, page),
+      lists: { lof: tocFile.writtenList("lof", page), lot: tocFile.writtenList("lot", page) },
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
       labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, name: w.name, href: w.href }])),
       bookmarks: bookmarks.written,

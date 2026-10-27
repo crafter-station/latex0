@@ -11,7 +11,7 @@ import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH } from "./vlist"
 import { penalty } from "../layout/nodes"
 import { crefWrites, labelWrite } from "./paragraph"
-import { bibliography, maketitle, tableOfContents } from "./frontmatter"
+import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
 import { chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
 import type { OutputHook } from "./output"
 import { leadingColor } from "./colors"
@@ -46,9 +46,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
   // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
-  if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+  if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
-  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
@@ -67,6 +67,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     return
   }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
+  if (b.kind === "lof") { if (run.runIn) runInAlone(cx); listOf(cx, b.file); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }
   if (b.kind === "letter") { if (run.runIn) runInAlone(cx); letter(cx, b); return }
