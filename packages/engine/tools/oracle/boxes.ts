@@ -47,6 +47,7 @@ export function parseLine(text: string): BoxNode {
     const g: BoxNode = { type: "glue", ...parseSpec(m[2]) }
     return m[1] ? { ...g, param: m[1] } : g
   }
+  if ((m = text.match(/^\\kern (-?[\d.]+) \(for accent\)$/))) return { type: "kern", width: parseScaled(m[1]), accent: true } // (acc_kern, § 191)
   if ((m = text.match(/^\\kern( ?)(-?[\d.]+)$/))) return m[1] ? { type: "kern", width: parseScaled(m[2]), explicit: true } : { type: "kern", width: parseScaled(m[2]) }
   if ((m = text.match(/^\\penalty (-?\d+)$/))) return { type: "penalty", penalty: Number(m[1]) }
   if ((m = text.match(/^\\discretionary(?: replacing (\d+))?$/))) return { type: "disc", pre: [], post: [], replaceCount: Number(m[1] ?? 0) }

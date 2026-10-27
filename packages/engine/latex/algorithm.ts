@@ -3,7 +3,7 @@
 
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, loadFont } from "../layout/font"
 import { Scanner, parseDimen } from "../layout/dimen"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { filGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"

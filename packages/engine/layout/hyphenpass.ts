@@ -44,7 +44,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
       if (isLigature(n)) { if (n.text.length === 0) { prevS = s; s++; continue } c = n.text.charCodeAt(0) }
       else c = n.char
       hf = ctx.fontOf(n.font, n.size); hfKey = fontKey(n)
-    } else if ((n.kind === "kern" && !n.explicit) || n.kind === "whatsit") { prevS = s; s++; continue }
+    } else if ((n.kind === "kern" && !n.explicit && !n.accent) || n.kind === "whatsit") { prevS = s; s++; continue } // (a normal kern)
     else return // done1: a formula, box, rule or glue
     const lc = lcCode(c)
     if (lc !== 0) { if (lc === c || ctx.ucHyph > 0) break; else return }
@@ -83,7 +83,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
       if (!ok) break
       hb = s; hn = j
       hyfBchar = odd(n.ligHits ?? 0) ? font.bchar : NON_CHAR
-    } else if (n && n.kind === "kern" && !n.explicit) { hb = s; hyfBchar = font.bchar }
+    } else if (n && n.kind === "kern" && !n.explicit && !n.accent) { hb = s; hyfBchar = font.bchar }
     else break
     s++
   }
@@ -93,7 +93,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
     const n = list[s]
     if (!n) return
     if (n.kind === "char") { s++; continue }
-    if (n.kind === "kern") { if (n.explicit) break; s++; continue }
+    if (n.kind === "kern") { if (n.explicit || n.accent) break; s++; continue }
     if (n.kind === "glue" || n.kind === "penalty" || n.kind === "whatsit" || n.kind === "ins" || n.kind === "adjust") break
     return // boxes, rules, discretionaries, formulas: no hyphenation
   }

@@ -1,0 +1,10 @@
+% fixture: text/accents-utf8
+% tier: T3
+% engine: document
+% covers: UTF-8 input as utf8.def reads it in OT1: accented letters (í and ï as accents on \i), ß æ œ ø Æ Œ Ø, “quotes” and ‘single’ ones, en and em dashes, ¡ and ¿ (the ligatures !` and ?`), the no-break space, ° § ª º (TS1)
+% issue: #63
+\documentclass{article}
+\begin{document}
+Él comió pingüinos en la montaña: ¿qué? ¡Qué niño más raro! Fjörd—façade, naïve, Æsop, Œuvre, Øre, straße,
+encyclopædia, cœur, søster; “double” and ‘single’ quotes, 1–2 and 25 °C, § 3, 1.ª y 2.º lugar, the end.
+\end{document}

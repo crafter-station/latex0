@@ -4,6 +4,10 @@ import { printScaled } from "../layout/arith"
 import type { Node } from "../layout/nodes"
 import type { BoxNode as BoxOut } from "../trace/schema"
 
+/** A token list as TeX prints it: UTF-8 input is bytes, each printed as itself (TeX Live's cp227.tcx), here one
+ *  character per byte */
+const printBytes = (text: string) => /^[\x00-\x7f]*$/.test(text) ? text : String.fromCharCode(...new TextEncoder().encode(text))
+
 export function emitBoxes(n: Node): BoxOut {
   switch (n.kind) {
     case "hlist": case "vlist":
@@ -24,10 +28,10 @@ export function emitBoxes(n: Node): BoxOut {
       const g = { type: "glue" as const, width: n.width, stretch: n.stretch, stretchOrder: n.stretchOrder, shrink: n.shrink, shrinkOrder: n.shrinkOrder }
       return n.param ? { ...g, param: n.param } : g
     }
-    case "kern": return n.explicit ? { type: "kern", width: n.width, explicit: true } : { type: "kern", width: n.width }
+    case "kern": return n.explicit ? { type: "kern", width: n.width, explicit: true } : n.accent ? { type: "kern", width: n.width, accent: true } : { type: "kern", width: n.width }
     case "rule": return { type: "rule", width: n.width, height: n.height, depth: n.depth }
     case "penalty": return { type: "penalty", penalty: n.penalty }
-    case "whatsit": return { type: "other", text: n.text }
+    case "whatsit": return { type: "other", text: printBytes(n.text) }
     case "ins": { // § 188
       const g = n.splitTopSkip, spec = printScaled(g.width) + (g.stretch ? ` plus ${printScaled(g.stretch)}${["", "fil", "fill", "filll"][g.stretchOrder]}` : "") + (g.shrink ? ` minus ${printScaled(g.shrink)}${["", "fil", "fill", "filll"][g.shrinkOrder]}` : "")
       return { type: "other", text: `\\insert${n.n}, natural size ${printScaled(n.height)}; split(${spec},${printScaled(n.depth)}); float cost ${n.floatCost}`, children: n.list.map(emitBoxes) }

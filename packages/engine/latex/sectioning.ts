@@ -5,7 +5,7 @@
 import { dataFont } from "./data"
 import { loadFont, QUAD } from "../layout/font"
 import { Scanner } from "../layout/dimen"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"

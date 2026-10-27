@@ -6,7 +6,7 @@
 
 import type { Font } from "../layout/font"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH } from "../layout/font"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { glue, penalty, type Node } from "../layout/nodes"
 import type { Shipped } from "./output"
 import { Unsupported } from "./unsupported"

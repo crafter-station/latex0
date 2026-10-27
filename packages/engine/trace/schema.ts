@@ -19,7 +19,7 @@ export type BoxNode =
   | { type: "char"; font: string; size: number; char: number; /** original characters of a ligature */ lig?: string
       /** the font's file and size when TeX printed them (\pdftracingfonts): `at` absent for the design size */ tfm?: string; at?: number }
   | { type: "glue"; width: number; stretch: number; stretchOrder: number; shrink: number; shrinkOrder: number; /** skip parameter, e.g. "rightskip" */ param?: string }
-  | { type: "kern"; width: number; explicit?: boolean }
+  | { type: "kern"; width: number; explicit?: boolean; /** an \accent's (shown "(for accent)") */ accent?: boolean }
   | { type: "rule"; width: number | null; height: number | null; depth: number | null }
   | { type: "penalty"; penalty: number }
   | { type: "disc"; pre: BoxNode[]; post: BoxNode[]; replaceCount: number }
@@ -161,7 +161,7 @@ function compareNode(e: BoxNode, a: BoxNode, fonts: Map<string, string>, path: s
       for (const k of ["width", "stretch", "stretchOrder", "shrink", "shrinkOrder"] as const) { const d = diff(k, e[k], g[k]); if (d) return d }
       return diff("param", e.param ?? null, g.param ?? null)
     }
-    case "kern": { const k = a as typeof e; return diff("width", e.width, k.width) ?? diff("explicit", !!e.explicit, !!k.explicit) }
+    case "kern": { const k = a as typeof e; return diff("width", e.width, k.width) ?? diff("explicit", !!e.explicit, !!k.explicit) ?? diff("accent", !!e.accent, !!k.accent) }
     case "penalty": return diff("penalty", e.penalty, (a as typeof e).penalty)
     case "rule": { const r = a as typeof e; return diff("width", e.width, r.width) ?? diff("height", e.height, r.height) ?? diff("depth", e.depth, r.depth) }
     case "disc": {
@@ -177,7 +177,7 @@ function describe(n: BoxNode): string {
     case "hbox": case "vbox": return `${n.type}(${n.height}+${n.depth})x${n.width}`
     case "char": return `char ${n.char}${n.lig ? ` (ligature ${n.lig})` : ""}`
     case "glue": return `glue${n.param ? `(${n.param})` : ""} ${n.width}`
-    case "kern": return `kern${n.explicit ? " " : ""}${n.width}`
+    case "kern": return `kern${n.explicit || n.accent ? " " : ""}${n.width}${n.accent ? " (for accent)" : ""}`
     case "penalty": return `penalty ${n.penalty}`
     case "rule": return "rule"
     case "disc": return `disc replacing ${n.replaceCount}`

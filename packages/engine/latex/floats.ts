@@ -4,7 +4,7 @@
 import type { GlueSpec } from "../layout/dimen"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT } from "../layout/font"
 import { parseDimen, parseGlue } from "../layout/dimen"
-import { appendText } from "../layout/hmode"
+import { appendText } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { FIL, glue, paramGlue, penalty, type BoxNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"

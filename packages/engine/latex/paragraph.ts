@@ -14,7 +14,7 @@
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../layout/classdata"
 import { parseDimen, parseGlue, Scanner, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
-import { appendText } from "../layout/hmode"
+import { appendText as appendCodes } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
 import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
@@ -31,6 +31,7 @@ import type { LayoutResult } from "./result"
 import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
+import { ACCENT_MARKS, appendText, TEXT_LETTERS, utf8Text } from "./encodings"
 import { xcolor } from "./xcolor"
 import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
@@ -296,7 +297,12 @@ type Piece =
 export const TEXT_SYMBOLS: Record<string, Partial<Record<FontAttrs["enc"], number>>> = {
   textdollar: { T1: 36, TS1: 36 },
   textdegree: { TS1: 176 },
+  textsection: { T1: 159, TS1: 167 },
+  textordfeminine: { TS1: 170 },
+  textordmasculine: { TS1: 186 },
 }
+/** UTF-8 characters that are text symbols (ts1enc.dfu) */
+const UTF8_SYMBOLS: Record<string, string> = { "°": "textdegree", "§": "textsection", "ª": "textordfeminine", "º": "textordmasculine" }
 
 /** LaTeX's text font commands (\DeclareTextFontCommand) */
 const FONT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "textnormal", "emph"] as const
@@ -431,7 +437,22 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (sym && sym[1] in TEXT_SYMBOLS) { flushText(); out.push({ kind: "symbol", name: sym[1] }); i += sym[0].length; continue }
     // \, in text: \thinspace, \kern.16667em
     if (body.startsWith("\\,", i)) { flushText(); out.push({ kind: "thinspace" }); i += 2; continue }
-    if (body[i] === "~") { flushText(); out.push({ kind: "tie" }); i++; continue }
+    if (body[i] === "~" || body[i] === "\u00a0") { flushText(); out.push({ kind: "tie" }); i++; continue } // (U+00A0 is \nobreakspace)
+    // a text accent on a letter, \i or \j: the letter and the accent's combining mark (encodings.ts)
+    const acc = body.slice(i).match(/^\\([`'^"~=.]|[uvHrck](?![A-Za-z]))\s*(?:\{(\\[ij](?![A-Za-z])\s*|[A-Za-z])\}|(\\[ij](?![A-Za-z])\s*)|([A-Za-z]))/)
+    if (acc) {
+      const base = (acc[2] ?? acc[3] ?? acc[4]).trim()
+      text += (base === "\\i" ? "ı" : base === "\\j" ? "ȷ" : base) + ACCENT_MARKS[acc[1]]; i += acc[0].length; continue
+    }
+    const letter = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
+    if (letter && Object.hasOwn(TEXT_LETTERS, letter[1])) { text += TEXT_LETTERS[letter[1]]; i += letter[0].length; continue }
+    if (body.charCodeAt(i) >= 128) { // UTF-8 input: the character as utf8.def reads it
+      const ch = String.fromCodePoint(body.codePointAt(i)!)
+      if (Object.hasOwn(UTF8_SYMBOLS, ch)) { flushText(); out.push({ kind: "symbol", name: UTF8_SYMBOLS[ch] }); i += ch.length; continue }
+      const t = utf8Text(ch)
+      if (t === null) throw new Unsupported(`the character ${ch}`)
+      text += t; i += ch.length; continue
+    }
     if (body.startsWith("\\ ", i)) { flushText(); out.push({ kind: "ctlspace" }); i += 2; continue } // \␣
     // \\ (\@ifnextchar skips the spaces after it, but not after \\[skip]'s ])
     const nl = body.slice(i).match(/^\\\\(\*)?(?:\s*\[([^\]]*)\]|\s*)/)
@@ -1001,7 +1022,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // \DeclareTextSymbol in the current encoding, else the default's (\UseTextSymbol: the companion font, TS1)
       const codes = TEXT_SYMBOLS[p.name], own = codes[attrs.enc]
       const f = own !== undefined ? font : selectFont(k, size, { ...attrs, enc: "TS1" })
-      appendText(list, String.fromCharCode(own ?? codes.TS1!), f, state, !ctx.restricted)
+      appendCodes(list, String.fromCharCode(own ?? codes.TS1!), f, state, !ctx.restricted)
     }
     else if (p.kind === "si") {
       if (!doc.siunitx) throw new Unsupported(`\\${p.cmd} without siunitx`)
