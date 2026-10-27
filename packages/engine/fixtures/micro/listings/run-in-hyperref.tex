@@ -1,0 +1,24 @@
+% fixture: listings/run-in-hyperref
+% tier: T3
+% engine: document
+% covers: a \subparagraph run in to a framed listing's top frame with hyperref: the heading's \hskip\parindent is read where it goes in place (zero with breaklines), its anchor box's \kern-\Hy@SectionHShift is the \parindent when the heading was read
+% issue: #294
+\documentclass[12pt]{article}
+\usepackage{listings}
+\usepackage{hyperref}
+\begin{document}
+Some text before.
+
+\subparagraph{Indented}
+
+\begin{lstlisting}[frame=tb,breaklines=true]
+w = 4
+\end{lstlisting}
+
+\subparagraph{Again}
+
+\begin{lstlisting}[frame=tb]
+v = 5
+\end{lstlisting}
+More text.
+\end{document}
