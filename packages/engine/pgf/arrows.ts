@@ -351,6 +351,9 @@ function registry(s: PgfState): Registry {
   return r
 }
 
+/** the tips and their instances one state has, for another: \pgf@ar@cache@… are global, one set for a document's pictures */
+export function shareArrows(from: PgfState, to: PgfState) { registries.set(to, registry(from)) }
+
 /** \usetikzlibrary{arrows.meta} (\usepgflibrary): its tips, `LaTeX` and To as Computer Modern Rightarrow (1592–1598) */
 export function pgfArrowsMeta(s: PgfState) {
   const r = registry(s)

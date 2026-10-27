@@ -204,7 +204,7 @@ export function makeDocument(r: () => number): string {
     const num = () => pick(["0", "1", "2", "0.5", "-1", "1.5", "3"])
     const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
     const op = () => pick([` -- ${coord()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${coord()}`, ` |- ${coord()}`, ` to ${coord()}`])
-    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]"])} ${pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]"])} ${pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
     if (inline) return r() < 0.5 ? `\\tikz${pick(["", "[baseline=-0.5ex]", "[scale=0.3]"])} ${path()}` : `\\tikz[scale=0.2]{${path()}}`
     return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, path).join("\n")}\n\\end{tikzpicture}`
   }

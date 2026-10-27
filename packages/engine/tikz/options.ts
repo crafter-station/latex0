@@ -129,6 +129,8 @@ export interface TikzSetup {
   transform?: (t: TransformCall, st: TikzState) => void
   /** baseline=…: \pgfsetbaseline (pgf's picture) */
   baseline?: (v: Toks) => void
+  /** an arrow specification: \pgfsetarrows (pgf's picture) */
+  arrows?: (v: Toks, st: TikzState) => void
 }
 
 /** pgf's styles and keys that TikZ's options reach (pgfmoduleshapes.code.tex 887–897) */
@@ -443,6 +445,7 @@ export class Tikz {
     const { start, end } = setArrows(v, this.db)
     this.st.startTips = start
     this.st.endTips = end
+    this.setup.arrows?.(v, this.st)
   }
 
   /** the color options of /tikz/.unknown: \tikz@compat@color@set and the text color */

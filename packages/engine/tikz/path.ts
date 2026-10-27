@@ -6,8 +6,9 @@
 // subset modeled: \path, \draw, \fill, \filldraw, \clip, \useasboundingbox, \coordinate, the scope
 // environment, \tikzset, options anywhere (tikz/options.ts), the coordinates (x,y) with and without units,
 // (a:r), +(…), ++(…), (a |- b), (a -| b) and named coordinates, and the operations --, -|, |-, rectangle,
-// circle, ellipse, cycle and to. What other units model (nodes, arrow tips, rounded corners) goes through
-// TikzHooks, which refuse until then; every other construct throws Unsupported.
+// circle, ellipse, cycle and to, with arrow tips (pgf/arrows.ts, instantiated once a document). Nodes and
+// rounded corners go through TikzHooks, which refuse until they are modeled; every other construct throws
+// Unsupported.
 
 import { printScaled } from "../layout/arith"
 import type { Node } from "../layout/nodes"
@@ -16,7 +17,7 @@ import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import type { PgfDriver } from "../pgf/drivers"
 import { TexArith, toNumber } from "../pgf/fixed"
-import { pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetStrokeColor } from "../pgf/graphicstate"
+import { isColorName, pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetStrokeColor } from "../pgf/graphicstate"
 import { pgfmathParse } from "../pgf/mathparser"
 import { pgfPathClose, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfUsePath, resetPathSizes } from "../pgf/paths"
 import { pgfPoint, pgfPointAdd, pgfPointOrigin, pgfPointPolar, pgfPointXY, parse, qpoint, setLength, trig, type PgfPoint, type PgfPointMacro } from "../pgf/points"
@@ -25,17 +26,17 @@ import type { PgfState, PgfTransform } from "../pgf/state"
 import { mul, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, transformPoint } from "../pgf/transformations"
 import { reciprocal } from "../pgf/mathfunctions"
 import { chars } from "./keys"
-import { Tikz, type OptionCall, type TikzSetup, type TransformCall } from "./options"
+import { Tikz, type OptionCall, type TikzSetup, type TikzState, type TransformCall } from "./options"
+import { pgfArrowsMeta, pgfSetArrows, shareArrows } from "../pgf/arrows"
 import { arg, contains, find, groupEnd, isCs, plain, str, tokenize, type Tok, type Toks } from "./tokens"
 
 /**
  * What a path reaches that other units model: each throws Unsupported until it is plugged in. `node` is a
- * node on or as a path (\tikz@fig ode, node on a path, \node); `tips` a drawn path's arrow tips;
- * `corners` a path built with rounded corners (\pgfsetcornersarced).
+ * node on or as a path (\tikz@fig ode, node on a path, \node); `corners` a path built with rounded
+ * corners (\pgfsetcornersarced).
  */
 export interface TikzHooks {
   node?: (p: TikzPicture) => void
-  tips?: (p: TikzPicture) => void
   corners?: (p: TikzPicture) => void
 }
 
@@ -145,6 +146,8 @@ export class TikzPicture {
   private readonly groups: { saved: Locals; after: (() => void)[] }[] = []
   /** \pgfsyssoftpath@lastmoveto (global): the last moveto's coordinates */
   private lastMoveTo = { x: 0, y: 0 }
+  /** \pgfscope@stroke@color and \pgfscope@fill@color of each open \pgfscope (and of \tikz@finish's options) */
+  private readonly colorScopes: [string, string][] = []
   /** the coordinates named in the picture (\pgf@sh@ns@<name> is coordinate): \pgf@sh@nt@<name>'s translation */
   private readonly coordinates = new Map<string, PgfPoint>()
 
@@ -266,6 +269,7 @@ export class TikzPicture {
     this.d.beginscope()
     resetPathSizes(this.s)
     this.s.scopes.push(this.tz.st.lineWidth)
+    this.colorScopes.push([this.s.strokeColor, this.s.fillColor])
     this.begin()
   }
 
@@ -276,6 +280,7 @@ export class TikzPicture {
     if (w === undefined) throw new Unsupported("pgf: \\endpgfscope without a scope")
     this.s.lineWidth = w
     this.globalLineWidth()
+    ;[this.s.strokeColor, this.s.fillColor] = this.colorScopes.pop()!
     this.d.endscope()
   }
 
@@ -388,8 +393,8 @@ export class TikzPicture {
         pgfSetDash(this.s, this.d, items, text(o.phase ?? st.dashPhase, "dash phase"))
         return
       }
-      case "strokecolor": pgfSetStrokeColor(this.d, this.colorSpec(o.color)); return
-      case "fillcolor": pgfSetFillColor(this.d, this.colorSpec(o.color)); return
+      case "strokecolor": pgfSetStrokeColor(this.d, this.colorSpec(o.color), isColorName(str(o.color))); return
+      case "fillcolor": pgfSetFillColor(this.d, this.colorSpec(o.color), isColorName(str(o.color))); return
       case "color": {
         // tikz.code.tex 257–275
         if (st.fillColor.length || st.strokeColor.length) {
@@ -398,7 +403,7 @@ export class TikzPicture {
           st.fillColor = []
         }
         this.L.dot = this.colorSpec(o.color)
-        pgfSetColor(this.d, this.L.dot)
+        pgfSetColor(this.d, this.L.dot, true) // \pgfsetcolor{.}
         this.s.sw.colorResetInOrder = true
         return
       }
@@ -411,6 +416,8 @@ export class TikzPicture {
         this.L.dot = spec
         this.s.out.push({ kind: "whatsit", text: `\\special{color push ${spec}}` })
         this.afterGroup(() => this.s.out.push({ kind: "whatsit", text: "\\special{color pop}" }))
+        // \pgfutil@colorlet{pgffillcolor}{#1}: both globals (for arrow tips) pgffillcolor's definition
+        this.s.strokeColor = this.s.fillColor = (isColorName(o.color) && this.d.namedColors ? "named pgffillcolor" : "") + `|${spec}`
         return
       }
     }
@@ -442,6 +449,13 @@ export class TikzPicture {
 
   /** baseline=…: \pgfsetbaseline */
   baseline(v: Toks) { pgfSetBaseline(this.s, text(v, "baseline")) }
+
+  /** \tikz@processarrows (1201–1208): \pgfsetarrows{#1}, as pgf reads it (pgf/arrows.ts); >=… is not modeled there */
+  arrows(v: Toks, st: TikzState) {
+    if (st.arrowMeans) throw new Unsupported("tikz: >= with an arrow specification")
+    // (a braced tip name is the name: \pgfarrows@parser takes it as an argument)
+    pgfSetArrows(this.s, text(v.filter((t) => t !== "{" && t !== "}"), "arrows"))
+  }
 
   // the path
 
@@ -520,15 +534,12 @@ export class TikzPicture {
     const options = st.options.length > 0
     if (options) {
       this.d.beginscope()
+      this.colorScopes.push([this.s.strokeColor, this.s.fillColor])
       this.begin()
       this.runOptions()
     }
     if (!clip) { this.begin(); this.begin(); this.begin() } // \pgfidscope, \begingroup
     // Step 10: \pgfusepath{fill,draw,clip}
-    if (draw && (st.startTips.length || st.endTips.length)) {
-      this.hooks.tips?.(this)
-      throw new Unsupported("tikz: arrow tips")
-    }
     this.syncLineWidth()
     pgfUsePath(this.s, this.d, [...(fill ? ["fill"] : []), ...(draw ? ["draw"] : []), ...(clip ? ["clip"] : [])])
     // Step 13: \box\tikz@figbox
@@ -537,6 +548,7 @@ export class TikzPicture {
     if (!clip) { this.end(); this.endIdScope() }
     if (options) {
       this.end()
+      ;[this.s.strokeColor, this.s.fillColor] = this.colorScopes.pop()!
       this.d.endscope()
       if (clip) throw new Unsupported("tikz: extra options not allowed for clipping path command")
     }
@@ -982,9 +994,16 @@ export class TikzPicture {
 export class TikzDocument {
   readonly tz: Tikz
   private current: TikzPicture | null = null
+  /** the state the document's arrow tips live in (its first picture's; another TikzDocument's for the same document) */
+  arrows: PgfState | null = null
 
   constructor(private readonly setup: Omit<TikzSetup, "transform" | "baseline">, private readonly hooks?: TikzHooks) {
-    this.tz = new Tikz({ ...setup, transform: (t) => this.at("a transformation").transform(t), baseline: (v) => this.at("baseline").baseline(v) })
+    this.tz = new Tikz({
+      ...setup,
+      transform: (t) => this.at("a transformation").transform(t),
+      baseline: (v) => this.at("baseline").baseline(v),
+      arrows: (v, st) => this.at("arrows").arrows(v, st),
+    })
   }
 
   private at(what: string): TikzPicture {
@@ -998,6 +1017,12 @@ export class TikzDocument {
    */
   picture(src: Toks | string, s: PgfState, d: PgfDriver, color: string): number {
     const p = new TikzPicture({ s, d, tz: this.tz, colors: this.setup.colors, color, hooks: this.hooks })
+    // the arrow tips declared and instantiated so far (global in TeX)
+    if (this.arrows) shareArrows(this.arrows, s)
+    else {
+      this.arrows = s
+      if (this.setup.arrowsMeta) pgfArrowsMeta(s)
+    }
     this.current = p
     try { return p.run(src) } finally { this.current = null }
   }

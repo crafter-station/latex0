@@ -13,6 +13,8 @@ import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import type { Colors } from "./xcolor"
 
+const arrowStates = new WeakMap<object, PgfState>()
+
 /** picture number n where it stands, with xcolor's current color there and the current font's em and ex */
 export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units: { em: number; ex: number }): Node[] {
   const tikz = cx.pre.tikz
@@ -29,8 +31,11 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
     const st = doc.tz.st
     if (st.options.length || st.mode.length || st.transform?.length) throw new Unsupported(`preamble: ${line} sets more than styles`)
   }
+  // (the arrow tips instantiated so far are the document's: its first picture's state keeps them)
+  doc.arrows = arrowStates.get(cx.doc) ?? null
   const s = new PgfState(units)
   const used = doc.picture(src, s, cx.driver === "pdftex" ? new PdftexDriver(s) : new DvipsDriver(s), color)
   if (tokenize(src, false, true).slice(used).some((x) => x !== " ")) throw new Unsupported("text after a picture")
+  if (doc.arrows) arrowStates.set(cx.doc, doc.arrows)
   return s.out
 }

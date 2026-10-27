@@ -1,0 +1,22 @@
+% fixture: tikz/arrows-pdftex
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: arrow tips on drawn paths (->, <->, -latex, -stealth, arrows.meta's Stealth and Latex, To), in two pictures: the tips instantiated once for the document; line widths and colors
+% issue: #309
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta}
+\begin{document}
+Arrows: \tikz \draw[->] (0,0) -- (1,0); and back \tikz \draw[<-] (0,0) -- (1,0); in a line.
+
+\begin{tikzpicture}
+\draw[->] (0,0) -- (2,0);
+\draw[<->,thick,red] (0,0.5) -- (2,0.5);
+\draw[-latex] (0,1) -| (2,1.5);
+\draw[-stealth,blue] (0,2) to (2,2.5);
+\draw[-{Stealth}] (3,0) -- (4,1);
+\draw[-Latex,line width=1pt] (3,1) -- (4,2);
+\end{tikzpicture}
+\end{document}

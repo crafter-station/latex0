@@ -84,6 +84,16 @@ const FIXED = [
   pic("\\draw (1,2) coordinate (a) -- (3,1) coordinate (b) (0,0) coordinate[red] (c); \\draw[xshift=1cm,scale=2] (a) rectangle (b) (c) circle (1pt);"),
   pic("\\begin{scope}[rotate=20,xshift=3pt] \\coordinate (a) at (1,1); \\end{scope} \\draw[scale=0.5,yslant=0.2] (a) -- (0,0); \\draw[xscale=3] (0,0) -- (a);"),
   pic("\\path (0,0) coordinate (p) -- (2,1) coordinate (q); \\draw (p) to (q) -- +(1,0) coordinate (r) (r) -- (p);"),
+  pic("\\draw[->] (0,0) -- (1,0); \\draw[<->,thick,red] (0,1) -- (2,1) -- (2,2); \\draw[-latex] (0,2) to (1,3); \\draw[-{Stealth}] (0,3) -- (1,3);"),
+  pic("\\draw[-Latex,blue] (0,0) -- (1,0) -- cycle; \\draw[-To,line width=2pt] (0,2) -- (1,2); \\draw[stealth-] (0,3) -- (1,3);"),
+  pic("\\draw[draw=blue,fill=green,red,->] (0,0) -- (1,0); \\draw[draw=blue,red!50,->] (0,1) -- (1,1); \\draw[draw=blue,fill=green,->] (0,2) -- (1,2);"),
+  pic("\\draw[draw=red,fill=red,->] (0,0) -- (1,0); \\draw[red,fill=red,->] (0,1) -- (1,1); \\draw[draw=red!50,fill=red!50,->] (0,2) -- (1,2); \\draw[draw=red,fill=red!100,->] (0,3) -- (1,3);"),
+  pic("\\draw[->] (1,1);"),
+  pic("\\draw[->] (0,0) circle (1);"),
+  pic("\\draw[->] (0,0) -- (1,0) -- cycle;"),
+  pic("\\draw[->] (0,0) -| (1,1);"),
+  pic("\\begin{scope}[->] \\clip (0,0) circle (1); \\end{scope}"),
+  pic("\\draw[->] (0,0) -- (0,0);"),
   "\\tikz \\draw (0,0) -- (1,0);",
   "\\tikz[baseline=-0.5ex] \\draw (0,0) circle (2pt);",
   "\\tikz{\\draw (0,0) -- (1,0); \\fill (0,0) circle (1pt);}",
@@ -93,11 +103,11 @@ const FIXED = [
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
   pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node at (0,0) {x};"), pic("\\draw (0,0) node {x} -- (1,0);"),
-  pic("\\draw[->] (0,0) -- (1,0);"), pic("\\draw[rounded corners] (0,0) -- (1,0) -- (1,1);"), pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
+pic("\\draw[rounded corners] (0,0) -- (1,0) -- (1,1);"), pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
   pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in {1,2} \\draw (\\x,0) -- (0,0);"),
   pic("\\draw (0,0) .. controls (1,1) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
-  pic("\\coordinate (a) at (0,0); \\draw (a.text) -- (1,0);"), pic("\\draw (0,0) -- (b);"), pic("\\draw (0,0) -- (1cm,1) arc[radius=1, start angle=0, end angle=90];"),
+  pic("\\coordinate (a) at (0,0); \\draw (a.text) -- (1,0);"), pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) -- (1cm,1) arc[radius=1, start angle=0, end angle=90];"),
 ]
 
 function rng(seed: number) {
@@ -139,6 +149,7 @@ export function makePictures(n: number, seed: number): string[] {
       () => pick(["dashed", "dotted", "densely dotted", "loosely dashed", "dash dot", "solid", "dash pattern=on 2pt off 1pt", "dash phase=1pt"]),
       () => pick([`draw=${color()}`, `fill=${color()}`, `color=${color()}`, color().replace(".", "red"), "draw", "fill", "draw=none", "fill=none"]),
       transform,
+      () => pick(["->", "<-", "<->", "-latex", "-stealth", "-{Stealth}", "-Latex", "-To", "->>", "arrows=-to"]),
     ])()
     const options = () => (r() < 0.5 ? "" : `[${Array.from({ length: int(1, 3) }, option).join(",")}]`)
     const name = () => { const x = `${pick(["a", "b", "c", "p", "q"])}${k}`; pending.push(x); return x }
@@ -177,7 +188,7 @@ export function makePictures(n: number, seed: number): string[] {
 function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   mkdirSync(DIR, { recursive: true })
   const tex = [
-    "\\documentclass{article}", "\\usepackage{tikz}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
+    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
     // (pgf's globals one picture leaves must not reach the next)
     ...pictures.map((x, i) => `\\immediate\\write16{C:${i}}\\makeatletter\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\makeatother\\setbox0\\hbox{${x}}\\showbox0`), "\\end{document}", "",
@@ -201,12 +212,16 @@ function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   return out
 }
 
-/** the engine's box for a picture under a target */
-export function enginePicture(src: string, t: Target, units: PgfUnits): Node[] {
-  const s = new PgfState(units)
+/** TikZ in the check's document (its arrow tips instantiated once, as TeX's are) */
+function tikzDocument(units: PgfUnits): TikzDocument {
   const colors = new Colors()
   for (const [name, model, values] of COLORS) colors.define(name, model, values)
-  const doc = new TikzDocument({ units, colors })
+  return new TikzDocument({ units, colors, arrowsMeta: true })
+}
+
+/** the engine's box for a picture under a target */
+export function enginePicture(src: string, t: Target, doc: TikzDocument, units: PgfUnits): Node[] {
+  const s = new PgfState(units)
   doc.picture(src, s, t.driver(s), xcolor.normal)
   const box = hpack(s.out)
   if (t.name === "pdftex") pdftexColors(box)
@@ -220,7 +235,7 @@ export function tikzCheck(n: number, seed: number): number {
   let failed = 0
   for (const src of REFUSED) {
     try {
-      enginePicture(src, TARGETS[0], units)
+      enginePicture(src, TARGETS[0], tikzDocument(units), units)
       failed++
       console.log(`✗ the engine typesets what it does not model: ${src}`)
     } catch (e) {
@@ -230,12 +245,13 @@ export function tikzCheck(n: number, seed: number): number {
   for (const t of TARGETS) {
     const tex = texBoxes(t, pictures)
     let same = 0, refused = 0, unsupported = 0
+    const doc = tikzDocument(units)
     pictures.forEach((src, i) => {
       const expected = tex[i]
       if (expected === undefined) throw new Error(`TeX showed no box for picture ${i} (${DIR}/${t.name}.log)`)
       let problem: string
       try {
-        const box = enginePicture(src, t, units)
+        const box = enginePicture(src, t, doc, units)
         if (typeof expected === "string") problem = `${expected}\n    engine: no error`
         else {
           const d = compareBoxLists([expected], box.map(emitBoxes))
