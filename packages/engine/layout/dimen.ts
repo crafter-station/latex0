@@ -299,6 +299,21 @@ export function parseDimen(src: string, env: ScanEnv): number {
   return value
 }
 
+/**
+ * <factor><dimen register> (`.5\\dimen0`, graphics' scale factors, pgf's `0.99627\\pgf@x`): the register scaled
+ * as scan_dimen does it (nx_plus_y, xn_over_d). With `errors`, TeX's errors are collected there and TeX's
+ * recovery value returned (Dimension too large: ±max_dimen); without, an error throws.
+ */
+export function times(f: string, value: number, errors?: string[]): number {
+  const env: ScanEnv = { em: 0, ex: 0, internal: (name) => (name === "reg" ? { level: "dimen", value } : undefined) }
+  if (!errors) return parseDimen(`${f}\\reg`, env)
+  const s = new Scanner(`${f}\\reg`, env)
+  const v = s.scanDimen().value
+  if (s.rest().trim()) throw new Error(`bad factor "${f}"`)
+  errors.push(...s.errors)
+  return v
+}
+
 /** A whole string as glue, e.g. "10pt plus 2pt minus 1fil" (shrink must be finite in paragraphs). */
 export function parseGlue(src: string, env: ScanEnv): GlueSpec {
   const s = new Scanner(src, env)
