@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 618,
-  "exact": 617,
+  "fixtures": 668,
+  "exact": 667,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 1,
-  "glyphs": 360795
+  "glyphs": 381535
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 199,
-   "exact": 199
+   "fixtures": 249,
+   "exact": 249
   },
   {
    "area": "bibliography",
@@ -2248,6 +2248,50 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/miniframes-empty-pdf",
+   "file": "micro/beamer/miniframes-empty-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 45,
+   "covers": "beamer's miniframes outer theme: a section with four frames and a one-letter title (padded to its mini frames), then a section with no frame (not padded), then one more",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/miniframes-empty",
+   "file": "micro/beamer/miniframes-empty.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 45,
+   "covers": "beamer's miniframes outer theme: a section with four frames and a one-letter title (padded to its mini frames), then a section with no frame (not padded), then one more",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/miniframes-slides-pdf",
+   "file": "micro/beamer/miniframes-slides-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 344,
+   "covers": "beamer's Dresden theme (miniframes): mini frames in rows by subsection (frames in no subsection first), several per row, a two-slide frame (its mini frame's link goes to its last slide from the first), a short section title padded to its mini frames' width, a short section title of its own",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/miniframes-slides",
+   "file": "micro/beamer/miniframes-slides.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 344,
+   "covers": "beamer's Dresden theme (miniframes): mini frames in rows by subsection (frames in no subsection first), several per row, a two-slide frame (its mini frame's link goes to its last slide from the first), a short section title padded to its mini frames' width, a short section title of its own",
+   "issue": "#322"
+  },
+  {
    "id": "beamer/navsymbols-20pt-pdf",
    "file": "micro/beamer/navsymbols-20pt-pdf.tex",
    "area": "beamer",
@@ -2358,6 +2402,50 @@
    "issue": "#311"
   },
   {
+   "id": "beamer/outer-miniframes-pdf",
+   "file": "micro/beamer/outer-miniframes-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 371,
+   "covers": "beamer's miniframes outer theme alone, no navigation symbols: the sections with a mini frame per frame, the current one filled, in the headline, the subsection below; the empty footline",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/outer-miniframes",
+   "file": "micro/beamer/outer-miniframes.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 371,
+   "covers": "beamer's miniframes outer theme alone, no navigation symbols: the sections with a mini frame per frame, the current one filled, in the headline, the subsection below; the empty footline",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/outer-sidebar-pdf",
+   "file": "micro/beamer/outer-sidebar-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's sidebar outer theme alone (on the left, with a head), no navigation symbols: the short title and author and the sections and subsections, current ones not shaded, in the sidebar; the frame title in the head",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/outer-sidebar",
+   "file": "micro/beamer/outer-sidebar.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's sidebar outer theme alone (on the left, with a head), no navigation symbols: the short title and author and the sections and subsections, current ones not shaded, in the sidebar; the frame title in the head",
+   "issue": "#322"
+  },
+  {
    "id": "beamer/outer-split-pdf",
    "file": "micro/beamer/outer-split-pdf.tex",
    "area": "beamer",
@@ -2443,6 +2531,28 @@
    "status": "pass",
    "glyphs": 444,
    "covers": "beamer's split outer theme alone, no navigation symbols: section and subsection navigation in the headline, shaded but the current one, before any section and in sections with and without subsections; the footline",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/outer-tree-pdf",
+   "file": "micro/beamer/outer-tree-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 327,
+   "covers": "beamer's tree outer theme alone, no navigation symbols: the short title, the section and the subsection in the headline, hooked once they are not empty",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/outer-tree",
+   "file": "micro/beamer/outer-tree.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 327,
+   "covers": "beamer's tree outer theme alone, no navigation symbols: the short title, the section and the subsection in the headline, hooked once they are not empty",
    "issue": "#322"
   },
   {
@@ -2798,6 +2908,28 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/sidebar-long-pdf",
+   "file": "micro/beamer/sidebar-long-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 449,
+   "covers": "beamer's Hannover theme: a short title and authors that wrap in the sidebar's minipages, section and subsection titles that wrap in the sidebar, a section's short title, subsections of the same number in two sections",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/sidebar-long",
+   "file": "micro/beamer/sidebar-long.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 449,
+   "covers": "beamer's Hannover theme: a short title and authors that wrap in the sidebar's minipages, section and subsection titles that wrap in the sidebar, a section's short title, subsections of the same number in two sections",
+   "issue": "#322"
+  },
+  {
    "id": "beamer/theme-annarbor-pdf",
    "file": "micro/beamer/theme-annarbor-pdf.tex",
    "area": "beamer",
@@ -2817,6 +2949,94 @@
    "status": "pass",
    "glyphs": 474,
    "covers": "beamer's AnnArbor theme without shadows (\\usetheme[shadow=false]{AnnArbor}: wolverine, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berkeley-10pt-pdf",
+   "file": "micro/beamer/theme-berkeley-10pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's Berkeley theme at 10pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berkeley-10pt",
+   "file": "micro/beamer/theme-berkeley-10pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's Berkeley theme at 10pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berkeley-pdf",
+   "file": "micro/beamer/theme-berkeley-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's Berkeley theme (sidebar on the left with a head, rectangles, whale, orchid), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berkeley",
+   "file": "micro/beamer/theme-berkeley.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's Berkeley theme (sidebar on the left with a head, rectangles, whale, orchid), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berlin-8pt-pdf",
+   "file": "micro/beamer/theme-berlin-8pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "beamer's Berlin theme at 8pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berlin-8pt",
+   "file": "micro/beamer/theme-berlin-8pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "beamer's Berlin theme at 8pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berlin-pdf",
+   "file": "micro/beamer/theme-berlin-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "beamer's Berlin theme (miniframes with the author, institute and title footline, whale, orchid, rectangles), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-berlin",
+   "file": "micro/beamer/theme-berlin.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "beamer's Berlin theme (miniframes with the author, institute and title footline, whale, orchid, rectangles), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
    "issue": "#322"
   },
   {
@@ -2842,6 +3062,28 @@
    "issue": "#322"
   },
   {
+   "id": "beamer/theme-cambridgeus-17pt-pdf",
+   "file": "micro/beamer/theme-cambridgeus-17pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 474,
+   "covers": "beamer's CambridgeUS theme at 17pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-cambridgeus-17pt",
+   "file": "micro/beamer/theme-cambridgeus-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 474,
+   "covers": "beamer's CambridgeUS theme at 17pt",
+   "issue": "#322"
+  },
+  {
    "id": "beamer/theme-cambridgeus-pdf",
    "file": "micro/beamer/theme-cambridgeus-pdf.tex",
    "area": "beamer",
@@ -2864,6 +3106,28 @@
    "issue": "#322"
   },
   {
+   "id": "beamer/theme-copenhagen-20pt-pdf",
+   "file": "micro/beamer/theme-copenhagen-20pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "beamer's Copenhagen theme at 20pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-copenhagen-20pt",
+   "file": "micro/beamer/theme-copenhagen-20pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "beamer's Copenhagen theme at 20pt",
+   "issue": "#322"
+  },
+  {
    "id": "beamer/theme-copenhagen-pdf",
    "file": "micro/beamer/theme-copenhagen-pdf.tex",
    "area": "beamer",
@@ -2883,6 +3147,138 @@
    "status": "pass",
    "glyphs": 441,
    "covers": "beamer's Copenhagen theme (split, rounded, whale, orchid), navigation symbols on: the sections and subsections in the headline (from the last run's .nav), the author and title in the footline, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-dresden-pdf",
+   "file": "micro/beamer/theme-dresden-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 481,
+   "covers": "beamer's Dresden theme (miniframes, whale), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-dresden",
+   "file": "micro/beamer/theme-dresden.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 481,
+   "covers": "beamer's Dresden theme (miniframes, whale), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-goettingen-12pt-pdf",
+   "file": "micro/beamer/theme-goettingen-12pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Goettingen theme at 12pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-goettingen-12pt",
+   "file": "micro/beamer/theme-goettingen-12pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Goettingen theme at 12pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-goettingen-pdf",
+   "file": "micro/beamer/theme-goettingen-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Goettingen theme (sidebar on the right, no head, its canvas shaded), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-goettingen",
+   "file": "micro/beamer/theme-goettingen.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Goettingen theme (sidebar on the right, no head, its canvas shaded), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-hannover-14pt-pdf",
+   "file": "micro/beamer/theme-hannover-14pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Hannover theme at 14pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-hannover-14pt",
+   "file": "micro/beamer/theme-hannover-14pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Hannover theme at 14pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-hannover-pdf",
+   "file": "micro/beamer/theme-hannover-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Hannover theme (sidebar on the left, no head, seahorse, circles, frame titles on the right), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-hannover",
+   "file": "micro/beamer/theme-hannover.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Hannover theme (sidebar on the left, no head, seahorse, circles, frame titles on the right), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-ilmenau-pdf",
+   "file": "micro/beamer/theme-ilmenau-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "beamer's Ilmenau theme (miniframes, whale, orchid, rounded), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-ilmenau",
+   "file": "micro/beamer/theme-ilmenau.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "beamer's Ilmenau theme (miniframes, whale, orchid, rounded), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
    "issue": "#322"
   },
   {
@@ -2930,6 +3326,94 @@
    "issue": "#322"
   },
   {
+   "id": "beamer/theme-marburg-pdf",
+   "file": "micro/beamer/theme-marburg-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Marburg theme (sidebar on the right in palette primary, no head, its canvas shaded, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-marburg",
+   "file": "micro/beamer/theme-marburg.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 468,
+   "covers": "beamer's Marburg theme (sidebar on the right in palette primary, no head, its canvas shaded, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-montpellier-9pt-pdf",
+   "file": "micro/beamer/theme-montpellier-9pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 327,
+   "covers": "beamer's Montpellier theme at 9pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-montpellier-9pt",
+   "file": "micro/beamer/theme-montpellier-9pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 327,
+   "covers": "beamer's Montpellier theme at 9pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-montpellier-pdf",
+   "file": "micro/beamer/theme-montpellier-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 327,
+   "covers": "beamer's Montpellier theme (the tree outer theme with hooks, its separation line), navigation symbols on: the title, section and subsection rows in the headline, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-montpellier",
+   "file": "micro/beamer/theme-montpellier.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 327,
+   "covers": "beamer's Montpellier theme (the tree outer theme with hooks, its separation line), navigation symbols on: the title, section and subsection rows in the headline, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-paloalto-pdf",
+   "file": "micro/beamer/theme-paloalto-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's PaloAlto theme (sidebar with a head, rounded without shadows, orchid, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-paloalto",
+   "file": "micro/beamer/theme-paloalto.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's PaloAlto theme (sidebar with a head, rounded without shadows, orchid, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
    "id": "beamer/theme-pittsburgh-pdf",
    "file": "micro/beamer/theme-pittsburgh-pdf.tex",
    "area": "beamer",
@@ -2949,6 +3433,72 @@
    "status": "pass",
    "glyphs": 268,
    "covers": "beamer's Pittsburgh theme (circles, frame titles on the right), navigation symbols on: the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-rochester-pdf",
+   "file": "micro/beamer/theme-rochester-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 265,
+   "covers": "beamer's Rochester theme (no sidebar, a head, rectangles, whale, orchid), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-rochester",
+   "file": "micro/beamer/theme-rochester.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 265,
+   "covers": "beamer's Rochester theme (no sidebar, a head, rectangles, whale, orchid), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-szeged-17pt-pdf",
+   "file": "micro/beamer/theme-szeged-17pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "beamer's Szeged theme at 17pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-szeged-17pt",
+   "file": "micro/beamer/theme-szeged-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "beamer's Szeged theme at 17pt",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-szeged-pdf",
+   "file": "micro/beamer/theme-szeged-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "beamer's Szeged theme (miniframes with the institute and title footline, its separation line), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
+   "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-szeged",
+   "file": "micro/beamer/theme-szeged.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "beamer's Szeged theme (miniframes with the institute and title footline, its separation line), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
    "issue": "#322"
   },
   {
