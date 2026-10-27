@@ -169,8 +169,8 @@ const TEXT_COMMANDS = [
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge"
 ]
-/** siunitx's commands with their arguments, which the paragraph reads (siunitx.ts) */
-const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
+/** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
+const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS)].join("|")}|the[a-zA-Z]+)\\b)[a-zA-Z]+(?!\\s*=)`)
 

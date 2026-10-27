@@ -121,7 +121,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
   }
-  const doc: DocState = { footnote: 0, refs, xcolor: usesColor, siunitx: pre.usesSiunitx, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
+  const doc: DocState = { footnote: 0, refs, xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []

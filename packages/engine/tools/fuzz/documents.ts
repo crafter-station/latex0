@@ -72,8 +72,8 @@ export function makeDocument(r: () => number): string {
     } else block(0, 1 + Math.floor(r() * 8))
     return [`\\begin{algorithmic}${pick(["[1]", "[1]", "", "[2]"])}`, ...lines, "\\end{algorithmic}"]
   }
-  const math = () => { const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$", "$\\sin x+\\log_2 n$", "$\\lim_{n\\to\\infty} a_n$", "$\\max_i x_i\\le\\det A$", "$\\cos^2\\theta$", "$\\lim\\limits_{x} f$", ...(ams ? ["$\\operatorname{tr} A$", "$\\operatorname*{arg\\,max}_x f$"] : [])]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
-  const display = () => pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
+  const math = () => { if (siOn && r() < 0.15) return `$${pick(["", "x = ", "E \\approx "])}${si()}$`; const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$", "$\\sin x+\\log_2 n$", "$\\lim_{n\\to\\infty} a_n$", "$\\max_i x_i\\le\\det A$", "$\\cos^2\\theta$", "$\\lim\\limits_{x} f$", ...(ams ? ["$\\operatorname{tr} A$", "$\\operatorname*{arg\\,max}_x f$"] : [])]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
+  const display = () => siOn && r() < 0.15 ? `${pick(["", "F = ", "m \\ne "])}${si()}${pick(["", " + \\num{1.5}", ", \\quad x"])}` : pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
     "\\prod_{k=1}^{m}\\frac{1}{k}", "\\left[\\frac{\\frac{1}{2}}{\\sum_{i=1}^n x_i}\\right]", "\\left\\{ x \\right|_{a}^{b}", "\\mathbf{F}=m\\mathbf{a}", "\\sqrt{\\frac{a}{b}}+\\sqrt{\\sum_{i=1}^n x_i^2}", "\\mathrm{e}^{\\mathrm{i}\\pi}+\\mathnormal{1}=\\mathsf{0}", "\\sqrt[3]{\\frac{1}{1+\\sqrt[n]{x}}}=y^{\\sqrt[k]{2}}", "\\lim_{x\\to 0}\\frac{\\sin x}{x}=1", "\\max_{1\\le i\\le n}\\log x_i+\\limsup_{n} a_n", "\\sum_{i\\,=\\,1}^n x_i \\quad\\ne\\quad \\prod_{j} y_j \\qquad a\\!\\;b", ...(ams ? ["\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", "A=\\begin{bmatrix} 1 & 0 & x^2 \\\\ \\frac{1}{2} & y \\end{bmatrix}", "\\begin{vmatrix} a \\\\ b \\end{vmatrix}"] : []), "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
   /** a display with no \\\\ of its own (a matrix's), for a row of a gather */
   const rowDisplay = () => { for (;;) { const f = display(); if (!f.includes("\\\\")) return f } }
@@ -99,13 +99,20 @@ export function makeDocument(r: () => number): string {
   const siUnit = () => pick(["\\metre", "\\second", "\\kilo\\gram", "\\metre\\per\\second", "\\metre\\per\\second\\squared", "\\square\\metre", "\\cubic\\centi\\metre", "\\degreeCelsius",
     "\\ohm", "\\kilo\\ohm", "\\micro\\metre", "\\percent", "\\joule\\per\\kilogram\\per\\kelvin", "\\newton\\metre", "\\degree", "\\arcminute", "\\hertz", "\\mA", "\\kWh", "\\dB",
     "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us"])
+  // its options: rounding, digit groups, markers and products, separate uncertainties, per-mode, phrases
+  const siKeys = () => Array.from({ length: 1 + Math.floor(r() * 2) }, () => pick(["round-mode=places", "round-mode = places, round-precision = 1", "round-mode=figures, round-precision=3",
+    "round-mode=places, round-pad=false, round-precision=3", "round-mode=places, round-zero-positive=false", "round-mode=figures, round-precision=1", "group-digits=none", "group-digits=integer",
+    "group-separator={,}", "group-minimum-digits=4", "output-decimal-marker={,}", "exponent-product=\\cdot", "separate-uncertainty", "uncertainty-mode=separate", "per-mode=symbol",
+    "per-mode=fraction", "inter-unit-product=\\cdot", "quantity-product={}", "range-phrase=--", "range-phrase={ -- }", "list-final-separator={ and finally }", "list-separator={; }",
+    "list-pair-separator={ or }"])).join(", ")
+  const siOpt = () => (r() < 0.25 ? `[${siKeys()}]` : "")
   const si = () => {
     const x = r()
-    if (x < 0.2) return `\\num{${siNum()}}`
-    if (x < 0.35) return `\\${pick(["si", "unit"])}{${siUnit()}}`
-    if (x < 0.75) return `\\${pick(["SI", "qty"])}{${siNum()}}{${siUnit()}}`
-    if (x < 0.85) return pick([`\\numrange{${siNum()}}{${siNum()}}`, `\\qtyrange{1}{${siNum()}}{${siUnit()}}`, `\\SIrange{2}{3}{${siUnit()}}`])
-    if (x < 0.95) return pick(["\\numlist{1;2;3}", `\\SIlist{${siNum()};${siNum()}}{${siUnit()}}`, `\\qtylist{1;2;3;4}{${siUnit()}}`, `\\numlist{${siNum()}}`])
+    if (x < 0.2) return `\\num${siOpt()}{${siNum()}}`
+    if (x < 0.35) return `\\${pick(["si", "unit"])}${siOpt()}{${siUnit()}}`
+    if (x < 0.75) return `\\${pick(["SI", "qty"])}${siOpt()}{${siNum()}}{${siUnit()}}`
+    if (x < 0.85) return pick([`\\numrange${siOpt()}{${siNum()}}{${siNum()}}`, `\\qtyrange{1}{${siNum()}}{${siUnit()}}`, `\\SIrange{2}{3}{${siUnit()}}`])
+    if (x < 0.95) return pick(["\\numlist{1;2;3}", `\\SIlist${siOpt()}{${siNum()};${siNum()}}{${siUnit()}}`, `\\qtylist{1;2;3;4}{${siUnit()}}`, `\\numlist${siOpt()}{${siNum()}}`])
     return `\\ang{${pick(["45", "1;2;3", ";;3", "12.5;30"])}}`
   }
   // a tabular: l, c, r and p{width} columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
@@ -114,11 +121,13 @@ export function makeDocument(r: () => number): string {
     const n = 1 + Math.floor(r() * 4)
     const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
     let spec = r() < 0.2 ? pick(["@{}", "@{~}", "@{: }"]) : rule()
-    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.1 ? pick(["C", "B"]) : pick(["l", "c", "r"]))
+    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.1 ? pick(["C", "B"]) : siOn && r() < 0.2 ? pick(["S", "S", "S[table-format=2.2]", "S[table-format=3.1]", "S[table-format=-1.3]", "S[round-mode=places, round-precision=1]", "S[output-decimal-marker={,}]", "S[separate-uncertainty]"]) : pick(["l", "c", "r"]))
+    // siunitx's S columns: numbers, text in braces, nothing
+    const sCell = () => pick(["1.5", "12.25", "-0.5", "100", "", "{Value}", "{\\textbf{x}}", "1234.5678", ".5", "3", "1.2e3", "1.5(2)", "0.001", "99.99", "{---}", "-12"])
     // array.sty: >{decl} before a column, <{decl} after it, !{text} between columns
     const decl = (box: boolean) => pick(["\\bfseries", "\\itshape", "\\small", "\\ttfamily", ...(box ? ["\\centering\\arraybackslash", "\\raggedright\\arraybackslash", "\\raggedleft\\arraybackslash"] : ["\\sffamily", "\\slshape"])]) // (no >{$}: entries have formulas of their own)
     const col = (k: string) => {
-      if (!arOn || k === "C" || k === "B") return k
+      if (!arOn || k === "C" || k === "B" || k.startsWith("S")) return k
       const box = /^[pmb]/.test(k), pre = r() < 0.25 ? decl(box) : ""
       return (pre ? `>{${pre}}` : "") + k + (r() < 0.1 && !box ? `<{${pick(["\\,\\%", ":", "."])}}` : "")
     }
@@ -150,7 +159,7 @@ export function makeDocument(r: () => number): string {
       const cells: string[] = []
       for (let j = 0; j < n;) {
         const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
-        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(entry(/^[pmbC]/.test(kinds[j]))); j++ }
+        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(kinds[j].startsWith("S") ? sCell() : entry(/^[pmbC]/.test(kinds[j]))); j++ }
       }
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
       rows.push(cells.join(" & ") + ` \\\\${end}`)
@@ -354,7 +363,11 @@ export function makeDocument(r: () => number): string {
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
-  if (siOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{siunitx}")
+  if (siOn) {
+    const pkg = r() < 0.2 ? `\\usepackage[${siKeys()}]{siunitx}` : "\\usepackage{siunitx}"
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, pkg)
+    if (r() < 0.3) out.splice(out.indexOf(pkg) + 1, 0, `\\sisetup{${siKeys()}}`)
+  }
   if (arOn) {
     out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{array}")
     const at = out.indexOf("\\usepackage{array}") + 1 // (after it: array.sty defines them)

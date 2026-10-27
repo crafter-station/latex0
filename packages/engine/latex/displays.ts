@@ -2,7 +2,7 @@
 // display's line, \abovedisplayskip and \belowdisplayskip, \predisplaypenalty, equation numbers), and a
 // paragraph broken from a prepared list.
 
-import { QUAD } from "../layout/font"
+import { QUAD, type Font } from "../layout/font"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type CharNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
@@ -18,7 +18,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, spec, parseFormula, type ParagraphOptions } from "./paragraph"
+import { squeeze, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, spec, parseFormula, siContext, type ParagraphOptions } from "./paragraph"
 import type { GlueSpec } from "../layout/dimen"
 import type { SizeCommand } from "../layout/classdata"
 
@@ -32,7 +32,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
   const { amsmath, hyper } = cx.pre
   const { counters, decisions, doc, outerParskip, refs, romanFont, run, v } = cx
   const segs = displaySegments(text)
-  const quad = romanFont.params[QUAD]
+  const font = romanFont
   let prevGraf = 0
   segs.forEach((seg, i) => {
     if (typeof seg !== "string") return
@@ -74,7 +74,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (!next) return
     // the display
     const ps = params ?? paragraphInput("", run.k, "normalsize", doc, { amsmath }).params
-    displayMath(cx, next, displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape), justBox, quad)
+    displayMath(cx, next, displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape), justBox, font)
     prevGraf += 3
   })
 }
@@ -87,6 +87,9 @@ const skipsOf = (o: ParagraphOptions): Skips => ({ ...(o.leftSkip ? { leftSkip: 
  *  stepped none (\if@hyper@item), Item.n; the \@hyper@itemfalse that goes with it is local to the display's group
  *  (to an alignment's cell), so the next one is an Item.n again. Only amsmath's \incr@eqnum goes through hyperref's
  *  \refstepcounter: without it, hyperref's equation steps the counter with the kernel's */
+/** siunitx's view of a display's text (displays are at \\normalsize) */
+const si = (cx: Ctx, font: Font) => (cx.doc.siunitx ? siContext(cx.run.k, "normalsize", font, cx.doc.siunitx) : undefined)
+
 function stepHref(cx: Ctx, counter: string, n: number): string {
   return cx.run.hyperItem && cx.pre.amsmath ? `Item.${++cx.run.items}` : cx.counters.href(counter, n)
 }
@@ -103,7 +106,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
   const { decisions, doc, run, v, counted } = cx
   if (size !== "normalsize") throw new Unsupported(`a display in a list in \\${size}`)
   const segs = displaySegments(text)
-  const quad = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs).params[QUAD]
+  const font = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs)
   let prevGraf = 0
   segs.forEach((seg, i) => {
     if (typeof seg !== "string") return
@@ -118,7 +121,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
       ...(last ? { ...(end ? { end } : {}), ...(unskip ? { unskip } : {}) } : { widowPenalty: run.k.ints.displaywidowpenalty }) }
     if (last && !t && !end) return // (an empty paragraph after the display makes no line)
     if (!first && !last && !t) { // two displays in a row: the second starts with an empty list (§ 1145: no line break)
-      displayMath(cx, next!, displayLine(prevGraf, run.k.dimens.textwidth, 0, 1, opts.parShape ?? []), null, quad, skipsOf(opts))
+      displayMath(cx, next!, displayLine(prevGraf, run.k.dimens.textwidth, 0, 1, opts.parShape ?? []), null, font, skipsOf(opts))
       prevGraf += 3
       return
     }
@@ -128,15 +131,16 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
     if (first) v.paragraph(lb.vlist, parskip, run.k.sizes[size].baselineskip); else v.lines(lb.vlist)
     prevGraf += lb.lines.length
     if (next) {
-      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, quad, skipsOf(opts))
+      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, font, skipsOf(opts))
       prevGraf += 3
     }
   })
 }
 
 /** A display (§§ 1145–1206) on line prev_graf+2 of the paragraph (`line`), after `justBox`, its last line so far;
- *  `quad`: \fontdimen6 of the font then, which \predisplaysize allows for */
-function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, quad: number, skips: Skips = {}) {
+ *  `font`: the text font then, whose \fontdimen6 \predisplaysize allows for */
+function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, font: Font, skips: Skips = {}) {
+  const quad = font.params[QUAD]
   const { amsmath, hyper } = cx.pre
   // amsmath's \iftag@ after it: \mathdisplay (equation, \[ \]) and \displ@y@'s \everycr (align, gather) leave it false,
   // a numbered multline's \mmeasure@ true; $$ leaves it alone
@@ -144,9 +148,9 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   const { counters, refs, romanFont, run, v } = cx
   if (next.kind === "align" || next.kind === "align*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
-    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, quad, skips)
-    else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, quad)
-    else alignDisplay(cx, next, line, quad, skips)
+    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips)
+    else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, font)
+    else alignDisplay(cx, next, line, font, skips)
     return
   }
   // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
@@ -156,7 +160,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   if (labels.length > 1) throw new Unsupported("several \\label in an equation")
   const label = labels[0]
   if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, quad) // (\quad: 1em of the text font then)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, quad, si(cx, font)) // (\quad: 1em of the text font then)
   if (next.kind === "equation") { counters.equation++; refs.href = stepHref(cx, "equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
   const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the(counters.equation) }
   const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the(counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
@@ -210,7 +214,8 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
  * by \eqnshift@ with \alignsep@ between column pairs, and each row's number is set off at the
  * right edge. TeX finishes it as an alignment in a display (§ 1206).
  */
-export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number, skips: Skips = {}) {
+export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}) {
+  const em = font.params[QUAD]
   const { amsmath, hyper } = cx.pre
   const { counters, decisions, doc, refs, romanFont, run, v } = cx
   const starred = d.kind === "align*"
@@ -219,7 +224,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
   const env = mathEnv(run.k, "normalsize", true)
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font))
   const rows = src.split(/\\\\/).map((r) => {
     const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
     const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {
@@ -346,7 +351,8 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
  * less the tag's width when that is tight), its number set off at the right edge, or below the row when it does not
  * fit; an \halign to \displaywidth finished as an alignment in a display (§ 1206), as align is.
  */
-export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number, skips: Skips = {}) {
+export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}) {
+  const em = font.params[QUAD]
   const { amsmath, hyper } = cx.pre
   const { counters, decisions, doc, refs, romanFont, run, v } = cx
   const starred = d.kind === "gather*"
@@ -355,7 +361,7 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
   if (/\\(label|tag|intertext|shortintertext|raisetag)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in gather")
   if (/&/.test(src)) throw new Unsupported("& in gather")
   const env = mathEnv(run.k, "normalsize", true)
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font))
   const sz = run.k.sizes.normalsize, strut = sz.strut
   const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
   // \setboxz@h{$\m@th\displaystyle{##}$}
@@ -431,7 +437,8 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
  * \hskip\multlinegap\hfilneg in its formula), so it sits at the right; a number that does not fit beside the last
  * row (\mmeasure@'s \shifttag@) goes below it. Finished as an alignment in a display (§ 1206), as align is.
  */
-export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, em: number) {
+export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font) {
+  const em = font.params[QUAD]
   const { amsmath, hyper } = cx.pre
   const { counters, refs, romanFont, run, v } = cx
   const src = d.src.trim()
@@ -439,7 +446,7 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
   if (/\\(label|tag|shoveleft|shoveright|raisetag|begin)\b/.test(src)) throw new Unsupported("\\label, \\tag, \\shoveleft, \\shoveright or an environment in multline")
   const numbered = d.kind === "multline" && !/\\(nonumber|notag)\b/.test(src)
   const env = mathEnv(run.k, "normalsize", true)
-  const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em)
+  const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em, si(cx, font))
   const sz = run.k.sizes.normalsize, strut = sz.strut
   const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
   const z = line.width, gap = 655360 // \multlinegap and \multlinetaggap, 10pt

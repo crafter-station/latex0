@@ -35,7 +35,7 @@ import { xcolor } from "./xcolor"
 import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
-import { SI_COMMANDS, siunitx } from "./siunitx"
+import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -61,9 +61,18 @@ export { mathData }
 const ALPHABET_FONTS = ["mathbf", "mathit", "mathsf", "mathtt"] as const
 export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1, mathcal: 2, ...Object.fromEntries(ALPHABET_FONTS.map((a, i) => [a, 4 + i])) }
 
-/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's */
-export function parseFormula(src: string, amsmath: boolean, em: number): MItem[] {
-  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em }) } catch (e) { throw new Unsupported((e as Error).message) } // (what the parser does not read)
+/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's;
+ *  `si`: siunitx is loaded, and its view of the text around */
+export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext): MItem[] {
+  const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
+  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+}
+
+/** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
+export function siContext(k: ClassOptionData, size: SizeCommand, font: Font, options: SiOptions): SiContext {
+  const micro = () => hpack([charNode(selectFont(k, size, { enc: "TS1", fam: "cmr", ser: "m", shape: "n" }), 0xb5)])
+  const text = (src: string) => { const box: Node[] = []; appendText(box, src, font, { spaceFactor: 1000 }, false); return hpack(box) }
+  return { data: mathData(), micro, font, text, options }
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
@@ -96,8 +105,8 @@ export function classParams(k: ClassOptionData): LineBreakParams {
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
 export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
-  /** siunitx is loaded */
-  siunitx?: boolean
+  /** siunitx is loaded: its options */
+  siunitx?: SiOptions
   /** subcaption is loaded (\subref) */
   subcaption?: boolean
   /** xcolor is loaded (\normalcolor and \color@setgroup push the color) */
@@ -249,7 +258,7 @@ type Piece =
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
   /** a siunitx command (SI_COMMANDS) and its arguments */
-  | { kind: "si"; cmd: string; args: string[] }
+  | { kind: "si"; cmd: string; opt?: string; args: string[] }
 
 /** Text symbols (\DeclareTextSymbol): each one's code in the encodings that have it; TS1 is the default's. */
 export const TEXT_SYMBOLS: Record<string, Partial<Record<FontAttrs["enc"], number>>> = {
@@ -400,16 +409,21 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, inner) }); i = j + 1; continue
     }
     const si = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
-    if (si && si[1] in SI_COMMANDS) { // siunitx: its arguments in braces, no options
+    if (si && si[1] in SI_COMMANDS) { // siunitx: its options, its arguments in braces
       const args: string[] = []
-      let j = i + si[0].length
+      let j = i + si[0].length, opt: string | undefined
+      if (body[j] === "[") {
+        const close = body.indexOf("]", j)
+        if (close < 0 || !/^[^{}]*(?:\{[^{}]*\}[^{}]*)*$/.test(body.slice(j + 1, close))) throw new Unsupported(`\\${si[1]}${body.slice(j, j + 20)}`)
+        opt = body.slice(j + 1, close); j = close + 1
+      }
       for (let n = 0; n < SI_COMMANDS[si[1]]; n++) {
         while (body[j] === " ") j++
         if (body[j] !== "{") throw new Unsupported(`\\${si[1]} ${body.slice(j, j + 20)}`)
         const close = closingBrace(body, j)
         args.push(body.slice(j + 1, close)); j = close + 1
       }
-      flushText(); out.push({ kind: "si", cmd: si[1], args }); i = j; continue
+      flushText(); out.push({ kind: "si", cmd: si[1], ...(opt !== undefined ? { opt } : {}), args }); i = j; continue
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
@@ -798,12 +812,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "si") {
       if (!doc.siunitx) throw new Unsupported(`\\${p.cmd} without siunitx`)
-      const micro = () => hpack([hpack([charNode(selectFont(k, size, { enc: "TS1", fam: "cmr", ser: "m", shape: "n" }), 0xb5)])]) // \text{\textmu}
-      for (const x of siunitx(p.cmd, p.args, { data: mathData(), micro })) {
+      const cx = siContext(k, size, font, doc.siunitx)
+      for (const x of siunitx(p.cmd, p.opt, p.args, cx)) {
         if (x.kind === "formula") list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(x.list, mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
         else if (x.kind === "nobreak") list.push(penalty(10000))
-        else if (x.kind === "mbox") { const box: Node[] = []; appendText(box, x.src, font, { spaceFactor: 1000 }, false); list.push(hpack(box)) }
-        else appendPieces(list, [x.kind === "text" ? { kind: "text", src: x.src } : x], font, size, state, ctx, attrs)
+        else if (x.kind === "mbox") list.push(cx.text(x.src))
+        else if (x.kind === "source") appendPieces(list, pieces(x.src, false), font, size, state, ctx, attrs)
+        else appendPieces(list, [{ kind: "text", src: x.src }], font, size, state, ctx, attrs)
         if (x.kind === "formula" || x.kind === "mbox") state.spaceFactor = 1000
       }
     }
@@ -826,7 +841,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD]), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext

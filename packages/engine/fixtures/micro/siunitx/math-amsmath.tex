@@ -1,0 +1,35 @@
+% fixture: siunitx/math-amsmath
+% tier: T3
+% engine: document
+% covers: siunitx's commands in amsmath's displays (align, gather, multline, equation) and in a display in a list and a theorem (\text{to} in the theorem's italics), and \, around them
+% issue: #278
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage{siunitx}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+Energies and masses:
+\begin{align}
+  E &= \qty{3.2e-3}{\joule} \\
+  m &= \SI{1.5 \pm 0.1}{\kilo\gram}\,\num{1500}
+\end{align}
+and
+\begin{gather*}
+  \numrange{1}{5} \\
+  \qtylist{1;2;3}{\micro\metre}
+\end{gather*}
+then
+\begin{multline}
+  T = \qty{300}{\kelvin} + \qty{12.5}{\kelvin} \\
+  = \qty{312.5}{\kelvin}
+\end{multline}
+\begin{equation}
+  \ang{12;30;15} \neq \num{12.5}
+\end{equation}
+\begin{itemize}
+\item In a list \[ v = \qty{3}{\metre\per\second}, \numlist{1;2} \] after it.
+\end{itemize}
+\begin{theorem}
+The range \[ \numrange{1}{10} \quad \qtyrange{2}{3}{\volt} \] holds.
+\end{theorem}
+\end{document}

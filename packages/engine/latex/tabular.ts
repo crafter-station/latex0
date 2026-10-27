@@ -2,7 +2,8 @@
 // preamble as \@mkpream builds it, the body's rows and rules, and the \halign they make. With booktabs:
 // \toprule, \midrule, \bottomrule, \cmidrule, \specialrule, \addlinespace and \morecmidrules. A p{width}
 // column's entry is \@classv's \vtop paragraph. With array.sty (array.sty 2.6n): its \@mkpream (>{decl}, <{decl},
-// !{text}, m, p and b columns, \newcolumntype), \vline rules, \@startpbox's strut and \do@row@strut.
+// !{text}, m, p and b columns, \newcolumntype), \vline rules, \@startpbox's strut and \do@row@strut. With siunitx:
+// its S[options] column (siunitx.ts).
 
 import { halignSpans, type AlignCell } from "../layout/align"
 import { emptyBox, glue, kern, paramGlue, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
@@ -18,7 +19,9 @@ export class TabularUnsupported extends Unsupported {}
 export type TabItem = { rule: true } | { skip: "tabcolsep" | "doublerulesep" | "halfrule" } | { text: string }
 /** a column's template: u, the entry aligned l, c or r or in a p{width} box (array.sty: an m or b one too, and
  *  the >{decl} before the entry and <{decl} after it), v */
-export interface TabCol { align: "l" | "c" | "r" | "p" | "m" | "b"; width?: string; u: TabItem[]; v: TabItem[]; pre?: string; post?: string }
+export interface TabCol { align: "l" | "c" | "r" | "p" | "m" | "b"; width?: string; u: TabItem[]; v: TabItem[]; pre?: string; post?: string
+  /** siunitx's S[options] (a c column around \siunitx_cell_begin:w … \siunitx_cell_end:): its options */
+  si?: string }
 /** array.sty's \newcolumntype{X}[n]{spec}'s */
 export type ColumnTypes = Record<string, { n: number; spec: string }>
 
@@ -73,8 +76,8 @@ function specTokens(spec: string, types: ColumnTypes = {}): string[] {
 
 /** array.sty's \@mkpream: the classes of \@testpach (0 a column, 1 a rule or !'s text, 2 <'s, 3 >'s, 5 @'s
  *  text, 6 !, 7 @, 8 <, 9 >, 10 m, p or b, before its width) and what each adds */
-function arrayPreamble(spec: string, toks: string[]): TabCol[] {
-  type Col = { align: TabCol["align"]; width?: string; pre: string; post: string }
+function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {
+  type Col = { align: TabCol["align"]; width?: string; pre: string; post: string; si?: string }
   const bad = () => new TabularUnsupported(`tabular columns {${spec}}`)
   const flat: (TabItem | "&" | Col)[] = []
   let last = 4, firstAmp = true, num = 0, pre = "", col: Col | null = null
@@ -82,7 +85,8 @@ function arrayPreamble(spec: string, toks: string[]): TabCol[] {
   const amp = () => { if (firstAmp) firstAmp = false; else flat.push("&") }
   const classx = () => { if (last === 0 || last === 2) { acol(); amp(); acol() } else if (last === 1) { amp(); acol() } else if (last === 4) { acol(); firstAmp = false } else if (last === 5) amp() }
   const classvi = () => { if (last === 0 || last === 2) acol(); else if (last === 1) flat.push({ skip: "doublerulesep" }); else if (last === 3) throw bad() }
-  for (const t of toks) {
+  for (let ti = 0; ti < toks.length; ti++) {
+    const t = toks[ti]
     const arg = t.replace(/^\{/, "")
     let ch: number
     if (last === 6) { ch = 1; num = 1 } else if (last === 7) ch = 5
@@ -91,11 +95,22 @@ function arrayPreamble(spec: string, toks: string[]): TabCol[] {
     else if (last === 10) ch = 0 // (num is m's, p's or b's)
     else if (t.startsWith("{")) throw bad()
     else if ("clr".includes(t)) { ch = 0; num = "clr".indexOf(t) } else if (t === "|") { ch = 1; num = 0 } else if (t in ARRAY_CLASSES) ch = ARRAY_CLASSES[t]
-    else if ("mpb".includes(t)) { ch = 10; num = "mpb".indexOf(t) + 3 } else throw new TabularUnsupported(`tabular column ${t} in {${spec}}`)
+    else if ("mpb".includes(t)) { ch = 10; num = "mpb".indexOf(t) + 3 }
+    else if (t === "S" && si) { ch = 0; num = 0 } // (S's \NC@rewrite@S: >{…}c<{…})
+    else throw new TabularUnsupported(`tabular column ${t} in {${spec}}`)
     switch (ch) {
       case 0: // \@classz: the separators, then the column with the >{decl}'s gathered so far
         classx()
         col = { align: (["c", "l", "r", "m", "p", "b"] as const)[num], ...(num >= 3 ? { width: arg } : {}), pre, post: "" }
+        if (t === "S" && last !== 10) { // its [options], to the ] (groups keep their braces)
+          let opts = ""
+          if (toks[ti + 1] === "[") {
+            for (ti += 2; ti < toks.length && toks[ti] !== "]"; ti++) opts += toks[ti].startsWith("{") ? `${toks[ti]}}` : toks[ti]
+            if (ti >= toks.length) throw bad()
+          }
+          if (pre) throw new TabularUnsupported(`>{${pre}} before S`) // (siunitx would collect it into the entry)
+          col.si = opts
+        }
         pre = ""; flat.push(col); break
       case 1: classvi(); flat.push(num === 0 ? { rule: true } : { text: arg }); break // \@classi: \vline, or !'s text
       case 2: if (!col) throw bad(); col.post = cat(arg, col.post); break // \@classii (save@decl puts it first)
@@ -136,8 +151,8 @@ function columns(spec: string, flat: (TabItem | "&" | { align: TabCol["align"]; 
 }
 
 /** \@mkpream with \@tabclassz: the columns' templates (array.sty's, with `array`) */
-export function preamble(spec: string, array?: { types: ColumnTypes }): TabCol[] {
-  if (array) return arrayPreamble(spec, specTokens(spec, array.types))
+export function preamble(spec: string, array?: { types: ColumnTypes; si?: boolean }): TabCol[] {
+  if (array) return arrayPreamble(spec, specTokens(spec, array.types), !!array.si)
   const flat: (TabItem | "&" | { align: "l" | "c" | "r" | "p"; width?: string })[] = []
   let last = 6, firstAmp = true
   const acol = () => flat.push({ skip: "tabcolsep" })
@@ -311,7 +326,9 @@ export interface TabularEnv {
   /** multirow loaded */
   multirow?: boolean
   /** array.sty loaded, with its \newcolumntype's; \strutbox (\@arstrutbox has \extrarowheight too) */
-  array?: { types: ColumnTypes; strutbox: { height: number; depth: number }; strutOf(size: SizeCommand): { height: number; depth: number } }
+  array?: { types: ColumnTypes; strutbox: { height: number; depth: number }; strutOf(size: SizeCommand): { height: number; depth: number }; si?: boolean }
+  /** siunitx loaded: an S column's entry with the column's options (siunitx.ts) */
+  si?: (text: string, options: string, state: { spaceFactor: number }) => Node[]
   /** booktabs's dimensions, when the document loads it (set in the font of its \usepackage) */
   booktabs?: { heavyrulewidth: number; lightrulewidth: number; cmidrulewidth: number; belowrulesep: number; belowbottomsep: number; aboverulesep: number; abovetopsep: number; cmidrulesep: number; cmidrulekern: number; defaultaddspace: number }
 }
@@ -367,6 +384,13 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
    * the entry, and \do@row@strut's \vrule depth skip+\dp\@arstrutbox comes in `cr`
    */
   const arrayEntry = (l: Node[], col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }, ended: boolean): Node[] => {
+    if (col.si !== undefined) { // \hfil\hskip1sp, the entry siunitx collects (it takes \textonly@unskip too), \hfil
+      if (!env.si || col.post) throw new TabularUnsupported(`an S column{${col.post ? ` <{${col.post}}` : ""}}`)
+      if (multirow(text.replace(/^\s+/, ""))) throw new TabularUnsupported("\\multirow in an S column")
+      // (\\[skip] runs while siunitx collects: its \unskip takes the \hskip1sp, \do@row@strut's \vrule follows the entry)
+      l.push(filGlue(), ...(cr.length ? [] : [glue(1)]), ...env.si(text, col.si, st), ...cr, filGlue())
+      return l
+    }
     let pre = col.pre ?? ""
     const post = col.post ?? ""
     const sh = pre.match(/^\s*\\(centering|raggedright|raggedleft)(?![A-Za-z])\s*/)

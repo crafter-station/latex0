@@ -17,6 +17,7 @@ import type { AlgorithmPackages } from "./algorithm"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
 import { Unsupported } from "./unsupported"
+import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -41,6 +42,8 @@ export interface Preamble {
   usesMultirow: boolean
   /** siunitx loaded: \num, \si, \SI… (it loads array and, at \begin{document}, color) */
   usesSiunitx: boolean
+  /** its options: \usepackage[…]{siunitx}, then each \sisetup{…} */
+  siOptions: SiOptions
   /** caption.sty: its \caption (caption3.sty's \caption@@make) */
   usesCaption: boolean
   /** subcaption.sty (which loads caption): subfigure, subtable and their captions */
@@ -131,6 +134,7 @@ export function readPreamble(src: string): Preamble {
   const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
   let usesArray = false
   let usesSiunitx = false
+  let siOpts = SI_DEFAULTS
   let usesCaption = false
   let usesSubcaption = false
   // caption.sty's and subcaption's options and \captionsetup, in order: keys set at once (null: a list) and whether T1
@@ -202,6 +206,11 @@ export function readPreamble(src: string): Preamble {
       if (!usesCaption || cs[1] !== undefined && !CAPTION_LISTS.includes(cs[1])) throw new Unsupported(`preamble: ${line}`)
       captionOps.push({ list: cs[1] ?? null, src: cs[2], t1 }); continue
     }
+    const sx = line.match(/^\\usepackage\[(.*)\]\{siunitx\}$/) ?? line.match(/^\\sisetup\s*\{(.*)\}$/)
+    if (sx) {
+      if (line.startsWith("\\sisetup") !== usesSiunitx) throw new Unsupported(`preamble: ${line}`) // (siunitx loaded once, before \sisetup)
+      siOpts = siOptions(sx[1], siOpts); usesSiunitx = true; usesArray = true; continue // (siunitx loads array)
+    }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
@@ -221,7 +230,10 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("url")) usesUrl = true
       if (names.includes("multirow")) usesMultirow = true
       if (names.includes("array")) usesArray = true
-      if (names.includes("siunitx")) { usesSiunitx = true; usesArray = true } // (siunitx loads array)
+      if (names.includes("siunitx")) {
+        if (usesSiunitx) throw new Unsupported(`preamble: ${line}`)
+        usesSiunitx = true; usesArray = true // (siunitx loads array)
+      }
       for (const n of names) { if (n === "caption") loadCaption(null); else if (n === "subcaption") loadSubcaption(null) } // (subcaption loads caption)
       if (names.includes("algorithm")) algorithm.algorithm = true
       if (names.includes("algpseudocode")) algorithm.algpseudocode = true
@@ -327,7 +339,7 @@ export function readPreamble(src: string): Preamble {
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

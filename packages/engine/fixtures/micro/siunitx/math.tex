@@ -1,0 +1,20 @@
+% fixture: siunitx/math
+% tier: T3
+% engine: document
+% covers: siunitx's commands in math mode (inline, \[…\], equation): the number and the unit join the formula (no formula of their own), \nobreak and \, as \mskip\thinmuskip between them; ranges and lists with \ (the text font's space), \text{to} and \text{and} (\mathchoice), the list's , a punctuation atom; \ang; \micro (\text{\textmu}); numbers in sub- and superscripts
+% issue: #278
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+Inline $x = \num{1.5}$ and $E = \qty{3.2e-3}{\joule}$, then $v=\SI{3e8}{\metre\per\second}$,
+$\si{\kilo\gram\metre\squared}$ and $\unit{\micro\metre}+1$; the angle $\theta=\ang{1;2;3}$ and
+$\qty{90}{\degree}$; a range $\numrange{1}{5}$ and $\qtyrange{-10}{12.5}{\kelvin}$, lists
+$\numlist{1;2;3}$ and $\SIlist{4;5}{\second}$, $\num{1.74 \pm 0.02}\cdot 2$, and in scripts
+$a^{\num{12345}}$, $b_{\num{1.5e3}}$ and $c^{\si{\metre\per\second}}$.
+\[ F = \qty{12.5}{\newton} \quad T = \SI{300}{\kelvin}, \numrange{1}{2} \]
+\begin{equation}
+  m = \qty{1.2e3}{\kilo\gram} + \num{12345.6789}
+\end{equation}
+{\small Small $\qty{7}{\micro\newton}$ and $\numlist{1;2}$.} \emph{In italics $\numrange{1}{2}$ and
+$\SIlist{1;2;3}{\micro\metre}$}, \textbf{in bold $\qtyrange{3}{4}{\micro\second}$.}
+\end{document}
