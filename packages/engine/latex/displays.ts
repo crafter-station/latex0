@@ -102,7 +102,6 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
   const { amsmath } = cx.pre
   const { decisions, doc, run, v, counted } = cx
   if (size !== "normalsize") throw new Unsupported(`a display in a list in \\${size}`)
-  if (opts.leadGroupNoteClubPenalty !== undefined) throw new Unsupported("a display in a paragraph that starts with a group")
   const segs = displaySegments(text)
   const quad = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs).params[QUAD]
   let prevGraf = 0
@@ -112,9 +111,10 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
     const t = squeeze(seg) // a display ends with \ignorespaces
     if (first && !t) throw new Unsupported("a display starting a paragraph in a list")
     const next = segs[i + 1] as Display | undefined
-    const { start, end, unskip, noteClubPenalty, ...rest } = opts
+    const { start, end, unskip, noteClubPenalty, leadGroupNoteClubPenalty, ...rest } = opts
+    // (the group that starts the paragraph, and what \everypar set in it, is in its first part)
     const o: ParagraphOptions = { ...rest, prevGraf,
-      ...(first ? { start, ...(noteClubPenalty !== undefined ? { noteClubPenalty } : {}) } : { start: [] }),
+      ...(first ? { start, ...(noteClubPenalty !== undefined ? { noteClubPenalty } : {}), ...(leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClubPenalty } : {}) } : { start: [] }),
       ...(last ? { ...(end ? { end } : {}), ...(unskip ? { unskip } : {}) } : { widowPenalty: run.k.ints.displaywidowpenalty }) }
     if (last && !t && !end) return // (an empty paragraph after the display makes no line)
     if (!first && !last && !t) { // two displays in a row: the second starts with an empty list (§ 1145: no line break)
