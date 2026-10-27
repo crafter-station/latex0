@@ -1,0 +1,16 @@
+% fixture: hyperref/autoref-report
+% tier: T3
+% engine: document
+% covers: \autoref and \nameref in report: a chapter (chapter.n: \chapterautorefname), a starred chapter (chapter*.n: chapter via \HyRef@StripStar; nameref's \@schapter title), a section within the chapter, a figure and an equation numbered within it
+% issue: #280
+\documentclass{report}
+\usepackage{hyperref}
+\begin{document}
+\chapter*{Preface}\label{pre}
+Some words.
+\chapter{Introduction}\label{c1}
+\section{Scope}\label{s1}
+\begin{equation} a=b \label{e1}\end{equation}
+\begin{figure}[h]\centering\caption{Cap}\label{f1}\end{figure}
+See \autoref{pre}, \autoref{c1}, \autoref{s1}, \autoref{e1} and \autoref{f1}; named \nameref{pre}, \nameref{c1} and \nameref{e1}.
+\end{document}

@@ -29,7 +29,7 @@ import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, makeColumns } from "./output"
-import { anchor, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
+import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { xcolor } from "./xcolor"
 import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
@@ -141,14 +141,19 @@ export interface TabularOuter { notes: ParagraphTrace[]; club: number; widow: nu
  * (global), the labels the run before wrote to the .aux file (null: none yet), and this run's
  * \newlabel writes, whose pages make the next run's \pageref.
  */
+/** a \newlabel's fields: \@currentlabel, \thepage, nameref's \@currentlabelname, \@currentHref */
+export interface NewLabel { label: string; page: string; name: string; href: string }
+
 export interface Refs {
   label: string; href: string
   /** \@currentlabelname: hyperref's nameref sets it to a heading's title */
   name: string
-  prev: Map<string, { label: string; page: string; href: string }> | null
+  prev: Map<string, NewLabel> | null
   /** \bibcite values the run before wrote: key → number */
   cites?: Map<string, string>
-  writes: { node: Node; key: string; label: string; href: string }[]
+  writes: { node: Node; key: string; label: string; href: string; name: string }[]
+  /** nameref is loaded (hyperref loads it): \label writes \@currentlabelname, \nameref reads it */
+  nameref?: boolean
   /** hyperref: \ref and \pageref are links to the label's anchor */
   hyper?: boolean
   /** hyperref's \@footnotetext: an anchor in each note */
@@ -169,7 +174,7 @@ export function crefWrites(refs: Refs, key: string, inPara: boolean, cref = refs
 /** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
 export function labelWrite(refs: Refs, key: string, label = refs.label, href = refs.href, name = refs.name): Node {
   const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${label}}{\\thepage }{${name}}{${href}}{}}}` }
-  refs.writes.push({ node, key, label, href })
+  refs.writes.push({ node, key, label, href, name })
   return node
 }
 
@@ -254,6 +259,8 @@ type Piece =
   | { kind: "tagref"; key: string }
   /** cleveref's \cref{key} or \Cref{key}, and the character after it (\textup's \check@icr looks at it) */
   | { kind: "cref"; key: string; capital: boolean; next: string }
+  /** hyperref's \autoref{key} and nameref's \nameref{key} (`star`: \autoref*, \nameref*) */
+  | { kind: "autoref"; key: string; star: boolean } | { kind: "nameref"; key: string; star: boolean }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
    *  that \check@icl and \check@icr look at (its first, and the one after the closing brace) */
   | { kind: "font"; cmd: FontCommand; src: string; inner: Piece[]; next: string }
@@ -466,6 +473,14 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (cref) {
       if (!/^[A-Za-z0-9:._-]+$/.test(cref[2])) throw new Unsupported(`\\${cref[1]}{${cref[2]}}`) // (several labels: a list or a range)
       flushText(); out.push({ kind: "cref", key: cref[2], capital: cref[1] === "Cref", next: body[i + cref[0].length] ?? "" }); i += cref[0].length; continue
+    }
+    // hyperref's \autoref and nameref's \nameref; \Nameref{key}: `\nameref{key}' on page~\pageref{key}
+    const aref = body.slice(i).match(/^\\(autoref|nameref)(\*?)\{([A-Za-z0-9:._-]+)\}/)
+    if (aref) { flushText(); out.push({ kind: aref[1] as "autoref" | "nameref", key: aref[3], star: !!aref[2] }); i += aref[0].length; continue }
+    const Nref = body.slice(i).match(/^\\Nameref\{([A-Za-z0-9:._-]+)\}/)
+    if (Nref) {
+      flushText(); out.push({ kind: "text", src: "`" }, { kind: "nameref", key: Nref[1], star: false }, { kind: "text", src: "' on page" }, { kind: "tie" }, { kind: "pageref", key: Nref[1] })
+      i += Nref[0].length; continue
     }
     // subcaption's \subref{key}: \ref{sub@key} in a group (subrefformat=simple, \p@subref empty)
     const subref = body.slice(i).match(/^\\subref\{([A-Za-z0-9:._-]+)\}/)
@@ -708,6 +723,41 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const label: Piece = known?.type === "equation" ? { kind: "font", cmd: "textup", src: `(${known.label})`, inner: [{ kind: "text", src: `(${known.label})` }], next: "" } : { kind: "text", src: known?.label ?? "" }
       if (name === null) qq()
       appendPieces(list, [...(name === null ? [] : [{ kind: "text", src: name } as Piece]), { kind: "tie" }, label], font, size, state, ctx, attrs)
+    }
+    else if (p.kind === "autoref" || p.kind === "nameref") {
+      const refs = doc.refs
+      if (!refs) throw new Error(`paragraph adapter: \\${p.kind} outside a document`)
+      if (p.kind === "autoref" && !refs.hyper) throw new Unsupported("\\autoref without hyperref")
+      if (p.kind === "nameref" && !refs.nameref) throw new Unsupported("\\nameref without nameref")
+      const known = refs.prev?.get(p.key)
+      if (!known) { // \nfss@text{\reset@font\bfseries ??}
+        const qq: Node[] = []
+        appendText(qq, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
+        list.push(hpack(qq))
+        state.spaceFactor = 1000
+        continue
+      }
+      const linked = refs.hyper && !p.star
+      // (with dvips the link's text is an \hbox: restricted horizontal mode)
+      const inner = linked && !hyperDriver.pdftex ? { ...ctx, restricted: true } : ctx
+      const text: Node[] = []
+      if (p.kind === "autoref") {
+        // \HyRef@autosetref: \hyper@@link{}{anchor}{\HyRef@currentHtag label \null}, the tag the name and ~;
+        // \autoref* \@gobbletwo's the link's first two arguments
+        const name = autorefName(known.href)
+        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: name } as Piece, { kind: "tie" } as Piece]), { kind: "text", src: known.label }], font, size, state, inner, attrs)
+      } else {
+        // \T@nameref: the label's third field (its tokens as the .aux file is read) in \@setref; with hyperref
+        // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref
+        if (refs.hyper && !p.star && !known.name) continue
+        // (a macro in it, \contentsname or \thethm, means what it means here, not where the name was taken)
+        if (/\\/.test(known.name.replace(/\$[^$]*\$/g, ""))) throw new Unsupported(`\\nameref to "${known.name}"`)
+        appendPieces(text, pieces(known.name, false), font, size, state, inner, attrs)
+      }
+      // \null (a linked name's box leaves the space factor its text ended with: \Hy@RestoreSpaceFactor)
+      if (p.kind === "autoref" || !linked) { text.push(hpack([])); state.spaceFactor = 1000 }
+      list.push(...(linked ? refLink(text, known.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined) : text))
+      continue
     }
     else if (p.kind === "ref" || p.kind === "pageref") {
       // \@setref: the label's number or page and \null; undefined, \nfss@text{\reset@font\bfseries ??}

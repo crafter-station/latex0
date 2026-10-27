@@ -127,11 +127,11 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     const lm = part.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
     if (lm) {
       if (!cap) throw new Unsupported("a \\label in a minipage")
-      list.push(...(captionOf ? [] : captionXref(cx, true)), labelWrite(refs, lm[1], cap.label, refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
+      list.push(...(captionOf ? [] : captionXref(cx, true)), labelWrite(refs, lm[1], cap.label, refs.href, cx.pre.nameref ? cap.name : refs.name)) // nameref: the caption
       // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>
       if (cap.sub !== undefined) {
         if (cx.pre.cleveref) throw new Unsupported("a subcaption's \\label with cleveref")
-        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, hyper ? cap.name : refs.name))
+        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, cx.pre.nameref ? cap.name : refs.name))
         continue
       }
       list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: cap.label }))

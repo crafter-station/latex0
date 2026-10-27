@@ -1,0 +1,19 @@
+% fixture: pdflatex/autoref-pdftex
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: under pdflatex (links \pdfstartlink … \pdfendlink around the text in the paragraph): \autoref (the name, ~, the label and \null in the link), \autoref*, \nameref and \nameref*, \Nameref, an amsthm theorem's anchor (\MakeLinkTarget*: hpdftex's \pdfdest raised by \normalbaselineskip), undefined keys as bold ??
+% issue: #280
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage{hyperref}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+\section{Getting started}\label{s1}
+\begin{theorem}[Main]\label{t1}
+A statement that is long enough to run over one line of the paragraph, so that the line breaks somewhere in it.
+\end{theorem}
+\begin{figure}[h]\centering\caption{A caption.}\label{f1}\end{figure}
+See \autoref{s1}, \autoref{t1} and \autoref{f1}, starred \autoref*{s1}; named \nameref{s1}, \nameref{t1} and
+\nameref*{f1}, then \Nameref{s1}; undefined \autoref{nowhere} and \nameref{nowhere}. Some more words to fill out the line here.
+\end{document}

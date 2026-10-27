@@ -58,6 +58,8 @@ export interface Preamble {
   hyper: boolean
   /** hyperref's \@footnotetext, with its anchor (setspace's, loaded after it, takes its place) */
   hyperNotes: boolean
+  /** nameref (hyperref loads it): \@currentlabelname set by headings, captions and theorems */
+  nameref: boolean
   /** cleveref */
   cleveref: boolean
   /** titlesec: each level's format */
@@ -121,6 +123,7 @@ export function readPreamble(src: string): Preamble {
   let fancy: FancyHdr | null = null
   let hyper = false // hyperref, with the dvips driver
   let hyperNotes = true
+  let nameref = false // (hyperref loads it)
   let cleveref = false
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
@@ -216,13 +219,14 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       if (names.includes("hyperref")) {
         // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
         if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) throw new Unsupported("hyperref after titlesec")
         hyper = true
       }
+      if (names.includes("nameref")) nameref = true
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
@@ -339,7 +343,9 @@ export function readPreamble(src: string): Preamble {
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
+  if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, nameref: nameref || hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

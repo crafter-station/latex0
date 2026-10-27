@@ -124,8 +124,8 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
   // its anchor on the vertical list now; a starred title has none (\ttl@Hy@steplink is \@gobble)
   if (hyper && numbered) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
   // \ttl@straight@i: \def\@currentlabelname{#2}, the optional title (empty for a starred one), which \label writes with or
-  // without hyperref (nameref's \label@hook drops a final period)
-  refs.name = b.star ? "" : labelName(heading.source ?? heading.title, hyper)
+  // without nameref (nameref's \label@hook drops a final period)
+  refs.name = b.star ? "" : labelName(heading.source ?? heading.title, cx.pre.nameref)
   if (!afterHeading) { v.addpenalty(-300); v.addvspace(before) } // (\bottomtitlespace is negative: bottomtitles)
   v.afterindent = false // \titlespacing*: \@afterindentfalse
   const font = f.bold ? run.k.sizes[f.size].bold : run.k.sizes[f.size].font

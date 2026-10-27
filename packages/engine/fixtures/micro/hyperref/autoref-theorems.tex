@@ -1,0 +1,26 @@
+% fixture: hyperref/autoref-theorems
+% tier: T3
+% engine: document
+% covers: hyperref's anchor for an amsthm theorem (\MakeLinkTarget* at its first paragraph's start, raised, then \kern-\itemindent: no indent box for \lastbox; none in a second paragraph); \autoref to amsthm theorems: the counter's anchor (theorem.n: \theoremautorefname; a theorem sharing it says Theorem too; lemma.n: no autoref name, only the number), \nameref to a theorem with a note (amsthm's \@begintheorem patched: the note) and without one (empty: no link); a \label after a theorem (\@currentlabel and nameref's name back, \@currentHref still the theorem's)
+% issue: #280
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage{hyperref}
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}{Lemma}
+\begin{document}
+\section{Results}
+\begin{theorem}\label{t1}
+A statement.
+
+Its second paragraph.
+\end{theorem}
+\begin{corollary}[Main consequence]\label{c1}
+Another statement.
+\end{corollary}
+\begin{lemma}\label{l1}
+A lemma.
+\end{lemma}
+After it\label{a1}, by \autoref{t1}, \autoref{c1} and \autoref{l1}; named \nameref{c1}, \nameref{l1} and \nameref{a1}; after it \autoref{a1}.
+\end{document}

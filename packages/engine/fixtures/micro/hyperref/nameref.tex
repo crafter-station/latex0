@@ -1,0 +1,17 @@
+% fixture: hyperref/nameref
+% tier: T3
+% engine: document
+% covers: nameref's \nameref with hyperref: the \newlabel's third field typeset in a link to the anchor (a heading's title (a hyphen in the link's box: no discretionary; the space factor after its last letter), a caption, its final period dropped, an enumerate or description item keeping the heading's (\descriptionlabel's name is lost with its box's group)), nothing for an empty name, \nameref* without the link and with \null, \Nameref (`name' on page~page), an undefined key as bold ??
+% issue: #280
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+Before any heading\label{none}.
+\section{Getting started}\label{s1}
+\begin{enumerate}\item one\label{i1} \item two\end{enumerate}
+\begin{description}\item[Key] value\label{d1}\end{description}
+\begin{figure}[h]\centering\caption{A caption with a final period.}\label{f1}\end{figure}
+\subsection{Second well-known part B}\label{s2}
+See \nameref{s1}, \nameref{s2} and \nameref{i1}, \nameref{d1} (\autoref{d1}) and \nameref{f1}; empty [\nameref{none}].
+Starred \nameref*{s1} and \nameref*{none}, then \Nameref{s2}; undefined \nameref{nowhere}.
+\end{document}

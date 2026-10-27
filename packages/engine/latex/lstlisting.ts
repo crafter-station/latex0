@@ -101,7 +101,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
     lstAnchor(refs.href)
     if (o.label !== null) {
       if (!/^[A-Za-z0-9:._-]+$/.test(o.label)) throw new Unsupported(`listing label ${o.label}`)
-      v.nodes.push(labelWrite(refs, o.label, String(n), counters.href("lstlisting", n), hyper ? labelName(text) : refs.name)) // nameref: the caption
+      v.nodes.push(labelWrite(refs, o.label, String(n), counters.href("lstlisting", n), cx.pre.nameref ? labelName(text) : refs.name)) // nameref: the caption (its \lst@MakeCaption)
       v.nodes.push(...esphackNobreaks(v.nobreak))
       // cleveref's second write, \crefalias{lstlisting}{listing} (a counter within nothing in article)
       const cref = crefWrites(refs, o.label, false, { type: "listing", arabic: n, prefix: "", label: String(n) })

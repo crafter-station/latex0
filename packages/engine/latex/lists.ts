@@ -17,7 +17,7 @@ import { flushglue, sloppy, zeroskip } from "./kernel"
 import { tabularStart } from "./source"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
-import { anchor } from "./hyperref"
+import { anchor, labelName, linkTarget } from "./hyperref"
 import { setgroup } from "./xcolor"
 import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
@@ -48,7 +48,7 @@ export function topCtx(cx: Ctx): EnvCtx {
  * \@centercr (\par\addvspace{-\parskip}). Then \endtrivlist and \@endparenv.
  */
 export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
-  const { cls, enumitem, hyper, thmDefs } = cx.pre
+  const { cls, enumitem, hyper, nameref, thmDefs } = cx.pre
   const { counters, esphackNobreaks, lastNode, refs, romanFont, run, typeset, v } = cx
   if (b.env === "abstract") return abstract(cx, b, ctx)
   const outerLabel = refs.label, outerCref = refs.cleveref?.current ?? null // \@currentlabel is local to the environment (and cleveref's \cref@currentlabel)
@@ -117,8 +117,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     const half = (g: GlueSpec): GlueSpec => ({ ...g, width: Math.trunc(g.width / 2), stretch: Math.trunc(g.stretch / 2), shrink: Math.trunc(g.shrink / 2) }) // \divide…\tw@
     topsepAll = topsepadd = thmDef.style === "remark" ? half(ctx.topsep) : ctx.topsep
     if (b.items.some((it) => it.parts.some((p) => p.kind === "list"))) throw new Unsupported("a list in a theorem")
-    if (hyper) throw new Unsupported("amsthm with hyperref")
+    if (hyper && !thmDef.counter) throw new Unsupported("an unnumbered theorem with hyperref")
   }
+  // nameref's patched \@begintheorem: \@currentlabelname is the note (empty without one), in the environment's group
+  const outerName = refs.name
+  if (thmDef && nameref) refs.name = labelName(b.thm!.note ?? "")
   // \refstepcounter{counter}: \the<counter> (the section's number first, when within it)
   let thmNumber: string | null = null
   if (thmDef?.counter) {
@@ -308,7 +311,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       // (in a {\color …} group the \everypar's \clubpenalty\@clubpenalty ends with the group: the one in force stays,
       // the outer one for a first item, else what the item before set)
       // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
-      const start = thmDef ? [...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
+      // (with hyperref, \Hy@theorem@refstepcounter's anchor first: \MakeLinkTarget* at the paragraph's para/begin, raised
+      // by \normalbaselineskip; then \dth@everypar's \lastbox finds no indent box: \kern-\itemindent)
+      const thmAnchor = thmDef && hyper
+        ? [...linkTarget(refs.href, run.k.sizes[ctx.size].baselineskip.width, run.k.sizes.normalsize.baselineskip.width), kern(0, true)] : []
+      const start = thmDef ? [...thmAnchor, ...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
       const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) && !p.parEnd ? { end: qed() } : {}) }
       if (p.start === "label") {
         // (footnotes read in a color group, and a leading tabular's p{width} entries, see what \@item's \everypar set
@@ -340,6 +347,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   // \endtrivlist: the last item's \par, then \@endparenv
   v.endtrivlist(parsep, ctx.parskip, topsepadd)
   refs.label = outerLabel
+  refs.name = outerName
   run.hyperItem = outerHyperItem
   if (refs.cleveref) refs.cleveref.current = outerCref
 }
