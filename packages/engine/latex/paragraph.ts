@@ -12,7 +12,7 @@
 // shifted right by \oddsidemargin.
 
 import { SIZE_COMMANDS, type ClassOptionData, type FontRef, type SizeCommand } from "../layout/classdata"
-import { parseDimen, Scanner, type GlueSpec } from "../layout/dimen"
+import { parseDimen, parseGlue, Scanner, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, SLANT, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
 import { appendText } from "../layout/hmode"
 import { buildHyphenator } from "../layout/hyphenate"
@@ -113,6 +113,8 @@ export function classParams(k: ClassOptionData): LineBreakParams {
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
 export interface DocState {
   footnote: number; substituted?: Set<string>; refs?: Refs
+  /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
+  thanks?: { n: number; src: string }[]
   /** siunitx is loaded: its options */
   siunitx?: SiOptions
   /** subcaption is loaded (\subref) */
@@ -222,6 +224,12 @@ export interface ParagraphOptions {
   noteWidowPenalty?: number
   /** \hsize, when not \textwidth (a \parbox) */
   hsize?: number
+  /** declarations at the top level read (they last to the paragraph's end; the caller knows what they set at its \par) */
+  topDecls?: boolean
+  /** the size in force at the paragraph's \par (declarations in it), when not the one it starts in: its \baselineskip */
+  parSize?: SizeCommand
+  /** \\ is \@centercr (\centering and friends), which the caller has taken care of: here it is not laid out */
+  centercr?: boolean
 }
 
 /**
@@ -236,19 +244,19 @@ export const squeeze = (t: string): string => {
 }
 
 /** Where the group opened at `open` closes (braces nest, \{ and \} do not count). */
-function closingBrace(body: string, open: number): number {
+export function closingBrace(body: string, open: number): number {
   let depth = 0
   for (let j = open; j < body.length; j++) {
     if (body[j] === "\\") j++
     else if (body[j] === "{") depth++
     else if (body[j] === "}" && --depth === 0) return j
   }
-  throw new Error(`paragraph adapter: unbalanced { in "${body.slice(open, open + 40)}"`)
+  throw new Unsupported(`paragraph adapter: unbalanced { in "${body.slice(open, open + 40)}"`)
 }
 
 /** A body piece: plain text, a formula $…$, or \footnote{…} (whose text is again text and formulas). */
 type Piece =
-  | { kind: "text" | "math" | "footnote"; src: string }
+  | { kind: "text" | "math" | "footnote" | "thanks"; src: string }
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
@@ -257,6 +265,8 @@ type Piece =
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
+  /** \vspace{skip} and \vspace*{skip} in a paragraph */
+  | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
   /** \hfill, \hfil, \quad, \qquad */
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
@@ -311,15 +321,18 @@ const SHAPE_RULES: Record<Shape, Partial<Record<"it" | "sl" | "sc" | "up", [Shap
 }
 function mergeShape(k: ClassOptionData, size: SizeCommand, a: FontAttrs, target: "it" | "sl" | "sc" | "up", doc: DocState): Shape {
   const rule = SHAPE_RULES[a.shape][target]
-  if (!rule) { if (target === "up") throw new Error(`no \\upshape rule from ${a.shape}`); return target }
+  if (!rule) { if (target === "up") throw new Unsupported(`no \\upshape rule from ${a.shape}`); return target }
   const declared = (sh: Shape | null) => sh !== null && (k.sizes[size].fonts[`${a.enc}/${a.fam}/${a.ser}/${sh}`]?.declared || doc.substituted?.has(`${a.enc}/${a.fam}/${a.ser}/${sh}`))
   if (declared(rule[0])) return rule[0]
   if (declared(rule[1])) return rule[1]!
-  if (target === "up") throw new Error(`\\upshape from ${a.shape}: no shape declared`)
+  if (target === "up") throw new Unsupported(`\\upshape from ${a.shape}: no shape declared`)
   return target
 }
 /** A font declaration (\bfseries, \itshape, \ttfamily …) on the attributes; null for one that is not modeled */
-export function fontDeclaration(name: string, a: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState): FontAttrs | null {
+export function fontDeclaration(name: string, a: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState, cur?: Font): FontAttrs | null {
+  if (name in OLD_FONT_COMMANDS) return fontDeclaration(OLD_FONT_COMMANDS[name], fontDeclaration("normalfont", a, k, size, doc)!, k, size, doc)
+  // \em: \eminnershape (\upshape) in a slanted font, else \itshape
+  if (name === "em" && cur) return { ...a, shape: mergeShape(k, size, a, cur.params[SLANT] > 0 ? "up" : "it", doc) }
   switch (name) {
     case "bfseries": return { ...a, ser: "bx" }
     case "mdseries": return { ...a, ser: "m" }
@@ -346,7 +359,7 @@ export function fontAt(name: string, at: number, hyphenChar?: number): Font {
 /** \selectfont: the font for the attributes at a size, from the class data (NFSS's substitute for an undeclared shape) */
 export function selectFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
   const r = k.sizes[size].fonts[`${a.enc}/${a.fam}/${a.ser}/${a.shape}`]
-  if (!r) throw new Error(`no font ${a.enc}/${a.fam}/${a.ser}/${a.shape} at ${size}`)
+  if (!r) throw new Unsupported(`no font ${a.enc}/${a.fam}/${a.ser}/${a.shape} at ${size}`)
   return fontAt(r.name, r.at, r.hyphenchar)
 }
 /** A font command's attributes; \em turns italic in an upright font and upright in a slanted one */
@@ -387,8 +400,19 @@ function swSlant(list: Node[]) {
 
 /** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
-interface PieceOptions { groups?: boolean; grouped?: boolean }
+interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean }
 export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
+/** the classes' old font commands (\DeclareOldFontCommand{\bf}{\normalfont\bfseries}…) */
+const OLD_FONT_COMMANDS: Record<string, string> = { rm: "rmfamily", sf: "sffamily", tt: "ttfamily", bf: "bfseries", it: "itshape", sl: "slshape", sc: "scshape" }
+/** the declarations a paragraph reads in a group: LaTeX's, the old ones, and \em */
+export const BODY_DECLARATIONS = [...DECLARATIONS, ...Object.keys(OLD_FONT_COMMANDS), "em"]
+const ALIGN_DECLARATIONS = ["centering", "raggedright", "raggedleft"]
+/** \smallskipamount, \medskipamount and \bigskipamount (latex.ltx), which \smallskip … \vspace */
+export const SKIP_AMOUNTS: Record<string, GlueSpec> = {
+  smallskip: { width: 3 * 65536, stretch: 65536, stretchOrder: 0, shrink: 65536, shrinkOrder: 0 },
+  medskip: { width: 6 * 65536, stretch: 2 * 65536, stretchOrder: 0, shrink: 2 * 65536, shrinkOrder: 0 },
+  bigskip: { width: 12 * 65536, stretch: 4 * 65536, stretchOrder: 0, shrink: 4 * 65536, shrinkOrder: 0 },
+}
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const inner: PieceOptions = { ...po, grouped: true }
@@ -411,7 +435,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (body.startsWith("\\ ", i)) { flushText(); out.push({ kind: "ctlspace" }); i += 2; continue } // \␣
     // \\ (\@ifnextchar skips the spaces after it, but not after \\[skip]'s ])
     const nl = body.slice(i).match(/^\\\\(\*)?(?:\s*\[([^\]]*)\]|\s*)/)
+    if (nl && po.centercr) throw new Unsupported("\\\\ as \\@centercr in a group")
     if (nl) { flushText(); out.push({ kind: "newline", star: !!nl[1], skip: nl[2] ?? null }); i += nl[0].length; continue }
+    // \noindent in horizontal mode does nothing (§ 1093)
+    const ni = body.slice(i).match(/^\\noindent(?![A-Za-z])\s*/)
+    if (ni) { i += ni[0].length; continue }
+    const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
+    if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
+    const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
+    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
     // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
@@ -420,14 +452,14 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       const open = i + tc[0].length - (tc[0].startsWith("{") ? tc[0].length : 1)
       let depth = 0, j = open
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
-      if (j >= body.length) throw new Error("paragraph adapter: unbalanced color group")
+      if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced color group")
       flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, inner), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
     }
     const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
     if (sz) {
       let depth = 0, j = i
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
-      if (j >= body.length) throw new Error("paragraph adapter: unbalanced {")
+      if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced {")
       flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, inner) }); i = j + 1; continue
     }
     const si = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
@@ -512,35 +544,47 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (subref) { flushText(); out.push({ kind: "ref", key: `sub@${subref[1]}`, sub: true }); i += subref[0].length; continue }
     const ref = body.slice(i).match(/^\\(label|ref|pageref)\{([A-Za-z0-9:._-]+)\}/)
     if (ref) {
-      if (ref[1] === "label" && !footnotes) throw new Error("paragraph adapter: \\label in a footnote")
+      if (ref[1] === "label" && !footnotes) throw new Unsupported("paragraph adapter: \\label in a footnote")
       flushText(); out.push({ kind: ref[1] as "label" | "ref" | "pageref", key: ref[2] } as Piece); i += ref[0].length; continue
     }
     // an empty group: no node, but no ligature or kern across it
-    if (body.startsWith("{}", i)) { flushText(); i += 2; continue }
+    // (and \ignorespaces stops at it)
+    if (body.startsWith("{}", i)) { flushText(); out.push({ kind: "group", inner: [] }); i += 2; continue }
     if (po.groups && body[i] === "{") { // (no ligature or kern across its ends either)
       const j = closingBrace(body, i)
       flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue
     }
-    const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([a-z]+)(?![A-Za-z])\s*/) : null
-    if (decl && DECLARATIONS.includes(decl[1])) {
-      flushText(); out.push({ kind: "decl", name: decl[1], inner: pieces(body.slice(i + decl[0].length), footnotes, inner) }); i = body.length; continue
+    // a declaration (or a size command) in a group: to the group's end
+    const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/) : null
+    // (\centering and friends: what they set is read at the \par, which is not in the group; at the top level, the
+    // caller reads them)
+    if (decl && ALIGN_DECLARATIONS.includes(decl[1])) {
+      if (/\\\\/.test(body.slice(i))) throw new Unsupported(`\\\\ after \\${decl[1]}`)
+      flushText(); i += decl[0].length; continue
+    }
+    if (decl && (BODY_DECLARATIONS.includes(decl[1]) || (SIZE_COMMANDS as readonly string[]).includes(decl[1]))) {
+      const rest = pieces(body.slice(i + decl[0].length), footnotes, inner)
+      flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
     }
     if (body[i] === "$") {
       const j = body.indexOf("$", i + 1)
-      if (j < 0) throw new Error("paragraph adapter: unbalanced $")
+      if (j < 0) throw new Unsupported("paragraph adapter: unbalanced $")
       flushText(); out.push({ kind: "math", src: body.slice(i + 1, j) }); i = j + 1
     } else if (body[i] === "\\" && FONT_COMMANDS.some((c) => body.startsWith(`\\${c}{`, i) || body.startsWith(`\\${c} {`, i))) {
       const cmd = body.slice(i + 1).match(/^[a-z]+/)![0] as FontCommand
       const open = body.indexOf("{", i), j = closingBrace(body, open)
       const src = body.slice(open + 1, j)
       flushText(); out.push({ kind: "font", cmd, src, inner: pieces(src, footnotes, inner), next: body[j + 1] ?? "" }); i = j + 1
+    } else if (/^\\thanks\s*\{/.test(body.slice(i))) { // (\maketitle's: in a tabular entry too)
+      const open = body.indexOf("{", i), j = closingBrace(body, open)
+      flushText(); out.push({ kind: "thanks", src: body.slice(open + 1, j) }); i = j + 1
     } else if (footnotes && body.startsWith("\\footnote{", i)) {
       let depth = 0, j = i + 9
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
-      if (j >= body.length) throw new Error("paragraph adapter: unbalanced \\footnote{")
+      if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced \\footnote{")
       flushText(); out.push({ kind: "footnote", src: body.slice(i + 10, j) }); i = j + 1
     } else {
-      if ("\\{}%&#^_~".includes(body[i])) throw new Error(`paragraph adapter accepts plain text, $…$ and \\footnote{…}: ${body.slice(i, i + 40)}`)
+      if ("\\{}%&#^_~".includes(body[i])) throw new Unsupported(`paragraph adapter accepts plain text, $…$ and \\footnote{…}: ${body.slice(i, i + 40)}`)
       text += body[i++]
     }
   }
@@ -554,6 +598,28 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  * \@makefnmark at a size: \hbox{\@textsuperscript{\normalfont N}}, that is
  * \hbox{$^{\mbox{N}}$} with \mathsurround=0pt and N in roman at \sf@size.
  */
+/** \@textsuperscript{\normalfont\@fnsymbol n} at a size: $^{\mbox{…}}$, at \sf@size: \textasteriskcentered, \textdagger,
+ *  \textdaggerdbl, \textsection, \textparagraph, \textbardbl (TS1's; \textsection T1's with T1), then doubled */
+function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): Node[] {
+  const kinds = ["*", "dagger", "ddagger", "section", "paragraph", "bardbl", "**", "dagger2", "ddagger2"]
+  const kind = kinds[n - 1]
+  if (!kind) throw new Unsupported(`\\thanks number ${n}`) // (\@ctrerr)
+  const sf = k.sizes[size].scriptSize, pt = String(Math.round(sf / 655.36)).padStart(4, "0")
+  const font = (name: string) => loadFont(dataFont(name), sf)
+  const [f, code] = kind === "section" && k.ints.T1 ? [font(`ecrm${pt}`), 159]
+    : [font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
+  const chars = kind.endsWith("2") || kind === "**" ? [code, code] : [code]
+  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: hpack(chars.map((c) => charNode(f, c))) }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
+  return [{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }]
+}
+
+/** \@thanks: \footnotetext[n]{text} in vertical mode, with \maketitle's \@makefntext (\parindent 1em\noindent
+ *  \hb@xt@1.8em{\hss\@textsuperscript{\normalfont\@thefnmark}}#1): the insertion and its paragraph's trace */
+export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: DocState, club: number, amsmath = false) {
+  const ctx: PieceContext = { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], noteClub: club, amsmath, base: { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" } }
+  return footnoteInsert(src, n, ctx, 0, fnsymbolMark(n, k, "footnotesize", amsmath))
+}
+
 function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
   // \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size
   const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
@@ -580,7 +646,7 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0) {
+function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[]) {
   const k = singleSpaced(outer.k) // setspace's \@footnotetext: \def\baselinestretch{\setspace@singlespace}
   const ctx = { ...outer, k }
   const fs: SizeCommand = "footnotesize"
@@ -595,7 +661,7 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0) {
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   params.hyphenation = hyphenation(k, font)
-  const markBox = hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
@@ -655,11 +721,29 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!p.skip) ctx.ignoreSpaces = true
     }
     else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
-    else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
-    else if (p.kind === "group") appendPieces(list, p.inner, font, size, state, ctx, attrs)
+    else if (p.kind === "size" || p.kind === "group") {
+      // (footnotes in a group that starts the paragraph see the \clubpenalty its \everypar set there)
+      const noteClub = ctx.noteClub
+      if (p === ctx.lead && ctx.leadGroupNoteClub !== undefined) ctx.noteClub = ctx.leadGroupNoteClub
+      if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
+      else appendPieces(list, p.inner, font, size, state, ctx, attrs)
+      ctx.noteClub = noteClub
+    }
     else if (p.kind === "decl") {
-      const a = fontDeclaration(p.name, attrs, k, size, doc)!
+      const a = fontDeclaration(p.name, attrs, k, size, doc, font)!
       appendPieces(list, p.inner, selectFont(k, size, a), size, state, ctx, a)
+    }
+    else if (p.kind === "vspace") {
+      // \@vspace (\@vspacer for \vspace*) in a paragraph: \@bsphack, \vadjust{(\hrule\@height\z@ \nobreak) \vskip skip
+      // \vskip\z@skip}, \@esphack: after a space, \nobreak\hskip\z@skip, and the spaces after it go
+      if (ctx.restricted) throw new Unsupported("\\vspace in restricted horizontal mode")
+      let g: GlueSpec
+      if (typeof p.skip !== "string") g = p.skip
+      else try { g = parseGlue(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${p.skip}}`) }
+      const last = list[list.length - 1]
+      const savsk = last?.kind === "glue" ? last.width : 0
+      list.push({ kind: "adjust", list: [...(p.star ? [{ kind: "rule", width: null, height: 0, depth: 0 } as Node, penalty(10000)] : []), glueOf(g), glue(0)] })
+      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
     else if (p.kind === "float") {
       // \@xfloat's \@bsphack, \end@float's \vadjust{\penalty-\@Miv\vbox{}\penalty-\@Mii} and \@Esphack: after a
@@ -708,7 +792,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "ctlspace") list.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
     else if (p.kind === "label") {
       // \@bsphack, the write, \@esphack: after a space, \nobreak\hskip\z@skip and \ignorespaces
-      if (!doc.refs) throw new Error("paragraph adapter: \\label outside a document")
+      if (!doc.refs) throw new Unsupported("paragraph adapter: \\label outside a document")
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push(labelWrite(doc.refs, p.key))
@@ -720,7 +804,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "tagref") {
       // \tagform@: \maketag@@@{(\ignorespaces\ref{key}\unskip\@@italiccorr)}, \maketag@@@: \hbox{\m@th\normalfont#1}
-      if (!ctx.amsmath) throw new Error("paragraph adapter: \\eqref without amsmath")
+      if (!ctx.amsmath) throw new Unsupported("paragraph adapter: \\eqref without amsmath")
       const nf: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }, f = selectFont(k, size, nf)
       const inner: Node[] = [], st = { spaceFactor: 1000 }
       appendText(inner, "(", f, st, false)
@@ -771,7 +855,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "autoref" || p.kind === "nameref") {
       const refs = doc.refs
-      if (!refs) throw new Error(`paragraph adapter: \\${p.kind} outside a document`)
+      if (!refs) throw new Unsupported(`paragraph adapter: \\${p.kind} outside a document`)
       if (p.kind === "autoref" && !refs.hyper) throw new Unsupported("\\autoref without hyperref")
       if (p.kind === "nameref" && !refs.nameref) throw new Unsupported("\\nameref without nameref")
       const known = refs.prev?.get(p.key)
@@ -835,7 +919,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     // \textdollar: in T1 the text font's own; otherwise the TS1 font of the same family, series and shape
     else if (p.kind === "color") {
-      if (!doc.color) throw new Error("paragraph adapter: color without xcolor")
+      if (!doc.color) throw new Unsupported("paragraph adapter: color without xcolor")
       const spec = doc.color(p.spec, p.model), outer = ctx.color
       if (!p.pushed) list.push({ kind: "whatsit", text: `\\special{color push ${spec}}` })
       ctx.color = spec
@@ -849,7 +933,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "smuggle") {
       // \beamer@smuggle in horizontal mode: a \lastskip other than 0.0pt taken off before the nodes, put back after them
-      if (!doc.smuggle) throw new Error("paragraph adapter: beamer's overlay specials outside a beamer frame")
+      if (!doc.smuggle) throw new Unsupported("paragraph adapter: beamer's overlay specials outside a beamer frame")
       const last = list.at(-1)
       if (last?.kind === "glue" && (last.width || last.stretch || last.shrink)) {
         list.pop()
@@ -857,7 +941,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       } else list.push(...doc.smuggle(p.n))
     }
     else if (p.kind === "graphic") {
-      if (!doc.graphic) throw new Error("paragraph adapter: \\includegraphics outside a document")
+      if (!doc.graphic) throw new Unsupported("paragraph adapter: \\includegraphics outside a document")
       list.push(...doc.graphic(p.n, lineWidthOf(ctx), { em: font.params[QUAD], ex: font.params[X_HEIGHT] })) // (em and ex: the current font's)
       state.spaceFactor = 1000 // after a box
     }
@@ -867,14 +951,14 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       state.spaceFactor = 1000 // after a box
     }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}
-      if (!doc.tabular) throw new Error("paragraph adapter: a tabular outside a document")
+      if (!doc.tabular) throw new Unsupported("paragraph adapter: a tabular outside a document")
       // (a tabular that starts the paragraph starts it in its group: the \everypar's \clubpenalty there is its own)
       const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
       list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
       state.spaceFactor = 1000
     }
     else if (p.kind === "minipage") { // \leavevmode, then \@iiiparbox's box (in its group, like a tabular's)
-      if (!doc.minipage) throw new Error("paragraph adapter: a minipage outside a document")
+      if (!doc.minipage) throw new Unsupported("paragraph adapter: a minipage outside a document")
       const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
       list.push(...doc.minipage(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
       state.spaceFactor = 1000
@@ -888,12 +972,12 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       state.spaceFactor = 1000
     }
     else if (p.kind === "lstinline") {
-      if (!doc.lstinline) throw new Error("paragraph adapter: \\lstinline outside a document")
+      if (!doc.lstinline) throw new Unsupported("paragraph adapter: \\lstinline outside a document")
       list.push(...doc.lstinline(p.n, size, attrs))
       state.spaceFactor = 1000
     }
     else if (p.kind === "href") {
-      if (!doc.href) throw new Error("paragraph adapter: \\href outside a document")
+      if (!doc.href) throw new Unsupported("paragraph adapter: \\href outside a document")
       if (hyperDriver.pdftex) { // \pdfstartlink, the text where it stands (it may break), \pdfendlink
         const [start, end] = doc.href(p.n, [], undefined)
         list.push(start)
@@ -909,7 +993,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.ignoreSpaces = false
     }
     else if (p.kind === "url") {
-      if (!doc.url) throw new Error("paragraph adapter: \\url outside a document")
+      if (!doc.url) throw new Unsupported("paragraph adapter: \\url outside a document")
       list.push(...doc.url(p.n, size, attrs, !ctx.restricted, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
       state.spaceFactor = 1000 // after \mathoff
     }
@@ -952,6 +1036,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
       list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
+    } else if (p.kind === "thanks") {
+      // \maketitle's \thanks: \footnotemark (\stepcounter, \nobreak, \@makefnmark: \rlap{\@textsuperscript{\normalfont
+      // \@fnsymbol\c@footnote}}, the space factor kept); the text waits for \@thanks
+      if (!doc.thanks) throw new Unsupported("\\thanks outside \\maketitle")
+      const n = ++doc.footnote
+      list.push(penalty(10000), hpack([...fnsymbolMark(n, k, size, ctx.amsmath), ssGlue()], { exactly: 0 }))
+      doc.thanks.push({ n, src: p.src })
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext
       const n = ++doc.footnote
@@ -973,7 +1064,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
 export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
   const list: Node[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
+  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups, grouped: groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
   return list
 }
 
@@ -1004,10 +1095,10 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
       const n = s.scanInt().value
       params.parShape = Array.from({ length: n }, () => [s.scanDimen().value, s.scanDimen().value] as [number, number])
     }
-    if (s.errors.length) throw new Error(`\\${name}: ${s.errors[0]}`)
+    if (s.errors.length) throw new Unsupported(`\\${name}: ${s.errors[0]}`)
     body = s.rest().trimStart()
   }
-  const ps = pieces(body, true, { groups: !!opts.groups })
+  const ps = pieces(body, true, { groups: !!opts.groups, grouped: !!opts.topDecls, centercr: !!opts.centercr })
   params.hyphenation = hyphenation(k, font)
   if (opts.parShape) params.parShape = opts.parShape
   if (opts.hsize !== undefined) params.hsize = opts.hsize

@@ -1,0 +1,27 @@
+% fixture: lists/declarations-in-environments
+% tier: T3
+% engine: document
+% covers: declarations in center, flushright and quote (\begin{center}\Large\bfseries …): they last to the end of the environment, across \\ and blank lines; each paragraph starts in the font in force and its \par (\@centercr's, a blank line's, \endtrivlist's) uses the \baselineskip in force there; \\[1em] in the font in force
+% issue: #329
+\documentclass{article}
+\begin{document}
+\begin{center}
+\Large\bfseries A Centered Title\\[1em]
+\normalsize\mdseries Second line \small then small\\*
+Third line in small, long enough to need more than a single line of output here, so the baselineskip shows.
+\end{center}
+Text after.
+\begin{flushright}
+\itshape Flush right italic\\
+More text
+\end{flushright}
+
+\begin{quote}
+\small A small quote that is long enough to run over two lines in the output, so its baselineskip shows here.
+
+A second paragraph of the small quote, also long enough to run over two lines in the output page.
+\end{quote}
+\begin{center}
+Normal start \large and large end of a paragraph long enough to break across two lines in the output.
+\end{center}
+\end{document}

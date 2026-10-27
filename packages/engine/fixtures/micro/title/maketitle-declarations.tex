@@ -1,0 +1,16 @@
+% fixture: title/maketitle-declarations
+% tier: T3
+% engine: document
+% covers: \title with \\ (\@centercr in center) and a size after it, its paragraphs at that size's \baselineskip; \author over several lines with formulas, \\ rows and \and, a \small row (a declaration in a tabular entry); \date with a size declaration (its \par after the group)
+% issue: #329
+\documentclass{article}
+\title{Real Analysis II --- Lecture Notes 4\\\large Uniform Convergence}
+\author{Wei Zhang$^{1}$, Laura Bianchi$^{2}$, and Omar Haddad$^{1}$\\
+$^{1}$Dept.\ of Computer Science, Carnegie Mellon University\\
+$^{2}$Politecnico di Milano \and Lena Hoffmann\\\small Physics 1B Laboratory, Section 03}
+\date{\small October 2026}
+\begin{document}
+\maketitle
+\section{Introduction}
+Some text.
+\end{document}

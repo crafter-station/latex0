@@ -1,0 +1,14 @@
+% fixture: title/maketitle-thanks-t1
+% tier: T3
+% engine: document
+% covers: nine \thanks at 12pt with T1: every \@fnsymbol mark (\textsection T1's, the others TS1's, doubled from the seventh) at the \sf@size of the size it stands in
+% issue: #329
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+\title{A Title\thanks{One.}\\\normalsize with a subtitle\thanks{Two.}}
+\author{A. Author\thanks{Three.} \and B. Author\thanks{Four.} \and C. Author\thanks{Five.}\\ Some Place\thanks{Six.}}
+\date{\today\thanks{Seven.}\thanks{Eight.}\thanks{Nine, the last one there is a symbol for.}}
+\begin{document}
+\maketitle
+Text.
+\end{document}

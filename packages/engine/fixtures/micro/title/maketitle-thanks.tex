@@ -1,0 +1,15 @@
+% fixture: title/maketitle-thanks
+% tier: T3
+% engine: document
+% covers: \thanks in \title and \author (and \footnote, which \maketitle makes \thanks): \@fnsymbol marks in \rlap (\textasteriskcentered, \textdagger, \textdaggerdbl in TS1), the texts at \@thanks as footnotes in vertical mode with \maketitle's \@makefntext; footnotes numbered from one after it
+% issue: #329
+\documentclass{article}
+\title{Sparse Attention for Long-Document Classification\thanks{Supported by a grant that is described here at enough length to run onto a second line of the footnote area.}}
+\author{Daniel Reyes\thanks{Department of Economics, University of Arizona. Email:
+\texttt{dreyes@example.edu}.} \and Grace Liu\footnote{Second author.}}
+\date{October 2026}
+\begin{document}
+\maketitle
+\section{Introduction}
+Some text with a note\footnote{An ordinary note, numbered from one again.}.
+\end{document}

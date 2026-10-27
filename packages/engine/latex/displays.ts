@@ -61,7 +61,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
         justBox = r.just; params = r.params; nlines = r.lines
       } else v.nodes.push(spec("parskip", outerParskip), paramGlue("parskip", glue(0))) // \noindent$$: an empty paragraph
     } else if (t || !last) {
-      const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, run.k, "normalsize", doc, { ...opts, amsmath })
+      const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, run.k, "normalsize", doc, { ...opts, amsmath, groups: true })
       if (list.length || first) {
         const lb = lineBreak(list, ps)
         decisions.push(...notes, lb.trace)
@@ -104,7 +104,7 @@ function stepHref(cx: Ctx, counter: string, n: number): string {
 export function listParagraphWithDisplays(cx: Ctx, text: string, opts: ParagraphOptions, parskip: GlueSpec, size: SizeCommand) {
   const { amsmath } = cx.pre
   const { decisions, doc, run, v, counted } = cx
-  if (size !== "normalsize") throw new Unsupported(`a display in a list in \\${size}`)
+  if (size !== "normalsize" || opts.parSize) throw new Unsupported(`a display in a list in \\${opts.parSize ?? size}`)
   const segs = displaySegments(text)
   const font = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs)
   let prevGraf = 0

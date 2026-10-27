@@ -4,11 +4,12 @@
 import type { GlueSpec } from "../layout/dimen"
 import { parseGlue } from "../layout/dimen"
 import { displaySegments, type Block } from "./blocks"
-import { tabularStart } from "./source"
+import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH } from "./vlist"
+import { penalty } from "../layout/nodes"
 import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, maketitle, tableOfContents } from "./frontmatter"
 import { chapter, heading, matter } from "./sectioning"
@@ -18,6 +19,7 @@ import { list, topCtx } from "./lists"
 import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
+import { needsVerticalMode, titlepage, verticalMaterial } from "./vmode"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -44,8 +46,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
   if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
-  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
+  if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }
@@ -58,15 +61,17 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // \label before the paragraph starts: the \write on the vertical list, and while \if@nobreak holds
     // the \nobreak of \protected@write and of \@esphack
     // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
-    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
+    // (\vspace*: \@vspacer's \hrule\@height\z@ \nobreak first, \prevdepth kept)
+    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
     if (lead) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
-      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\{([^{}]*)\}|\\hrule/g)) {
+      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule/g)) {
         if (m[1] !== undefined) {
           for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
-        } else if (m[2] !== undefined) {
+        } else if (m[3] !== undefined) {
           let g: GlueSpec
-          try { g = parseGlue(m[2], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[2]}}`) }
+          try { g = parseGlue(m[3], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[3]}}`) }
+          if (m[2]) v.nodes.push({ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000))
           v.vskip(g); v.vskip(dimen(0))
         } else { v.nodes.push({ kind: "rule", width: null, height: 26214, depth: 0 }); v.prevDepth = IGNORE_DEPTH } // 0.4pt
       }
@@ -75,9 +80,17 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     }
     // counter commands in vertical mode make no paragraph
     if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
-    // a group that starts with \color before the paragraph does: the push goes on the vertical list
-    const cg = /^\s*\{\\color(?![A-Za-z])/.test(b.text)
-    if (cg) {
+    // \par in the text (a group that holds whole paragraphs, {\large … \par}) or skips between paragraphs
+    if (needsVerticalMode(b.text)) {
+      if (run.runIn) throw new Unsupported("\\par or a skip right after a run-in heading")
+      if (b.noindent || b.afterThm) throw new Unsupported("\\par or a skip right after a list")
+      v.par()
+      verticalMaterial(cx, b.text, { size: "normalsize", attrs: cx.normalAttrs, align: null }, true)
+      return
+    }
+    // a group that starts before the paragraph does (with \color: the push goes on the vertical list)
+    const cg = groupStart(b.text)
+    if (/^\s*\{\\color(?![A-Za-z])/.test(b.text)) {
       // (after a list, \@doendpe's \everypar runs in the group; its \par at the end of the paragraph clears all it set)
       b.text = leadingColor(cx, b.text)
     }
@@ -89,6 +102,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       run.runIn = null
       v.par()
       if (v.nobreak) throw new Unsupported("a run-in heading right after a heading")
+      // (\@xsect's \hskip-\@tempskipa is read in the group, in its font)
+      if (cg && !/^\s*\{\\(?:color|LXcolorpushed)(?![A-Za-z])/.test(text)) throw new Unsupported("a group starting the text of a run-in heading")
       // a display environment that starts the paragraph starts it in its own group: \clubpenalty\@M ends there
       const segs0 = displaySegments(text)
       const grouped = !!cg || tabularStart(text) || (!(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath)))

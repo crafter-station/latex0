@@ -235,7 +235,7 @@ export function makeDocument(r: () => number): string {
     const ws = words(n).split(" ")
     for (let i = 0; i < ws.length; i++) {
       // \hfill, \quad, size groups, and at the outer level \\ (with * or a skip)
-      if (r() < 0.006) ws[i] += pick([" \\hfill", " \\quad", "\\qquad", ` {\\${pick(["small", "large", "Large", "footnotesize"])} ${words(1 + Math.floor(r() * 4))}}`])
+      if (r() < 0.006) ws[i] += pick([" \\hfill", " \\quad", "\\qquad", ` {\\${pick(["small", "large", "Large", "footnotesize", "bfseries", "itshape", "Large\\bfseries", "bf", "em", "sffamily\\small", "scshape", "slshape\\bfseries"])} ${words(1 + Math.floor(r() * 4))}}`])
       if (top && r() < 0.005) ws[i] += pick(["\\\\", " \\\\", "\\\\*", `\\\\[${2 + Math.floor(r() * 10)}pt]`])
       if (r() < 0.05) ws[i] += " " + math()
       if (siOn && r() < 0.03) ws[i] += pick([" ", " ", "~"]) + si()
@@ -481,8 +481,10 @@ export function makeDocument(r: () => number): string {
   if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
-    out.push(`\\title{${words(r() < 0.2 ? 15 + Math.floor(r() * 15) : 2 + Math.floor(r() * 6))}}`)
-    out.push(`\\author{${Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: 1 + Math.floor(r() * 2) }, name).join(" \\\\ ")).join(" \\and ")}}`)
+    // (a subtitle after \\ at another size; \thanks in an article's, without hyperref)
+    const thanks = () => (cls === "article" && !hyper && r() < 0.2 ? `\\thanks{${words(2 + Math.floor(r() * 20))}}` : "")
+    out.push(`\\title{${words(r() < 0.2 ? 15 + Math.floor(r() * 15) : 2 + Math.floor(r() * 6))}${thanks()}${r() < 0.2 ? `\\\\${pick(["\\large ", "\\normalsize\\itshape ", "\\bfseries "])}${words(2 + Math.floor(r() * 5))}` : ""}}`)
+    out.push(`\\author{${Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: 1 + Math.floor(r() * 2) }, (_, i) => (i && r() < 0.3 ? "\\small " : "") + name()).join(" \\\\ ") + thanks()).join(" \\and ")}}`)
     const d = r()
     if (d < 0.3) out.push("\\date{}")
     else if (d < 0.6) out.push(`\\date{${words(3)}}`)
@@ -511,7 +513,15 @@ export function makeDocument(r: () => number): string {
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter
   const front = cls === "book" && r() < 0.5
   if (front) out.push("\\frontmatter")
-  if (titled) out.push("\\maketitle")
+  if (titled && cls === "article" && r() < 0.25) { // a titlepage of its own: declarations, size groups that end their paragraphs, skips
+    const sz = () => pick(["\\Large", "\\large", "\\huge\\bfseries", "\\LARGE\\bfseries", "\\itshape"])
+    out.push("\\begin{titlepage}", ...(r() < 0.8 ? [pick(["\\centering", "\\raggedleft", "\\raggedright"])] : []), ...(r() < 0.4 ? [`\\vspace*{${1 + Math.floor(r() * 3)}cm}`] : []))
+    for (let i = 1 + Math.floor(r() * 4); i > 0; i--) {
+      out.push(r() < 0.8 ? `{${sz()} ${words(2 + Math.floor(r() * 12))}${r() < 0.2 ? `\\\\${words(2)}` : ""}\\par}` : words(3 + Math.floor(r() * 10)))
+      out.push(pick(["\\vspace{1cm}", "\\vspace{2em}", "\\vfill", "\\bigskip", "\\medskip", "", "\\par"]))
+    }
+    out.push("\\end{titlepage}")
+  } else if (titled) out.push("\\maketitle")
   if (r() < 0.25 && !isLetter) out.push("\\tableofcontents") // laid out from the .toc file the first run writes
   if (isLetter) out.push(`\\begin{letter}{${words(2)} \\\\ ${words(3)}}`, `\\opening{${words(3)},}`)
   if (front && r() < 0.3) out.push(`\\chapter{${words(2)}}`, text(30))
@@ -559,8 +569,9 @@ export function makeDocument(r: () => number): string {
         const env = pick(["itemize", "enumerate", "itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright"]
           .filter((e) => !(e === "itemize" && items >= 4) && !(e === "enumerate" && enums >= 4) && !(depth >= 6 && !["center", "flushleft", "flushright"].includes(e))))
         const deeper = ["center", "flushleft", "flushright"].includes(env) ? depth : depth + 1
+        let lead = ""
         const nest = () => {
-          if (deeper < 6 && r() < 0.25 / depth) {
+          if (!lead && deeper < 6 && r() < 0.25 / depth) {
             list(deeper + (deeper === depth ? 1 : 0), items + (env === "itemize" ? 1 : 0), enums + (env === "enumerate" ? 1 : 0))
             if (r() < 0.3) out.push(text(3 + Math.floor(r() * 20)))
           }
@@ -576,9 +587,11 @@ export function makeDocument(r: () => number): string {
           }
         } else {
           const crs = ["center", "flushleft", "flushright", "verse"].includes(env)
+          // (declarations in it, which last to its end)
+          lead = r() < 0.15 ? pick(["\\large ", "\\bfseries ", "\\Large\\bfseries ", "\\small\\itshape ", "\\em "]) : ""
           for (let i = 1 + Math.floor(r() * 3); i > 0; i--) {
             const lines = Array.from({ length: crs ? 1 + Math.floor(r() * 3) : 1 }, () => text(r() < 0.3 ? 20 + Math.floor(r() * 40) : 2 + Math.floor(r() * 10)))
-            out.push(lines.join(" \\\\\n") + (crs && r() < 0.15 ? " \\\\" : ""))
+            out.push((i === 1 ? lead : "") + lines.join(" \\\\\n") + (crs && r() < 0.15 ? " \\\\" : ""))
             nest()
             if (i > 1) out.push("")
           }
@@ -637,6 +650,11 @@ export function makeDocument(r: () => number): string {
         parts.push(r() < 0.3 ? "" : text(5 + Math.floor(r() * 60)))
       }
       if (!parts.join("").trim()) parts[0] = text(10)
+      // a group that ends its paragraph ({\large … \par}), \centering and friends in one, skips before it
+      // (not right after a run-in heading)
+      const v = /\\(?:sub)?paragraph\*?\{[^{}]*\}\s*$|^\\thm$/.test(out[out.length - 1] ?? "") ? 1 : r()
+      if (parts.length === 1 && v < 0.06) parts[0] = `{${pick(["\\large", "\\small\\itshape", "\\centering", "\\raggedleft\\bfseries", "\\Large\\raggedright", "\\sffamily"])} ${parts[0]}\\par}`
+      else if (parts.length === 1 && v < 0.1) parts[0] = `${pick(["\\bigskip", isLetter ? "\\bigskip" : "\\medskip", "\\smallskip", "\\vspace*{4pt}"])}\n${parts[0]}`
       out.push("", parts.join("\n"))
       afterPar = true
     }

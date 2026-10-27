@@ -221,3 +221,5 @@ export const depthOf = (src: string) => { let d = 0; for (const m of src.matchAl
 
 /** a paragraph that a tabular (or a minipage) starts: it starts in \begin{tabular}'s group (\leavevmode), where \everypar's assignments stay */
 export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text)
+/** a paragraph that starts in a group ({…}, not an empty one): its \everypar runs there */
+export const groupStart = (text: string) => /^\s*\{(?!\})/.test(text)

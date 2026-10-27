@@ -1,0 +1,36 @@
+% fixture: text/declarations-in-groups
+% tier: T3
+% engine: document
+% covers: font declarations (\bfseries \itshape \slshape \scshape \sffamily \ttfamily \normalfont \upshape \mdseries), the old \bf \it and \em (\eminnershape in a slanted font) and size commands in groups: mid-paragraph, starting a paragraph (its \everypar in the group: after a heading \clubpenalty\@M ends with it), in center after \\[skip], in an item
+% issue: #329
+\documentclass{article}
+\begin{document}
+{\Large\bfseries Weekly Sync}\hfill 21 October 2026
+
+Some text with {\bfseries bold words} and {\itshape italic ones} and {\sffamily sans} and
+{\ttfamily typewriter text} and {\scshape Small Caps} and {\slshape slanted}, then {\bf old bold},
+{\it old italic} and {\em emphasis {\em inside} again} and {\large\itshape large italic} words.
+More {\bfseries\itshape bold italic} and {\sffamily\bfseries sans bold} and {\normalfont normal} and
+{\itshape italic {\upshape upright} text} and {\bfseries bold {\mdseries medium}} end.
+
+\begin{center}
+{\Large\bfseries Midterm Examination}\\[2pt]
+Duration: 90 minutes \quad Total: 50 points
+\end{center}
+
+\section{Heading}
+{\small Small text right after a heading that is long enough to run over two lines in the output, so that the club penalty matters a lot here.}
+Rest of it continues here for a while to be sure.
+
+\section{List}
+\begin{itemize}
+\item {\bfseries Lead} text of an item right after a heading, long enough to run over two lines, so that the club penalty in force shows.
+\item {\itshape Second} item in a group, long enough to run over two lines in the output, so that its club penalty shows too.
+\end{itemize}
+Old commands: {\bfseries bold \it italic not bold} and {\itshape it \bf bold upright} and {\bfseries\Large bold large} and {\itshape a \small b} end.
+
+\begin{itemize}
+\item {\bfseries Lead} text of an item that is long enough to run over two lines in the output, so that the club penalty matters.
+\item Plain.
+\end{itemize}
+\end{document}

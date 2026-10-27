@@ -144,7 +144,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
     const { list, params, notes } = paragraphInput(counted(text, true), run.k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
-    v.paragraph(vlist, parskip, run.k.sizes[size].baselineskip)
+    v.paragraph(vlist, parskip, run.k.sizes[opts?.parSize ?? size].baselineskip)
   }
   const roman = run.k.sizes.normalsize.font
   // skips in ex are read in the body font (\@startsection evaluates them before the heading's font)

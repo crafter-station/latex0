@@ -1,0 +1,20 @@
+% fixture: text/vspace-in-paragraph
+% tier: T3
+% engine: document
+% covers: \noindent in horizontal mode (nothing, the spaces after it go) after \\ and mid-paragraph; \vspace and \vspace* in a paragraph (\@bsphack, \vadjust{\hrule\@height\z@ \nobreak \vskip \vskip\z@skip}, \@esphack after a space) and in vertical mode (\@vspacer: \hrule\@height\z@\nobreak, \prevdepth kept), at the start of a paragraph and after a heading
+% issue: #329
+\documentclass{article}
+\begin{document}
+\noindent A\\
+\noindent B and \noindent C.
+
+\vspace*{2cm}a and more text.
+
+Text \vspace*{3pt} more text that runs on for a while so that the paragraph is long enough to break into a second line here.
+Text\vspace{1em}more, and then \vspace{-2pt plus 1pt} again.
+
+\section{Head}
+\vspace*{1ex}After a heading, a starred space.
+
+\vspace{4pt}\vspace*{5pt}\label{x}Two of them.
+\end{document}

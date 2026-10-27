@@ -1,0 +1,17 @@
+% fixture: text/lead-group-footnotes
+% tier: T3
+% engine: document
+% covers: footnotes in a group that starts the paragraph (a size group, a plain group, an item's) right after a heading: they see the \clubpenalty the \everypar set in the group, footnotes after it the one from before
+% issue: #329
+\documentclass{article}
+\begin{document}
+\section{Head}
+{\small Lead group with a note\footnote{A footnote long enough to run over two lines of the footnote area at the bottom of this page, so the club penalty it sees is in its lines.} inside} and then more text that goes on for a while to make two lines out of it here.
+
+\section{Head two}
+{Plain group with a note\footnote{A footnote long enough to run over two lines of the footnote area at the bottom of this page, so the club penalty it sees is in its lines.} inside} and then a note outside\footnote{Another footnote long enough to run over two lines of the footnote area at the bottom of this page, so the club penalty it sees shows.} too.
+
+\begin{itemize}
+\item {\bfseries Item lead\footnote{An item footnote long enough to run over two lines of the footnote area at the bottom of this page, so the club penalty shows.}} text.
+\end{itemize}
+\end{document}

@@ -1,0 +1,22 @@
+% fixture: lists/after-par-group
+% tier: T3
+% engine: document
+% covers: an environment right after a group that ended its paragraph ({\large … \par} or text\par, no blank line): it starts in vertical mode (\partopsep, no \unskip of the paragraph)
+% issue: #329
+\documentclass{article}
+\begin{document}
+{\centering A centered paragraph in a group, long enough to wrap onto a second line of the page here, and more.\par}
+\begin{center}
+Centered environment.
+\end{center}
+
+{\large Large text ending its paragraph \quad\par}
+\begin{itemize}
+\item An item.
+\end{itemize}
+
+Plain text then a par and spaces \par
+\begin{quote}
+A quote.
+\end{quote}
+\end{document}
