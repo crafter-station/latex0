@@ -75,9 +75,10 @@ function splitKeys(s: string): string[] {
 /**
  * The box for the beamer color `name`, where `at` is in force: `body` fills the \vbox (\hsize, \leftskip and \rightskip
  * as the options set them; sep, and colsep where there is a background, added to both skips). In the \vbox: colsep
- * and colsep* (with a background), sep, the body, then the same skips in reverse order.
+ * and colsep* (with a background), sep, the body, then the same skips in reverse order. What `body` returns goes after
+ * the \vbox (the pops of colors set in it, which its group's end puts there).
  */
-export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: ColorboxOptions, at: ColorState, body: (b: ColorboxBody) => void): BoxNode {
+export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: ColorboxOptions, at: ColorState, body: (b: ColorboxBody) => Node[] | void): BoxNode {
   const bg = !emptyBackground(t, name)
   const inner = useColor(t, name, at)
   const v = new VerticalList(k)
@@ -90,14 +91,14 @@ export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: Co
     if (o.colseps > 0) v.vskip(dimen(o.colseps))
   }
   if (o.sep > 0) v.vskip(dimen(o.sep))
-  body({ hsize: o.wd, leftskip, rightskip, v })
+  const after = body({ hsize: o.wd, leftskip, rightskip, v }) ?? []
   if (o.sep > 0) v.vskip(dimen(o.sep))
   if (bg) {
     if (o.colsep > 0) v.vskip(dimen(o.colsep))
     if (o.colseps > 0) v.vskip(dimen(o.colseps))
   }
   // \hbox{\usebeamercolor[fg]{name}\vbox{…}}, its \ht and \dp then set (its \wd too, which its lines, \hsize wide, are)
-  let box = hpack([colorPush(inner.fg), vpack(v.nodes), colorPop()])
+  let box = hpack([colorPush(inner.fg), vpack(v.nodes), ...after, colorPop()])
   if (o.ht !== undefined) box.height = o.ht
   if (o.dp !== undefined) box.depth = o.dp
   if (bg) box = background(box, inner.bg, at.fg, o.colseps)

@@ -107,7 +107,7 @@ export function fileLink(text: Node[], file: string, color?: string): Node[] {
 }
 
 /** The text in an \hbox between H.S and H.R, then the link's pdfmark */
-function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node[] {
+export function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node[] {
   // (with a color package the text's box is a \color@setgroup: the current color pushed and popped)
   const box = hpack(color ? [{ kind: "whatsit", text: `\\special{color push ${color}}` }, ...text, { kind: "whatsit", text: "\\special{color pop}" }] : text)
   // H.S at the box's bottom, \lower\dp in an hbox unless the depth is zero; H.R at its top likewise

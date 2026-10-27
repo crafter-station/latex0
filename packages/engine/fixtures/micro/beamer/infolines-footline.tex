@@ -1,0 +1,21 @@
+% fixture: beamer/infolines-footline
+% tier: T3
+% engine: document
+% covers: beamer: the infolines outer theme's footline (author and institute, title, date and frame number n / total in three beamercolorboxes) with the default headline, two frames
+% issue: #300
+\documentclass{beamer}
+\useoutertheme{infolines}
+\setbeamertemplate{headline}[default]
+\setbeamertemplate{navigation symbols}{}
+\title{Results}
+\author{A. Author}
+\institute{Some University}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+Some text.
+\end{frame}
+\begin{frame}
+More text.
+\end{frame}
+\end{document}

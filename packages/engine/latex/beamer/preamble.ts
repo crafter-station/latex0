@@ -1,9 +1,10 @@
 // A beamer document's class options and preamble (beamer.cls 3.77). The class
 // loads geometry (paper 128mm × 96mm, 1cm side margins), xcolor, hyperref,
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
-// of one of them changes nothing. The themes are the default ones, with the
-// navigation symbols switched off: any other theme or template setting throws
-// Unsupported.
+// of one of them changes nothing. The themes are the default ones, color themes
+// and the infolines outer theme (with the default headline), as data/beamer has
+// them, with the navigation symbols switched off: any other theme or template
+// setting throws Unsupported.
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { classFile } from "../data"
@@ -29,10 +30,16 @@ export interface BeamerPreamble {
   body: string
 }
 
-export interface TitleInfo { title: string; subtitle: string; author: string; institute: string; date: string }
+export interface TitleInfo { title: string; subtitle: string; author: string; institute: string; date: string
+  /** the short forms (\@dblarg's optional argument, the text itself without one), which the head and foot lines print */
+  short: { title: string; subtitle: string; author: string; institute: string; date: string } }
 
 /** \DeclareOptionBeamer for the sizes: 8pt … 20pt, bigger (12pt) and smaller (10pt) */
 const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10pt", "11pt": "11pt", "12pt": "12pt", "14pt": "14pt", "17pt": "17pt", "20pt": "20pt", bigger: "12pt", smaller: "10pt" }
+/** the themes data/beamer has (tools/codegen/beamer.ts), by the parts of their preamble lines: color themes, then the
+ *  infolines outer theme with the default headline */
+const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
+  "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines"]
 /** the packages beamer.cls loads (with these, \usepackage does nothing) */
 const LOADED = ["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "xcolor", "geometry", "url", "enumerate"]
 
@@ -52,20 +59,35 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   if (begin < 0 || end < begin) throw new Unsupported("a beamer document without its document environment")
   const pre = src.slice(src.indexOf(m[0]) + m[0].length, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   let navigationSymbols = true
-  const info: TitleInfo = { title: "", subtitle: "", author: "", institute: "", date: "\\today" }
+  const info: TitleInfo = { title: "", subtitle: "", author: "", institute: "", date: "\\today", short: { title: "", subtitle: "", author: "", institute: "", date: "\\today" } }
+  /** the theme lines (other than the default themes'), and the theme they name */
+  const themeLines: string[] = [], themeParts: string[] = []
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
-    if (/^\\use(?:color|font|inner|outer)?theme\{default\}$/.test(line)) continue // (the class loads the default themes)
+    if (/^\\use(?:color|font|inner|outer)?theme\{default\}$/.test(line)) {
+      // (the class loads the default themes; after another theme, loading one again would set some things back)
+      if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
+      continue
+    }
+    const color = line.match(/^\\usecolortheme\{([A-Za-z]+)\}$/)
+    if (color) { themeLines.push(line); themeParts.push(color[1]); continue }
+    if (line === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts.push("infolines"); continue }
+    // (infolines' headline set back to the default one, as Madrid does)
+    if (line === "\\setbeamertemplate{headline}[default]" && themeLines.at(-1) === "\\useoutertheme{infolines}") { themeLines.push(line); continue }
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk && pk[1].split(",").every((n) => LOADED.includes(n.trim()))) continue
     // \title, \subtitle, \author, \institute and \date keep their text (\@dblarg: an optional short form);
     // only the title page and the head and foot lines print them
-    const t = line.match(/^\\(title|subtitle|author|institute|date)(?:\[[^\]]*\])?\{(.*)\}$/)
-    if (t) { info[t[1] as keyof TitleInfo] = t[2].trim(); continue }
+    const t = line.match(/^\\(title|subtitle|author|institute|date)(?:\[([^\]]*)\])?\{(.*)\}$/)
+    if (t) { const key = t[1] as keyof TitleInfo["short"]; info[key] = t[3].trim(); info.short[key] = (t[2] ?? t[3]).trim(); continue }
     throw new Unsupported(`beamer preamble: ${line}`)
   }
   if (navigationSymbols) throw new Unsupported("beamer's navigation symbols")
-  const theme = loadTheme("default")
+  const name = themeParts.join("-") || "default"
+  if (!THEMES.includes(name)) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
+  const theme = loadTheme(name)
+  // (the data is for these lines in this order: infolines with its own headline, or another order, has none)
+  if (theme.data.preamble.join("\n") !== themeLines.join("\n")) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const cls = classFile("beamer").options[option]
   const k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens } }
   // beamerbasetitle.sty's \beamer@firstminutepatches: pdftitle={\inserttitle\ - \insertsubtitle}; \beamer@author:

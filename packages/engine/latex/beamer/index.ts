@@ -18,6 +18,7 @@ import type { DocumentSource } from "../source"
 import { Unsupported } from "../unsupported"
 import { VerticalList } from "../vlist"
 import { colorPush, xcolor } from "../xcolor"
+import { footlineTemplate, type FootlineAt } from "./footline"
 import { frameBox, framesOf, type FrameSource } from "./frame"
 import { beamerPage } from "./page"
 import { outerColors } from "./theme"
@@ -29,7 +30,8 @@ interface Aux { frames: number; pages: number }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per frame the
  *  index in `decisions` after its paragraphs (where its page's head paragraph goes) */
-interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; frameEnds: number[]; frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number }
+interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; frameEnds: number[]; frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number
+  /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number }
 
 /** The body's constructs: frames (the environment and the \frame command) */
 const BODY: Record<string, (cx: BeamerCtx, f: FrameSource) => void> = { frame: frame }
@@ -62,6 +64,8 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
  */
 function frame(cx: BeamerCtx, f: FrameSource) {
   const { k } = cx.pre, page = ++cx.frames
+  // \beamer@calculateheadfoot (\c@framenumber stepped already) measures the footline
+  footlineTemplate(k, cx.pre.theme, cx.pre.info, footlineAt(cx, page, page), cx.decisions)
   const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions }, f, cx.pre.centered)
   cx.frameEnds.push(cx.decisions.length)
   const bs = k.sizes.normalsize.baselineskip
@@ -73,6 +77,9 @@ function frame(cx: BeamerCtx, f: FrameSource) {
   cx.v.nodes.push(penalty(-10001))
 }
 
+/** The footline's counters and the date for frame `frame` on page `page` */
+const footlineAt = (cx: BeamerCtx, frame: number, page: number): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch })
+
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
 function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutResult; written: Aux } {
   const pre = readBeamerPreamble(src)
@@ -81,7 +88,9 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev)
-  const cx: BeamerCtx = { pre, epoch, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1 }
+  const cx: BeamerCtx = { pre, epoch, v, decisions: [], frameEnds: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1 }
+  // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
+  footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, 0, 1), cx.decisions)
   for (const f of framesOf(pre.body)) BODY.frame(cx, f)
   // \end{document}: beamerbasemisc.sty's \AtEndDocument \clearpage (its .nav lines are \immediate), then the kernel's
   v.nodes.push(filGlue(), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
@@ -90,11 +99,12 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
   const { pages, pageTrace } = endDocument(v.nodes, k, k.glue.parskip)
   if (pages.length !== cx.frames || pages.some((p) => p.kind !== "text")) throw new Unsupported("a frame that is not one page")
   const columns = makeColumns(pages, k)
-  // each page's head paragraph is broken as it ships, after its frame's paragraphs
+  // each page's head paragraph and then its footline's are broken as it ships, after its frame's paragraphs
   const decisions: ParagraphTrace[] = []
   const shipped: BoxNode[] = columns.map((c, i) => {
-    const { box, trace } = beamerPage(c.outputbox, pages[i].count, k, pre.theme)
-    decisions.push(...cx.decisions.slice(i ? cx.frameEnds[i - 1] : 0, cx.frameEnds[i]), trace)
+    const foot: ParagraphTrace[] = []
+    const { box, traces } = beamerPage(c.outputbox, pages[i].count, k, pre.theme, () => footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, i + 1, pages[i].count), foot))
+    decisions.push(...cx.decisions.slice(i ? cx.frameEnds[i - 1] : 0, cx.frameEnds[i]), ...traces, ...foot)
     return box
   })
   const drawn: PageMark[][] = []

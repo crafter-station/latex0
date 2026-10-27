@@ -4,7 +4,8 @@
 // \vskip0.25em}}, unboxed into the frame. The template is a beamercolorbox
 // [sep=0.3cm,left,wd=\textwidth+the margins]{frametitle} in \usebeamerfont{frametitle}:
 // an empty paragraph (\vbox{}), \vskip-1ex, the title between struts, the subtitle in
-// its font and color, \vskip-1ex, and \vskip-.3cm where frametitle has no bg.
+// its font and color, \vskip-1ex, and \vskip-.3cm where frametitle has no bg (with
+// one, the box comes after \nointerlineskip, in its bg).
 
 import type { SizeCommand } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
@@ -12,7 +13,6 @@ import { QUAD, X_HEIGHT } from "../../layout/font"
 import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, type Node, type RuleNode } from "../../layout/nodes"
 import { classParams, selectFont, spec } from "../paragraph"
-import { Unsupported } from "../unsupported"
 import { dimen, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph } from "./colorbox"
@@ -25,7 +25,7 @@ const strut = (cx: FrameCtx, size: SizeCommand): RuleNode => ({ kind: "rule", wi
 /** The title box's list, unboxed into the frame's */
 export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undefined): Node[] {
   const { k, theme } = cx
-  if (!emptyBackground(theme, "frametitle")) throw new Unsupported("a frame title with a background")
+  const bg = !emptyBackground(theme, "frametitle")
   const size = fontSize(theme, k, "frametitle", "normalsize")
   const font = selectFont(k, size, SANS)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
@@ -37,6 +37,7 @@ export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undef
   v.prevDepth = null
   v.box(emptyBox("vlist"), k.sizes.normalsize.baselineskip)
   v.nodes.push(colorPush(outer.fg), colorPush(at.fg))
+  if (bg) v.prevDepth = null // \nointerlineskip
   const d = k.dimens
   const o = { wd: d.textwidth + d["beamer@leftmargin"] + d["beamer@rightmargin"], leftskip: dimen(0), rightskip: { width: 0, stretch: 65536, stretchOrder: 2 as const, shrink: 0, shrinkOrder: 0 as const }, sep: parseDimen("0.3cm", env), colsep: 0, colseps: 0 }
   const box = beamercolorbox(k, theme, "frametitle", o, at, (b) => {
@@ -57,7 +58,7 @@ export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undef
       b.v.nodes.push(colorPop())
     }
     b.v.vskip(dimen(-env.ex))
-    b.v.vskip(dimen(-o.sep)) // \vskip-.3cm: frametitle has no bg
+    if (!bg) b.v.vskip(dimen(-o.sep)) // \vskip-.3cm where frametitle has no bg
   })
   v.box(box, bs)
   v.nodes.push(colorPop(), colorPop())

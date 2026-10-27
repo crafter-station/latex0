@@ -1,0 +1,22 @@
+% fixture: beamer/infolines-17pt
+% tier: T3
+% engine: document
+% covers: beamer: the infolines footline at 17pt, with short author, institute and date, and the title page
+% issue: #300
+\documentclass[17pt]{beamer}
+\useoutertheme{infolines}
+\setbeamertemplate{headline}[default]
+\setbeamertemplate{navigation symbols}{}
+\title{Results}
+\subtitle{And more}
+\author[A. A.]{Ann Author}
+\institute[SU]{Some University}
+\date[May 2025]{1 May 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}
+Text.
+\end{frame}
+\end{document}
