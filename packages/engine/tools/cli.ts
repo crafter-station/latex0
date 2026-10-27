@@ -14,7 +14,7 @@
 //   bun engine fuzz:documents [--n 30] [--seed 1]    random whole documents: sections, lists, paragraphs vs TeX (#30)
 //   bun engine math:check [--n 3000] [--seed 1]       random formulas: mlist_to_hlist vs TeX \showbox (#74)
 //   bun engine pgfmath:check [--n 3000] [--seed 1]    random expressions: pgf/mathparser.ts vs TeX \pgfmathparse (#284)
-//   bun engine pgf:check [--n 2000] [--seed 1]        pgf system-layer snippets: pgf/drivers vs TeX \showbox (#292)
+//   bun engine pgf:check [--n 2000] [--seed 1]        pgf system-layer snippets and pictures: pgf/ vs TeX \showbox (#292, #298)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON
 //   bun engine oracle:check                            oracle self-check against pdflatex
 //   bun engine boundary                                imports stay inside the package (#38)
