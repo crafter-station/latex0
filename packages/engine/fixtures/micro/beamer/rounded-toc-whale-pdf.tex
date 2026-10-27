@@ -1,0 +1,28 @@
+% fixture: beamer/rounded-toc-whale-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme with the whale and orchid color themes at 9pt, navigation symbols on: toc balls in the theme's colors at another size (another tocsphere), then ball items using the bigsphere the toc made
+% issue: #315
+\documentclass[9pt]{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useinnertheme{rounded}
+\begin{document}
+\begin{frame}
+\tableofcontents
+\begin{itemize}
+\item Item.
+\end{itemize}
+\end{frame}
+\section{One}
+\subsection{Part}
+\begin{frame}{A}
+Text.
+\end{frame}
+\section{Two}
+\begin{frame}{B}
+More.
+\end{frame}
+\end{document}

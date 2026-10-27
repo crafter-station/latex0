@@ -14,7 +14,8 @@ import { parseDimen } from "../../layout/dimen"
 import { QUAD, X_HEIGHT } from "../../layout/font"
 import { appendText } from "../../layout/hmode"
 import { lineBreak } from "../../layout/linebreak"
-import { emptyBox, fillGlue, glue, paramGlue, penalty, type Node } from "../../layout/nodes"
+import { emptyBox, fillGlue, glue, kern, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
+import { pgfText } from "../../pgf/shapes"
 import { hpack, vpack } from "../../layout/pack"
 import { Bookmarks, dest, HA, HS, hyperDriver, linkBox, pdfdest, pdftexLink } from "../hyperref"
 import { classParams, selectFont, spec } from "../paragraph"
@@ -23,7 +24,7 @@ import { dimen, type VerticalList } from "../vlist"
 import { colorPop, colorPush, Colors } from "../xcolor"
 import { SANS, type FrameCtx, type SectionSource } from "./frame"
 import { groupEnd, pause, smuggle } from "./overlays"
-import { fontSize, outerColors, useColor } from "./theme"
+import { fontSize, outerColors, useColor, type ColorState } from "./theme"
 
 /** a .toc line: \beamer@sectionintoc {section}{title}{page}{part}{toc number} or \beamer@subsectionintoc {section}
  *  {subsection}{title}{page}{part}{toc number} */
@@ -99,13 +100,44 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
 }
 
 /**
+ * The rounded inner theme's ball in a .toc line (beamerbaseauxtemplates.sty 305–327), after \leavevmode and a
+ * \leftskip of 2.75ex (5ex for a subsection): a section's \llap{\normalsize\begin{pgfpicture}{-1ex}{-0.7ex}{1ex}{1ex}
+ * \pgftext{\beamer@usesphere{section number projected}{tocsphere}} \pgftext{\usebeamerfont*{section number projected}
+ * \usebeamercolor{section number projected}\color{fg!90!bg}\inserttocsectionnumber} \end{pgfpicture}\kern1.25ex}, a
+ * subsection's \llap{\raise0.1ex\beamer@usesphere{subsection number projected}{bigsphere}\kern1ex}; `at` the toc
+ * template's colors. (\pgftext skips the spaces after it, and its shifts take off the one before it.)
+ */
+function tocBall(cx: FrameCtx, e: TocEntry, at: ColorState): BoxNode {
+  const { k, theme, pgf } = cx
+  const normal = selectFont(k, "normalsize", SANS)
+  const ex = (x: string) => parseDimen(x, { em: normal.params[QUAD], ex: normal.params[X_HEIGHT] })
+  if (e.kind === "subsection") {
+    const sphere = { ...pgf.usesphere(theme, "subsection number projected", "bigsphere", normal, at), shift: -ex("0.1ex") }
+    return hpack([ssGlue(), sphere, kern(ex("1ex"), true)], { exactly: 0 })
+  }
+  const projected = useColor(theme, "section number projected", at)
+  const mix = new Colors()
+  for (const [n, c] of [["fg", projected.fg], ["bg", projected.bg]]) { const [model, ...x] = c.split(" "); mix.define(n, model, x.join(",")) }
+  const numberFont = selectFont(k, fontSize(theme, k, "section number projected", "normalsize"), SANS)
+  const number: Node[] = []
+  appendText(number, String(e.section), numberFont, { spaceFactor: 1000 }, false)
+  const picture = pgf.picture(normal, at.fg, ["-1ex", "-0.7ex", "1ex", "1ex"], () => {
+    pgf.s.space()
+    pgfText(pgf.s, pgf.d, { hlist: () => [pgf.usesphere(theme, "section number projected", "tocsphere", normal, at)] }, [], "")
+    pgfText(pgf.s, pgf.d, { hlist: () => [colorPush(mix.spec("fg!90!bg")), ...number, colorPop()] }, [], "")
+    return 0
+  })
+  return hpack([ssGlue(), ...picture, kern(ex("1.25ex"), true)], { exactly: 0 })
+}
+
+/**
  * \tableofcontents in the frame's vertical list `v`. \pause[0] (\onslide<0->: shown) in its group (overlays.ts).
  * `current` ([currentsection]): the sections other than the frame's, and their subsections, shaded (the "… in toc
  * shaded" templates: the template in \begin{colormixin}{20!parent.bg}, each color mixed 20% with normal text's bg).
  */
 export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) {
   const { k, theme } = cx
-  if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's table of contents`)
+  if (theme.inner === "circles") throw new Unsupported("beamer: the circles inner theme's table of contents")
   const font = selectFont(k, "normalsize", SANS)
   const bs = k.sizes.normalsize.baselineskip
   // \vspace*{-.5em}: \hrule height0pt \nobreak \vskip-.5em \vskip\z@skip, then \prevdepth as it was before the rule
@@ -122,8 +154,10 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) 
     const shaded = current && e.section !== cx.section
     const name = `${kind} in toc${shaded ? " shaded" : ""}`
     if (fontSize(theme, k, name, "normalsize") !== "normalsize") throw new Unsupported(`beamer: a ${name} font with a size`)
-    let color = useColor(theme, name, outer).fg
+    const at = useColor(theme, name, outer)
+    let color = at.fg
     const pushes = [colorPush(outer.fg), colorPush(color)]
+    if (shaded && theme.inner === "rounded") throw new Unsupported("beamer: the rounded inner theme's shaded table of contents")
     if (shaded) {
       const mix = new Colors(), def = (n: string, c: string) => { const [model, ...x] = c.split(" "); mix.define(n, model, x.join(",")) }
       def("current", color); def("parentbg", outer.bg)
@@ -132,8 +166,11 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) 
     }
     const text: Node[] = []
     appendText(text, e.title, font, { spaceFactor: 1000 }, false)
-    const leftskip = e.kind === "subsection" ? parseDimen("1.5em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) : 0
-    const { vlist, trace } = lineBreak([emptyBox("hlist", k.dimens.parindent), ...navigationLink(text, color, e.page)], { ...classParams(k), leftSkip: spec("leftskip", dimen(leftskip)) })
+    const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
+    const ball = theme.inner === "rounded"
+    const leftskip = parseDimen(ball ? (e.kind === "subsection" ? "5ex" : "2.75ex") : e.kind === "subsection" ? "1.5em" : "0pt", env)
+    const llap = ball ? [tocBall(cx, e, at)] : []
+    const { vlist, trace } = lineBreak([emptyBox("hlist", k.dimens.parindent), ...llap, ...navigationLink(text, color, e.page)], { ...classParams(k), leftSkip: spec("leftskip", dimen(leftskip)) })
     cx.decisions.push(trace)
     return { pushes, vlist, pops: pushes.map(() => colorPop()) }
   }

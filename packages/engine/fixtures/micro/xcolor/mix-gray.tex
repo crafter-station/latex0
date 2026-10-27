@@ -1,0 +1,11 @@
+% fixture: xcolor/mix-gray
+% tier: T3
+% engine: document
+% specials: compare
+% covers: xcolor's mixing of a gray color with one of another model (\@xcolor@@): the gray converted to the other's model; 100 percent of a gray keeps it gray; gray with gray stays gray
+% issue: #315
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+\textcolor{gray!50!red}{a}\textcolor{white!90!blue}{a}\textcolor{black!100!red}{a}\textcolor{gray!40!black}{a}\textcolor{red!30!gray}{a}
+\end{document}

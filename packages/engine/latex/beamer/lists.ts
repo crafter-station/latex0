@@ -292,16 +292,11 @@ function descriptionText(cx: FrameCtx, text: string, size: SizeCommand): Node[] 
   return [colorPush(outer.fg), colorPush(useColor(theme, "description item", outer).fg), ...plainText(text, selectFont(k, size, SANS)), colorPop(), colorPop()]
 }
 
-/**
- * The ball itemize items (beamerbaseauxtemplates.sty 366–368): \raise0.2pt\beamer@usesphere{item projected}{bigsphere}
- * (subitem projected and smallsphere below the first level), \beamer@usesphere{#1}{#2} being \hbox{\usebeamercolor{#1}
- * \normalsize\pgfuseshading{#2}}: the sphere in that color's bg on the bg in force (parent.bg), its size in the ex of
- * \normalsize's font
- */
+/** The ball itemize items (beamerbaseauxtemplates.sty 366–368): \raise0.2pt\beamer@usesphere{item projected}{bigsphere}
+ *  (subitem projected and smallsphere below the first level) */
 function ball(cx: FrameCtx, level: ListLevel, at: ColorState): BoxNode {
-  const projected = useColor(cx.theme, `${PREFIX[level.itemDepth - 1]}item projected`, at)
-  const sphere = cx.pgf.shading(level.itemDepth === 1 ? "bigsphere" : "smallsphere", selectFont(cx.k, "normalsize", SANS), projected.bg, at.bg)
-  return { ...hpack([sphere]), shift: -parseDimen("0.2pt", { em: 0, ex: 0 }) }
+  const sphere = cx.pgf.usesphere(cx.theme, `${PREFIX[level.itemDepth - 1]}item projected`, level.itemDepth === 1 ? "bigsphere" : "smallsphere", selectFont(cx.k, "normalsize", SANS), at)
+  return { ...sphere, shift: -parseDimen("0.2pt", { em: 0, ex: 0 }) }
 }
 
 /**

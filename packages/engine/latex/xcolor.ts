@@ -120,9 +120,13 @@ export class Colors {
     const named = (n: string): Col => { const d = this.defs.get(n); if (d === undefined) throw new ColorUnsupported(`color ${n}`); return parseSpec(d) }
     let c = named(m[2])
     for (const step of m[3].matchAll(/!(\d+(?:\.\d+)?)(?:!([A-Za-z][A-Za-z0-9.@]*))?/g)) {
-      const d = convert(named(step[2] ?? "white"), c.model)
-      // \XC@mix: each part p\p@ times the first and (100-p)\p@ times the second, \rrshift'ed
       const a = times(step[1], 65536), b = 100 * 65536 - a
+      // (\@xcolor@@: 100 percent leaves the color as it is; a gray color mixed with one of another model takes that model)
+      if (b === 0) continue
+      let d = named(step[2] ?? "white")
+      if (c.model === "gray" && d.model !== "gray") c = convert(c, d.model)
+      else d = convert(d, c.model)
+      // \XC@mix: each part p\p@ times the first and (100-p)\p@ times the second, \rrshift'ed
       c = { model: c.model, v: c.v.map((x, i) => stripPt(rshift(rshift(times(x, a) + times(d.v[i], b))))) }
     }
     if (m[1]) {

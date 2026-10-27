@@ -9,6 +9,7 @@
 
 import { QUAD, X_HEIGHT, type Font } from "../../layout/font"
 import type { BoxNode, Node } from "../../layout/nodes"
+import { hpack } from "../../layout/pack"
 import type { PgfDriver } from "../../pgf/drivers"
 import { pgfPoint } from "../../pgf/points"
 import { beginPgfPicture, endPgfPicture } from "../../pgf/scopes"
@@ -16,6 +17,7 @@ import { pgfDeclareShading, pgfUseShading } from "../../pgf/shade"
 import type { PgfState } from "../../pgf/state"
 import { Unsupported } from "../unsupported"
 import { colorPop, Colors } from "../xcolor"
+import { useColor, type ColorState, type Theme } from "./theme"
 
 /** the spheres beamerbaseauxtemplates.sty declares (radial, [bg,parent.bg]): centre and colour stops */
 const SPHERES: [name: string, x: string, y: string, stops: string][] = [
@@ -66,6 +68,15 @@ export class BeamerPgf {
     this.s.inPicture = inPicture
     if (out.length !== 1 || out[0].kind !== "hlist") throw new Unsupported(`pgf: the shading ${name} is not one box`)
     return out[0]
+  }
+
+  /**
+   * \beamer@usesphere{color}{sphere} (beamerbaseauxtemplates.sty 51–52) where `at` is in force: \hbox{\usebeamercolor
+   * {color}\normalsize\pgfuseshading{sphere}}, the sphere in the color's bg on the bg in force (parent.bg), its size in
+   * the ex of `normal`, \normalsize's font
+   */
+  usesphere(t: Theme, color: string, sphere: string, normal: Font, at: ColorState): BoxNode {
+    return hpack([this.shading(sphere, normal, useColor(t, color, at).bg, at.bg)])
   }
 
   /**
