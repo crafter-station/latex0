@@ -1,6 +1,7 @@
 % fixture: siunitx/s-column
 % tier: T3
 % engine: document
+% specials: compare
 % covers: siunitx's S column (a c column around \siunitx_cell_begin:w … \siunitx_cell_end:): an entry's tokens without spaces, text in braces alone between \hskip 0pt plus .5fill's, empty entries; numbers in marker mode (integer and decimal boxes aligned on the decimal marker, the wider side padded with \hfil), with exponents, compact and separate uncertainties, no integer or no decimals, and the column's options (output-decimal-marker, group-separator, round-mode); table-format (the model's integer width, 0 for none, a number wider than it squeezed with \hss, the decimal carry after it; an exponent or separate uncertainty the model lacks dropped) with signs and none, per column and from \sisetup; \\[skip] after an S entry (its \unskip takes the \hskip1sp); the space factor an S entry leaves (1000 after a number, its text's after text, none changed when empty); S with rules, booktabs and \multicolumn headers
 % issue: #278
 \documentclass{article}

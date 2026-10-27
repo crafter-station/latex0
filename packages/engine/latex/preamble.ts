@@ -56,6 +56,10 @@ export interface Preamble {
   enumitem: boolean
   /** hyperref, with the dvips driver */
   hyper: boolean
+  /** geometry loaded (its \\AtBeginDvi papersize under dvips), and whether landscape */
+  geometry: { landscape: boolean } | null
+  /** the graphics bundle's dvips.def loaded (graphicx, xcolor; siunitx loads color): its \\AtBeginDvi papersize */
+  graphicsDriver: boolean
   /** hyperref's \@footnotetext, with its anchor (setspace's, loaded after it, takes its place) */
   hyperNotes: boolean
   /** nameref (hyperref loads it): \@currentlabelname set by headings, captions and theorems */
@@ -137,6 +141,7 @@ export function readPreamble(src: string): Preamble {
   const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
   let usesArray = false
   let usesSiunitx = false
+  let usesGraphicx = false
   let siOpts = SI_DEFAULTS
   let usesCaption = false
   let usesSubcaption = false
@@ -230,6 +235,7 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
+      if (names.includes("graphicx")) usesGraphicx = true
       if (names.includes("amsthm")) usesAmsthm = true
       if (names.includes("url")) usesUrl = true
       if (names.includes("multirow")) usesMultirow = true
@@ -294,10 +300,11 @@ export function readPreamble(src: string): Preamble {
   }
   const kOT1 = k
   if (t1) k = withT1(k, cls)
+  const geo = { landscape: false }
   if (geometryOptions.length) {
     const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
     const bs = geometryStretch ? { ...k.glue, baselineskip: { ...k.glue.baselineskip, width: times(geometryStretch, k.glue.baselineskip.width) } } : k.glue
-    k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }), glue: k.glue }
+    k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }, geo), glue: k.glue }
   }
   if (lengths.length) {
     for (const [name, value, enc] of lengths) {
@@ -345,7 +352,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, nameref: nameref || hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

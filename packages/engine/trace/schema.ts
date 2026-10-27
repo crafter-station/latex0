@@ -4,11 +4,14 @@
 
 /** Positions of everything drawn on each page (the DVI view of a document). */
 export interface Trace { unit: "sp"; mag: number; pages: TracePage[] }
-export interface TracePage { counts: number[]; glyphs: TraceGlyph[]; rules: TraceRule[]; specials: string[] }
+export interface TracePage { counts: number[]; glyphs: TraceGlyph[]; rules: TraceRule[]; specials: TraceSpecial[] }
 /** A glyph's reference point: (h, v) is the left end of its baseline. */
 export interface TraceGlyph { font: string; size: number; char: number; h: number; v: number; width: number }
 /** A rule's bottom-left corner is (h, v). */
 export interface TraceRule { h: number; v: number; width: number; height: number }
+/** What a page sends the driver where ship_out meets it (§ 1368 special_out, pdfTeX's pdf_out_what), as a box
+ *  dump prints the whatsit: \\special{…} for a DVI, also \\pdfliteral, \\pdfcolorstack, \\pdfdest … for pdfTeX */
+export interface TraceSpecial { text: string; h: number; v: number }
 
 /** The box tree of a page (the \showbox view of a document). */
 export type BoxNode =
@@ -38,6 +41,9 @@ export function validateTrace(t: Trace): string[] {
     })
     p.rules.forEach((r, j) => {
       for (const k of ["h", "v", "width", "height"] as const) if (!isInt(r[k])) errs.push(`page ${i} rule ${j}: ${k} not an integer`)
+    })
+    p.specials.forEach((x, j) => {
+      for (const k of ["h", "v"] as const) if (!isInt(x[k])) errs.push(`page ${i} special ${j}: ${k} not an integer`)
     })
   })
   return errs
@@ -70,8 +76,9 @@ export function validateBoxes(n: BoxNode, path = "root"): string[] {
 
 export interface Divergence { page: number; index: number; field: string; expected: unknown; actual: unknown }
 
-/** First difference between two traces, or null when identical (0 sp tolerance). */
-export function compareTraces(expected: Trace, actual: Trace): Divergence | null {
+/** First difference between two traces, or null when identical (0 sp tolerance); each page's specials only
+ *  when asked (a fixture's `% specials: compare`) */
+export function compareTraces(expected: Trace, actual: Trace, opts: { specials?: boolean } = {}): Divergence | null {
   if (expected.pages.length !== actual.pages.length) return { page: -1, index: -1, field: "pages.length", expected: expected.pages.length, actual: actual.pages.length }
   for (let p = 0; p < expected.pages.length; p++) {
     const e = expected.pages[p], a = actual.pages[p]
@@ -87,6 +94,15 @@ export function compareTraces(expected: Trace, actual: Trace): Divergence | null
     for (let i = 0; i < e.rules.length; i++) {
       for (const k of ["h", "v", "width", "height"] as const) {
         if (e.rules[i][k] !== a.rules[i][k]) return { page: p, index: i, field: `rule.${k}`, expected: e.rules[i][k], actual: a.rules[i][k] }
+      }
+    }
+    if (!opts.specials) continue
+    const m = Math.max(e.specials.length, a.specials.length)
+    for (let i = 0; i < m; i++) {
+      const es = e.specials[i], as = a.specials[i]
+      if (!es || !as) return { page: p, index: i, field: "special", expected: es ?? null, actual: as ?? null }
+      for (const k of ["text", "h", "v"] as const) {
+        if (es[k] !== as[k]) return { page: p, index: i, field: `special.${k}`, expected: es[k], actual: as[k] }
       }
     }
   }

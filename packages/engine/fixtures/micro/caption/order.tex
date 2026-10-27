@@ -1,6 +1,7 @@
 % fixture: caption/order
 % tier: T3
 % engine: document
+% specials: compare
 % covers: caption.sty with xcolor (\normalcolor's push in the caption's group, popped after its last skip), a subcaption first in its subtable (below all the same: \caption@ifsubcaption@above), the float's caption after subcaptions (below though first in the float's list), amsmath's \@arrayparboxrestore putting LaTeX's \label back in a minipage (no \caption@xref there; the float's \label writes it); subcaptions exactly as wide as their box (one line, centered) and a scaled point narrower (a paragraph); a caption on top in a minipage, and the float's caption after it placed by \prevdepth
 % issue: #269
 \documentclass{article}

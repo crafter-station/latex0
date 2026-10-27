@@ -28,7 +28,7 @@ import { classData, documentClass } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
-import { endDocument, makeColumns } from "./output"
+import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { xcolor } from "./xcolor"
@@ -1032,6 +1032,7 @@ export function paragraph(src: string): LayoutResult {
   const boxes = makeColumns(pages, k).map((b) => ({ outputbox: b.outputbox, column: b.column! }))
   boxes.forEach((b, i) => { b.outputbox.shift = k.ints.twoside && i % 2 === 1 ? k.dimens.evensidemargin : k.dimens.oddsidemargin }) // \@themargin
   const shipped = boxes.map((b) => vpack([kern(k.dimens.topmargin + k.dimens.headheight + k.dimens.headsep), b.outputbox]))
+  if (shipped.length) shipped[0] = firstPage(shipped[0], [L3BACKEND_HEADER]) // (the reference TeX is latex: dvips)
   return {
     trace: shipOut(shipped),
     decisions,

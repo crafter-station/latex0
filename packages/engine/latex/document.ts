@@ -31,8 +31,8 @@ import { runState } from "./run"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { VerticalList } from "./vlist"
-import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
-import { anchor, Bookmarks, documentStart, hyperDriver, type Bookmark } from "./hyperref"
+import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
+import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { Colors, colorPush, xcolor } from "./xcolor"
 import { paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
@@ -83,7 +83,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 const READS_AUX = /\\(?:ref|pageref|eqref|cite|cref|Cref|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
+interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -103,7 +103,8 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   xcolor.on = usesColor
   xcolor.normal = usesXcolor ? "gray 0" : " Black"
   outputOptions.xcolor = usesColor
-  if (usesColor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
+  // \begin{document}'s \normalcolor (\relax still when siunitx loads color, in its \AtBeginDocument after it)
+  if (usesXcolor) v.nodes.push(colorPush())
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
@@ -113,6 +114,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
     v.nodes.push(...anchor("Doc-Start", run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+    if (prev?.pageLabels && !hyperDriver.pdftex) v.nodes.push(putPageLabels(prev.pageLabels))
   }
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
@@ -226,6 +228,18 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
   if (driver === "pdftex") shipped.forEach(pdftexColors) // (the columns are inside the shipped pages)
+  // shipout/firstpage under dvips, by label: hyperref's, l3backend-dvips.def's PostScript header, then the \AtBeginDvi of
+  // geometry and of the graphics driver (dvips.def), both at \begin{document}
+  // (pdfTeX's drivers put nothing there)
+  else if (shipped.length) {
+    const { paperwidth: pw, paperheight: ph } = run.k.dimens
+    shipped[0] = firstPage(shipped[0], [
+      ...(hyper ? hyperFirstPage(pw, ph) : []),
+      L3BACKEND_HEADER,
+      ...(pre.geometry ? [papersize(pw, ph), ...(pre.geometry.landscape ? ["\\special{! /landplus90 true store}"] : [])] : []),
+      ...(pre.graphicsDriver ? [papersize(pw, ph)] : []),
+    ])
+  }
   if (pageTraces.length) {
     const merged: ParagraphTrace[] = []
     let next = 0
@@ -254,6 +268,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
       labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, name: w.name, href: w.href }])),
       bookmarks: bookmarks.written,
+      pageLabels: hyper ? pageLabels(pages) : "",
       // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
       crefs: new Map((refs.cleveref?.writes ?? []).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, w.cref])),

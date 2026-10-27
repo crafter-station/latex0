@@ -1,6 +1,7 @@
 % fixture: listings/frame-after-run-in
 % tier: T3
 % engine: document
+% specials: compare
 % covers: a framed listing right after a run-in heading: the top frame's paragraph runs the heading's \everypar (the heading in place before the frame, \@noskipsecfalse, \clubpenalty\@M in the listing's group, -1em read in the basic style's font; a \subparagraph's \hskip\parindent read there, zero with breaklines); with no top frame the heading is lost
 \documentclass{article}
 \usepackage{listings}

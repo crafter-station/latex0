@@ -1,6 +1,7 @@
 % fixture: pages/chapter-after-float-page
 % tier: T3
 % engine: document
+% specials: compare
 % covers: a float page from \chapter's \clearpage after a full page: the \write nodes \vsplit keeps make a page with no box (no \topskip), and \thispagestyle{plain} goes to that page, not to the chapter's (\@specialpage is for the next page shipped); a random document (fuzz:documents seed 4)
 % issue: #30
 \documentclass[12pt,a5paper]{report}

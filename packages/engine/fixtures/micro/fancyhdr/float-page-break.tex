@@ -1,6 +1,7 @@
 % fixture: fancyhdr/float-page-break
 % tier: T3
 % engine: document
+% specials: compare
 % covers: the output routine firing at a float's marker, which TeX contributes after reading the float's contents: fancyhdr's field paragraphs are traced after the float's, not before (a paragraph's \parskip, by contrast, is contributed before its text is read); reduced from a random document
 \documentclass[12pt,twoside]{article}
 \usepackage{fancyhdr}

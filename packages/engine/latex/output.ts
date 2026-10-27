@@ -16,7 +16,7 @@ import { hpack, vpack } from "../layout/pack"
 import { buildPages, type Page } from "../layout/pagebuilder"
 import { documentPages } from "../trace/decisions"
 import { dataFont } from "./data"
-import { pageAnchor } from "./hyperref"
+import { distillerDestFix, hyperDriver, pageAnchor } from "./hyperref"
 import { setgroup, xcolor } from "./xcolor"
 import { Unsupported } from "./unsupported"
 
@@ -411,6 +411,20 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
   })
 }
 
+/** l3backend-dvips.def's \__kernel_backend_first_shipout:n: its PostScript header, for dvips */
+export const L3BACKEND_HEADER = "\\special{header=l3backend-dvips.pro}"
+
+/**
+ * ltshipout's \__shipout_add_firstpage_specials: on the first page, what the shipout/firstpage hook typeset (the
+ * driver's specials) in an \hbox of size zero above the page's contents, \vbox to the page's height plus depth
+ * (\__shipout_add_background_box:n, interline glue zero), with \kern\z@ after them
+ */
+export function firstPage(page: BoxNode, specials: string[]): BoxNode {
+  const h = hpack(specials.map((text): WhatsitNode => ({ kind: "whatsit", text }))) // (of size zero already)
+  if (page.kind !== "vlist") throw new Unsupported("a first page that is not a vbox")
+  return vpack([h, ...page.list, kern(0, true)], { exactly: page.height + page.depth })
+}
+
 /** \@outputpage: \vskip\topmargin, then moved right by \@themargin: the head box, \headsep, the text, the foot at \footskip. */
 /** `fancy`: what \@thehead and \@thefoot typeset in their \hb@xt@\textwidth, for fancyhdr's styles */
 export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pagestyle: string, hyper = false, mark: Node[] = [], thepage = String(page), fancy?: { head: Node[]; foot: Node[] }): BoxNode {
@@ -433,6 +447,6 @@ export function outputPage(column: BoxNode, page: number, k: ClassOptionData, pa
   box.shift = k.ints.twoside && page % 2 === 0 ? k.dimens.evensidemargin : k.dimens.oddsidemargin
   const shipped = vpack([glue(k.dimens.topmargin), box])
   // hyperref's \AtBeginShipout: the page anchor before the page, with \lineskip between
-  if (hyper) return vpack([pageAnchor(thepage, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
+  if (hyper) return vpack([...(hyperDriver.pdftex ? [] : [distillerDestFix()]), pageAnchor(thepage, k.dimens.topmargin, page % 2 ? k.dimens.oddsidemargin : k.dimens.evensidemargin), paramGlue("lineskip", glue(0)), shipped])
   return shipped
 }

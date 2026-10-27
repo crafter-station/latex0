@@ -1,6 +1,7 @@
 % fixture: listings/after-run-in
 % tier: T3
 % engine: document
+% specials: compare
 % covers: a listing right after a run-in heading: the listing's \everypar (then \lst@doendpe's) replaces the heading's, so the heading is lost and \@noskipsec stays true (and \@esphack adds \nobreak after a \label in vertical mode); each later \@startsection and \@trivlist starts an empty paragraph (\if@noskipsec\leavevmode), until a run-in heading's \everypar or \newpage ends it
 \documentclass{article}
 \usepackage{listings}

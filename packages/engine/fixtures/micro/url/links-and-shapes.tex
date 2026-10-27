@@ -1,6 +1,7 @@
 % fixture: url/links-and-shapes
 % tier: T3
 % engine: document
+% specials: compare
 % covers: \href's target: no scheme before a colon is a file (\filename@parse, .pdf added without an extension, \hyper@linkfile's GoToR for a PDF, a URI otherwise); the space factor its text ends with lasts after the link (\Hy@SaveSpaceFactor); \url in \textit, \textsl, \textsc and \textbf (\ttfamily keeps the shape: cmitt, cmsltt, cmtcsc; bold falls back to cmtt)
 \documentclass{article}
 \usepackage{hyperref}

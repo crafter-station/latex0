@@ -97,3 +97,37 @@ for (const fx of collectFixtures(["packages/engine/fixtures"])) walk(cachedOracl
 console.log(`box dumps: ${nodes} nodes parsed, ${opaque.length} unrecognized${opaque.length ? ": " + [...new Set(opaque)].slice(0, 5).join(" | ") : ""}`)
 if (opaque.length) { console.log("BOX ORACLE CHECK FAILED"); process.exit(1) }
 console.log("BOX ORACLE CHECK PASSED")
+
+// ---- specials (#296) ----
+// every fixture with `% specials: compare`: under latex the DVI's specials are the ones its box dumps show (what
+// pdflatex fixtures rely on), and the comparison sees a special changed, moved, dropped or added (and only when asked)
+import { compareTraces, type Trace } from "../../trace/schema"
+import { boxTrace } from "./boxtrace"
+import { parseHeader } from "../unit/header"
+let spFail = 0, spChecked = 0
+for (const fx of collectFixtures(["packages/engine/fixtures"])) {
+  const header = parseHeader(readFileSync(fx, "utf8"))
+  if (!header.specials) continue
+  const { trace, pages } = cachedOracle(fx)
+  const fail = (what: string) => { spFail++; console.log(`  ✗ ${fx.split("/").slice(-2).join("/")}: ${what}`) }
+  if (header.oracle !== "pdflatex" && compareTraces(trace, boxTrace(pages), { specials: true })) fail("DVI specials differ from the box dumps'")
+  const p = trace.pages.findIndex((pg) => pg.specials.length)
+  if (p < 0) continue
+  const mutants: [string, (t: Trace) => void][] = [
+    ["text", (t) => { t.pages[p].specials[0].text += " " }],
+    ["h", (t) => { t.pages[p].specials[0].h++ }],
+    ["v", (t) => { t.pages[p].specials[0].v-- }],
+    ["dropped", (t) => { t.pages[p].specials.pop() }],
+    ["added", (t) => { t.pages[p].specials.push({ text: "\\special{}", h: 0, v: 0 }) }],
+  ]
+  for (const [what, mutate] of mutants) {
+    const t = structuredClone(trace)
+    mutate(t)
+    if (!compareTraces(trace, t, { specials: true })) fail(`a special ${what} goes unseen`)
+    if (compareTraces(trace, t)) fail(`a special ${what} seen without % specials: compare`)
+  }
+  spChecked++
+}
+console.log(`specials: ${spChecked} fixtures, ${spFail} failures`)
+if (spFail) { console.log("SPECIALS ORACLE CHECK FAILED"); process.exit(1) }
+console.log("SPECIALS ORACLE CHECK PASSED")

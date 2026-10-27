@@ -1,0 +1,15 @@
+% fixture: pages/geometry-landscape
+% tier: T3
+% engine: document
+% specials: compare
+% covers: the first page's shipout/firstpage specials with geometry in landscape and graphicx: l3backend's PostScript header, geometry's \AtBeginDvi papersize (the paper swapped) and /landplus90, then dvips.def's papersize
+% issue: #296
+\documentclass{article}
+\usepackage[landscape,margin=2cm]{geometry}
+\usepackage{graphicx}
+\begin{document}
+\section{Wide pages}
+The office staff found a difficult affair: efficient workflows, offline coffee and paragraphs of typesetting with hyphenation. The office staff found a difficult affair: efficient workflows, offline coffee and paragraphs of typesetting with hyphenation.
+
+The office staff found a difficult affair: efficient workflows, offline coffee and paragraphs of typesetting with hyphenation.
+\end{document}

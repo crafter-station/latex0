@@ -1,6 +1,7 @@
 % fixture: fancyhdr/default
 % tier: T3
 % engine: document
+% specials: compare
 % covers: fancyhdr's default fields with \pagestyle{fancy}: {\slshape\rightmark} left and {\slshape\leftmark} right in the head, \rmfamily\thepage in the foot, each a \parbox of \headwidth with a \strut (\f@nch@def), the 0.4pt head rule; its \sectionmark (\markboth{\MakeUppercase{\thesection\hskip 1em\relax title}}{}) and \subsectionmark (\markright); \@mkboth is \markboth (the contents); the fields' paragraphs traced as each page ships, among the document's
 \documentclass{article}
 \usepackage{fancyhdr}

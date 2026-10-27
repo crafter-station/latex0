@@ -90,8 +90,9 @@ export function parseDvi(buf: Uint8Array, loadFont: FontLoader): Trace {
       case 167: case 168: case 169: case 170: z = s(op - 166); v += z; break
       case 235: case 236: case 237: case 238: f = fonts.get(u(op - 234)); break
       case 239: case 240: case 241: case 242: {
-        const k = u(op - 238); const text = new TextDecoder().decode(buf.subarray(p, p + k)); p += k
-        page?.specials.push(text); break
+        // as the box dump prints the whatsit (the same token list printed the same way, § 1368), byte for byte as the log
+        const k = u(op - 238); const text = new TextDecoder("latin1").decode(buf.subarray(p, p + k)); p += k
+        page?.specials.push({ text: `\\special{${text}}`, h, v }); break
       }
       case 243: case 244: case 245: case 246: defineFont(u(op - 242)); break
       case 248: return trace // postamble: all pages read

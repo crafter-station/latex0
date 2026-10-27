@@ -1,6 +1,7 @@
 % fixture: text/newlines-and-spaces
 % tier: T3
 % engine: document
+% specials: compare
 % covers: \\ in a paragraph (\@gnewline: \unskip, \nobreak\hfil\break), \\* and \\[skip] (\vadjust after the line; the space after ] stays), \hfill, \hfil, \quad, \qquad, a size group {\large …} in a paragraph, \setlength{\parindent}{0pt} in the preamble, \vspace (\vskip skip \vskip\z@skip) and \hrule (no interline glue after it) between paragraphs
 % issue: #30
 \documentclass{article}

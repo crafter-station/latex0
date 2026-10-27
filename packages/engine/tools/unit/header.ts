@@ -7,9 +7,11 @@
 //   % xfail: reason       expected to fail until the named work lands; passing is reported as xpass
 //   % oracle: pdflatex    the reference TeX: latex (dvips, the default) or pdflatex (PDF, positions from its box dumps)
 //   % files: a.png b.jpg  files next to the fixture that TeX reads (images); the engine gets their sizes
+//   % specials: compare  also compare every page's specials, in order and at their positions (the DVI's for latex;
+//                        for pdflatex, the specials and pdfTeX whatsits its box dumps show)
 
 export type Tier = "T0" | "T1" | "T2" | "T3"
-export interface FixtureHeader { fixture?: string; tier: Tier; engine?: string; covers?: string; issue?: string; xfail?: string; oracle: "latex" | "pdflatex"; files: string[] }
+export interface FixtureHeader { fixture?: string; tier: Tier; engine?: string; covers?: string; issue?: string; xfail?: string; oracle: "latex" | "pdflatex"; files: string[]; specials: boolean }
 
 export function parseHeader(src: string): FixtureHeader {
   const fields: Record<string, string> = {}
@@ -22,5 +24,6 @@ export function parseHeader(src: string): FixtureHeader {
   if (!["T0", "T1", "T2", "T3"].includes(tier)) throw new Error(`bad tier "${fields.tier}"`)
   const oracle = (fields.oracle ?? "latex") as FixtureHeader["oracle"]
   if (!["latex", "pdflatex"].includes(oracle)) throw new Error(`bad oracle "${fields.oracle}"`)
-  return { fixture: fields.fixture, tier, engine: fields.engine, covers: fields.covers, issue: fields.issue, xfail: fields.xfail, oracle, files: fields.files ? fields.files.split(/\s+/).filter(Boolean) : [] }
+  if (fields.specials !== undefined && fields.specials !== "compare") throw new Error(`bad specials "${fields.specials}"`)
+  return { fixture: fields.fixture, tier, engine: fields.engine, covers: fields.covers, issue: fields.issue, xfail: fields.xfail, oracle, files: fields.files ? fields.files.split(/\s+/).filter(Boolean) : [], specials: fields.specials === "compare" }
 }

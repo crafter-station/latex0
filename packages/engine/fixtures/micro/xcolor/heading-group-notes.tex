@@ -1,6 +1,7 @@
 % fixture: xcolor/heading-group-notes
 % tier: T3
 % engine: document
+% specials: compare
 % covers: a paragraph after a heading that starts in a {\color …} group: \@afterheading's \everypar runs in the group, so footnotes there see \clubpenalty\@M (or \@clubpenalty in the paragraph after), footnotes after it and the lines the one from before
 \documentclass{article}
 \usepackage{xcolor}
