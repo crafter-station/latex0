@@ -1,0 +1,54 @@
+% fixture: cleveref/cref-names
+% tier: T3
+% engine: document
+% covers: cleveref's capitalise and noabbrev options (\cref's names capitalised, Equation and Figure in full), \crefname in the preamble (\Cref's name its first letter in upper case), \Crefname (\cref's the same with capitalise), an empty singular name (the label alone, also in the single range format; the plural for several, not capitalised for \Cref; a type of its own: subsection apart from section), a theorem declared after cleveref (its title, no plural: no multi formats) and one whose type has an english name (the english name wins over the title); \cref and \Cref of one and of several keys; a subsection with the section's names
+% issue: #318
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage[capitalise,noabbrev]{cleveref}
+\crefname{section}{sec.}{secs.}
+\Crefname{table}{Tab.}{Tabs.}
+\crefname{subsection}{}{subs}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{remark}{Bemerkung}
+\newtheorem{claim}{Claim}
+\begin{document}
+\section{One}\label{s1}
+\begin{equation}\label{e1}
+a = b
+\end{equation}
+\begin{equation}\label{e2}
+c = d
+\end{equation}
+\subsection{Sub}\label{ss1}
+\subsection{Sub two}\label{ss2}
+\subsection{Sub three}\label{ss3}
+\begin{theorem}\label{t1}
+A theorem.
+\end{theorem}
+\begin{lemma}\label{l1}
+A lemma.
+\end{lemma}
+\begin{remark}\label{r1}
+A remark.
+\end{remark}
+\begin{remark}\label{r2}
+Another.
+\end{remark}
+\begin{claim}\label{c1}
+A claim.
+\end{claim}
+\begin{claim}\label{c2}
+Another.
+\end{claim}
+\begin{figure}[h]
+\centering
+\caption{A caption.}\label{f1}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{A table.}\label{tb1}
+\end{table}
+See \cref{s1}, \Cref{s1}, \cref{s1,ss1}, \cref{ss1}, \Cref{ss2}, \cref{ss1,ss3}, \cref{ss1,ss2,ss3}, \Cref{ss1,ss3}, \crefrange{ss1}{ss3}, \cref{e1}, \cref{e1,e2}, \cref{f1}, \Cref{f1,s1}, \cref{tb1}, \Cref{tb1}, \cref{t1}, \cref{l1}, \Cref{l1}, \cref{t1,l1}, \cref{r1}, \cref{r1,r2}, \Cref{r2}, \cref{c1}, \Cref{c1} and \cref{c1,c2}; \crefrange{e1}{e2}.
+\end{document}

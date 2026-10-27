@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 553,
-  "exact": 552,
+  "fixtures": 567,
+  "exact": 566,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 1,
-  "glyphs": 339266
+  "glyphs": 348794
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 21,
-   "exact": 21
+   "fixtures": 35,
+   "exact": 35
   },
   {
    "area": "display",
@@ -3055,6 +3055,39 @@
    "issue": "#277"
   },
   {
+   "id": "cleveref/cpageref-multi",
+   "file": "micro/cleveref/cpageref-multi.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5832,
+   "covers": "\\cpageref and \\Cpageref of several keys: pages grouped by their numbering (\\thepage at 1), sorted, two consecutive pages each on their own, keys on the same page once, an undefined key; \\cpagerefrange and \\Cpagerefrange; a document whose only references are page references (it runs twice)",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cpageref-roman",
+   "file": "micro/cleveref/cpageref-roman.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 100,
+   "covers": "\\cpageref of several keys under roman and arabic page numbers: a group for each numbering (\\thepage at 1: i, 1), sorted by \\arabic{page} within it, and \\cpagerefrange across them",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-compress",
+   "file": "micro/cleveref/cref-compress.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 198,
+   "covers": "cleveref's compress option: \\cref of several keys in the order given or sorted, grouped by type, compressed into ranges or not",
+   "issue": "#318"
+  },
+  {
    "id": "cleveref/cref-hyperref-displays-pdftex",
    "file": "micro/cleveref/cref-hyperref-displays-pdftex.tex",
    "area": "cleveref",
@@ -3099,6 +3132,28 @@
    "issue": "#318"
   },
   {
+   "id": "cleveref/cref-hyperref-kernel-equation-pdftex",
+   "file": "micro/cleveref/cref-hyperref-kernel-equation-pdftex.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 88,
+   "covers": "under pdflatex: cleveref with hyperref and LaTeX's own equation (no amsmath): the \\refstepcounter in display math leaves hyperref/fixcleveref's first aid group, an empty ord, before hyperref's \\mathopen{\\hyper@anchorstart}; \\cref and \\Cref of equations, several at once",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-hyperref-kernel-equation",
+   "file": "micro/cleveref/cref-hyperref-kernel-equation.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 88,
+   "covers": "cleveref with hyperref and LaTeX's own equation (no amsmath): the \\refstepcounter in display math leaves hyperref/fixcleveref's first aid group, an empty ord, before hyperref's \\mathopen{\\hyper@anchorstart}; \\cref and \\Cref of equations, several at once",
+   "issue": "#318"
+  },
+  {
    "id": "cleveref/cref-hyperref-pdftex",
    "file": "micro/cleveref/cref-hyperref-pdftex.tex",
    "area": "cleveref",
@@ -3118,6 +3173,83 @@
    "status": "pass",
    "glyphs": 248,
    "covers": "cleveref with hyperref: \\cref and \\Cref of one label, the link (\\hyper@@link[link] to the label's anchor) around the number only, the name before it; an equation's \\textup{(link)}, in an italic theorem; amsthm theorems with cleveref (hyperref leaves \\@thm unpatched: \\refstepcounter's anchor in vertical mode after \\trivlist, none in the paragraph), a lemma sharing the counter; undefined labels; the \\newlabel{key@cref} lines with hyperref",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-multi-hyperref-pdftex",
+   "file": "micro/cleveref/cref-multi-hyperref-pdftex.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 655,
+   "covers": "under pdflatex: with hyperref (each label its own link, a range's two ends, no link for ?? or a format's ??~n): \\cref and \\Cref of several keys: grouped by type (section and subsection share a format), each group sorted by prefix and counter, three or more consecutive numbers a range (eqs. (1) to (3)), two each on their own, the pair, middle and last conjunctions within a group and between groups (\\Cref's capital only in the first group); a key given twice; undefined keys (a group of their own, last; ?? with no conjunction); a theorem type with no plural name (??~n, its multi formats undefined); a lemma sharing the theorem counter; items; \\crefrange of undefined keys, of keys of different types and from a label read before any counter (empty \\cref@currentlabel: no type)",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-multi-hyperref",
+   "file": "micro/cleveref/cref-multi-hyperref.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 655,
+   "covers": "with hyperref (each label its own link, a range's two ends, no link for ?? or a format's ??~n): \\cref and \\Cref of several keys: grouped by type (section and subsection share a format), each group sorted by prefix and counter, three or more consecutive numbers a range (eqs. (1) to (3)), two each on their own, the pair, middle and last conjunctions within a group and between groups (\\Cref's capital only in the first group); a key given twice; undefined keys (a group of their own, last; ?? with no conjunction); a theorem type with no plural name (??~n, its multi formats undefined); a lemma sharing the theorem counter; items; \\crefrange of undefined keys, of keys of different types and from a label read before any counter (empty \\cref@currentlabel: no type)",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-multi",
+   "file": "micro/cleveref/cref-multi.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 655,
+   "covers": "\\cref and \\Cref of several keys: grouped by type (section and subsection share a format), each group sorted by prefix and counter, three or more consecutive numbers a range (eqs. (1) to (3)), two each on their own, the pair, middle and last conjunctions within a group and between groups (\\Cref's capital only in the first group); a key given twice; undefined keys (a group of their own, last; ?? with no conjunction); a theorem type with no plural name (??~n, its multi formats undefined); a lemma sharing the theorem counter; items; \\crefrange of undefined keys, of keys of different types and from a label read before any counter (empty \\cref@currentlabel: no type)",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-nameinlink-pdftex",
+   "file": "micro/cleveref/cref-nameinlink-pdftex.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 194,
+   "covers": "under pdflatex: cleveref's nameinlink option with hyperref: the first reference's name and \\nobreakspace in its link (an equation's \\textup{(n)} in it too: #2\\textup{(#1)}#3), the others' labels alone, a range's name in its first link; \\cpageref; undefined keys; \\cref* without links",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-nameinlink",
+   "file": "micro/cleveref/cref-nameinlink.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 194,
+   "covers": "cleveref's nameinlink option with hyperref: the first reference's name and \\nobreakspace in its link (an equation's \\textup{(n)} in it too: #2\\textup{(#1)}#3), the others' labels alone, a range's name in its first link; \\cpageref; undefined keys; \\cref* without links",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-names",
+   "file": "micro/cleveref/cref-names.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 432,
+   "covers": "cleveref's capitalise and noabbrev options (\\cref's names capitalised, Equation and Figure in full), \\crefname in the preamble (\\Cref's name its first letter in upper case), \\Crefname (\\cref's the same with capitalise), an empty singular name (the label alone, also in the single range format; the plural for several, not capitalised for \\Cref; a type of its own: subsection apart from section), a theorem declared after cleveref (its title, no plural: no multi formats) and one whose type has an english name (the english name wins over the title); \\cref and \\Cref of one and of several keys; a subsection with the section's names",
+   "issue": "#318"
+  },
+  {
+   "id": "cleveref/cref-nosort",
+   "file": "micro/cleveref/cref-nosort.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 201,
+   "covers": "cleveref's nosort option: \\cref of several keys in the order given or sorted, grouped by type, compressed into ranges or not",
    "issue": "#318"
   },
   {
@@ -3154,6 +3286,17 @@
    "issue": "#66"
   },
   {
+   "id": "cleveref/cref-sort",
+   "file": "micro/cleveref/cref-sort.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 182,
+   "covers": "cleveref's sort option, and \\Crefname (\\cref's names in lower case): \\cref of several keys in the order given or sorted, grouped by type, compressed into ranges or not",
+   "issue": "#318"
+  },
+  {
    "id": "cleveref/cref",
    "file": "micro/cleveref/cref.tex",
    "area": "cleveref",
@@ -3163,6 +3306,17 @@
    "glyphs": 348,
    "covers": "cleveref's \\cref and \\Cref of one label: the type \\refstepcounter records (a theorem sharing a counter keeps its own name), the default names (abbreviated eq. and fig.), \\crefformat's name~number; each \\label writes a second \\newlabel{key@cref} in its own \\@bsphack…\\@esphack; an undefined label prints ?? in bold; \\cref@currentlabel is local to an environment, as \\@currentlabel is; a \\bibitem's prefix is the values \\c@enumi … \\c@enumiii keep after their lists",
    "issue": "#66"
+  },
+  {
+   "id": "cleveref/crefrange-only",
+   "file": "micro/cleveref/crefrange-only.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 54,
+   "covers": "a document whose only references are \\crefrange and \\Crefrange (LaTeX runs twice: they read the run before's key@cref lines), of consecutive sections and from a section to a subsection (the same format)",
+   "issue": "#318"
   },
   {
    "id": "cleveref/enum-prefix",
