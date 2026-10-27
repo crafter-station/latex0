@@ -158,7 +158,7 @@ function calculateHeadFoot(cx: BeamerCtx, frame: number, page: number): Record<(
   const { k, theme, info } = cx.pre, d = k.dimens
   const at = footlineAt(cx, frame, page)
   const foot = hpack(headOrFoot(k, footlineTemplate(k, theme, info, at, cx.decisions)))
-  const head = hpack(headOrFoot(k, headlineTemplate(k, theme, at, cx.decisions)))
+  const head = hpack(headOrFoot(k, headlineTemplate(k, theme, info, at, cx.decisions)))
   const footheight = foot.height + foot.depth + 4 * 65536, headheight = head.height + head.depth
   return { footheight, footskip: footheight, headheight, headdp: head.depth, sidebarheight: d.paperheight - headheight + head.depth - footheight + 4 * 65536,
     textheight: d.paperheight - footheight - headheight }
@@ -204,7 +204,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
     const page = pages[i].count
     const symbols = pre.navigationSymbols ? [navigationSymbols(pgf, pre.theme, symbolColors, page, links[page - 1])] : []
     const at = footlineAt(cx, cx.pageFrames[i], page, cx.pageHeads[i])
-    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, (traces) => headlineTemplate(k, pre.theme, at, traces), () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
+    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, (traces) => headlineTemplate(k, pre.theme, pre.info, at, traces), () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     const shown = pgfBackground(box, i === 0)
     return i === 0 ? beamerFirstPage(shown, k) : shown

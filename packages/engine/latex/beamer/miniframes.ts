@@ -5,7 +5,8 @@
 // the line by its subsection, a pgf circle linked to the frame), the middle separation line's, the
 // subsection's head in subsection in head/foot's box, and the lower separation line's. The footline is
 // the theme's footline option's: the author and institute, then the title (Berlin, Dresden, Ilmenau), or
-// the title and institute (Szeged), between the upper and lower separation lines.
+// the title and institute (Szeged), between the upper and lower separation lines. The tree outer
+// theme's headline is stacked the same way.
 
 import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
@@ -36,8 +37,8 @@ function stack(list: Node[], boxes: BoxNode[]) {
 }
 
 /** an empty beamercolorbox[colsep=1.5pt] (a separation line: a rule colsep high each side where it has a bg) */
-const separation = (k: ClassOptionData, t: Theme, size: SizeCommand, colors: ColorState, decisions: ParagraphTrace[], name: string) =>
-  headFootBox(k, t, size, size, colors, decisions, "colsep=1.5pt", name, () => ({ list: [] }))
+const separation = (k: ClassOptionData, t: Theme, size: SizeCommand, colors: ColorState, decisions: ParagraphTrace[], name: string, options = "colsep=1.5pt") =>
+  headFootBox(k, t, size, size, colors, decisions, options, name, () => ({ list: [] }))
 
 /**
  * A mini frame (beamerouterthemedefault.sty's templates), where `c` is in force: \begin{pgfpicture}{0pt}{0pt}{0.1cm}
@@ -158,4 +159,37 @@ export function miniframesFootline(k: ClassOptionData, t: Theme, info: TitleInfo
   }
   boxes.push(separation(k, t, size, colors, decisions, "lower separation line foot"))
   stack(list, boxes)
+}
+
+/**
+ * The tree outer theme's headline (beamerouterthemetree.sty), with hooks: the upper separation line's box, then three
+ * boxes [wd=\paperwidth,ht=2.5ex,dp=1.125ex,leftskip=.3cm,rightskip=.3cm plus1fil], each in its own font: the short title,
+ * the section's head, the subsection's head; a head wider than 1pt after a hook (\hskip2pt, 9.4pt for the subsection,
+ * \raise1.9pt\hbox{\vrule width0.4pt height1.875ex\vrule width 5pt height0.4pt}\hskip1pt); then the lower separation
+ * line's box
+ */
+export function treeHeadline(k: ClassOptionData, t: Theme, at: FootlineAt, info: TitleInfo, colors: ColorState, list: Node[], decisions: ParagraphTrace[]) {
+  const size = fontSize(t, k, "headline", "normalsize")
+  const row = "wd=\\paperwidth,ht=2.5ex,dp=1.125ex,leftskip=.3cm,rightskip=.3cm plus1fil"
+  const sized = (name: string) => fontSize(t, k, name, size)
+  const hooked = (name: string, indent: string, head: FootlineAt["heads"]["section"]) =>
+    headFootBox(k, t, sized(name), sized(name), colors, decisions, row, name, (f, inner) => {
+      const link = headLink(head, f, inner.fg)
+      const pt = (x: string) => parseDimen(x, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
+      const hook: Node[] = []
+      if (hpack(link).width > 65536) {
+        const h = hpack([{ kind: "rule", width: pt("0.4pt"), height: pt("1.875ex"), depth: null }, { kind: "rule", width: pt("5pt"), height: pt("0.4pt"), depth: null }])
+        h.shift = -pt("1.9pt")
+        hook.push(glue(pt(indent)), h, glue(pt("1pt")))
+      }
+      return { list: [...hook, ...link, spaceGlue(f, 1000)] }
+    })
+  stack(list, [
+    separation(k, t, size, colors, decisions, "upper separation line head", "wd=\\paperwidth,colsep=1.5pt"),
+    headFootBox(k, t, sized("title in head/foot"), sized("title in head/foot"), colors, decisions, row, "title in head/foot", (f, inner) =>
+      ({ list: [...navigationLink([shortBox(plain(info.short.title), f)], inner.fg, at.page === 1 ? at.lastPage : 1), spaceGlue(f, 1000)] })),
+    hooked("section in head/foot", "2pt", at.heads.section),
+    hooked("subsection in head/foot", "9.4pt", at.heads.subsection),
+    separation(k, t, size, colors, decisions, "lower separation line head", "wd=\\paperwidth,colsep=1.5pt"),
+  ])
 }

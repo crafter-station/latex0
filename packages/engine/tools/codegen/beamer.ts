@@ -44,6 +44,8 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...presentation("Dresden", false, ["outerthememiniframes", "colorthemewhale"]),
   ...presentation("Ilmenau", false, ["outerthememiniframes", "colorthemewhale", "colorthemeorchid", "innerthemerounded"]),
   ...presentation("Szeged", false, ["outerthememiniframes"]),
+  tree: { preamble: ["\\useoutertheme{tree}"], files: ["beamerouterthemetree.sty"] },
+  ...presentation("Montpellier", false, ["outerthemetree"]),
   ...presentation("Copenhagen", false, ["outerthemesplit", "innerthemerounded", "colorthemewhale", "colorthemeorchid"]),
   ...presentation("Luebeck", false, ["outerthemesplit", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
 }
