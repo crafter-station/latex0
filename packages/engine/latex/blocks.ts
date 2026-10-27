@@ -23,6 +23,8 @@ export type Block =
   | { kind: "toc" }
   /** \markboth{left}{right} (left null: \markright{right}) in vertical mode */
   | { kind: "mark"; left: string | null; right: string }
+  /** \addcontentsline{toc}{level}{title} in vertical mode */
+  | { kind: "contentsline"; level: keyof typeof HEADINGS; title: string }
   /** \appendix */
   | { kind: "appendix" }
   /** \listoffigures, \listoftables */
@@ -214,7 +216,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -254,6 +256,13 @@ export function blocksOf(body: string): Block[] {
     if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[21]) { out.push({ kind: "appendix" }); at = re.lastIndex; endpe = false; continue }
+    if (m[25] !== undefined) {
+      if (inParagraph(before.replace(COUNTER_COMMANDS, ""))) throw new Unsupported(`${m[0].trim()} in a paragraph`)
+      // (the title as written: spaces in a row one; one at either end would be a glue in the line)
+      const title = m[27].replace(/\s+/g, " ")
+      if (m[25].trim() !== "toc" || !(m[26].trim() in HEADINGS) || /[\\{}$]|^ | $/.test(title)) throw new Unsupported(m[0].trim())
+      out.push({ kind: "contentsline", level: m[26].trim() as "section", title }); at = re.lastIndex; continue
+    }
     if (m[22] !== undefined || m[24] !== undefined) {
       if (inParagraph(before.replace(COUNTER_COMMANDS, ""))) throw new Unsupported(`${m[0].trim()} in a paragraph`)
       out.push({ kind: "mark", left: m[22] ?? null, right: m[23] ?? m[24] }); at = re.lastIndex; continue
@@ -331,7 +340,7 @@ export function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle") continue
+    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle") continue
     else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out

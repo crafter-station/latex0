@@ -1,0 +1,21 @@
+% fixture: sections/addcontentsline
+% tier: T3
+% engine: document
+% covers: \addcontentsline{toc}{level}{title} in vertical mode after starred headings (\protected@write with \nobreak while \if@nobreak) and between paragraphs, read back by \tableofcontents
+% issue: #336
+\documentclass{article}
+\begin{document}
+\tableofcontents
+\section*{Preface}
+\addcontentsline{toc}{section}{Preface}
+Some words of preface.
+\section{Main}
+Text.
+\subsection*{Aside}
+\addcontentsline{toc}{subsection}{An aside}
+Aside text.
+
+\addcontentsline{toc}{section}{A loose
+  entry}
+More text.
+\end{document}

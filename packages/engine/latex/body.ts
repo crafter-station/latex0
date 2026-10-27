@@ -3,7 +3,7 @@
 
 import type { GlueSpec } from "../layout/dimen"
 import { parseGlue } from "../layout/dimen"
-import { blocksOf, displaySegments, type Block, type ListBlock } from "./blocks"
+import { blocksOf, displaySegments, HEADINGS, type Block, type ListBlock } from "./blocks"
 import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
@@ -73,6 +73,12 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
   if (b.kind === "appendix") { appendix(cx); return }
+  if (b.kind === "contentsline") { // \addcontentsline{toc}: hyperref's bookmark to \@currentHref, then \addtocontents (\protected@write)
+    if (run.runIn || run.noskipsec) throw new Unsupported("\\addcontentsline right after a run-in heading")
+    if (b.level === "chapter" && cls === "article") throw new Unsupported("\\addcontentsline{toc}{chapter} in article")
+    v.nodes.push(...cx.contentsWrites(HEADINGS[b.level], null, b.title, cx.refs.href, v.nobreak))
+    return
+  }
   if (b.kind === "mark") { // \markboth and \markright in vertical mode: the \marks, \nobreak while \if@nobreak
     if (run.runIn || run.noskipsec) throw new Unsupported("\\markboth or \\markright right after a run-in heading")
     const value = (t: string) => markValue([{ text: t.replace(/\s+/g, " ") }], false)
