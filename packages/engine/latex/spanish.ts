@@ -15,8 +15,10 @@ import { Unsupported } from "./unsupported"
 
 const TEXTBULLET = 136 // \textbullet in TS1
 
-/** spanish.ldf is the document's main language (its layout and \textspanish, \mathspanish) */
+/** spanish.ldf is the document's main language (its layout, \layoutspanish, at \begin{document}) */
 export const spanishLayout = { on: false }
+/** spanish is the language selected (\extrasspanish: \textspanish, \mathspanish, its shorthands) */
+export const spanishText = { on: false }
 
 /** $\m@th …$ in a label: the formula between math nodes (\mathsurround 0pt) */
 function formula(src: string, k: ClassOptionData, size: SizeCommand, font: Font, amsmath: boolean): Node[] {

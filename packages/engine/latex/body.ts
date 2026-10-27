@@ -26,7 +26,7 @@ import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
 import { needsVerticalMode, titlepage, verticalMaterial } from "./vmode"
-import { babelAux, babelLanguage } from "./babel"
+import { babelAux, babelSwitch } from "./babel"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -104,8 +104,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace, \\hrule or \\selectlanguage right after a run-in heading")
       for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}/g)) {
         if (m[4] !== undefined) {
-          const lang = babelLanguage(cx.pre.babel, m[6])
-          if (!m[5]) v.nodes.push({ kind: "whatsit", text: babelAux(lang) }, ...(v.nobreak ? [penalty(10000)] : []))
+          const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
+          const { lang, write } = babelSwitch(what, m[6])
+          if (write) v.nodes.push({ kind: "whatsit", text: babelAux(lang) }, ...(v.nobreak ? [penalty(10000)] : []))
         } else if (m[1] !== undefined) {
           for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
         } else if (m[3] !== undefined) {

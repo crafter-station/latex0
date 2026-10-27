@@ -1,0 +1,30 @@
+% fixture: babel/switch-title
+% tier: T3
+% engine: document
+% covers: babel's languages selected before \maketitle (its \today in that language), otherlanguage around a list and a proof (amsthm's \proofname), \foreignlanguage in \textbf, in \underline (restricted horizontal mode: no language node) and in a footnote
+% issue: #338
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage[portuguese,english]{babel}
+\title{Um título}
+\author{Autor}
+\begin{document}
+\selectlanguage{portuguese}
+\maketitle
+Texto com \textbf{\foreignlanguage{english}{bold information representations}} e \underline{\foreignlanguage{english}{boxed}} palavras.\footnote{Nota com \foreignlanguage{english}{information representations transformations} e informação.}
+
+\begin{otherlanguage}{english}
+Items in english:
+\begin{itemize}
+\item information representations and transformations of the communication;
+\item \foreignlanguage{portuguese}{informação estabelecida}.
+\end{itemize}
+\begin{proof}
+A proof in english.
+\end{proof}
+\end{otherlanguage}
+\begin{proof}
+Uma demonstração.
+\end{proof}
+
+\end{document}

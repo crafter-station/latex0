@@ -24,7 +24,7 @@ import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularLines } from "./tabular"
 import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
 import { ALIGNMENTS, topDeclarations, verticalMaterial } from "./vmode"
-import { babelToday, isSpanish, type Babel } from "./babel"
+import { babelSelect, babelState, babelToday, isSpanish, type Babel } from "./babel"
 
 /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
  *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
@@ -133,7 +133,10 @@ export function tableOfContents(cx: Ctx) {
     v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
   }
   const tocdepth = cls === "article" ? 3 : 2
-  for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(cx, e, cx.pre.parskip ? dimen(0) : cx.outerParskip)
+  // (\@starttoc reads the .toc in a group: its \babel@toc lines select their languages there)
+  const lang = babelState.lang
+  for (const e of toc ?? []) { if (e.language) babelSelect(e.language); if (e.level <= tocdepth) tocLine(cx, e, cx.pre.parskip ? dimen(0) : cx.outerParskip) }
+  babelSelect(lang)
   v.nobreak = false
 }
 
@@ -157,6 +160,8 @@ export function listOf(cx: Ctx, file: ListFile) {
     const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
     v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
   }
+  // (the .lof's and .lot's \babel@toc lines are not modeled: their entries' language)
+  if (babelState.switches && lists?.[file]?.length) throw new Unsupported(`\\listof… with babel's language commands`)
   for (const e of lists?.[file] ?? []) {
     if ("vspace" in e) { v.addvspace(dimen(10 * 65536)); continue }
     // ({\ignorespaces title}: a group the line's text is in, no space at its end)

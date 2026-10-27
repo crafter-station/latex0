@@ -178,8 +178,9 @@ export function displaySegments(text: string): (string | Display)[] {
  *  only \label commands, which do not start one */
 export function inParagraph(before: string): boolean {
   const last = before.split(/\n[ \t]*\n/).pop()!
-  // (nor a \par, perhaps at the end of a group: {\large … \par})
-  return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*\\label\{[^{}]*\})+\s*$/.test(last) && !/\\par(?![A-Za-z])[\s}]*$/.test(before)
+  // (nor a \par, perhaps at the end of a group: {\large … \par}; nor \label or babel's language commands alone, which
+  // stay in vertical mode)
+  return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*(?:\\label\{[^{}]*\}|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*$/.test(last) && !/\\par(?![A-Za-z])[\s}]*$/.test(before)
 }
 
 /** The commands a paragraph lays out (paragraph.ts), less \the<counter> and the text symbols */

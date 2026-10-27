@@ -1,0 +1,41 @@
+% fixture: babel/switch-spanish
+% tier: T3
+% engine: document
+% covers: spanish as the main language and english selected: \noextrasspanish (no \frenchspacing, OT1's \' and \~ without \bbl@allowhyphens, babel's high umlaut, the decimal point and the operators of english math, ", <<, ~ and \% as in english), spanish.ldf's layout kept (the itemize and enumerate labels, the section dot), the abstract and figure names, and back to spanish
+% issue: #338
+\documentclass{article}
+\usepackage[english,spanish]{babel}
+\begin{document}
+\begin{otherlanguage}{english}
+\begin{abstract}
+An abstract in english. Sentences end here. Then more: na\"{\i}ve, \"O and \"U words, a\'erea, ma\~nana, $\lim_{n} x = 3.14$ and 50\% of it, ``quoted'' text~here.
+\end{abstract}
+\end{otherlanguage}
+\section{Introducción}
+Texto en español. Las oraciones terminan aquí. Con acción, canción y \'arbol, ``citas'', $\lim_{n} x = 3.14$ y 50\%, <<comillas>> y ~ espacios.
+\begin{itemize}
+\item Un elemento.
+\item \foreignlanguage{english}{An item. In english: a\'erea, 3.14 and $\max x = 0.5$.}
+\end{itemize}
+
+\selectlanguage{english}
+\section{Results}
+English text. Sentences end here. With a\'erea and ma\~nana, $\sin x + \lim_{n} 0.5$, 25\% and "quotes".
+\begin{enumerate}
+\item First.
+\item Second, with 1.5 and $2.5$.
+\end{enumerate}
+\begin{figure}[h]
+\caption{An english figure}
+\end{figure}
+
+\begin{otherlanguage*}{spanish}
+Otra vez en español. Con canción, $\sen x = 0.5$ y 10\%.
+\end{otherlanguage*}
+
+\selectlanguage{spanish}
+\begin{figure}[h]
+\caption{Una figura}
+\end{figure}
+Fin. Con acción.
+\end{document}

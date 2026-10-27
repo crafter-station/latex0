@@ -1,5 +1,6 @@
 // portuges.ldf (babel-portuges 1.2u), the main language portuguese, portuges, brazil or brazilian (#63): what it
-// changes beyond its captions and date (babel.ts): the shorthands of its active ". (\- and \ord are not modeled.)
+// changes beyond its captions and date (babel.ts): the shorthands of its active ", while it is selected. (\- and \ord
+// are not modeled.)
 
 import type { ClassOptionData, SizeCommand } from "../layout/classdata"
 import { Scanner } from "../layout/dimen"
@@ -11,8 +12,8 @@ import { appendText } from "./encodings"
 import { mathEnv, parseFormula } from "./paragraph"
 import { Unsupported } from "./unsupported"
 
-/** portuges.ldf's shorthands are on (its main language) */
-export const portugueseLayout = { on: false }
+/** portuges.ldf's shorthands are on: the language selected is one of its options (\extras<lang>) */
+export const isPortuguese = (lang: string) => ["portuguese", "portuges", "brazil", "brazilian"].includes(lang)
 
 /** a shorthand: "" (\hskip\z@skip), "- (\nobreak-\bbl@allowhyphens), "< and "> (\textormath{\guillemotleft}…) */
 export type PortugueseShorthand = { kind: "babelskip" } | { kind: "babelhyphen" } | { kind: "guillemet"; right: boolean; quoting: false }

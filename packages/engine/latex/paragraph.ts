@@ -31,9 +31,9 @@ import type { LayoutResult } from "./result"
 import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefLanguage, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
-import { babelAux, babelLanguage, isSpanish, type Babel } from "./babel"
-import { babelGuillemet, portugueseHyphen, portugueseLayout, portugueseShorthand } from "./portuguese"
-import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
+import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, type Babel, type BabelCommand } from "./babel"
+import { babelGuillemet, isPortuguese, portugueseHyphen, portugueseShorthand } from "./portuguese"
+import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand, spanishText } from "./spanish"
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
 import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
@@ -79,8 +79,8 @@ export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiC
   const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
   const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
   // (spanish.ldf's \mathspanish: its operators and decimal comma)
-  const operators = spanishLayout.on ? SPANISH_OPERATORS : undefined
-  try { return parseMath(spanishLayout.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  const operators = spanishText.on ? SPANISH_OPERATORS : undefined
+  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
@@ -465,7 +465,8 @@ function swSlant(list: Node[]) {
 
 /** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
-interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean }
+interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean; /** babel's language where the parse is, and the
+ *  languages otherlanguage and \foreignlanguage go back to: whose shorthands are on */ lang?: { name: string; stack: string[] } }
 export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
 /** the classes' old font commands (\DeclareOldFontCommand{\bf}{\normalfont\bfseries}…) */
 const OLD_FONT_COMMANDS: Record<string, string> = { rm: "rmfamily", sf: "sffamily", tt: "ttfamily", bf: "bfseries", it: "itshape", sl: "slshape", sc: "scshape" }
@@ -480,7 +481,8 @@ export const SKIP_AMOUNTS: Record<string, GlueSpec> = {
 }
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
-  const inner: PieceOptions = { ...po, grouped: true }
+  const lang = po.lang ?? { name: babelState.lang, stack: [...babelState.stack] }
+  const inner: PieceOptions = { ...po, grouped: true, lang }
   const out: Piece[] = []
   let i = 0, text = ""
   const flushText = () => {
@@ -489,7 +491,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
   }
   while (i < body.length) {
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
-    if (spanishLayout.on) { // spanish.ldf's shorthands
+    if (lang.name === "spanish") { // spanish.ldf's shorthands
       if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
       const sh = spanishShorthand(body.slice(i, i + 2))
       if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
@@ -503,7 +505,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
         i = j; continue
       }
     }
-    if (portugueseLayout.on && body[i] === '"') { flushText(); out.push(portugueseShorthand(body.slice(i, i + 2))); i += 2; continue } // (portuges.ldf's)
+    if (isPortuguese(lang.name) && body[i] === '"') { flushText(); out.push(portugueseShorthand(body.slice(i, i + 2))); i += 2; continue } // (portuges.ldf's)
     if (body[i] === "\\" && body[i + 1] !== undefined && "#%&".includes(body[i + 1])) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
     // a text symbol (\textdegree …); the spaces after a control word go
@@ -626,12 +628,17 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     const sel = body.slice(i).match(/^\\(selectlanguage|LXotherlanguage|LXotherlanguagestar)\s*\{([A-Za-z]+)\}|^\\(LXendotherlanguage|LXendotherlanguagestar)(?![A-Za-z])\{([A-Za-z]*)\}/)
     if (sel) {
       const what = ({ selectlanguage: "select", LXotherlanguage: "other", LXotherlanguagestar: "otherstar", LXendotherlanguage: "endother", LXendotherlanguagestar: "endotherstar" } as const)[(sel[1] ?? sel[3]) as "selectlanguage"]
+      if (what === "select" && po.grouped) throw new Unsupported("\\selectlanguage in a group") // (\aftergroup\bbl@pop@language)
+      if (what.startsWith("end")) lang.name = lang.stack.pop() ?? lang.name
+      else { if (what !== "select") lang.stack.push(lang.name); lang.name = sel[2] }
       flushText(); out.push({ kind: "babel", what, lang: sel[2] ?? sel[4] }); i += sel[0].length; continue
     }
     const fgn = body.slice(i).match(/^\\foreignlanguage\s*\{([A-Za-z]+)\}\s*\{/)
     if (fgn) {
-      const open = i + fgn[0].length - 1, j = closingBrace(body, open)
-      flushText(); out.push({ kind: "foreign", lang: fgn[1], inner: pieces(body.slice(open + 1, j), footnotes, inner) }); i = j + 1; continue
+      const open = i + fgn[0].length - 1, j = closingBrace(body, open), before = lang.name
+      lang.name = fgn[1]
+      flushText(); out.push({ kind: "foreign", lang: fgn[1], inner: pieces(body.slice(open + 1, j), footnotes, inner) }); i = j + 1
+      lang.name = before; continue
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
@@ -865,12 +872,14 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
     hsize: k.dimens.columnwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO), parFillSkip: paramGlue("parfillskip", filGlue()),
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
-  params.hyphenation = hyphenation(k, font)
+  const lang0 = languageHyphenation(babelState.lang)
   const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   const list: Node[] = [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
-  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" } }) // \reset@font
+  const from = list.length, languages: LanguageMark[] = []
+  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
+  params.hyphenation = hyphenation(k, font, fixLanguage(list, from, lang0, false, languages)) // (\noindent)
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
   const { vlist, trace } = lineBreak(list, params)
@@ -892,16 +901,48 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
 const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
 const glueOf = (g: GlueSpec): GlueNode => glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)
 
-function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): LineBreakParams["hyphenation"] {
+/** The hyphenation of a paragraph that starts in babel's language `lang` (none: the class's patterns and hyphenmins) */
+function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>, lang = languageHyphenation(babelState.lang)): LineBreakParams["hyphenation"] {
   return {
-    hyphenator: hyphenator(k.patterns),
+    hyphenator: hyphenator(lang?.patterns ?? k.patterns),
     fontOf: (name, size) => (name === font.name && size === font.size ? font : fontAt(name, size)),
-    lHyf: k.ints.lefthyphenmin, rHyf: k.ints.righthyphenmin, ucHyph: k.ints.uchyph,
+    lHyf: lang?.lhm ?? k.ints.lefthyphenmin, rHyf: lang?.rhm ?? k.ints.righthyphenmin, ucHyph: k.ints.uchyph, patterns: hyphenator,
   }
 }
 
+type Language = NonNullable<ReturnType<typeof languageHyphenation>>
+
+/** where babel selected a language in a paragraph (\language=…): after the node `after` of `list` (null: at its start) */
+interface LanguageMark { list: Node[]; after: Node | null; lang: Language }
+
+/**
+ * fix_language (§ 1376) over a paragraph's list from `from` on, where babel changed \language (`marks`): a language
+ * node before the next character main_loop appends (§ 1034: not in a formula, nor an accent's, § 1123) when the
+ * language differs from clang's. The paragraph starts (new_graf, § 1091: clang) in `start`, or in the language
+ * selected before its first node, when it starts there (not at a \noindent). Returns its language.
+ */
+function fixLanguage(list: Node[], from: number, start: Language | null, startsHere: boolean, marks: LanguageMark[]): Language | null {
+  const at = marks.map((m) => {
+    const i = m.after ? list.indexOf(m.after) + 1 : 0
+    if (m.list !== list || (m.after && i === 0)) throw new Unsupported("babel's language commands where the paragraph's list is rebuilt")
+    return { i, lang: m.lang }
+  })
+  let cur = start, clang = start, math = false
+  for (let i = from, j = 0; i < list.length; i++) {
+    for (; j < at.length && at[j].i <= i; j++) { cur = at[j].lang; if (startsHere && i === from) clang = start = cur }
+    const n = list[i]
+    if (n.kind === "math") math = n.on
+    const accent = (x: Node | undefined) => x?.kind === "kern" && !!x.accent // (the accent's character and the one under it)
+    if (n.kind !== "char" || math || accent(list[i - 1]) || !cur || cur.number === clang?.number) continue
+    list.splice(i, 0, { kind: "whatsit", text: `\\setlanguage${cur.number} (hyphenmin ${cur.lhm},${cur.rhm})`, language: { patterns: cur.patterns, lhm: cur.lhm, rhm: cur.rhm } })
+    for (const a of at) if (a.i > i) a.i++
+    i++; clang = cur
+  }
+  return start
+}
+
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
@@ -1085,11 +1126,13 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "babelskip") list.push(glue(0))
     else if (p.kind === "babelhyphen") list.push(...portugueseHyphen(font, state, !ctx.restricted))
     else if (p.kind === "babel" || p.kind === "foreign") {
-      const lang = babelLanguage(doc.babel, p.lang)
-      if (p.kind === "foreign") { appendPieces(list, p.inner, font, size, state, ctx, attrs); continue } // (in a group)
+      // (\language and the hyphenmins change: the next character marks it, in a paragraph)
+      const select = (what: BabelCommand, name: string) => { const r = babelSwitch(what, name); if (!ctx.restricted) ctx.languages?.push({ list, after: list.at(-1) ?? null, lang: languageHyphenation(r.lang)! }); return r }
+      if (p.kind === "foreign") { select("foreign", p.lang); appendPieces(list, p.inner, font, size, state, ctx, attrs); select("endforeign", ""); continue } // (in a group)
       // \selectlanguage and otherlanguage (and its end, \bbl@pop@language: the language before) write to the .aux
       // file; otherlanguage's \begin and \end then \ignorespaces
-      if (p.what === "select" || p.what === "other" || p.what === "endother") list.push({ kind: "whatsit", text: babelAux(lang) })
+      const { lang, write } = select(p.what, p.lang)
+      if (write) list.push({ kind: "whatsit", text: babelAux(lang) })
       if (p.what === "other" || p.what === "endother") ctx.ignoreSpaces = true
     }
     else if (p.kind === "decl") {
@@ -1192,6 +1235,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const c = doc.refs?.cleveref
       const cmd = p.kind === "cref" ? p.variant : `${p.family === "Cref" ? "C" : "c"}${p.page ? "pageref" : "ref"}range`
       if (!c) throw new Unsupported(`\\${cmd} without cleveref`)
+      if (babelState.b && babelState.lang !== babelState.b.main) throw new Unsupported(`\\${cmd} in babel's ${babelState.lang}`) // (cleveref's names in \extras<lang>)
       if (p.star && !doc.refs!.hyper) throw new Unsupported(`\\${cmd}* without hyperref`)
       const links = doc.refs!.hyper && !p.star
       const out = p.kind === "cref" ? crefOutput(c.setup, c.prev, p.keys, p.variant, !!links) : crefRangeOutput(c.setup, c.prev, p.a, p.b, p.family, p.page, !!links)
@@ -1230,6 +1274,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const refs = doc.refs
       if (!refs) throw new Unsupported(`paragraph adapter: \\${p.kind} outside a document`)
       if (p.kind === "autoref" && !refs.hyper) throw new Unsupported("\\autoref without hyperref")
+      if (p.kind === "autoref" && babelState.b && babelState.lang !== babelState.b.main) throw new Unsupported(`\\autoref in babel's ${babelState.lang}`) // (hyperref's names in \extras<lang>)
       if (p.kind === "nameref" && !refs.nameref) throw new Unsupported("\\nameref without nameref")
       const known = refs.prev?.get(p.key)
       if (!known) { // \nfss@text{\reset@font\bfseries ??}
@@ -1477,7 +1522,10 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     body = s.rest().trimStart()
   }
   const ps = pieces(body, true, { groups: !!opts.groups, grouped: !!opts.topDecls, centercr: !!opts.centercr })
-  params.hyphenation = hyphenation(k, font)
+  // (where a \noindent starts the paragraph, its language is the one before: a \noindent the engine puts there for an
+  // \everypar is not one)
+  if (!indent && (ps[0]?.kind === "babel" || ps[0]?.kind === "foreign")) throw new Unsupported("babel's language commands after \\noindent")
+  const lang0 = languageHyphenation(babelState.lang)
   if (opts.parShape) params.parShape = opts.parShape
   if (opts.hsize !== undefined) params.hsize = opts.hsize
   if (opts.clubPenalty !== undefined) params.clubPenalty = opts.clubPenalty
@@ -1495,8 +1543,10 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  const pctx: PieceContext = { k, params, mathSurround, doc, notes, lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  const from = list.length
   appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}), ...(opts.spaceSkips ? { spaceSkips: opts.spaceSkips } : {}) }, pctx)
+  params.hyphenation = hyphenation(k, font, fixLanguage(list, from, lang0, true, pctx.languages!))
   if (pctx.quoting) throw new Unsupported("spanish.ldf's quoting over paragraphs") // (\es@quotcont in \everypar)
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   if (opts.end) list.push(...opts.end)

@@ -1,0 +1,32 @@
+% fixture: babel/switch-report
+% tier: T3
+% engine: document
+% covers: babel's language switches in report: \chaptername and \contentsname of the language selected, the .toc's \babel@toc lines (the entries after one in its language: its patterns), otherlanguage* around a heading (no .aux write: the entry stays in the language written last), the language after the contents (its group's end)
+% issue: #338
+\documentclass{report}
+\usepackage[english,brazil]{babel}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\chapter{Abertura}
+Estabelecidas as mem\'orias do armazenamento.
+\section{Mem\'orias estabelecidas e transformadas do armazenamento eletr\^onico}
+Texto em português.
+\section{Uma parte}
+Mais texto.
+
+\selectlanguage{english}
+\chapter{Information representations and transformations in the communication of standardised organisations}
+Text in english.
+\section{Representations}
+\begin{otherlanguage*}{brazil}
+\section{Mem\'orias eletr\^onicas estabelecidas e transformadas do armazenamento}
+Texto.
+\end{otherlanguage*}
+\section{Information representations of the communication transformations and organisations}
+More text.
+
+\selectlanguage{english}
+\chapter{Final}
+Fim.
+\end{document}

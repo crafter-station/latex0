@@ -6,7 +6,8 @@
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
 // them, \label in both, babel (english, british, american, portuguese, brazil, spanish: Spanish words with accents typed and in UTF-8,
-// its shorthands << >> "< "> "u and \%, decimals and operators in math) — each compared with TeX as a fixture is:
+// its shorthands << >> "< "> "u and \%, decimals and operators in math; a second language that \foreignlanguage, \selectlanguage
+// and otherlanguage select) — each compared with TeX as a fixture is:
 // every glyph, every line and page decision, every page's box tree.
 //
 //   bun engine fuzz:documents [--n 30] [--seed 1]
@@ -46,6 +47,9 @@ export function makeDocument(r: () => number): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   // babel's spanish: Spanish words in the body (ASCII ones with hyperref)
   let es = false, esAscii = false
+  // babel's second language, which \foreignlanguage selects in text, and \selectlanguage and otherlanguage between
+  // paragraphs (`switches`)
+  let other: string | null = null, switches = false, babelMain: string | null = null
   const words = (n: number) => Array.from({ length: n }, () => pick(es ? esAscii ? ES_ASCII : ES_WORDS : WORDS)).join(" ")
   // algpseudocode: statements, conditions and nested blocks, a procedure around them sometimes
   const algorithmic = (): string[] => {
@@ -257,6 +261,7 @@ export function makeDocument(r: () => number): string {
       if (siOn && r() < 0.03) ws[i] += pick([" ", " ", "~"]) + si()
       if (subOn && r() < 0.004) ws[i] += ` \\subref{${pick(["figure", "table"])}:${20 + Math.floor(r() * 40)}${pick(["a", "b", "c"])}}`
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
+      if (other && r() < 0.01) ws[i] += ` \\foreignlanguage{${pick([other, babelMain!])}}{${words(1 + Math.floor(r() * 6))}}`
       if (es && !esAscii && r() < 0.03) ws[i] = pick([`<<${ws[i]}>>`, `"<${ws[i]}">`, `${ws[i]} 50\\%`, `ping"uino ${ws[i]}`, `"U${ws[i]}`, `${pick(ES_TYPED)} ${ws[i]}`])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
       // text symbols (own characters in the run, TS1's, OMS's, OML's) and logos
@@ -555,8 +560,13 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.2 && lang !== "spanish") out.push(pick(["\\crefname{section}{sec.}{secs.}", "\\Crefname{equation}{Eq.}{Eqs.}", "\\crefname{figure}{fig.}{figs.}"]))
   }
   if (lang) {
-    if (r() < 0.25) { out[0] = out[0].replace(/^\\documentclass(?:\[([^\]]*)\])?/, (_, o: string | undefined) => `\\documentclass[${o ? `${o},` : ""}${lang}]`); out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{babel}") }
-    else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${lang}]{babel}`)
+    // (not with cleveref or hyperref, whose names are the language's own, nor caption.sty or fancyhdr: not modeled there)
+    other = r() < 0.4 ? pick(["english", "british", "portuguese", "brazil"].filter((l) => l !== lang)) : null
+    switches = !!other && !crefOn && !hyper && !capOn && !out.includes("\\usepackage{fancyhdr}")
+    babelMain = lang
+    const langs = other ? `${other},${lang}` : lang
+    if (r() < 0.25) { out[0] = out[0].replace(/^\\documentclass(?:\[([^\]]*)\])?/, (_, o: string | undefined) => `\\documentclass[${o ? `${o},` : ""}${langs}]`); out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{babel}") }
+    else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${langs}]{babel}`)
     es = lang === "spanish"; esAscii = hyper
   }
   if (fontPkg) out.splice(1, 0, fontPkg)
@@ -682,6 +692,12 @@ export function makeDocument(r: () => number): string {
       // a tabular centered on its own
       out.push("", "\\begin{center}", tabular(), "\\end{center}")
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } else afterPar = false
+    } else if (switches && x < 0.53 && x >= 0.5) {
+      // babel: \selectlanguage between paragraphs, or paragraphs in otherlanguage or otherlanguage*
+      const l = pick([other!, babelMain!])
+      if (r() < 0.5) out.push("", `\\selectlanguage{${l}}`, text(5 + Math.floor(r() * 60)))
+      else { const star = r() < 0.4 ? "*" : ""; out.push("", `\\begin{otherlanguage${star}}{${l}}`, text(5 + Math.floor(r() * 60)), ...(r() < 0.4 ? ["", text(5 + Math.floor(r() * 30))] : []), `\\end{otherlanguage${star}}`) }
+      afterPar = true
     } else {
       // a paragraph, maybe with displays in it or opening it
       const parts = [r() < 0.12 ? "" : text(10 + Math.floor(r() * 120), true)]

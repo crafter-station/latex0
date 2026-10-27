@@ -6,7 +6,7 @@
 // break at its own penalties, or after \mathoff when glue follows.
 
 import { INF_PENALTY } from "./arith"
-import { hyphenateFollowingWord, type HyphenContext } from "./hyphenpass"
+import { hyphenateFollowingWord, setLanguage, type HyphenContext } from "./hyphenpass"
 import { glue as mkGlue, paramGlue, penalty as mkPenalty, FIL, type BoxNode, type DiscNode, type GlueNode, type Node } from "./nodes"
 import { hpack } from "./pack"
 import { bestFinal, type ActiveNode, type FeasibleBreak, type ParagraphTrace, type PassTrace } from "../trace/decisions"
@@ -158,7 +158,8 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
   for (;;) {
     passes.push(pass)
     if (threshold > INF_BAD) threshold = INF_BAD
-    void secondPass // hyphenation of the following word would start here (§ 891, #113)
+    // § 891: a pass that hyphenates starts in the paragraph's language (its language nodes change it, § 1362)
+    const hy = secondPass && p.hyphenation ? { ...p.hyphenation } : undefined
 
     // § 864: the active list starts with one node for the beginning of the paragraph
     let active: Active[] = [{ serial: 0, line: p.prevGraf + 1, fitness: DECENT, hyphenated: false, total: 0, start: zero6(), passive: null }]
@@ -290,13 +291,14 @@ export function lineBreak(hlist: Node[], p: LineBreakParams): LineBreakResult {
           if (autoBreaking && (precedesBreak(prev) || (prev.kind === "kern" && !prev.explicit))) tryBreak(0, false, k)
           add(totals, n)
           // § 894: in the second pass, hyphenate the word that follows this glue
-          if (secondPass && autoBreaking && p.hyphenation) hyphenateFollowingWord(list, k, p.hyphenation)
+          if (secondPass && autoBreaking && hy) hyphenateFollowingWord(list, k, hy)
           prev = n
           continue
         }
         case "kern": if (n.explicit) kernBreak(k); break
         case "penalty": tryBreak(n.penalty, false, k); break
         case "math": autoBreaking = !n.on; kernBreak(k); break
+        case "whatsit": if (hy) setLanguage(hy, n); break
         case "disc": {
           // § 869: try to break after the pre-break text, then skip the replaced nodes
           if (n.pre.length === 0) tryBreak(p.exHyphenPenalty, true, k)
