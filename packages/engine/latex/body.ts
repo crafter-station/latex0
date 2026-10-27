@@ -18,6 +18,7 @@ import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
 import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
 import type { OutputHook } from "./output"
+import { markboth, markright, markValue } from "./marks"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
 import { list, topCtx } from "./lists"
@@ -72,6 +73,12 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
   if (b.kind === "appendix") { appendix(cx); return }
+  if (b.kind === "mark") { // \markboth and \markright in vertical mode: the \marks, \nobreak while \if@nobreak
+    if (run.runIn || run.noskipsec) throw new Unsupported("\\markboth or \\markright right after a run-in heading")
+    const value = (t: string) => markValue([{ text: t.replace(/\s+/g, " ") }], false)
+    cx.v.nodes.push(...cx.marks.insert(b.left === null ? markright(value(b.right)) : markboth(value(b.left), value(b.right)), v.nobreak))
+    return
+  }
   if (b.kind === "lof") { if (run.runIn) runInAlone(cx); listOf(cx, b.file); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }

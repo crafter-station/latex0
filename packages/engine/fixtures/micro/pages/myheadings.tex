@@ -1,0 +1,24 @@
+% fixture: pages/myheadings
+% tier: T3
+% engine: document
+% covers: \pagestyle{myheadings} (\ps@headings's heads, no marks from the headings) with \markboth and \markright in vertical mode, after a heading (\nobreak), two-sided
+% issue: #336
+\documentclass[twoside]{article}
+\pagestyle{myheadings}
+\begin{document}
+\markboth{Left Head}{Right Head}
+\section{One}
+\markright{After the heading}
+First page text with enough words to fill a line or two of the page.
+
+\newpage
+Second page, under the marks so far.
+
+\markboth{New  Left}{New Right}
+
+More text.
+\newpage
+Third page.
+\newpage
+Fourth.
+\end{document}

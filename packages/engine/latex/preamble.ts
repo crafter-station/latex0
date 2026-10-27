@@ -391,9 +391,11 @@ export function readPreamble(src: string): Preamble {
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     if (fancy && fancyCommand(fancy, line)) continue
     if (titlesec && titleformat(titlesec, line)) continue
-    const m = line.match(/^\\pagestyle\{(plain|empty|headings|fancy)\}$/)
+    const m = line.match(/^\\pagestyle\{(plain|empty|headings|myheadings|fancy)\}$/)
+    if (m && m[1] === "myheadings" && cls === "letter") throw new Unsupported("\\pagestyle{myheadings} in a letter")
+    // (\ps@myheadings: \sectionmark and friends \@gobble, the heads \ps@headings's, from \markboth and \markright alone)
     if (m && (m[1] !== "fancy" || fancy)) {
-      pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"
+      pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; if (pagestyle === "myheadings") markDefs = null
       if (pagestyle === "fancy") fancyGeometry ??= geometryOptions.length // (\headwidth set as \ps@fancy first runs)
       continue
     }
