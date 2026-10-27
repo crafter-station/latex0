@@ -437,7 +437,6 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
   const src = d.src.trim()
   if (/\\\\\s*$/.test(src)) throw new Unsupported("multline ending with \\\\")
   if (/\\(label|tag|shoveleft|shoveright|raisetag|begin)\b/.test(src)) throw new Unsupported("\\label, \\tag, \\shoveleft, \\shoveright or an environment in multline")
-  if (hyper) throw new Unsupported("multline with hyperref")
   const numbered = d.kind === "multline" && !/\\(nonumber|notag)\b/.test(src)
   const env = mathEnv(run.k, "normalsize", true)
   const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em)
@@ -468,12 +467,14 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
     let inner: Node[]
     if (!last) inner = formula([...lead, ...items])
     else if (!tag) inner = formula([...lead, ...items, glue(gap), hfilneg()])
-    else if (!shifted) inner = [...formula([...lead, ...items]), glue(gap), tag, hfilneg()]
+    // (hyperref: \make@display@tag's \refstepcounter puts the equation's anchor before the number)
+    else if (!shifted) { const g = glue(gap); inner = [...formula([...lead, ...items]), g, ...(hyper ? anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", g) : []), tag, hfilneg()] }
     else {
       // \llap{\vtop{\normalbaselines \setbox\@ne\null \dp\@ne\lineht@ \box\@ne \hbox{\strut@\make@display@tag}}}
       const nul = hpack([]); nul.depth = lastBox.depth
       const list: Node[] = [nul]
-      appendToVlist(list, hpack([strutBox(), tag]), lastBox.depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
+      const s = strutBox()
+      appendToVlist(list, hpack([s, ...(hyper ? anchor(refs.href, sz.baselineskip.width, "h", s) : []), tag]), lastBox.depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
       const vt = vpack(list)
       vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
       inner = [...formula([...lead, ...items]), glue(gap), hpack([ssGlue(), vt], { exactly: 0 }), hfilneg()]

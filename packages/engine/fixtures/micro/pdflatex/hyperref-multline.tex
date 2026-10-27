@@ -1,0 +1,40 @@
+% fixture: pdflatex/hyperref-multline
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: amsmath's multline and multline* with hyperref (pdfTeX): the equation's anchor (\make@display@tag's \refstepcounter) right before the number, after \hskip\multlinetaggap (\Hy@RestoreLastskip puts it back) at \baselineskip plus \jot; for a number below the last row, in the \vtop's \hbox after the \strut@ at \normalbaselines; no anchor without a number (multline*, \notag); one row, three rows, an integral in the last row, a multline in an item
+% issue: #277
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\begin{document}
+\section{Broken formulas}
+Text before:
+\begin{multline}
+  (a+b)^3 = a^3 + 3a^2b \\
+  + 3ab^2 + b^3.
+\end{multline}
+Three rows:
+\begin{multline*}
+  f(x) = a_0 + a_1 x + a_2 x^2 \\
+  + a_3 x^3 + a_4 x^4 \\
+  + a_5 x^5.
+\end{multline*}
+With an integral in the last row
+\begin{multline}
+  a + b \\
+  = \int_0^1 f(x)
+\end{multline}
+One row \begin{multline} x = y \end{multline} and an unnumbered one
+\begin{multline}
+  p = q \\ = r \notag
+\end{multline}
+and a wide last row
+\begin{multline}
+  a = b \\
+  + c_1 + c_2 + c_3 + c_4 + c_5 + c_6 + c_7 + c_8 + c_9 + c_{10} + c_{11} + c_{12} + c_{13} + c_{14} + c_{15}
+\end{multline}
+\begin{itemize}
+\item In an item \begin{multline} u = v \\ = w \end{multline} after.
+\end{itemize}
+\end{document}
