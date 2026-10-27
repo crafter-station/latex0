@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 361,
-  "exact": 359,
+  "fixtures": 366,
+  "exact": 364,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 282879
+  "glyphs": 281374
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 29,
+   "exact": 29
   },
   {
    "area": "bibliography",
@@ -91,8 +91,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 17,
-   "exact": 17
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "hyphenation",
@@ -141,8 +141,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "sections",
@@ -156,8 +156,8 @@
   },
   {
    "area": "siunitx",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "tabular",
@@ -780,6 +780,83 @@
    "issue": "#277"
   },
   {
+   "id": "beamer/colorbox-background",
+   "file": "micro/beamer/colorbox-background.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 65,
+   "covers": "beamer: a beamercolorbox with a background (\\colorbox with \\fboxsep 0), colsep and colsep*, centered lines",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-defaults",
+   "file": "micro/beamer/colorbox-defaults.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 126,
+   "covers": "beamer: a beamercolorbox with its defaults (\\textwidth wide, no sep, ragged right) holding two paragraphs",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-plain",
+   "file": "micro/beamer/colorbox-plain.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "beamer: a beamercolorbox with no background (wd, sep), between paragraphs of a frame; one set left with a skip",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-skips",
+   "file": "micro/beamer/colorbox-skips.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "beamer: a beamercolorbox's leftskip and rightskip (glue, in em), with sep and colsep (colsep unused without a background)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-sloppy",
+   "file": "micro/beamer/colorbox-sloppy.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 143,
+   "covers": "beamer: \\@arrayparboxrestore's \\sloppy in a beamercolorbox (justified lines, a narrow box: \\tolerance 9999 and the emergency pass with \\emergencystretch 3em); an empty box (the paragraph \\leavevmode began); a box lower than \\baselineskip after a paragraph",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-wide",
+   "file": "micro/beamer/colorbox-wide.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "beamer: a beamercolorbox wider than \\textwidth (squeezed into it, into the margins) with a background, right-aligned lines, its height and depth set",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/enumerate",
+   "file": "micro/beamer/enumerate.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "beamer: enumerate with the default template (\\insertenumlabel. in the structure color, flush right in \\labelwidth), items of more than one line, hyperref's item anchors",
+   "issue": "#290"
+  },
+  {
    "id": "beamer/frame-17pt",
    "file": "micro/beamer/frame-17pt.tex",
    "area": "beamer",
@@ -877,6 +954,138 @@
    "glyphs": 59,
    "covers": "beamer: a frame placed at the top ([t]), a frame centered ([c]) in a document whose class option makes [t] the default, and \\textbf and \\emph in the frame's text",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frametitle-17pt",
+   "file": "micro/beamer/frametitle-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "beamer: a frame title and subtitle at 17pt, where the title box is taller",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-command",
+   "file": "micro/beamer/frametitle-command.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 215,
+   "covers": "beamer: \\frametitle (with a short title) and \\framesubtitle in the frame's body; the title box built after the body's paragraphs, on top of them; a long title broken into lines; \\frame with \\frametitle",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-sizes",
+   "file": "micro/beamer/frametitle-sizes.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "beamer: frame titles at 8pt (\\Large and \\footnotesize of size8.clo), an empty title ({}: no title box), a title set twice (the last one counts)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-subtitle",
+   "file": "micro/beamer/frametitle-subtitle.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "beamer: a frame title and subtitle given after \\begin{frame}: the subtitle \\footnotesize in framesubtitle's color, with its own struts",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle",
+   "file": "micro/beamer/frametitle.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "beamer: a frame title (\\begin{frame}{Title}) in the default outer theme's template: a beamercolorbox the text width plus the margins wide, \\Large in the structure color",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/itemize",
+   "file": "micro/beamer/itemize.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "beamer: itemize with the default templates: a \\blacktriangleright (msam) raised 1.25pt in the structure color, beamer's list parameters, ragged right",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/list-20pt",
+   "file": "micro/beamer/list-20pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "beamer: itemize at 20pt (msam10 scaled up), in a frame placed at the top",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/list-in-text",
+   "file": "micro/beamer/list-in-text.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer: an itemize begun right after a paragraph's text (the body color pushed in the paragraph, which \\@trivlist then ends) and text right after it (\\@endpetrue)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/list-sizes",
+   "file": "micro/beamer/list-sizes.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 235,
+   "covers": "beamer: itemize and enumerate at 8pt (msam10 at 8pt, beamer's list skips), ten items (two-digit labels flush right), a list right after another, items of two paragraphs, a frame title over a list, text after a blank line (indented again)",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage-17pt",
+   "file": "micro/beamer/titlepage-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "beamer: a title page at 17pt (\\Large and \\scriptsize of size17.clo) with an empty date and a subtitle",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage-minimal",
+   "file": "micro/beamer/titlepage-minimal.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 154,
+   "covers": "beamer: \\maketitle in a frame with only a (short and long) title: the empty author and institute boxes still hold a line each, \\date given; a long title broken into centered lines; at 10pt",
+   "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage",
+   "file": "micro/beamer/titlepage.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "beamer: \\titlepage in the default inner theme: title, subtitle, author (with \\and), institute and date (\\today) in centered beamercolorboxes, each in its font and color",
+   "issue": "#290"
   },
   {
    "id": "beamer/two-frames",
@@ -1808,39 +2017,6 @@
    "issue": "#30"
   },
   {
-   "id": "hyperref/autoref-report",
-   "file": "micro/hyperref/autoref-report.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 157,
-   "covers": "\\autoref and \\nameref in report: a chapter (chapter.n: \\chapterautorefname), a starred chapter (chapter*.n: chapter via \\HyRef@StripStar; nameref's \\@schapter title), a section within the chapter, a figure and an equation numbered within it",
-   "issue": "#280"
-  },
-  {
-   "id": "hyperref/autoref-theorems",
-   "file": "micro/hyperref/autoref-theorems.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 180,
-   "covers": "hyperref's anchor for an amsthm theorem (\\MakeLinkTarget* at its first paragraph's start, raised, then \\kern-\\itemindent: no indent box for \\lastbox; none in a second paragraph); \\autoref to amsthm theorems: the counter's anchor (theorem.n: \\theoremautorefname; a theorem sharing it says Theorem too; lemma.n: no autoref name, only the number), \\nameref to a theorem with a note (amsthm's \\@begintheorem patched: the note) and without one (empty: no link); a \\label after a theorem (\\@currentlabel and nameref's name back, \\@currentHref still the theorem's)",
-   "issue": "#280"
-  },
-  {
-   "id": "hyperref/autoref",
-   "file": "micro/hyperref/autoref.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 229,
-   "covers": "hyperref's \\autoref: the anchor's type before its first period (section, subsection, subsubsection, figure, table, equation, Item, lstlisting (no autoref name: \\lstlistingname), section* via \\HyRef@StripStar) gives \\<type>autorefname, then ~, the label and \\null, all in the link; \\autoref* without the link; an undefined key as bold ??",
-   "issue": "#280"
-  },
-  {
    "id": "hyperref/bibliography-report",
    "file": "micro/hyperref/bibliography-report.tex",
    "area": "hyperref",
@@ -1905,50 +2081,6 @@
    "glyphs": 265,
    "covers": "amsmath's multline and multline* with hyperref (dvips): the equation's anchor (\\make@display@tag's \\refstepcounter) right before the number, after \\hskip\\multlinetaggap (\\Hy@RestoreLastskip puts it back) at \\baselineskip plus \\jot; for a number below the last row, in the \\vtop's \\hbox after the \\strut@ at \\normalbaselines; no anchor without a number (multline*, \\notag); one row, three rows, an integral in the last row, a multline in an item",
    "issue": "#277"
-  },
-  {
-   "id": "hyperref/nameref-caption",
-   "file": "micro/hyperref/nameref-caption.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 70,
-   "covers": "nameref without hyperref, with caption.sty and subcaption (nameref's \\@caption patch on caption.sty's: the caption, and a subcaption's for its \\label and sub@ label)",
-   "issue": "#280"
-  },
-  {
-   "id": "hyperref/nameref-listings",
-   "file": "micro/hyperref/nameref-listings.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 50,
-   "covers": "nameref without hyperref and listings: the patched \\lst@MakeCaption gives a labelled listing's caption as the name",
-   "issue": "#280"
-  },
-  {
-   "id": "hyperref/nameref-plain",
-   "file": "micro/hyperref/nameref-plain.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 363,
-   "covers": "nameref without hyperref: \\label writes \\@currentlabelname (a heading's title (a hyphen in the paragraph: its discretionary), math in it re-read from the .aux file, from the patched \\@sect and \\@ssect, a run-in heading's, a caption's from the patched \\@caption with its final period dropped, an enumerate or description item keeping the heading's, a theorem's note), \\nameref and \\nameref* as \\@setref (the name and \\null, no link), \\Nameref, an empty name (\\null alone), the space factor 1000 after the \\null, \\ref and \\pageref unchanged, an undefined key as bold ??",
-   "issue": "#280"
-  },
-  {
-   "id": "hyperref/nameref",
-   "file": "micro/hyperref/nameref.tex",
-   "area": "hyperref",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 291,
-   "covers": "nameref's \\nameref with hyperref: the \\newlabel's third field typeset in a link to the anchor (a heading's title (a hyphen in the link's box: no discretionary; the space factor after its last letter), a caption, its final period dropped, an enumerate or description item keeping the heading's (\\descriptionlabel's name is lost with its box's group)), nothing for an empty name, \\nameref* without the link and with \\null, \\Nameref (`name' on page~page), an undefined key as bold ??",
-   "issue": "#280"
   },
   {
    "id": "hyperref/report-toc",
@@ -3146,17 +3278,6 @@
    "issue": "#115"
   },
   {
-   "id": "pdflatex/autoref-pdftex",
-   "file": "micro/pdflatex/autoref-pdftex.tex",
-   "area": "pdflatex",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 298,
-   "covers": "under pdflatex (links \\pdfstartlink … \\pdfendlink around the text in the paragraph): \\autoref (the name, ~, the label and \\null in the link), \\autoref*, \\nameref and \\nameref*, \\Nameref, an amsthm theorem's anchor (\\MakeLinkTarget*: hpdftex's \\pdfdest raised by \\normalbaselineskip), undefined keys as bold ??",
-   "issue": "#280"
-  },
-  {
    "id": "pdflatex/caption-hypcap",
    "file": "micro/pdflatex/caption-hypcap.tex",
    "area": "pdflatex",
@@ -3502,28 +3623,6 @@
    "issue": "#267"
   },
   {
-   "id": "siunitx/math-amsmath",
-   "file": "micro/siunitx/math-amsmath.tex",
-   "area": "siunitx",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 178,
-   "covers": "siunitx's commands in amsmath's displays (align, gather, multline, equation) and in a display in a list and a theorem (\\text{to} in the theorem's italics), and \\, around them",
-   "issue": "#278"
-  },
-  {
-   "id": "siunitx/math",
-   "file": "micro/siunitx/math.tex",
-   "area": "siunitx",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 278,
-   "covers": "siunitx's commands in math mode (inline, \\[…\\], equation): the number and the unit join the formula (no formula of their own), \\nobreak and \\, as \\mskip\\thinmuskip between them; ranges and lists with \\ (the text font's space), \\text{to} and \\text{and} (\\mathchoice), the list's , a punctuation atom; \\ang; \\micro (\\text{\\textmu}); numbers in sub- and superscripts",
-   "issue": "#278"
-  },
-  {
    "id": "siunitx/numbers",
    "file": "micro/siunitx/numbers.tex",
    "area": "siunitx",
@@ -3535,39 +3634,6 @@
    "issue": "#267"
   },
   {
-   "id": "siunitx/options-numbers",
-   "file": "micro/siunitx/options-numbers.tex",
-   "area": "siunitx",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 377,
-   "covers": "siunitx's number options in a command's [...]: group-digits (none, integer, decimal), group-minimum-digits, group-separator (\\, , {,} as \\mathord{,}, \\;), output-decimal-marker ({,} as \\mathord{,}, \\cdot), exponent-product (\\cdot), uncertainty-mode = separate and separate-uncertainty (value \\pm uncertainty with the value's decimals, in brackets before an exponent and in a quantity); in text and in math",
-   "issue": "#278"
-  },
-  {
-   "id": "siunitx/options-rounding",
-   "file": "micro/siunitx/options-rounding.tex",
-   "area": "siunitx",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 319,
-   "covers": "siunitx's round-mode = places and figures with round-precision: rounded half up on the digits, carries into the integer part and a new leading digit (figures then drops a decimal), padding with zeros (round-pad = false: none), integer digits dropped as zeros, a value that rounds to zero without its minus (round-zero-positive = false keeps it), zeros, exponents and uncertainties left alone; in \\num, quantities, ranges and lists, set in the preamble and per command",
-   "issue": "#278"
-  },
-  {
-   "id": "siunitx/options-units",
-   "file": "micro/siunitx/options-units.tex",
-   "area": "siunitx",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 244,
-   "covers": "siunitx's unit and phrase options: per-mode = symbol (numerator, \\! after a power, per-symbol, the denominator in brackets when its last unit follows another, 1 for no numerator, which a quantity leaves out with its \\nobreak and product), per-mode = fraction (\\frac, 1 for no numerator), per-mode = power; inter-unit-product (\\cdot, {}, \\,) in macro and literal units; quantity-product ({}, \\,); range-phrase, list-separator, list-final-separator and list-pair-separator as text (a -- ligature, ~ not allowed) and in math; \\usepackage[...]{siunitx} and \\sisetup in the preamble",
-   "issue": "#278"
-  },
-  {
    "id": "siunitx/quantities",
    "file": "micro/siunitx/quantities.tex",
    "area": "siunitx",
@@ -3577,17 +3643,6 @@
    "glyphs": 415,
    "covers": "siunitx's \\SI and \\qty (number, \\nobreak, \\, of the current font, unit; no \\, for \\degree, \\arcminute and \\arcsecond alone), \\numrange, \\SIrange and \\qtyrange (\\text{to} between), \\numlist, \\SIlist and \\qtylist (\", \" and \\text{and}), \\ang, in bold and small text, in a tabular with array.sty's columns and rules (siunitx loads array), and breaks around them in a narrow paragraph",
    "issue": "#267"
-  },
-  {
-   "id": "siunitx/s-column",
-   "file": "micro/siunitx/s-column.tex",
-   "area": "siunitx",
-   "tier": "T3",
-   "reached": "T3",
-   "status": "pass",
-   "glyphs": 258,
-   "covers": "siunitx's S column (a c column around \\siunitx_cell_begin:w … \\siunitx_cell_end:): an entry's tokens without spaces, text in braces alone between \\hskip 0pt plus .5fill's, empty entries; numbers in marker mode (integer and decimal boxes aligned on the decimal marker, the wider side padded with \\hfil), with exponents, compact and separate uncertainties, no integer or no decimals, and the column's options (output-decimal-marker, group-separator, round-mode); table-format (the model's integer width, 0 for none, a number wider than it squeezed with \\hss, the decimal carry after it; an exponent or separate uncertainty the model lacks dropped) with signs and none, per column and from \\sisetup; \\\\[skip] after an S entry (its \\unskip takes the \\hskip1sp); the space factor an S entry leaves (1000 after a number, its text's after text, none changed when empty); S with rules, booktabs and \\multicolumn headers",
-   "issue": "#278"
   },
   {
    "id": "siunitx/units",
