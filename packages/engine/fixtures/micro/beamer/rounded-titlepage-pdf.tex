@@ -1,0 +1,21 @@
+% fixture: beamer/rounded-titlepage-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme's title page with whale and orchid: the title (with its subtitle) in a rounded beamercolorbox [sep=8pt,center,colsep=-4bp,rounded=true] in its bg, the author, institute and date boxes without a bg as they are
+% issue: #315
+\documentclass{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useinnertheme{rounded}
+\setbeamertemplate{navigation symbols}{}
+\title{A Presentation Title Long Enough to Take Two Lines}
+\subtitle{The Subtitle}
+\author{First Author \and Second Author}
+\institute{Some Institute}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\end{document}
