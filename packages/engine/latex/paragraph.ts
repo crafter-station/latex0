@@ -659,9 +659,23 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  * \@makefnmark at a size: \hbox{\@textsuperscript{\normalfont N}}, that is
  * \hbox{$^{\mbox{N}}$} with \mathsurround=0pt and N in roman at \sf@size.
  */
+/** \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size */
+function markFont(k: ClassOptionData, size: SizeCommand): Font {
+  const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
+  return loadFont(dataFont(ref.name), ref.at)
+}
+
 /** \@textsuperscript{\normalfont\@fnsymbol n} at a size: $^{\mbox{…}}$, at \sf@size: \textasteriskcentered, \textdagger,
  *  \textdaggerdbl, \textsection, \textparagraph, \textbardbl (TS1's; \textsection T1's with T1), then doubled */
 function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): Node[] {
+  // (spanish.ldf's layout: \@fnsymbol is n asterisks, *, ** … ******, in the \normalfont of \sf@size)
+  if (spanishLayout.on) {
+    if (n > 6) throw new Unsupported(`\\thanks number ${n} with spanish.ldf`) // (\@ctrerr)
+    const stars: Node[] = []
+    appendText(stars, "*".repeat(n), markFont(k, size), { spaceFactor: 1000 }, false)
+    const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: hpack(stars) }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
+    return [{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }]
+  }
   const kinds = ["*", "dagger", "ddagger", "section", "paragraph", "bardbl", "**", "dagger2", "ddagger2"]
   const kind = kinds[n - 1]
   if (!kind) throw new Unsupported(`\\thanks number ${n}`) // (\@ctrerr)
@@ -682,10 +696,8 @@ export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: Do
 }
 
 function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
-  // \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size
-  const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
   const digits: Node[] = []
-  appendText(digits, String(n), loadFont(dataFont(ref.name), ref.at), { spaceFactor: 1000 }, false)
+  appendText(digits, String(n), markFont(k, size), { spaceFactor: 1000 }, false)
   const mbox = hpack(digits)
   const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return hpack([{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }])

@@ -1,0 +1,14 @@
+% fixture: babel/spanish-title-breaks
+% tier: T3
+% engine: document
+% covers: spanish.ldf's accents in a \title with \\ and \thanks, its \@fnsymbol (*, **, ***) for the \thanks marks, a UTF-8 \author, spanish \today as the date
+% issue: #63
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\title{Teor\'ia de la informaci\'on\\ y codificaci\'on\thanks{Versión preliminar.}}
+\author{José Pérez\thanks{Universidad de Lima.} \and María Núñez\thanks{Instituto de Madrid.}}
+\begin{document}
+\maketitle
+Texto con acentos: canción, línea.
+\end{document}
