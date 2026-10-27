@@ -47,6 +47,8 @@ export interface MuKern { kind: "mukern"; width: number }
  * \\rootbox at scriptscript style, then a \\mathchoice of \\r@@t, which the first pass expands in its style
  */
 export interface RootItem { kind: "root"; index: Field; radicand: Field; amsmath: boolean }
+/** A choice node (§ 689, \\mathchoice): the first pass puts in its place the list for its style (§ 731) */
+export interface ChoiceItem { kind: "choice"; choose: (style: number) => MItem[] }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
 export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
 /** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
@@ -56,7 +58,7 @@ export interface Delimiter { smallFam: number; smallChar: number; largeFam: numb
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
 export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | RootItem | Node
+export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | RootItem | ChoiceItem | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
 const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
@@ -193,7 +195,8 @@ class Converter {
   }
 
   convert(mlist: MItem[], style: number, penalties: boolean): Node[] {
-    const list = mlist.map((x) => ("kind" in x && x.kind === "colsep" ? glue(-(this.env.arraycolsep ?? 0)) : x))
+    const colsep = (x: MItem) => ("kind" in x && x.kind === "colsep" ? glue(-(this.env.arraycolsep ?? 0)) : x)
+    const list = mlist.map(colsep)
     const hl = new Map<object, Node[]>() // new_hlist(q)
     this.setStyle(style)
     // first pass (§§ 727–759); max_h and max_d are the list's height and depth for \left and \right (§ 727)
@@ -208,6 +211,7 @@ class Converter {
         else if ("kind" in q && q.kind === "muglue") { const g = mathGlue(q.spec, this.curMu); list[i] = glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) } // § 732
         else if ("kind" in q && q.kind === "mukern") list[i] = kern(mathGlue({ width: q.width, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }, this.curMu).width, true) // math_kern (§ 717)
         else if ("kind" in q && q.kind === "root") { list.splice(i, 1, ...this.root(q)); i-- } // § 731: the choice for cur_style
+        else if ("kind" in q && q.kind === "choice") { list.splice(i, 1, ...q.choose(this.curStyle).map(colsep)); i-- } // § 731
         else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }
         continue
       }

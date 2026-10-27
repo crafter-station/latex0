@@ -35,7 +35,7 @@ import { xcolor } from "./xcolor"
 import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
-import { SI_COMMANDS, siunitx } from "./siunitx"
+import { SI_COMMANDS, siunitx, siunitxMath, type SiContext } from "./siunitx"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
 
@@ -61,9 +61,18 @@ export { mathData }
 const ALPHABET_FONTS = ["mathbf", "mathit", "mathsf", "mathtt"] as const
 export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1, mathcal: 2, ...Object.fromEntries(ALPHABET_FONTS.map((a, i) => [a, 4 + i])) }
 
-/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's */
-export function parseFormula(src: string, amsmath: boolean, em: number): MItem[] {
-  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em }) } catch (e) { throw new Unsupported((e as Error).message) } // (what the parser does not read)
+/** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's;
+ *  `si`: siunitx is loaded, and its view of the text around */
+export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext): MItem[] {
+  const commands = si && { arity: SI_COMMANDS, build: (cmd: string, args: string[], fam: number) => siunitxMath(cmd, args, fam, si) }
+  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+}
+
+/** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
+export function siContext(k: ClassOptionData, size: SizeCommand, font: Font): SiContext {
+  const micro = () => hpack([charNode(selectFont(k, size, { enc: "TS1", fam: "cmr", ser: "m", shape: "n" }), 0xb5)])
+  const text = (src: string) => { const box: Node[] = []; appendText(box, src, font, { spaceFactor: 1000 }, false); return hpack(box) }
+  return { data: mathData(), micro, font, text }
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
@@ -798,11 +807,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "si") {
       if (!doc.siunitx) throw new Unsupported(`\\${p.cmd} without siunitx`)
-      const micro = () => hpack([hpack([charNode(selectFont(k, size, { enc: "TS1", fam: "cmr", ser: "m", shape: "n" }), 0xb5)])]) // \text{\textmu}
-      for (const x of siunitx(p.cmd, p.args, { data: mathData(), micro })) {
+      const cx = siContext(k, size, font)
+      for (const x of siunitx(p.cmd, p.args, cx)) {
         if (x.kind === "formula") list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(x.list, mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
         else if (x.kind === "nobreak") list.push(penalty(10000))
-        else if (x.kind === "mbox") { const box: Node[] = []; appendText(box, x.src, font, { spaceFactor: 1000 }, false); list.push(hpack(box)) }
+        else if (x.kind === "mbox") list.push(cx.text(x.src))
         else appendPieces(list, [x.kind === "text" ? { kind: "text", src: x.src } : x], font, size, state, ctx, attrs)
         if (x.kind === "formula" || x.kind === "mbox") state.spaceFactor = 1000
       }
@@ -826,7 +835,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD]), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font) : undefined), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else {
       // \footnote: \stepcounter, \@footnotemark (\nobreak, the mark, the space factor kept), \@footnotetext

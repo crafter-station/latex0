@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 347,
-  "exact": 345,
+  "fixtures": 349,
+  "exact": 347,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 279587
+  "glyphs": 280043
  },
  "areas": [
   {
@@ -156,8 +156,8 @@
   },
   {
    "area": "siunitx",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "tabular",
@@ -3412,6 +3412,28 @@
    "glyphs": 66,
    "covers": "siunitx with hyperref: links (\\ref, \\url, a footnote's mark) with the color package's default color loaded",
    "issue": "#267"
+  },
+  {
+   "id": "siunitx/math-amsmath",
+   "file": "micro/siunitx/math-amsmath.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "siunitx's commands in amsmath's displays (align, gather, multline, equation) and in a display in a list and a theorem (\\text{to} in the theorem's italics), and \\, around them",
+   "issue": "#278"
+  },
+  {
+   "id": "siunitx/math",
+   "file": "micro/siunitx/math.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 278,
+   "covers": "siunitx's commands in math mode (inline, \\[…\\], equation): the number and the unit join the formula (no formula of their own), \\nobreak and \\, as \\mskip\\thinmuskip between them; ranges and lists with \\ (the text font's space), \\text{to} and \\text{and} (\\mathchoice), the list's , a punctuation atom; \\ang; \\micro (\\text{\\textmu}); numbers in sub- and superscripts",
+   "issue": "#278"
   },
   {
    "id": "siunitx/numbers",

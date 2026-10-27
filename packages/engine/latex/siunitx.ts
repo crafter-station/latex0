@@ -18,10 +18,15 @@
 // \space\text{to}\space, ",\space" and \space\text{and}\space between their numbers or quantities (range-units
 // and list-units = repeat); \ang's degrees, minutes and seconds are numbers and units joined by \nobreak.
 //
+// In math mode (\siunitx_print_math:n with \fam = -1) the numbers and units join the formula: \nobreak is a
+// penalty, \, \mskip\thinmuskip, the phrases' spaces are \ (the text font's space, § 1045) and their \text{…}
+// amstext's \mathchoice of \hbox{…}, Unsupported in script styles (another font size), like \micro's.
+//
 // Options ([…], \sisetup) and anything else siunitx reads differently are Unsupported.
 
-import type { BoxNode } from "../layout/nodes"
-import { mathCharNoad, groupField, ORD, type MItem, type Noad } from "../mathlayout/mlist"
+import { glue, penalty, type BoxNode } from "../layout/nodes"
+import { SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../layout/font"
+import { mathCharNoad, groupField, ORD, SCRIPT, type ChoiceItem, type MItem, type Noad } from "../mathlayout/mlist"
 import type { MathData } from "../mathlayout/data"
 import { Unsupported } from "./unsupported"
 
@@ -70,8 +75,36 @@ function abbreviations(table: Record<string, string>): Record<string, string> {
 const PREPOWERS: Record<string, string> = { square: "2", cubic: "3" }
 const POSTPOWERS: Record<string, string> = { squared: "2", cubed: "3" }
 
-/** The builder's view of the document: the math data and \text{\textmu} at the current size. */
-export interface SiContext { data: MathData; micro: () => BoxNode }
+/** The builder's view of the document: the math data, \text{\textmu} at the current size, the current text font
+ *  and \text{…} in it (in math mode) */
+export interface SiContext { data: MathData; micro: () => BoxNode; font: Font; text: (src: string) => BoxNode }
+
+/** One siunitx command in math mode, with \fam in force: its parts in the formula */
+export function siunitxMath(cmd: string, args: string[], fam: number, cx: SiContext): MItem[] {
+  if (fam !== -1) throw new Unsupported(`\\${cmd} in a math alphabet`) // (\mathrm{…} around it)
+  const out: MItem[] = []
+  for (const x of siunitx(cmd, args, cx)) {
+    if (x.kind === "formula") out.push(...x.list)
+    else if (x.kind === "nobreak") out.push(penalty(10000))
+    else if (x.kind === "thinspace") out.push({ kind: "muglue", spec: cx.data.muskips.thinmuskip })
+    else if (x.kind === "mbox") out.push(textChoice(cx.text(x.src)))
+    else for (const c of x.src) out.push(c === " " ? glue(cx.font.params[SPACE], cx.font.params[SPACE_STRETCH], 0, cx.font.params[SPACE_SHRINK]) : ch(c, cx.data))
+  }
+  return out
+}
+
+/** amstext's \text{…} in math: {\mathchoice{\hbox{…}}…}, a math group around the choice (no lone ord to give up,
+ *  § 1186), the box an ord's nucleus (§ 1076); its script sizes are not modeled */
+const textChoice = (box: BoxNode): Noad => {
+  const choice: ChoiceItem = {
+    kind: "choice",
+    choose: (style) => {
+      if (style >= SCRIPT) throw new Unsupported("siunitx: \\text in a script style")
+      return [{ noad: ORD, nucleus: { kind: "box", box }, sup: null, sub: null }]
+    },
+  }
+  return { noad: ORD, nucleus: { kind: "mlist", list: [choice] }, sup: null, sub: null }
+}
 
 /** One siunitx command with its arguments, as paragraph material. */
 export function siunitx(cmd: string, args: string[], cx: SiContext): SiPart[] {
@@ -250,7 +283,7 @@ function unitNoad(p: UnitPart, cx: SiContext): Noad {
     if (c === "°") items.push(empty([mathCharNoad(data.symbols.circ)]))
     else if (c === "′" || c === "″") items.push(empty(Array.from({ length: c === "′" ? 1 : 2 }, () => mathCharNoad(data.symbols.prime))))
     else if (c === "Ω") items.push(mathCharNoad(data.symbols.Omega)) // (class 7: family 0)
-    else if (c === "µ") items.push({ noad: ORD, nucleus: { kind: "box", box: cx.micro() }, sup: null, sub: null })
+    else if (c === "µ") items.push(textChoice(cx.micro()))
     else if (c === "%") items.push(ch("%", data)) // \% is \chardef'd: its \mathcode
     else items.push(ch(c, data, 0))
   }

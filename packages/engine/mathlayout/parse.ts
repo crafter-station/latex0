@@ -46,6 +46,9 @@ export interface MathOptions {
   alphabets?: Record<string, number>
   /** \fontdimen6 of the current text font, the em of \quad and \qquad */
   em?: number
+  /** commands a package binding typesets from the source of its braced arguments (siunitx's): how many each takes,
+   *  and their mlist with \fam in force */
+  commands?: { arity: Record<string, number>; build: (cmd: string, args: string[], fam: number) => MItem[] }
 }
 
 type Token = { cs: string; value?: number } | { ch: string }
@@ -78,6 +81,9 @@ const scaled = (g: GlueSpec, sign: 1 | -1): GlueSpec => ({ ...g, width: sign * g
 const balanced = (ts: Token[]) => { let d = 0; for (const t of ts) { if (isCh(t, "{")) d++; else if (isCh(t, "}") && --d < 0) return false } return d === 0 }
 
 const isCh = (t: Token | undefined, c: string) => !!t && "ch" in t && t.ch === c
+
+/** tokens as source again (a space after a control word) */
+const source = (ts: Token[]) => ts.map((t) => ("ch" in t ? t.ch : `\\${t.cs}${/^[A-Za-z]/.test(t.cs) ? " " : ""}`)).join("")
 
 /** Parse a formula (the text between $…$) into an mlist. */
 export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
@@ -236,6 +242,14 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         const code = data.mathcodes[c.charCodeAt(0)]
         if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported character ${c}`)
         out.push(mathCharNoad(code, fam))
+        continue
+      }
+      if (opts.commands && t.cs in opts.commands.arity) {
+        const args = Array.from({ length: opts.commands.arity[t.cs] }, () => {
+          if (!isCh(toks[pos], "{")) throw new Error(`math: \\${t.cs} without its arguments in braces`)
+          return source(argument())
+        })
+        out.push(...opts.commands.build(t.cs, args, fam))
         continue
       }
       if (t.cs in OPERATORS || t.cs === "operatorname") { // (amsmath's \operatorname{name}, \operatorname*{name}: \qopname\newmcodes@ o|m)
