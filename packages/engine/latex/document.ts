@@ -34,7 +34,7 @@ import { VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { Colors, colorPush, xcolor } from "./xcolor"
-import { paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
+import { mathFonts, paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
@@ -94,6 +94,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const pre = readPreamble(src)
   const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
+  mathFonts.letters = null
   const run = runState(pre.k)
   const blocks = blocksOf(body)
 

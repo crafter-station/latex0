@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 433,
-  "exact": 430,
+  "fixtures": 435,
+  "exact": 432,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 321164
+  "glyphs": 321462
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 55,
-   "exact": 54
+   "fixtures": 57,
+   "exact": 56
   },
   {
    "area": "bibliography",
@@ -1339,6 +1339,28 @@
    "glyphs": 235,
    "covers": "beamer: itemize and enumerate at 8pt (msam10 at 8pt, beamer's list skips), ten items (two-digit labels flush right), a list right after another, items of two paragraphs, a frame title over a list, text after a blank line (indented again)",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/math-blocks",
+   "file": "micro/beamer/math-blocks.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 111,
+   "covers": "beamer: displays in a theorem's block and in an item, the equation counter across frames and reset on each slide of a frame with overlays (\\resetcounteronoverlays{equation}), a frame that ends with a display",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/math-frame",
+   "file": "micro/beamer/math-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 187,
+   "covers": "beamer: math in a frame: inline $…$ (beamer's sans serif math: operators and digits cmss, Latin letters cmss italic with its ligatures, Greek cmmi, \\mathbf cmssbx), a \\[ \\] display in a paragraph, a numbered equation (amsmath's tag and hyperref's anchor), align with two rows, ragged right around them, amsmath's \\, in text, a frame that ends with a display",
+   "issue": "#307"
   },
   {
    "id": "beamer/overlay-boundaries",

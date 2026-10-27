@@ -13,6 +13,7 @@ import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layou
 import type { ParagraphTrace } from "../../trace/decisions"
 import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
+import { MATH_ALPHABETS, mathFonts } from "../paragraph"
 import type { LayoutResult } from "../result"
 import type { DocumentSource } from "../source"
 import { Unsupported } from "../unsupported"
@@ -37,7 +38,9 @@ interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decis
   frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number
   /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number
   /** the sectioning state, and the .toc lines the last run wrote */
-  sections: Sections; toc: TocEntry[] }
+  sections: Sections; toc: TocEntry[]
+  /** \c@equation */
+  equations: { n: number } }
 
 /** The body's constructs: frames (the environment and the \frame command), \section and \subsection */
 const BODY: { [K in BodyItem["kind"]]: (cx: BeamerCtx, item: Extract<BodyItem, { kind: K }>) => void } = { frame, section, subsection: section }
@@ -82,11 +85,13 @@ function frame(cx: BeamerCtx, f: FrameSource) {
   // \beamer@calculateheadfoot (\c@framenumber stepped already) measures the footline
   footlineTemplate(k, cx.pre.theme, cx.pre.info, footlineAt(cx, number, cx.pageFrames.length + 1), cx.decisions)
   const bs = k.sizes.normalsize.baselineskip
-  const first = cx.pageFrames.length + 1
+  const first = cx.pageFrames.length + 1, equations = cx.equations.n
   for (let slide = 1; ; slide++) {
     if (slide > 1) clearpage(cx)
     const overlay = newOverlay(slide)
-    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [] }, f, cx.pre.centered)
+    // (\resetcounteronoverlays{equation}: each slide starts the counter where the frame does)
+    cx.equations.n = equations
+    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [], equations: cx.equations }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
     cx.v.box(box, bs)
@@ -115,11 +120,13 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
   const pre = readBeamerPreamble(src)
   const k = pre.k
   hyperDriver.pdftex = false
+  // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
+  mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev)
   const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
-    sections: new Sections(), toc: prev ? prev.toc : [] }
+    sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 } }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
   footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, 0, 1), cx.decisions)
   for (const item of bodyOf(pre.body)) (BODY[item.kind] as (cx: BeamerCtx, item: BodyItem) => void)(cx, item)

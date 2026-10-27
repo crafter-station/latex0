@@ -1,0 +1,29 @@
+% fixture: beamer/math-frame
+% tier: T3
+% engine: document
+% covers: beamer: math in a frame: inline $…$ (beamer's sans serif math: operators and digits cmss, Latin letters cmss italic with its ligatures, Greek cmmi, \mathbf cmssbx), a \[ \] display in a paragraph, a numbered equation (amsmath's tag and hyperref's anchor), align with two rows, ragged right around them, amsmath's \, in text, a frame that ends with a display
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Let $f(x) = \sin x + x^2$ for every $x > 0$, so that
+\[ \int_0^1 f(x)\,dx = \frac{4}{3} - \cos 1. \]
+Then
+\begin{equation}
+a^2 + b^2 = c^2
+\end{equation}
+and
+\begin{align}
+x &= y + 1 \\
+y &= 2z.
+\end{align}
+with Greek $\alpha + \Gamma$, $\mathbf{x} + \sum_{i=1}^n i^2 + \lvert x \rvert$ and the letters' ligatures in $ff + fi$.
+\end{frame}
+\begin{frame}
+Inline, 5\,km apart.
+
+A frame that ends with a display:
+\[ y = 1. \]
+\end{frame}
+\end{document}

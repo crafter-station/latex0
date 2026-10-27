@@ -15,6 +15,9 @@ import { vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { sloppy } from "../kernel"
+import type { Ctx } from "../context"
+import { DISPLAY } from "../blocks"
+import { listParagraphWithDisplays } from "../displays"
 import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { negate, plain, VerticalList } from "../vlist"
@@ -108,7 +111,9 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** a block began in the paragraph read last (blocks.ts): whether it is shown */
   blockBegun?: boolean
   /** \ifbeamer@centered: the frame's placement is c */
-  centered?: boolean }
+  centered?: boolean
+  /** \c@equation */
+  equations: { n: number } }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -132,6 +137,45 @@ export interface ParagraphSetting { size?: SizeCommand; /** the font's attribute
 /** Paragraph text broken into lines in the sans serif text font (ragged right, \textwidth wide, unless `s` says
  *  otherwise); its trace goes to cx.decisions. */
 export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {}): Node[] {
+  const { t, doc, opts } = paragraphSetup(cx, text, s)
+  if (DISPLAY.test(t)) throw new Unsupported("beamer: a display here")
+  const { list, params, notes } = adapted(() => paragraphInput(t, cx.k, s.size ?? "normalsize", doc, opts))
+  const { vlist, trace } = lineBreak(list, params)
+  cx.decisions.push(...notes, trace)
+  return vlist
+}
+
+/** A paragraph appended to `v` after \parskip (its lines \baselineskip apart, by default the size's), as setParagraph
+ *  breaks it; one with displays (\[ \], equation, align …) as LaTeX's displays.ts sets them, amsmath's, with
+ *  hyperref's implicit=false (no anchors) */
+export function addParagraph(cx: FrameCtx, v: VerticalList, text: string, s: ParagraphSetting, parskip: GlueSpec, baselineskip?: GlueSpec) {
+  const { t, doc, opts } = paragraphSetup(cx, text, s)
+  const size = s.size ?? "normalsize"
+  if (!DISPLAY.test(t)) { v.paragraph(setParagraph(cx, text, s), parskip, baselineskip ?? cx.k.sizes[size].baselineskip); return }
+  if (baselineskip && baselineskip !== cx.k.sizes[size].baselineskip) throw new Unsupported("beamer: a display in a paragraph another size ends")
+  adapted(() => listParagraphWithDisplays(displayCtx(cx, v, doc), t, opts, parskip, size))
+}
+
+/** What displays.ts reads of the document's state, for a frame: amsmath without hyperref's anchors, the equation
+ *  counter (\resetcounteronoverlays: each slide of a frame starts it where the frame does), the normal font */
+function displayCtx(cx: FrameCtx, v: VerticalList, doc: DocState): Ctx {
+  const eq = cx.equations
+  const counters = { get equation() { return eq.n }, set equation(n: number) { eq.n = n }, the: (n: number) => String(n), href: () => "", crefPrefix: () => "" }
+  const partial = { pre: { amsmath: true, hyper: false }, run: { k: cx.k, tagFlag: false, hyperItem: false, items: 0 }, v, doc, decisions: cx.decisions,
+    counters, refs: { href: "" }, romanFont: selectFont(cx.k, "normalsize", SANS), counted: (t: string) => t }
+  return partial as unknown as Ctx
+}
+
+/** The paragraph adapter's own errors, for what it does not read, as Unsupported */
+function adapted<T>(f: () => T): T {
+  try { return f() } catch (e) {
+    if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`beamer: ${e.message}`)
+    throw e
+  }
+}
+
+/** The text as the paragraph reads it, the document state it reads it with, and its options */
+function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: string; doc: DocState; opts: ParagraphOptions } {
   plainText(text)
   // (\alert and \structure: \textcolor with the driver's spec)
   const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec } }
@@ -140,7 +184,7 @@ export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
   // (an empty group after the space keeps it from being the paragraph's last glue)
   if (s.trailingSpace) t = `${t.trimEnd()} {}`
-  const opts: ParagraphOptions = { attrs: s.attrs ?? SANS, groups: true }
+  const opts: ParagraphOptions = { attrs: s.attrs ?? SANS, groups: true, amsmath: true }
   if (s.hsize !== undefined) opts.hsize = s.hsize
   if (s.parShape) opts.parShape = s.parShape
   if (s.leftskip) opts.leftSkip = spec("leftskip", s.leftskip)
@@ -148,10 +192,7 @@ export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {
   if (s.sloppy !== undefined) Object.assign(opts, sloppy(s.sloppy))
   if (s.start || s.indent === false) opts.start = [...(s.indent === false ? [] : [emptyBox("hlist", cx.k.dimens.parindent)]), ...(s.start ?? [])]
   if (s.end) opts.end = s.end
-  const { list, params, notes } = paragraphInput(t, cx.k, s.size ?? "normalsize", doc, opts)
-  const { vlist, trace } = lineBreak(list, params)
-  cx.decisions.push(...notes, trace)
-  return vlist
+  return { t, doc, opts }
 }
 
 /** The text up to a blank line, and what follows */
@@ -182,7 +223,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
     cx.listInParagraph = true
   }
   if (cx.endpe) { s.indent = false; cx.endpe = false }
-  v.paragraph(setParagraph(cx, overlayText(cx.overlay, par, cx.smuggled), s), cx.k.glue.parskip)
+  addParagraph(cx, v, overlayText(cx.overlay, par, cx.smuggled), s, cx.k.glue.parskip)
   return rest
 }
 
@@ -214,11 +255,14 @@ const list: FrameHandler = (cx, v, text) => {
 
 /** Text with only TEXT_COMMANDS in it (and their arguments' text) and \quad: anything else throws Unsupported. */
 function plainText(text: string) {
-  let t = text, prev = ""
+  // (math is read by the math parser, which throws on what it does not know; beamer's \mathrm is cmr, which it has no
+  // family for)
+  if (/\\mathrm(?![A-Za-z])/.test(text)) throw new Unsupported("beamer: \\mathrm")
+  let t = text.replace(new RegExp(DISPLAY.source, "g"), "").replace(/\$[^$]*\$/g, ""), prev = ""
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 

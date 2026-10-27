@@ -22,7 +22,7 @@ import { Unsupported } from "../unsupported"
 import { LOW_PENALTY, type VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { resetColor } from "./colorbox"
-import { SANS, setParagraph, type FrameCtx } from "./frame"
+import { addParagraph, SANS, type FrameCtx } from "./frame"
 import { coverBegin, coverEnd, inSpec, smuggle } from "./overlays"
 import { fontSize, outerColors, useColor } from "./theme"
 
@@ -216,9 +216,9 @@ function itemMaterial(cx: FrameCtx, v: VerticalList, text: string, level: ListLe
     }
     const isLast = !after.trim()
     if (isLast && closing) end.push(...closing)
-    const lines = setParagraph(cx, par, { size: level.size, parShape: [[level.totalLeftMargin, level.lineWidth]],
-      ...(first ? { indent: false, start } : endpe ? { indent: false } : {}), ...(end.length ? { end } : {}), ...(ended && /\s$/.test(par) ? { trailingSpace: true } : {}) })
-    v.paragraph(lines, level.parskip, k.sizes[size].baselineskip)
+    addParagraph(cx, v, par, { size: level.size, parShape: [[level.totalLeftMargin, level.lineWidth]],
+      ...(first ? { indent: false, start } : endpe ? { indent: false } : {}), ...(end.length ? { end } : {}), ...(ended && /\s$/.test(par) ? { trailingSpace: true } : {}) },
+      level.parskip, k.sizes[size].baselineskip)
     first = false; endpe = false
     if (ended) { after = nested(cx, v, after, level, true); endpe = !/^[ \t]*\n[ \t]*\n/.test(after) }
     rest = after

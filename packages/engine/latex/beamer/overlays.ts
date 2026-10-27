@@ -70,6 +70,7 @@ export const emptyPair = () => [...beginInvisible(), ...endInvisible()]
 /** \beamer@smuggle in vertical mode: a \lastskip other than 0.0pt is taken off before the nodes and put back after
  *  them (\vskip\lastskip: plain glue) */
 export function smuggle(v: VerticalList, nodes: Node[]) {
+  if (!nodes.length) return // (nothing smuggled: no \beamer@smuggle)
   const i = v.nodes.findLastIndex((x) => !(x.kind === "whatsit" && x.hook))
   const last = v.nodes[i]
   if (last?.kind === "glue" && (last.width || last.stretch || last.shrink)) {

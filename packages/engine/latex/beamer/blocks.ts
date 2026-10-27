@@ -13,13 +13,14 @@ import { parseDimen } from "../../layout/dimen"
 import { QUAD, X_HEIGHT, type Font } from "../../layout/font"
 import { emptyBox, fillGlue, filGlue, glue, penalty, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
+import { DISPLAY } from "../blocks"
 import type { FontAttrs } from "../paragraph"
 import { selectFont } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { dimen, plain, type VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
-import { bracedArg, SANS, setParagraph, type FrameCtx } from "./frame"
+import { addParagraph, bracedArg, SANS, setParagraph, type FrameCtx } from "./frame"
 import { coverBegin, coverEnd, inSpec, overlayText, smuggle } from "./overlays"
 import { emptyBackground, fontSize, outerColors, useColor } from "./theme"
 
@@ -81,7 +82,8 @@ function readBlock(text: string): BlockSource {
   const stop = text.indexOf(end, i)
   if (stop < 0) throw new Unsupported(`beamer: ${env} not ended`)
   const body = text.slice(i, stop)
-  if (BLOCK_BEGIN.test(body) || /\\begin\{/.test(body)) throw new Unsupported(`beamer: an environment in a ${env}`)
+  // (displays are read with the paragraph they are in)
+  if (/\\begin\{/.test(body.replace(new RegExp(DISPLAY.source, "g"), ""))) throw new Unsupported(`beamer: an environment in a ${env}`)
   return { env, kind, spec, title, italic, qed, body, rest: text.slice(stop + end.length) }
 }
 
@@ -146,7 +148,8 @@ export function frameBlock(cx: FrameCtx, v: VerticalList, text: string): string 
     box.v.box(emptyBox("vlist"), k.sizes[bodySize].baselineskip)
     pars.forEach((p, n) => {
       const end = b.qed && n === pars.length - 1 ? { end: qed(cx, bodySize, attrs) } : {}
-      boxParagraph(box.v, setParagraph(cx, overlayText(cx.overlay, p, cx.smuggled), { size: bodySize, attrs, hsize: box.hsize, leftskip: box.leftskip, rightskip: box.rightskip, sloppy: normal.params[QUAD], ...end }), k.sizes[bodySize].baselineskip)
+      // (\par in the box: its list is not empty, so new_graf adds \parskip, zero there)
+      addParagraph(cx, box.v, overlayText(cx.overlay, p, cx.smuggled), { size: bodySize, attrs, hsize: box.hsize, leftskip: box.leftskip, rightskip: box.rightskip, sloppy: normal.params[QUAD], ...end }, dimen(0))
     })
   }), bs)
   // \vskip\smallskipamount, then actionenv's end: its specials before that skip
