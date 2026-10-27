@@ -19,6 +19,7 @@ import { list, topCtx } from "./lists"
 import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
+import { needsVerticalMode, titlepage, verticalMaterial } from "./vmode"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -45,8 +46,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
   if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
-  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+  if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
+  if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }
@@ -78,6 +80,13 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     }
     // counter commands in vertical mode make no paragraph
     if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
+    // \par in the text (a group that holds whole paragraphs, {\large … \par}) or skips between paragraphs
+    if (needsVerticalMode(b.text)) {
+      if (run.runIn || b.noindent || b.afterThm || b.floats) throw new Unsupported("\\par or a skip here")
+      v.par()
+      verticalMaterial(cx, b.text, { size: "normalsize", attrs: cx.normalAttrs, align: null }, true)
+      return
+    }
     // a group that starts before the paragraph does (with \color: the push goes on the vertical list)
     const cg = groupStart(b.text)
     if (/^\s*\{\\color(?![A-Za-z])/.test(b.text)) {

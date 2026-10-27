@@ -1,0 +1,33 @@
+% fixture: title/titlepage-declarations
+% tier: T3
+% engine: document
+% covers: a two-sided report's titlepage: \vspace* first, \null, \\ as \@centercr in a group (\\*[skip]), \bigskip, a size change in the last paragraph (its \par at the new size); in the body, {\centering …\par}, {\raggedleft …\par}, {\raggedright\itshape …\par}, two paragraphs in one group, \medskip, and {} stopping \@esphack's \ignorespaces
+% issue: #329
+\documentclass[11pt,twoside]{report}
+\begin{document}
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+  {\LARGE\bfseries Urban Heat Islands and Vegetation Cover in Mid-Sized Cities of the Northern Hemisphere\par}
+  \vspace{2cm}
+  {\large A thesis submitted in partial fulfilment of the requirements for the degree of\par}
+  {\large Master of Science in Environmental Science\par}
+  \vspace{2cm}
+  {\Large\null Rosa Delgado\par}
+  \null
+  \vfill
+  {\large Department of \textbf{Geography} \\University of Leeds\quad\quad \\*[1ex]September 2026\par}
+  \bigskip
+  Plain text paragraph at the end \small with a change.\par
+  And a last one, still small, long enough to wrap onto a second line of the title page here.
+\end{titlepage}
+
+\chapter{Intro}
+{\centering A centered paragraph in a group that is long enough to wrap onto a second line of the page here.\par}
+{\raggedleft Flush right text\par}
+{A paragraph whose alignment changes before its end, long enough to wrap onto a second line \centering of the page.\par}
+{\raggedright\itshape A ragged right paragraph that is long enough to wrap onto a second line of the page, and maybe a third one.\par}
+{\bfseries First bold.\par Second bold paragraph.\par}
+\medskip
+Text after, \smallskip{} with skips.
+\end{document}

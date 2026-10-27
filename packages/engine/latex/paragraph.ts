@@ -222,6 +222,10 @@ export interface ParagraphOptions {
   noteWidowPenalty?: number
   /** \hsize, when not \textwidth (a \parbox) */
   hsize?: number
+  /** declarations at the top level read (they last to the paragraph's end; the caller knows what they set at its \par) */
+  topDecls?: boolean
+  /** \\ is \@centercr (\centering and friends), which the caller has taken care of: here it is not laid out */
+  centercr?: boolean
 }
 
 /**
@@ -236,7 +240,7 @@ export const squeeze = (t: string): string => {
 }
 
 /** Where the group opened at `open` closes (braces nest, \{ and \} do not count). */
-function closingBrace(body: string, open: number): number {
+export function closingBrace(body: string, open: number): number {
   let depth = 0
   for (let j = open; j < body.length; j++) {
     if (body[j] === "\\") j++
@@ -258,7 +262,7 @@ type Piece =
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
-  | { kind: "vspace"; star: boolean; skip: string }
+  | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
   /** \hfill, \hfil, \quad, \qquad */
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" }
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
@@ -392,12 +396,19 @@ function swSlant(list: Node[]) {
 
 /** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
-interface PieceOptions { groups?: boolean; grouped?: boolean }
+interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean }
 export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
 /** the classes' old font commands (\DeclareOldFontCommand{\bf}{\normalfont\bfseries}…) */
 const OLD_FONT_COMMANDS: Record<string, string> = { rm: "rmfamily", sf: "sffamily", tt: "ttfamily", bf: "bfseries", it: "itshape", sl: "slshape", sc: "scshape" }
 /** the declarations a paragraph reads in a group: LaTeX's, the old ones, and \em */
 export const BODY_DECLARATIONS = [...DECLARATIONS, ...Object.keys(OLD_FONT_COMMANDS), "em"]
+const ALIGN_DECLARATIONS = ["centering", "raggedright", "raggedleft"]
+/** \smallskipamount, \medskipamount and \bigskipamount (latex.ltx), which \smallskip … \vspace */
+export const SKIP_AMOUNTS: Record<string, GlueSpec> = {
+  smallskip: { width: 3 * 65536, stretch: 65536, stretchOrder: 0, shrink: 65536, shrinkOrder: 0 },
+  medskip: { width: 6 * 65536, stretch: 2 * 65536, stretchOrder: 0, shrink: 2 * 65536, shrinkOrder: 0 },
+  bigskip: { width: 12 * 65536, stretch: 4 * 65536, stretchOrder: 0, shrink: 4 * 65536, shrinkOrder: 0 },
+}
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const inner: PieceOptions = { ...po, grouped: true }
@@ -420,12 +431,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (body.startsWith("\\ ", i)) { flushText(); out.push({ kind: "ctlspace" }); i += 2; continue } // \␣
     // \\ (\@ifnextchar skips the spaces after it, but not after \\[skip]'s ])
     const nl = body.slice(i).match(/^\\\\(\*)?(?:\s*\[([^\]]*)\]|\s*)/)
+    if (nl && po.centercr) throw new Unsupported("\\\\ as \\@centercr in a group")
     if (nl) { flushText(); out.push({ kind: "newline", star: !!nl[1], skip: nl[2] ?? null }); i += nl[0].length; continue }
     // \noindent in horizontal mode does nothing (§ 1093)
     const ni = body.slice(i).match(/^\\noindent(?![A-Za-z])\s*/)
     if (ni) { i += ni[0].length; continue }
     const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
+    const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
+    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
     // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
@@ -530,13 +544,20 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       flushText(); out.push({ kind: ref[1] as "label" | "ref" | "pageref", key: ref[2] } as Piece); i += ref[0].length; continue
     }
     // an empty group: no node, but no ligature or kern across it
-    if (body.startsWith("{}", i)) { flushText(); i += 2; continue }
+    // (and \ignorespaces stops at it)
+    if (body.startsWith("{}", i)) { flushText(); out.push({ kind: "group", inner: [] }); i += 2; continue }
     if (po.groups && body[i] === "{") { // (no ligature or kern across its ends either)
       const j = closingBrace(body, i)
       flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue
     }
     // a declaration (or a size command) in a group: to the group's end
     const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/) : null
+    // (\centering and friends: what they set is read at the \par, which is not in the group; at the top level, the
+    // caller reads them)
+    if (decl && ALIGN_DECLARATIONS.includes(decl[1])) {
+      if (/\\\\/.test(body.slice(i))) throw new Unsupported(`\\\\ after \\${decl[1]}`)
+      flushText(); i += decl[0].length; continue
+    }
     if (decl && (BODY_DECLARATIONS.includes(decl[1]) || (SIZE_COMMANDS as readonly string[]).includes(decl[1]))) {
       const rest = pieces(body.slice(i + decl[0].length), footnotes, inner)
       flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
@@ -671,8 +692,14 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!p.skip) ctx.ignoreSpaces = true
     }
     else if (p.kind === "space") list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
-    else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
-    else if (p.kind === "group") appendPieces(list, p.inner, font, size, state, ctx, attrs)
+    else if (p.kind === "size" || p.kind === "group") {
+      // (footnotes in a group that starts the paragraph see the \clubpenalty its \everypar set there)
+      const noteClub = ctx.noteClub
+      if (p === ctx.lead && ctx.leadGroupNoteClub !== undefined) ctx.noteClub = ctx.leadGroupNoteClub
+      if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
+      else appendPieces(list, p.inner, font, size, state, ctx, attrs)
+      ctx.noteClub = noteClub
+    }
     else if (p.kind === "decl") {
       const a = fontDeclaration(p.name, attrs, k, size, doc, font)!
       appendPieces(list, p.inner, selectFont(k, size, a), size, state, ctx, a)
@@ -682,7 +709,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // \vskip\z@skip}, \@esphack: after a space, \nobreak\hskip\z@skip, and the spaces after it go
       if (ctx.restricted) throw new Unsupported("\\vspace in restricted horizontal mode")
       let g: GlueSpec
-      try { g = parseGlue(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${p.skip}}`) }
+      if (typeof p.skip !== "string") g = p.skip
+      else try { g = parseGlue(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${p.skip}}`) }
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push({ kind: "adjust", list: [...(p.star ? [{ kind: "rule", width: null, height: 0, depth: 0 } as Node, penalty(10000)] : []), glueOf(g), glue(0)] })
@@ -1034,7 +1062,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     if (s.errors.length) throw new Unsupported(`\\${name}: ${s.errors[0]}`)
     body = s.rest().trimStart()
   }
-  const ps = pieces(body, true, { groups: !!opts.groups })
+  const ps = pieces(body, true, { groups: !!opts.groups, grouped: !!opts.topDecls, centercr: !!opts.centercr })
   params.hyphenation = hyphenation(k, font)
   if (opts.parShape) params.parShape = opts.parShape
   if (opts.hsize !== undefined) params.hsize = opts.hsize

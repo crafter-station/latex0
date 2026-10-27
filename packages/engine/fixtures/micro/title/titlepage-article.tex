@@ -1,0 +1,31 @@
+% fixture: title/titlepage-article
+% tier: T3
+% engine: document
+% covers: article's titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne, then \newpage and page 1 again) with \centering, size groups ending their paragraphs ({\Large … \par}: that size's \baselineskip), \vspace and \vfill between them; a size group with \par in the body; \bigskip between paragraphs and in one (\vadjust)
+% issue: #329
+\documentclass[12pt]{article}
+\begin{document}
+\begin{titlepage}
+\centering
+{\Large Universidad Nacional\par}
+\vspace{1cm}
+{\large Facultad de Ciencias --- Departamento de Quimica\par}
+\vspace{3cm}
+{\huge\bfseries Informe de Laboratorio N. 2\par}
+\vspace{0.5cm}
+{\Large Titulacion acido--base\par}
+\vspace{3cm}
+{\large Camila Restrepo \quad Andres Gomez\par}
+\vfill
+{\large Bogota, 2026\par}
+\end{titlepage}
+
+\section{Objetivos}
+Text after the title page.
+
+{\large A paragraph in a size group that runs long enough to need two lines of the page, or even three, to check the baselineskip.\par}
+After it.
+\bigskip
+
+Another \bigskip paragraph.
+\end{document}
