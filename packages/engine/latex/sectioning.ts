@@ -4,7 +4,7 @@
 
 import { dataFont } from "./data"
 import { loadFont, QUAD } from "../layout/font"
-import { Scanner } from "../layout/dimen"
+import { Scanner, type GlueSpec } from "../layout/dimen"
 import { appendText } from "./encodings"
 import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
@@ -13,7 +13,7 @@ import { EMPTY_MARK, markboth, markright, markValue, sectionMarks } from "./mark
 import type { Ctx } from "./context"
 import { raggedright } from "./kernel"
 import { Unsupported } from "./unsupported"
-import { dimen, negate } from "./vlist"
+import { addGlue, dimen, negate } from "./vlist"
 import { type OutputHook } from "./output"
 import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
@@ -83,9 +83,10 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
     // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
+    // (fancyhdr's: \markboth one- or two-sided, the number whenever \c@secnumdepth > -1, outside the main matter too)
     if (headings) {
-      const cv = markValue(numbered ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
-      v.nodes.push(...marks.insert(run.k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
+      const cv = markValue(numbered || headings === "fancyhdr" ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
+      v.nodes.push(...marks.insert(run.k.ints.twoside || headings === "fancyhdr" ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
     for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
   } else {
@@ -133,7 +134,7 @@ export function runInHeading(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   v.par()
   if (run.runIn) throw new Unsupported("two run-in headings in a row")
   if (v.nobreak) v.afterheadingEverypar = false // \everypar{}
-  else { v.addpenalty(-300); v.addvspace(before) }
+  else { v.addpenalty(-300); v.addvspace(lessParskip(cx, before)) }
   v.afterindent = true
   if (!b.star && b.level <= run.k.ints.secnumdepth) throw new Unsupported(`numbered \\${name}`)
   v.nobreak = false // \@nobreakfalse
@@ -176,7 +177,7 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const headingClub = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
   v.afterindent = true
   if (before.width < 0) { before = negate(before); v.afterindent = false }
-  if (!v.nobreak) { v.addpenalty(-300); v.addvspace(before) } // \@secpenalty
+  if (!v.nobreak) { v.addpenalty(-300); v.addvspace(lessParskip(cx, before)) } // \@secpenalty
   // \@sect: the number and the space after it (\@seccntformat: \the<name>\quad) in a box the title hangs from
   const numbered = !b.star && b.level <= run.k.ints.secnumdepth
   let number = ""
@@ -211,7 +212,10 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   if (!b.star) v.nodes.push(...contentsWrites(b.level, numbered ? number : null, b.title, anchorName, afterHeading))
   // \@xsect: \par \nobreak \vskip afterskip \@afterheading
   v.nodes.push(penalty(10000))
-  v.vskip(after)
+  v.vskip(lessParskip(cx, after))
   v.nobreak = true
   v.afterheadingEverypar = true
 }
+
+/** parskip.sty's patches of \@startsection and \@xsect: \advance\@tempskipa-\parskip before the skip */
+const lessParskip = (cx: Ctx, g: GlueSpec): GlueSpec => (cx.pre.parskip ? addGlue(g, negate(cx.outerParskip)) : g)

@@ -37,9 +37,12 @@ export const markright = (right: MarkValue): Mark[] => { right = babelMark(right
 /**
  * \sectionmark and \subsectionmark (article: \thesection\quad title; report two-sided: \thesection. \ title);
  * fancyhdr's in article: \markboth{\MakeUppercase{\thesection\hskip 1em\relax title}}{} and
- * \markright{\thesubsection\hskip 1em\relax title}, one- or two-sided
+ * \markright{\thesubsection\hskip 1em\relax title}, one- or two-sided; in report and book its \sectionmark only
  */
 export function sectionMarks(cls: string, twoside: boolean, level: number, number: string, title: string, by: "headings" | "fancyhdr" = "headings"): Mark[] {
+  if (by === "fancyhdr" && cls !== "article") { // (report and book: \markright{\MakeUppercase{\thesection. \ title}})
+    return level === 1 ? markright(markValue([{ text: `${number}. ` }, { ctrl: true }, { text: title }], true)) : []
+  }
   if (by === "fancyhdr") {
     if (level === 1) return markboth(markValue([{ text: number }, { quad: true }, { text: title }], true), EMPTY_MARK)
     return level === 2 ? markright(markValue([{ text: number }, { quad: true }, { text: title }], false)) : []

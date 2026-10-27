@@ -1,0 +1,18 @@
+% fixture: pdflatex/hyperref-hidelinks
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: hyperref's hidelinks through \hypersetup: no color, every link's border 0 0 0; a later colorlinks=false keeps it
+% issue: #332
+\documentclass{article}
+\usepackage{hyperref}
+\hypersetup{hidelinks}
+\hypersetup{colorlinks=false}
+\begin{document}
+\tableofcontents
+\section{One}\label{one}
+See section~\ref{one}, \url{https://example.org} and \href{https://example.com}{a link}.\footnote{A note.}
+\begin{figure}[h]\centering\begin{tabular}{c}A\end{tabular}\caption{A caption}\label{f}\end{figure}
+Figure~\ref{f}.
+\end{document}

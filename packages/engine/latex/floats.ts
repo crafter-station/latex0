@@ -311,7 +311,7 @@ function setevery(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
  */
 function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const { run, v } = cx
-  if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
+  if (!cx.pre.usesFloat && b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H] without float.sty`)
   if (!b.inPar) setevery(cx, b)
   // (right after a heading, \@setnobreak clears \if@nobreak in the box and \@endfloatbox's \outer@nobreak sets it again)
   // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
@@ -322,7 +322,8 @@ function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   if (cx.pre.algorithm.singleHere) run.k = singleSpaced(spaced)
   let box: BoxNode
   const writes = cx.refs.cleveref?.writes, w0 = writes?.length ?? 0
-  try { box = algorithmBox(cx, b.body, traces, v.club, true) } finally { run.k = spaced }
+  // (a figure or table: \if@flstyle false, the bare box as \@xfloat would build it)
+  try { box = b.env === "algorithm" ? algorithmBox(cx, b.body, traces, v.club, true) : figureBox(cx, { ...b, env: b.env }, traces, v.club, false) } finally { run.k = spaced }
   // (in a paragraph its \label's page counter is the one when the paragraph was read: its lines not on the list yet)
   if (b.inPar) for (const w of writes?.slice(w0) ?? []) w.at = v.paraStart
   if (pending) cx.decisions.push(...traces, pending)
@@ -357,6 +358,14 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     try { box = algorithmBox(cx, b.body, decisions, club) } finally { run.k = spaced }
     return floatWhatsit(cx, b, box, fps + 32 * 4) // \ftype@algorithm: float.sty's float@type, 4 after figure and table
   }
+  return floatWhatsit(cx, b, figureBox(cx, { ...b, env: b.env }, decisions, club, true), fps + 32 * (b.env === "figure" ? 1 : 2)) // \ftype@figure 1, \ftype@table 2
+}
+
+/** A figure's or table's box (\@xfloat's \color@vbox\normalcolor\vbox{…} up to \@endfloatbox); `single`: setspace's \@xfloat
+ *  single spacing in it */
+function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figure" | "table" }, decisions: ParagraphTrace[], club: number, single: boolean): BoxNode {
+  const { amsmath, hyper } = cx.pre
+  const { counters, doc, normalAttrs, refs, romanFont, run } = cx
   const content: Node[] = []
   let pd: number | null = IGNORE_DEPTH, cap: Captioned | null = null
   const hsize = run.k.dimens.columnwidth
@@ -392,7 +401,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   if (cx.pre.caption) { run.floatCaption.keys = copyKeys(cx.pre.caption.keys); runList(cx.pre.caption, b.env, run.floatCaption.keys, "list", dim, b.env) }
   // setspace's \@xfloat: \def\baselinestretch{\setspace@singlespace}\normalsize in the float
   const spaced = run.k
-  run.k = singleSpaced(spaced)
+  if (single) run.k = singleSpaced(spaced)
   try {
   if (cx.pre.usesCaption && hyper && run.floatCaption.keys!.hypcap) { // caption.sty's \caption@xfloat: \caption@start, hypcap's anchor (\Hy@linkcounter)
     run.floatCaption.hypcap = refs.href = `${b.env}.caption.${++run.linkcounter}` // (\hyper@makecurrent's \xdef: a \label after a \caption* or none points here)
@@ -471,8 +480,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   }
   } finally { run.captype = null; run.k = spaced }
   content.push(glue(0)) // \@endfloatbox: \par\vskip\z@skip
-  const box = vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
-  return floatWhatsit(cx, b, box, fps + 32 * (b.env === "figure" ? 1 : 2)) // \ftype@figure 1, \ftype@table 2
+  return vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
 }
 
 /** \end@float's marker for a float's box and \count\@currbox */

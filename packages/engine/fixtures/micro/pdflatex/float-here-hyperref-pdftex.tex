@@ -1,0 +1,20 @@
+% fixture: pdflatex/float-here-hyperref-pdftex
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: float.sty's [H] with hyperref loaded after it (hyperref's \caption, its anchor in the caption) and with setspace loaded after it (setspace's \@xfloat for [H] too: single spacing in the box)
+% issue: #332
+\documentclass{article}
+\usepackage{float}
+\usepackage[onehalfspacing]{setspace}
+\usepackage{hyperref}
+\begin{document}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\begin{figure}[H]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A figure whose caption is long enough to take more than one line in the box of the float here.}\label{f1}
+\end{figure}
+Figure~\ref{f1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\end{document}

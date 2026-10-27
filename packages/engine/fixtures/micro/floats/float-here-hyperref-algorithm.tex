@@ -1,0 +1,19 @@
+% fixture: floats/float-here-hyperref-algorithm
+% tier: T3
+% engine: document
+% specials: compare
+% covers: float.sty loaded before hyperref, algorithm.sty after it (its float.sty already loaded: hyperref's \caption stays, its anchor in the caption) with a figure [H]
+% issue: #332
+\documentclass{article}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\begin{document}
+Some text before the figure, which comes right after it in the text.
+\begin{figure}[H]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A figure.}\label{f1}
+\end{figure}
+Figure~\ref{f1}.
+\end{document}

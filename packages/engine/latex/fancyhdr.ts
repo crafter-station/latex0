@@ -25,7 +25,7 @@ import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
 
 /** The fields by name (e|o, l|c|r, h|f: "olh" is the odd pages' left head), each as \f@nch@def left it */
-export interface FancyHdr { fields: Record<string, string>; headrulewidth: string; footrulewidth: string }
+export interface FancyHdr { fields: Record<string, string>; headrulewidth: string; footrulewidth: string; /** \headwidth: the \textwidth when \ps@fancy first ran, when that is not the document's (geometry loaded after it) */ headwidth?: number }
 
 const def = (text: string) => (text === "" ? "" : `${text}\\strut`) // \f@nch@def
 
@@ -71,7 +71,7 @@ export function fancyCommand(f: FancyHdr, line: string): boolean {
 /** \@thehead and \@thefoot on a page of style fancy, and the paragraphs their fields make (TeX breaks them at shipout) */
 export function fancyPage(cx: Ctx, f: FancyHdr, even: boolean, thepage: string, marks: { left?: MarkValue; right?: MarkValue }): { head: Node[]; foot: Node[]; traces: ParagraphTrace[] } {
   const k = singleSpaced(cx.run.k), sz = k.sizes.normalsize // \f@nch@reset: \def\baselinestretch{1}
-  const headwidth = k.dimens.textwidth
+  const headwidth = f.headwidth ?? k.dimens.textwidth
   const traces: ParagraphTrace[] = []
   const eo = even ? "e" : "o"
   const dimen = (x: string) => { try { return parseDimen(x, { em: cx.romanFont.params[QUAD], ex: 0 }) } catch { throw new Unsupported(`fancyhdr's rule width ${x}`) } }

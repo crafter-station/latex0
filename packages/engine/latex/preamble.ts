@@ -18,6 +18,8 @@ import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
 import type { CrefNameDef, CrefOptions } from "./cleveref"
 import { Unsupported } from "./unsupported"
+import { printScaled } from "../layout/arith"
+import { hyperDefaults, hyperOptions, type HyperOptions } from "./hyperref"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
 import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type Captions } from "./babel"
 import { markAccentHyphens } from "./spanish"
@@ -61,6 +63,8 @@ export interface Preamble {
   enumitem: boolean
   /** hyperref, with the dvips driver */
   hyper: boolean
+  /** hyperref's options and \hypersetup's */
+  hyperOpts: HyperOptions
   /** geometry loaded (its \\AtBeginDvi papersize under dvips), and whether landscape */
   geometry: { landscape: boolean } | null
   /** the graphics bundle's dvips.def loaded (graphicx, xcolor; siunitx loads color): its \\AtBeginDvi papersize */
@@ -104,6 +108,10 @@ export interface Preamble {
   names: Captions
   /** between \begin{document} and \end{document} */
   body: string
+  /** float.sty (algorithm.sty loads it): [H] */
+  usesFloat: boolean
+  /** parskip.sty: its lists (\@listI, \@listii, \@listiii) and its patches of \@startsection, \@xsect and \@starttoc */
+  parskip: boolean
 }
 
 export function readPreamble(src: string): Preamble {
@@ -147,7 +155,9 @@ export function readPreamble(src: string): Preamble {
   // keeps them, and only \@mkboth goes back to \@gobbletwo
   let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
   let fancy: FancyHdr | null = null
+  let fancyGeometry: number | null = null // how many geometry calls came before the first \pagestyle{fancy}
   let hyper = false // hyperref, with the dvips driver
+  const hyperOpts = hyperDefaults()
   let hyperNotes = true
   let nameref = false // (hyperref loads it)
   let cleveref = false
@@ -164,6 +174,8 @@ export function readPreamble(src: string): Preamble {
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
   const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
   let usesArray = false
+  let usesFloat = false // float.sty (algorithm.sty loads it)
+  let parskip = false
   let usesSiunitx = false
   let usesGraphicx = false
   let tikz: Preamble["tikz"] = null
@@ -187,9 +199,9 @@ export function readPreamble(src: string): Preamble {
     if (opts !== null) captionOps.push({ list: "sub", src: opts, t1, babel: !!babel })
   }
   // \captionsetup and caption's options over more than one line: on one
-  pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:sub)?caption\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
+  pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:(?:sub)?caption|hyperref)\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
   const chars = pre.split("")
-  for (const m of pre.matchAll(/\\captionsetup\b[^{]*\{/g)) { // (spaces for newlines: the indices stay)
+  for (const m of pre.matchAll(/\\(?:captionsetup|hypersetup)\b[^{]*\{/g)) { // (spaces for newlines: the indices stay)
     for (let j = m.index! + m[0].length, depth = 1; j < chars.length && depth; j++) {
       if (chars[j] === "{") depth++; else if (chars[j] === "}") depth--; else if (chars[j] === "\n") chars[j] = " "
     }
@@ -224,12 +236,18 @@ export function readPreamble(src: string): Preamble {
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
     if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
     if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
+    // parskip.sty (its current release, no options): \parskip .5\baselineskip plus 2pt, \parindent 0pt as it loads
+    if (line === "\\usepackage{parskip}") {
+      if (parskip || setspace || cls === "letter") throw new Unsupported(`preamble: ${line}${cls === "letter" ? " with letter" : ""}`)
+      parskip = true
+      lengths.push(["parskip", `${printScaled(times(".5", k.glue.baselineskip.width))}pt plus 2pt`, t1], ["parindent", "0pt", t1]); continue
+    }
     const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
     if (geo) { geometryOptions.push(geo[1] ?? ""); geometryStretch = setspace?.stretch ?? ""; continue }
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
-    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm) algorithm.singleHere = true; continue }
+    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm || usesFloat) algorithm.singleHere = true; continue }
     if (setspace && setspaceCommand(setspace, line, option)) continue
     // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
     const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)
@@ -275,15 +293,24 @@ export function readPreamble(src: string): Preamble {
       if (!cleveref) throw new Unsupported(`preamble: ${line}`)
       crefNames.push([crn[1] === "crefname" ? "cref" : "Cref", crn[2], crn[3], crn[4]]); continue
     }
-    const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
+    // \hypersetup{keys} after hyperref, as its options
+    const hs = line.match(/^\\hypersetup\s*\{(.*)\}$/)
+    if (hs) { if (!hyper) throw new Unsupported(`preamble: ${line}`); hyperOptions(hyperOpts, hs[1]); continue }
+    const hpo = line.match(/^\\usepackage\[(.*)\]\{hyperref\}$/)
+    if (hpo) {
+      if (hyper) throw new Unsupported("hyperref loaded twice with options") // (LaTeX: Option clash)
+      hyperOptions(hyperOpts, hpo[1])
+    }
+    const pk = hpo ? [line, "hyperref"] : line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       // (float.sty after hyperref: its \caption replaces hyperref's, and hyperref saw no float.sty to patch)
-      if (names.includes("algorithm") && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf("algorithm"))) algorithm.afterHyperref = true
+      for (const f of ["algorithm", "float"]) if (names.includes(f) && !usesFloat && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf(f))) algorithm.afterHyperref = true
+      if (names.includes("algorithm") || names.includes("float")) usesFloat = true
       if (names.includes("hyperref")) {
         // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
         if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) throw new Unsupported("hyperref after titlesec")
@@ -321,7 +348,6 @@ export function readPreamble(src: string): Preamble {
         titlesec = titlesecDefaults()
       }
       if (names.includes("fancyhdr")) {
-        if (cls !== "article") throw new Unsupported(`fancyhdr with ${cls}`) // (its \chaptermark and \sectionmark there)
         fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
       }
       continue
@@ -364,7 +390,11 @@ export function readPreamble(src: string): Preamble {
     if (fancy && fancyCommand(fancy, line)) continue
     if (titlesec && titleformat(titlesec, line)) continue
     const m = line.match(/^\\pagestyle\{(plain|empty|headings|fancy)\}$/)
-    if (m && (m[1] !== "fancy" || fancy)) { pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"; continue }
+    if (m && (m[1] !== "fancy" || fancy)) {
+      pagestyle = m[1]; if (pagestyle === "headings") markDefs = "headings"
+      if (pagestyle === "fancy") fancyGeometry ??= geometryOptions.length // (\headwidth set as \ps@fancy first runs)
+      continue
+    }
     throw new Unsupported(`preamble: ${line}`)
   }
   const kOT1 = k
@@ -386,6 +416,20 @@ export function readPreamble(src: string): Preamble {
       else if (name === "headheight") k = { ...k, dimens: { ...k.dimens, headheight: g.width } }
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
+  }
+  if (parskip) {
+    // \@listI (\normalsize's \@listi, and that of the sizes that keep it) and \@listii, \@listiii: \topsep\z@ \itemsep\z@;
+    // \partopsep\z@ (\small and \footnotesize define their own \@listi)
+    const g = { ...k.glue }, zero: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
+    for (const at of [...Object.keys(k.sizes).filter((x) => x !== "small" && x !== "footnotesize").map((x) => `@${x}`), "2", "3"]) {
+      const key = (p: string) => (at.startsWith("@") ? `list1${p}${at}` : `list${at}${p}`)
+      if (!(key("topsep") in g)) throw new Unsupported(`parskip's lists: ${key("topsep")}`)
+      Object.assign(g, { [key("topsep")]: zero, [key("itemsep")]: zero }) // (\parsep: lists.ts, the \parskip in force)
+    }
+    // (its \@listi as it loads: the current \topsep and \itemsep)
+    Object.assign(g, { topsep: zero, itemsep: zero })
+    for (const p of ["partopsep", "list1partopsep", "list2partopsep", "list3partopsep", ...Object.keys(k.sizes).map((x) => `list1partopsep@${x}`)]) if (p in g) g[p] = zero
+    k = { ...k, glue: g }
   }
   if (usesArray && !k.array) k = { ...k, array: { extrarowheight: 0 } }
   let caption: CaptionSetup | null = null
@@ -418,8 +462,14 @@ export function readPreamble(src: string): Preamble {
     for (const d of thmDefs.values()) d.title = markAccentHyphens(d.title)
     if (fancy) for (const f of Object.keys(fancy.fields)) fancy.fields[f] = markAccentHyphens(fancy.fields[f])
   }
-  if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
+  // fancyhdr's \headwidth: the \textwidth when \ps@fancy first ran, the class's before geometry loaded (geometry sets it as it loads)
+  if (fancy && fancyGeometry !== null && fancyGeometry !== geometryOptions.length) {
+    if (fancyGeometry) throw new Unsupported("\\geometry after \\pagestyle{fancy}")
+    fancy.headwidth = classTextwidth
+  }
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
+  // (parskip.sty's patches of titlesec's \ttl@straight@ii and of amsthm's \deferred@thm@head)
+  if (parskip && (titlesec || thmDefs.size)) throw new Unsupported(`parskip with ${titlesec ? "titlesec" : "amsthm's theorems"}`)
   let body = src.slice(begin + 16, end)
   // \bibliographystyle and \bibliography between paragraphs: an \immediate\write to the .aux, and with no .bbl
   // nothing to \input; the .aux's \bibstyle lines are read back at \begin{document}
@@ -437,7 +487,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

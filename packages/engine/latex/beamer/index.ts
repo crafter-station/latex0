@@ -20,7 +20,7 @@ import { emptyBox, filGlue, penalty, type BoxNode, type Node, type WhatsitNode }
 import { hpack } from "../../layout/pack"
 import type { ClassOptionData } from "../../layout/classdata"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
+import { anchor, documentStart, HYPER_LINK_DEFAULTS, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
 import { pdftexColors } from "../pdftex"
 import { MATH_ALPHABETS, mathFonts } from "../paragraph"
@@ -214,7 +214,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
 
 function run(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex", ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ships: Ships } {
   const pre = readBeamerPreamble(src)
-  hyperDriver.pdftex = driver === "pdftex"
+  Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, HYPER_LINK_DEFAULTS)
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true

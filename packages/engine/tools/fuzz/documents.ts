@@ -96,7 +96,7 @@ export function makeDocument(r: () => number): string {
     return `\n${d}\n${r() < 0.3 ? "" : text(3 + Math.floor(r() * 30))}`
   }
   // hyperref; cleveref
-  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false
+  let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false, floatOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // equations' keys (eq:none never defined): never a label with no counter, which \cref of several keys compares (\ifnum: TeX's Missing number)
   const ckey = () => pick(["eq:l1", "eq:l2", "eq:l3", "eq:3-1", "eq:6-1", "eq:2-1", "eq:10-1", "eq:none"])
@@ -336,7 +336,7 @@ export function makeDocument(r: () => number): string {
   const style = r()
   if (style < 0.2) out.push("\\pagestyle{empty}")
   else if (style < 0.4 && !isLetter) out.push("\\pagestyle{headings}") // running heads from the section marks
-  else if (style < 0.6 && cls === "article" && !geo) { // fancyhdr: its fields, rules and \sectionmark
+  else if (style < 0.6 && !isLetter) { // fancyhdr: its fields, rules, \chaptermark and \sectionmark (after geometry)
     const field = () => pick(["MATH 201", "Problem Set 3", "\\textbf{Notes}", "\\emph{Draft} copy", "Page \\thepage", "\\thepage", "\\leftmark", "\\rightmark", "\\slshape\\rightmark",
       "\\rmfamily\\thepage", "A. Student -- \\today", "Lecture notes on typesetting, line breaking and the many ways a running head can grow too long for one line", ""])
     out.push("\\usepackage{fancyhdr}")
@@ -436,7 +436,15 @@ export function makeDocument(r: () => number): string {
   }
   if (r() < 0.1) out.push(pick(["\\setlength{\\parindent}{0pt}", "\\setlength{\\parindent}{2em}", "\\setlength{\\parskip}{6pt plus 2pt}"]))
   hyper = r() < 0.25 && !isLetter
-  if (hyper) out.push("\\usepackage{hyperref}")
+  if (hyper) {
+    // its options or \hypersetup's: colorlinks and the link colors (color.sty's names, xcolor's with it), hidelinks,
+    // pdfborder, the document information, bookmarksopen
+    const names = colorOn ? ["red", "blue", "teal", "black", "blue!50!black", "magenta"] : ["red", "blue", "black", "cyan", "magenta", "green"]
+    const keys = r() < 0.4 ? [...new Set(Array.from({ length: 1 + Math.floor(r() * 4) }, () => pick(["colorlinks", "colorlinks=true", "colorlinks=false", "hidelinks", "pdfborder={0 0 2}", "pdftitle={A Title}", "pdfauthor={A. Author}", "bookmarksopen", `linkcolor=${pick(names)}`, `citecolor=${pick(names)}`, `urlcolor=${pick(names)}`, `filecolor=${pick(names)}`])))] : []
+    if (!keys.length) out.push("\\usepackage{hyperref}")
+    else if (r() < 0.5) out.push(`\\usepackage[${keys.join(",")}]{hyperref}`)
+    else out.push("\\usepackage{hyperref}", `\\hypersetup{${keys.join(", ")}}`)
+  }
   // nameref alone (not with titlesec or cleveref yet)
   nrOn = !hyper && !isLetter && r() < 0.12
   if (nrOn) out.push("\\usepackage{nameref}")
@@ -465,6 +473,9 @@ export function makeDocument(r: () => number): string {
   }
   // algorithm floats with algpseudocode (noend sometimes)
   algOn = !isLetter && r() < 0.15
+  // float.sty (algorithm.sty loads it): [H] for figures and tables too
+  floatOn = algOn || !isLetter && r() < 0.1
+  if (floatOn && !algOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{float}")
   if (algOn) out.push(...(r() < 0.25 ? ["\\usepackage{algorithm}", "\\usepackage[noend]{algpseudocode}"] : r() < 0.4 ? ["\\usepackage{algorithm,algpseudocode}"] : ["\\usepackage{algorithm}", "\\usepackage{algpseudocode}"]))
   // caption.sty, and subcaption with it sometimes (with hyperref too: hypcap); with algorithms and listing captions
   capOn = !isLetter && r() < 0.2
@@ -528,6 +539,8 @@ export function makeDocument(r: () => number): string {
     else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${lang}]{babel}`)
     es = lang === "spanish"; esAscii = hyper
   }
+  // parskip.sty (not with titlesec or theorems yet), first in the preamble
+  if (!isLetter && !tsOn && !thms.length && r() < 0.12) out.splice(1, 0, "\\usepackage{parskip}")
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter (not in spanish: spanish.ldf's
   // \@roman in small capitals)
@@ -571,7 +584,7 @@ export function makeDocument(r: () => number): string {
       const below = table && r() < 0.5
       // a float that starts in the paragraph before it (no blank line), and the paragraph going on after it
       const inPar: boolean = afterPar && r() < 0.4
-      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", ""])}`, r() < 0.7 ? "\\centering" : "",
+      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", "", ...(floatOn ? ["[H]", "[H]"] : [])])}`, r() < 0.7 ? "\\centering" : "",
         setup, space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}${inPar && r() < 0.3 ? "%" : ""}`)
       afterPar = inPar && r() < 0.6
       if (afterPar) out.push(text(3 + Math.floor(r() * 40)))

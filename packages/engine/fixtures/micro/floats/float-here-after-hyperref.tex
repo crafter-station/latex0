@@ -1,0 +1,19 @@
+% fixture: floats/float-here-after-hyperref
+% tier: T3
+% engine: document
+% specials: compare
+% covers: float.sty's [H] loaded after hyperref (float.sty's \caption in place of hyperref's: the anchor before the caption) and before setspace (no single spacing in the [H] box)
+% issue: #332
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage[onehalfspacing]{setspace}
+\usepackage{float}
+\begin{document}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\begin{figure}[H]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A figure whose caption is long enough to take more than one line in the box of the float here.}\label{f1}
+\end{figure}
+Figure~\ref{f1}. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\end{document}
