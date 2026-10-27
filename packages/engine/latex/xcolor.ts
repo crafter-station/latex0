@@ -114,12 +114,12 @@ export class Colors {
   spec(expr: string, model?: string): string {
     if (model !== undefined) return this.modelSpec(model.trim(), expr, false)
     const e = expr.replace(/\s+/g, "")
-    // name!p!name!p…, with white after a last percentage; - (once) for the complement
-    const m = e.match(/^(-?)([A-Za-z][A-Za-z0-9]*)((?:!\d+(?:\.\d+)?(?:![A-Za-z][A-Za-z0-9]*)?)*)!?$/)
+    // name!p!name!p…, with white after a last percentage; - (once) for the complement (names may hold . and @)
+    const m = e.match(/^(-?)([A-Za-z][A-Za-z0-9.@]*)((?:!\d+(?:\.\d+)?(?:![A-Za-z][A-Za-z0-9.@]*)?)*)!?$/)
     if (!m) throw new ColorUnsupported(`color ${expr}`)
     const named = (n: string): Col => { const d = this.defs.get(n); if (d === undefined) throw new ColorUnsupported(`color ${n}`); return parseSpec(d) }
     let c = named(m[2])
-    for (const step of m[3].matchAll(/!(\d+(?:\.\d+)?)(?:!([A-Za-z][A-Za-z0-9]*))?/g)) {
+    for (const step of m[3].matchAll(/!(\d+(?:\.\d+)?)(?:!([A-Za-z][A-Za-z0-9.@]*))?/g)) {
       const d = convert(named(step[2] ?? "white"), c.model)
       // \XC@mix: each part p\p@ times the first and (100-p)\p@ times the second, \rrshift'ed
       const a = times(step[1], 65536), b = 100 * 65536 - a

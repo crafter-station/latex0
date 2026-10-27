@@ -7,6 +7,7 @@ import type { BoxNode as BoxOut } from "../trace/schema"
 export function emitBoxes(n: Node): BoxOut {
   switch (n.kind) {
     case "hlist": case "vlist":
+      if (n.form !== undefined) return { type: "other", text: `\\pdfrefxform(${printScaled(n.height)}+${printScaled(n.depth)})x${printScaled(n.width)}` }
       if (n.image) return { type: "other", text: `\\pdfrefximage(${printScaled(n.height)}+${printScaled(n.depth)})x${printScaled(n.width)}` }
       return { type: n.kind === "hlist" ? "hbox" : "vbox", width: n.width, height: n.height, depth: n.depth, shift: n.shift, glueSet: n.glueSet, glueSign: n.glueSign, glueOrder: n.glueOrder, children: n.list.map(emitBoxes), ...(n.display ? { display: true } : {}) }
     case "char": {

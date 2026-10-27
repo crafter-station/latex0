@@ -8,6 +8,7 @@ import { Unsupported } from "../latex/unsupported"
 import { glue, type BoxNode, type Node } from "../layout/nodes"
 import type { PgfTipSequence } from "./arrows"
 import type { PgfUnits } from "./mathparser"
+import type { ShadingMacros } from "./shade"
 
 /** the system layer's switches, saved and restored by TeX's groups */
 export interface SysSwitches {
@@ -54,9 +55,11 @@ export interface PgfLocal {
   shortenEnd: number
   /** \pgf@corner@arc while \ifpgf@arccorners (\pgfsetcornersarced): the next corners rounded */
   cornerArc: { x: number; y: number } | null
+  /** the shading layer's local macros (shade.ts) */
+  shadings: ShadingMacros
 }
 
-const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null }
+const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null, shadings: {} }
 
 /** a box's extent, as pgf's four registers (\pgf@picminx …, \pgf@pathminx …) */
 export interface PgfExtent { minX: number; maxX: number; minY: number; maxY: number }
