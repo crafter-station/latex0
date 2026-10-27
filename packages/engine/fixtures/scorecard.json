@@ -1,18 +1,18 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 399,
-  "exact": 396,
+  "fixtures": 422,
+  "exact": 419,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 305995
+  "glyphs": 319484
  },
  "areas": [
   {
    "area": "algorithm",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 15,
+   "exact": 15
   },
   {
    "area": "amsmath",
@@ -46,8 +46,8 @@
   },
   {
    "area": "caption",
-   "fixtures": 22,
-   "exact": 22
+   "fixtures": 28,
+   "exact": 28
   },
   {
    "area": "classes",
@@ -56,8 +56,8 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 11,
-   "exact": 11
+   "fixtures": 15,
+   "exact": 15
   },
   {
    "area": "display",
@@ -106,8 +106,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 37,
-   "exact": 37
+   "fixtures": 38,
+   "exact": 38
   },
   {
    "area": "lists",
@@ -141,8 +141,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 13,
-   "exact": 13
+   "fixtures": 16,
+   "exact": 16
   },
   {
    "area": "sections",
@@ -505,6 +505,72 @@
    "issue": "#30"
   },
   {
+   "id": "algorithm/caption-after-heading",
+   "file": "micro/algorithm/caption-after-heading.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "caption.sty's \\@float@setevery runs before an algorithm's box opens: its seven \\caption@setkeys (\\caption@resetstyle's with its four font keys, the ruled style's with labelfont) each leave an \\@esphack \\nobreak on the vertical list right after a heading (\\if@nobreak) or a run-in heading (\\if@noskipsec); [H] too, and not after text",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/caption-hypcap-false",
+   "file": "micro/algorithm/caption-hypcap-false.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "algorithm floats with caption.sty (hypcap=false) and hyperref: no anchor at the float's top, \\caption@makeanchor's \\hyper@@anchor before the caption's text instead; [H]",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/caption-hyperref",
+   "file": "micro/algorithm/caption-hyperref.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "algorithm floats with caption.sty and hyperref: \\caption@freezeHref swallows the float's \\caption@start, the caption's \\caption@@start keeps algorithm.n, and \\float@makebox's \\caption@defrostHref anchors it first (hypcap's \\caption@startanchor) in place of hyperref's; nameref's name the caption; [H]; a float without a caption",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/caption-keys",
+   "file": "micro/algorithm/caption-keys.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 124,
+   "covers": "an algorithm caption with caption.sty's \\captionsetup[algorithm] (\\caption@settype after the ruled style: format=hang, fonts, separator, justification, margin; the single-line check the style turned back on, so the short caption is not hung), and list=no (no loa line)",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/caption-nameref",
+   "file": "micro/algorithm/caption-nameref.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "an algorithm caption with caption.sty and nameref (no hyperref): \\caption@gettitle sets nameref's name, the \\label's third field",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/caption",
+   "file": "micro/algorithm/caption.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 182,
+   "covers": "an algorithm caption with caption.sty: \\@float@setevery's ruled style (\\caption@resetstyle: the global font keys gone; labelfont=bf, labelsep=space, strut=0, no single-line centering), \\fnum@algorithm's plain space, \\caption@@make in \\@floatcapt with no skips, \\caption@normalsize's \\normalcolor (xcolor); its paragraph's \\@setminipage \\everypar clears \\if@minipage, so the algorithmic after it adds \\@beginparpenalty and \\topsep; the \\label's \\caption@xref write and cleveref's; [H]; a caption after the algorithmic",
+   "issue": "#294"
+  },
+  {
    "id": "algorithm/entities",
    "file": "micro/algorithm/entities.tex",
    "area": "algorithm",
@@ -547,6 +613,39 @@
    "glyphs": 385,
    "covers": "float.sty's [H] (\\float@endH: \\vskip\\intextsep, the box with its interline glue, \\vskip\\intextsep), right after a paragraph's text (its \\vskip ends the paragraph) and after a blank line, an [H] algorithm with no caption (its empty caption box still brings the rule), and the text after it",
    "issue": "#258"
+  },
+  {
+   "id": "algorithm/hyperref-first-figures",
+   "file": "micro/algorithm/hyperref-first-figures.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 94,
+   "covers": "float.sty loaded after hyperref: hyperref's \\refstepcounter anchor of a figure or table caption in vertical mode before the lof line (first in the float, after a blank line, first in a minipage), or in the paragraph of minipages right before it, numbered after the minipages' own captions",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/hyperref-first",
+   "file": "micro/algorithm/hyperref-first.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 88,
+   "covers": "float.sty loaded after hyperref: its \\caption replaces hyperref's, so every caption's \\refstepcounter is hyperref's, anchoring where it stands: in the paragraph of a tabular right before it (after the line's space, which \\@caption's \\par then takes; none after a %); an algorithm's in vertical mode, with no anchor from \\float@makebox (hyperref saw no float.sty)",
+   "issue": "#294"
+  },
+  {
+   "id": "algorithm/hyperref",
+   "file": "micro/algorithm/hyperref.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "algorithm floats with hyperref: \\Hy@float@caption's \\hyper@makecurrent (the loa line's and the label's algorithm.n), hyperref's \\float@makebox anchoring it first in the box (H.S H.R, the DEST, \\nobreak); no anchor without a caption; [H]; nameref's name after a section; xcolor",
+   "issue": "#294"
   },
   {
    "id": "algorithm/noend",
@@ -1493,6 +1592,61 @@
    "issue": "#273"
   },
   {
+   "id": "caption/listings-caption-keys",
+   "file": "micro/caption/listings-caption-keys.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 197,
+   "covers": "a listing caption with caption.sty's keys: \\captionsetup's fonts and separator, \\captionsetup[lstlisting] (\\caption@setoptions{lstlisting}: format=hang, margin, list=no drops the lol line, belowskip= after listings set it), skip= in the preamble overridden by listings' abovecaptionskip; cleveref's label; after a heading, a \\nobreak for each \\caption@setkeys at the top and the bottom (\\caption@setup{rule=0}, the list's, a font key's)",
+   "issue": "#294"
+  },
+  {
+   "id": "caption/listings-caption-newline",
+   "file": "micro/caption/listings-caption-newline.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 45,
+   "covers": "a listing caption with labelsep=newline: in the single-line format \\\\ is \\@centercr, whose \\addvspace{-\\parskip} in the caption's \\parbox is listings' \\nobreak\\vskip…\\nobreak",
+   "issue": "#294"
+  },
+  {
+   "id": "caption/listings-caption",
+   "file": "micro/caption/listings-caption.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 306,
+   "covers": "a listing caption with caption.sty: \\lst@MakeCaption t's keys (rule=0, position top: \\belowcaptionskip is listings' abovecaptionskip, \\abovecaptionskip its width), the lol line with \\ignorespaces, \\caption@@make in listings' group (every \\vskip between \\nobreak's, the one below inside the caption's paragraph, \\hskip-\\@totalleftmargin before the left margin); after a heading, after a run-in heading (lost, or in a top frame), after a list, with a label, xcolor",
+   "issue": "#294"
+  },
+  {
+   "id": "caption/listings-hyperref",
+   "file": "micro/caption/listings-hyperref.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 61,
+   "covers": "listings with caption.sty and hyperref: the lstlisting.n anchor where \\refstepcounter steps (no hypcap anchor, no anchor in the caption's text: listings call \\@makecaption directly), lstlisting.-n without a caption, each line's lstnumber anchor, the lol line's href, nameref's caption in the label, \\@esphack's \\nobreak after a heading; skip= in \\captionsetup[lstlisting], set after listings' skips (the one below the caption)",
+   "issue": "#294"
+  },
+  {
+   "id": "caption/listings-run-in",
+   "file": "micro/caption/listings-run-in.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 12,
+   "covers": "caption.sty's \\lst@MakeCaption b with a bottom frame: \\lst@frameExit leaves the frame's paragraph open, so its \\@esphack runs in horizontal mode and puts no \\nobreak there, although \\if@noskipsec is still true from a run-in heading lost to an empty listing",
+   "issue": "#294"
+  },
+  {
    "id": "caption/listings",
    "file": "micro/caption/listings.tex",
    "area": "caption",
@@ -1535,6 +1689,17 @@
    "glyphs": 130,
    "covers": "subcaption in report (Figure 1.1, 1.1a), three subfigures joined by %, \\subref to a defined and an undefined label",
    "issue": "#269"
+  },
+  {
+   "id": "caption/sub-nocaption",
+   "file": "micro/caption/sub-nocaption.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 232,
+   "covers": "subcaption's sub-floats without a caption: \\caption@subtypehook's \\caption@stepcounter steps the float's counter at the first one all the same (a \\caption* after it numbers nothing, a \\caption after it takes that number), and \\caption@setsubcaption's flag puts the float's caption below (position auto); a sub-float after the caption and one before it, ambiguous: the counter steps again",
+   "issue": "#294"
   },
   {
    "id": "caption/subfigure",
@@ -1774,6 +1939,39 @@
    "issue": "#66"
   },
   {
+   "id": "cleveref/float-in-paragraph-page",
+   "file": "micro/cleveref/float-in-paragraph-page.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4547,
+   "covers": "cleveref's page counter for a \\label in a float standing in a paragraph (reduced from fuzz doc-2-146): read in the paragraph, after the page builder saw its \\parskip, so a page that fired at that \\parskip has been shipped",
+   "issue": "#294"
+  },
+  {
+   "id": "cleveref/here-page-display",
+   "file": "micro/cleveref/here-page-display.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3452,
+   "covers": "cleveref's page counter for a \\label in an [H] float in a paragraph after a display: the page builder has seen all up to the display (resume_after_display's build_page), so a page that broke before it has been shipped, and the lines after it not yet",
+   "issue": "#294"
+  },
+  {
+   "id": "cleveref/here-page",
+   "file": "micro/cleveref/here-page.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3109,
+   "covers": "cleveref's page counter for a \\label in an [H] float in a paragraph: read before the paragraph's lines reach the page builder (it has seen the \\parskip), so a page those lines fill has not been shipped yet",
+   "issue": "#294"
+  },
+  {
    "id": "cleveref/label-spaces",
    "file": "micro/cleveref/label-spaces.tex",
    "area": "cleveref",
@@ -1816,6 +2014,17 @@
    "glyphs": 242,
    "covers": "cleveref's \\newlabel{key@cref} under roman page numbers: its first page field is \\thepage with the page counter set to 1 when the \\label was read (i in book's \\frontmatter, 1 in \\mainmatter), the second \\arabic{page}",
    "issue": "#277"
+  },
+  {
+   "id": "cleveref/subcaption",
+   "file": "micro/cleveref/subcaption.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 159,
+   "covers": "subcaption's \\label with cleveref: \\label{key} and \\label{sub@key}, each with its key@cref write ([sub<type>][n][float number, after the chapter's]<\\thesub<type>>), \\cref and \\Cref of sub-figures and sub-tables, in report (the chapter in the prefix)",
+   "issue": "#294"
   },
   {
    "id": "cleveref/tag-flag",
@@ -2920,6 +3129,17 @@
    "covers": "hyperref: an uncaptioned listing's \\lst@HRefStepCounter sets \\@currentHref globally, so a run-in heading put in place in the listing's top frame paragraph writes the listing's anchor in its toc line"
   },
   {
+   "id": "listings/run-in-hyperref",
+   "file": "micro/listings/run-in-hyperref.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 44,
+   "covers": "a \\subparagraph run in to a framed listing's top frame with hyperref: the heading's \\hskip\\parindent is read where it goes in place (zero with breaklines), its anchor box's \\kern-\\Hy@SectionHShift is the \\parindent when the heading was read",
+   "issue": "#294"
+  },
+  {
    "id": "listings/spaces",
    "file": "micro/listings/spaces.tex",
    "area": "listings",
@@ -3553,6 +3773,28 @@
    "issue": "#115"
   },
   {
+   "id": "pdflatex/algorithm-hyperref-first",
+   "file": "micro/pdflatex/algorithm-hyperref-first.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 88,
+   "covers": "under pdflatex, float.sty loaded after hyperref: its \\caption replaces hyperref's, so every caption's \\refstepcounter is hyperref's, anchoring where it stands: in the paragraph of a tabular right before it (after the line's space, which \\@caption's \\par then takes; none after a %); an algorithm's in vertical mode, with no anchor from \\float@makebox (hyperref saw no float.sty)",
+   "issue": "#294"
+  },
+  {
+   "id": "pdflatex/algorithm-hyperref",
+   "file": "micro/pdflatex/algorithm-hyperref.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "algorithm floats with hyperref under pdflatex: \\Hy@float@caption's \\hyper@makecurrent (the loa line's and the label's algorithm.n), hyperref's \\float@makebox anchoring it first in the box (a \\pdfdest, \\nobreak); no anchor without a caption; [H]; nameref's name after a section; xcolor",
+   "issue": "#294"
+  },
+  {
    "id": "pdflatex/autoref-pdftex",
    "file": "micro/pdflatex/autoref-pdftex.tex",
    "area": "pdflatex",
@@ -3562,6 +3804,17 @@
    "glyphs": 298,
    "covers": "under pdflatex (links \\pdfstartlink … \\pdfendlink around the text in the paragraph): \\autoref (the name, ~, the label and \\null in the link), \\autoref*, \\nameref and \\nameref*, \\Nameref, an amsthm theorem's anchor (\\MakeLinkTarget*: hpdftex's \\pdfdest raised by \\normalbaselineskip), undefined keys as bold ??",
    "issue": "#280"
+  },
+  {
+   "id": "pdflatex/caption-anchor-size",
+   "file": "micro/pdflatex/caption-anchor-size.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 66,
+   "covers": "under pdflatex, caption.sty with hypcap=false and hyperref: \\caption@makeanchor's \\Hy@raisedlink raises the \\pdfdest by the \\baselineskip of the caption's text font (font=small: 11pt; textfont=footnotesize: 9.5pt)",
+   "issue": "#294"
   },
   {
    "id": "pdflatex/caption-hypcap",
