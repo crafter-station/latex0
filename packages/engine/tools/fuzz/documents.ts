@@ -89,7 +89,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -199,6 +199,15 @@ export function makeDocument(r: () => number): string {
     if (capOn && (cap || inline) && r() < 0.2) body.unshift(`\\captionsetup{${capKeys(env === "minipage" && cap ? "list" : "sub")}}`)
     return `\\begin{${env}}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{${env}}`
   }
+  // TikZ pictures of paths (no nodes): a tikzpicture or \tikz
+  const tikzPic = (inline: boolean) => {
+    const num = () => pick(["0", "1", "2", "0.5", "-1", "1.5", "3"])
+    const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
+    const op = () => pick([` -- ${coord()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${coord()}`, ` |- ${coord()}`, ` to ${coord()}`])
+    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]"])} ${pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+    if (inline) return r() < 0.5 ? `\\tikz${pick(["", "[baseline=-0.5ex]", "[scale=0.3]"])} ${path()}` : `\\tikz[scale=0.2]{${path()}}`
+    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, path).join("\n")}\n\\end{tikzpicture}`
+  }
   const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
   // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)
   const address = () => {
@@ -235,6 +244,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.006) ws[i] += natOn // natbib with no .bbl: every key undefined
         ? pick([" \\citep{b1}", "~\\citet{b2,b1}", " \\cite{b3}", " \\citep[p.~4]{b1}", " \\citet[see][ch.~2]{b2}", " \\citealp{b1}", " \\citeauthor{b3}", " \\citeyearpar{b1}", "~\\cite[][p.~9]{nobody}", " (\\citealt{b1,b2})"])
         : pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
+      if (tikzOn && r() < 0.004) ws[i] += ` ${tikzPic(true)}`
       if (graphOn && r() < 0.003) ws[i] += ` \\includegraphics[${pick(["height=1em", "scale=0.05", "width=1cm"])}]{${pick(["wide", "tall"])}}`
       if (amsOn && r() < 0.005) ws[i] += pick([" \\eqref{eq:3-1}", "~\\eqref{eq:6-1}", " \\eqref{eq:10-1}", " (\\eqref{eq:15-1})", " \\eqref{eq:2-1}", " \\eqref{nowhere}"])
       // addresses: \url (url.sty or hyperref), \nolinkurl and \href (hyperref)
@@ -447,6 +457,9 @@ export function makeDocument(r: () => number): string {
   }
   urlOn = !hyper && r() < 0.15
   if (urlOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{url}")
+  // TikZ (which loads xcolor and graphicx)
+  tikzOn = !isLetter && r() < 0.15
+  if (tikzOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{tikz}")
   const titled = r() < 0.5 && !isLetter // report: a title page
   if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {
@@ -496,7 +509,7 @@ export function makeDocument(r: () => number): string {
         continue
       }
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
-      const table = graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` :
+      const table = tikzOn && r() < 0.3 ? tikzPic(false) : graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` :
         subOn && r() < 0.5 ? Array.from({ length: 1 + Math.floor(r() * 3) }, (_, j) => minipage(pick(["", "", "[t]", "[b]", "[c]"]), false, `${env}:${b}${"abc"[j]}`, `sub${env}`)).join(pick(["\n", "%\n", "\n\\hfill\n", "\n\\quad\n"])) : ""
       // caption.sty: \caption* (no \label after it) and \caption[short], and a \captionsetup in the float
       const variant = capOn && r() < 0.3 ? pick(["*", "[]", `[${words(2)}]`]) : ""

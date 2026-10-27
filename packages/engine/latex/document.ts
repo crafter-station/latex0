@@ -39,6 +39,7 @@ import { minipageAt, tabularAt } from "./boxes"
 import { lstinlineAt } from "./lstlisting"
 import { hrefAt, urlAt } from "./url"
 import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
+import { tikzAt } from "./tikz"
 import type { Image } from "./images"
 import { processBlock, runInAlone } from "./body"
 import { crefName, fillCrefWrites, type CrefLabel } from "./cleveref"
@@ -89,7 +90,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
@@ -108,7 +109,8 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   if (usesXcolor) v.nodes.push(colorPush())
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   /** \Hy@writebookmark's state */
-  const bookmarks = new Bookmarks()
+  // (its .out file is \write3, or \write4 after pgf's \newwrite\w@pgf@writea: pgfsys.code.tex 67)
+  const bookmarks = new Bookmarks(pre.tikz ? 4 : 3)
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
   if (hyper) {
@@ -201,7 +203,8 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   doc.url = (...a) => urlAt(cx, ...a)
   doc.href = (...a) => hrefAt(cx, ...a)
   doc.graphic = (...a) => graphicAt(cx, ...a)
-  const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, images, driver, notHere, normalAttrs, booktabs }
+  if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
+  const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
 
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode

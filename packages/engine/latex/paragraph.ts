@@ -131,6 +131,8 @@ export interface DocState {
   url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
   /** \includegraphics number n, with \linewidth where it stands */
   graphic?: (n: number, lineWidth: number, units: { em: number; ex: number }) => Node[]
+  /** TikZ's picture number n, with xcolor's current color and the current font's em and ex */
+  tikz?: (n: number, color: string, units: { em: number; ex: number }) => Node[]
   /** the nodes number n that beamer's \beamer@smuggle puts where \LXsmuggle{n} stands (beamer/overlays.ts) */
   smuggle?: (n: number) => Node[]
   /** \href number n around its typeset text */
@@ -250,7 +252,7 @@ type Piece =
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
-  | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "tikz"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -459,6 +461,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (sm) { flushText(); out.push({ kind: "smuggle", n: Number(sm[1]) }); i += sm[0].length; continue }
     const gr = body.slice(i).match(/^\\LXgraphic\{(\d+)\}/) // \includegraphics
     if (gr) { flushText(); out.push({ kind: "graphic", n: Number(gr[1]) }); i += gr[0].length; continue }
+    const tz = body.slice(i).match(/^\\LXtikz\{(\d+)\}/) // a tikzpicture or \tikz
+    if (tz) { flushText(); out.push({ kind: "tikz", n: Number(tz[1]) }); i += tz[0].length; continue }
     const url = body.slice(i).match(/^\\LXurl\{(\d+)\}/) // \url, taken out before expansion
     if (url) { flushText(); out.push({ kind: "url", n: Number(url[1]) }); i += url[0].length; continue }
     const href = body.slice(i).match(/^\\LXhref\{(\d+)\}\s*\{/) // \href{address}{text}: the text in an \hbox, no footnotes or labels
@@ -826,6 +830,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "graphic") {
       if (!doc.graphic) throw new Error("paragraph adapter: \\includegraphics outside a document")
       list.push(...doc.graphic(p.n, lineWidthOf(ctx), { em: font.params[QUAD], ex: font.params[X_HEIGHT] })) // (em and ex: the current font's)
+      state.spaceFactor = 1000 // after a box
+    }
+    else if (p.kind === "tikz") {
+      if (!doc.tikz) throw new Unsupported("a tikzpicture outside a document")
+      list.push(...doc.tikz(p.n, ctx.color ?? xcolor.normal, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }))
       state.spaceFactor = 1000 // after a box
     }
     else if (p.kind === "tabular") { // \leavevmode\hbox{$…$}

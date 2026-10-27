@@ -1,0 +1,13 @@
+% fixture: tikz/hyperref
+% tier: T3
+% engine: document
+% covers: tikz and hyperref: pgf's \newwrite takes a stream before hyperref's .out file (\write4 for the bookmarks); a picture after a heading
+% issue: #309
+\documentclass{article}
+\usepackage{tikz}
+\usepackage{hyperref}
+\begin{document}
+\section{Pictures}
+\begin{tikzpicture}\draw (0,0) -- (1,1);\end{tikzpicture}
+and text after it.
+\end{document}

@@ -51,6 +51,8 @@ export interface Preamble {
   /** caption.sty's options: package options and \captionsetup in the preamble (with caption.sty loaded) */
   caption: CaptionSetup | null
   usesXcolor: boolean
+  /** tikz (which loads xcolor and graphicx): the libraries loaded and the preamble's \tikzset and \tikzstyle, in order */
+  tikz: { libraries: string[]; sets: string[] } | null
   usesAmsthm: boolean
   amsmath: boolean
   enumitem: boolean
@@ -112,6 +114,8 @@ export function readPreamble(src: string): Preamble {
   let thmStyle: ThmStyle = "plain"
   const thmDefs = new Map<string, TheoremDef>()
   const colorDefs: [string, string, string][] = [] // \definecolor
+  // \tikzset{…} and \tikzstyle…, which may run over lines: on one
+  pre = pre.replace(/\\tikzset\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
   for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
     let depth = 0, j = i + 7
     for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
@@ -142,6 +146,7 @@ export function readPreamble(src: string): Preamble {
   let usesArray = false
   let usesSiunitx = false
   let usesGraphicx = false
+  let tikz: Preamble["tikz"] = null
   let siOpts = SI_DEFAULTS
   let usesCaption = false
   let usesSubcaption = false
@@ -224,7 +229,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       // (float.sty after hyperref: its \caption replaces hyperref's, and hyperref saw no float.sty to patch)
       if (names.includes("algorithm") && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf("algorithm"))) algorithm.afterHyperref = true
@@ -238,6 +243,8 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
       if (names.includes("graphicx")) usesGraphicx = true
+      // tikz loads pgf, which loads graphicx and xcolor
+      if (names.includes("tikz")) { tikz ??= { libraries: [], sets: [] }; usesXcolor = usesGraphicx = true }
       if (names.includes("amsthm")) usesAmsthm = true
       if (names.includes("url")) usesUrl = true
       if (names.includes("multirow")) usesMultirow = true
@@ -288,6 +295,15 @@ export function readPreamble(src: string): Preamble {
       if (!amsmath) throw new Unsupported("\\DeclareMathOperator without amsmath")
       operators.push([op[2], op[3], !!op[1]]); continue
     }
+    // TikZ's libraries whose loading changes nothing on the page but what the engine models (tikz/options.ts),
+    // and style definitions
+    const tl = line.match(/^\\usetikzlibrary\s*\{([^{}]*)\}$/)
+    if (tl && tikz) {
+      const libs = tl[1].split(",").map((x) => x.trim()).filter(Boolean)
+      if (libs.some((x) => !["positioning", "arrows.meta", "calc"].includes(x))) throw new Unsupported(`preamble: ${line}`)
+      tikz.libraries.push(...libs); continue
+    }
+    if (tikz && /^\\tikz(?:set\s*\{.*\}|style\b.*)$/.test(line)) { tikz.sets.push(line); continue }
     const dc = line.match(/^\\definecolor\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}$/)
     if (dc) { colorDefs.push([dc[1], dc[2], dc[3]]); continue }
     const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
@@ -354,7 +370,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */
