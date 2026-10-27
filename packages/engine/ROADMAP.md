@@ -304,8 +304,11 @@ friends and beamer's `\emph`; `\section` and `\subsection` between frames (toc, 
 writes) and `\tableofcontents` (also `[currentsection]`); overlays (one page per slide, `\pause`, `\item<…>` and `[<+->]`,
 `\only`, `\alt`, `\temporal`, `\uncover`, `\visible`, `\invisible`, `\onslide`, covered material
 between pgf's invisible specials); the .nav writes and page anchors, with dvips (#289, #299, #300).
-Not yet: Madrid's rounded boxes and shadows, the navigation symbols, blocks, columns, nested
-lists, math, pdfTeX.
+The rounded inner theme without shadows, drawn by pgf/ on the run's one pgf state (#315): ball
+itemize and enumerate items, ball numbers in the table of contents, rounded beamercolorboxes
+(`rounded=true`), rounded blocks and the rounded title page; `\usetheme[shadow=false]{Madrid}`.
+Not yet: the shadows (`shadow=true`, Madrid's default: pgf's fadings), the circles inner theme's
+templates, the shaded table of contents with balls.
 
 ---
 

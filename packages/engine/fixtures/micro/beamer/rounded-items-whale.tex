@@ -1,0 +1,27 @@
+% fixture: beamer/rounded-items-whale
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme with the whale and orchid color themes at 17pt, navigation symbols on: ball items under a frame title, the spheres made at 17pt's ex, a list on a second frame using the shadings made on the first
+% issue: #315
+\documentclass[17pt]{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useinnertheme{rounded}
+\begin{document}
+\begin{frame}{Balls}
+\begin{itemize}
+\item Alpha
+\item Beta
+\end{itemize}
+\end{frame}
+\begin{frame}
+\begin{enumerate}
+\item Gamma
+\item Delta
+\end{enumerate}
+\begin{itemize}
+\item Epsilon
+\end{itemize}
+\end{frame}
+\end{document}

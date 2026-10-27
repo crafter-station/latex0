@@ -106,8 +106,9 @@ export class PgfState {
   inPicture = false
   /** \pgfscope@linewidth of each open pgfscope */
   readonly scopes: number[] = []
-  /** the document font's quad and x-height: pgfmath's em and ex (\pgfmath@selectfont, LaTeX's \selectfont, restores the font) */
-  constructor(readonly units: PgfUnits = { em: 0, ex: 0 }) {}
+  /** the document font's quad and x-height: pgfmath's em and ex (\pgfmath@selectfont, LaTeX's \selectfont, restores the font);
+   *  a document's state follows the font where pgf is used */
+  constructor(public units: PgfUnits = { em: 0, ex: 0 }) {}
 
   /** \begingroup (or {): the switches and local values as they are */
   begingroup() { this.groups.push([{ ...this.sw }, this.local]) }

@@ -33,6 +33,7 @@ import { outerColors, useColor, type Theme } from "./theme"
 import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
 import { tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
+import type { BeamerPgf } from "./pgf"
 
 /** a frame as written: its options and what it holds */
 export interface FrameSource { kind: "frame"; options: string; body: string }
@@ -123,7 +124,9 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** \c@footnote, and the slide's \beamer@footins (footnotes.ts) */
   footnotes: { n: number }; footins: Node[]
   /** in a column's minipage (columns.ts), where \footnote is the minipage's */
-  inMinipage?: boolean }
+  inMinipage?: boolean
+  /** pgf in the document (the inner themes' pictures and shadings) */
+  pgf: BeamerPgf }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -278,7 +281,7 @@ function plainText(text: string) {
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -331,7 +334,7 @@ const colorbox: FrameHandler = (cx, v, text) => {
     const pars = body.split(/\n[ \t]*\n/).map((p) => p.trim()).filter(Boolean)
     if (!pars.length) pars.push("")
     for (const par of pars) boxParagraph(b.v, setParagraph(cx, par, { hsize: b.hsize, leftskip: b.leftskip, rightskip: b.rightskip, sloppy: font.params[QUAD] }), bs)
-  })
+  }, cx)
   v.box(box, bs)
   return text.slice(end + "\\end{beamercolorbox}".length)
 }

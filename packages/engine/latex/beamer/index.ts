@@ -28,6 +28,7 @@ import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource }
 import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { beamerPage } from "./page"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
+import { BeamerPgf } from "./pgf"
 import { outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 
@@ -44,7 +45,9 @@ interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decis
   /** the sectioning state, and the .toc lines the last run wrote */
   sections: Sections; toc: TocEntry[]
   /** \c@equation and \c@footnote */
-  equations: { n: number }; footnotes: { n: number } }
+  equations: { n: number }; footnotes: { n: number }
+  /** pgf's state in the run */
+  pgf: BeamerPgf }
 
 /** The body's constructs: frames (the environment and the \frame command), \section and \subsection */
 const BODY: { [K in BodyItem["kind"]]: (cx: BeamerCtx, item: Extract<BodyItem, { kind: K }>) => void } = { frame, section, subsection: section }
@@ -104,7 +107,7 @@ function frame(cx: BeamerCtx, f: FrameSource) {
     // (\resetcounteronoverlays{equation}: each slide starts the counter where the frame does)
     cx.equations.n = equations; cx.footnotes.n = footnotes
     const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [], equations: cx.equations,
-      footnotes: cx.footnotes, footins: [] }, f, cx.pre.centered)
+      footnotes: cx.footnotes, footins: [], pgf: cx.pgf }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
     cx.v.box(box, bs)
@@ -140,7 +143,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
   const pgf = navigationPgf(driver)
   v.nodes = documentBegin(pre, prev, pgf.nodes)
   const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
-    sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 } }
+    sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d) }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
   footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, 0, 1), cx.decisions)
   for (const item of bodyOf(pre.body)) (BODY[item.kind] as (cx: BeamerCtx, item: BodyItem) => void)(cx, item)

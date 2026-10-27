@@ -20,6 +20,7 @@ import { fontSize, outerColors, useColor, type ColorState } from "./theme"
 /** \titlepage in the frame's vertical list `v` */
 export function titlePage(cx: FrameCtx, v: VerticalList) {
   const { k, theme, info } = cx
+  if (theme.inner === "circles") throw new Unsupported("beamer: the circles inner theme's title page")
   const normal = selectFont(k, "normalsize", SANS)
   const env = { em: normal.params[QUAD], ex: normal.params[X_HEIGHT] }
   const bs = k.sizes.normalsize.baselineskip
@@ -30,14 +31,15 @@ export function titlePage(cx: FrameCtx, v: VerticalList) {
   v.nodes.push(colorPush(at.fg))
   v.box(emptyBox("vlist"), bs)
   v.vskip(fillGlue())
-  const o = colorboxOptions("sep=8pt,center", k, lengthEnv(k, env.em, env.ex))
+  // (the rounded inner theme's title page: [colsep=-4bp,rounded=true,shadow=false] too)
+  const o = colorboxOptions(`sep=8pt,center${theme.inner === "rounded" ? ",colsep=-4bp,rounded=true,shadow=false" : ""}`, k, lengthEnv(k, env.em, env.ex))
   // each template: \begin{beamercolorbox}[sep=8pt,center]{name}\usebeamerfont{name}text…\end{beamercolorbox}
   // (\sloppy is in force, but with the skips' fill every line has badness 0: its tolerance decides nothing)
   const text = (cx: FrameCtx, b: ColorboxBody, s: SizeCommand, t: string) =>
     boxParagraph(b.v, setParagraph(cx, t, { size: s, hsize: b.hsize, leftskip: b.leftskip, rightskip: b.rightskip }), k.sizes[s].baselineskip)
   const box = (name: string, fill: (b: ColorboxBody, s: SizeCommand, inner: ColorState) => void) => {
     const s = fontSize(theme, k, name, "normalsize")
-    v.box(beamercolorbox(k, theme, name, o, at, (b) => fill(b, s, useColor(theme, name, at))), bs)
+    v.box(beamercolorbox(k, theme, name, o, at, (b) => fill(b, s, useColor(theme, name, at)), cx), bs)
   }
   box("title", (b, s, inner) => {
     text(cx, b, s, info.title)

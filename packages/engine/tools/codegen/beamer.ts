@@ -25,6 +25,22 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   Madrid: { preamble: ["\\usetheme{Madrid}"], files: ["beamerthemeMadrid.sty", "beamercolorthemewhale.sty", "beamercolorthemeorchid.sty", "beamerinnerthemerounded.sty", "beamerouterthemeinfolines.sty"] },
   ...outerVariants([["seahorse"], ["beaver"], ["dolphin"], ["whale", "orchid"]]),
   ...outerVariants([[], ["whale"], ["orchid"]], true),
+  ...innerVariants("rounded", [[], ["whale"], ["orchid"], ["whale", "orchid"]], [["whale", "orchid"]]),
+  ...innerVariants("circles", [[]], []),
+}
+
+/** An inner theme after color themes (alone), and after them followed by the infolines outer theme with the default
+ *  headline (Madrid's order without its shadows: color themes, inner theme, outer theme) */
+function innerVariants(inner: string, colors: string[][], outer: string[][]): Record<string, { preamble: string[]; files: string[] }> {
+  const out: Record<string, { preamble: string[]; files: string[] }> = {}
+  const add = (c: string[], infolines: boolean) => {
+    const preamble = [...c.map((n) => `\\usecolortheme{${n}}`), `\\useinnertheme{${inner}}`, ...(infolines ? INFOLINES : [])]
+    const files = [...c.map((n) => `beamercolortheme${n}.sty`), `beamerinnertheme${inner}.sty`, ...(infolines ? ["beamerouterthemeinfolines.sty"] : [])]
+    out[[...c, inner, ...(infolines ? ["infolines"] : [])].join("-")] = { preamble, files }
+  }
+  for (const c of colors) add(c, false)
+  for (const c of outer) add(c, true)
+  return out
 }
 
 /** Color themes (each \usecolortheme in turn), alone (unless `outerOnly`) and followed by the infolines outer theme

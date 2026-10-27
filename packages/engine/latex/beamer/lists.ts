@@ -13,10 +13,13 @@
 
 import type { SizeCommand } from "../../layout/classdata"
 import { parseDimen, type GlueSpec } from "../../layout/dimen"
-import type { Font } from "../../layout/font"
+import { SPACE, SPACE_SHRINK, SPACE_STRETCH, type Font } from "../../layout/font"
 import { appendText } from "../../layout/hmode"
-import { charNode, filGlue, glue, kern, penalty, ssGlue, type Node } from "../../layout/nodes"
+import { charNode, filGlue, glue, kern, penalty, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
+import { pgfPoint } from "../../pgf/points"
+import { pgfText, type PgfText } from "../../pgf/shapes"
+import { pgfTransformScale, pgfTransformShift } from "../../pgf/transformations"
 import { fontAt, selectFont } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { LOW_PENALTY, type VerticalList } from "../vlist"
@@ -24,7 +27,7 @@ import { colorPop, colorPush } from "../xcolor"
 import { resetColor } from "./colorbox"
 import { addParagraph, SANS, type FrameCtx } from "./frame"
 import { coverBegin, coverEnd, inSpec, smuggle } from "./overlays"
-import { fontSize, outerColors, useColor } from "./theme"
+import { fontSize, outerColors, useColor, type ColorState } from "./theme"
 
 /** \blacktriangleright: amssymb's \DeclareMathSymbol{\blacktriangleright}{\mathrel}{AMSa}{"49} */
 const BLACKTRIANGLERIGHT = 0x49
@@ -258,9 +261,14 @@ function itemLabel(cx: FrameCtx, kind: "itemize" | "enumerate", level: ListLevel
   const name = `${kind} ${PREFIX[level.itemDepth - 1]}item`
   if (fontSize(theme, k, name, level.size) !== level.size) throw new Unsupported(`beamer: the ${name} font`)
   const font = selectFont(k, level.size, SANS)
-  const out: Node[] = [colorPush(useColor(theme, name, { fg: level.fg, bg: outerColors(theme).bg }).fg)]
+  const at = useColor(theme, name, { fg: level.fg, bg: outerColors(theme).bg })
+  const out: Node[] = [colorPush(at.fg)]
   if (label !== undefined) out.push(...plainText(label, font))
-  else if (kind === "itemize") out.push(...triangle(k.sizes[level.size].size, level.itemDepth === 1 ? "1.25pt" : "1.5pt"))
+  else if (kind === "itemize" && theme.inner === "rounded") out.push(ball(cx, level, at))
+  else if (kind === "itemize" && theme.inner === "default") out.push(...triangle(k.sizes[level.size].size, level.itemDepth === 1 ? "1.25pt" : "1.5pt"))
+  else if (kind === "itemize") throw new Unsupported(`beamer: the ${theme.inner} inner theme's itemize items`)
+  else if (theme.inner === "rounded") out.push(...ballNumber(cx, level, at, [...level.enum, counter]))
+  else if (theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's enumerate items`)
   else {
     const n = [...level.enum, counter]
     out.push(...plainText(level.enumDepth === 1 ? `${n[0]}.` : n.join("."), font))
@@ -282,6 +290,51 @@ function descriptionText(cx: FrameCtx, text: string, size: SizeCommand): Node[] 
   if (fontSize(theme, k, "description item", size) !== size) throw new Unsupported("beamer: the description item font")
   const outer = outerColors(theme)
   return [colorPush(outer.fg), colorPush(useColor(theme, "description item", outer).fg), ...plainText(text, selectFont(k, size, SANS)), colorPop(), colorPop()]
+}
+
+/** The ball itemize items (beamerbaseauxtemplates.sty 366–368): \raise0.2pt\beamer@usesphere{item projected}{bigsphere}
+ *  (subitem projected and smallsphere below the first level) */
+function ball(cx: FrameCtx, level: ListLevel, at: ColorState): BoxNode {
+  const sphere = cx.pgf.usesphere(cx.theme, `${PREFIX[level.itemDepth - 1]}item projected`, level.itemDepth === 1 ? "bigsphere" : "smallsphere", selectFont(cx.k, "normalsize", SANS), at)
+  return { ...sphere, shift: -parseDimen("0.2pt", { em: 0, ex: 0 }) }
+}
+
+/**
+ * The ball enumerate items (beamerbaseauxtemplates.sty 374–406), a template that begins with a space (in the item's
+ * font): \begin{pgfpicture}{-1ex}{-0.65ex}{1ex}{1ex} \usebeamercolor{item projected} {\pgftransformscale{1.75}
+ * \pgftext{\normalsize\pgfuseshading{bigsphere}}} {\pgftransformshift{\pgfpoint{0pt}{0.5pt}} \pgftext{\usebeamerfont*
+ * {item projected}\color{fg}\insertenumlabel}} \end{pgfpicture}; below the first level the bounding box's bottom is
+ * -0.55ex, the scale 1.4, the number (\insertsubenumlabel: the level's own counter) not shifted, and the subsubitem's
+ * font subitem projected's. Each space between the picture's commands is a \glue 0.0 there (\nullfont's).
+ */
+function ballNumber(cx: FrameCtx, level: ListLevel, at: ColorState, n: number[]): Node[] {
+  const { k, theme, pgf } = cx
+  const { s, d } = pgf
+  const depth = level.enumDepth
+  const font = selectFont(k, level.size, SANS)
+  const projected = useColor(theme, `${PREFIX[depth - 1]}item projected`, at)
+  const textFont = selectFont(k, fontSize(theme, k, depth === 1 ? "item projected" : "subitem projected", level.size), SANS)
+  const sphere = () => pgf.shading("bigsphere", selectFont(k, "normalsize", SANS), projected.bg, at.bg)
+  const number: PgfText = { hlist: () => [colorPush(projected.fg), ...plainText(String(n[depth - 1]), textFont), colorPop()] }
+  const space = glue(font.params[SPACE], font.params[SPACE_STRETCH], 0, font.params[SPACE_SHRINK], 0)
+  return [space, ...pgf.picture(font, at.fg, ["-1ex", depth === 1 ? "-0.65ex" : "-0.55ex", "1ex", "1ex"], () => {
+    s.space()
+    s.space()
+    s.begingroup()
+    pgfTransformScale(s, depth === 1 ? "1.75" : "1.4")
+    pgfText(s, d, { hlist: () => [sphere()] }, [], "")
+    s.endgroup()
+    s.space()
+    if (depth === 1) {
+      s.begingroup()
+      pgfTransformShift(s, () => pgfPoint(s, "0pt", "0.5pt"))
+      s.space()
+      pgfText(s, d, number, [], "")
+      s.endgroup()
+      s.space()
+    } else pgfText(s, d, number, [], "") // (the space after it skipped: \pgf@collectresetcolor's \pgfutil@ifnextchar)
+    return 0
+  })]
 }
 
 /** itemize item: \raise<raise>\hbox{$\blacktriangleright$} (\mathsurround zero) at the size */

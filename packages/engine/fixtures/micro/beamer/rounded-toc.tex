@@ -1,0 +1,29 @@
+% fixture: beamer/rounded-toc
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's rounded inner theme: the table of contents with ball numbers (a pgfpicture with the tocsphere and the section number in fg!90!bg, a gray color mixed into rgb, in an \llap after a 2.75ex \leftskip) and subsection balls (bigsphere raised 0.1ex after a 5ex \leftskip)
+% issue: #315
+\documentclass{beamer}
+\useinnertheme{rounded}
+\setbeamertemplate{navigation symbols}{}
+\title{Results}
+\begin{document}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\begin{frame}{First}
+Text.
+\end{frame}
+\subsection{Details}
+\begin{frame}{Second}
+More.
+\end{frame}
+\section{Results}
+\subsection{Main result}
+\subsection{Another result}
+\begin{frame}
+Last.
+\end{frame}
+\end{document}

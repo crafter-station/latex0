@@ -1,0 +1,23 @@
+% fixture: beamer/rounded-colorbox-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer: beamercolorbox with rounded=true: in beamerboxesrounded[lower=the color,upper=normal text]{} where the color has a bg (an empty head, its picture in lower.bg, no transition), the box as it is where it has none; sep, colsep and a narrower width
+% issue: #315
+\documentclass{beamer}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{beamercolorbox}[rounded=true,sep=4pt]{title}
+A rounded box in the title color, with words enough to take a second line in the frame.
+\end{beamercolorbox}
+\begin{beamercolorbox}[rounded=true,center,shadow=false]{author}
+No background: the box as it is.
+\end{beamercolorbox}
+\begin{beamercolorbox}[rounded=true,wd=5cm,colsep=2pt]{palette primary}
+Narrow, gpq
+\end{beamercolorbox}
+\end{frame}
+\end{document}

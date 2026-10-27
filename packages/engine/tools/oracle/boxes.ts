@@ -91,12 +91,13 @@ export function parseBoxDump(lines: string[], i: number): { box: BoxNode; end: n
   return { box: root, end: i }
 }
 
-/** Every "Completed box being shipped out" page in the log, as box trees. */
+/** Every "Completed box being shipped out [n]" page in the log, as box trees (pdfTeX's \pdfxform forms, which pgf's
+ *  shadings make, print the same line without a page number: not pages). */
 export function parseShipouts(log: string): BoxNode[] {
   const pages: BoxNode[] = []
   const lines = log.split("\n")
   for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].startsWith("Completed box being shipped out")) continue
+    if (!lines[i].startsWith("Completed box being shipped out [")) continue
     const { box, end } = parseBoxDump(lines, i + 1)
     pages.push(box)
     i = end
