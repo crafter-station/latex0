@@ -14,7 +14,7 @@ import { xnOverD } from "../layout/arith"
 import { type ListBlock, type Part } from "./blocks"
 import type { Ctx } from "./context"
 import { flushglue, sloppy, zeroskip } from "./kernel"
-import { tabularStart } from "./source"
+import { groupStart, tabularStart } from "./source"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { anchor, labelName, linkTarget } from "./hyperref"
@@ -301,15 +301,17 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
           p.text = p.text.slice(lead[0].length)
         }
       }
-      // a {\color …} group that starts the paragraph: its push on the vertical list (the paragraph starts in the group)
-      const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text)
-      if (colorStart && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a color group starting an item's paragraph here")
+      // a group that starts the paragraph (the paragraph starts in it; a {\color …} group's push goes on the vertical list)
+      const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text), inGroup = groupStart(p.text)
+      if (inGroup && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a group starting an item's paragraph here")
+      // (later, where \@item's \everypar may still run in the group: the \clubpenalty from before must be \@clubpenalty)
+      if (inGroup && (p.start === "par" || p.start === "cr") && itemClub !== undefined && itemClub !== (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)) throw new Unsupported("a group starting an item's later paragraph here")
       // (after a nested list, \@doendpe's \everypar runs in the group, and its \par clears all it set; after \\ the
       // push comes after \@centercr's skip, below)
       if (colorStart && (p.start === "label" || p.start === "doendpe")) p.text = leadingColor(cx, p.text)
       // (so does a tabular: \begin{tabular}'s group, then \leavevmode)
-      const groupStart = colorStart || tabularStart(p.text)
-      if (groupStart && !colorStart && (p.start !== "label" || (club && depth > 1))) throw new Unsupported("a tabular starting an item's paragraph here")
+      const grouped = inGroup || tabularStart(p.text)
+      if (grouped && !inGroup && (p.start !== "label" || (club && depth > 1))) throw new Unsupported("a tabular starting an item's paragraph here")
       // (in a {\color …} group the \everypar's \clubpenalty\@clubpenalty ends with the group: the one in force stays,
       // the outer one for a first item, else what the item before set)
       // a theorem: \dth@everypar takes the indent box off and \unhbox'es the head (no \penalty\z@)
@@ -318,19 +320,20 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       const thmAnchor = thmDef && hyper && !refs.cleveref
         ? [...linkTarget(refs.href, run.k.sizes[ctx.size].baselineskip.width, run.k.sizes.normalsize.baselineskip.width), kern(0, true)] : []
       const start = thmDef ? [...thmAnchor, ...thmHead(), ...(p.nodes ?? [])] : [labels, penalty(0), ...(p.nodes ?? [])]
+      const groups = { groups: true }
       const body = { ...(bodyAttrs ? { attrs: bodyAttrs } : {}), ...(qedAt(p) && !p.parEnd ? { end: qed() } : {}) }
       if (p.start === "label") {
         // (footnotes read in a color group, and a leading tabular's p{width} entries, see what \@item's \everypar set
         // there; after it, the one from before)
         const everyparClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
-        typeset(p.text, { start, ...shape, ...un, ...body, ...(club && !groupStart ? { clubPenalty: club } : groupStart ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...{ leadGroupNoteClubPenalty: everyparClub } } : {}) }, parsep, ctx.size)
-        if (!groupStart) groupClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
+        typeset(p.text, { start, ...shape, ...un, ...body, ...groups, ...(club && !grouped ? { clubPenalty: club } : grouped ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...{ leadGroupNoteClubPenalty: everyparClub } } : {}) }, parsep, ctx.size)
+        if (!grouped) groupClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
         // (\@item's \everypar ran in the group: after it, \clubpenalty is the one from before, and \everypar still \@item's)
         else itemClub = groupClub
       }
       // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
       // heading); \@doendpe's \par sets \@clubpenalty for the lines
-      else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
+      else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, ...groups, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty }, parsep, ctx.size); itemClub = undefined }
       else {
         // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
         if (p.text) itemClub = undefined
@@ -340,7 +343,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
           if (p.crSkip !== undefined) { try { v.vskip(parseGlue(p.crSkip, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] })) } catch { throw new Unsupported(`\\\\[${p.crSkip}]`) } }
         }
         if (colorStart) p.text = leadingColor(cx, p.text) // (after the \@centercr skip)
-        if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un, ...body }, parsep, ctx.size)
+        if (p.text) typeset(p.text, { start: [emptyBox("hlist", parindent)], ...shape, ...un, ...body, ...groups }, parsep, ctx.size)
       }
       // a proof whose last paragraph a blank line ended: \qed's \leavevmode starts one of its own
       if (qedAt(p) && p.parEnd) typeset("", { start: [emptyBox("hlist", parindent)], ...shape, ...(bodyAttrs ? { attrs: bodyAttrs } : {}), end: qed() }, parsep, ctx.size)

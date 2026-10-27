@@ -4,7 +4,7 @@
 // commands the layout does not handle yet throws Unsupported here.
 
 import type { Node } from "../layout/nodes"
-import { squeeze, TEXT_SYMBOLS } from "./paragraph"
+import { BODY_DECLARATIONS, squeeze, TEXT_SYMBOLS } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { SI_COMMANDS } from "./siunitx"
 
@@ -167,7 +167,7 @@ const TEXT_COMMANDS = [
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
   "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
-  "large", "Large", "LARGE", "huge", "Huge"
+  "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")

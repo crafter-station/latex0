@@ -61,7 +61,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
         justBox = r.just; params = r.params; nlines = r.lines
       } else v.nodes.push(spec("parskip", outerParskip), paramGlue("parskip", glue(0))) // \noindent$$: an empty paragraph
     } else if (t || !last) {
-      const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, run.k, "normalsize", doc, { ...opts, amsmath })
+      const { list, params: ps, notes } = paragraphInput((first && noindent ? "\\noindent " : "") + t, run.k, "normalsize", doc, { ...opts, amsmath, groups: true })
       if (list.length || first) {
         const lb = lineBreak(list, ps)
         decisions.push(...notes, lb.trace)

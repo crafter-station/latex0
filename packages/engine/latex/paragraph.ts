@@ -321,7 +321,10 @@ function mergeShape(k: ClassOptionData, size: SizeCommand, a: FontAttrs, target:
   return target
 }
 /** A font declaration (\bfseries, \itshape, \ttfamily …) on the attributes; null for one that is not modeled */
-export function fontDeclaration(name: string, a: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState): FontAttrs | null {
+export function fontDeclaration(name: string, a: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState, cur?: Font): FontAttrs | null {
+  if (name in OLD_FONT_COMMANDS) return fontDeclaration(OLD_FONT_COMMANDS[name], fontDeclaration("normalfont", a, k, size, doc)!, k, size, doc)
+  // \em: \eminnershape (\upshape) in a slanted font, else \itshape
+  if (name === "em" && cur) return { ...a, shape: mergeShape(k, size, a, cur.params[SLANT] > 0 ? "up" : "it", doc) }
   switch (name) {
     case "bfseries": return { ...a, ser: "bx" }
     case "mdseries": return { ...a, ser: "m" }
@@ -391,6 +394,10 @@ function swSlant(list: Node[]) {
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
 interface PieceOptions { groups?: boolean; grouped?: boolean }
 export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
+/** the classes' old font commands (\DeclareOldFontCommand{\bf}{\normalfont\bfseries}…) */
+const OLD_FONT_COMMANDS: Record<string, string> = { rm: "rmfamily", sf: "sffamily", tt: "ttfamily", bf: "bfseries", it: "itshape", sl: "slshape", sc: "scshape" }
+/** the declarations a paragraph reads in a group: LaTeX's, the old ones, and \em */
+export const BODY_DECLARATIONS = [...DECLARATIONS, ...Object.keys(OLD_FONT_COMMANDS), "em"]
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const inner: PieceOptions = { ...po, grouped: true }
@@ -528,9 +535,11 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       const j = closingBrace(body, i)
       flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue
     }
-    const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([a-z]+)(?![A-Za-z])\s*/) : null
-    if (decl && DECLARATIONS.includes(decl[1])) {
-      flushText(); out.push({ kind: "decl", name: decl[1], inner: pieces(body.slice(i + decl[0].length), footnotes, inner) }); i = body.length; continue
+    // a declaration (or a size command) in a group: to the group's end
+    const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/) : null
+    if (decl && (BODY_DECLARATIONS.includes(decl[1]) || (SIZE_COMMANDS as readonly string[]).includes(decl[1]))) {
+      const rest = pieces(body.slice(i + decl[0].length), footnotes, inner)
+      flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
     }
     if (body[i] === "$") {
       const j = body.indexOf("$", i + 1)
@@ -665,7 +674,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     else if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
     else if (p.kind === "group") appendPieces(list, p.inner, font, size, state, ctx, attrs)
     else if (p.kind === "decl") {
-      const a = fontDeclaration(p.name, attrs, k, size, doc)!
+      const a = fontDeclaration(p.name, attrs, k, size, doc, font)!
       appendPieces(list, p.inner, selectFont(k, size, a), size, state, ctx, a)
     }
     else if (p.kind === "vspace") {

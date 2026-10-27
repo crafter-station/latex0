@@ -4,7 +4,7 @@
 import type { GlueSpec } from "../layout/dimen"
 import { parseGlue } from "../layout/dimen"
 import { displaySegments, type Block } from "./blocks"
-import { tabularStart } from "./source"
+import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
@@ -78,9 +78,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     }
     // counter commands in vertical mode make no paragraph
     if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
-    // a group that starts with \color before the paragraph does: the push goes on the vertical list
-    const cg = /^\s*\{\\color(?![A-Za-z])/.test(b.text)
-    if (cg) {
+    // a group that starts before the paragraph does (with \color: the push goes on the vertical list)
+    const cg = groupStart(b.text)
+    if (/^\s*\{\\color(?![A-Za-z])/.test(b.text)) {
       // (after a list, \@doendpe's \everypar runs in the group; its \par at the end of the paragraph clears all it set)
       b.text = leadingColor(cx, b.text)
     }
@@ -92,6 +92,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       run.runIn = null
       v.par()
       if (v.nobreak) throw new Unsupported("a run-in heading right after a heading")
+      // (\@xsect's \hskip-\@tempskipa is read in the group, in its font)
+      if (cg && !/^\s*\{\\(?:color|LXcolorpushed)(?![A-Za-z])/.test(text)) throw new Unsupported("a group starting the text of a run-in heading")
       // a display environment that starts the paragraph starts it in its own group: \clubpenalty\@M ends there
       const segs0 = displaySegments(text)
       const grouped = !!cg || tabularStart(text) || (!(segs0[0] as string).trim() && typeof segs0[1] !== "string" && (segs0[1].kind !== "dollars" && (segs0[1].kind !== "bracket" || amsmath)))

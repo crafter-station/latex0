@@ -1,0 +1,29 @@
+% fixture: text/declarations-in-groups-t1
+% tier: T3
+% engine: document
+% covers: declarations in groups with T1 at 11pt in report: NFSS substitutions (tt bold, sc it), \rm \sf \tt \sc resetting with \normalfont, a group right after a list (\@doendpe), groups after \\ and \\* in flushright, footnotes in size groups (\@makefnmark at the group's size), every size
+% issue: #329
+\documentclass[11pt]{report}
+\usepackage[T1]{fontenc}
+\begin{document}
+\chapter{One}
+\paragraph{Run in} Bold text after a run-in heading that goes on long enough to wrap onto a second line of the output page.
+
+{\ttfamily\bfseries tt bold} and {\sffamily\itshape sans italic} and {\scshape\itshape sc it} and {\itshape\scshape it sc}
+and {\ttfamily\slshape tt sl} and {\sc Caps \em em} and {\rm roman \sf sans \tt tt}.
+
+\begin{itemize}
+\item One item.
+\end{itemize}
+{\bfseries After} a list without a blank line, a paragraph in a group, long enough to run over two lines in the output.
+
+\begin{flushright}
+First line\\
+{\large\bfseries Second} line\\*
+{\footnotesize Third\footnote{A note in a group.}} line
+\end{flushright}
+
+Text\footnote{Plain.} and {\small more\footnote{In a group.}} text.
+
+{\Huge Big} {\tiny tiny} {\scriptsize script} {\LARGE\sl LARGE sl} {\huge huge}.
+\end{document}
