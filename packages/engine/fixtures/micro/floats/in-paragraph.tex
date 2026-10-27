@@ -1,6 +1,7 @@
 % fixture: floats/in-paragraph
 % tier: T3
 % engine: document
+% specials: compare
 % covers: figures and tables that start inside a paragraph: \end@float's \vadjust{\penalty-\@Miv\vbox{}\penalty-\@Mii} after the line, \@bsphack and \@Esphack around it (a space before: \nobreak\hskip\z@skip and the spaces after it go; none: the space after it stays); placed here (no \vskip-\parskip), at the top, and deferred; in the paragraph after a run-in heading, whose \clubpenalty\@M a p{} cell sees
 % issue: #256
 \begin{filecontents*}[overwrite]{box3x1.eps}

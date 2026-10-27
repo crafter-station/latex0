@@ -1,6 +1,7 @@
 % fixture: caption/hypcap
 % tier: T3
 % engine: document
+% specials: compare
 % covers: caption.sty with hyperref (hypcap=true): the float's figure.caption.n anchor at its start (\nointerlineskip, \vspace*{-.5\baselineskip}, H.S H.A /DEST, \vspace*{.5\baselineskip}, \prevdepth restored), no anchor in the caption's text, the lof line and \label pointing at it with nameref's name, \ref and \pageref links to it; a heading's section* anchor sharing \Hy@linkcounter; a float with no caption (still its anchor), captions in minipages and two captions in one float (all at the float's anchor), a \vspace after the anchor
 % issue: #273
 \documentclass{article}
