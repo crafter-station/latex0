@@ -1,0 +1,21 @@
+% fixture: beamer/navsymbols-whale
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: the navigation symbols in a color theme's colors, with the infolines footline
+% issue: #311
+\documentclass{beamer}
+\usecolortheme{whale}
+\usecolortheme{orchid}
+\useoutertheme{infolines}
+\setbeamertemplate{headline}[default]
+\title[Typography gyp]{A Long Title on Typography}
+\author{Ann Author \and Bob Writer}
+\begin{document}
+\begin{frame}{Introduction}
+Some text on the first frame.
+\end{frame}
+\begin{frame}{Second frame}{With a subtitle}
+More text.
+\end{frame}
+\end{document}

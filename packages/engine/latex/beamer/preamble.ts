@@ -3,7 +3,7 @@
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
 // of one of them changes nothing. The themes are the default ones, color themes
 // and the infolines outer theme (with the default headline), as data/beamer has
-// them, with the navigation symbols switched off: any other theme or template
+// them, with the default navigation symbols or none: any other theme or template
 // setting throws Unsupported.
 
 import type { ClassOptionData } from "../../layout/classdata"
@@ -39,6 +39,8 @@ export interface BeamerPreamble {
   /** hyperref's /Title and /Author (\pdfstringdef'd), from \title (with \subtitle) and \author */
   pdfTitle: string
   pdfAuthor: string
+  /** the default navigation symbols in the right sidebar (false: \setbeamertemplate{navigation symbols}{}) */
+  navigationSymbols: boolean
   /** between \begin{document} and \end{document} */
   body: string
   /** \AtBeginSection[starred]{text} and \AtBeginSubsection[…]{…}: what each \section and \section* (\subsection,
@@ -115,7 +117,6 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     if (t) { const key = t[1] as keyof TitleInfo["short"]; info[key] = t[3].trim(); info.short[key] = (t[2] ?? t[3]).trim(); continue }
     throw new Unsupported(`beamer preamble: ${line}`)
   }
-  if (navigationSymbols) throw new Unsupported("beamer's navigation symbols")
   const name = themeParts.join("-") || "default"
   if (!THEMES.includes(name)) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const theme = loadTheme(name)
@@ -128,7 +129,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   const title = pdfInfo(info.title + (info.subtitle ? ` - ${info.subtitle}` : ""))
   // (\beamer@stripands, then \and as ", ")
   const author = pdfInfo(info.author.replace(/\s*\\and(?![A-Za-z])\s*/g, ", "))
-  return { option, centered, k, theme, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end), hooks }
+  return { option, centered, k, theme, navigationSymbols, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end), hooks }
 }
 
 /** a document information string as hyperref's \pdfstringdef makes it ("" for none) */

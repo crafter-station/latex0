@@ -1,0 +1,18 @@
+% fixture: beamer/navsymbols-20pt-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: the navigation symbols at the 20pt size (the sidebar's \Tiny font is the same)
+% issue: #311
+\documentclass[20pt]{beamer}
+\usecolortheme{beaver}
+\begin{document}
+\begin{frame}{A frame}
+Text on a frame.
+\end{frame}
+\section{S}
+\begin{frame}
+More text.
+\end{frame}
+\end{document}
