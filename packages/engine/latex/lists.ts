@@ -106,7 +106,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       else if (o === "leftmargin=*" && b.env === "itemize") {
         const lvl = ctx.itemDepth + 1
         const f = lvl === 2 ? loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at) : loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
-        labelwidth = f.chars.get(lvl === 2 ? (run.k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
+        labelwidth = isSpanish(cx.pre.babel) // (spanish.ldf's labels)
+          ? hpack(spanishItemLabel(lvl, run.k, ctx.size, sizeFont, loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at), cx.pre.amsmath)).width
+          : f.chars.get(lvl === 2 ? (run.k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][lvl - 1])!.width
         leftmargin = labelwidth + run.k.dimens.labelsep
       } else if (o.startsWith("leftmargin=") && o !== "leftmargin=*") {
         try { leftmargin = parseGlue(o.slice(11), { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).width } catch { throw new Unsupported(`enumitem ${o}`) }

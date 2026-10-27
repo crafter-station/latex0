@@ -172,19 +172,19 @@ export function readPreamble(src: string): Preamble {
   let usesSubcaption = false
   // caption.sty's and subcaption's options and \captionsetup, in order: keys set at once (null: a list) and whether T1
   // was selected by then (the em and ex of their lengths)
-  const captionOps: { list: string | null; src: string; t1: boolean }[] = []
+  const captionOps: { list: string | null; src: string; t1: boolean; /** babel loaded by then (its \\AtBeginDocument first) */ babel: boolean }[] = []
   const loadCaption = (opts: string | null) => {
     if (usesCaption && opts !== null) throw new Unsupported("caption loaded twice with options") // (LaTeX: Option clash)
     usesCaption = true
-    if (opts !== null) captionOps.push({ list: null, src: opts, t1 })
+    if (opts !== null) captionOps.push({ list: null, src: opts, t1, babel: !!babel })
   }
   const loadSubcaption = (opts: string | null) => {
     if (usesSubcaption) { if (opts !== null) throw new Unsupported("subcaption loaded twice with options"); return }
     if (!usesCaption) loadCaption(null)
     usesSubcaption = true
     // \caption@ExecuteOptions{subcaption}{font+=smaller,…}, then its options, each as \captionsetup[sub]
-    captionOps.push({ list: "sub", src: "font+=smaller,labelformat=parens,labelsep=space,skip=6pt,list=0,hypcap=0", t1 })
-    if (opts !== null) captionOps.push({ list: "sub", src: opts, t1 })
+    captionOps.push({ list: "sub", src: "font+=smaller,labelformat=parens,labelsep=space,skip=6pt,list=0,hypcap=0", t1, babel: !!babel })
+    if (opts !== null) captionOps.push({ list: "sub", src: opts, t1, babel: !!babel })
   }
   // \captionsetup and caption's options over more than one line: on one
   pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:sub)?caption\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
@@ -247,7 +247,7 @@ export function readPreamble(src: string): Preamble {
     const cs = line.match(/^\\captionsetup\s*(?:\[([a-z]+)\])?\s*\{(.*)\}$/)
     if (cs) {
       if (!usesCaption || cs[1] !== undefined && !CAPTION_LISTS.includes(cs[1])) throw new Unsupported(`preamble: ${line}`)
-      captionOps.push({ list: cs[1] ?? null, src: cs[2], t1 }); continue
+      captionOps.push({ list: cs[1] ?? null, src: cs[2], t1, babel: !!babel }); continue
     }
     const sx = line.match(/^\\usepackage\[(.*)\]\{siunitx\}$/) ?? line.match(/^\\sisetup\s*\{(.*)\}$/)
     if (sx) {
@@ -396,7 +396,14 @@ export function readPreamble(src: string): Preamble {
       const font = (op.t1 ? k : kOT1).sizes.normalsize.font, f = loadFont(dataFont(font.name), font.at)
       const internal = (name: string) => name === "textwidth" && !geometryOptions.length ? { level: "dimen" as const, value: classTextwidth } : undefined
       const dim = (v: string) => parseDimen(v, { em: f.params[QUAD], ex: f.params[X_HEIGHT], internal })
-      if (op.list === null) { setCaptionKeys(caption.keys, op.src, "preamble", dim); continue }
+      if (op.list === null) {
+        // (figurename= and tablename= set the names at \begin{document}, \caption@newfloat's \AtBeginDocument: before
+        // babel loaded, its captions come after and win)
+        const names = caption.keys.names
+        setCaptionKeys(caption.keys, op.src, "preamble", dim)
+        if ((babel as Preamble["babel"]) && !op.babel) caption.keys.names = names
+        continue
+      }
       setCaptionKeys(copyKeys(caption.keys), op.src, "list", () => 0, op.list.endsWith("table") ? "table" : "figure") // (\caption@checkoptions)
       ;(caption.lists[op.list] ??= []).push(op.src)
     }

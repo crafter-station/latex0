@@ -69,8 +69,9 @@ const LANGUAGES: Record<string, LanguageDef> = {
   spanish: { captions: spanishCaptions, today: esDate, patterns: "es", hyphenmins: [2, 2], frenchspacing: true },
 }
 
-/** the languages babel loaded and the main one (the last) */
-export interface Babel { languages: string[]; main: string }
+/** the languages babel loaded, the main one (the last), and those the class's options gave (global: hyperref and
+ *  cleveref read them too) */
+export interface Babel { languages: string[]; main: string; global: string[] }
 
 /** \usepackage[options]{babel}: the class's options that are languages, then its own (a language twice is once) */
 export function babelOptions(own: string[], classOptions: string[]): Babel {
@@ -80,7 +81,7 @@ export function babelOptions(own: string[], classOptions: string[]): Babel {
   const main = languages[languages.length - 1]
   // (spanish.ldf's shorthands and its \AtBeginDocument act with another main language too)
   if (languages.includes("spanish") && main !== "spanish") throw new Unsupported(`babel with spanish and the main language ${main}`)
-  return { languages: [...new Set(languages)], main }
+  return { languages: [...new Set(languages)], main, global: classOptions.filter((o) => Object.hasOwn(LANGUAGES, o)) }
 }
 
 /** whether a class option is a language babel reads */

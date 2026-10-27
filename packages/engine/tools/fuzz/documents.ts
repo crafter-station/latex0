@@ -5,8 +5,9 @@
 // flushright and abstract, started in or out of a paragraph, with text right after them or after a
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
-// them, \label in both — each compared with TeX as a fixture is: every glyph, every line
-// and page decision, every page's box tree.
+// them, \label in both, babel (english, british, american, spanish: Spanish words with accents typed and in UTF-8,
+// its shorthands << >> "< "> "u and \%, decimals and operators in math) — each compared with TeX as a fixture is:
+// every glyph, every line and page decision, every page's box tree.
 //
 //   bun engine fuzz:documents [--n 30] [--seed 1]
 
@@ -22,6 +23,13 @@ state good very make world still own see men work long get here between both lif
 know while last might great old year off come since against go came right used take three office official efficient
 difficult different affluent baffled sufficient fluffy offline staff stuff fifty fifteen Typesetting composition
 paragraphs hyphenation algorithm demerits badness tolerance Knuth Plass Paris London. Yes! Really? (indeed) well-known`.split(/\s+/)
+/** Spanish words for babel's spanish: ASCII ones (headings and captions with hyperref, whose bookmarks take ASCII only) */
+const ES_ASCII = `la de el y en los que una para con por del se las como estudio datos resultados metodo nuevo grande siempre
+entre sobre desde hasta durante tiempo forma parte manera trabajo sistema proceso valor punto caso problema Madrid Lima.
+cuarenta transformaciones establecida almacenamiento comunicaciones Bien! Claro?`.split(/\s+/)
+const ES_WORDS = [...ES_ASCII, ..."información teoría comunicación año niño también más está según qué él sí pingüino español acción último análisis método investigación transformación electrónica Pérez Índice ¿Qué? ¡Sí! canción".split(" ")]
+/** Spanish words with accents typed as commands (text only: headings and captions take none) */
+const ES_TYPED = ["\\'arbol", "ma\\~nana", "ca\\'{\\i}da", "acci\\'on", "\\'Unico", "ping\\\"uino", "pa\\'{\\i}s"]
 
 function rng(seed: number) {
   let a = seed >>> 0
@@ -36,7 +44,9 @@ function rng(seed: number) {
 
 export function makeDocument(r: () => number): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
-  const words = (n: number) => Array.from({ length: n }, () => pick(WORDS)).join(" ")
+  // babel's spanish: Spanish words in the body (ASCII ones with hyperref)
+  let es = false, esAscii = false
+  const words = (n: number) => Array.from({ length: n }, () => pick(es ? esAscii ? ES_ASCII : ES_WORDS : WORDS)).join(" ")
   // algpseudocode: statements, conditions and nested blocks, a procedure around them sometimes
   const algorithmic = (): string[] => {
     const lines: string[] = []
@@ -72,7 +82,7 @@ export function makeDocument(r: () => number): string {
     } else block(0, 1 + Math.floor(r() * 8))
     return [`\\begin{algorithmic}${pick(["[1]", "[1]", "", "[2]"])}`, ...lines, "\\end{algorithmic}"]
   }
-  const math = () => { if (siOn && r() < 0.15) return `$${pick(["", "x = ", "E \\approx "])}${si()}$`; const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$", "$\\sin x+\\log_2 n$", "$\\lim_{n\\to\\infty} a_n$", "$\\max_i x_i\\le\\det A$", "$\\cos^2\\theta$", "$\\lim\\limits_{x} f$", ...(ams ? ["$\\operatorname{tr} A$", "$\\operatorname*{arg\\,max}_x f$"] : [])]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
+  const math = () => { if (siOn && r() < 0.15) return `$${pick(["", "x = ", "E \\approx "])}${si()}$`; const m = pick(["$x$", "$x^2+y^2=z^2$", "$a_i\\leq b_i$", "$\\frac{1}{2}$", "$f(x)=\\sum_{i=1}^n a_i x^i$", "$\\alpha\\to\\beta$", "$\\left(\\frac{a}{b}\\right)^2$", "$\\langle u, v\\rangle$", "$\\mathbf{v}_\\mathrm{max}$", "$\\mathcal{A}\\cup\\mathit{diff}$", "$\\mathsf{G}^{\\mathbf{2}}_{\\mathtt{k1}}$", "$\\frac{\\mathrm{d}y}{\\mathrm{d}x}$", "$\\sqrt{2}$", "$\\sqrt{x^2+y^2}$", "$x^{\\sqrt{\\frac{1}{2}}}$", "$f(x)\\ne 0$", "$a\\,b\\:c\\;d\\!e$", "$x\\quad y\\qquad z$", "$\\int\\!\\!\\int f\\,dx\\,dy$", "$a_{i\\,j}\\neq b^{n\\;m}$", "$\\sqrt[3]{x}$", "$\\sqrt[n]{\\frac{a}{b}}^2$", "$\\sin x+\\log_2 n$", "$\\lim_{n\\to\\infty} a_n$", "$\\max_i x_i\\le\\det A$", "$\\cos^2\\theta$", "$\\lim\\limits_{x} f$", ...(ams ? ["$\\operatorname{tr} A$", "$\\operatorname*{arg\\,max}_x f$"] : []), ...(es ? ["$3.14$", "$0.5x$", "$\\sen x$", "$\\tg\\alpha$", "$x_{1.5}$", "$\\lim_{n} \\frac{1}{n}=0.5$", "$\\arccos 0 . 5$", "$\\min_i \\inf_j a_{ij}$"] : [])]); return r() < 0.2 ? `\\(${m.slice(1, -1)}\\)` : m }
   const display = () => siOn && r() < 0.15 ? `${pick(["", "F = ", "m \\ne "])}${si()}${pick(["", " + \\num{1.5}", ", \\quad x"])}` : pick(["x^2+y^2=z^2", "\\sum_{i=1}^n i=\\frac{n(n+1)}{2}", "\\int_0^1 f(x)", "E=mc^2", "a_1+a_2+\\cdots", "f(x)=\\sum_{k=0}^\\infty a_k x^k",
     "\\prod_{k=1}^{m}\\frac{1}{k}", "\\left[\\frac{\\frac{1}{2}}{\\sum_{i=1}^n x_i}\\right]", "\\left\\{ x \\right|_{a}^{b}", "\\mathbf{F}=m\\mathbf{a}", "\\sqrt{\\frac{a}{b}}+\\sqrt{\\sum_{i=1}^n x_i^2}", "\\mathrm{e}^{\\mathrm{i}\\pi}+\\mathnormal{1}=\\mathsf{0}", "\\sqrt[3]{\\frac{1}{1+\\sqrt[n]{x}}}=y^{\\sqrt[k]{2}}", "\\lim_{x\\to 0}\\frac{\\sin x}{x}=1", "\\max_{1\\le i\\le n}\\log x_i+\\limsup_{n} a_n", "\\sum_{i\\,=\\,1}^n x_i \\quad\\ne\\quad \\prod_{j} y_j \\qquad a\\!\\;b", ...(ams ? ["\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}", "A=\\begin{bmatrix} 1 & 0 & x^2 \\\\ \\frac{1}{2} & y \\end{bmatrix}", "\\begin{vmatrix} a \\\\ b \\end{vmatrix}"] : []), "x", words(1).replace(/[^a-z]/g, "") || "y", Array.from({ length: 30 }, () => pick(["a+b", "x^2", "\\alpha", "-"])).join("+")]).replace("\\cdots", "\\alpha")
   /** a display with no \\\\ of its own (a matrix's), for a row of a gather */
@@ -122,7 +132,7 @@ export function makeDocument(r: () => number): string {
   const tabular = (pos = "") => {
     const n = 1 + Math.floor(r() * 4)
     const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
-    let spec = r() < 0.2 ? pick(["@{}", "@{~}", "@{: }"]) : rule()
+    let spec = r() < 0.2 ? pick(es ? ["@{}", "@{: }"] : ["@{}", "@{~}", "@{: }"]) : rule() // (spanish.ldf's active ~ in a preamble: an error)
     const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.1 ? pick(["C", "B"]) : siOn && r() < 0.2 ? pick(["S", "S", "S[table-format=2.2]", "S[table-format=3.1]", "S[table-format=-1.3]", "S[round-mode=places, round-precision=1]", "S[output-decimal-marker={,}]", "S[separate-uncertainty]"]) : pick(["l", "c", "r"]))
     // siunitx's S columns: numbers, text in braces, nothing
     const sCell = () => pick(["1.5", "12.25", "-0.5", "100", "", "{Value}", "{\\textbf{x}}", "1234.5678", ".5", "3", "1.2e3", "1.5(2)", "0.001", "99.99", "{---}", "-12"])
@@ -241,6 +251,7 @@ export function makeDocument(r: () => number): string {
       if (siOn && r() < 0.03) ws[i] += pick([" ", " ", "~"]) + si()
       if (subOn && r() < 0.004) ws[i] += ` \\subref{${pick(["figure", "table"])}:${20 + Math.floor(r() * 40)}${pick(["a", "b", "c"])}}`
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
+      if (es && !esAscii && r() < 0.03) ws[i] = pick([`<<${ws[i]}>>`, `"<${ws[i]}">`, `${ws[i]} 50\\%`, `ping"uino ${ws[i]}`, `"U${ws[i]}`, `${pick(ES_TYPED)} ${ws[i]}`])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
       if (r() < 0.0015) ws[i] += " " + minipage(pick(["", "[t]", "[b]", "[c]"]), true)
@@ -248,7 +259,8 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.004) ws[i] += ` \\underline{${pick(["", "", " "])}${words(1 + Math.floor(r() * 3))}${pick(["", "", ` \\textit{${words(1)}}`, ` ${math()}`])}}`
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
-      if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, "~"])
+      // (spanish.ldf's active ~ before a } that ends a group: an error)
+      if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, es ? "~\\ " : "~"])
       // hyperref's \autoref and nameref's \nameref (with hyperref, or nameref alone)
       if ((hyper || nrOn) && r() < 0.01) {
         const k = r() < 0.6 ? key() : `${pick(["figure", "table", "thm"])}:${20 + Math.floor(r() * 40)}`
@@ -411,7 +423,7 @@ export function makeDocument(r: () => number): string {
     const tok = () => pick(["def", "for", "in", "range", "print", "return", "x", "y2", "my_var", "__init__", "self", "if", "else", words(1).replace(/[^a-z]/g, "") || "z",
       "0", "42", "3.14", "=", "==", "+", "-", "*", "/", "<", ">", "(", ")", "[", "]", "{", "}", ":", ",", ".", ";", "!", "?", "@", "$", "%", "&", "|", "^", "~", "`", "\\", "\\\\", "_",
       "'abc'", "'a b'", "\"it's\"", "\"x\\\"y\"", "'q\\'s'", "# note", "# a \"comment\" here", "\"\"\"doc\"\"\"", "'''", "fi", "ff", "--", "<<", "''", "``",
-      "//", "// line", "/*", "*/", "/* block */", "/*/", "class", "int", "void", "public", "static", "bool", "char", "new", "nullptr", "template<T>", "std::cout"]).replace(/#/g, hash ? "#" : "@")
+      "//", "// line", "/*", "*/", "/* block */", "/*/", "class", "int", "void", "public", "static", "bool", "char", "new", "nullptr", "template<T>", "std::cout"]).replace(/#/g, hash ? "#" : "@").replace(/%/g, es ? "&" : "%") // (spanish.ldf's \% in a listing: not modeled)
     const sep = () => pick([" ", " ", " ", "", "", "  ", "\t", "   "])
     const lines: string[] = []
     for (let n = 1 + Math.floor(r() * 12); n > 0; n--) {
@@ -500,18 +512,26 @@ export function makeDocument(r: () => number): string {
       "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", ...(hyper ? [] : ["\\newtheorem*{remark}{Remark}"]), "\\newtheorem{note}{Note}")
     thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
+  // babel, its option or the class's (not with siunitx or titlesec in spanish: not modeled; nor in letters)
+  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", ...(siOn || tsOn ? [] : ["spanish", "spanish", "spanish"])]) : null
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
-  // (after hyperref; its options sometimes, and \crefname)
+  // (after hyperref; its options sometimes, and \crefname: not with cleveref's spanish, which redefines them)
   crefOn = !nrOn && !isLetter && r() < 0.2
   if (crefOn) {
     const opts = pick(["", "", "", "[capitalise]", "[noabbrev]", "[nameinlink]", "[nosort]", "[compress]", "[sort]", "[capitalise,noabbrev]"])
     const at = out.indexOf("\\usepackage{amsthm}")
     if (at >= 0 && r() < 0.5) out.splice(at + 1, 0, `\\usepackage${opts}{cleveref}`); else out.push(`\\usepackage${opts}{cleveref}`)
-    if (r() < 0.2) out.push(pick(["\\crefname{section}{sec.}{secs.}", "\\Crefname{equation}{Eq.}{Eqs.}", "\\crefname{figure}{fig.}{figs.}"]))
+    if (r() < 0.2 && lang !== "spanish") out.push(pick(["\\crefname{section}{sec.}{secs.}", "\\Crefname{equation}{Eq.}{Eqs.}", "\\crefname{figure}{fig.}{figs.}"]))
+  }
+  if (lang) {
+    if (r() < 0.25) { out[0] = out[0].replace(/^\\documentclass(?:\[([^\]]*)\])?/, (_, o: string | undefined) => `\\documentclass[${o ? `${o},` : ""}${lang}]`); out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{babel}") }
+    else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${lang}]{babel}`)
+    es = lang === "spanish"; esAscii = hyper
   }
   out.push("\\begin{document}")
-  // book: front matter (roman page numbers, unnumbered chapters) before the main matter
-  const front = cls === "book" && r() < 0.5
+  // book: front matter (roman page numbers, unnumbered chapters) before the main matter (not in spanish: spanish.ldf's
+  // \@roman in small capitals)
+  const front = cls === "book" && !es && r() < 0.5
   if (front) out.push("\\frontmatter")
   if (titled && cls === "article" && r() < 0.25) { // a titlepage of its own: declarations, size groups that end their paragraphs, skips
     const sz = () => pick(["\\Large", "\\large", "\\huge\\bfseries", "\\LARGE\\bfseries", "\\itshape"])

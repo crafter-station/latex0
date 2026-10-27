@@ -31,9 +31,9 @@ import type { LayoutResult } from "./result"
 import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
-import { babelAux, babelLanguage, type Babel } from "./babel"
-import { SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
-import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, TEXT_LETTERS, utf8Text } from "./encodings"
+import { babelAux, babelLanguage, isSpanish, type Babel } from "./babel"
+import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
+import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text } from "./encodings"
 import { xcolor } from "./xcolor"
 import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
@@ -128,8 +128,8 @@ export interface DocState {
   xcolor?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
   float?: (n: number, traces: ParagraphTrace[], club: number) => Node
-  /** babel is loaded: its languages */
-  babel?: Babel
+  /** babel is loaded: its languages, and whether before hyperref */
+  babel?: Babel & { beforeHyperref?: boolean }
   /** natbib is loaded: its citation punctuation */
   natbib?: NatStyle
   /** a color expression as its \special text */
@@ -447,6 +447,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
       const sh = spanishShorthand(body.slice(i, i + 2))
       if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
+      // an active character's lookahead (an undelimited argument) skips the spaces after it: ~ x is ~x, < < is <<
+      if (body[i] === "~" || body[i] === "<" || body[i] === ">") {
+        let j = i + 1
+        while (body[j] === " ") j++
+        const two = spanishShorthand(body[i] + (body[j] ?? ""))
+        if (j > i + 1 && two && typeof two !== "string") { flushText(); out.push(two); i = j + 1; continue }
+        if (body[i] === "~") { flushText(); out.push({ kind: "tie" }) } else text += body[i]
+        i = j; continue
+      }
     }
     if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
@@ -937,8 +946,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (p.kind === "autoref") {
         // \HyRef@autosetref: \hyper@@link{}{anchor}{\HyRef@currentHtag label \null}, the tag the name and ~;
         // \autoref* \@gobbletwo's the link's first two arguments
-        const name = autorefName(known.href)
-        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: name } as Piece, { kind: "tie" } as Piece]), { kind: "text", src: known.label }], font, size, state, inner, attrs)
+        // (hyperref's spanish names when babel came first, its \extrasspanish has them, or with the class's spanish option)
+        const name = autorefName(known.href, isSpanish(doc.babel) && (!!doc.babel?.beforeHyperref || doc.babel!.global.includes("spanish")))
+        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: sourceText(isSpanish(doc.babel) ? markAccentHyphens(name) : name) } as Piece, { kind: "tie" } as Piece]), { kind: "text", src: known.label }], font, size, state, inner, attrs)
       } else {
         // \T@nameref: the label's third field (its tokens as the .aux file is read) in \@setref; with hyperref
         // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref

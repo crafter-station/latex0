@@ -1,0 +1,14 @@
+% fixture: babel/spanish-enumitem
+% tier: T3
+% engine: document
+% covers: spanish with enumitem: leftmargin=* measures spanish.ldf's labels (the square, \textbullet, $\circ$)
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{enumitem}
+\begin{document}
+\begin{itemize}[leftmargin=*]
+\item uno
+\begin{itemize}[leftmargin=*]\item dos\begin{itemize}[leftmargin=*]\item tres\end{itemize}\end{itemize}
+\end{itemize}
+\end{document}

@@ -1,0 +1,17 @@
+% fixture: babel/caption-names
+% tier: T3
+% engine: document
+% covers: caption.sty's figurename= and tablename= with babel: they set the names at \begin{document} (\caption@newfloat's \AtBeginDocument), so before babel loaded its captions win (Figura), after it they stay (Tab.)
+% issue: #63
+\documentclass{article}
+\usepackage[figurename=Fig]{caption}
+\usepackage[spanish]{babel}
+\captionsetup{tablename=Tab.}
+\begin{document}
+\begin{figure}[h]
+\caption{Una figura}
+\end{figure}
+\begin{table}[h]
+\caption{Una tabla}
+\end{table}
+\end{document}

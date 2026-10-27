@@ -269,6 +269,11 @@ const AUTOREF_NAMES: Record<string, string> = {
   equation: "Equation", Item: "item", figure: "Figure", table: "Table", chapter: "chapter", section: "section",
   subsection: "subsection", subsubsection: "subsubsection", theorem: "Theorem", lstlisting: "Listing",
 }
+/** hyperref's \HyLang@spanish, which babel's \extrasspanish runs when babel was loaded first (LaTeX source) */
+const SPANISH_AUTOREF_NAMES: Record<string, string> = {
+  equation: "Ecuaci\\'on", Item: "Elemento", figure: "Figura", table: "Tabla", chapter: "Cap\\'itulo", section: "Secci\\'on",
+  subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing",
+}
 /** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
 const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "appendix", "paragraph", "subparagraph", "FancyVerbLine", "page"]
 
@@ -277,8 +282,9 @@ const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "appendi
  * \<type>autorefname, else \<type>name, else either for the type without a final * (\HyRef@StripStar);
  * null with neither (hyperref's warning "No autoref name", and no name)
  */
-export function autorefName(href: string): string | null {
+export function autorefName(href: string, spanish = false): string | null {
   const type = href.split(".")[0]
   if (AUTOREF_OTHERS.includes(type.replace(/\*$/, ""))) throw new Unsupported(`\\autoref to a ${type} anchor`)
-  return AUTOREF_NAMES[type] ?? (type.endsWith("*") ? AUTOREF_NAMES[type.slice(0, -1)] : undefined) ?? null
+  const names = spanish ? SPANISH_AUTOREF_NAMES : AUTOREF_NAMES
+  return names[type] ?? (type.endsWith("*") ? names[type.slice(0, -1)] : undefined) ?? null
 }

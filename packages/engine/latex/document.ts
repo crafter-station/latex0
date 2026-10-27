@@ -27,7 +27,7 @@ import { Counters } from "./counters"
 import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
 import { babelAux, babelFrenchspacing, isSpanish } from "./babel"
 import { markAccentHyphens, spanishLayout } from "./spanish"
-import { accentHyphens, babelUmlauts } from "./encodings"
+import { accentHyphens, babelUmlauts, sourceText } from "./encodings"
 import { spacing } from "../layout/hmode"
 import { TocWriter, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
@@ -102,6 +102,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const tabulars = es ? tabulars0.map((t) => ({ ...t, body: markAccentHyphens(t.body) })) : tabulars0
   const minipages = es ? minipages0.map((m) => ({ ...m, body: markAccentHyphens(m.body) })) : minipages0
   const listings = es ? listings0.map((l) => ({ ...l, options: markAccentHyphens(l.options) })) : listings0
+  // (listings prints % with \%, which spanish.ldf's \es@sppercent makes $\,$%)
+  if (es && listings0.some((l) => l.lines.some((x) => x.includes("%")))) throw new Unsupported("% in a listing with spanish.ldf")
   const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
@@ -195,7 +197,9 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
   const counters = new Counters(cls, newCounters, () => doc.footnote)
-  if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames) }
+  // (cleveref's spanish option, the class's: its names, with spanish.ldf's accents)
+  const crefSpanish = isSpanish(pre.babel) && pre.babel!.global.includes("spanish") ? (n: string) => sourceText(markAccentHyphens(n)) : undefined
+  if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames, crefSpanish) }
   /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
   const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h
