@@ -1,0 +1,25 @@
+% fixture: caption/listings-hyperref
+% tier: T3
+% engine: document
+% covers: listings with caption.sty and hyperref: the lstlisting.n anchor where \refstepcounter steps (no hypcap anchor, no anchor in the caption's text: listings call \@makecaption directly), lstlisting.-n without a caption, each line's lstnumber anchor, the lol line's href, nameref's caption in the label, \@esphack's \nobreak after a heading; skip= in \captionsetup[lstlisting], set after listings' skips (the one below the caption)
+% issue: #294
+\documentclass{article}
+\usepackage{caption}
+\usepackage{listings}
+\usepackage{hyperref}
+\captionsetup[lstlisting]{skip=5pt}
+\begin{document}
+Text.
+\begin{lstlisting}[caption={Cap},label=x]
+ab
+cd
+\end{lstlisting}
+\begin{lstlisting}
+ab
+\end{lstlisting}
+\section{Heading}
+\begin{lstlisting}[caption={After a heading},frame=single]
+ef
+\end{lstlisting}
+See \ref{x}.
+\end{document}

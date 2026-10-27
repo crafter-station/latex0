@@ -1,0 +1,38 @@
+% fixture: caption/listings-caption
+% tier: T3
+% engine: document
+% covers: a listing caption with caption.sty: \lst@MakeCaption t's keys (rule=0, position top: \belowcaptionskip is listings' abovecaptionskip, \abovecaptionskip its width), the lol line with \ignorespaces, \caption@@make in listings' group (every \vskip between \nobreak's, the one below inside the caption's paragraph, \hskip-\@totalleftmargin before the left margin); after a heading, after a run-in heading (lost, or in a top frame), after a list, with a label, xcolor
+% issue: #294
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{listings}
+\begin{document}
+Text before the listing.
+\begin{lstlisting}[caption={A short caption},label=lst:a]
+x = 1
+\end{lstlisting}
+After it, see Listing~\ref{lst:a}.
+\section{Code}
+\begin{lstlisting}[caption={Right after a heading}]
+y = 2
+\end{lstlisting}
+\paragraph{Run in}
+\begin{lstlisting}[caption={After a run-in heading}]
+z = 3
+\end{lstlisting}
+\paragraph{Framed}
+\begin{lstlisting}[frame=single,caption={Framed after a run-in heading}]
+w = 4
+\end{lstlisting}
+\begin{itemize}
+\item An item.
+\end{itemize}
+\begin{lstlisting}[caption={After a list, with a caption long enough that it no longer fits on one line and wraps}]
+v = 5
+\end{lstlisting}
+\begin{lstlisting}[caption={Right after another listing},frame=tb]
+u = 6
+\end{lstlisting}
+The end.
+\end{document}

@@ -1,0 +1,29 @@
+% fixture: caption/listings-caption-keys
+% tier: T3
+% engine: document
+% covers: a listing caption with caption.sty's keys: \captionsetup's fonts and separator, \captionsetup[lstlisting] (\caption@setoptions{lstlisting}: format=hang, margin, list=no drops the lol line, belowskip= after listings set it), skip= in the preamble overridden by listings' abovecaptionskip; cleveref's label; after a heading, a \nobreak for each \caption@setkeys at the top and the bottom (\caption@setup{rule=0}, the list's, a font key's)
+% issue: #294
+\documentclass{article}
+\usepackage[font=small,labelfont=bf,labelsep=period,skip=20pt]{caption}
+\usepackage{listings}
+\usepackage{cleveref}
+\captionsetup[lstlisting]{format=hang,margin=1cm,list=no,belowskip=2pt,textfont=it}
+\begin{document}
+Text before the listing.
+\begin{lstlisting}[caption={A short caption},label=lst:a]
+x = 1
+\end{lstlisting}
+See \cref{lst:a}.
+\begin{lstlisting}[caption={A caption long enough that it no longer fits on one line, so that it hangs from the label after it}]
+y = 2
+\end{lstlisting}
+\section{More}
+\begin{lstlisting}
+z = 3
+\end{lstlisting}
+\section{Even more}
+\begin{lstlisting}[caption={Below a heading}]
+w = 4
+\end{lstlisting}
+The end.
+\end{document}

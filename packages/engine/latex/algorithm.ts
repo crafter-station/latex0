@@ -2,7 +2,7 @@
 // algorithmic environment with algpseudocode's entities.
 
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, loadFont } from "../layout/font"
-import { Scanner } from "../layout/dimen"
+import { Scanner, parseDimen } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
 import { filGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
@@ -11,16 +11,24 @@ import type { ParagraphTrace } from "../trace/decisions"
 import type { Ctx } from "./context"
 import { dataFont } from "./data"
 import { sloppy } from "./kernel"
-import { appendToVlist, crefWrites, labelWrite, paragraphInput } from "./paragraph"
+import { appendToVlist, crefWrites, labelWrite, paragraphInput, type ParagraphOptions } from "./paragraph"
+import type { SizeCommand } from "../layout/classdata"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, LOW_PENALTY } from "./vlist"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
+import { captionMake, captionXref, hypcapAnchor } from "./floats"
+import { copyKeys, ruledStyle, runList, type CaptionKeys } from "./captionsetup"
+import { widthRegisters } from "./boxes"
+import { anchor, labelName, spotAnchor } from "./hyperref"
 
 /** algpseudocode's options: [noend] takes the end entities' text away (\algtext*) */
 export interface AlgorithmPackages {
   algorithm: boolean; algpseudocode: boolean; noend: boolean
   /** setspace loaded after float.sty: its \@xfloat (single spacing) runs for [H] too */
   singleHere?: boolean
+  /** float.sty loaded after hyperref: float.sty's \caption (\refstepcounter, hyperref's with its anchor) replaces
+   *  hyperref's, and hyperref, having seen no float.sty, did not patch \float@makebox (no \Hy@float@caption) */
+  afterHyperref?: boolean
 }
 
 const kw = (w: string) => `\\textbf{${w}}`
@@ -88,12 +96,12 @@ interface Item { kind: "entity" | "label" | "statex"; entity?: string; label?: s
 
 /**
  * The algorithmic environment's lines, as \list builds them in a float (\@minipagetrue: the first \item adds
- * nothing above it): \list{\ALG@step}{… \labelwidth 1.2em (0.5em unnumbered) \labelsep 0.5em \leftmargin
- * \labelwidth+\labelsep \topsep 0.2em …}; each entity is \item (\item[] with no text) \noindent\hskip\ALG@tlm
+ * nothing above it, unless `minipage` is false): \list{\ALG@step}{… \labelwidth 1.2em (0.5em unnumbered)
+ * \labelsep 0.5em \leftmargin \labelwidth+\labelsep \topsep 0.2em …}; each entity is \item (\item[] with no text) \noindent\hskip\ALG@tlm
  * and its text, \Require and \Ensure \item[\textbf{…}], \Statex \item[]. Returns \prevdepth and the lines
  * \ALG@step counted (ALG@line).
  */
-function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | null, decisions: ParagraphTrace[], noend: boolean): { prevDepth: number | null; lines: number } {
+function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | null, decisions: ParagraphTrace[], noend: boolean, minipage = true): { prevDepth: number | null; lines: number } {
   const { amsmath } = cx.pre
   const { doc, romanFont, run } = cx
   const k = run.k
@@ -147,6 +155,9 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
   const bold = loadFont(dataFont(k.sizes.normalsize.bold.name), k.sizes.normalsize.bold.at)
   let line = 0, rem = 0
   let pd = prevDepth
+  // with \if@minipage false (a caption's paragraph ran \@setminipage's \everypar) the first \item's
+  // \addpenalty\@beginparpenalty \addvspace\@topsep (nothing but writes before it: \lastskip is zero)
+  if (!minipage) content.push(penalty(-LOW_PENALTY), glue(topsep))
   items.forEach((it, n) => {
     const notext = it.kind === "entity" && noend && ENTITIES[it.entity!].end
     // \@item: after the first, \addpenalty\@itempenalty \addvspace\itemsep (zero: \vskip of it)
@@ -193,24 +204,33 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
   const { counters, doc, refs, romanFont, run } = cx
   const k = run.k
   if (!algorithm.algorithm) throw new Unsupported("an algorithm float without algorithm.sty")
-  if (hyper) throw new Unsupported("an algorithm float with hyperref")
   const content: Node[] = []
   // ([H]: \setbox\@floatcapt=\vbox{}, so the caption's rule comes even with no caption)
   let cap: Node[] | null = here ? [] : null, number = 0, captioned = false
   let pd: number | null = IGNORE_DEPTH
   const re = /\\caption\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\label\s*\{([^{}]*)\}|\\begin\{algorithmic\}([^]*?)\\end\{algorithmic\}|\S+/g
-  let listed = false
+  let listed = false, name = refs.name
+  // caption.sty: its \@float@setevery's ruled style (\caption@setstyle*{ruled}), then the float's list (\caption@settype)
+  const keys = cx.pre.caption ? copyKeys(cx.pre.caption.keys) : null
+  if (keys) {
+    ruledStyle(keys)
+    const dim = (v: string) => parseDimen(v, { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT], internal: widthRegisters(cx, k.dimens.columnwidth) })
+    runList(cx.pre.caption!, "algorithm", keys, "list", dim)
+  }
   for (const m of fbody.matchAll(re)) {
     if (m[1] !== undefined) {
       if (captioned) throw new Unsupported("two captions in an algorithm")
-      if (cx.pre.usesCaption) throw new Unsupported("an algorithm caption with caption.sty") // (its float.sty styles)
       captioned = true
       const text = m[1].replace(/\s+/g, " ").trim()
       if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`caption "${text}"`)
       number = ++counters.algorithm
       refs.href = `algorithm.${number}` // global; \@currentlabel ends with the float's group
-      // \addcontentsline{loa}{algorithm}{\protect\numberline{n}{\ignorespaces text}}
-      content.push({ kind: "whatsit", text: `\\write1{\\@writefile{loa}{\\protect \\contentsline {algorithm}{\\protect \\numberline {${number}}{\\ignorespaces ${text}}}{\\thepage }{}\\protected@file@percent }}` })
+      if (keys && cx.pre.nameref) name = labelName(text) // (caption.sty's \caption@gettitle: nameref's name, in the float's group)
+      // float.sty after hyperref (and no caption.sty): its \caption's \refstepcounter, hyperref's, anchors here
+      if (!keys && hyper && algorithm.afterHyperref) content.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", content.at(-1)))
+      // \addcontentsline{loa}{algorithm}{\protect\numberline{n}{\ignorespaces text}} (caption.sty's: not for list=false)
+      if (!keys || keys.list) content.push({ kind: "whatsit", text: `\\write1{\\@writefile{loa}{\\protect \\contentsline {algorithm}{\\protect \\numberline {${number}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
+      if (keys) { cap = captionPackageBox(cx, keys, number, text, decisions, club, hyper && !keys.hypcap); continue }
       // \float@caption: \vbox{\@parboxrestore\normalsize {\bfseries Algorithm n} text\par}
       const start: Node[] = [hpack([])]
       const bf = loadFont(dataFont(k.sizes.normalsize.bold.name), k.sizes.normalsize.bold.at)
@@ -232,14 +252,14 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
       if (!/^[A-Za-z0-9:._-]+$/.test(m[2])) throw new Unsupported(`\\label{${m[2]}}`)
       // (cleveref: the caption's \refstepcounter{algorithm}, a counter within nothing; algorithmicx's line
       // counter is the type only in the algorithmic's group)
-      content.push(labelWrite(refs, m[2], String(number), refs.href, refs.name), ...crefWrites(refs, m[2], false, { type: "algorithm", arabic: number, prefix: "", label: String(number) }))
+      content.push(...captionXref(cx), labelWrite(refs, m[2], String(number), refs.href, name), ...crefWrites(refs, m[2], false, { type: "algorithm", arabic: number, prefix: "", label: String(number) }))
       continue
     }
     if (m[3] !== undefined) {
       if (listed) throw new Unsupported("two algorithmic environments in an algorithm")
       if (!algorithm.algpseudocode) throw new Unsupported("algorithmic without algpseudocode")
       listed = true
-      const alg = algorithmic(cx, m[3], content, pd, decisions, algorithm.noend)
+      const alg = algorithmic(cx, m[3], content, pd, decisions, algorithm.noend, !(keys && captioned)) // (caption.sty's caption paragraph)
       pd = alg.prevDepth
       // cleveref's algorithmicx support: \ALG@step's \refstepcounter{ALG@line}, whose \@currentHref is global
       if (cx.pre.cleveref && alg.lines) refs.href = `ALG@line.${alg.lines}`
@@ -251,9 +271,48 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
   const rule = (h: number): Node => ({ kind: "rule", width: null, height: h, depth: 0 })
   const two = 2 * 65536
   const body = xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)] // \color@vbox\normalcolor\vbox{…}, unboxed
+  // hyperref's \float@makebox: the caption's \@currentHref (\Hy@float@currentHref) anchored first, in vertical mode;
+  // caption.sty's instead (\caption@defrostHref): hypcap's \caption@startanchor, or none (the anchor in the caption);
+  // none when float.sty came after hyperref
+  const start = !hyper || !number || !keys && algorithm.afterHyperref ? [] : !keys ? spotAnchor(`algorithm.${number}`, "v", undefined) : keys.hypcap ? hypcapAnchor(`algorithm.${number}`, k.sizes.normalsize.baselineskip.width) : []
   return vpack([
+    ...start,
     rule(new Scanner(".8pt", { em: 0, ex: 0 }).scanDimen().value), kern(two, true),
     ...(cap ? [...cap, kern(two, true), rule(26214), kern(two, true)] : []),
     ...body, kern(two, true), rule(26214), glue(0),
   ])
+}
+
+/**
+ * caption.sty's \caption in a float.sty float: \caption@setfloatcapt sets \@floatcapt to a \vbox of \@parboxrestore,
+ * \caption@normalsize (\normalcolor) and \caption@@make (no skips around it) with the keys of the ruled style, its
+ * label \fnum@algorithm's \fname@algorithm{} \thealgorithm; `club` is the \clubpenalty in force
+ */
+function captionPackageBox(cx: Ctx, keys: CaptionKeys, number: number, text: string, decisions: ParagraphTrace[], club: number, anchor: boolean): Node[] {
+  const { doc, romanFont, run } = cx
+  const k = run.k
+  const cap: Node[] = []
+  let pd: number | null = IGNORE_DEPTH
+  const lines = (start: Node[], body: string, opts: ParagraphOptions = {}, size: SizeCommand = "normalsize") => {
+    const par = paragraphInput(body, k, size, doc, { start, ...sloppy(romanFont.params[QUAD]), clubPenalty: club, amsmath: cx.pre.amsmath, ...opts })
+    const lb = lineBreak(par.list, par.params)
+    decisions.push(...par.notes, lb.trace)
+    return lb.vlist
+  }
+  captionMake(cx, keys, { top: null, subAbove: false }, { name: "Algorithm", the: String(number), isSub: false, star: false, text, anchor, normalcolor: true, skips: null, fnumSpace: true }, k.dimens.columnwidth, {
+    push: (n) => cap.push(n),
+    box() { throw new Unsupported("an algorithm caption box") },
+    paragraph(start, body) {
+      // new_graf's \parskip and LaTeX's restart of the paragraph's, after \normalcolor's push
+      if (cap.length) cap.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+      for (const x of lines(start, body)) {
+        if (x.kind === "hlist") pd = appendToVlist(cap, x, pd, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+        else cap.push(x)
+      }
+    },
+    prevDepth: () => pd,
+    rule() { throw new Unsupported("an algorithm caption rule") },
+    lines,
+  })
+  return cap
 }

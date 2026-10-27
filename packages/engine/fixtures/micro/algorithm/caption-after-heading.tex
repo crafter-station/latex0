@@ -1,0 +1,43 @@
+% fixture: algorithm/caption-after-heading
+% tier: T3
+% engine: document
+% covers: caption.sty's \@float@setevery runs before an algorithm's box opens: its seven \caption@setkeys (\caption@resetstyle's with its four font keys, the ruled style's with labelfont) each leave an \@esphack \nobreak on the vertical list right after a heading (\if@nobreak) or a run-in heading (\if@noskipsec); [H] too, and not after text
+% issue: #294
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{caption}
+\begin{document}
+\section{Heading}
+\begin{algorithm}[b]
+\caption{After a heading}
+\begin{algorithmic}
+\State $x \gets 1$
+\end{algorithmic}
+\end{algorithm}
+Some text after it.
+\paragraph{Run in}
+\begin{algorithm}[t]
+\caption{After a run-in heading}
+\begin{algorithmic}
+\State $y \gets 2$
+\end{algorithmic}
+\end{algorithm}
+Text for the run-in heading.
+\subsection{Another}
+\begin{algorithm}[H]
+\caption{Here}
+\begin{algorithmic}
+\State $z \gets 3$
+\end{algorithmic}
+\end{algorithm}
+More text.
+
+\begin{algorithm}[h]
+\caption{After text}
+\begin{algorithmic}
+\State $w \gets 4$
+\end{algorithmic}
+\end{algorithm}
+The end.
+\end{document}

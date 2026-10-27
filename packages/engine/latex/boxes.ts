@@ -67,6 +67,12 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   const listWas = f.keys?.list
   const stickList = () => { if (m.sub && listWas === false) f.keys!.list = false }
   if (m.sub && f.keys) {
+    // \caption@subtypehook's \caption@stepcounter\@captype: the float's counter steps at its first sub-float, with a
+    // caption or not, unless the float's caption came first (\caption@ifcounter); a sub-float after the caption and
+    // one before it is ambiguous (caption's warning, its flags cleared: the counter steps again); then
+    // \caption@setsubcaption's flag
+    if (f.number === null || !f.pending && f.subAbove) { f.number = ++counters[m.sub]; f.pending = true; f.sub = 0 }
+    if (f.pending) f.subAbove = true
     const k = f.keys
     k.left = 0; k.right = 0; k.width = 0
     if (runList(cx.pre.caption!, "sub", k, "sub", dim, m.sub).position || runList(cx.pre.caption!, `sub${m.sub}`, k, "sub", dim, m.sub).position) f.top = null
@@ -85,9 +91,11 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     outer.notes.push(...p.notes, lb.trace)
     return lb.vlist
   }
-  let captionOf = false
+  let captionOf = false, prev = "" // (the text part before)
   const cleared = new Set<string>() // (\caption@setoptions clears the list it ran, in the group)
   for (let part of body.split(/(\\caption(?:\*)?\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionsetup\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionof\s*\{(?:figure|table)\}\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^{}]*\})/)) {
+    const before = prev
+    prev = part
     // \captionsetup{keys}: for the rest of the minipage
     const sm = part.match(/^\\captionsetup\s*\{([^]*)\}$/)
     if (sm) {
@@ -113,6 +121,8 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     if (call) {
       if (!run.captype) throw new Unsupported("\\caption in a minipage outside a float")
       if (size !== "normalsize" || attrs.ser !== "m" || attrs.shape !== "n" || attrs.fam !== "cmr") throw new Unsupported("a minipage caption in another font")
+      // (float.sty after hyperref: \refstepcounter's anchor would go in the paragraph before it)
+      if (hyper && cx.pre.algorithm.afterHyperref && !cx.pre.usesCaption && /\S[^\n]*(?:\n[ \t]*)?$/.test(before) && !/(?:\n[ \t]*\n|\\par)\s*$/.test(before)) throw new Unsupported("a minipage caption right after text, float.sty after hyperref")
       cap = caption(cx, run.captype, call, hsize, {
         push: (x) => list.push(x),
         box: (x) => { pd = appendToVlist(list, x, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit) },
@@ -121,6 +131,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
         prevDepth: () => pd,
         rule: () => { list.push({ kind: "rule", width: null, height: 0, depth: 0 }); pd = IGNORE_DEPTH },
         lines: (start, text, opts, size) => capLines(start, text, opts, size),
+        last: () => list.at(-1),
       }, !!m.sub)
       continue
     }
@@ -128,10 +139,11 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     if (lm) {
       if (!cap) throw new Unsupported("a \\label in a minipage")
       list.push(...(captionOf ? [] : captionXref(cx, true)), labelWrite(refs, lm[1], cap.label, refs.href, cx.pre.nameref ? cap.name : refs.name)) // nameref: the caption
-      // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>
+      // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>; cleveref's write after
+      // each, the same (\cref@currentlabel of \refstepcounter{sub<type>}, a counter within the float's)
       if (cap.sub !== undefined) {
-        if (cx.pre.cleveref) throw new Unsupported("a subcaption's \\label with cleveref")
-        list.push(labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, cx.pre.nameref ? cap.name : refs.name))
+        const type = run.captype!, cref = { type: `sub${type}`, arabic: f.sub, prefix: [counters.crefPrefix(type), String(cap.number)].filter(Boolean).join(","), label: cap.label }
+        list.push(...crefWrites(refs, lm[1], false, cref), labelWrite(refs, `sub@${lm[1]}`, cap.sub, refs.href, cx.pre.nameref ? cap.name : refs.name), ...crefWrites(refs, `sub@${lm[1]}`, false, cref))
         continue
       }
       list.push(...crefWrites(refs, lm[1], false, { type: run.captype!, arabic: cap.number, prefix: counters.crefPrefix(run.captype!), label: cap.label }))

@@ -8,7 +8,7 @@ import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT } from "../layout/fo
 import { parseDimen } from "../layout/dimen"
 import { appendText } from "../layout/hmode"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, glue, kern, penalty, type BoxNode, type Node, filGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, glue, kern, penalty, type BoxNode, type GlueNode, type Node, filGlue, ssGlue } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
@@ -18,8 +18,12 @@ import { dimen, IGNORE_DEPTH, negate } from "./vlist"
 import { anchor, labelName } from "./hyperref"
 import { COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, type LstFrame, type LstOptions } from "./listings"
-import { crefWrites, fontAt, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs } from "./paragraph"
+import { crefWrites, fontAt, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions } from "./paragraph"
 import { styleColors } from "./colors"
+import { captionMake } from "./floats"
+import { widthRegisters } from "./boxes"
+import { copyKeys, runList, setkeysCalls, type CaptionKeys } from "./captionsetup"
+import { sloppy } from "./kernel"
 
 /**
  * A float (latex.ltx \@float, \@xfloat, \@caption, the class's \@makecaption, \end@float) from
@@ -81,9 +85,10 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   const clubOutside = v.club
   v.nodes.push(penalty(-50))
   vspace(medskip)
-  // caption.sty's \lst@MakeCaption: its options' \@esphack, \nobreak in vertical mode under \if@nobreak or \if@noskipsec
-  const capEsphack = () => { if (cx.pre.usesCaption && (v.nobreak || run.noskipsec)) v.nodes.push(penalty(10000)) }
-  if (cx.pre.usesCaption && hyper) throw new Unsupported("a listing with caption.sty and hyperref")
+  // caption.sty's \lst@MakeCaption: its options' \@esphack (\caption@setup{rule=0}'s, then \caption@setoptions{lstlisting}'s),
+  // \nobreak in vertical mode under \if@nobreak or \if@noskipsec
+  const esphacks = cx.pre.usesCaption ? 1 + setkeysCalls(cx.pre.caption!, "lstlisting") : 0
+  const capEsphack = () => { if (v.nobreak || run.noskipsec) for (let i = 0; i < esphacks; i++) v.nodes.push(penalty(10000)) }
   capEsphack()
   v.nodes.push(penalty(0)) // \allowbreak
   // \@currentHref after it: \refstepcounter{lstlisting} (a caption) or \lst@HRefStepCounter (\lst@neglisting
@@ -93,7 +98,6 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   const lstAnchor = (name: string) => { if (hyper) v.nodes.push(...anchor(name, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) }
   if (o.caption !== null) {
     if (cls !== "article") throw new Unsupported("a listing caption outside article")
-    if (cx.pre.usesCaption) throw new Unsupported("a listing caption with caption.sty")
     const text = o.caption.replace(/\s+/g, " ").trim()
     if (/[\\{}$%&#^_~]/.test(text)) throw new Unsupported(`listing caption "${text}"`)
     const n = captioned = ++run.listingCount // \refstepcounter{lstlisting}
@@ -107,18 +111,21 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
       const cref = crefWrites(refs, o.label, false, { type: "listing", arabic: n, prefix: "", label: String(n) })
       if (cref.length) v.nodes.push(...cref, ...esphackNobreaks(v.nobreak))
     }
-    v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
-    if (v.nobreak) v.nodes.push(penalty(10000)) // \protected@write's \nobreak
-    // in a group: \par\@parboxrestore\normalsize\normalfont, \@makecaption with \vskip as \nobreak\vskip…\nobreak
-    v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
-    const l: Node[] = [], state = { spaceFactor: 1000 }
-    appendText(l, "Listing", romanFont, state, false)
-    l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // ~
-    appendText(l, `${n}: ${text}`, romanFont, state, false)
-    const cap = hpack(setgroup(l)) // \sbox
-    if (cap.width > hsize) throw new Unsupported("a listing caption wider than the line")
-    v.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }), run.k.sizes.normalsize.baselineskip)
-    v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
+    if (cx.pre.usesCaption) listingCaption(cx, n, text, hsize, smallskip)
+    else {
+      v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}${text}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
+      if (v.nobreak) v.nodes.push(penalty(10000)) // \protected@write's \nobreak
+      // in a group: \par\@parboxrestore\normalsize\normalfont, \@makecaption with \vskip as \nobreak\vskip…\nobreak
+      v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
+      const l: Node[] = [], state = { spaceFactor: 1000 }
+      appendText(l, "Listing", romanFont, state, false)
+      l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // ~
+      appendText(l, `${n}: ${text}`, romanFont, state, false)
+      const cap = hpack(setgroup(l)) // \sbox
+      if (cap.width > hsize) throw new Unsupported("a listing caption wider than the line")
+      v.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }), run.k.sizes.normalsize.baselineskip)
+      v.nodes.push(penalty(10000)); v.vskip(smallskip); v.nodes.push(penalty(10000))
+    }
   } else if (o.label !== null) throw new Unsupported("a listing label without a caption")
   // \lst@HRefStepCounter (\theHlstlisting: the chapter's, then the number); its \@currentHref is global
   else { run.negListing--; lstAnchor(counters.href("lstlisting", run.negListing)); if (hyper) refs.href = counters.href("lstlisting", run.negListing) }
@@ -218,7 +225,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
   // \lst@DeInit's \normalcolor: in the bottom frame's paragraph, which the \par below ends
   if (bottom) { v.prevDepth = IGNORE_DEPTH; frameParagraph(bottom, xcolor.on ? [colorPush()] : []) }
   else if (xcolor.on) v.nodes.push(colorPush())
-  capEsphack() // (\lst@MakeCaption b, after them)
+  if (!bottom) capEsphack() // (\lst@MakeCaption b, after them; a bottom frame's paragraph is still open: horizontal mode, no \nobreak)
   v.nodes.push(penalty(-50))
   vspace(medskip)
   if (xcolor.on) v.nodes.push(colorPop()) // the group's end
@@ -253,4 +260,56 @@ export function lstinlineAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAt
   if (xcolor.on) nodes.push(colorPush()) // \lst@DeInit's \normalcolor; then the group's end pops them all
   nodes.push(...basicColors.map(() => colorPop()), ...(xcolor.on ? [colorPop()] : []))
   return nodes
+}
+
+/**
+ * caption.sty's \lst@MakeCaption t around listings' (its \label already written): the keys in force, then
+ * \caption@setup{rule=0} and \caption@setoptions{lstlisting}, the position top (\caption@setposition t), so
+ * \belowcaptionskip takes \abovecaptionskip (listings' abovecaptionskip, \smallskipamount) and \abovecaptionskip
+ * \belowcaptionskip through \@tempdima (its width only); \caption@addcontentsline's lol line; then in listings'
+ * group (\@parboxrestore: \everypar{}, \if@nobreak and \if@noskipsec false, \sloppy) \@makecaption, that is
+ * \caption@@make with no \caption@normalsize (no \normalcolor), every \vskip there \nobreak\vskip…\nobreak: the one
+ * below the caption ends its paragraph after its \nobreak, and \caption@beginhook's \hskip-\@totalleftmargin
+ * starts that paragraph before the left margin's \hspace
+ */
+function listingCaption(cx: Ctx, n: number, text: string, hsize: number, skip: GlueNode) {
+  const { amsmath, caption, hyper } = cx.pre
+  const { doc, refs, romanFont, run, v } = cx
+  const keys = copyKeys(caption!.keys)
+  keys.position = "top" as CaptionKeys["position"]; keys.above = keys.below = null // (listings set the skips after the preamble's)
+  // (its lengths as \setlength reads them there: the listing's font is not selected yet)
+  const dim = (x: string) => parseDimen(x, { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT], internal: widthRegisters(cx, hsize) })
+  if (runList(caption!, "lstlisting", keys, "list", dim).position && keys.position === "bottom") throw new Unsupported("a listing caption position=bottom") // (auto: \caption@setautoposition t)
+  if (keys.list) {
+    v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{lol}{\\protect \\contentsline {lstlisting}{\\protect \\numberline {${n}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
+    if (v.nobreak) v.nodes.push(penalty(10000)) // \protected@write's \nobreak
+  }
+  const opts = { amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: v.club }
+  let par: Node[] | null = null
+  const right = keys.width ? Math.trunc((hsize - keys.width) / 2) : keys.right
+  const lines = (start: Node[], text: string, o: ParagraphOptions = {}, size: SizeCommand = "normalsize") => {
+    const p = paragraphInput(text, run.k, size, doc, { start, ...opts, ...o })
+    const lb = lineBreak(p.list, p.params)
+    cx.decisions.push(...p.notes, lb.trace)
+    return lb.vlist
+  }
+  // (skip= and belowskip= in the list set them after the swap)
+  const skips = { below: keys.below === null ? skip : glue(keys.below), above: glue(keys.above ?? skip.width) }
+  const at = v.nodes.length
+  captionMake(cx, keys, { top: true, subAbove: false }, { name: "Listing", the: String(n), isSub: false, star: false, text, anchor: false, normalcolor: false, skips }, hsize, {
+    push(x) {
+      if (x.kind !== "glue") { v.nodes.push(x); return }
+      // (the paragraph's \hspace for the right margin, then the \nobreak, in it)
+      if (par) { v.paragraph(lines([...par, glue(right), penalty(10000)], ""), dimen(0)); par = null }
+      else v.nodes.push(penalty(10000))
+      v.vskip(x); v.nodes.push(penalty(10000))
+    },
+    box() { throw new Unsupported("a listing caption box") },
+    paragraph(start) { par = [start[0], glue(0), ...start.slice(1)] }, // (\hskip-\@totalleftmargin after the indent box)
+    prevDepth: () => v.prevDepth,
+    rule() {},
+    lines,
+    vskip: (g) => [penalty(10000), g, penalty(10000)],
+  })
+  run.lstCaptions.push([at, v.nodes.length])
 }

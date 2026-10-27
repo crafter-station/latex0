@@ -139,11 +139,13 @@ export function runInHeading(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const anchorName = hyper ? `section*.${++run.linkcounter}` : ""
   if (hyper) refs.href = anchorName
   if (nameref) refs.name = labelName(b.title) // (nameref's \@ssect)
+  // (hyperref's \setlength{\Hy@SectionHShift}{#1}: the indent now)
+  const shift = b.level === 5 ? run.k.dimens.parindent : 0
   // \@svsechd is a \def: its title (and the toc line's) is expanded when the paragraph puts it in place
   run.runIn = (em = romanFont.params[QUAD], parindent = run.k.dimens.parindent) => {
     const title = counted(b.title)
     const indent = b.level === 5 ? parindent : 0 // (\hskip #3, read where it is put in place)
-    const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, indent, run.k.sizes.normalsize.baselineskip.width)] : [])]
+    const start: Node[] = [glue(indent), ...(hyper ? [sectionAnchorBox(anchorName, shift, run.k.sizes.normalsize.baselineskip.width)] : [])]
     const head = paragraphInput(title, run.k, "normalsize", doc, { start, font: run.k.sizes.normalsize.bold, amsmath }).list
     if (!b.star) head.push(...contentsWrites(b.level, null, title, refs.href, false)) // (\@currentHref when the paragraph starts)
     if (head[head.length - 1]?.kind === "glue") head.pop() // \unskip

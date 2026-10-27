@@ -1,0 +1,30 @@
+% fixture: algorithm/hyperref-first-figures
+% tier: T3
+% engine: document
+% covers: float.sty loaded after hyperref: hyperref's \refstepcounter anchor of a figure or table caption in vertical mode before the lof line (first in the float, after a blank line, first in a minipage), or in the paragraph of minipages right before it, numbered after the minipages' own captions
+% issue: #294
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\begin{document}
+Text.
+\begin{figure}[h]
+\caption{First}
+\end{figure}
+\begin{figure}[h]
+\centering
+\begin{minipage}{0.4\linewidth}
+\caption{In a minipage}
+\end{minipage}
+\caption{After the minipage}
+\end{figure}
+\begin{table}[h]
+\begin{tabular}{l}
+c \\
+\end{tabular}
+
+\caption{After a blank line}
+\end{table}
+More text.
+\end{document}

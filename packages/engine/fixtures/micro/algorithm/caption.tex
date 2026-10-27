@@ -1,0 +1,36 @@
+% fixture: algorithm/caption
+% tier: T3
+% engine: document
+% covers: an algorithm caption with caption.sty: \@float@setevery's ruled style (\caption@resetstyle: the global font keys gone; labelfont=bf, labelsep=space, strut=0, no single-line centering), \fnum@algorithm's plain space, \caption@@make in \@floatcapt with no skips, \caption@normalsize's \normalcolor (xcolor); its paragraph's \@setminipage \everypar clears \if@minipage, so the algorithmic after it adds \@beginparpenalty and \topsep; the \label's \caption@xref write and cleveref's; [H]; a caption after the algorithmic
+% issue: #294
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[font=small,labelfont=it,labelsep=period,format=hang,singlelinecheck=false,labelformat=parens,justification=centering,margin=10pt]{caption}
+\usepackage{cleveref}
+\begin{document}
+Text before.
+\begin{algorithm}
+\caption{Insertion sort with a caption long enough that it does not fit on one line any longer here}
+\label{alg:a}
+\begin{algorithmic}[1]
+\State $x \gets 1$
+\State $y \gets 2$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\caption{Short}
+\begin{algorithmic}
+\State $y \gets 2$
+\end{algorithmic}
+\end{algorithm}
+Text after, see \cref{alg:a}.
+\begin{algorithm}[t]
+\begin{algorithmic}
+\State $z \gets 3$
+\end{algorithmic}
+\caption{Below the lines}
+\end{algorithm}
+More text.
+\end{document}

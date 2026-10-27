@@ -1,0 +1,35 @@
+% fixture: algorithm/caption-hypcap-false
+% tier: T3
+% engine: document
+% covers: algorithm floats with caption.sty (hypcap=false) and hyperref: no anchor at the float's top, \caption@makeanchor's \hyper@@anchor before the caption's text instead; [H]
+% issue: #294
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[hypcap=false]{caption}
+\usepackage{hyperref}
+\begin{document}
+\section{Sorting}
+Text before.
+\begin{algorithm}
+\caption{Insertion sort}
+\label{alg:a}
+\begin{algorithmic}[1]
+\State $x \gets 1$
+\State $y \gets 2$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State $z \gets 3$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\caption{Here}
+\label{alg:b}
+\begin{algorithmic}
+\State $w \gets 4$
+\end{algorithmic}
+\end{algorithm}
+Text after, see Algorithm~\ref{alg:a} and~\ref{alg:b}.
+\end{document}

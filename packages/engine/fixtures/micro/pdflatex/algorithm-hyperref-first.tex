@@ -1,0 +1,36 @@
+% fixture: pdflatex/algorithm-hyperref-first
+% tier: T3
+% engine: document
+% oracle: pdflatex
+% covers: under pdflatex, float.sty loaded after hyperref: its \caption replaces hyperref's, so every caption's \refstepcounter is hyperref's, anchoring where it stands: in the paragraph of a tabular right before it (after the line's space, which \@caption's \par then takes; none after a %); an algorithm's in vertical mode, with no anchor from \float@makebox (hyperref saw no float.sty)
+% issue: #294
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\begin{document}
+Text.
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+a \\
+\end{tabular}
+\caption{Right after the tabular}
+\label{t}
+\end{table}
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+b \\
+\end{tabular}%
+\caption{After a percent}
+\end{table}
+\begin{algorithm}[h]
+\caption{An algorithm}
+\label{alg:a}
+\begin{algorithmic}
+\State $x \gets 1$
+\end{algorithmic}
+\end{algorithm}
+See \ref{t} and \ref{alg:a}.
+\end{document}
