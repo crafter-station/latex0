@@ -12,7 +12,7 @@ import { appendText, sourceText } from "./encodings"
 import { emptyBox, glue, kern, paramGlue, penalty, type GlueNode, type Node, charNode, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
-import { type ListBlock, type Part } from "./blocks"
+import { displaySegments, type ListBlock, type Part } from "./blocks"
 import type { Ctx } from "./context"
 import { flushglue, sloppy, zeroskip } from "./kernel"
 import { groupStart, tabularStart } from "./source"
@@ -278,7 +278,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         if (hyper) { refs.href = `Item.${++run.items}`; run.hyperItem = false; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
         // (a \label whose text is more than characters, or has groups inside them: not modeled)
-        if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /[\\{}$]/.test(unbraced(refs.label)) && parts.some((p) => p.kind === "text" && /\\label\b/.test(p.text))) throw new Unsupported(`a \\label to "${refs.label}"`)
+        if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /[\\{}$]/.test(unbraced(refs.label)) && hasLabel(parts)) throw new Unsupported(`a \\label to "${refs.label}"`)
         if (eit?.label != null || eit?.format) l.push(...formatted(cx.normalAttrs, labelText(eit.label ?? `{${ENUM_LABELS[level - 1]}}`, [...ctx.enums, n])))
         else if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
         else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
@@ -337,6 +337,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       const newline = eit!.nextline && wide
       labelStart = [glue(itemindent), glue(-labelwidth), glue(-ls), ...(wide ? [penalty(10000), ...tb] : [hpack([penalty(10000), ...tb, filGlue()], { exactly: labelwidth })]), ...(newline ? [penalty(10000), filGlue(), penalty(-10000)] : [penalty(0), glue(ls)])]
       if (newline) club = 10000
+      // (after an amsmath display in that paragraph TeX's \clubpenalty is back to \@clubpenalty: not modeled)
+      const first = parts[0]
+      if (newline && first?.kind === "text" && displaySegments(first.text).length > 1) throw new Unsupported("a display in the paragraph of a nextline label on a line of its own")
     }
     // \clubpenalty in the item: \@M from its first paragraph right after a heading, until a later paragraph's
     // \everypar (still \@item's) or \@doendpe's \par sets \@clubpenalty
@@ -456,4 +459,9 @@ export function abstract(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   list(cx, { kind: "list", env: "center", items: [{ label: null, parts: [{ kind: "text", text: "", start: "label", nodes: head }] }], inPar: b.inPar, blank: false }, small)
   v.afterheadingEverypar = false
   list(cx, { kind: "list", env: "quotation", items: b.items, inPar: false, blank: false }, small)
+}
+
+/** a \label in the parts, or in an environment inside them (conservatively: it may see this \@currentlabel) */
+function hasLabel(parts: Part[]): boolean {
+  return parts.some((p) => p.kind === "text" ? /\\label\b/.test(p.text) : p.items.some((it) => hasLabel(it.parts)))
 }

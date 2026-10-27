@@ -111,8 +111,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
   const run = runState(pre.k)
-  // \today: the date's characters (the spaces after the control word go)
-  const dated = body.replace(/\\today(?![A-Za-z])\s*/g, () => today(epoch, pre.babel))
+  // \today: the date's characters (the spaces after the control word go, and its line's end, unless a blank line follows)
+  const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
   const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
   accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
   portugueseLayout.on = ["portuguese", "portuges", "brazil", "brazilian"].includes(pre.babel?.main ?? "")
