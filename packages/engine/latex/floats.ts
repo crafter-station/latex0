@@ -30,6 +30,8 @@ export interface CaptionOut {
   push(n: Node): void; box(b: BoxNode): void; paragraph(start: Node[], text: string): void
   /** caption.sty: \prevdepth where \caption stands, an \hrule there, and a paragraph's lines at a size (its trace recorded) */
   prevDepth(): number | null; rule(): void; lines(start: Node[], text: string, opts: ParagraphOptions, size?: SizeCommand): Node[]
+  /** the last node there (\lastskip for hyperref's \Hy@RestoreLastskip) */
+  last?(): Node | undefined
 }
 
 /** what a caption leaves for a \label after it: the float's number, \@currentlabel, nameref's name, and a subcaption's
@@ -39,9 +41,10 @@ export interface Captioned { number: number; label: string; name: string; sub?: 
 /**
  * \caption{text} in a float of type `env` at \hsize `hsize`: \refstepcounter, the lof/lot line, then in a group
  * \@parboxrestore\normalsize\@makecaption: \vskip\abovecaptionskip, the caption centered in an \hbox to \hsize
- * or, wider than that, a paragraph, then \vskip\belowcaptionskip. `sub`: subcaption's, in a subfigure or subtable.
+ * or, wider than that, a paragraph, then \vskip\belowcaptionskip. `sub`: subcaption's, in a subfigure or subtable;
+ * `anchored`: hyperref's \refstepcounter anchor already in the paragraph before it.
  */
-export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, hsize: number, out: CaptionOut, sub = false): Captioned | null {
+export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, hsize: number, out: CaptionOut, sub = false, anchored = false): Captioned | null {
   const { hyper } = cx.pre
   const { counters, refs, romanFont, run } = cx
   const clean = (t: string) => {
@@ -57,6 +60,8 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   if (source.star) throw new Unsupported("\\caption* without caption.sty")
   const number = ++counters[env]
   refs.href = counters.href(env, number) // global; \@currentlabel ends with the float's group
+  // float.sty after hyperref: its \caption's \refstepcounter, hyperref's, anchors in vertical mode first
+  if (hyper && cx.pre.algorithm.afterHyperref && !anchored) for (const n of anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", out.last?.())) out.push(n)
   out.push(lofLine(cx, env, number, short ?? text)) // (\@caption's lof line: the short caption)
   out.push(glue(run.k.dimens.abovecaptionskip))
   // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
@@ -280,11 +285,21 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   if (b.fps === "H") { if (b.blank) cx.v.par(); hereBox(cx, b); return } // (in a paragraph: \float@endH's \vskip ends it)
   if (b.inPar) throw new Unsupported("a float inside a paragraph")
   if (b.blank) cx.v.par() // (after \@doendpe, its \par resets \clubpenalty)
+  setevery(cx, b)
   const marker = floatMarker(cx, b)
   cx.v.nodes.push(marker)
   // placed here, the float ends \if@nobreak (\@addtocurcol's \nobreak\@nobreakfalse\everypar{});
   // elsewhere \nobreak alone, and the text after it is still right after the heading
   if ((marker.float as Float).here) cx.v.nobreak = false
+}
+
+/**
+ * caption.sty's \@float@setevery, before a float.sty float's box opens: \caption@setstyle*{ruled}'s \caption@setkeys
+ * calls (\caption@resetstyle's, with its four font keys', then the style's, with labelfont's), each \@esphack a
+ * \nobreak in vertical mode under \if@nobreak or \if@noskipsec (a run-in heading waiting, or lost to a listing)
+ */
+function setevery(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
+  if (b.env === "algorithm" && cx.pre.usesCaption && (cx.v.nobreak || cx.run.noskipsec || cx.run.runIn)) for (let i = 0; i < 7; i++) cx.v.nodes.push(penalty(10000))
 }
 
 /**
@@ -294,6 +309,7 @@ export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
 function hereBox(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
   const { run, v } = cx
   if (b.env !== "algorithm") throw new Unsupported(`a ${b.env} [H]`) // (float.sty's H: \if@flstyle false, the bare box)
+  if (!b.inPar) setevery(cx, b)
   // (right after a heading, \@setnobreak clears \if@nobreak in the box and \@endfloatbox's \outer@nobreak sets it again)
   // after a paragraph's text, \float@endH's \vskip ends it: its line breaking comes after the box's
   const pending = b.inPar ? cx.decisions.pop() : undefined
@@ -356,8 +372,8 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     decisions.push(...par.notes, lb.trace)
     return lb.vlist
   }
-  const floatParagraph = (start: Node[], body: string, centering = centered) => {
-    const vlist = floatLines(start, body, centering)
+  const floatParagraph = (start: Node[], body: string, centering = centered, end?: Node[]) => {
+    const vlist = floatLines(start, body, centering, end ? { end } : {})
     // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and
     // so does LaTeX's restart of the paragraph
     if (content.length) content.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
@@ -379,6 +395,20 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     run.floatCaption.hypcap = refs.href = `${b.env}.caption.${++run.linkcounter}` // (\hyper@makecurrent's \xdef: a \label after a \caption* or none points here)
     content.push(...hypcapAnchor(run.floatCaption.hypcap, run.k.sizes.normalsize.baselineskip.width))
   }
+  // float.sty after hyperref (no caption.sty): a \caption right after a paragraph's material (no blank line) steps its
+  // counter in that paragraph: hyperref's \refstepcounter anchors after the line's space, and \@caption's \par ends
+  // it (taking the space \Hy@RestoreLastskip put back)
+  let anchored = false
+  const captionAnchor = (jj: number, ii = jj): Node[] | undefined => {
+    if (!hyper || !cx.pre.algorithm.afterHyperref || cx.pre.usesCaption || jj + 1 >= items.length || !captionCall(items[jj + 1])) return
+    const between = fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!)
+    if (/\n[ \t]*\n/.test(between)) return
+    anchored = true
+    const space = between ? glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0) : undefined
+    // (the number the caption takes: after those of the captions in the paragraph's minipages)
+    const inner = [...fbody.slice(tokens[ii].index!, tokens[jj].index! + items[jj].length).matchAll(/\\LXminipage\{(\d+)\}/g)].reduce((n, m) => n + [...cx.minipages[Number(m[1])].body.matchAll(/\\caption\s*[[{]/g)].length, 0)
+    return [...(space ? [space] : []), ...anchor(counters.href(b.env, counters[b.env as "figure" | "table"] + inner + 1), run.k.sizes.normalsize.baselineskip.width, "h", space)]
+  }
   for (let ii = 0; ii < items.length; ii++) {
     const it = items[ii]
     if (it === "\\centering") { centered = true; continue }
@@ -387,7 +417,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     if (/^\\LX(?:minipage|graphic)\{\d+\}$/.test(it)) {
       let jj = ii
       while (jj + 1 < items.length && /^(?:\\LX(?:minipage|graphic)\{\d+\}|\\hfill|\\hfil|\\quad|\\qquad|~)$/.test(items[jj + 1]) && !/\n[ \t]*\n/.test(fbody.slice(tokens[jj].index! + items[jj].length, tokens[jj + 1].index!))) jj++
-      floatParagraph([hpack([])], fbody.slice(tokens[ii].index!, tokens[jj].index! + items[jj].length))
+      floatParagraph([hpack([])], fbody.slice(tokens[ii].index!, tokens[jj].index! + items[jj].length), centered, captionAnchor(jj, ii))
       ii = jj
       continue
     }
@@ -395,7 +425,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
     const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
     if (tab) {
-      floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits })], "")
+      floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits })], "", centered, captionAnchor(ii))
       continue
     }
     // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip
@@ -422,7 +452,9 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
         prevDepth: () => pd,
         rule: () => { content.push({ kind: "rule", width: null, height: 0, depth: 0 }); pd = IGNORE_DEPTH },
         lines: (start, text, opts, size) => floatLines(start, text, false, opts, size),
-      })
+        last: () => content.at(-1),
+      }, false, anchored)
+      anchored = false
       continue
     }
     // \label after the caption: \protected@write\@auxout{}{\string\newlabel{key}{{n}{\thepage }{}{figure.n}{}}}

@@ -19,13 +19,16 @@ import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { captionMake, captionXref, hypcapAnchor } from "./floats"
 import { copyKeys, ruledStyle, runList, type CaptionKeys } from "./captionsetup"
 import { widthRegisters } from "./boxes"
-import { labelName, spotAnchor } from "./hyperref"
+import { anchor, labelName, spotAnchor } from "./hyperref"
 
 /** algpseudocode's options: [noend] takes the end entities' text away (\algtext*) */
 export interface AlgorithmPackages {
   algorithm: boolean; algpseudocode: boolean; noend: boolean
   /** setspace loaded after float.sty: its \@xfloat (single spacing) runs for [H] too */
   singleHere?: boolean
+  /** float.sty loaded after hyperref: float.sty's \caption (\refstepcounter, hyperref's with its anchor) replaces
+   *  hyperref's, and hyperref, having seen no float.sty, did not patch \float@makebox (no \Hy@float@caption) */
+  afterHyperref?: boolean
 }
 
 const kw = (w: string) => `\\textbf{${w}}`
@@ -223,6 +226,8 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
       number = ++counters.algorithm
       refs.href = `algorithm.${number}` // global; \@currentlabel ends with the float's group
       if (keys && hyper) name = labelName(text) // (caption.sty's \caption@gettitle: nameref's name, in the float's group)
+      // float.sty after hyperref (and no caption.sty): its \caption's \refstepcounter, hyperref's, anchors here
+      if (!keys && hyper && algorithm.afterHyperref) content.push(...anchor(refs.href, k.sizes.normalsize.baselineskip.width, "v", content.at(-1)))
       // \addcontentsline{loa}{algorithm}{\protect\numberline{n}{\ignorespaces text}} (caption.sty's: not for list=false)
       if (!keys || keys.list) content.push({ kind: "whatsit", text: `\\write1{\\@writefile{loa}{\\protect \\contentsline {algorithm}{\\protect \\numberline {${number}}{\\ignorespaces ${text}}}{\\thepage }{${hyper ? refs.href : ""}}\\protected@file@percent }}` })
       if (keys) { cap = captionPackageBox(cx, keys, number, text, decisions, club, hyper && !keys.hypcap); continue }
@@ -267,8 +272,9 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
   const two = 2 * 65536
   const body = xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)] // \color@vbox\normalcolor\vbox{…}, unboxed
   // hyperref's \float@makebox: the caption's \@currentHref (\Hy@float@currentHref) anchored first, in vertical mode;
-  // caption.sty's instead (\caption@defrostHref): hypcap's \caption@startanchor, or none (the anchor in the caption)
-  const start = !hyper || !number ? [] : !keys ? spotAnchor(`algorithm.${number}`, "v", undefined) : keys.hypcap ? hypcapAnchor(`algorithm.${number}`, k.sizes.normalsize.baselineskip.width) : []
+  // caption.sty's instead (\caption@defrostHref): hypcap's \caption@startanchor, or none (the anchor in the caption);
+  // none when float.sty came after hyperref
+  const start = !hyper || !number || !keys && algorithm.afterHyperref ? [] : !keys ? spotAnchor(`algorithm.${number}`, "v", undefined) : keys.hypcap ? hypcapAnchor(`algorithm.${number}`, k.sizes.normalsize.baselineskip.width) : []
   return vpack([
     ...start,
     rule(new Scanner(".8pt", { em: 0, ex: 0 }).scanDimen().value), kern(two, true),
