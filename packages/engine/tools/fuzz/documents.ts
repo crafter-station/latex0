@@ -410,8 +410,9 @@ export function makeDocument(r: () => number): string {
   subOn = capOn && r() < 0.5
   if (capOn) {
     // with options sometimes, and \captionsetup for all, a type or the sub-floats
-    const opts = r() < 0.3 ? `[${capKeys("pre")}]` : ""
-    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? pick([`\\usepackage${opts}{subcaption}`, `\\usepackage${opts}{caption}\n\\usepackage{subcaption}`]) : `\\usepackage${opts}{caption}`)
+    // (subcaption's options go to \captionsetup[sub]: no figurename= there)
+    const both = subOn && r() < 0.5, opts = r() < 0.3 ? `[${capKeys(subOn && !both ? "sub" : "pre")}]` : ""
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? both ? `\\usepackage${opts}{caption}\n\\usepackage{subcaption}` : `\\usepackage${opts}{subcaption}` : `\\usepackage${opts}{caption}`)
     if (r() < 0.3) out.push(`\\captionsetup{${capKeys("pre")}}`)
     if (r() < 0.3) out.push(`\\captionsetup[${pick(["figure", "table"])}]{${capKeys("list")}}`)
     if (subOn && r() < 0.3) out.push(`\\captionsetup[${pick(["sub", "subfigure", "subtable"])}]{${capKeys("sub")}}`)

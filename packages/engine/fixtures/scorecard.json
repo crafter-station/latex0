@@ -6,7 +6,7 @@
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 270057
+  "glyphs": 270066
  },
  "areas": [
   {
@@ -834,8 +834,8 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 113,
-   "covers": "caption.sty with hyperref: hypcap=false (no anchor at the float's start, \\hyper@@anchor before the caption's text, figure.n for \\label), in the preamble and in \\captionsetup[table]; \\caption* and \\caption[short] (nameref's name the short caption) with and without hypcap",
+   "glyphs": 122,
+   "covers": "caption.sty with hyperref: hypcap=false (no anchor at the float's start, \\hyper@@anchor before the caption's text, figure.n for \\label), in the preamble and in \\captionsetup[table]; \\caption* and \\caption[short] (nameref's name the short caption) with and without hypcap; a \\label in the text after a float with only \\caption* pointing at its hypcap anchor (\\hyper@makecurrent's global \\@currentHref)",
    "issue": "#282"
   },
   {

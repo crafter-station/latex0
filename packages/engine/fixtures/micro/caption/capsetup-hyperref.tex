@@ -1,7 +1,7 @@
 % fixture: caption/capsetup-hyperref
 % tier: T3
 % engine: document
-% covers: caption.sty with hyperref: hypcap=false (no anchor at the float's start, \hyper@@anchor before the caption's text, figure.n for \label), in the preamble and in \captionsetup[table]; \caption* and \caption[short] (nameref's name the short caption) with and without hypcap
+% covers: caption.sty with hyperref: hypcap=false (no anchor at the float's start, \hyper@@anchor before the caption's text, figure.n for \label), in the preamble and in \captionsetup[table]; \caption* and \caption[short] (nameref's name the short caption) with and without hypcap; a \label in the text after a float with only \caption* pointing at its hypcap anchor (\hyper@makecurrent's global \@currentHref)
 % issue: #282
 \documentclass{article}
 \usepackage{caption}
@@ -28,5 +28,5 @@ Text.
 \begin{tabular}{c}Z\end{tabular}
 \caption*{Starred with hypcap.}
 \end{figure}
-See \ref{fig:a} and \ref{tab:a}.
+After it\label{after}. See \ref{fig:a}, \ref{tab:a} and \ref{after}.
 \end{document}

@@ -357,7 +357,7 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   run.k = singleSpaced(spaced)
   try {
   if (cx.pre.usesCaption && hyper && run.floatCaption.keys!.hypcap) { // caption.sty's \caption@xfloat: \caption@start, hypcap's anchor (\Hy@linkcounter)
-    run.floatCaption.hypcap = `${b.env}.caption.${++run.linkcounter}`
+    run.floatCaption.hypcap = refs.href = `${b.env}.caption.${++run.linkcounter}` // (\hyper@makecurrent's \xdef: a \label after a \caption* or none points here)
     content.push(...hypcapAnchor(run.floatCaption.hypcap, run.k.sizes.normalsize.baselineskip.width))
   }
   for (let ii = 0; ii < items.length; ii++) {
