@@ -21,6 +21,8 @@ export type Block =
   | { kind: "titlepage"; body: string }
   | { kind: "float"; env: "figure" | "table" | "algorithm"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
+  /** \appendix */
+  | { kind: "appendix" }
   /** \listoffigures, \listoftables */
   | { kind: "lof"; file: "lof" | "lot" }
   | { kind: "matter"; which: "front" | "main" | "back" }
@@ -208,7 +210,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -247,6 +249,7 @@ export function blocksOf(body: string): Block[] {
     }
     if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
+    if (m[21]) { out.push({ kind: "appendix" }); at = re.lastIndex; endpe = false; continue }
     if (m[20]) { out.push({ kind: "lof", file: m[20] === "figures" ? "lof" : "lot" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
     if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
@@ -320,7 +323,7 @@ export function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle") continue
+    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle") continue
     else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out

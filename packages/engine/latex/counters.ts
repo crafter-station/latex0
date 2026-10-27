@@ -45,19 +45,42 @@ export class Counters {
     for (const [name, within] of declared) this.user.set(name, { value: 0, within })
   }
 
+  /**
+   * \appendix: \thesection (article) or \thechapter (report, book) is \@Alph from then on. With hyperref, \theHsection
+   * or \theHchapter is too (\Hy@AlphNoErr), and the anchors of that level are of type appendix (\Hy@chapapp); the
+   * kernel's \theH… (\@definecounter, \@addtoreset) stay arabic
+   */
+  appendix: { hyper: boolean } | null = null
+
   /** \theH<counter> (hyperref's \@currentHref after \refstepcounter): report and book number within the chapter */
   href(counter: string, n: number): string {
-    return this.cls === "article" || this.cls === "letter" ? `${counter}.${n}` : `${counter}.${this.sectional[0]}.${n}`
+    return this.cls === "article" || this.cls === "letter" ? `${counter}.${n}` : `${counter}.${this.sectionalString(0, true)}.${n}`
   }
 
   /** \theequation, \thefigure, \thetable: in report and book, prefixed by the chapter once there is one */
   the(n: number): string {
-    return this.cls !== "article" && this.sectional[0] > 0 ? `${this.sectional[0]}.${n}` : String(n)
+    return this.cls !== "article" && this.sectional[0] > 0 ? `${this.theSectional(0)}.${n}` : String(n)
   }
 
   /** \thechapter … : article's sections are not within a chapter */
   theSectional(level: number): string {
-    return (this.cls === "article" ? this.sectional.slice(1, level + 1) : this.sectional.slice(0, level + 1)).join(".")
+    return this.sectionalString(level, false)
+  }
+
+  /** \theHchapter …, which \@currentHref of a heading has after its type */
+  theHSectional(level: number): string {
+    return this.sectionalString(level, true)
+  }
+
+  /** the sectioning counters to `level`, the outermost (article's section, report's chapter) in \@Alph after \appendix */
+  private sectionalString(level: number, h: boolean): string {
+    const alph = this.appendix && (!h || this.appendix.hyper)
+    return (this.cls === "article" ? this.sectional.slice(1, level + 1) : this.sectional.slice(0, level + 1)).map((n, i) => (i === 0 && alph ? representation("Alph", n) : String(n))).join(".")
+  }
+
+  /** the type of a heading's anchor: hyperref's \Hy@chapapp after \appendix for the outermost level */
+  anchorType(level: number): string {
+    return this.appendix?.hyper && level === (this.cls === "article" ? 1 : 0) ? "appendix" : SECTIONAL[level]
   }
 
   /** \stepcounter of a sectioning counter: the deeper ones reset, and the document's counters within it or a
@@ -86,7 +109,7 @@ export class Counters {
     if (!u) {
       const l = SECTIONAL.slice(0, 4).indexOf(name as typeof SECTIONAL[number])
       if (l < 0 || (l === 0 && this.cls === "article")) throw new Unsupported(`\theH${name}`)
-      return this.theSectional(l)
+      return this.theHSectional(l)
     }
     return u.within === null ? String(u.value) : `${this.theH(u.within)}.${u.value}`
   }

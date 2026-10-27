@@ -1,0 +1,17 @@
+% fixture: sections/appendix-hyperref
+% tier: T3
+% engine: document
+% covers: article's \appendix with hyperref: \theHsection \@Alph and the sections' anchors of type appendix (\Hy@chapapp), \autoref's \appendixautorefname, toc links and bookmarks
+% issue: #336
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\tableofcontents
+\section{Main}
+See \autoref{app}, \ref{app-sub} and \autoref{app-sub}.
+\appendix
+\section{Proofs}\label{app}
+The proofs.
+\subsection{A lemma}\label{app-sub}
+Lemma text.
+\end{document}

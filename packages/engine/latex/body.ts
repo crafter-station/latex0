@@ -12,7 +12,7 @@ import { dimen, IGNORE_DEPTH } from "./vlist"
 import { penalty } from "../layout/nodes"
 import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
-import { chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
+import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
 import type { OutputHook } from "./output"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
@@ -67,6 +67,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     return
   }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
+  if (b.kind === "appendix") { appendix(cx); return }
   if (b.kind === "lof") { if (run.runIn) runInAlone(cx); listOf(cx, b.file); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }

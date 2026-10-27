@@ -1,0 +1,23 @@
+% fixture: sections/appendix-article
+% tier: T3
+% engine: document
+% covers: article's \appendix (\par, section and subsection counters zero (a subsection right after it is .1), \thesection \@Alph): headings, the toc, \label and \ref (the kernel's \theHsection stays arabic in \@currentHref), \pagestyle{headings} marks
+% issue: #336
+\documentclass{article}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\section{Main}\label{main}
+See Appendix~\ref{app} and \ref{app-sub}, on page \pageref{app}.
+\subsection{Detail}
+Text.
+\appendix
+\subsection{Early}
+A subsection before the first appendix.
+\section{Proofs}\label{app}
+The proofs.
+\subsection{A lemma}\label{app-sub}
+Lemma text.
+\section{Data}
+Data text.
+\end{document}

@@ -368,7 +368,7 @@ export function labelName(title: string, stripPeriod = true): string {
  *  for the anchors' types the document makes */
 const AUTOREF_NAMES: Record<string, string> = {
   equation: "Equation", Item: "item", figure: "Figure", table: "Table", chapter: "chapter", section: "section",
-  subsection: "subsection", subsubsection: "subsubsection", theorem: "Theorem", lstlisting: "Listing",
+  subsection: "subsection", subsubsection: "subsubsection", theorem: "Theorem", lstlisting: "Listing", appendix: "Appendix",
 }
 /** hyperref's \HyLang@spanish, which babel's \extrasspanish runs when babel was loaded first (LaTeX source) */
 const SPANISH_AUTOREF_NAMES: Record<string, string> = {
@@ -381,7 +381,7 @@ const PORTUGUESE_AUTOREF_NAMES: Record<string, string> = {
   subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing",
 }
 /** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
-const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "appendix", "paragraph", "subparagraph", "FancyVerbLine", "page"]
+const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "paragraph", "subparagraph", "FancyVerbLine", "page"]
 
 /** The language of hyperref's names (\HyLang@DeclareLang): the main language's, when babel came first (its \extras<lang> are
  *  there to add them to) or the class has it as an option; english (null) for the english ones and the others */

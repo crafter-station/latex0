@@ -67,6 +67,22 @@ export function matter(cx: Ctx, which: "front" | "main" | "back") {
   if (which !== "back") v.nodes.push({ kind: "whatsit", text: "", hook: which === "front" ? "roman" : "arabic" })
 }
 
+/** \@chapapp: \chaptername, \appendixname after \appendix */
+const chapapp = (cx: Ctx) => (cx.counters.appendix ? cx.pre.names.appendixname : cx.pre.names.chaptername)
+
+/** \appendix: \par, the outermost sectioning counter and the one below it set to zero, \thesection (article) or
+ *  \thechapter and \@chapapp (report, book) changed; hyperref's \theH… and \Hy@chapapp too */
+export function appendix(cx: Ctx) {
+  const { counters, pre, run } = cx
+  if (pre.cls === "letter") throw new Unsupported("\\appendix in a letter")
+  if (pre.cleveref || pre.titlesec) throw new Unsupported(`\\appendix with ${pre.cleveref ? "cleveref" : "titlesec"}`)
+  if (run.runIn) throw new Unsupported("\\appendix right after a run-in heading")
+  // (its \par: what follows runs v.par() first)
+  const top = pre.cls === "article" ? 1 : 0
+  counters.sectional[top] = 0; counters.sectional[top + 1] = 0
+  counters.appendix = { hyper: pre.hyper }
+}
+
 export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const { cls, hyper, nameref } = cx.pre
   const { contentsWrites, counters, doc, headings, lastNode, marks, outerParskip, refs, run, typeset, v } = cx
@@ -81,18 +97,18 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   if (!b.star) {
     if (numbered) {
       counters.stepSectional(0)
-      refs.label = counters.theSectional(0); refs.href = `chapter.${refs.label}`
+      refs.label = counters.theSectional(0); refs.href = `${counters.anchorType(0)}.${counters.theHSectional(0)}`
       if (refs.cleveref) refs.cleveref.current = { type: "chapter", arabic: counters.sectional[0], prefix: counters.crefPrefix("chapter"), label: refs.label }
       doc.footnote = 0
     } else if (hyper) refs.href = `chapter*.${++run.linkcounter}` // hyperref's \@chapter: \Hy@MakeCurrentHrefAuto
     // hyperref: the anchor, then \addcontentsline's bookmark and toc line
     if (nameref) refs.name = labelName(b.title) // (nameref's \@chapter)
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
-    v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
+    v.nodes.push(...contentsWrites(0, numbered ? counters.theSectional(0) : null, b.title, refs.href, false))
     // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
     // (fancyhdr's: \markboth one- or two-sided, the number whenever \c@secnumdepth > -1, outside the main matter too)
     if (headings) {
-      const cv = markValue(numbered || headings === "fancyhdr" ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
+      const cv = markValue(numbered || headings === "fancyhdr" ? [{ text: chapapp(cx) }, { ctrl: true }, { text: `${counters.theSectional(0)}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
       v.nodes.push(...marks.insert(run.k.ints.twoside || headings === "fancyhdr" ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
     v.nodes.push(cx.tocFile.listSpace("lof"), cx.tocFile.listSpace("lot"))
@@ -113,7 +129,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
   const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club }) // \parindent\z@ \raggedright
   if (numbered) {
-    typeset(`${cx.pre.names.chaptername} ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
+    typeset(`${chapapp(cx)} ${counters.theSectional(0)}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
     v.nodes.push(penalty(10000))
     v.vskip(dimen(20 * 65536))
   }
@@ -194,7 +210,7 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   }
   if (numbered) { // \refstepcounter
     const type = ["", "section", "subsection", "subsubsection"][b.level]
-    refs.label = number; refs.href = `${type}.${number}`
+    refs.label = number; refs.href = `${counters.anchorType(b.level)}.${counters.theHSectional(b.level)}`
     if (refs.cleveref) refs.cleveref.current = { type, arabic: counters.sectional[b.level], prefix: counters.crefPrefix(type), label: number }
   }
   // hyperref: \refstepcounter's anchor on the vertical list; an unnumbered heading's (\Hy@MakeCurrentHrefAuto)
