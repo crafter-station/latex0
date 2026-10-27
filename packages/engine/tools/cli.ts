@@ -14,7 +14,7 @@
 //   bun engine fuzz:documents [--n 30] [--seed 1]    random whole documents: sections, lists, paragraphs vs TeX (#30)
 //   bun engine math:check [--n 3000] [--seed 1]       random formulas: mlist_to_hlist vs TeX \showbox (#74)
 //   bun engine pgfmath:check [--n 3000] [--seed 1]    random expressions: pgf/mathparser.ts vs TeX \pgfmathparse (#284)
-//   bun engine pgf:check [--n 2000] [--seed 1]        pgf system-layer snippets, pictures, nodes, shadings, objects: pgf/ vs TeX \showbox (#292, #298, #304, #305)
+//   bun engine pgf:check [--n 2000] [--seed 1]        pgf system-layer snippets, pictures, nodes, shadings, objects, fadings: pgf/ vs TeX \showbox (#292, #298, #304, #305, #316)
 //   bun engine tikzkeys:check [--n 3000] [--seed 1]   random TikZ option lists: tikz/options.ts vs TeX's state (#302)
 //   bun engine tikz:check [--n 1000] [--seed 1]       TikZ pictures: tikz/path.ts on pgf/ vs TeX \showbox (#309)
 //   bun engine trace <fixture.tex>                     TeX oracle trace as JSON

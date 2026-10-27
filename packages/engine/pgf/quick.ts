@@ -10,8 +10,12 @@ import type { PgfState } from "./state"
 /** a coordinate as \pgf@sys@bp scans it */
 const dimen = (s: PgfState, x: string) => new TexArith(s.units).dimen(x)
 
-/** \pgfpathqmoveto{#1}{#2} (27) */
-export function pgfPathQMoveTo(s: PgfState, x: string, y: string) { s.softPath.push({ op: "moveto", x: dimen(s, x), y: dimen(s, y) }) }
+/** \pgfpathqmoveto{#1}{#2} (27): \pgfsyssoftpath@moveto, the soft path's last moveto too (a closepath carries it) */
+export function pgfPathQMoveTo(s: PgfState, x: string, y: string) {
+  const p = { x: dimen(s, x), y: dimen(s, y) }
+  s.softPath.push({ op: "moveto", ...p })
+  s.lastMoveTo = p
+}
 /** \pgfpathqlineto{#1}{#2} (42) */
 export function pgfPathQLineTo(s: PgfState, x: string, y: string) { s.softPath.push({ op: "lineto", x: dimen(s, x), y: dimen(s, y) }) }
 /** \pgfpathqcurveto{#1}…{#6} (61) */

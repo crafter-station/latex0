@@ -1,4 +1,4 @@
-// pgf oracle (#292, #298, #304, #305): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
+// pgf oracle (#292, #298, #304, #305, #316): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
 // `\setbox0\hbox{\nullfont <snippet>}\showbox0` with tikz loaded (a picture's \nullfont: every stray space in
 // pgf's macros is a \glue 0.0) by latex (pgf's dvips driver) and by pdflatex (its pdftex driver), and run
 // through pgf/ for each. The box dumps must agree node by node: every box's size and shift, every \special's
@@ -6,8 +6,11 @@
 // snippets cover each primitive, then seeded random sequences of system commands and random pictures (paths
 // under transformations, scopes, groups, graphic state, rounded corners, baselines and trims), random pictures of nodes
 // (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext), random shadings (declared, used,
-// \pgfshadepath) and random objects and opacities; a node's text is typeset
-// by the engine (latex/paragraph.ts). A TeX error (a dimension too large) must be the engine's Unsupported.
+// \pgfshadepath), random objects and opacities, and random fadings, transparency groups and blend modes, with
+// beamer's rounded box shadow; a node's text is typeset by the engine (latex/paragraph.ts). Besides the
+// snippet's box, the material for the top of the page (\pgfutil@abb: dvips's fadings) and the boxes pdfTeX
+// made forms of (fadings, transparency groups) must agree; pdfTeX's object numbers start where TeX shows them,
+// the object stream brought to a known fill. A TeX error (a dimension too large) must be the engine's Unsupported.
 //   bun engine pgf:check [--n 2000] [--seed 1]
 
 import { spawnSync } from "node:child_process"
@@ -21,8 +24,8 @@ import { dataFont } from "../fonts"
 import { Unsupported } from "../../latex/unsupported"
 import { Colors, xcolor } from "../../latex/xcolor"
 import { hpack } from "../../layout/pack"
-import type { BoxNode as LayoutBox, RuleNode } from "../../layout/nodes"
-import { TexArith } from "../../pgf/fixed"
+import { glue, type BoxNode as LayoutBox, type Node as LayoutNode, type RuleNode } from "../../layout/nodes"
+import { TexArith, toNumber } from "../../pgf/fixed"
 import { DvipsDriver } from "../../pgf/drivers/dvips"
 import { PdftexDriver } from "../../pgf/drivers/pdftex"
 import type { ColorModel, PgfDriver } from "../../pgf/drivers"
@@ -36,6 +39,8 @@ import {
 import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope, pgfSetBaseline, pgfSetTrimLeft, pgfSetTrimRight } from "../../pgf/scopes"
 import { pgfDefObject, pgfSetFillOpacity, pgfSetStrokeOpacity, pgfUseObject, sysDefObject, sysFillOpacity, sysStrokeOpacity, sysUseObject } from "../../pgf/objects"
 import { pgfSetCornersArced } from "../../pgf/round"
+import { pgfPdfForms } from "../../pgf/pdfforms"
+import { beginPgfTransparencyGroup, definePgfTransparent, endPgfTransparencyGroup, pgfDeclareFading, pgfPageTop, pgfSetBlendMode, pgfSetFading, pgfSetFadingForCurrentPath, pgfSetPage } from "../../pgf/fadings"
 import { pgfDeclareShading, pgfShadePath, pgfUseShading } from "../../pgf/shade"
 import { PgfState } from "../../pgf/state"
 import { pgfPathQCurveTo, pgfPathQLineTo, pgfPathQMoveTo, pgfUsePathQClip, pgfUsePathQFill, pgfUsePathQFillStroke, pgfUsePathQStroke } from "../../pgf/quick"
@@ -195,6 +200,9 @@ const PICTURES = [
   "\\pgfsetcornersarced{\\pgfpoint{5pt}{5pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{2cm}{0pt}}\\pgfpathclose\\pgfpathclose\\pgfusepath{stroke}",
   "\\pgfpathmoveto{\\pgfpointorigin}\\pgfsetcornersarced{\\pgfpoint{3pt}{3pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfsetcornersarced{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{2cm}{0pt}}{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{1cm}{2cm}}\\pgfusepath{stroke}",
   "\\pgfsetcornersarced{\\pgfpoint{2pt}{3pt}}\\pgfpathmoveto{\\pgfpoint{1pt}{2pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathclose\\pgfpathlineto{\\pgfpoint{-1cm}{5mm}}\\pgfpathlineto{\\pgfpoint{-2cm}{-5mm}}\\pgfusepath{stroke}",
+  // the quick constructions: no transformation, no extent, no rounding of their own (the last moveto set)
+  "\\pgftransformshift{\\pgfpoint{1cm}{0pt}}\\pgfpathqmoveto{1pt}{2pt}\\pgfpathqlineto{3pt}{-4pt}\\pgfpathqcurveto{1pt}{2pt}{3pt}{4pt}{5bp}{6mm}\\pgfusepath{stroke}\\pgfpathmoveto{\\pgfpoint{-1pt}{-1pt}}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{2pt}}\\pgfpathqmoveto{0pt}{0pt}\\pgfpathqlineto{1cm}{0pt}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathqmoveto{3pt}{1pt}\\pgfpathlineto{\\pgfpoint{2cm}{1cm}}\\pgfpathclose\\pgfusepath{stroke}",
   "\\pgfsetcornersarced{\\pgfpoint{900pt}{700.3pt}}\\pgfpathrectangle{\\pgfpoint{-11pt}{3pt}}{\\pgfpoint{2000pt}{1999pt}}\\pgfusepath{fill}",
   // a rectangle's size past max_dimen; a corner past it from the point before, which only the rounding of a used path reads
   "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{1sp}{0pt}}}\\pgfusepath{discard}",
@@ -231,6 +239,63 @@ const SHADINGS = [
   // errors: an undefined shading; one stop (an ill-formed specification is an endless loop of errors)
   "\\pgfuseshading{nothing}",
   "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0)}",
+]
+
+/**
+ * beamer's rounded box with shadow=true (beamerbaseboxes.sty 148–242, \endbeamerboxesrounded), the box's
+ * text left out: the shadow's shadings and fading (declared in \selectcolormodel{gray}) and the picture that
+ * fills the shadow through it, then the box's lower part. The registers are given as \the prints them (pgfmath
+ * reads a register as that text), every end of line without % a space. `width` is \bmb@width, `ht` the
+ * lower box's height, `prev` \bmb@prevheight.
+ */
+export function beamerShadow(width: string, ht: string, prev: string, lower = "mine"): string {
+  const a = new TexArith({ em: 0, ex: 0 })
+  const T = (x: number) => `${toNumber(x)}pt`
+  const w = a.dimen(width), h = a.dimen(ht)
+  const bh = h + a.dimen("4bp") + a.dimen(prev) // \bmb@boxheight
+  const dima = w + a.dimen("2.2bp"), dimb = w + a.dimen("4bp")
+  const big = bh > a.dimen("9.5bp")
+  const mask = `bmb@shadowmask${T(w)}${T(bh)}`
+  return `\\colorlet{beamer@safeblack}{black}\\colorlet{lower.bg}{${lower}}`
+    + "\\pgfdeclareradialshading{bmb@shadowball}{\\pgfpointorigin} {color(0bp)=(pgftransparent!50); color(4bp)=(pgftransparent!100) }"
+    + "\\pgfdeclareradialshading{bmb@shadowballlarge}{\\pgfpointorigin} {color(0bp)=(pgftransparent!0); color(8bp)=(pgftransparent!100) }"
+    + `\\pgfdeclarehorizontalshading{bmb@shadowhorz${T(bh)}}{${T(bh)}-5.5bp} {color(0bp)=(pgftransparent!0); color(8bp)=(pgftransparent!100) }`
+    + `\\pgfdeclareverticalshading{bmb@shadowvert${T(w)}}{${T(w)}-4bp} {color(0bp)=(pgftransparent!100); color(8bp)=(pgftransparent!0) }`
+    + `\\begingroup\\selectcolormodel{gray} \\pgfdeclarefading{${mask}} {\\begin{pgfpicture} \\pgftext[at=\\pgfpoint{4bp}{4bp}]{\\pgfuseshading{bmb@shadowball}}`
+    + (big
+      ? `\\pgftext[at=\\pgfpoint{${T(w)}}{8bp}]{\\pgfuseshading{bmb@shadowballlarge}}\\pgftext[at=\\pgfpoint{${T(w)}+4bp}{${T(bh)}+2bp}]{\\pgfuseshading{bmb@shadowball}}\\pgftext[base, at=\\pgfpoint{${T(w)}+4bp}{7.5bp}]{\\pgfuseshading{bmb@shadowhorz${T(bh)}}}`
+      : `\\pgftext[at=\\pgfpoint{${T(w)}}{4bp}]{\\pgfuseshading{bmb@shadowball}}`)
+    + `\\pgftext[left, at=\\pgfpoint{4bp}{4bp}]{\\pgfuseshading{bmb@shadowvert${T(w)}}}\\begin{pgfscope} \\pgfsetcolor{beamer@safeblack} \\pgfpathrectangle{\\pgfpoint{4bp}{8.1bp}}{\\pgfpoint{${T(w)}}{${T(bh)}-2bp}} \\pgfusepath{fill} \\end{pgfscope} \\end{pgfpicture}\\hskip4bp}\\endgroup`
+    + `\\begin{pgfpicture}{0bp}{0bp}{0bp}{0bp} \\begin{pgfscope} \\pgfsetfillcolor{beamer@safeblack}\\pgfpathrectangle{\\pgfpoint{0bp}{-7bp}} {\\pgfpoint{${T(w)}+8bp}{${T(bh)}+6bp}} \\pgfsetfading{${mask}}{\\pgftransformshift{\\pgfpoint{0.5*${T(w)}+6bp}{0.5*${T(bh)}-4bp}}} \\pgfusepath{fill} \\end{pgfscope} `
+    + `{\\pgfsetcolor{lower.bg}}\\pgfpathqmoveto{-4bp}{1bp} \\pgfpathqcurveto{-4bp}{-1.2bp}{-2.2bp}{-3bp}{0bp}{-3bp} \\pgfpathlineto{\\pgfpoint{${T(w)}}{-3bp}} \\pgfpathcurveto{\\pgfpoint{${T(dima)}}{-3bp}}{\\pgfpoint{${T(dimb)}}{-1.2bp}}{\\pgfpoint{${T(dimb)}}{1bp}}{ \\pgfpathlineto{\\pgfpoint{${T(dimb)}}{${T(h)}}} \\pgfpathlineto{\\pgfpoint{-4bp}{${T(h)}}} \\pgfusepath{fill} } \\end{pgfpicture}`
+}
+
+/** the names of the fadings the snippets declare (TeX's \pgfsmask@<name> and \pgfsmaskxform@<name> are reset between snippets) */
+const FADING_NAMES = ["fa", "fb"]
+
+/** Fadings, transparency groups, blend modes: each driver command, the page-top material, beamer's shadow. */
+const FADINGS = [
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}",
+  "\\pgfdeclarefading{fa}{ \\vrule width 20pt height 30pt depth 1pt\\hskip 2pt}\\pgfdeclarefading{fb}{\\vrule width 2pt height 1pt depth 5pt}",
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}\\begin{pgfpicture}\\pgfsetfading{fa}{}\\pgfsetfading{fa}{\\pgftransformshift{\\pgfpoint{1pt}{2pt}}\\pgftransformrotate{30}}\\end{pgfpicture}",
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}\\begin{pgfpicture}\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{3pt}{4pt}}\\pgfsetfadingforcurrentpath{fa}{}\\pgfusepath{fill}\\end{pgfpicture}",
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}\\begin{pgfpicture}\\pgfsetlinewidth{2pt}\\pgfpathmoveto{\\pgfpoint{1pt}{2pt}}\\pgfpathlineto{\\pgfpoint{1pt}{20pt}}\\pgfsetfadingforcurrentpathstroked{fa}{\\pgftransformrotate{90}}\\pgfusepath{stroke}\\pgfsetfadingforcurrentpath{fa}{}\\pgfsetfadingforcurrentpathstroked{fa}{}\\pgfpathmoveto{\\pgfpoint{1pt}{2pt}}\\pgfpathlineto{\\pgfpoint{20pt}{2pt}}\\pgfsetfadingforcurrentpath{fa}{}\\end{pgfpicture}",
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}\\begin{pgfpicture}\\pgftransformscale{2}\\pgfpathcircle{\\pgfpoint{1pt}{2pt}}{3pt}\\pgfsetfadingforcurrentpath{fa}{\\pgftransformscale{.5}}\\pgfusepath{fill}\\pgfsetfading{fa}{}\\end{pgfpicture}",
+  // a fading declared again keeps its pdfTeX mask
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}\\begin{pgfpicture}\\pgfsetfading{fa}{}\\end{pgfpicture}\\pgfdeclarefading{fa}{\\vrule width 1pt height 1pt}\\begin{pgfpicture}\\pgfsetfading{fa}{}\\end{pgfpicture}",
+  "\\begin{pgfpicture}\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{3pt}{4pt}}\\begin{pgftransparencygroup}\\pgfusepath{fill}\\end{pgftransparencygroup}\\pgfsetblendmode{multiply}\\end{pgfpicture}",
+  "\\begin{pgfpicture}\\begin{pgftransparencygroup}[isolated]\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{3pt}{4pt}}\\pgfusepath{fill}\\end{pgftransparencygroup} \\begin{pgftransparencygroup} [knockout,isolated=false] \\pgfpathcircle{\\pgfpoint{1cm}{2pt}}{3pt}\\pgfusepath{stroke} \\end{pgftransparencygroup}\\end{pgfpicture}",
+  "\\begin{pgfpicture}\\pgfsetblendmode{normal}\\pgfsetblendmode{color dodge}\\pgfsetblendmode{luminosity}\\pgfsetblendmode{normal}{\\pgfsysprotocol@bufferedtrue\\pgfsetblendmode{hard light}}\\pgfsys@stroke\\end{pgfpicture}",
+  "\\pgfdeclarefading{fa}{\\vrule width 10pt height 3pt depth 1pt}\\begin{pgfpicture}\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{3pt}{4pt}}\\begin{pgftransparencygroup}\\pgfsetfading{fa}{}\\pgfusepath{fill}\\end{pgftransparencygroup}\\pgfsys@defobject{o}{\\pgfpointorigin}{\\pgfpointorigin}{}\\end{pgfpicture}\\pgfdeclarefading{fb}{}",
+  // a shading's form, written already, is not written again with the mask of a fading that shows it
+  "\\pgfdeclarehorizontalshading{h}{1cm}{rgb(0pt)=(1,0,0); rgb(2cm)=(0,0,1)}\\pgfdeclarefading{fa}{\\pgfuseshading{h}}\\pgfdeclarefading{fb}{\\pgfuseshading{h}}\\begin{pgfpicture}\\pgfsetfading{fa}{}\\pgfsetfading{fb}{}\\end{pgfpicture}",
+  // errors: an undefined fading, an unknown blend mode
+  "\\begin{pgfpicture}\\pgfsetfading{nothing}{}\\end{pgfpicture}",
+  "\\begin{pgfpicture}\\pgfsetblendmode{nothing}\\end{pgfpicture}",
+  // beamer's shadow: a block (the ≥ 9.5bp branch), a box with no title, a low box (the other branch)
+  beamerShadow("342.29536pt", "30.13pt", "12.5pt"),
+  beamerShadow("100pt", "1.5pt", "-4.5pt", "dark"),
+  beamerShadow("51.7pt", "8pt", "-4.5pt"),
 ]
 
 function rng(seed: number) {
@@ -568,6 +633,58 @@ export function makeObjects(n: number, seed: number): string[] {
   })
 }
 
+/** Random fadings, transparency groups and blend modes: fadings of rules and pictures, used under transformations and for paths. */
+export function makeFadings(n: number, seed: number): string[] {
+  const r = rng(seed * 32452843 + 5)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const dim = () => `${int(0, 40)}.${int(0, 99)}${pick(["pt", "bp", "mm"])}`
+  const sdim = () => `${pick(["", "-"])}${dim()}`
+  const point = () => `\\pgfpoint{${sdim()}}{${sdim()}}`
+  const transform = () => Array.from({ length: int(0, 2) }, () => pick([
+    () => `\\pgftransformshift{${point()}}`, () => `\\pgftransformrotate{${int(-180, 180)}}`, () => `\\pgftransformscale{${pick(["2", ".5", "1.25"])}}`,
+    () => `\\pgftransformxscale{${pick(["2", ".5", "-1"])}}`,
+  ])()).join("")
+  const rule = () => `\\vrule${pick(["", ` width ${dim()}`])}${pick(["", ` height ${dim()}`])}${pick(["", ` depth ${dim()}`])}`
+  const body = () => Array.from({ length: int(0, 3) }, () => pick([
+    rule, () => `\\hskip ${sdim()}`, () => " ", () => "\\pgfuseshading{sh}",
+    () => `\\begin{pgfpicture}\\pgfpathrectangle{${point()}}{${point()}}\\pgfusepath{${pick(["fill", "stroke"])}}\\end{pgfpicture}`,
+  ])()).join("")
+  const names = ["fa", "fb"]
+  const path = () => pick([
+    () => `\\pgfpathrectangle{${point()}}{${point()}}`, () => `\\pgfpathcircle{${point()}}{${dim()}}`,
+    () => `\\pgfpathmoveto{${point()}}\\pgfpathlineto{${point()}}`, () => "",
+  ])()
+  const modes = ["normal", "multiply", "screen", "overlay", "darken", "lighten", "color dodge", "color burn", "hard light", "soft light", "difference", "exclusion", "saturation", "color", "hue", "luminosity"]
+  const inPicture = (depth: number): string => {
+    let out = ""
+    for (let k = int(1, 5); k > 0; k--) {
+      out += pick([
+        () => `\\pgfsetfading{${pick(names)}}{${transform()}}`, path,
+        () => `${path()}\\pgfsetfadingforcurrentpath${pick(["", "stroked"])}{${pick(names)}}{${transform()}}`,
+        () => `\\pgfusepath{${pick(["stroke", "fill", "discard"])}}`, () => `\\pgfsetlinewidth{${dim()}}`, () => `\\pgfsetblendmode{${pick(modes)}}`,
+        () => `\\pgftransformrotate{${int(-90, 90)}}`, () => " ",
+        () => (depth < 1 ? `\\begin{pgftransparencygroup}${pick(["", "[isolated]", "[knockout]", "[isolated,knockout=true]", " [isolated=false]", "[knockout=false]"])}${inPicture(depth + 1)}\\end{pgftransparencygroup}` : ""),
+        () => (depth < 1 ? `\\begin{pgfscope}${inPicture(depth + 1)}\\end{pgfscope}` : ""), () => (depth < 1 ? `{${inPicture(depth + 1)}}` : ""),
+      ])()
+    }
+    return out
+  }
+  return Array.from({ length: n }, () => {
+    let out = "\\pgfdeclareverticalshading{sh}{1cm}{gray(0pt)=(0); gray(1cm)=(1)}" + names.map((f) => `\\pgfdeclarefading{${f}}{${body()}}`).join(pick(["", " "]))
+    for (let k = int(1, 4); k > 0; k--) {
+      out += pick([
+        // (a body beginning with a brace would be the old syntax's bounding box)
+        () => `\\begin{pgfpicture}\\pgftransformrotate{${int(-90, 90)}}${inPicture(0)}\\end{pgfpicture}`, () => " ",
+        () => `\\pgfdeclarefading{${pick(names)}}{${body()}}`,
+        // (a shading's form is written at once: one object in pdfTeX's object stream, between others)
+        () => `\\pgfdeclarehorizontalshading{sh}{${dim()}}{rgb(0pt)=(1,0,0); rgb(1cm)=(0,0,1)}`,
+      ])()
+    }
+    return out
+  })
+}
+
 /** The snippet's commands on a driver: TeX's tokens as the snippet has them (spaces after a control word skipped). */
 export function runSnippet(source: string, driver: PgfDriver, colors: Colors, text: PgfText = TEXT): void {
   let src = source
@@ -585,8 +702,41 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
   // the shape keys (\pgfset), local
   let keys = SHAPE_KEYS
   const keyStack: PgfShapeKeys[] = []
-  const begingroup = () => { s.begingroup(); saved.push(new Map()); keyStack.push(keys) }
-  const endgroup = () => { s.endgroup(); for (const [reg, b] of saved.pop() ?? []) boxes.set(reg, b); keys = keyStack.pop() ?? keys }
+  // \selectcolormodel{gray}, local: the colours the snippets use in it are gray already (xcolor's conversion is not modelled)
+  let gray = false
+  const grayStack: boolean[] = []
+  // xcolor's current colour (\color, local), which a picture sets first
+  let current = xcolor.normal
+  const currentStack: string[] = []
+  const spec = (e: string) => {
+    const v = colors.spec(e)
+    if (gray && !v.startsWith("gray ")) throw new Error(`pgf:check: ${e} converted to gray`)
+    return v
+  }
+  const begingroup = () => { s.begingroup(); saved.push(new Map()); keyStack.push(keys); grayStack.push(gray); currentStack.push(current) }
+  const endgroup = () => { s.endgroup(); for (const [reg, b] of saved.pop() ?? []) boxes.set(reg, b); keys = keyStack.pop() ?? keys; gray = grayStack.pop() ?? gray; current = currentStack.pop() ?? current }
+  // a node's text: \pgfuseshading in \pgfinterruptpicture, or the engine's text
+  const hlist: PgfText = {
+    hlist: (t) => {
+      const m = t.trim().match(/^\\pgfuseshading\{([^{}]*)\}$/)
+      if (!m) return text.hlist(t)
+      const [outer, picture] = [s.out, s.inPicture]
+      s.out = []
+      s.inPicture = false
+      pgfUseShading(s, driver, m[1], colors)
+      const nodes = s.out
+      ;[s.out, s.inPicture] = [outer, picture]
+      return nodes
+    },
+  }
+  /** a dimension as TeX scans it after \hskip or a rule's keyword */
+  const dimension = () => {
+    skipSpaces()
+    const m = src.slice(i).match(/^[-+]?(?:\d+\.?\d*|\.\d+)\s*(?:pt|bp|cm|mm|in|sp|pc|dd|cc)\s?/)
+    if (!m) throw new Error(`pgf:check: dimension at ${src.slice(i)}`)
+    i += m[0].length
+    return a.dimen(m[0].trim())
+  }
   let i = 0
   const skipSpaces = () => { while (/\s/.test(src[i] ?? "")) i++ }
   const controlWord = () => {
@@ -677,8 +827,14 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
   const pt = (src: string) => () => point(src)
   const environments: Record<string, [() => void, () => void]> = {
     // \pgfutil@ifnextchar skips the spaces; a brace begins the old syntax's bounding box
-    pgfpicture: [() => { skipSpaces(); beginPgfPicture(s, driver, xcolor.normal, src[i] === "{" ? strs(4) as [string, string, string, string] : undefined) }, () => endPgfPicture(s, driver)],
+    pgfpicture: [() => { skipSpaces(); beginPgfPicture(s, driver, current, src[i] === "{" ? strs(4) as [string, string, string, string] : undefined) }, () => endPgfPicture(s, driver)],
     pgfscope: [() => beginPgfScope(s, driver), () => endPgfScope(s, driver)],
+    pgftransparencygroup: [() => {
+      skipSpaces()
+      let options = ""
+      if (src[i] === "[") { const j = src.indexOf("]", i); options = src.slice(i + 1, j); i = j + 1 }
+      beginPgfTransparencyGroup(s, options)
+    }, () => endPgfTransparencyGroup(s, driver)],
   }
   const environment = (k: 0 | 1) => {
     const name = arg()
@@ -732,7 +888,7 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     pgfsetbuttcap: ignoring(() => driver.cap("butt")), pgfsetroundcap: ignoring(() => driver.cap("round")), pgfsetrectcap: ignoring(() => driver.cap("rect")),
     pgfsetmiterjoin: ignoring(() => driver.join("miter")), pgfsetroundjoin: ignoring(() => driver.join("round")), pgfsetbeveljoin: ignoring(() => driver.join("bevel")),
     pgfseteorule: ignoring(() => { s.sw.eoRule = true }), pgfsetnonzerorule: ignoring(() => { s.sw.eoRule = false }),
-    pgfnode: () => { const [shape, anchor, t, name, use] = strs(5); pgfNode(s, driver, text, shape, anchor, t, name, () => exec(use), keys) },
+    pgfnode: () => { const [shape, anchor, t, name, use] = strs(5); pgfNode(s, driver, hlist, shape, anchor, t, name, () => exec(use), keys) },
     pgfmultipartnode: () => {
       const [shape, anchor, name, use] = strs(4)
       pgfMultipartNode(s, driver, shape, anchor, name, () => exec(use), keys, boxes.get("\\pgfnodeparttextbox") ?? null)
@@ -752,7 +908,7 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
         }
         i = end + 1
       }
-      pgfText(s, driver, text, options, arg())
+      pgfText(s, driver, hlist, options, arg())
       skipSpaces() // (\pgf@collectresetcolor's \pgfutil@ifnextchar)
     },
     pgfset: () => { keys = setKeys(keys, arg()) },
@@ -762,14 +918,32 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     pgfpathqcurveto: () => { const [p, q, u, v, x, y] = strs(6); pgfPathQCurveTo(s, p, q, u, v, x, y) },
     pgfusepathqstroke: () => pgfUsePathQStroke(s, driver), pgfusepathqfill: () => pgfUsePathQFill(s, driver),
     pgfusepathqfillstroke: () => pgfUsePathQFillStroke(s, driver), pgfusepathqclip: () => pgfUsePathQClip(s, driver),
+    pgfdeclarefading: () => { const name = arg(); const body = arg(); pgfDeclareFading(s, driver, name, (color) => { const outer = current; current = color; exec(body.replace(/^\s+/, "")) /* \ignorespaces */; current = outer }, colors) },
+    pgfsetfading: () => { const name = arg(); const code = arg(); pgfSetFading(s, driver, name, () => exec(code)) },
+    pgfsetfadingforcurrentpath: () => { const name = arg(); const code = arg(); pgfSetFadingForCurrentPath(s, driver, name, () => exec(code)) },
+    pgfsetfadingforcurrentpathstroked: () => { const name = arg(); const code = arg(); pgfSetFadingForCurrentPath(s, driver, name, () => exec(code), true) },
+    pgfsetblendmode: () => pgfSetBlendMode(s, driver, arg()),
+    selectcolormodel: () => { const m = arg(); if (m !== "gray") throw new Error(`pgf:check: model ${m}`); gray = true },
+    hskip: () => { s.out.push(glue(dimension())); skipSpaces() }, // (looking for `plus`)
+    vrule: () => {
+      const rule: RuleNode = { kind: "rule", width: 26214, height: null, depth: null }
+      for (;;) {
+        skipSpaces()
+        const m = src.slice(i).match(/^(width|height|depth)/)
+        if (!m) break
+        i += m[0].length
+        rule[m[1] as "width" | "height" | "depth"] = dimension()
+      }
+      s.out.push(rule)
+    },
   }
   const commands: Record<string, () => void> = {
     ...basic, begingroup, endgroup, setbox,
     "pgfsysprotocol@bufferedtrue": () => { s.sw.buffered = true }, "pgfsysprotocol@bufferedfalse": () => { s.sw.buffered = false },
     "pgfsysprotocol@flushcurrentprotocol": () => driver.flush(),
-    pgfsetstrokecolor: () => { const e = arg(); pgfSetStrokeColor(driver, colors.spec(e), isColorName(e)) },
-    pgfsetfillcolor: () => { const e = arg(); pgfSetFillColor(driver, colors.spec(e), isColorName(e)) },
-    pgfsetcolor: () => { const e = arg(); pgfSetColor(driver, colors.spec(e), isColorName(e)) },
+    pgfsetstrokecolor: () => { const e = arg(); pgfSetStrokeColor(driver, spec(e), isColorName(e)) },
+    pgfsetfillcolor: () => { const e = arg(); pgfSetFillColor(driver, spec(e), isColorName(e)) },
+    pgfsetcolor: () => { const e = arg(); pgfSetColor(driver, spec(e), isColorName(e)) },
   }
   const exec = (code: string) => {
     const [outerSrc, outerI] = [src, i]
@@ -836,17 +1010,29 @@ function setKeys(keys: PgfShapeKeys, list: string): PgfShapeKeys {
 /** a node's text as the engine typesets it: article's \normalfont at 10pt */
 const TEXT: PgfText = { hlist: (src) => hlistInput(src, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }) }
 
-/** TeX's box for each snippet (or its error), from one run per target, cached while the snippets stay the same */
-function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
+/** what TeX shows for a snippet: its box (or its error), the page-top material and pdfTeX's forms made of boxes, and pdfTeX's last object */
+interface TexResult { box?: BoxNode | string; pageTop?: BoxNode; forms?: BoxNode; lastObject?: number }
+
+/** TeX's results for each snippet, from one run per target, cached while the snippets stay the same */
+function texBoxes(t: Target, snippets: string[]): TexResult[] {
   mkdirSync(DIR, { recursive: true })
   const tex = [
-    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta}", "\\newbox\\pgfcheckbox", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
-    "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}", "\\makeatletter",
+    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta}", "\\newbox\\pgfcheckbox", "\\newbox\\pgfcheckforms", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
+    "\\showboxdepth=100 \\showboxbreadth=100000 \\hoffset=3.5pt", "\\begin{document}", "\\makeatletter",
     // (each snippet instantiates its arrow tips afresh, as the engine does)
     "\\let\\pgfcheck@fullname\\pgf@arrow@fullname\\def\\pgf@arrow@fullname#1{\\pgfcheckn @\\pgfcheck@fullname{#1}}",
-    // (the protocol, the last moveto and the objects' count are global: what one snippet leaves must not reach the next;
-    // an empty paragraph resets TeX's count of errors, which stops the run at 100)
-    ...snippets.map((x, i) => `\\noindent\\par\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\ifdefined\\pgf@objectcount\\global\\pgf@objectcount=0 \\fi\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
+    // (pdfTeX's forms of fadings and transparency groups, whose boxes the pages never show, copied to a box of their own)
+    "\\ifnum\\pdfoutput>0 \\let\\pgfcheck@ffb\\pgfsys@fadingfrombox\\def\\pgfsys@fadingfrombox#1#2{\\global\\setbox\\pgfcheckforms\\hbox{\\unhbox\\pgfcheckforms\\copy#2}\\pgfcheck@ffb{#1}#2}"
+      + "\\let\\pgfcheck@tgb\\pgfsys@transparencygroupfrombox\\def\\pgfsys@transparencygroupfrombox#1{\\global\\setbox\\pgfcheckforms\\hbox{\\unhbox\\pgfcheckforms\\copy#1}\\pgfcheck@tgb#1}\\fi",
+    // (the protocol, the last moveto, the objects' count, the fadings are global: what one snippet leaves must not reach the next;
+    // an empty paragraph resets TeX's count of errors, which stops the run at 100; pdfTeX's next object number is shown)
+    `\\def\\pgfcheckreset{${FADING_NAMES.map((f) => `\\global\\expandafter\\let\\csname pgfsmask@${f}\\endcsname\\relax\\global\\expandafter\\let\\csname pgfsmaskxform@${f}\\endcsname\\relax`).join("")}}`,
+    // (pdfTeX's object stream brought to a known fill before a snippet that sets a fading, whose mask's number shows:
+    // objects written until one opens a stream, which then holds it and the one after, then some more: a stream fills within the snippet)
+    "\\def\\pgfchecksync{\\edef\\pgfcheck@a{\\the\\pdflastobj}\\immediate\\pdfobj{}\\ifnum\\pdflastobj=\\numexpr\\pgfcheck@a+2\\relax\\else\\expandafter\\pgfchecksync\\fi}",
+    "\\def\\pgfcheckshow{\\ifvoid\\pgfutil@abb\\else\\immediate\\write16{P:}\\showbox\\pgfutil@abb\\global\\setbox\\pgfutil@abb\\box\\voidb@x\\fi"
+      + "\\ifvoid\\pgfcheckforms\\else\\immediate\\write16{F:}\\showbox\\pgfcheckforms\\global\\setbox\\pgfcheckforms\\box\\voidb@x\\fi}",
+    ...snippets.map((x, i) => `\\noindent\\par\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\ifdefined\\pgf@objectcount\\global\\pgf@objectcount=0 \\fi\\pgfcheckreset\\ifnum\\pdfoutput>0 ${SYNCED.test(x) ? `\\immediate\\pdfobj{}\\pgfchecksync${"\\immediate\\pdfobj{}".repeat(i % 98)}` : ""}\\pdfobj reserveobjnum\\immediate\\write16{O:\\the\\pdflastobj}\\fi\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0\\pgfcheckshow`), "\\end{document}", "",
   ].join("\n")
   const file = join(DIR, `${t.name}.tex`), log = join(DIR, `${t.name}.log`)
   if (!existsSync(file) || readFileSync(file, "utf8") !== tex || !existsSync(log) || !/^(No pages of output|Output written)/m.test(readFileSync(log, "latin1"))) {
@@ -854,42 +1040,81 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
     const run = spawnSync(t.program, ["-interaction=nonstopmode", `${t.name}.tex`], { cwd: DIR, env: texEnv({ max_print_line: "100000" }), stdio: "ignore", timeout: 600_000 })
     if (run.error) throw run.error
   }
-  const out: (BoxNode | string)[] = []
+  const out: TexResult[] = snippets.map(() => ({}))
   const lines = readFileSync(log, "latin1").split("\n")
-  let cur = -1
+  let cur = -1, shown: "box" | "pageTop" | "forms" = "box"
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^C:(\d+)$/)
-    if (m) { cur = Number(m[1]); continue }
+    const m = lines[i].match(/^([COPF]):(\d*)$/)
+    if (m) {
+      if (m[1] === "C") { cur = Number(m[2]); shown = "box" }
+      else if (m[1] === "O") out[cur].lastObject = Number(m[2])
+      else shown = m[1] === "P" ? "pageTop" : "forms"
+      continue
+    }
     if (cur < 0) continue
-    if (lines[i] === "> \\box0=") { const { box, end } = parseBoxDump(lines, i + 1); if (out[cur] === undefined) out[cur] = box; i = end; continue }
-    if (lines[i].startsWith("! ") && lines[i] !== "! OK.") out[cur] = `TeX error: ${lines[i].slice(2)}`
+    const r = out[cur]
+    if (/^> \\box\d+=$/.test(lines[i])) {
+      const { box, end } = parseBoxDump(lines, i + 1)
+      if (shown !== "box") r[shown] = box
+      else if (r.box === undefined) r.box = box
+      i = end
+      continue
+    }
+    if (lines[i].startsWith("! ") && lines[i] !== "! OK.") r.box = `TeX error: ${lines[i].slice(2)}`
   }
   return out
 }
 
+/** the snippets whose pdfTeX object numbers show: those setting a fading */
+const SYNCED = /\\pgfsetfading/
+
+/** the boxes a list of nodes makes as TeX shows them, or nothing for none */
+const shownBox = (nodes: readonly LayoutNode[]) => (nodes.length ? emitBoxes(hpack([...nodes])) : undefined)
+
+/** the first difference of two boxes either of which may be missing (TeX's void box) */
+function compareShown(what: string, expected: BoxNode | undefined, actual: BoxNode | undefined): string | null {
+  if (!expected && !actual) return null
+  if (!expected || !actual) return `${what}: TeX ${expected ? "shows a box" : "has none"}, the engine ${actual ? "has one" : "has none"}`
+  const d = compareBoxLists([expected], [actual])
+  return d && `${what} ${d.path} ${d.field}\n    TeX:    ${JSON.stringify(d.expected)}\n    engine: ${JSON.stringify(d.actual)}`
+}
+
+/** the page as the harness's article has it: \hoffset 3.5pt, \strutbox .7 and .3 of \baselineskip 12pt */
+const PAGE = { hoffset: 229376, strutHeight: 550500, strutDepth: 235932 }
+
 export function pgfCheck(n: number, seed: number): number {
   const f = loadFont(dataFont("cmr10"), 10 * UNITY) // \pgfmath@selectfont: the document's \normalfont
   const units: PgfUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  const snippets = [...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...SHADINGS, ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed), ...makeArrows(n, seed), ...makeShadings(Math.ceil(n / 4), seed), ...makeObjects(Math.ceil(n / 4), seed)]
+  const snippets = [
+    ...FIXED, ...PICTURES.map((body) => `\\begin{pgfpicture}${body}\\end{pgfpicture}`), ...SHADINGS, ...FADINGS, ...makeSnippets(n, seed), ...makePictures(n, seed), ...makeNodes(n, seed),
+    ...makeArrows(n, seed), ...makeShadings(Math.ceil(n / 4), seed), ...makeObjects(Math.ceil(n / 4), seed), ...makeFadings(Math.ceil(n / 4), seed),
+  ]
   let failed = 0
   for (const t of TARGETS) {
     const tex = texBoxes(t, snippets)
     let same = 0, refused = 0
     snippets.forEach((src, i) => {
-      const expected = tex[i]
+      const expected = tex[i].box
       if (expected === undefined) throw new Error(`TeX showed no box for snippet ${i} (${DIR}/${t.name}.log)`)
       let problem: string
       try {
         const state = new PgfState(units)
         pgfArrowsMeta(state)
+        pgfSetPage(state, PAGE)
+        state.pdfLastObject = tex[i].lastObject ?? 0
+        state.pdfObjectStream = SYNCED.test(src) ? 2 + (i % 98) : 0
         const colors = new Colors()
         for (const [name, model, values] of COLORS) colors.define(name, model, values)
+        definePgfTransparent(colors)
         runSnippet(src, t.driver(state), colors)
         if (typeof expected === "string") problem = `${expected}\n    engine: no error`
         else {
-          const d = compareBoxLists([expected], [emitBoxes(hpack(state.out))])
+          const forms = pgfPdfForms(state).filter((f) => f.kind === "fading" || f.kind === "group").map((f) => f.box)
+          const d = compareShown("box", expected, emitBoxes(hpack(state.out)))
+            ?? compareShown("page top", tex[i].pageTop, shownBox(pgfPageTop(state)))
+            ?? compareShown("forms", tex[i].forms, shownBox(forms))
           if (!d) { same++; return }
-          problem = `${d.path} ${d.field}\n    TeX:    ${JSON.stringify(d.expected)}\n    engine: ${JSON.stringify(d.actual)}`
+          problem = d
         }
       } catch (e) {
         // what TeX stops at with an error (a dimension too large), the engine refuses
