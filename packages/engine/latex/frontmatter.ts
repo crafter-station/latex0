@@ -150,6 +150,13 @@ export function listOf(cx: Ctx, file: ListFile) {
   // (\@mkboth after the heading, in vertical mode: not in its title as \tableofcontents has it)
   const value = markValue([{ text: name }], true)
   if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
+  // parskip.sty's \@starttoc, as \tableofcontents has it
+  if (cx.pre.parskip) {
+    const last = v.nodes.at(-1)
+    if (last?.kind !== "glue") throw new Unsupported("parskip's \\@starttoc after no skip")
+    const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
+    v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
+  }
   for (const e of lists?.[file] ?? []) {
     if ("vspace" in e) { v.addvspace(dimen(10 * 65536)); continue }
     // ({\ignorespaces title}: a group the line's text is in, no space at its end)

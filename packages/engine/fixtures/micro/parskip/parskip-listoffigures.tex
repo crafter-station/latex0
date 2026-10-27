@@ -1,0 +1,18 @@
+% fixture: parskip/parskip-listoffigures
+% tier: T3
+% engine: document
+% covers: parskip.sty's \@starttoc in \listoffigures and \listoftables (report): \vskip-\lastskip \vskip(\lastskip plus \parskip) after the \chapter* heading, then report's \addvspace{10\p@} from each chapter
+% issue: #334
+\documentclass[11pt]{report}
+\usepackage{parskip}
+\usepackage{hyperref}
+\title{A report}
+\author{Someone}
+\date{}
+\begin{document}
+\maketitle
+\listoffigures
+\listoftables
+\chapter{One}
+Text of the chapter.
+\end{document}
