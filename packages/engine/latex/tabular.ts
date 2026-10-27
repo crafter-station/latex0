@@ -305,7 +305,7 @@ export interface TabularEnv {
   cell(text: string, state: { spaceFactor: number }): Node[]
   /** a p{width} column's \vtop (\@startpbox … \@endpbox) around an entry; `cr` is what \\[skip] puts at its end.
    *  With array.sty, `array`: the box (a \vtop for p, a \vbox for m and b) and the paragraph shape >{decl} gave */
-  pbox(text: string, width: string, cr: Node[], array?: { kind: "p" | "m" | "b"; shape: "centering" | "raggedright" | "raggedleft" | null }): BoxNode
+  pbox(text: string, width: string, cr: Node[], array?: { kind: "p" | "m" | "b"; shape: "centering" | "raggedright" | "raggedleft" | null; size?: SizeCommand }): BoxNode
   /** a \\[skip]'s dimension */
   skip(text: string): number
   /** multirow loaded */
@@ -381,9 +381,11 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     /** the entry's text, then <{decl}'s after \textonly@unskip, and >{decl}'s before, in a group of their own */
     const withDecls = (t: string) => {
       if (post) {
-        if (cr.length) throw new TabularUnsupported("a <{decl} column's entry before \\\\[skip]")
         t = t.replace(/\s+$/, "")
         if (/(?:\\(?:[hv]fil{1,2}|hss|quad|qquad|enspace|enskip|thinspace|hspace\*?\s*\{[^{}]*\}|[ ,;:!>])|~)$/.test(t)) throw new TabularUnsupported(`a <{decl} column's entry "${t.slice(-30)}"`)
+        // (after \\[skip], its \unskip and then \textonly@unskip: a second glue would go, one ending a group)
+        if (cr.length && "pmb".includes(col.align)) throw new TabularUnsupported("a <{decl} column's entry before \\\\[skip]")
+        if (cr.length && /(?:\s|\\(?:[hv]fil{1,2}|hss|quad|qquad|enspace|enskip|thinspace|hspace\*?\s*\{[^{}]*\}|[ ,;:!>])|~)\}+$/.test(t)) throw new TabularUnsupported(`a <{decl} column's entry "${t.slice(-30)}" before \\\\[skip]`)
         // (\textonly@unskip between: no ligature or kern across, and \check@icr sees no . or ,; in a formula that >{$}
         // opened, nothing: {} there would be an atom)
         t = /\$/.test(pre) ? cat(t, post) : `${t}{}${post}`
@@ -408,12 +410,20 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       if (col.align !== "r") l.push(filGlue())
       return l
     }
+    // a size in >{decl} of a p, m or b column: \insert@pcolumn puts the declarations in no group of their own, so it is
+    // still in force at the paragraph's end (its \baselineskip); with font declarations only, the whole entry is in it
+    const sizeRe = new RegExp(`\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`, "g"), hasSize = (t: string) => t.search(sizeRe) >= 0
+    let boxSize: SizeCommand | undefined
+    if ("pmb".includes(col.align) && hasSize(pre + post)) {
+      const rest = pre.replace(sizeRe, "")
+      if (hasSize(post) || !/^(?:\s*\\(?:bfseries|mdseries|itshape|slshape|scshape|upshape|rmfamily|sffamily|ttfamily|normalfont)(?![A-Za-z]))*\s*$/.test(rest)) throw new TabularUnsupported(`>{${col.pre}} on a ${col.align} column`)
+      boxSize = [...pre.matchAll(sizeRe)].at(-1)![1] as SizeCommand
+      pre = rest
+    }
     const body = withDecls(text.replace(/^\s+/, ""))
     if (col.align === "p" || col.align === "m" || col.align === "b") {
-      // (a size in >{decl} is still in force at the paragraph's end: its \baselineskip)
-      if (new RegExp(`\\\\(?:${SIZE_COMMANDS.join("|")})(?![A-Za-z])`).test(pre + post)) throw new TabularUnsupported(`>{${col.pre}} on a ${col.align} column`)
       st.spaceFactor = 1000 // (a box)
-      const box = env.pbox(body, col.width!, [], { kind: col.align, shape })
+      const box = env.pbox(body, col.width!, [], { kind: col.align, shape, ...(boxSize ? { size: boxSize } : {}) })
       if (col.align !== "m") { l.push(box, filGlue(), ...cr); return l }
       if (box.height > env.array!.strutbox.height) box.shift = Math.trunc((box.height - env.strut.height) / 2) // (\baselineskip is zero there)
       l.push(filGlue(), box, ...cr)
@@ -423,7 +433,9 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     // (an empty entry: \textonly@unskip takes the \hskip1sp, before the <{decl})
     const empty = post && !text.trim()
     if (empty && content(`{${pre}}`, { ...st }).length) throw new TabularUnsupported(`>{${col.pre}} with an empty entry`)
+    // (after \\[skip], whose \unskip took the \hskip1sp, a glue before it)
     if (!empty) l.push(glue(1))
+    else if (cr.length) unskip(l)
     l.push(...content(body, st))
     if (!post) { unskip(l); if (cr.length) unskip(l) }
     l.push(...cr)

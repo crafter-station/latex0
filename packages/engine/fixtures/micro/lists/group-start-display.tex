@@ -1,0 +1,20 @@
+% fixture: lists/group-start-display
+% tier: T3
+% engine: document
+% covers: an item's paragraph that starts with a group and holds a display: a {\color …} group right after a heading (\@item's \everypar runs in it, \clubpenalty\@M there: its footnote's lines see it) and a tabular; after the display, a footnote in a color group sees the \clubpenalty from before
+% issue: #277
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+\section{Lists}
+\begin{itemize}
+\item {\color{blue} a group with a note\footnote{The note, long enough to run over two lines of the footnote area at the foot of the page here.}} and more words
+\[ x^2 + y^2 = z^2 \]
+{\color{red} a group after the display\footnote{Another note, long enough to run over two lines in the footnote area at the foot of the page.}} here.
+\item \begin{tabular}{p{2cm}}
+a tabular entry long enough to break
+\end{tabular} and text
+\[ a = b \]
+after.
+\end{itemize}
+\end{document}

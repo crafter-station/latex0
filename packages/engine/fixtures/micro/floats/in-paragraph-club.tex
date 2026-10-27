@@ -1,0 +1,21 @@
+% fixture: floats/in-paragraph-club
+% tier: T3
+% engine: document
+% covers: a float in the paragraph right after a list that follows a run-in heading's paragraph: the heading's \clubpenalty\@M is still in force when the float is read (\@doendpe's \par resets it only at the end), so its p{width} entries break with it
+% issue: #277
+\documentclass{article}
+\begin{document}
+Some text before the heading.
+
+\paragraph{Theorem.} The heading's paragraph goes on after its title.
+\begin{center}
+centered
+\end{center}
+The paragraph after the list holds a float
+\begin{table}[!b]
+\begin{tabular}{p{2cm}}
+fifty all see them even other words
+\end{tabular}
+\end{table}
+and more text.
+\end{document}

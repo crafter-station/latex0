@@ -1,0 +1,25 @@
+% fixture: array/post-decl-skip
+% tier: T3
+% engine: document
+% covers: <{decl} columns in rows ended by \\[skip]: \@xargarraycr's \unskip, then \textonly@unskip, the <{decl} and \d@llarend, and \do@row@strut's \vrule of depth skip+\dp\@arstrutbox after them; entries ending with a group, a >{$}c<{$} column; an empty last entry, whose \hskip1sp the \unskip takes and the glue before it \textonly@unskip (the \hfil of a c column, the \tabcolsep of an l one)
+% issue: #277
+\documentclass{article}
+\usepackage{array}
+\begin{document}
+\begin{tabular}{l<{\,\%}c<{:}r<{.}>{$}c<{$}}
+alpha & b & c & x^2 \\[2pt]
+\hline
+d & e & {f} & y \\[1ex]
+g & {h} & i & \alpha \\
+\end{tabular}
+
+\begin{tabular}{c<{:}c<{.}}
+alpha & b \\[2pt]
+x & \\[2pt]
+d & e \\
+\end{tabular}
+\begin{tabular}{c<{:}l<{.}}
+alpha & b \\[2pt]
+x & \\[2pt]
+\end{tabular}
+\end{document}

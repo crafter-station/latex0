@@ -1,0 +1,41 @@
+% fixture: algorithm/here-after-heading
+% tier: T3
+% engine: document
+% covers: [H] algorithms right after a heading: \@setnobreak clears \if@nobreak in the box and \@endfloatbox's \outer@nobreak sets it again, so the text after the box is still right after the heading (no indentation, \clubpenalty\@M); two in a row; after a run-in heading
+% issue: #277
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\begin{document}
+\section{Greatest common divisor}
+\begin{algorithm}[H]
+\caption{Euclid's algorithm, with a caption long enough to run over two lines of the text width}
+\begin{algorithmic}[1]
+\State $x \gets a$ and a statement long enough to run over two lines of the algorithm, as it goes on and on
+\State $y \gets b$
+\end{algorithmic}
+\end{algorithm}
+Each step at least halves one of the numbers every two steps, so the loop runs a logarithmic number of times, and more text.
+
+Another paragraph that runs over more than one line of text, with words and more words in it, to see.
+\subsection{Two in a row}
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State $x \gets a$
+\end{algorithmic}
+\end{algorithm}
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State $y \gets b$
+\end{algorithmic}
+\end{algorithm}
+Text after them, long enough to run over two lines of the page's text width, with more words in it here.
+
+\paragraph{Run-in.}
+\begin{algorithm}[H]
+\begin{algorithmic}
+\State $x \gets a$
+\end{algorithmic}
+\end{algorithm}
+Text after it, long enough to run over two lines of the page's text width, with more words in it here.
+\end{document}

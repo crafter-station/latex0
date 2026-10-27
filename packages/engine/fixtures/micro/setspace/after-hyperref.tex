@@ -1,0 +1,12 @@
+% fixture: setspace/after-hyperref
+% tier: T3
+% engine: document
+% covers: setspace loaded after hyperref: its \@footnotetext takes the place of hyperref's, so the notes have no anchor (the marks are still links to Hfootnote.n)
+% issue: #277
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{setspace}
+\setstretch{1.2}
+\begin{document}
+Line spacing changes how many lines fit on a page.\footnote{A footnote, long enough to run over two lines of the footnote area at the foot of the page.} The marks are links.\footnote{Another one.}
+\end{document}

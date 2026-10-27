@@ -17,7 +17,11 @@ import { IGNORE_DEPTH, LOW_PENALTY } from "./vlist"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 
 /** algpseudocode's options: [noend] takes the end entities' text away (\algtext*) */
-export interface AlgorithmPackages { algorithm: boolean; algpseudocode: boolean; noend: boolean }
+export interface AlgorithmPackages {
+  algorithm: boolean; algpseudocode: boolean; noend: boolean
+  /** setspace loaded after float.sty: its \@xfloat (single spacing) runs for [H] too */
+  singleHere?: boolean
+}
 
 const kw = (w: string) => `\\textbf{${w}}`
 
@@ -86,9 +90,10 @@ interface Item { kind: "entity" | "label" | "statex"; entity?: string; label?: s
  * The algorithmic environment's lines, as \list builds them in a float (\@minipagetrue: the first \item adds
  * nothing above it): \list{\ALG@step}{… \labelwidth 1.2em (0.5em unnumbered) \labelsep 0.5em \leftmargin
  * \labelwidth+\labelsep \topsep 0.2em …}; each entity is \item (\item[] with no text) \noindent\hskip\ALG@tlm
- * and its text, \Require and \Ensure \item[\textbf{…}], \Statex \item[]. Returns \prevdepth.
+ * and its text, \Require and \Ensure \item[\textbf{…}], \Statex \item[]. Returns \prevdepth and the lines
+ * \ALG@step counted (ALG@line).
  */
-function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | null, decisions: ParagraphTrace[], noend: boolean): number | null {
+function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | null, decisions: ParagraphTrace[], noend: boolean): { prevDepth: number | null; lines: number } {
   const { amsmath } = cx.pre
   const { doc, romanFont, run } = cx
   const k = run.k
@@ -174,7 +179,7 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
   })
   // \endtrivlist: \@endparenv, \addpenalty\@endparpenalty \addvspace\@topsepadd (\topsep, with \partopsep zero)
   content.push(penalty(-LOW_PENALTY), glue(topsep))
-  return pd
+  return { prevDepth: pd, lines: line }
 }
 
 /**
@@ -184,11 +189,11 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
  * \kern2pt\hrule, \vskip\z@.
  */
 export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[], club: number, here = false): BoxNode {
-  const { algorithm, hyper, cleveref } = cx.pre
+  const { algorithm, hyper } = cx.pre
   const { counters, doc, refs, romanFont, run } = cx
   const k = run.k
   if (!algorithm.algorithm) throw new Unsupported("an algorithm float without algorithm.sty")
-  if (hyper || cleveref) throw new Unsupported(`an algorithm float with ${hyper ? "hyperref" : "cleveref"}`)
+  if (hyper) throw new Unsupported("an algorithm float with hyperref")
   const content: Node[] = []
   // ([H]: \setbox\@floatcapt=\vbox{}, so the caption's rule comes even with no caption)
   let cap: Node[] | null = here ? [] : null, number = 0, captioned = false
@@ -225,14 +230,19 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
     if (m[2] !== undefined) {
       if (!number) throw new Unsupported("\\label before the caption")
       if (!/^[A-Za-z0-9:._-]+$/.test(m[2])) throw new Unsupported(`\\label{${m[2]}}`)
-      content.push(labelWrite(refs, m[2], String(number), refs.href, refs.name), ...crefWrites(refs, m[2], false))
+      // (cleveref: the caption's \refstepcounter{algorithm}, a counter within nothing; algorithmicx's line
+      // counter is the type only in the algorithmic's group)
+      content.push(labelWrite(refs, m[2], String(number), refs.href, refs.name), ...crefWrites(refs, m[2], false, { type: "algorithm", arabic: number, prefix: "", label: String(number) }))
       continue
     }
     if (m[3] !== undefined) {
       if (listed) throw new Unsupported("two algorithmic environments in an algorithm")
       if (!algorithm.algpseudocode) throw new Unsupported("algorithmic without algpseudocode")
       listed = true
-      pd = algorithmic(cx, m[3], content, pd, decisions, algorithm.noend)
+      const alg = algorithmic(cx, m[3], content, pd, decisions, algorithm.noend)
+      pd = alg.prevDepth
+      // cleveref's algorithmicx support: \ALG@step's \refstepcounter{ALG@line}, whose \@currentHref is global
+      if (cx.pre.cleveref && alg.lines) refs.href = `ALG@line.${alg.lines}`
       continue
     }
     throw new Unsupported(`${m[0]} in an algorithm`)

@@ -50,6 +50,8 @@ export interface Preamble {
   enumitem: boolean
   /** hyperref, with the dvips driver */
   hyper: boolean
+  /** hyperref's \@footnotetext, with its anchor (setspace's, loaded after it, takes its place) */
+  hyperNotes: boolean
   /** cleveref */
   cleveref: boolean
   /** titlesec: each level's format */
@@ -112,6 +114,7 @@ export function readPreamble(src: string): Preamble {
   let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
   let fancy: FancyHdr | null = null
   let hyper = false // hyperref, with the dvips driver
+  let hyperNotes = true
   let cleveref = false
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
@@ -153,7 +156,7 @@ export function readPreamble(src: string): Preamble {
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
-    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); continue }
+    if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm) algorithm.singleHere = true; continue }
     if (setspace && setspaceCommand(setspace, line, option)) continue
     // in the preamble, \bibliographystyle writes its \bibstyle at \begin{document} (\AtBeginDocument)
     const bs = line.match(/^\\bibliographystyle\{([^{}]*)\}$/)
@@ -276,7 +279,7 @@ export function readPreamble(src: string): Preamble {
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, usesCaption, usesSubcaption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, usesCaption, usesSubcaption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

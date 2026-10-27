@@ -1,0 +1,15 @@
+% fixture: cleveref/roman-pages
+% tier: T3
+% engine: document
+% covers: cleveref's \newlabel{key@cref} under roman page numbers: its first page field is \thepage with the page counter set to 1 when the \label was read (i in book's \frontmatter, 1 in \mainmatter), the second \arabic{page}
+% issue: #277
+\documentclass{book}
+\usepackage{cleveref}
+\begin{document}
+\frontmatter
+\chapter{Preface}\label{pre}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\label{p1} Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\mainmatter
+\chapter{One}\label{c1}
+See \cref{pre} and \cref{c1}.
+\end{document}

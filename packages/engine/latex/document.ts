@@ -88,7 +88,7 @@ interface Aux { toc: TocEntry[]; labels: Map<string, { label: string; page: stri
 function layout({ src, listings, tabulars, minipages, urls, graphics }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
-  const { cls, option, usesXcolor, amsmath, hyper, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
+  const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   const run = runState(pre.k)
   const blocks = blocksOf(body)
@@ -100,7 +100,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   xcolor.normal = usesXcolor ? "gray 0" : " Black"
   outputOptions.xcolor = usesColor
   if (usesColor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
-  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, cites: prev?.cites }
+  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
@@ -121,7 +121,11 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
-  decisions.push = (...xs: ParagraphTrace[]) => { for (const _ of xs) brokenAt.push(v.nodes.length); return Array.prototype.push.apply(decisions, xs) }
+  // (a trace taken back keeps its place for what is pushed next: a paragraph whose line breaking float.sty's [H]
+  // put after its box's, all of them read before the material that has been added since)
+  let held: number | undefined
+  decisions.push = (...xs: ParagraphTrace[]) => { const at = held ?? v.nodes.length; held = undefined; for (const _ of xs) brokenAt.push(at); return Array.prototype.push.apply(decisions, xs) }
+  decisions.pop = () => { held = brokenAt.pop(); return Array.prototype.pop.call(decisions) as ParagraphTrace | undefined }
   const outerParskip = run.k.glue.parskip
   const typeset = (text: string, opts: Parameters<typeof paragraphInput>[4], parskip: GlueSpec, size: SizeCommand = "normalsize") => {
     if (displaySegments(text).length > 1) return listParagraphWithDisplays(cx, text, opts ?? {}, parskip, size)

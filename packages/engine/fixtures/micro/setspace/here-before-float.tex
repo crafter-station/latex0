@@ -1,0 +1,21 @@
+% fixture: setspace/here-before-float
+% tier: T3
+% engine: document
+% covers: an [H] algorithm with setspace loaded before float.sty (algorithm.sty): float.sty's \@float@HH does not go through setspace's \@xfloat, so the box keeps the document's \setstretch{1.5}: its caption and lines stretched
+% issue: #277
+\documentclass{article}
+\usepackage{setspace}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\setstretch{1.5}
+\begin{document}
+Euclid's algorithm replaces the larger number by its remainder modulo the smaller one until the remainder vanishes, and again.
+\begin{algorithm}[H]
+\caption{Euclid's algorithm with a caption long enough to run over two lines of the float's text width here}
+\begin{algorithmic}[1]
+\State $x \gets a$ and a statement long enough to run over two lines of the algorithm, as it goes on and on and on
+\State $y \gets b$
+\end{algorithmic}
+\end{algorithm}
+The text after it, long enough to run over two lines of the page's text width, with more words in it.
+\end{document}

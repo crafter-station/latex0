@@ -1,0 +1,35 @@
+% fixture: cleveref/algorithm
+% tier: T3
+% engine: document
+% covers: algorithm floats with cleveref: the \label after the caption writes \newlabel{key@cref}{{[algorithm][n][]n}…} (float.sty's \refstepcounter{algorithm}); cleveref's algorithmicx support refsteps ALG@line at each \ALG@step (not for \Require or \Statex), in the label's group, but its \@currentHref is global: a \label after the algorithmic, in the float or in the text, goes to ALG@line.n; \cref and \Cref to them; a ruled [H] one
+% issue: #277
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{cleveref}
+\begin{document}
+\section{Algorithms}
+\Cref{alg:a} is a float and \cref{alg:b} is here.
+\begin{algorithm}
+\caption{Euclid}\label{alg:a}
+\begin{algorithmic}[1]
+\Require two numbers
+\State $x \gets a$
+\Statex
+\State $y \gets b$
+\end{algorithmic}
+\label{alg:after}
+\end{algorithm}
+Text between them.\label{text:1}
+
+\begin{algorithm}[H]
+\caption{Two}\label{alg:b}
+\begin{algorithmic}
+\State $z \gets 0$
+\If{$z > 0$}
+\State $z \gets 1$
+\EndIf
+\end{algorithmic}
+\end{algorithm}
+More text after \cref{alg:a}.\label{text:2}
+\end{document}
