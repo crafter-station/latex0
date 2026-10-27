@@ -239,7 +239,8 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
   // (the arrow tips instantiated so far are the document's: its first picture's state keeps them)
   doc.arrows = arrowStates.get(cx.doc) ?? null
   const s = new PgfState(units)
-  const used = doc.picture(src, s, cx.driver === "pdftex" ? new PdftexDriver(s) : new DvipsDriver(s), color)
+  // (the color pgf reads as `.`: \colorlet's view of xcolor's current color)
+  const used = doc.picture(src, s, cx.driver === "pdftex" ? new PdftexDriver(s) : new DvipsDriver(s), colors.pgfColor(color))
   if (tokenize(src, false, true).slice(used).some((x) => x !== " ")) throw new Unsupported("text after a picture")
   if (doc.arrows) arrowStates.set(cx.doc, doc.arrows)
   return s.out

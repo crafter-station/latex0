@@ -85,9 +85,31 @@ function convert(c: Col, to: Model): Col {
 /** The colors of a document: xcolor's base set and \definecolor's */
 export class Colors {
   private defs = new Map<string, string>(Object.entries(BASE))
+  /** what pgf makes of a color \color[model]{…} set (\colorlet's normalized values; RGB by \rdivide), by its \special text; null when two differ */
+  private pgfViews = new Map<string, string | null>()
 
   /** a model and its values as the driver's \special text, raw (\textcolor[model]{…}) or normalized (\definecolor) */
   private modelSpec(model: string, vals: string, normalize: boolean): string {
+    const text = this.modelSpecText(model, vals, normalize)
+    if (!normalize) {
+      const view = this.modelSpecText(model, vals, true)
+      const known = this.pgfViews.get(text)
+      this.pgfViews.set(text, known === undefined || known === view ? view : null)
+    }
+    return text
+  }
+
+  /**
+   * The current color as pgf reads it (\pgfsetcolor{.}: \colorlet, then \convertcolorspec): the \special text with the
+   * values a \color[model]{…} gave normalized (\XC@calcN) and RGB divided by xcolor's \rdivide
+   */
+  pgfColor(text: string): string {
+    const v = this.pgfViews.get(text)
+    if (v === null) throw new ColorUnsupported(`the current color ${text} as pgf reads it`)
+    return v ?? text
+  }
+
+  private modelSpecText(model: string, vals: string, normalize: boolean): string {
     const n = (x: string) => (normalize ? calcN(x) : x)
     const v = values(vals)
     switch (model) {

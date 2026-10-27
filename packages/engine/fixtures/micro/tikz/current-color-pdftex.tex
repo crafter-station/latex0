@@ -1,0 +1,14 @@
+% fixture: tikz/current-color-pdftex
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a picture in a color set by \color[model]{…} (rgb, cmyk, gray with values like .5, RGB, HTML) and in mixes: pgf's \pgfsetcolor{.} reads xcolor's normalized values (\XC@calcN, RGB by \rdivide), not the driver's
+% issue: #326
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{tikz}
+\begin{document}
+x \tikz \draw[red!50] (0,0) -- (1,0); \textcolor{red!50}{a \tikz \draw (0,0) -- (1,0); b} \tikz \fill[blue!30!green] (0,0) circle (1pt); \tikz \node[text=red!50,fill=gray!50] {x};
+{\color[rgb]{.5, 0.25 ,1} how \tikz \draw (0,0) -- (1,0); \tikz \node[draw] {x};} {\color[cmyk]{0,1,.5,0} c \tikz \fill (0,0) circle (1pt);} {\color[gray]{.5} g \tikz \fill (0,0) circle (1pt);} {\color[RGB]{10,200,30} r \tikz \fill (0,0) circle (1pt);} {\color[HTML]{2CA02C} h \tikz \fill (0,0) circle (1pt);}
+\end{document}
