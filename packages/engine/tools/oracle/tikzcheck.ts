@@ -25,7 +25,7 @@ import type { PgfDriver } from "../../pgf/drivers"
 import type { PgfUnits } from "../../pgf/mathparser"
 import { PgfState } from "../../pgf/state"
 import { TikzDocument, type TikzText } from "../../tikz/path"
-import { nodeHlist } from "../../latex/tikz"
+import { nodeBaselines, nodeHlist, nodeMinipage, nodeUnits } from "../../latex/tikz"
 import { compareBoxLists, type BoxNode } from "../../trace/schema"
 import { dataFont } from "../fonts"
 import { texEnv } from "../tex"
@@ -131,11 +131,32 @@ const FIXED = [
   pic("\\node[draw] (a) {A}; \\node[draw,circle] (b) at (3,2) {B}; \\draw (a) -- (b) -- cycle (b) ellipse (6mm and 4mm) (a) circle (2mm) (a) rectangle (1,1); \\draw[red] (a) {-- (b)} -- (2,0);"),
   "\\tikz \\node[draw] {x};",
   "\\tikz \\draw (0,0) node {a} -- (1,0) node {b};",
+  // aligned lines, text widths, node fonts
+  pic("\\node[align=center] {a\\\\b}; \\node[align=right,draw] at (2,0) {ab \\\\ c\\\\[2pt] d e\\\\[-1ex] f \\\\ $x^2$ yy};"),
+  pic("\\node[align=flush center,font=\\small] {one\\\\two lines\\\\}; \\node[align=flush right,font=\\footnotesize\\bfseries,circle,draw] at (2,0) {\\\\ x \\\\[1mm]};"),
+  pic("\\node[align=justify,text=red,draw=blue] {a b \\\\c}; \\node[align=none] at (1,0) {a b c}; \\node[align=left] at (2,0) {a };"),
+  pic("\\node[align=center,font=\\Large] {Ag\\\\ \\\\ y}; \\node[align=center] at (2,0) {{a\\\\b}}; \\node[node font=\\Large\\bfseries,font=\\itshape,draw,align=center] at (4,0) {x\\\\[1ex]y};"),
+  pic("\\node[draw] (a) {Long\\\\line}; \\draw (a) -- (2,1) node[right] {p\\\\q};", "[every node/.style={align=center}]"),
+  pic("\\node[text width=2cm] {some longer text that breaks over lines}; \\node[draw,text width=3cm,align=center] at (3,0) {A centered node. With sentences, commas and more words here};"),
+  pic("\\node[draw,text width=25mm,align=right,font=\\small] {Right aligned text in a small font here, yes.}; \\node[draw,text width=2cm,align=justify] at (3,0) {Justified text that goes on for a while to break};"),
+  pic("\\node[draw,text width=2cm,align=flush center] {Flush center text that goes on}; \\node[draw,text width=2cm,align=flush left] at (3,0) {Flush left text that goes on and on}; \\node[draw,text width=2cm,align=flush right] at (6,0) {Flush right text that goes on and on};"),
+  pic("\\node[draw,text width=4em,node font=\\footnotesize] {Text in a footnote size font}; \\node[draw,text width=1cm] at (2,0) {x}; \\node[draw,text width=1cm] at (3,0) {};"),
+  pic("\\node[draw,text width=15mm,circle,align=center] {In a circle~here \\ and there}; \\node[draw,text width=2cm,font=\\bfseries] at (3,0) {Bold. Words: yes; extraordinarily long};"),
+  pic("\\node[fill=blue,text=white,text width=2cm,align=center] {White text on blue that breaks }; \\node[text=red,text width=2cm] at (3,0) {Red text }; \\node[text=red,align=center] at (5,0) {Red\\\\text };"),
+  pic("\\node[draw,text width=2cm,align=center] {Line one\\\\ line two and more words}; \\node[draw,text width=2cm,align=justify] at (3,0) {Line one\\\\ line two and more words}; \\node[draw,text width=2cm] at (6,0) {Line one \\\\ line two\\\\three};"),
+  pic("\\node[node font=\\small,draw,minimum size=2em] {x}; \\node[node font=\\small,font=\\large,draw] at (1,0) {Ag};"),
+  pic("\\node (a) {A}; \\node[right=1em of a,xshift=1em] (b) {B}; \\draw (a) -- node[above,node font=\\tiny] {e} (b);", "[every node/.style={node font=\\footnotesize,draw}]"),
+  // labels
+  pic("\\node[draw,label=x] {A}; \\node[draw,label=right:x,label=below left:{$y$}] at (2,0) {A};"),
+  pic("\\node[circle,draw,label={[red,font=\\small]30:lab},label=center:c] at (1,2) {Abc}; \\node[draw,label distance=3pt,label=left:x,label={[label distance=1mm]-45:q}] {A};"),
+  pic("\\node[draw,label=north:N,label=:X] (a) {A}; \\draw (a) -- (2,0) node[label=above:e] {}; \\coordinate[label=below:c] (c) at (1,1); \\draw (c) -- (a);", "[every label/.style={draw,blue}]"),
+  pic("\\draw (0,0) -- node[label=above:mid] {m} (2,0) -- (2,2) node[draw,label=right:end] {E}; \\draw (0,0) node[label=x] {} -- (1,1) node[draw,label={[anchor=west]east:w}] {} |- (3,3);"),
+  pic("\\node[draw,label=above:x] {A}; \\node[draw,label=right:r,transform shape] at (2,0) {B}; \\node[draw,label={above:a:b},label position=below,label=d] at (4,0) {C};", "[rotate=30]"),
 ]
 
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
-  pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[text width=2cm] {x};"), pic("\\node[node font=\\small] {x};"), pic("\\node[ellipse] {x};"),
+  pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[ellipse] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
 pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
   pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in {1,2} \\draw (\\x,0) -- (0,0);"),
   pic("\\draw (0,0) .. controls (1,1) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
@@ -188,16 +209,19 @@ export function makePictures(n: number, seed: number): string[] {
     const options = () => (r() < 0.5 ? "" : `[${Array.from({ length: int(1, 3) }, option).join(",")}]`)
     const name = () => { const x = `${pick(["a", "b", "c", "p", "q"])}${k}`; pending.push(x); return x }
     // nodes: their text, options (shape, sizes, colors, placement, a label's position, positioning) and names
-    const nodeText = () => pick(["x", "Ab", "$y$", "a b", "", "fi"])
+    const nodeText = () => pick(["x", "Ab", "$y$", "a b", "", "fi", "Some words, in a line."])
     const nodeOption = () => pick([
       () => pick(["draw", "fill=red!20", "circle", "rectangle", "inner sep=2pt", "minimum size=5mm", "minimum width=1cm", "outer sep=1pt", "rounded corners", "thick", "red", "text=blue", "draw=mine", "font=\\small", "font=\\bfseries"]),
       () => pick(["anchor=north", "anchor=south west", "anchor=30", "above", "below left", "right=2pt", "left=1mm", "above right=3pt and 1pt"]),
       () => pick(["pos=0.3", "near end", "near start", "midway", "at end", "sloped", "auto", "auto,swap", "transform shape"]),
+      () => pick(["align=center", "align=left", "align=flush right", "text width=1cm", "text width=15mm,align=center", "node font=\\small", "node font=\\large\\itshape",
+        "label=l", "label=below:{$z$}", "label={[red]30:q}", "label=center:c", "label distance=2pt,label=left:m", "label={[draw]south east:se}"]),
       transform,
       () => (names.length ? pick([`right=of ${pick(names)}`, `below=2mm of ${pick(names)}`, `right of=${pick(names)}`, `above left=of ${pick(names)}`]) : "draw"),
     ])()
     const nodeOptions = () => (r() < 0.3 ? "" : `[${Array.from({ length: int(1, 3) }, nodeOption).join(",")}]`)
-    const node = () => `node${nodeOptions()}${r() < 0.3 ? ` (${name()})` : ""} {${nodeText()}}`
+    // (\\ only where lines are set: align= or a text width; elsewhere it is LaTeX's error in a paragraph)
+    const node = () => { const o = nodeOptions(); return `node${o}${r() < 0.3 ? ` (${name()})` : ""} {${/align|text width/.test(o) && r() < 0.5 ? "a\\\\b" : nodeText()}}` }
     const operation = (): string => pick([
       () => ` -- ${target()}`, () => ` -- ${target()}`, () => ` -| ${coord()}`, () => ` |- ${coord()}`, () => ` rectangle ${target()}`,
       () => ` circle (${pick([len, num])()})`, () => ` ellipse (${num()} and ${num()})`, () => ` circle[radius=${pick([len, num])()}${r() < 0.3 ? `,${transform()}` : ""}]`,
@@ -261,7 +285,12 @@ function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
 }
 
 /** a node's text as the engine typesets it: article's \normalfont at 10pt */
-const TEXT: TikzText = { hlist: (text, font) => nodeHlist(text, font, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, false) }
+const TEXT: TikzText = {
+  hlist: (text, font) => nodeHlist(text, font, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, false),
+  baselines: (font) => nodeBaselines(font, classData("article", "10pt"), "normalsize"),
+  units: (font) => nodeUnits(font, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }),
+  minipage: (text, nodeFont, textFont, width, action, before, after) => nodeMinipage(text, nodeFont, textFont, width, action, before, after, classData("article", "10pt"), "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, false, { notes: [], club: 150, widow: 150, finalHyph: 5000 }),
+}
 
 /** TikZ in the check's document (its arrow tips instantiated once, as TeX's are) */
 function tikzDocument(units: PgfUnits): TikzDocument {

@@ -183,13 +183,14 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // (footnotes read in such a color group, and a leading tabular's p{width} entries, see its \clubpenalty, which the
     // group's end takes back)
     let leadNoteClub: number | undefined
+    cx.doc.vmodeClub = v.club
     if (v.afterheadingEverypar) {
       // \@afterheading's \everypar: \clubpenalty\@M and no indentation unless \@afterindent; later, \@clubpenalty
       if (v.nobreak) { v.nobreak = false; noindent = !v.afterindent; if (!grouped) v.club = 10000; else leadNoteClub = 10000 }
       else if (!grouped) { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
       else leadNoteClub = run.k.ints.clubpenalty
     }
-    paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined)
+    try { paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined) } finally { delete cx.doc.vmodeClub }
     return
   }
   if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }

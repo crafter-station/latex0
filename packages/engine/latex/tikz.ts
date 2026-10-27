@@ -6,7 +6,7 @@
 // nodes and coordinates are global: a later picture reaches an earlier one's (as TeX does without `remember
 // picture`, at the same coordinates in its own picture).
 
-import { kern, ssGlue, type BoxNode, type Node } from "../layout/nodes"
+import { emptyBox, glue, kern, paramGlue, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { DvipsDriver } from "../pgf/drivers/dvips"
 import { DVIPS_HEADER } from "../pgf/drivers/dvipsheader"
@@ -19,10 +19,17 @@ import { PdftexDriver } from "../pgf/drivers/pdftex"
 import type { PgfNodeRecord } from "../pgf/shapes"
 import { PgfState } from "../pgf/state"
 import { TikzDocument } from "../tikz/path"
+import type { Baselines } from "../tikz/text"
 import { tokenize } from "../tikz/tokens"
 import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../layout/classdata"
 import type { Ctx } from "./context"
-import { DECLARATIONS, hlistInput, type DocState, type FontAttrs } from "./paragraph"
+import { QUAD, X_HEIGHT } from "../layout/font"
+import { appendToVlist, DECLARATIONS, fontDeclaration, hlistInput, paragraphInput, selectFont, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "./paragraph"
+import { lineBreak } from "../layout/linebreak"
+import { parseDimen } from "../layout/dimen"
+import { sloppy } from "./kernel"
+import { vtop } from "./tabular"
+import type { TextAction } from "../tikz/options"
 import { Unsupported } from "./unsupported"
 import type { Colors } from "./xcolor"
 
@@ -87,12 +94,8 @@ const nodeRegistries = new WeakMap<object, Map<string, PgfNodeRecord>>()
  */
 export function nodeHlist(text: string, font: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, amsmath: boolean): Node[] {
   let src = `{${text}}`
-  const decls: string[] = []
-  for (const m of font.matchAll(/\\([A-Za-z]+)\s*|(\S)/g)) {
-    if (m[1] && (SIZE_COMMANDS as readonly string[]).includes(m[1])) size = m[1] as SizeCommand
-    else if (m[1] && DECLARATIONS.includes(m[1])) decls.push(m[1])
-    else throw new Unsupported(`tikz: font=${font}`)
-  }
+  const decls = fontOption(font)
+  size = decls.size ?? size
   if (decls.length) src = `{${decls.map((d) => `\\${d} `).join("")}${src}}`
   if (/\\(?:footnote|label|par)(?![A-Za-z])/.test(text)) throw new Unsupported(`a node's text "${text.trim().slice(0, 40)}"`)
   try { return hlistInput(src, k, size, doc, attrs, { spaceFactor: 1000 }, amsmath, undefined, true) } catch (e) {
@@ -101,8 +104,117 @@ export function nodeHlist(text: string, font: string, k: ClassOptionData, size: 
   }
 }
 
+/** a font option's commands: the declarations (\bfseries …) in order, and the last size command */
+function fontOption(font: string): string[] & { size?: SizeCommand } {
+  const decls: string[] & { size?: SizeCommand } = []
+  for (const m of font.matchAll(/\\([A-Za-z]+)\s*|(\S)/g)) {
+    if (m[1] && (SIZE_COMMANDS as readonly string[]).includes(m[1])) decls.size = m[1] as SizeCommand
+    else if (m[1] && DECLARATIONS.includes(m[1])) decls.push(m[1])
+    else throw new Unsupported(`tikz: font=${font}`)
+  }
+  return decls
+}
+
+/** \baselineskip, \lineskip and \lineskiplimit in a node's text: the size's, or the font option's size command's */
+export function nodeBaselines(font: string, k: ClassOptionData, size: SizeCommand): Baselines {
+  size = fontOption(font).size ?? size
+  return { baselineskip: k.sizes[size].baselineskip, lineskip: k.glue.lineskip, lineskiplimit: k.dimens.lineskiplimit }
+}
+
+/** em and ex after a font option's commands (pgfmath's \pgfmath@selectfont, LaTeX's \selectfont) */
+export function nodeUnits(font: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs): { em: number; ex: number } {
+  const decls = fontOption(font)
+  for (const d of decls) attrs = fontDeclaration(d, attrs, k, decls.size ?? size, doc)!
+  const f = selectFont(k, decls.size ?? size, attrs)
+  return { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
+}
+
+/**
+ * A node's text with a text width (tikz.code.tex 3882–3891, 3925–3929): \minipage[t]{width}\leavevmode\hbox{}, the
+ * font option's commands and the text action (`action`'s skips, \spaceskip and \xspaceskip in that font), the text,
+ * \unskip, \endminipage; `nodeFont` is where the minipage starts (its \sloppy's em). The paragraph's trace joins
+ * `outer`'s, as a minipage's does.
+ */
+export function nodeMinipage(text: string, nodeFont: string, textFont: string, width: number, action: TextAction, before: Node[], after: Node[], k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, amsmath: boolean, outer: TabularOuter): BoxNode {
+  if (/\\(?:par(?![A-Za-z])|footnote|label|begin|item)|\n\s*\n/.test(text)) throw new Unsupported(`a node's text with a text width "${text.trim().slice(0, 40)}"`)
+  const node = fontOption(nodeFont)
+  for (const d of node) attrs = fontDeclaration(d, attrs, k, node.size ?? size, doc)!
+  size = node.size ?? size
+  const em = selectFont(k, size, attrs).params[QUAD] // (\@parboxrestore's \sloppy)
+  const decls = fontOption(textFont)
+  for (const d of decls) attrs = fontDeclaration(d, attrs, k, decls.size ?? size, doc)!
+  size = decls.size ?? size
+  const tf = selectFont(k, size, attrs), env = { em: tf.params[QUAD], ex: tf.params[X_HEIGHT] }
+  const skip = (param: string, stretch = 0, order: 0 | 1 = 0) => paramGlue(param, glue(0, stretch, order))
+  const plus2em = (param: string) => skip(param, parseDimen("2em", env))
+  const fixed = (v: string) => ({ width: parseDimen(v, env), stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } as const)
+  const spaces = { spaceSkips: { space: fixed(".3333em"), xspace: fixed(".5em") } }
+  // \pgfutil@raggedright and …left are \raggedright and \raggedleft (\finalhyphendemerits zero); \@parboxrestore's \parfillskip is \@flushglue
+  const shapes: Record<TextAction, Partial<ParagraphOptions>> = {
+    ragged: { leftSkip: skip("leftskip"), rightSkip: plus2em("rightskip"), finalHyphenDemerits: 0, ...spaces },
+    "badly ragged": { leftSkip: skip("leftskip"), rightSkip: skip("rightskip", 65536, 1), finalHyphenDemerits: 0 },
+    "ragged left": { leftSkip: plus2em("leftskip"), rightSkip: skip("rightskip"), parFillSkip: skip("parfillskip"), finalHyphenDemerits: 0, ...spaces },
+    "badly ragged left": { leftSkip: skip("leftskip", 65536, 1), rightSkip: skip("rightskip"), parFillSkip: skip("parfillskip"), finalHyphenDemerits: 0 },
+    justified: { leftSkip: skip("leftskip"), rightSkip: skip("rightskip") },
+    centered: { leftSkip: plus2em("leftskip"), rightSkip: plus2em("rightskip"), parFillSkip: skip("parfillskip"), ...spaces },
+    "badly centered": { leftSkip: skip("leftskip", 65536, 1), rightSkip: skip("rightskip", 65536, 1), parFillSkip: skip("parfillskip") },
+  }
+  // \\ is \@centercr but in justified text (\@parboxrestore's \@normalcr): \unskip\par, then \addvspace{-\parskip} (a
+  // \vskip of zero after a line), and the next paragraph, its indentation \parindent (zero)
+  const parts = action === "justified" ? [text] : centercrSplit(text)
+  const sz = k.sizes[size]
+  const list: Node[] = []
+  let pd: number | null = null
+  parts.forEach((part, i) => {
+    const last = i === parts.length - 1
+    // (new_graf's \parskip, and LaTeX's restart of the paragraph adds it again)
+    if (i > 0) list.push(glue(0), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+    let p: ReturnType<typeof paragraphInput>
+    try {
+      p = paragraphInput(part, k, size, doc, {
+        attrs, hsize: width, start: i === 0 ? [emptyBox("hlist", 0), emptyBox("hlist", 0), ...before] : [emptyBox("hlist", 0)], amsmath, ...sloppy(em),
+        clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, finalHyphenDemerits: outer.finalHyph, ...shapes[action],
+        // (the group's \aftergroup\unskip comes before the color's \reset@color)
+        unskip: 1, end: last ? after : [],
+      })
+    } catch (e) {
+      if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a node's text "${text.trim().slice(0, 40)}"`)
+      throw e
+    }
+    const lb = lineBreak(p.list, p.params)
+    outer.notes.push(...p.notes, lb.trace)
+    for (const x of lb.vlist) {
+      if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+      else list.push(x)
+    }
+  })
+  return vtop(list) // (\endminipage's \unskip finds a line)
+}
+
+/** text at each \\ outside braces; \\* and \\[…], and an empty last part (\\ at the end) are not modeled */
+function centercrSplit(text: string): string[] {
+  const parts: string[] = []
+  let depth = 0, from = 0
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i]
+    if (c === "{") depth++
+    else if (c === "}") depth--
+    else if (c === "\\") {
+      if (text[i + 1] === "\\" && depth === 0) {
+        parts.push(text.slice(from, i))
+        from = i + 2
+        if (/^\s*[*[]/.test(text.slice(from))) throw new Unsupported("a node's text with \\\\* or \\\\[…]")
+      }
+      i++
+    }
+  }
+  parts.push(text.slice(from))
+  if (parts.length > 1 && !parts.at(-1)!.trim()) throw new Unsupported("a node's text ending with \\\\")
+  return parts
+}
+
 /** picture number n where it stands, with xcolor's current color there, the current font's em and ex, its size and font */
-export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units: { em: number; ex: number }, size: SizeCommand, attrs: FontAttrs): Node[] {
+export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units: { em: number; ex: number }, size: SizeCommand, attrs: FontAttrs, outer: TabularOuter): Node[] {
   const tikz = cx.pre.tikz
   if (!tikz) throw new Unsupported("a tikzpicture without tikz")
   const src = cx.tikz[n]
@@ -110,7 +222,9 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
   if (!nodes) nodeRegistries.set(cx.doc, (nodes = new Map()))
   const doc = new TikzDocument({
     units, colors, positioning: tikz.libraries.includes("positioning"), arrowsMeta: tikz.libraries.includes("arrows.meta"),
-    text: { hlist: (text, font) => nodeHlist(text, font, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath) }, nodes,
+    text: { hlist: (text, font) => nodeHlist(text, font, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath), baselines: (font) => nodeBaselines(font, cx.run.k, size),
+      units: (font) => nodeUnits(font, cx.run.k, size, cx.doc, attrs),
+      minipage: (text, nodeFont, textFont, width, action, before, after) => nodeMinipage(text, nodeFont, textFont, width, action, before, after, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath, outer) }, nodes,
   })
   // the preamble's style definitions
   for (const line of tikz.sets) {

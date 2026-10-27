@@ -325,6 +325,7 @@ function transformText(t: TransformCall): string {
   switch (t.op) {
     case "shift": return `\\tikz@scan@one@point \\pgftransformshift ${meaning(t.point, false)}\\relax `
     case "poscall": return "\\tikz@lib@pos@call "
+    case "point": return "a point"
     case "of": return `\\expandafter \\tikz@extract@node@dist \\tikz@node@distance and\\pgf@stop \\pgftransformshift {\\pgfpointpolar {${t.angle}}{\\tikz@extracted@node@distance }}`
     default: return `\\pgftransform${t.op} {${meaning(t.arg, false)}}`
   }

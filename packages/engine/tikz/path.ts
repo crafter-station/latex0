@@ -20,23 +20,32 @@ import type { Colors } from "../latex/xcolor"
 import type { PgfDriver } from "../pgf/drivers"
 import { TexArith, toNumber } from "../pgf/fixed"
 import { isColorName, pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetStrokeColor } from "../pgf/graphicstate"
-import { pgfmathParse } from "../pgf/mathparser"
+import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "../pgf/mathparser"
 import { pgfPathClose, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfUsePath, resetPathSizes } from "../pgf/paths"
-import { pgfPoint, pgfPointAdd, pgfPointNormalised, pgfPointOrigin, pgfPointPolar, pgfPointXY, parse, qpoint, setLength, trig, type PgfPoint, type PgfPointMacro } from "../pgf/points"
+import { pgfPoint, pgfPointAdd, pgfPointDiff, pgfPointNormalised, pgfPointOrigin, pgfPointScale, pgfPointPolar, pgfPointXY, parse, qpoint, setLength, trig, type PgfPoint, type PgfPointMacro } from "../pgf/points"
 import { beginPgfPicture, endPgfPicture, pgfSetBaseline } from "../pgf/scopes"
 import { pgfMultipartNode, pgfPointAnchor, pgfPointShapeBorder, usePgfNodes, type PgfNodeRecord, type PgfShapeKeys } from "../pgf/shapes"
 import type { PgfState } from "../pgf/state"
-import { mul, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
+import { mul, transformPoint, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
 import { chars } from "./keys"
-import { Tikz, type OptionCall, type TikzSetup, type TikzState, type TransformCall } from "./options"
+import { alignLines, type AlignLine, type Baselines } from "./text"
+import { LABEL_RESTORE, LABEL_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
 import { pgfArrowsMeta, pgfSetArrows, shareArrows } from "../pgf/arrows"
-import { arg, contains, find, groupEnd, isCs, plain, str, tokenize, type Tok, type Toks } from "./tokens"
+import { arg, contains, find, groupEnd, isCs, plain, spdef, str, tokenize, type Tok, type Toks } from "./tokens"
 
 /**
  * What a node's text needs of the engine: the list of \hbox{<font><text>} (the font option's commands, then the
  * text) in the font where the picture stands.
  */
-export interface TikzText { hlist(text: string, font: string): Node[] }
+export interface TikzText {
+  hlist(text: string, font: string): Node[]
+  /** \baselineskip, \lineskip and \lineskiplimit after the font option's commands */
+  baselines(font: string): Baselines
+  /** em and ex after the font option's commands */
+  units(font: string): PgfUnits
+  /** the text in a minipage of a text width: its \vtop; `before` and `after` the text in its paragraph */
+  minipage(text: string, nodeFont: string, textFont: string, width: number, action: TextAction, before: Node[], after: Node[]): BoxNode
+}
 
 /** \tikz@timer: how a label on the last operation is placed, between \tikz@timer@start and …end */
 interface Timer { kind: "line" | "hv" | "vh"; start: PgfPoint; end: PgfPoint }
@@ -67,6 +76,9 @@ interface Locals {
   dot: string
   /** \tikz@figbox: the list of the box a path's nodes go in, null while void */
   figbox: Node[] | null
+  /** \tikzlastnode: the node made last (its name), and \tikz@save@last@fig@name around a label's node */
+  lastNode: string
+  savedLastFig: string
 }
 
 /** the special token \pgfextra{\tikz@updatenexttrue\tikz@updatecurrenttrue} after a to path (3097) */
@@ -155,6 +167,8 @@ export interface TikzPictureSetup {
   text?: TikzText
   /** the named nodes (global in TeX: a document's) */
   nodes: Map<string, PgfNodeRecord>
+  /** TikZ's global counters */
+  counts?: { fig: number }
 }
 
 /** One picture: \begin{tikzpicture} or \tikz, with what the picture's commands do on pgf. */
@@ -169,6 +183,10 @@ export class TikzPicture {
   private readonly groups: { saved: Locals; after: (() => void)[] }[] = []
   /** \pgfsyssoftpath@lastmoveto (global): the last moveto's coordinates */
   private lastMoveTo = { x: 0, y: 0 }
+  /** \tikz@last@fig@name (global) */
+  private lastFigName = ""
+  /** \tikz@fig@count (global): the nodes named tikz@f@<n> */
+  private readonly counts: { fig: number }
   /** \pgfscope@stroke@color and \pgfscope@fill@color of each open \pgfscope (and of \tikz@finish's options) */
   private readonly colorScopes: [string, string][] = []
 
@@ -179,11 +197,13 @@ export class TikzPicture {
     this.colors = setup.colors
     this.text = setup.text ?? null
     this.nodes = setup.nodes
+    this.counts = setup.counts ?? { fig: 0 }
     usePgfNodes(this.s, this.nodes)
     this.L = {
       lastx: 0, lasty: 0, lastxsaved: 0, lastysaved: 0,
       updatecurrent: true, updatenext: true, autoEndPath: false, doAtEnd: null, dot: setup.color, figbox: null,
       shapeborder: null, movetoWaiting: null, lastMoveTo: { x: 0, y: 0 }, timer: null, collected: [], isLabel: false, scopeLineWidth: 0,
+      lastNode: "", savedLastFig: "",
     }
   }
 
@@ -475,7 +495,9 @@ export class TikzPicture {
       case "poscall": {
         const c = this.tz.st.posCall
         if (c) pgfTransformShift(s, qpoint(c.x, c.y))
+        return
       }
+      case "point": pgfTransformShift(s, t.point)
     }
   }
 
@@ -561,6 +583,8 @@ export class TikzPicture {
         case UPDATE: this.L.updatenext = true; this.L.updatecurrent = true; continue
         case LABEL: this.L.isLabel = true; continue
         case STOP: this.L.isLabel = false; continue
+        case LABEL_SAVE: this.L.savedLastFig = this.lastFigName; this.L.isLabel = false; continue
+        case LABEL_RESTORE: this.lastFigName = this.L.savedLastFig; continue
         case "\\par": case "\\relax": continue
       }
       throw new Unsupported(`tikz: ${t} on a path`)
@@ -570,11 +594,10 @@ export class TikzPicture {
   /** \tikz@@endscope (2526–2557): the current point (and, unless it is local, the rest) kept */
   private endPathScope() {
     const L = this.L
+    const local = this.tz.st.currentPointLocal
     this.end()
-    Object.assign(this.L, {
-      lastx: L.lastx, lasty: L.lasty, lastxsaved: L.lastxsaved, lastysaved: L.lastysaved,
-      movetoWaiting: L.movetoWaiting, shapeborder: L.shapeborder, figbox: L.figbox,
-    })
+    Object.assign(this.L, { lastx: L.lastx, lasty: L.lasty, figbox: L.figbox })
+    if (!local) Object.assign(this.L, { lastxsaved: L.lastxsaved, lastysaved: L.lastysaved, movetoWaiting: L.movetoWaiting, shapeborder: L.shapeborder })
   }
 
   /** \tikz@finish (2207–2440); `inp` null for a node's path */
@@ -1005,6 +1028,7 @@ export class TikzPicture {
     st.options = []
     st.transform = []
     st.mode = []
+    st.afterPath = []
     const at = this.lastPoint
     st.nodeAt = { kind: "point", point: () => at }
     if (!this.L.isLabel) st.time = ""
@@ -1040,8 +1064,16 @@ export class TikzPicture {
     this.tz.set(`every ${this.tz.st.shape} node/.try`)
     st = this.tz.st
     if (!SHAPES.has(st.shape)) throw new Unsupported(`tikz: the shape ${st.shape}`)
-    if (st.nodeFont.length) throw new Unsupported("tikz: node font")
+    // \tikz@node@textfont: the node's font, which pgfmath's em and ex are in from here on
+    const units = this.s.units
+    if (st.nodeFont.length) {
+      if (!this.text) throw new Unsupported("tikz: node font outside a document")
+      this.s.units = this.text.units(source(st.nodeFont))
+    }
     const textBox = this.textBox(content)
+    st = this.tz.st
+    // \tikz@fig@mustbenamed (4144–4151): a node with something after it gets a name
+    if (st.afterPath.length && st.figName === "") st.figName = `tikz@f@${++this.counts.fig}`
     // \tikz@fig@continue (4081–4145): the transformations, then the node in a box of its own
     this.nodeTransformations()
     st = this.tz.st
@@ -1079,12 +1111,64 @@ export class TikzPicture {
     this.end() // }}
     figbox.push(hpack(this.s.out))
     this.s.out = outer
-    // \tikz@node@finish (4171–4184): the box goes out of the groups
+    // \tikz@node@finish (4171–4205): the box goes out of the groups, then what comes after the node
+    this.lastFigName = st.figName
+    const after = st.afterPath
     this.end()
     this.end()
+    this.s.units = units
     this.L.figbox = figbox
     this.s.lineWidth = lineWidth
     this.globalLineWidth()
+    // \tikz@do@after@path@smuggle: \tikz@scan@next@command{…}\pgf@stop, scanned here
+    this.L.lastNode = this.lastFigName
+    if (after.length) inp.insert(["{", ...after, "}"])
+  }
+
+  /**
+   * tikz@label@post (tikz.code.tex 770–820): a label's node at the anchor of \tikzlastnode its angle names,
+   * shifted away from the node's centre by the label distance; with anchor=@auto its anchor faces the node
+   */
+  labelPost(distance: Toks, st: TikzState) {
+    const s = this.s
+    s.space() // (the code begins with the end of its first line)
+    // \edef\tikz@label@angle{\tikz@label@angle}, then \pgfkeys@spdef
+    let angle = plain(spdef(st.labelAngle.flatMap((t) => (t === "\\tikz@label@default@pos" ? st.labelPosition : [t]))), "label position")
+    angle = LABEL_ANGLES[angle] ?? angle
+    const node = this.L.lastNode
+    if (!this.nodes.has(node)) throw new Unsupported("tikz: a label of no node")
+    if (angle === "center") {
+      st.nodeAt = { kind: "anchor", node, anchor: "center" }
+      st.anchor = chars("center")
+      return
+    }
+    if (st.absolute) throw new Unsupported("tikz: absolute label positions")
+    const dist = text(distance, "label distance")
+    const b = pgfPointAnchor(s, node, angle)
+    st.nodeAt = { kind: "point", point: () => b }
+    const c = pgfPointAnchor(s, node, "center")
+    if (c.x === b.x && c.y === b.y) {
+      this.computeDirection(angle, st)
+      this.tz.addTransform({ op: "point", point: () => pgfPointPolar(s, angle, dist) })
+      return
+    }
+    const n = pgfPointNormalised(pgfPointDiff(transformPoint(s, c), transformPoint(s, b)), s.units)
+    // \pgftransformshift{\pgfpointscale{distance}{ \pgfqpoint{x}{y}}}: \pgf@process typesets the blank
+    this.tz.addTransform({ op: "point", point: () => { s.space(); return pgfPointScale(dist, n, s.units) } })
+    if (str(st.anchor) === "@auto") st.anchor = chars(autoAnchorOf({ x: n.y, y: -n.x }, true))
+  }
+
+  /** \tikz@compute@direction (916–946): with anchor=@auto, the anchor facing the angle */
+  private computeDirection(angle: string, st: TikzState) {
+    if (str(st.anchor) !== "@auto") return
+    st.autoAnchor = false
+    const r = pgfmathParse(angle, this.s.units)
+    if (r.errors.length) throw new Unsupported(`tikz: ${r.errors[0]}`)
+    let a = Math.trunc(Number(r.result))
+    if (a < 0) a += 360
+    if (a > 359) a -= 360
+    st.anchor = chars(a < 4 ? "west" : a < 87 ? "south west" : a < 94 ? "south" : a < 177 ? "south east" : a < 184 ? "east"
+      : a < 267 ? "north east" : a < 274 ? "north" : a < 357 ? "north west" : "west")
   }
 
   /**
@@ -1094,30 +1178,87 @@ export class TikzPicture {
    */
   private textBox(content: Toks): BoxNode {
     const st = this.tz.st
-    if (st.textWidth.length) throw new Unsupported("tikz: text width")
-    const text = source(content).replace(/^\s+/, "")
-    let list: Node[] = []
-    if (text !== "" || st.textFont.length) {
-      if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
-      list = this.text.hlist(text, source(st.textFont))
-      if (list.at(-1)?.kind === "glue") list.pop()
-    }
-    if (!st.textColor.length) return hpack(list)
+    const body = source(content).replace(/^\s+/, "")
+    const header = this.tz.keys.valueOf("/tikz/node halign header") ?? []
     // \pgfutil@colorlet{.}{color}\pgfutil@color{color}: xcolor's \color (\pgfsys@color@reset first, under
     // \pgfsys@begin@text), its color popped when the group ends; the color `.` so defined is, under dvips,
     // xcolor's named color XC@.
-    const dot = plain(st.textColor, "color").trim() === "."
-    const spec = dot && this.d.namedColors ? " XC@." : this.colorSpec(st.textColor)
     const outer = this.s.out
-    this.s.out = []
-    this.begin()
-    this.d.beginText()
-    this.d.colorReset()
-    this.s.out.push({ kind: "whatsit", text: `\\special{color push ${spec}}` }, ...list, { kind: "whatsit", text: "\\special{color pop}" })
-    this.end()
-    const box = hpack(this.s.out)
-    this.s.out = outer
+    let head: Node[] = [], before: Node[] = [], after: Node[] = []
+    if (st.textColor.length) {
+      const dot = plain(st.textColor, "color").trim() === "."
+      const spec = dot && this.d.namedColors ? " XC@." : this.colorSpec(st.textColor)
+      this.s.out = []
+      this.begin()
+      this.d.beginText()
+      head = this.s.out
+      this.s.out = []
+      this.d.colorReset()
+      before = [...this.s.out, { kind: "whatsit", text: `\\special{color push ${spec}}` }]
+      after = [{ kind: "whatsit", text: "\\special{color pop}" }]
+    }
+    let list: Node[] = []
+    if (st.textWidth.length) {
+      // the text in a minipage, the color's specials in its paragraph
+      if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
+      const w = pgfmathSetLength(text(st.textWidth, "text width"), this.s.units)
+      if (w.errors.length) throw new Unsupported(`tikz: ${w.errors[0]}`)
+      list = [this.text.minipage(body, source(st.nodeFont), source(st.textFont), w.value, st.textAction, before, after)]
+      before = after = []
+    } else if (header.length) list = [this.alignedText(content, str(header))]
+    else if (body !== "" || st.textFont.length || st.nodeFont.length) {
+      if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
+      // (\\ is \@normalcr: LaTeX's error in LR mode)
+      if (content.includes("\\\\")) throw new Unsupported("tikz: \\\\ in a node's text without align or a text width")
+      list = this.text.hlist(body, this.font())
+      if (list.at(-1)?.kind === "glue") list.pop()
+    }
+    // (\tikz@fig@continue's \wd\pgfnodeparttextbox= the text width: the minipage is as wide)
+    const box = hpack([...head, ...before, ...list, ...after])
+    if (st.textColor.length) {
+      this.end()
+      this.s.out = outer
+    }
     return box
+  }
+
+  /** the node's font commands, then the text's: \tikz@node@textfont, \tikz@textfont */
+  private font(): string { return `${source(this.tz.st.nodeFont)} ${source(this.tz.st.textFont)}`.trim() }
+
+  /**
+   * \tikz@halign@check (4222–4229): the text's lines, each ended by `\\` or `\\[skip]` (\tikz@align@newline@:
+   * \unskip, the skip \pgfmathparse'd), in the aligned box (tikz/text.ts)
+   */
+  private alignedText(content: Toks, header: string): BoxNode {
+    if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
+    const font = this.font()
+    const lines: AlignLine[] = []
+    let rest = [...content]
+    for (;;) {
+      const j = rest.indexOf("\\\\")
+      const line = j < 0 ? rest : rest.slice(0, j)
+      // (a `\\` in a group would end the line's group, not the line)
+      if (find(line, ["\\\\"]) >= 0 || (j >= 0 && find(rest, ["\\\\"]) !== j)) throw new Unsupported("tikz: \\\\ in a group in a node")
+      const list = this.text.hlist(source(line).replace(/^\s+/, ""), font)
+      if (j < 0) { lines.push({ list, skip: 0 }); break }
+      if (list.at(-1)?.kind === "glue") list.pop()
+      rest = rest.slice(j + 1)
+      let skip = "0pt"
+      // \pgfutil@ifnextchar[: blanks skipped
+      let k = 0
+      while (rest[k] === " ") k++
+      if (rest[k] === "[") {
+        const e = find(rest, ["]"], k + 1)
+        if (e < 0) throw new Unsupported("tikz: ] expected after \\\\[")
+        skip = text(rest.slice(k + 1, e), "line skip")
+        rest = rest.slice(e + 1)
+      }
+      // (pgfmath reads em and ex in the text's font)
+      const r = pgfmathParse(skip, font ? this.text.units(font) : this.s.units)
+      if (r.errors.length) throw new Unsupported(`tikz: ${r.errors[0]}`)
+      lines.push({ list, skip: new TexArith(this.s.units).dimen(`${r.result}pt`) })
+    }
+    return alignLines(lines, header, this.text.baselines(font))
   }
 
   /** \tikz@fig@continue (4117–4130): the text box again, in the text color (pgf's) and an id scope */
@@ -1209,17 +1350,7 @@ export class TikzPicture {
     const t = s.local.transform
     const n = pgfPointNormalised({ x: a.dimen(`${t.aa}pt`), y: a.dimen(`${t.ab}pt`) }, s.units)
     s.endgroup()
-    const e = a.dimen("0.05pt")
-    const sx = n.x > e ? 1 : n.x < -e ? -1 : 0
-    const sy = n.y > e ? 1 : n.y < -e ? -1 : 0
-    const left = st.autoDirection === "left"
-    // \tikz@auto@anchor: south east for a line up and to the right; \tikz@auto@anchor@prime the opposite
-    let anchor: string
-    if (sx !== 0) {
-      const h = (sx > 0) === left ? "south" : "north"
-      anchor = sy === 0 ? h : `${h} ${(sy > 0) === left ? "east" : "west"}`
-    } else anchor = (n.y > 0) === left ? "east" : "west"
-    st.anchor = chars(anchor)
+    st.anchor = chars(autoAnchorOf(n, st.autoDirection === "left"))
   }
 
   // points
@@ -1334,6 +1465,26 @@ export class TikzPicture {
   }
 }
 
+/** \tikz@label@angle@is@<position> (907–914) */
+const LABEL_ANGLES: Record<string, string> = {
+  right: "0", "above right": "45", above: "90", "above left": "135", left: "180", "below left": "225", below: "270", "below right": "315",
+}
+
+/**
+ * \tikz@auto@anchor (`left`), \tikz@auto@anchor@prime (4485–4529): the anchor for the direction (\pgf@x, \pgf@y),
+ * south east for a line up and to the right
+ */
+function autoAnchorOf(n: PgfPoint, left: boolean): string {
+  const e = new TexArith({ em: 0, ex: 0 }).dimen("0.05pt")
+  const sx = n.x > e ? 1 : n.x < -e ? -1 : 0
+  const sy = n.y > e ? 1 : n.y < -e ? -1 : 0
+  if (sx !== 0) {
+    const h = (sx > 0) === left ? "south" : "north"
+    return sy === 0 ? h : `${h} ${(sy > 0) === left ? "east" : "west"}`
+  }
+  return (n.y > 0) === left ? "east" : "west"
+}
+
 /** what a document gives TikZ besides its keys: the nodes' text, and the named nodes so far (TeX's are global) */
 export interface TikzDocumentSetup extends Omit<TikzSetup, "transform" | "baseline" | "scanOf" | "at"> {
   text?: TikzText
@@ -1359,6 +1510,7 @@ export class TikzDocument {
       arrows: (v, st) => this.at("arrows").arrows(v, st),
       corners: (st) => this.at("rounded corners").corners(st),
       at: (v, st) => this.at("at").atOption(v, st),
+      labelPost: (v, st) => this.at("label").labelPost(v, st),
     })
   }
 

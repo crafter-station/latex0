@@ -50,6 +50,8 @@ export type TransformCall =
   | { op: "of"; angle: string }
   /** positioning's \tikz@lib@pos@call, read when the transformation runs (each node's first) */
   | { op: "poscall" }
+  /** \pgftransformshift{point}: a point computed when the transformation runs */
+  | { op: "point"; point: () => { x: number; y: number } }
 
 /** \tikz@text@action: how a node's text with a text width is set */
 export type TextAction = "ragged" | "badly ragged" | "ragged left" | "badly ragged left" | "justified" | "centered" | "badly centered"
@@ -118,6 +120,15 @@ export interface TikzState {
   endTips: Tip[]
   /** \pgf@ar@means@> as >=… declared it (undefined: the package's, To) */
   arrowMeans?: Tip[]
+  /** \tikz@after@path: what append after command (label=, pin=) puts after a node */
+  afterPath: Tok[]
+  /** \tikz@label@angle, \tikz@label@distance, \tikz@label@default@pos, \iftikz@absolute */
+  labelAngle: Toks
+  labelDistance: Toks
+  labelPosition: Toks
+  absolute: boolean
+  /** \iftikz@current@point@local */
+  currentPointLocal: boolean
 }
 
 const clone = (s: TikzState): TikzState => ({
@@ -128,6 +139,7 @@ const clone = (s: TikzState): TikzState => ({
   dashPattern: [...s.dashPattern],
   startTips: [...s.startTips],
   endTips: [...s.endTips],
+  afterPath: [...s.afterPath],
 })
 
 export interface TikzSetup {
@@ -153,6 +165,8 @@ export interface TikzSetup {
   corners?: (st: TikzState) => void
   /** an arrow specification: \pgfsetarrows (pgf's picture) */
   arrows?: (v: Toks, st: TikzState) => void
+  /** tikz@label@post with the distance: a label's place by the node it labels (\tikzlastnode) */
+  labelPost?: (distance: Toks, st: TikzState) => void
 }
 
 /** pgf's styles and keys that TikZ's options reach (pgfmoduleshapes.code.tex 887–897) */
@@ -247,6 +261,12 @@ const TEXT_ACTIONS: TextAction[] = ["ragged", "badly ragged", "ragged left", "ba
 
 const pt = (sp: number): Tok[] => chars(`${printScaled(sp)}pt`)
 
+/**
+ * \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name\tikz@node@is@a@labelfalse} and
+ * \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name} around a label's node
+ */
+export const LABEL_SAVE = "\\pgfextra@tikz@label@save", LABEL_RESTORE = "\\pgfextra@tikz@label@restore"
+
 /** TikZ inside a picture: its keys and its state, both local to TeX's groups */
 export class Tikz {
   readonly keys = new Keys()
@@ -275,6 +295,7 @@ export class Tikz {
       textWidth: [], textFont: [], nodeFont: [], textAction: "ragged",
       figName: "", time: "", sloped: false, upsideDown: false, resetNonTranslations: true, fullyTransformed: false,
       currentArrows: chars("-"), startTips: [], endTips: [],
+      afterPath: [], labelAngle: [], labelDistance: chars("0pt"), labelPosition: chars("above"), absolute: false, currentPointLocal: false,
     }
     this.install()
   }
@@ -358,7 +379,7 @@ export class Tikz {
   }
 
   /** \tikz@addtransform: appended to \tikz@transform, or applied at once when it is \relax */
-  private addTransform(t: TransformCall) {
+  addTransform(t: TransformCall) {
     if (this.st.transform) { this.st.transform.push(t); return }
     if (!this.setup.transform) throw new Unsupported("tikz: a transformation applied at once")
     this.setup.transform(t, this.st)
@@ -634,6 +655,40 @@ export class Tikz {
     opt(">", (v) => {
       if (v.length && (same(v, ["["]) || same(v, ["]"]))) throw new Unsupported("pgf: arrow tip means a bracket")
       st().arrowMeans = tipSequence(v, this.db, false)
+    })
+    // labels (tikz.code.tex 759–905): label=[options]position:text appends to \tikz@after@path a node of its own
+    opt("append after command", (v) => { st().afterPath.push(...v) })
+    opt("label distance", (v) => { st().labelDistance = v })
+    opt("label position", (v) => { st().labelPosition = v })
+    opt("tikz@label@angle", (v) => { st().labelAngle = v })
+    ifKey("absolute", (b) => { st().absolute = b })
+    ifKey("current point is local", (b) => { st().currentPointLocal = b })
+    opt("tikz@label@post", (v) => {
+      if (!this.setup.labelPost) throw new Unsupported("tikz: a label outside a picture")
+      // (.code 2 args: #1 the value's first argument, \tikz@label@distance, expanded where it is used)
+      if (!same(v, ["\\tikz@label@distance"])) throw new Unsupported("tikz: tikz@label@post")
+      this.setup.labelPost(st().labelDistance, st())
+    })
+    opt("label", (v) => {
+      // \tikz@parse@label@nonactive[#1]#2:#3\pgf@nil on `value:\pgf@nil`
+      let t = [...v]
+      let options: Tok[] = []
+      while (t[0] === " ") t = t.slice(1)
+      if (t[0] === "[") {
+        const e = find(t, ["]"], 1)
+        if (e < 0) throw new Unsupported("tikz: ] expected in a label")
+        options = t.slice(1, e)
+        t = t.slice(e + 1)
+      }
+      const c = find(t, [":"])
+      let position: Tok[], text: Tok[]
+      // (\tikz@label@default@pos, expanded when the label's node reads its angle)
+      if (c < 0) [position, text] = [["\\tikz@label@default@pos"], arg(t)]
+      else if (c === 0) [position, text] = [["\\tikz@label@default@pos"], arg(t.slice(1))]
+      else [position, text] = [arg(t.slice(0, c)), arg(t.slice(c + 1))]
+      st().afterPath.push("{", "[", ...chars("current point is local=true"), "]", LABEL_SAVE,
+        ...chars("node"), "[", ...chars("tikz@label@angle="), "{", ...position, "}", ",", ...chars("anchor=@auto,every label,"), ...options,
+        ",", ...chars("tikz@label@post="), "\\tikz@label@distance", "]", "{", ...text, "}", LABEL_RESTORE, "}")
     })
     k.pgfqkeys("/tikz", TIKZ_STYLES)
     k.define("/tikz/.unknown", [{ kind: "native", run: (kk, v) => this.unknown(kk, v) }])

@@ -7,7 +7,7 @@
 // neighbours) or an accent over its base, \add@accent's \accent (§ 1123).
 
 import { X_HEIGHT, type Font } from "../layout/font"
-import { appendText as appendCodes, makeAccent, sfCode } from "../layout/hmode"
+import { appendText as appendCodes, makeAccent, sfCode, type HState } from "../layout/hmode"
 import { glue, penalty, type Node } from "../layout/nodes"
 import { Unsupported } from "./unsupported"
 
@@ -181,7 +181,7 @@ export function encodingOf(font: Font): string {
  * Text (Unicode, accents as marks: encodings.ts) into a horizontal list in the font's encoding (TeX's main loop,
  * hmode.ts): its characters, and each accent with \add@accent's \spacefactor after it, the base's (from 1000).
  */
-export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number; sfcodes?: Record<number, number> }, paragraph = true) {
+export function appendText(list: Node[], text: string, font: Font, state: HState, paragraph = true) {
   if (text.includes("\\")) throw new Unsupported(`text "${text}"`) // (a command, not a character: \ref's label 1\emph {a})
   if (/^[\x00-\x7f]*$/.test(text)) { appendCodes(list, text, font, state, paragraph); return }
   for (const item of encodeText(text, encodingOf(font), font)) {

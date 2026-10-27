@@ -215,9 +215,11 @@ export function makeDocument(r: () => number): string {
   const tikzPic = (inline: boolean) => {
     const num = () => pick(["0", "1", "2", "0.5", "-1", "1.5", "3"])
     const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
-    const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", ""])
-    const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]"])
-    const node = () => `node${nodeOptions()} {${nodeText()}}`
+    const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", "", "A longer text, in a node."])
+    const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]",
+      "[align=center]", "[draw,text width=2cm,align=center]", "[text width=15mm]", "[node font=\\footnotesize,draw]", "[label=above:$a$]", "[draw,label={[red]right:r}]"])
+    // (\\ only where lines are set: align= or a text width)
+    const node = () => { const o = nodeOptions(); return `node${o} {${/align|text width/.test(o) && r() < 0.5 ? "Two\\\\lines" : nodeText()}}` }
     const names: string[] = []
     const target = () => (names.length && r() < 0.4 ? `(${pick(names)})` : coord())
     const op = () => pick([` -- ${target()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${target()}`, ` |- ${coord()}`, ` to ${target()}`,
