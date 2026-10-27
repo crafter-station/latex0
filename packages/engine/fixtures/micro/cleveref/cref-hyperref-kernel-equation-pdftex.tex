@@ -1,0 +1,22 @@
+% fixture: cleveref/cref-hyperref-kernel-equation-pdftex
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: under pdflatex: cleveref with hyperref and LaTeX's own equation (no amsmath): the \refstepcounter in display math leaves hyperref/fixcleveref's first aid group, an empty ord, before hyperref's \mathopen{\hyper@anchorstart}; \cref and \Cref of equations, several at once
+% issue: #318
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\begin{document}
+\section{Plain}\label{s1}
+Text before.
+\begin{equation}\label{e1}
+a = b
+\end{equation}
+More text.
+\begin{equation}
+c = d \label{e2}
+\end{equation}
+See \cref{e1}, \Cref{e2} and \cref{e1,e2,s1}.
+\end{document}

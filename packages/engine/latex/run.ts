@@ -30,6 +30,8 @@ export interface RunState {
   listingCount: number
   negListing: number
   lstLineno: number
+  /** cleveref with hyperref: the ALG@line anchors made so far (ALG@line.1 … ALG@line.n) */
+  algAnchors: number
   /** in a minipage: its width (\textwidth, \columnwidth and \linewidth there) */
   minipageWidth: number | null
   /** the float being read (\@captype), for a \caption in a minipage */
@@ -56,5 +58,5 @@ export interface RunState {
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [] }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [] }
 }

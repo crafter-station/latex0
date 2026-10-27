@@ -19,7 +19,7 @@ import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { captionMake, captionXref, hypcapAnchor } from "./floats"
 import { copyKeys, ruledStyle, runList, type CaptionKeys } from "./captionsetup"
 import { widthRegisters } from "./boxes"
-import { anchor, labelName, spotAnchor } from "./hyperref"
+import { anchor, hyperDriver, labelName, spotAnchor } from "./hyperref"
 
 /** algpseudocode's options: [noend] takes the end entities' text away (\algtext*) */
 export interface AlgorithmPackages {
@@ -170,7 +170,11 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
       if (numbered) { rem = 0; appendText(label, `${line}:`, footnotesize, { spaceFactor: 1000 }, false) }
       // cleveref's \refstepcounter{ALG@line} at the end of \ALG@step: with hyperref its anchor, in the label's box (at
       // \footnotesize's \baselineskip after a number)
-      if (cx.pre.hyper && cx.pre.cleveref) label.push(...anchor(`ALG@line.${line}`, k.sizes[numbered ? "footnotesize" : "normalsize"].baselineskip.width, "h", label.at(-1)))
+      if (cx.pre.hyper && cx.pre.cleveref) {
+        // (pdfTeX ignores a \pdfdest whose name a page shipped out already has: no node, where the names repeat)
+        if (hyperDriver.pdftex && line <= run.algAnchors) throw new Unsupported("an algorithmic's line anchors again under pdfTeX (duplicate destinations)")
+        label.push(...anchor(`ALG@line.${line}`, k.sizes[numbered ? "footnotesize" : "normalsize"].baselineskip.width, "h", label.at(-1)))
+      }
     } else if (it.kind === "label") {
       appendText(label, it.label!, bold, { spaceFactor: 1000 }, false)
       label.push(kern(0, true)) // \textbf's \check@icr (no italic correction after the colon)
@@ -192,6 +196,7 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
       else content.push(x)
     }
   })
+  run.algAnchors = Math.max(run.algAnchors, line)
   // \endtrivlist: \@endparenv, \addpenalty\@endparpenalty \addvspace\@topsepadd (\topsep, with \partopsep zero)
   content.push(penalty(-LOW_PENALTY), glue(topsep))
   return { prevDepth: pd, lines: line }

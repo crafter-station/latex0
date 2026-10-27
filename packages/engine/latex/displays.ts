@@ -198,6 +198,8 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
       mlist.unshift({ noad: OPEN_NOAD, nucleus: { kind: "mlist", list: [HS()] }, sup: null, sub: null })
       mlist.push(HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href), penalty(10000))
     }
+    // (with cleveref, the \refstepcounter's first aid group before it: an empty ord)
+    if (hyper && cx.refs.cleveref) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null })
     const l: Node[] = []
     appendText(l, `(${counters.the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
     eqno = hpack([hpack(setgroup(l))]); eqno.display = true // {\normalfont\normalcolor (n)}
