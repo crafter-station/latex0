@@ -1,0 +1,61 @@
+% fixture: cleveref/cref-multi
+% tier: T3
+% engine: document
+% covers: \cref and \Cref of several keys: grouped by type (section and subsection share a format), each group sorted by prefix and counter, three or more consecutive numbers a range (eqs. (1) to (3)), two each on their own, the pair, middle and last conjunctions within a group and between groups (\Cref's capital only in the first group); a key given twice; undefined keys (a group of their own, last; ?? with no conjunction); a theorem type with no plural name (??~n, its multi formats undefined); a lemma sharing the theorem counter; items; \crefrange of undefined keys, of keys of different types and from a label read before any counter (empty \cref@currentlabel: no type)
+% issue: #318
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage{cleveref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{claim}{Claim}
+\begin{document}
+\label{top}Before any counter.
+
+\section{One}\label{s1}
+\begin{equation}\label{e1}
+a = b
+\end{equation}
+\begin{equation}\label{e2}
+c = d
+\end{equation}
+\subsection{One one}\label{ss1}
+\begin{equation}\label{e3}
+e = f
+\end{equation}
+\subsection{One two}\label{ss2}
+\begin{equation}\label{e4}
+g = h
+\end{equation}
+\subsection{One three}\label{ss3}
+\begin{equation}\label{e5}
+i = j
+\end{equation}
+\begin{theorem}\label{t1}
+A theorem.
+\end{theorem}
+\begin{lemma}\label{l1}
+A lemma.
+\end{lemma}
+\begin{claim}\label{c1}
+A claim.
+\end{claim}
+\begin{claim}\label{c2}
+Another claim.
+\end{claim}
+\section{Two}\label{s2}
+\begin{enumerate}
+\item One.\label{i1}
+\item Two.\label{i2}
+\item Three.\label{i3}
+\end{enumerate}
+\section{Three}\label{s3}
+\begin{figure}[h]
+\centering
+\caption{A caption.}\label{f1}
+\end{figure}
+Pairs \cref{e1,e2} and \cref{e2,e4}; ranges \cref{e1,e2,e3}, \Cref{e3,e1,e2,e5} and \cref{e1,e2,e3,e4,e5}; apart \cref{e1,e3,e5}.
+Groups \cref{s1,e1}, \Cref{s1,e1,f1} and \cref{f1,s1,e1,i1}; sections \cref{s3,ss1,s1,s2}, \cref{s1,ss1,s2} and \cref{ss1,ss2,ss3}; items \cref{i1,i2,i3}.
+Twice \cref{e1,e1}; undefined \cref{e1,nowhere,e2}, \cref{x,y} and \Cref{nowhere,s1}; claims \cref{c1,c2} and \cref{c1}; theorems \cref{t1,l1} and \Cref{l1,t1}.
+Ranges \crefrange{nowhere}{e2}, \crefrange{e1}{nowhere}, \crefrange{x}{y}, \crefrange{s1}{e2}, \crefrange{top}{s1} and \Crefrange{ss1}{ss3}.
+\end{document}

@@ -1,0 +1,16 @@
+% fixture: cleveref/cpageref-roman
+% tier: T3
+% engine: document
+% covers: \cpageref of several keys under roman and arabic page numbers: a group for each numbering (\thepage at 1: i, 1), sorted by \arabic{page} within it, and \cpagerefrange across them
+% issue: #318
+\documentclass{book}
+\usepackage{cleveref}
+\begin{document}
+\frontmatter
+\chapter{Preface}\label{pre}
+Lorem ipsum dolor sit amet.\label{p1}
+\mainmatter
+\chapter{One}\label{c1}
+Text.\label{t1}
+See \cpageref{c1,pre}, \Cpageref{t1,p1} and \cpagerefrange{pre}{c1}.
+\end{document}

@@ -16,6 +16,7 @@ import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import type { AlgorithmPackages } from "./algorithm"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
 import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
+import type { CrefNameDef, CrefOptions } from "./cleveref"
 import { Unsupported } from "./unsupported"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
 
@@ -68,6 +69,9 @@ export interface Preamble {
   nameref: boolean
   /** cleveref */
   cleveref: boolean
+  /** cleveref's options, and \crefname and \Crefname in the preamble */
+  crefOptions: CrefOptions
+  crefNames: CrefNameDef[]
   /** titlesec: each level's format */
   titlesec: TitleFormats | null
   /** \usepackage[T1]{fontenc} */
@@ -133,6 +137,8 @@ export function readPreamble(src: string): Preamble {
   let hyperNotes = true
   let nameref = false // (hyperref loads it)
   let cleveref = false
+  const crefOptions: CrefOptions = { sort: true, compress: true, capitalise: false, abbrev: true, nameinlink: false }
+  const crefNames: CrefNameDef[] = []
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
   let setspace: SetSpace | null = null
@@ -224,6 +230,27 @@ export function readPreamble(src: string): Preamble {
       if (line.startsWith("\\sisetup") !== usesSiunitx) throw new Unsupported(`preamble: ${line}`) // (siunitx loaded once, before \sisetup)
       siOpts = siOptions(sx[1], siOpts); usesSiunitx = true; usesArray = true; continue // (siunitx loads array)
     }
+    // cleveref's options (english, its default language): sorting and compressing, capitalise, noabbrev, nameinlink
+    const cro = line.match(/^\\usepackage\[([^\]]*)\]\{cleveref\}$/)
+    if (cro) {
+      if (cleveref) throw new Unsupported("cleveref loaded twice")
+      for (const o of cro[1].split(",").map((x) => x.trim()).filter(Boolean)) {
+        if (o === "sort") Object.assign(crefOptions, { sort: true, compress: false })
+        else if (o === "compress") Object.assign(crefOptions, { sort: false, compress: true })
+        else if (o === "sort&compress") Object.assign(crefOptions, { sort: true, compress: true })
+        else if (o === "nosort") Object.assign(crefOptions, { sort: false, compress: false })
+        else if (o === "capitalise" || o === "capitalize") crefOptions.capitalise = true
+        else if (o === "noabbrev") crefOptions.abbrev = false
+        else if (o === "nameinlink") crefOptions.nameinlink = true
+        else if (o !== "english") throw new Unsupported(`cleveref option ${o}`)
+      }
+      cleveref = true; continue
+    }
+    const crn = line.match(/^\\(crefname|Crefname)\{([A-Za-z]+)\}\{([^{}\\]*)\}\{([^{}\\]*)\}$/)
+    if (crn) {
+      if (!cleveref) throw new Unsupported(`preamble: ${line}`)
+      crefNames.push([crn[1] === "crefname" ? "cref" : "Cref", crn[2], crn[3], crn[4]]); continue
+    }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
@@ -260,8 +287,7 @@ export function readPreamble(src: string): Preamble {
       // cleveref patches amsmath's and amsthm's commands (loaded later, they would undo it) and hyperref's
       if (cleveref && names.some((n) => ["amsmath", "amsthm", "hyperref"].includes(n))) throw new Unsupported(`${line} after cleveref`)
       if (names.includes("cleveref")) {
-        if (hyper) throw new Unsupported("cleveref with hyperref")
-        if (names.some((n) => ["amsmath", "amsthm"].includes(n) && names.indexOf(n) > names.indexOf("cleveref"))) throw new Unsupported(`${line} after cleveref`)
+        if (names.some((n) => ["amsmath", "amsthm", "hyperref"].includes(n) && names.indexOf(n) > names.indexOf("cleveref"))) throw new Unsupported(`${line} after cleveref`)
         cleveref = true
       }
       if (names.includes("amsmath")) amsmath = true
@@ -370,7 +396,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

@@ -1,0 +1,13 @@
+% fixture: cleveref/crefrange-only
+% tier: T3
+% engine: document
+% covers: a document whose only references are \crefrange and \Crefrange (LaTeX runs twice: they read the run before's key@cref lines), of consecutive sections and from a section to a subsection (the same format)
+% issue: #318
+\documentclass{article}
+\usepackage{cleveref}
+\begin{document}
+\section{One}\label{s1}
+\section{Two}\label{s2}
+\subsection{Two one}\label{ss1}
+Sections \crefrange{s1}{s2}; \Crefrange{s1}{ss1}.
+\end{document}

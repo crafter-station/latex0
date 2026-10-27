@@ -32,7 +32,7 @@ import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { xcolor } from "./xcolor"
-import { crefWrite, type CrefLabel, type CrefWrite } from "./cleveref"
+import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
 import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
@@ -174,7 +174,7 @@ export interface Refs {
   hfootnotes?: number
   /** cleveref: \cref@currentlabel (local where \@currentlabel is), each \refstepcounter's by its \@currentHref, the
    *  second \newlabel writes, the run before's (key → its \cref@currentlabel), and how much of the main vertical list there is */
-  cleveref?: { current: CrefLabel | null; byHref: Map<string, CrefLabel>; writes: CrefWrite[]; prev: Map<string, CrefLabel | null> | null; at: () => number; name: (type: string, capital: boolean) => string | null }
+  cleveref?: { current: CrefLabel | null; byHref: Map<string, CrefLabel>; writes: CrefWrite[]; prev: Map<string, CrefEntry> | null; at: () => number; setup: CrefSetup }
 }
 
 /** cleveref's second write of a \label (none without cleveref): `inPara`, read in a paragraph */
@@ -269,8 +269,11 @@ type Piece =
   | { kind: "natcite"; cmd: string; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
-  /** cleveref's \cref{key} or \Cref{key}, and the character after it (\textup's \check@icr looks at it) */
-  | { kind: "cref"; key: string; capital: boolean; next: string }
+  /** cleveref's \cref{keys}, \Cref, \cpageref and \Cpageref (`star`: no links), \crefrange{a}{b} and friends; what they
+   *  print: a link to a label's anchor around its pieces, a bold ?? */
+  | { kind: "cref"; keys: string[]; variant: "cref" | "Cref" | "cpageref" | "Cpageref"; star: boolean }
+  | { kind: "crefrange"; a: string; b: string; family: "cref" | "Cref"; page: boolean; star: boolean }
+  | { kind: "creflink"; key: string; inner: Piece[] } | { kind: "qq" }
   /** hyperref's \autoref{key} and nameref's \nameref{key} (`star`: \autoref*, \nameref*) */
   | { kind: "autoref"; key: string; star: boolean } | { kind: "nameref"; key: string; star: boolean }
   /** \textbf{…} and friends: the command, its argument as pieces, and the characters around the argument
@@ -485,10 +488,16 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (eqref) {
       flushText(); out.push({ kind: "font", cmd: "textup", src: "\\tagform@", inner: [{ kind: "tagref", key: eqref[1] }], next: body[i + eqref[0].length] ?? "" }); i += eqref[0].length; continue
     }
-    const cref = body.slice(i).match(/^\\(cref|Cref)\{([^{}]*)\}/)
+    const cref = body.slice(i).match(/^\\(cref|Cref|cpageref|Cpageref)(\*?)\{([^{}]*)\}/)
     if (cref) {
-      if (!/^[A-Za-z0-9:._-]+$/.test(cref[2])) throw new Unsupported(`\\${cref[1]}{${cref[2]}}`) // (several labels: a list or a range)
-      flushText(); out.push({ kind: "cref", key: cref[2], capital: cref[1] === "Cref", next: body[i + cref[0].length] ?? "" }); i += cref[0].length; continue
+      // (a key with a space or an empty one: \r@ key@cref, undefined)
+      const keys = cref[3].split(",")
+      if (!keys.every((x) => /^[A-Za-z0-9:._-]+$/.test(x))) throw new Unsupported(`\\${cref[1]}{${cref[3]}}`)
+      flushText(); out.push({ kind: "cref", keys, variant: cref[1] as "cref", star: !!cref[2] }); i += cref[0].length; continue
+    }
+    const crange = body.slice(i).match(/^\\(crefrange|Crefrange|cpagerefrange|Cpagerefrange)(\*?)\{([A-Za-z0-9:._-]+)\}\{([A-Za-z0-9:._-]+)\}/)
+    if (crange) {
+      flushText(); out.push({ kind: "crefrange", a: crange[3], b: crange[4], family: crange[1][0] === "C" ? "Cref" : "cref", page: crange[1].includes("page"), star: !!crange[2] }); i += crange[0].length; continue
     }
     // hyperref's \autoref and nameref's \nameref; \Nameref{key}: `\nameref{key}' on page~\pageref{key}
     const aref = body.slice(i).match(/^\\(autoref|nameref)(\*?)\{([A-Za-z0-9:._-]+)\}/)
@@ -721,24 +730,44 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push(hpack(inner))
       state.spaceFactor = 1000
     }
-    else if (p.kind === "cref") {
-      // \cref: the name, \nobreakspace, the label in its format (\crefdefaultlabelformat #2#1#3, equation's \textup{(#2#1#3)});
-      // a label the run before did not write: \nfss@text{\reset@font\bfseries ??}
+    else if (p.kind === "cref" || p.kind === "crefrange") {
+      // \cref and friends: what cleveref.ts reads from the run before, as pieces; with hyperref (not starred) the links
       const c = doc.refs?.cleveref
-      if (!c) throw new Unsupported(`\\${p.capital ? "C" : "c"}ref without cleveref`)
-      const known = c.prev?.get(p.key)
-      const qq = () => {
-        const l: Node[] = []
-        appendText(l, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
-        list.push(hpack(l))
-        state.spaceFactor = 1000
+      const cmd = p.kind === "cref" ? p.variant : `${p.family === "Cref" ? "C" : "c"}${p.page ? "pageref" : "ref"}range`
+      if (!c) throw new Unsupported(`\\${cmd} without cleveref`)
+      if (p.star && !doc.refs!.hyper) throw new Unsupported(`\\${cmd}* without hyperref`)
+      const links = doc.refs!.hyper && !p.star
+      const out = p.kind === "cref" ? crefOutput(c.setup, c.prev, p.keys, p.variant, !!links) : crefRangeOutput(c.setup, c.prev, p.a, p.b, p.family, p.page, !!links)
+      const toPieces = (xs: CrefOut[]): Piece[] => {
+        const ps: Piece[] = []
+        for (const x of xs) {
+          if (x.t === "text") {
+            // (a run of characters goes on into the next text, but not over a name's case change)
+            x.s.split("\u0000").forEach((t, i) => { const prev = ps.at(-1); if (i === 0 && prev?.kind === "text") prev.src += t; else ps.push({ kind: "text", src: t }) })
+          }
+          else if (x.t === "tie") ps.push({ kind: "tie" })
+          else if (x.t === "qq") ps.push({ kind: "qq" })
+          else if (x.t === "link") ps.push({ kind: "creflink", key: x.key, inner: toPieces(x.out) })
+          else ps.push({ kind: "font", cmd: "textup", src: x.src, inner: toPieces(x.out), next: "" })
+        }
+        return ps
       }
-      if (known === undefined) { qq(); continue }
-      // a type with no name (a label read before any \refstepcounter has the empty one): ?? in its place
-      const name = known ? c.name(known.type, p.capital) : null
-      const label: Piece = known?.type === "equation" ? { kind: "font", cmd: "textup", src: `(${known.label})`, inner: [{ kind: "text", src: `(${known.label})` }], next: "" } : { kind: "text", src: known?.label ?? "" }
-      if (name === null) qq()
-      appendPieces(list, [...(name === null ? [] : [{ kind: "text", src: name } as Piece]), { kind: "tie" }, label], font, size, state, ctx, attrs)
+      appendPieces(list, toPieces(out), font, size, state, ctx, attrs)
+    }
+    else if (p.kind === "qq") { // \nfss@text{\reset@font\bfseries ??}
+      const l: Node[] = []
+      appendText(l, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
+      list.push(hpack(l))
+      state.spaceFactor = 1000
+    }
+    else if (p.kind === "creflink") {
+      // \cref@hyperlink: \hyper@@link[link]{}{the label's anchor}{…} (with dvips the text in an \hbox, its space factor
+      // saved and restored around it: \pdf@rect)
+      const known = doc.refs?.prev?.get(p.key)
+      if (!known) throw new Unsupported(`a cleveref link to ${p.key}, with no \\newlabel`)
+      const text: Node[] = []
+      appendPieces(text, p.inner, font, size, state, hyperDriver.pdftex ? ctx : { ...ctx, restricted: true }, attrs)
+      list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
     }
     else if (p.kind === "autoref" || p.kind === "nameref") {
       const refs = doc.refs

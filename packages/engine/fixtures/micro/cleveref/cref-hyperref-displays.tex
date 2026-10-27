@@ -1,0 +1,49 @@
+% fixture: cleveref/cref-hyperref-displays
+% tier: T3
+% engine: document
+% specials: compare
+% covers: cleveref with hyperref in displays: \refstepcounter in math mode leaves hyperref/fixcleveref's first aid group ({\firstaid@cref@updatelabeldata…}, an empty ord) after the anchor of an amsmath equation (numbered align, gather and multline rows step theirs in the tag's box: nothing); \cref, \Cref, \cref* (no link) and \cpageref to equations; \crefrange and \Crefrange (a link to each end), \crefrange*; \autoref and \nameref beside \cref
+% issue: #318
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\begin{document}
+\section{Displays}\label{sec:d}
+Some text before the first display.
+\begin{equation}\label{e1}
+a = b
+\end{equation}
+An align:
+\begin{align}
+x &= y\\
+y &= z\\
+z &= w \nonumber
+\end{align}
+A gather:
+\begin{gather}
+p = q\\
+q = r
+\end{gather}
+\begin{equation}\label{e2}
+c = d
+\end{equation}
+And a multline:
+\begin{multline}
+s + t + u \\
+= v
+\end{multline}
+Two more:
+\begin{equation}\label{e3}
+e = f
+\end{equation}
+and
+\begin{equation}\label{e4}
+g = h
+\end{equation}
+then
+\begin{equation}\label{e5}
+i = j
+\end{equation}
+See \cref{e1}, \Cref{e2}, \cref*{e3}, \cpageref{e4}, \Cpageref{e5} and \cref{sec:d}; ranges \crefrange{e1}{e3} and \Crefrange{e2}{e5}, starred \crefrange*{e1}{e2}; \autoref{e1}, \autoref{sec:d} and \nameref{sec:d}.
+\end{document}
