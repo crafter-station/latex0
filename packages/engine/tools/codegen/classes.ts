@@ -13,8 +13,15 @@ import { loadTfm } from "../oracle/oracle"
 import { texEnv } from "../tex"
 
 const OUT = "packages/engine/data/classes"
-const CLASSES = ["article", "report", "book", "letter"]
-const OPTIONS = ["10pt", "11pt", "12pt"]
+/** each class and its size options (beamer's: the .clo it inputs, size8.clo … size20.clo from extsizes) */
+const CLASSES: Record<string, string[]> = {
+  article: ["10pt", "11pt", "12pt"], report: ["10pt", "11pt", "12pt"], book: ["10pt", "11pt", "12pt"], letter: ["10pt", "11pt", "12pt"],
+  beamer: ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"],
+}
+/** beamer's own lengths (registers, or macros as geometry's are): geometry's margins, the text margins and sidebars,
+ *  and what \beamer@calculateheadfoot sets at \begin{document} for the theme loaded (the default: an empty headline
+ *  and footline) */
+const BEAMER_DIMENS = ["Gm@lmargin", "Gm@rmargin", "beamer@leftmargin", "beamer@rightmargin", "beamer@leftsidebar", "beamer@rightsidebar", "headdp", "footheight", "sidebarheight"]
 
 const DIMENS = [
   "paperwidth", "paperheight", "textwidth", "textheight", "oddsidemargin", "evensidemargin", "topmargin", "headheight", "headsep",
@@ -56,14 +63,14 @@ function probe(cls: string, option: string, packages = ""): string {
       // the math alphabets' families (allocated on first use) at text, script and scriptscript size
       `\\setbox0\\hbox{$${ALPHABETS.map((a) => `\\${a}{\\xdef\\fam${a}{\\the\\fam}}`).join("")}` +
       `\\immediate\\write16{A:\\expandafter\\@gobble\\string#1${ALPHABETS.flatMap((a) => ["text", "script", "scriptscript"].map((st) => `:\\fontname\\${st}font\\csname fam${a}\\endcsname`)).join("")}}$}}}`,
-    "\\begin{document}",
+    "\\begin{document}", "\\makeatletter", // (beamer's \\begin{document} ends with \\makeatother)
     // with fontenc loaded: the font of every encoding, family, series and shape at every size (what NFSS
     // substitutes when the shape is not declared) and its \\hyphenchar
     // which shapes the .fd files declare, read before any substitution (which declares the shape it replaces)
     ...(packages.includes("fontenc") ? [...new Set(FONT_SHAPES.map((f) => f.split("/").slice(0, 2).join("/")))].map((ef) => `{\\fontencoding{${ef.split("/")[0]}}\\fontfamily{${ef.split("/")[1]}}\\fontseries{m}\\fontshape{n}\\selectfont}`) : []),
     ...(packages.includes("fontenc") ? FONT_SHAPES.map((f) => `\\immediate\\write16{D:${f}:\\ifcsname ${f}\\endcsname 1\\else 0\\fi}`) : []),
     ...(packages.includes("fontenc") ? SIZE_COMMANDS.map((sz) => `{\\${sz}${FONT_SHAPES.map((f) => { const [e, fam, ser, sh] = f.split("/"); return `{\\fontencoding{${e}}\\fontfamily{${fam}}\\fontseries{${ser}}\\fontshape{${sh}}\\selectfont\\immediate\\write16{N:${sz}:${f}:\\fontname\\font:\\the\\hyphenchar\\font}}` }).join("")}}`) : []),
-    ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
+    ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
     ...SIZE_COMMANDS.map((s) => `\\S\\${s}`),
     // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
     "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
@@ -209,9 +216,10 @@ function variants(cls: string, option: string, base: ClassOptionData): ClassOpti
 
 export function codegenClasses(check: boolean): number {
   const stale: string[] = []
-  for (const cls of CLASSES) {
-    const data: ClassData = { class: cls, tex: "LaTeX kernel and standard classes as loaded by `latex`", options: {} }
-    for (const o of OPTIONS) { const d = texData(cls, o); d.variants = variants(cls, o, d); data.options[o] = d }
+  for (const [cls, options] of Object.entries(CLASSES)) {
+    const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : "LaTeX kernel and standard classes as loaded by `latex`", options: {} }
+    // (no paper or side variants for beamer: its paper is its own, 128mm × 96mm by default)
+    for (const o of options) { const d = texData(cls, o); if (cls !== "beamer") d.variants = variants(cls, o, d); data.options[o] = d }
     const body = JSON.stringify(data) + "\n"
     const file = join(OUT, `${cls}.json`)
     if (existsSync(file) && readFileSync(file, "utf8") === body) continue
@@ -219,7 +227,7 @@ export function codegenClasses(check: boolean): number {
     if (!check) { mkdirSync(OUT, { recursive: true }); writeFileSync(file, body) }
   }
   if (check) {
-    console.log(stale.length ? `class data out of date: ${stale.join(", ")}\nrun: bun engine codegen` : `class data up to date (${CLASSES.length} classes × ${OPTIONS.length} options)`)
+    console.log(stale.length ? `class data out of date: ${stale.join(", ")}\nrun: bun engine codegen` : `class data up to date (${Object.keys(CLASSES).length} classes)`)
     return stale.length ? 1 : 0
   }
   console.log(stale.length ? `wrote ${stale.join(", ")}` : "class data unchanged")
