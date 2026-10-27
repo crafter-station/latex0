@@ -181,6 +181,29 @@ export function documentStart(bookmarks: Bookmark[]): Node[] {
   ]
 }
 
+/**
+ * hyperref's page labels (\HyPL@EveryPage at each shipout, \HyPL@StorePageLabel's \HyPL@Entry in the .aux): an entry
+ * `abspage<</S/type>>` where the numbering style changes or the page number does not follow the last (from 1: one
+ * from another number has ` /St n`), for \thepage an \arabic or \roman page number; "" when \HyPL@SetPageLabels
+ * puts nothing (no entry, or only 0<</S/D>>)
+ */
+export function pageLabels(pages: { count: number; thepage: string }[]): string {
+  let out = "", lastType = "", lastNumber = 0
+  pages.forEach((p, i) => {
+    const type = /^\d+$/.test(p.thepage) ? "D" : /^[ivxlcdm]+$/.test(p.thepage) ? "r" : null
+    if (type === null || p.count <= 0) throw new Unsupported(`hyperref's page label for page ${p.thepage}`)
+    if (type !== lastType || p.count - 1 !== lastNumber) {
+      if (p.count !== 1) throw new Unsupported(`hyperref's page label starting at ${p.count}`) // (/St n)
+      out += `${i}<</S/${type}>>`
+    }
+    lastType = type; lastNumber = p.count
+  })
+  return out === "0<</S/D>>" ? "" : out
+}
+
+/** \HyPL@SetPageLabels in \AtBeginDocument, what the last run wrote: \Hy@PutCatalog{/PageLabels<</Nums[…]>>} */
+export const putPageLabels = (nums: string): Node => sdict(`[ {Catalog} <</PageLabels<</Nums[${nums}]>>>> /PUT pdfmark`)
+
 /** pdfmark.def's \Hy@DistillerDestFix, the first thing \Hy@EveryPageAnchor puts in every page (dvips only) */
 export const distillerDestFix = (): Node => sdict("/product where{pop product(Distiller)search{pop pop pop version(.)search{exch pop exch pop(3011)eq{gsave newpath 0 0 moveto closepath clip/Courier findfont 10 scalefont setfont 72 72 moveto(.)show grestore}if}{pop}ifelse}{pop}ifelse}if")
 

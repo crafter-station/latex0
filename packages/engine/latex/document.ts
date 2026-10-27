@@ -32,7 +32,7 @@ import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
-import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, papersize, type Bookmark } from "./hyperref"
+import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { Colors, colorPush, xcolor } from "./xcolor"
 import { paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
@@ -83,7 +83,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 const READS_AUX = /\\(?:ref|pageref|eqref|cite|cref|Cref|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
+interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefLabel | null> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -114,6 +114,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
     v.nodes.push(...anchor("Doc-Start", run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+    if (prev?.pageLabels && !hyperDriver.pdftex) v.nodes.push(putPageLabels(prev.pageLabels))
   }
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
@@ -267,6 +268,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
       labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, name: w.name, href: w.href }])),
       bookmarks: bookmarks.written,
+      pageLabels: hyper ? pageLabels(pages) : "",
       // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
       crefs: new Map((refs.cleveref?.writes ?? []).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, w.cref])),
