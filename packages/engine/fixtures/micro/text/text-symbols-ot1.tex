@@ -1,0 +1,16 @@
+% fixture: text/text-symbols-ot1
+% tier: T3
+% engine: document
+% covers: text symbols in OT1: TS1's companion font (\textbullet \textperiodcentered \pounds \S \P \dag \ddag \copyright \textregistered \texttrademark \textordmasculine \textordfeminine \textdegree, after a robust command's \relax or in the run), OMS's cmsy (\textbar \textbackslash \{ \}) and OML's cmmi (\textless \textgreater), OT1's own letters (\ss \ae \AE \oe \OE \o \O \i \j), dashes and quotes, \textexclamdown, \textasciicircum{} \textasciitilde, \_ (\kern.06em\vbox{\hrule}), \ldots and \textellipsis, \slash, and the space factor after them
+% issue: #334
+\documentclass{article}
+\begin{document}
+Bullets \textbullet\ and dots \textperiodcentered{} cost \pounds 5 or \textsterling5; see \S 3 and \P 2, \dag\ and \ddag.
+Marks: \copyright\ 2025 Corp\textregistered{} and Brand\texttrademark, 3.\textordmasculine\ and 1.\textordfeminine, 20\textdegree C.
+A bar \textbar, a backslash \textbackslash, braces \{x\} and \textless tag\textgreater. AV\textbullet{}AV and W\S W.
+Stra\ss e, \ae on, \AE sop, \oe uvre, \OE, \o re, \O stfold, na\i ve, \j, Gro\ss{}e.
+Dashes \textendash{} and \textemdash, quotes \textquoteleft one\textquoteright{} and \textquotedblleft two\textquotedblright, \textexclamdown Hola!
+Carets \textasciicircum{} and tildes \textasciitilde, file\_name\_here, and so on\ldots{} and more\textellipsis\ then many\textellipsis{} and Y\ldots{} then input\slash output.
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua \textbullet\ ut enim.
+\textbf{Bold \textbullet\ \S\ \ss\ and \textbar} \textit{italic \pounds\ \dag\ \textless} \TeX\ and \LaTeX{} and \LaTeXe.
+\end{document}

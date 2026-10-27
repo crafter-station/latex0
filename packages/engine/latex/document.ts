@@ -51,6 +51,7 @@ import { CrefSetup, fillCrefWrites, type CrefEntry } from "./cleveref"
 import { documentClass } from "./classes"
 import { beamerDocument } from "./beamer"
 import { unbraced } from "./enumitem"
+import { today } from "./frontmatter"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -110,7 +111,9 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
   const run = runState(pre.k)
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(body) : body)
+  // \today: the date's characters (the spaces after the control word go)
+  const dated = body.replace(/\\today(?![A-Za-z])\s*/g, () => today(epoch, pre.babel))
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
   accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
   portugueseLayout.on = ["portuguese", "portuges", "brazil", "brazilian"].includes(pre.babel?.main ?? "")
   babelUmlauts.mode = !pre.babel ? null : isSpanish(pre.babel) ? "spanish" : "high"

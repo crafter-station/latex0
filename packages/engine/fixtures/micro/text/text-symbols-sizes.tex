@@ -1,0 +1,14 @@
+% fixture: text/text-symbols-sizes
+% tier: T3
+% engine: document
+% covers: text symbols at other sizes and series: OMS's cmsy at 11pt and 9pt (gen*cmsy), bold cmbsy, OML's cmmi, TS1 in bold and italic, \LaTeX's A at \sf@size in \small and \large and in bold, \LaTeXe's \mbox with xcolor, \today in a paragraph, \textellipsis at its first use (\@changed@cmd's \global\let ends the run) and later, the space factor 999 after TS1's \textbullet ("88)
+% issue: #334
+\documentclass[11pt]{article}
+\usepackage{xcolor}
+\begin{document}
+On \today\ many\textellipsis\ (the first use ends the run) and many\textellipsis{} the bar \textbar\ and \textbackslash\ and \{set\} and \textless x\textgreater{} in 11pt. \textbf{Bold \textbar\ \{b\} \textless b\textgreater} and \textit{\textbullet\ \S\ \textdegree}.
+{\small Small \textbar\ \textbackslash\ \textless s\textgreater\ \LaTeX\ \textbullet\ and \TeX.} {\footnotesize Footnote \textbar\ \textless f\textgreater\ \textbf{\textbar}.} {\large Large \textbar\ \textless l\textgreater\ \LaTeX.}
+A bullet\textbullet\ then a space, a dagger\dag\ then a space, and \texttrademark{} \textcopyright{} \textregistered.
+Lorem ipsum dolor sit amet\textbullet\ consectetur adipiscing elit\textperiodcentered\ sed do eiusmod tempor incididunt ut labore et dolore magna aliqua \textbullet\ ut enim ad minim veniam, quis nostrud exercitation.
+\LaTeXe{} with xcolor. \textbf{\LaTeX} in bold.
+\end{document}

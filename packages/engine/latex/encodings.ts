@@ -68,7 +68,7 @@ const T1_COMPOSITES: Record<string, number> = {
 
 /** \DeclareTextSymbol: the letters and punctuation a paragraph's text holds as Unicode characters (OT1's
  *  \textexclamdown and \textquestiondown are the ligatures !` and ?`) */
-const SYMBOLS: Record<"OT1" | "T1", Record<string, number | string>> = {
+export const SYMBOLS: Record<"OT1" | "T1", Record<string, number | string>> = {
   OT1: { ß: 25, æ: 26, œ: 27, ø: 28, Æ: 29, Œ: 30, Ø: 31, ı: 16, ȷ: 17, "“": 92, "”": 34, "‘": 96, "’": 39, "–": 123, "—": 124, "¡": "!`", "¿": "?`" },
   T1: {
     ß: 255, æ: 230, œ: 247, ø: 248, Æ: 198, Œ: 215, Ø: 216, ı: 25, ȷ: 26, ł: 170, Ł: 138, ð: 240, Ð: 208, þ: 254, Þ: 222,

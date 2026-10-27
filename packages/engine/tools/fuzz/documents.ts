@@ -259,6 +259,8 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (es && !esAscii && r() < 0.03) ws[i] = pick([`<<${ws[i]}>>`, `"<${ws[i]}">`, `${ws[i]} 50\\%`, `ping"uino ${ws[i]}`, `"U${ws[i]}`, `${pick(ES_TYPED)} ${ws[i]}`])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
+      // text symbols (own characters in the run, TS1's, OMS's, OML's) and logos
+      if (r() < 0.006) ws[i] += pick([" \\textbullet{}", "\\S 3", " \\pounds 5", " \\textbar", "\\textbackslash{}", " \\{x\\}", " \\textless a\\textgreater", "\\_x", " Stra\\ss e", " \\ae\\ \\oe\\ \\o", "\\dag", " \\copyright\\ 2025", "\\texttrademark", " 3.\\textordmasculine", "\\ldots", "\\textellipsis{}", " input\\slash output", " \\TeX", " \\LaTeX{}", " \\LaTeXe", " \\textendash", "\\textemdash", " \\textquotedblleft q\\textquotedblright", " \\textexclamdown", " \\P 2", " \\textperiodcentered", " \\textasciitilde", " \\today"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
       if (r() < 0.0015) ws[i] += " " + minipage(pick(["", "[t]", "[b]", "[c]"]), true)
       // rules, spaces, leaders and boxes in text
