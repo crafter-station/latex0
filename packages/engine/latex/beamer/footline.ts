@@ -33,6 +33,7 @@ import type { TitleInfo } from "./preamble"
 import { navMax, type NavHead } from "./headnav"
 import { miniframesFootline, miniframesHeadline, treeHeadline } from "./miniframes"
 import type { BeamerPgf } from "./pgf"
+import { sidebarHeadline } from "./sidebar"
 import { navigationLink, type Head } from "./sections"
 import { fontSize, outerColors, useColor, type ColorState, type Theme } from "./theme"
 
@@ -74,6 +75,7 @@ export function headlineTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, 
   if (t.headline === "infolines") boxesLine(k, list, infolinesHeadBoxes(k, t, at, colors, decisions), decisions)
   else if (t.headline === "miniframes") miniframesHeadline(k, t, at, colors, list, decisions)
   else if (t.headline === "tree") treeHeadline(k, t, at, info, colors, list, decisions)
+  else if (t.headline === "sidebar") sidebarHeadline(k, t, colors, list, decisions)
   else if (t.headline === "split") {
     // \leavevmode, then the boxes in a group: no \par, so the paragraph (one line) ends with the template's pops, at
     // the \vbox's end

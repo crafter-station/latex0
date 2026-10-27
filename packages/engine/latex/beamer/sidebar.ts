@@ -20,7 +20,7 @@ import { appendToVlist, classParams, selectFont, spec } from "../paragraph"
 import { dimen } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv, resetColor } from "./colorbox"
-import { plain, type FootlineAt } from "./footline"
+import { headFootBox, plain, type FootlineAt } from "./footline"
 import { SANS } from "./frame"
 import type { TitleInfo } from "./preamble"
 import { navigationLink } from "./sections"
@@ -142,4 +142,23 @@ export function sidebarRightTemplate(t: Theme, symbols: Node[]): Node[] {
   resetColor(list)
   resetColor(list)
   return list
+}
+
+/**
+ * The sidebar theme's headline (with a head): beamercolorbox[wd=\\paperwidth]{frametitle} holding, with the sidebar on
+ * the left, \\usebeamercolor[bg]{logo}\\vrule width the sidebar's width height\\beamer@headheight, \\hskip back, \\hbox to
+ * the sidebar's width{\\hss\\vbox to\\beamer@headheight{\\vss\\hbox{\\color{fg}\\insertlogo}\\vss}\\hss} (no logo: its
+ * template's color only); without a sidebar \\vrule width0pt height\\beamer@headheight
+ */
+export function sidebarHeadline(k: ClassOptionData, t: Theme, colors: ColorState, list: Node[], decisions: ParagraphTrace[]) {
+  const size = sizedFont(t, k, "headline", "normalsize")
+  const ft = sizedFont(t, k, "frametitle", "normalsize").baselineskip.width
+  const height = 2 * ft + Math.floor(ft / 2), width = t.sidebar ? k.dimens["beamer@leftsidebar"] : 0
+  list.push(headFootBox(k, t, size.size as SizeCommand, size.size as SizeCommand, colors, decisions, "wd=\\paperwidth", "frametitle", (_f, inner) => {
+    if (!t.sidebar) return { list: [{ kind: "rule", width: 0, height, depth: null }] }
+    const logo = useColor(t, "logo", inner)
+    const box = hpack([colorPush(logo.fg), colorPush(useColor(t, "logo", logo).fg), colorPop()])
+    const v = vpack([ssGlue(), box, colorPop(), ssGlue()], { exactly: height })
+    return { list: [colorPush(logo.bg), { kind: "rule", width, height, depth: null }, glue(-width), hpack([ssGlue(), v, ssGlue()], { exactly: width })], after: [colorPop()] }
+  }))
 }

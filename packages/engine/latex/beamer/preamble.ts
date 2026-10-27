@@ -3,9 +3,9 @@
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
 // of one of them changes nothing. The themes are the default ones, color themes,
 // the rounded, circles and rectangles inner themes, the infolines, split and
-// miniframes and tree outer themes, Pittsburgh, Malmoe, Copenhagen, Luebeck, Berlin,
-// Dresden, Ilmenau, Szeged, Montpellier and Hannover, and Madrid, CambridgeUS,
-// AnnArbor and Boadilla without their shadows,
+// miniframes, tree and sidebar outer themes, Pittsburgh, Malmoe, Copenhagen, Luebeck, Berlin,
+// Dresden, Ilmenau, Szeged, Montpellier, Hannover, Berkeley and Rochester, and Madrid,
+// CambridgeUS, AnnArbor, Boadilla and PaloAlto without their shadows,
 // as data/beamer has them, with
 // the default navigation symbols or none: any other theme or template setting
 // throws Unsupported.
@@ -65,10 +65,10 @@ const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10p
 const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
   "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
   "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles",
-  "infolines-headline", "CambridgeUS", "AnnArbor", "Boadilla", "Pittsburgh", "rectangles", "whale-orchid-circles", "whale-orchid-rectangles", "split", "whale-orchid-split", "Malmoe", "Copenhagen", "Luebeck", "miniframes", "Berlin", "Dresden", "Ilmenau", "Szeged", "tree", "Montpellier", "Hannover",
+  "infolines-headline", "CambridgeUS", "AnnArbor", "Boadilla", "Pittsburgh", "rectangles", "whale-orchid-circles", "whale-orchid-rectangles", "split", "whale-orchid-split", "Malmoe", "Copenhagen", "Luebeck", "miniframes", "Berlin", "Dresden", "Ilmenau", "Szeged", "tree", "Montpellier", "Hannover", "sidebar", "Berkeley", "PaloAlto", "Rochester",
   "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
 /** the presentation themes with the rounded inner theme's shadows on by default */
-const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla"]
+const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla", "PaloAlto"]
 /** the packages beamer.cls loads (with these, \usepackage does nothing) */
 const LOADED = ["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "xcolor", "geometry", "url", "enumerate"]
 
@@ -116,7 +116,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     if (color) { themeLines.push(line); themeParts.push(color[1]); continue }
     // (with its own headline until the next line sets the default one back)
     if (line === "\\useoutertheme{infolines}") { themeLines.push(line); themeParts.push("infolines-headline"); continue }
-    const outer = line.match(/^\\useoutertheme\{(split|miniframes|tree)\}$/)
+    const outer = line.match(/^\\useoutertheme\{(split|miniframes|tree|sidebar)\}$/)
     if (outer) { themeLines.push(line); themeParts.push(outer[1]); continue }
     const inner = line.match(/^\\useinnertheme\{(rounded|circles|rectangles)\}$/)
     if (inner) { themeLines.push(line); themeParts.push(inner[1]); continue }
@@ -133,7 +133,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     }
     // the presentation themes data/beamer has whole (with shadow=false where the theme has shadows: the rounded inner
     // theme's shadow=true needs pgf's fadings)
-    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover)\}$/)
+    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover|Berkeley|PaloAlto|Rochester)\}$/)
     if (p) {
       if (SHADOWS.includes(p[2]) ? p[1] !== "shadow=false" : p[1] !== undefined) throw new Unsupported(`beamer: ${p[2]}'s options or shadows (pgf's fadings)`)
       if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)

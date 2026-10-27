@@ -22,11 +22,13 @@ export interface Theme { name: string; data: BeamerThemeData
    *  (empty) one */
   footline: "default" | "infolines" | "split" | "authorinstitutetitle" | "institutetitle"
   /** the headline: the outer theme's, or the default (empty) one */
-  headline: "default" | "infolines" | "split" | "miniframes" | "tree"
+  headline: "default" | "infolines" | "split" | "miniframes" | "tree" | "sidebar"
   /** the frame title's alignment (\setbeamertemplate{frametitle}[default][…]) */
   frametitle: "left" | "right"
-  /** the sidebar theme's sidebar (\useoutertheme{sidebar}: on the left by default) */
+  /** the sidebar theme's sidebar (\useoutertheme{sidebar}: on the left by default; none where its width is 0pt) */
   sidebar?: "left"
+  /** the sidebar theme's head (its height not 0pt): its headline, the frame title in it */
+  sidebarHead?: true
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
   boadillaItems?: true }
 
@@ -45,6 +47,9 @@ const PRESENTATION: Record<string, Partial<Theme>> = {
   Szeged: { footline: "institutetitle", headline: "miniframes" },
   Montpellier: { headline: "tree" },
   Hannover: { inner: "circles", sidebar: "left", frametitle: "right" },
+  Berkeley: { inner: "rectangles", sidebar: "left", sidebarHead: true, headline: "sidebar" },
+  PaloAlto: { inner: "rounded", sidebar: "left", sidebarHead: true, headline: "sidebar" },
+  Rochester: { inner: "rectangles", sidebarHead: true, headline: "sidebar" },
 }
 
 export function loadTheme(name: string): Theme {
@@ -57,6 +62,7 @@ export function loadTheme(name: string): Theme {
     else if (line === "\\useoutertheme{split}") t.footline = t.headline = "split"
     else if (line === "\\useoutertheme{miniframes}") t.headline = "miniframes"
     else if (line === "\\useoutertheme{tree}") t.headline = "tree"
+    else if (line === "\\useoutertheme{sidebar}") Object.assign(t, { sidebar: "left", sidebarHead: true, headline: "sidebar" })
     else if (line === "\\setbeamertemplate{headline}[default]") t.headline = "default"
     else {
       const p = line.match(/^\\usetheme(?:\[[^\]]*\])?\{([A-Za-z]+)\}$/)
