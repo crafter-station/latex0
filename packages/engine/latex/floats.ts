@@ -32,6 +32,8 @@ export interface CaptionOut {
   prevDepth(): number | null; rule(): void; lines(start: Node[], text: string, opts: ParagraphOptions, size?: SizeCommand): Node[]
   /** the last node there (\lastskip for hyperref's \Hy@RestoreLastskip) */
   last?(): Node | undefined
+  /** a \vskip in the caption, when not the primitive's glue (listings' \nobreak\vskip…\nobreak) */
+  vskip?(g: Node): Node[]
 }
 
 /** what a caption leaves for a \label after it: the float's number, \@currentlabel, nameref's name, and a subcaption's
@@ -226,7 +228,7 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
     if (sep === "newline" && centercr) { // \\ as \@centercr: \par, \addvspace{-\parskip}, and the text a new paragraph
       if (tf.size !== cf.size) throw new Unsupported("labelsep=newline with a text font size") // (the label's lines' \baselineskip)
       // (new_graf's \parskip and LaTeX's restart of the paragraph's: two)
-      lines.push(...out.lines(start, "", { hsize: width - indent, ...shape }, lf.size), glue(0), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+      lines.push(...out.lines(start, "", { hsize: width - indent, ...shape }, lf.size), ...(out.vskip?.(glue(0)) ?? [glue(0)]), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
       start.splice(0, start.length, hpack([]))
     } else start.push(...sepNodes(false))
   }

@@ -1,0 +1,15 @@
+% fixture: caption/listings-caption-newline
+% tier: T3
+% engine: document
+% covers: a listing caption with labelsep=newline: in the single-line format \\ is \@centercr, whose \addvspace{-\parskip} in the caption's \parbox is listings' \nobreak\vskip…\nobreak
+% issue: #294
+\documentclass{article}
+\usepackage[labelsep=newline]{caption}
+\usepackage{listings}
+\begin{document}
+Text before the listing.
+\begin{lstlisting}[caption={Short}]
+x = 1
+\end{lstlisting}
+The end.
+\end{document}

@@ -50,8 +50,11 @@ export interface RunState {
   noskipsec: boolean
   /** what listings carries from one listing to the next: gobbled whitespace, \lst@breakcurrindent and the break shape */
   lstCarry: { gobbledws: boolean; breakcurrindent: number; breakshape: [number, number] | null }
+  /** where caption.sty's listing captions are on the main vertical list, listings' \vskip (\nobreak\vskip…\nobreak)
+   *  in force: an output routine run there would see it */
+  lstCaptions: [number, number][]
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null } }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [] }
 }

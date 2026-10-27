@@ -295,6 +295,7 @@ function listingCaption(cx: Ctx, n: number, text: string, hsize: number, skip: G
   }
   // (skip= and belowskip= in the list set them after the swap)
   const skips = { below: keys.below === null ? skip : glue(keys.below), above: glue(keys.above ?? skip.width) }
+  const at = v.nodes.length
   captionMake(cx, keys, { top: true, subAbove: false }, { name: "Listing", the: String(n), isSub: false, star: false, text, anchor: false, normalcolor: false, skips }, hsize, {
     push(x) {
       if (x.kind !== "glue") { v.nodes.push(x); return }
@@ -308,5 +309,7 @@ function listingCaption(cx: Ctx, n: number, text: string, hsize: number, skip: G
     prevDepth: () => v.prevDepth,
     rule() {},
     lines,
+    vskip: (g) => [penalty(10000), g, penalty(10000)],
   })
+  run.lstCaptions.push([at, v.nodes.length])
 }

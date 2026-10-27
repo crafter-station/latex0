@@ -211,6 +211,8 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     throw e
   }
   const { pages, pageTrace } = built
+  // (the glue after a listing caption's paragraph is a breakpoint: a page fired there is output inside its group)
+  if (pages.some((p) => run.lstCaptions.some(([a, b]) => p.reached >= a && p.reached < b))) throw new Unsupported("a page output inside a listing's caption")
   if (refs.cleveref) fillCrefWrites(refs.cleveref.writes, pages, (at) => (v.nodes[at] as { param?: string } | undefined)?.param === "parskip")
   const columns = makeColumns(pages, run.k, cls === "letter")
   const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
