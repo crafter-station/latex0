@@ -1,0 +1,19 @@
+% fixture: beamer/shadow-titlepage
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's Madrid title page with its shadow (\usetheme[shadow=true]{Madrid}): the title and subtitle in a rounded beamercolorbox [sep=8pt,center,colsep=-4bp,rounded=true,shadow=true], its fading at the top of the page (dvips) or its mask (pdfTeX), with the navigation symbols and the infolines footline, a second title page
+% issue: #324
+\documentclass{beamer}
+\usetheme[shadow=true]{Madrid}
+\title{A Presentation Title Long Enough to Take Two Lines}
+\subtitle{The Subtitle}
+\author{First Author \and Second Author}
+\institute{Some Institute}
+\date{2 June 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\frame{\titlepage}
+\end{document}

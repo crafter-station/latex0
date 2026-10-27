@@ -1,0 +1,17 @@
+% fixture: beamer/shadow-20pt-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's shadows at 20pt: a low rounded beamercolorbox with shadow=true, its fading lower than \normalsize's \strutbox (dvips's measures of the page-top material take the strut's height and depth)
+% issue: #324
+\documentclass[20pt]{beamer}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=3cm,ht=2pt,dp=1pt]{palette secondary}
+low
+\end{beamercolorbox}
+\end{frame}
+\end{document}

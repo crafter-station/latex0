@@ -1,0 +1,81 @@
+% fixture: beamer/shadow-numbers
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's shadows, a box of a new width on each of fourteen pages under Madrid: each page's first mask (pdfTeX's /pgfsmask<N>) counts the objects of every page shipped before it, its writes to object streams of 100 objects most of all; dvips's fadings at the top of each page
+% issue: #324
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Numbers}
+\begin{document}
+\begin{frame}{Box 1}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=3.0cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 2}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=3.25cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 3}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=3.5cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 4}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=3.75cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 5}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=4.0cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 6}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=4.25cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 7}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=4.5cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 8}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=4.75cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 9}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=5.0cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 10}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=5.25cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 11}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=5.5cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 12}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=5.75cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 13}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=6.0cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\begin{frame}{Box 14}
+\begin{beamercolorbox}[rounded=true,shadow=true,wd=6.25cm]{palette primary}
+A box of its own width.
+\end{beamercolorbox}
+\end{frame}
+\end{document}

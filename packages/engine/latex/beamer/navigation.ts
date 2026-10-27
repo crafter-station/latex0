@@ -232,13 +232,14 @@ export function navigationSymbols(pgf: { s: PgfState; d: PgfDriver }, t: Theme, 
 // ---- the pages ----
 
 /**
- * pgf's shipout/background hook (pgfutil-latex.def) around a shipped page, by \__shipout_add_background_box:n:
- * \put(\hoffset-1in,\voffset-1in){…} at the paper's corner holding on the first page the PostScript header, in
+ * pgf's shipout/background hook (pgfutil-latex.def 130–136) around a shipped page, by \__shipout_add_background_box:n:
+ * \put(\hoffset-1in,\voffset-1in){\pgfutil@abe\unhbox\pgfutil@abb\pgfutil@abc} at the paper's corner holding what
+ * pgf put at the page's top (`top`: dvips's fadings, pgf/fadings.ts) and on the first page the PostScript header, in
  * \hbox{\kern-1in\vbox to0pt{\kern-1in\hbox{…}\vss}}, above the page's contents, then \kern\z@
  */
-export function pgfBackground(page: BoxNode, first: boolean): BoxNode {
+export function pgfBackground(page: BoxNode, first: boolean, top: readonly Node[]): BoxNode {
   const header: Node[] = first && !hyperDriver.pdftex ? DVIPS_HEADER.map((h) => ({ kind: "whatsit", text: `\\special{! ${h}}` })) : []
-  const put = hpack([kern(-INCH, true), ...header, ssGlue()], { exactly: 0 })
+  const put = hpack([kern(-INCH, true), ...top, ...header, ssGlue()], { exactly: 0 })
   put.shift = INCH
   const box = hpack([kern(-INCH, true), vpack([kern(-INCH, true), hpack([put]), ssGlue()], { exactly: 0 })])
   return vpack([box, ...page.list, kern(0, true)], { exactly: page.height + page.depth })

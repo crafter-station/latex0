@@ -32,7 +32,10 @@ export interface Theme { name: string; data: BeamerThemeData
   /** the sidebar theme's head (its height not 0pt): its headline, the frame title in it */
   sidebarHead?: true
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
-  boadillaItems?: true }
+  boadillaItems?: true
+  /** the rounded inner theme's shadow option (\beamer@themerounded@shadow: false, Madrid's, CambridgeUS's, AnnArbor's,
+   *  Boadilla's and PaloAlto's true) */
+  shadow: boolean }
 
 /** the presentation themes (\usetheme) the data has: the inner and outer themes they load, the headline they leave */
 const PRESENTATION: Record<string, Partial<Theme>> = {
@@ -56,9 +59,10 @@ const PRESENTATION: Record<string, Partial<Theme>> = {
   Marburg: { sidebar: "right", sidebarCanvas: { top: "palette quaternary.bg", bottom: "palette primary.bg" } },
 }
 
-export function loadTheme(name: string): Theme {
+/** the theme `name` from data/beamer, its rounded boxes with shadows or not */
+export function loadTheme(name: string, shadow: boolean): Theme {
   const data = beamerThemeFile(name)
-  const t: Theme = { name, data, inner: "default", footline: "default", headline: "default", frametitle: "left" }
+  const t: Theme = { name, data, inner: "default", footline: "default", headline: "default", frametitle: "left", shadow }
   for (const line of data.preamble) {
     const inner = line.match(/^\\useinnertheme\{(rounded|circles|rectangles)\}$/)
     if (inner) t.inner = inner[1] as Theme["inner"]

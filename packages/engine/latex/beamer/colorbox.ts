@@ -3,7 +3,7 @@
 // right skips and the separations its options set, inside an \hbox in the beamer
 // color's fg; where the color has a bg, that \hbox in a \colorbox{bg} (\fboxsep
 // zero) widened by colsep*; then, wider than \textwidth, squeezed into the text
-// margins. A rounded box (rounded=true) is rounded.ts's; shadows (pgf's fadings) throw Unsupported.
+// margins. A rounded box (rounded=true, with shadow=true its shadow) is rounded.ts's.
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { parseDimen, parseGlue, type GlueSpec, type ScanEnv } from "../../layout/dimen"
@@ -14,7 +14,7 @@ import { dimen, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { selectFont } from "../paragraph"
 import { SANS, type FrameCtx } from "./frame"
-import { roundedBox } from "./rounded"
+import { roundedBox, shadowValue } from "./rounded"
 import { emptyBackground, useColor, type ColorState, type Theme } from "./theme"
 
 /** \setkeys{beamercolbox}'s results: the width, the height and depth when set, the left and right skips, sep, colsep
@@ -22,8 +22,8 @@ import { emptyBackground, useColor, type ColorState, type Theme } from "./theme"
 export interface ColorboxOptions { wd: number; ht?: number; dp?: number; leftskip: GlueSpec; rightskip: GlueSpec; sep: number; colsep: number; colseps: number
   /** colsep* at the box's end, where the body changed the font its ex is in (it is kept as written) */
   colsepsEnd?: number
-  /** rounded=true (rounded.ts) */
-  rounded?: boolean }
+  /** rounded=true (rounded.ts), and its shadow=true */
+  rounded?: boolean; shadow?: boolean }
 
 /** What the body of a box is set with: \hsize, \leftskip and \rightskip, and the \vbox's list so far */
 export interface ColorboxBody { hsize: number; leftskip: GlueSpec; rightskip: GlueSpec; v: VerticalList }
@@ -62,7 +62,8 @@ export function colorboxOptions(written: string, k: ClassOptionData, env: ScanEn
     else if (key === "colsep") o.colsep = len(need())
     else if (key === "colsep*") o.colseps = len(need())
     else if (key === "rounded" && (value === "true" || value === "false")) o.rounded = value === "true"
-    else if ((key === "shadow" || key === "ignorebg") && value === "false") continue
+    else if (key === "shadow") o.shadow = shadowValue(value ?? "true")
+    else if (key === "ignorebg" && value === "false") continue
     else throw new Unsupported(`beamercolorbox option ${item.trim()}`)
   }
   return o
@@ -113,7 +114,7 @@ export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: Co
     // in beamerboxesrounded[lower=name,upper=normal text,width=wd]{} where the color has a bg; otherwise, wider than
     // \textwidth, centred in it (\hbox to\textwidth{\hss…\hss})
     if (!cx) throw new Unsupported("beamer: a rounded beamercolorbox here")
-    if (bg) return roundedBox(cx, at, selectFont(k, "normalsize", SANS), { upper: "normal text", lower: name, width: o.wd, head: null, body: (v) => { v.nodes.push(box) } })
+    if (bg) return roundedBox(cx, at, selectFont(k, "normalsize", SANS), { upper: "normal text", lower: name, width: o.wd, shadow: o.shadow ?? false, head: null, body: (v) => { v.nodes.push(box) } })
     return box.width > k.dimens.textwidth ? hpack([ssGlue(), box, ssGlue()], { exactly: k.dimens.textwidth }) : box
   }
   if (bg) box = background(box, inner.bg, at.fg, o.colseps)

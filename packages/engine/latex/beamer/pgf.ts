@@ -4,13 +4,15 @@
 // parent.bg, lower.bg …: Colors, from the driver's text of each) and pgfmath's em and ex (the font in
 // force). The shadings beamer declares as it loads, each with colour dependencies (made when used, once
 // per combination of their colours): beamerbaseboxes.sty's bmb@transition, then beamerbaseauxtemplates.sty's
-// tocsphere, bigsphere and smallsphere. A picture's nodes or a shading's box come back as nodes for the
-// list they are in.
+// tocsphere, bigsphere and smallsphere. The colours pgf and beamer define as they load: pgftransparent
+// (pgfcoretransparency.code.tex) and beamer@safeblack (beamercolorthemedefault.sty), which shadows use. A
+// picture's nodes or a shading's box come back as nodes for the list they are in.
 
 import { QUAD, X_HEIGHT, type Font } from "../../layout/font"
 import type { BoxNode, Node } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
 import type { PgfDriver } from "../../pgf/drivers"
+import { definePgfTransparent } from "../../pgf/fadings"
 import { pgfPoint } from "../../pgf/points"
 import { beginPgfPicture, endPgfPicture } from "../../pgf/scopes"
 import { pgfDeclareShading, pgfUseShading } from "../../pgf/shade"
@@ -33,6 +35,8 @@ export class BeamerPgf {
   /** the run's state and driver (navigation.ts's navigationPgf: the class's objects defined) */
   constructor(readonly s: PgfState, readonly d: PgfDriver) {
     const colors = this.colors
+    definePgfTransparent(colors)
+    colors.define("beamer@safeblack", "gray", "0") // \colorlet{beamer@safeblack}{black}
     // beamerbaseboxes.sty 257–258
     pgfDeclareShading(s, d, "vertical", "lower.bg,upper.bg", "bmb@transition", "200cm", "color(0pt)=(lower.bg); color(2pt)=(lower.bg); color(4pt)=(upper.bg)", colors)
     // beamerbaseauxtemplates.sty 27–49

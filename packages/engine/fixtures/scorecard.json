@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 668,
-  "exact": 667,
+  "fixtures": 691,
+  "exact": 691,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 1,
-  "glyphs": 381535
+  "pending": 0,
+  "glyphs": 391488
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 249,
-   "exact": 249
+   "fixtures": 271,
+   "exact": 271
   },
   {
    "area": "bibliography",
@@ -166,8 +166,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 29,
-   "exact": 28
+   "fixtures": 30,
+   "exact": 30
   },
   {
    "area": "text",
@@ -239,8 +239,8 @@
    "file": "macro/templates/beamer.tex",
    "area": "templates",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 480,
    "covers": "Slide deck with title page, outline, and content frames",
    "issue": "#30"
@@ -343,6 +343,17 @@
    "glyphs": 214,
    "covers": "the starter-corpus recipe (corpus/recipe.tex): xcolor's \\textcolor, enumitem lists, sections and subsections, \\textdegree",
    "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-slides",
+   "file": "macro/templates/corpus-slides.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 267,
+   "covers": "the starter-corpus slides (corpus/slides.tex): beamer with \\usetheme{Madrid} (its shadows), \\frame{\\titlepage}, itemize and enumerate frames, the infolines footline, the navigation symbols",
+   "issue": "#324"
   },
   {
    "id": "templates/corpus-thesis-chapter",
@@ -2182,6 +2193,28 @@
    "issue": "#315"
   },
   {
+   "id": "beamer/madrid-shadow-pdf",
+   "file": "micro/beamer/madrid-shadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 340,
+   "covers": "beamer's Madrid theme with its shadows (\\usetheme{Madrid}: whale, orchid, rounded, infolines with the default headline), navigation symbols on: the rounded title page, a table of contents with ball numbers, ball items, rounded blocks, the infolines footline",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/madrid-shadow",
+   "file": "micro/beamer/madrid-shadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 340,
+   "covers": "beamer's Madrid theme with its shadows (\\usetheme{Madrid}: whale, orchid, rounded, infolines with the default headline), navigation symbols on: the rounded title page, a table of contents with ball numbers, ball items, rounded blocks, the infolines footline",
+   "issue": "#324"
+  },
+  {
    "id": "beamer/madrid-slides-pdf",
    "file": "micro/beamer/madrid-slides-pdf.tex",
    "area": "beamer",
@@ -2908,6 +2941,138 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/shadow-20pt-pdf",
+   "file": "micro/beamer/shadow-20pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3,
+   "covers": "beamer's shadows at 20pt: a low rounded beamercolorbox with shadow=true, its fading lower than \\normalsize's \\strutbox (dvips's measures of the page-top material take the strut's height and depth)",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-20pt",
+   "file": "micro/beamer/shadow-20pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3,
+   "covers": "beamer's shadows at 20pt: a low rounded beamercolorbox with shadow=true, its fading lower than \\normalsize's \\strutbox (dvips's measures of the page-top material take the strut's height and depth)",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-blocks-pdf",
+   "file": "micro/beamer/shadow-blocks-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 355,
+   "covers": "beamer's rounded blocks with shadow=true (Madrid's default): each box's shadow shadings declared again (named after its size), the fading of its size (dvips: at the top of its page between pdfmarks, named after \\pgf@objectcount; pdfTeX: a form, the mask /pgfsmask<N> made at its first use and kept for a box of the same size), the shadow filled through it before the box's bottom, \\vskip4bp minus 2bp after; a block, an alertblock and an exampleblock of the same size, a block without a title, a theorem and a proof, on two frames, overlays (a block on the second slide only), navigation symbols off",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-blocks",
+   "file": "micro/beamer/shadow-blocks.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 355,
+   "covers": "beamer's rounded blocks with shadow=true (Madrid's default): each box's shadow shadings declared again (named after its size), the fading of its size (dvips: at the top of its page between pdfmarks, named after \\pgf@objectcount; pdfTeX: a form, the mask /pgfsmask<N> made at its first use and kept for a box of the same size), the shadow filled through it before the box's bottom, \\vskip4bp minus 2bp after; a block, an alertblock and an exampleblock of the same size, a block without a title, a theorem and a proof, on two frames, overlays (a block on the second slide only), navigation symbols off",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-colorbox-pdf",
+   "file": "micro/beamer/shadow-colorbox-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 83,
+   "covers": "beamer: beamercolorbox with rounded=true and shadow=true (shadow, the key's default true, and shadow=true): beamerboxesrounded's shadow around an empty head, both branches of its fading (a box higher than 9.5bp: the balls at three corners and the right edge; a lower one, ht and dp set: the two balls only), a narrower width",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-colorbox",
+   "file": "micro/beamer/shadow-colorbox.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 83,
+   "covers": "beamer: beamercolorbox with rounded=true and shadow=true (shadow, the key's default true, and shadow=true): beamerboxesrounded's shadow around an empty head, both branches of its fading (a box higher than 9.5bp: the balls at three corners and the right edge; a lower one, ht and dp set: the two balls only), a narrower width",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-numbers-pdf",
+   "file": "micro/beamer/shadow-numbers-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 654,
+   "covers": "beamer's shadows, a box of a new width on each of fourteen pages under Madrid: each page's first mask (pdfTeX's /pgfsmask<N>) counts the objects of every page shipped before it, its writes to object streams of 100 objects most of all; dvips's fadings at the top of each page",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-numbers",
+   "file": "micro/beamer/shadow-numbers.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 654,
+   "covers": "beamer's shadows, a box of a new width on each of fourteen pages under Madrid: each page's first mask (pdfTeX's /pgfsmask<N>) counts the objects of every page shipped before it, its writes to object streams of 100 objects most of all; dvips's fadings at the top of each page",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-pages-pdf",
+   "file": "micro/beamer/shadow-pages-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 924,
+   "covers": "beamer's Madrid shadows over many pages: the numbers of pdfTeX's masks (/pgfsmask<N>) count the objects made before them (the class's, the outlines of sections and subsections, the openaction, the links typeset in frames, the table of contents and the head and foot, and each page shipped: its resources, contents, fonts, destinations, /Pages nodes every sixth page, the object streams of 100 objects), shadows on late pages and one first made on an overlay's second slide (\\only in a block); dvips's fadings at the tops of their pages",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-pages",
+   "file": "micro/beamer/shadow-pages.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 924,
+   "covers": "beamer's Madrid shadows over many pages: the numbers of pdfTeX's masks (/pgfsmask<N>) count the objects made before them (the class's, the outlines of sections and subsections, the openaction, the links typeset in frames, the table of contents and the head and foot, and each page shipped: its resources, contents, fonts, destinations, /Pages nodes every sixth page, the object streams of 100 objects), shadows on late pages and one first made on an overlay's second slide (\\only in a block); dvips's fadings at the tops of their pages",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-titlepage-pdf",
+   "file": "micro/beamer/shadow-titlepage-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 382,
+   "covers": "beamer's Madrid title page with its shadow (\\usetheme[shadow=true]{Madrid}): the title and subtitle in a rounded beamercolorbox [sep=8pt,center,colsep=-4bp,rounded=true,shadow=true], its fading at the top of the page (dvips) or its mask (pdfTeX), with the navigation symbols and the infolines footline, a second title page",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/shadow-titlepage",
+   "file": "micro/beamer/shadow-titlepage.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 382,
+   "covers": "beamer's Madrid title page with its shadow (\\usetheme[shadow=true]{Madrid}): the title and subtitle in a rounded beamercolorbox [sep=8pt,center,colsep=-4bp,rounded=true,shadow=true], its fading at the top of the page (dvips) or its mask (pdfTeX), with the navigation symbols and the infolines footline, a second title page",
+   "issue": "#324"
+  },
+  {
    "id": "beamer/sidebar-long-pdf",
    "file": "micro/beamer/sidebar-long-pdf.tex",
    "area": "beamer",
@@ -2939,6 +3104,28 @@
    "glyphs": 474,
    "covers": "beamer's AnnArbor theme without shadows (\\usetheme[shadow=false]{AnnArbor}: wolverine, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-annarbor-shadow-pdf",
+   "file": "micro/beamer/theme-annarbor-shadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 474,
+   "covers": "beamer's AnnArbor theme with its shadows (\\usetheme{AnnArbor}: wolverine, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/theme-annarbor-shadow",
+   "file": "micro/beamer/theme-annarbor-shadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 474,
+   "covers": "beamer's AnnArbor theme with its shadows (\\usetheme{AnnArbor}: wolverine, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
+   "issue": "#324"
   },
   {
    "id": "beamer/theme-annarbor",
@@ -3051,6 +3238,28 @@
    "issue": "#322"
   },
   {
+   "id": "beamer/theme-boadilla-shadow-pdf",
+   "file": "micro/beamer/theme-boadilla-shadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 449,
+   "covers": "beamer's Boadilla theme with its shadows (\\usetheme{Boadilla}: rose, rounded, dolphin, infolines with the default headline, its subitem and subsubitem triangles and stars), navigation symbols on",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/theme-boadilla-shadow",
+   "file": "micro/beamer/theme-boadilla-shadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 449,
+   "covers": "beamer's Boadilla theme with its shadows (\\usetheme{Boadilla}: rose, rounded, dolphin, infolines with the default headline, its subitem and subsubitem triangles and stars), navigation symbols on",
+   "issue": "#324"
+  },
+  {
    "id": "beamer/theme-boadilla",
    "file": "micro/beamer/theme-boadilla.tex",
    "area": "beamer",
@@ -3093,6 +3302,28 @@
    "glyphs": 474,
    "covers": "beamer's CambridgeUS theme without shadows (\\usetheme[shadow=false]{CambridgeUS}: beaver, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-cambridgeus-shadow-pdf",
+   "file": "micro/beamer/theme-cambridgeus-shadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 474,
+   "covers": "beamer's CambridgeUS theme with its shadows (\\usetheme{CambridgeUS}: beaver, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/theme-cambridgeus-shadow",
+   "file": "micro/beamer/theme-cambridgeus-shadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 474,
+   "covers": "beamer's CambridgeUS theme with its shadows (\\usetheme{CambridgeUS}: beaver, rounded, infolines with its headline), navigation symbols on: the title page, a table of contents, items, blocks, sections and subsections in the headline",
+   "issue": "#324"
   },
   {
    "id": "beamer/theme-cambridgeus",
@@ -3401,6 +3632,28 @@
    "glyphs": 465,
    "covers": "beamer's PaloAlto theme (sidebar with a head, rounded without shadows, orchid, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-paloalto-shadow-pdf",
+   "file": "micro/beamer/theme-paloalto-shadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's PaloAlto theme (sidebar with a head, rounded with shadows, orchid, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#324"
+  },
+  {
+   "id": "beamer/theme-paloalto-shadow",
+   "file": "micro/beamer/theme-paloalto-shadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "beamer's PaloAlto theme (sidebar with a head, rounded with shadows, orchid, whale), navigation symbols on: the short title, author and sections and subsections in the sidebar (from the last run's .nav), the title page, a table of contents, items, blocks",
+   "issue": "#324"
   },
   {
    "id": "beamer/theme-paloalto",
