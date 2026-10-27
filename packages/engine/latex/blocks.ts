@@ -75,7 +75,8 @@ export function listEnd(body: string, from: number, env: string): { at: number; 
 export function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean): ListBlock {
   const listy = env === "itemize" || env === "enumerate" || env === "description" || env === "thebibliography"
   // enumitem's \begin{itemize}[options]
-  const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[([^\]]*)\]/) : null
+  // (\@ifnextchar[: a ] in braces does not end it)
+  const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[((?:[^\]{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\]/) : null
   if (opts) inner = inner.slice(opts[0].length)
   // amsthm: \begin{LXtheorem}{name}[note], \begin{proof}[title]
   let thm: ListBlock["thm"], proofTitle: string | undefined

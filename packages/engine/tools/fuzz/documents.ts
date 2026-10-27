@@ -627,7 +627,11 @@ export function makeDocument(r: () => number): string {
           }
         }
         // enumitem's options
-        const opts = enumitem && env === "itemize" && r() < 0.5 ? `[${pick(["nosep", "noitemsep", "leftmargin=*", "nosep, leftmargin=*", "leftmargin=2em"])}]` : ""
+        const opts = enumitem && (env === "itemize" || env === "enumerate" || env === "description") && r() < 0.5 ? `[${pick({
+          itemize: ["nosep", "noitemsep", "leftmargin=*", "nosep, leftmargin=*", "leftmargin=2em", "label=--", "label=$\\star$, labelsep=1em", "itemsep=1pt, topsep=0pt", "align=left, labelwidth=2em", "wide", "label=\\textbf{+}, leftmargin=*"],
+          enumerate: ["label=(\\alph*)", "label=\\roman*., leftmargin=*", "label=\\textbf{\\arabic*.}, leftmargin=*", "start=3", "resume", "label=\\Alph*), align=left", "nosep, leftmargin=*", "label=(\\arabic*), labelsep=*", "wide=0pt", "font=\\bfseries", "label*=.\\arabic*", "label={[\\Roman*]}, parsep=2pt"],
+          description: ["style=nextline, leftmargin=2cm", "style=sameline, leftmargin=3em", "leftmargin=*", "font=\\itshape", "style=unboxed", "labelwidth=1cm, align=right, leftmargin=2cm", "nosep"],
+        }[env])}]` : ""
         out.push(`\\begin{${env}}${opts}`)
         if (env === "itemize" || env === "enumerate" || env === "description") {
           for (let i = 1 + Math.floor(r() * (env === "enumerate" ? (depth === 1 ? 12 : 5) : 6)); i > 0; i--) {
