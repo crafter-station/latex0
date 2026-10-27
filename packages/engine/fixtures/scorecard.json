@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 430,
-  "exact": 427,
+  "fixtures": 433,
+  "exact": 430,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 320612
+  "glyphs": 321164
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 52,
-   "exact": 51
+   "fixtures": 55,
+   "exact": 54
   },
   {
    "area": "bibliography",
@@ -1295,6 +1295,39 @@
    "glyphs": 62,
    "covers": "beamer: an itemize begun right after a paragraph's text (the body color pushed in the paragraph, which \\@trivlist then ends) and text right after it (\\@endpetrue)",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/list-labels",
+   "file": "micro/beamer/list-labels.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 191,
+   "covers": "beamer: \\item[label] in itemize and enumerate (the label in the item's color, the counter not stepped), description with the default width (2cm plus \\labelsep) and with [widest label], a description label wider than \\labelwidth, a nested description, an itemize in a description (its first level) and a paragraph after it and a blank line",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/list-nested",
+   "file": "micro/beamer/list-nested.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 174,
+   "covers": "beamer: itemize and enumerate nested to the third level (subbody \\small and subsubbody \\footnotesize, \\@listii and \\@listiii, the subitem triangles raised 1.5pt, enumerate subitem labels 2.1), a nested list ending its item's paragraph, text after a nested list in the item",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/list-paragraphs",
+   "file": "micro/beamer/list-paragraphs.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 187,
+   "covers": "beamer: an item of two paragraphs, a nested list after a blank line in its item (vertical mode: \\partopsep, the color pushed on the list), a paragraph after it, a nested enumerate with \\item[label] and a nested description in an enumerate, a paragraph after a description",
+   "issue": "#307"
   },
   {
    "id": "beamer/list-sizes",

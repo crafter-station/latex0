@@ -23,7 +23,7 @@ import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "
 import { frameColumns } from "./columns"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
-import { frameList } from "./lists"
+import { frameList, LIST_BEGIN, listSource, type ListKind } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
 import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
@@ -161,7 +161,6 @@ const upToBlankLine = (text: string): [string, string] => {
 }
 
 /** the lists a paragraph's text may run into */
-const LIST_BEGIN = /\\begin\{(?:itemize|enumerate)\}/
 
 /** A paragraph of text up to a blank line, a list or a block: broken into lines in the frame's \hsize (\textwidth),
  *  ragged right. A list's \begin pushes the list's body color in the paragraph, then \@trivlist ends it (\unskip\par:
@@ -178,7 +177,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
   } else if (at >= 0) {
     rest = par.slice(at) + rest
     par = par.slice(0, at)
-    s.end = [colorPush(useColor(cx.theme, "itemize/enumerate body", outerColors(cx.theme)).fg)]
+    s.end = [colorPush(useColor(cx.theme, par.startsWith("\\begin{description}", at) ? "description body" : "itemize/enumerate body", outerColors(cx.theme)).fg)]
     if (/\s$/.test(par)) s.trailingSpace = true
     cx.listInParagraph = true
   }
@@ -202,20 +201,13 @@ const smuggled: FrameHandler = (cx, v, text) => {
   return text.slice(m[0].length)
 }
 
-/** itemize and enumerate (lists.ts); a paragraph right after one comes with \@endpetrue */
+/** itemize, enumerate and description (lists.ts); a paragraph right after one comes with \@endpetrue */
 const list: FrameHandler = (cx, v, text) => {
-  const kind = text.startsWith("\\begin{itemize}") ? "itemize" : "enumerate"
-  const begin = `\\begin{${kind}}`, end = `\\end{${kind}}`
+  const kind = text.match(/^\\begin\{(itemize|enumerate|description)\}/)![1] as ListKind
   // [<spec>]: the items' default overlay specification (\beamerdefaultoverlayspecification, <*> giving none)
-  let body = text.slice(begin.length), spec: string | undefined
-  const o = body.match(/^\s*\[\s*<([^<>]*)>\s*\]/)
-  if (o) { if (o[1].trim() !== "*") spec = o[1]; body = body.slice(o[0].length) }
-  if (/^\s*[[<]/.test(body)) throw new Unsupported(`beamer: ${kind}'s options`)
-  const stop = body.indexOf(end)
-  if (stop < 0) throw new Unsupported(`beamer: ${kind} not ended`)
-  frameList(cx, v, kind, body.slice(0, stop), cx.listInParagraph === true, spec)
+  const { body, spec, widest, rest } = listSource(kind, text.slice(kind.length + 8))
+  frameList(cx, v, kind, body, cx.listInParagraph === true, spec, undefined, widest)
   cx.listInParagraph = false
-  const rest = body.slice(stop + end.length)
   cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
   return rest
 }
@@ -312,7 +304,7 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
   ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
@@ -332,7 +324,7 @@ export function begunParagraph(cx: FrameCtx, v: FrameList, text: string): string
   const t = text.trim()
   const m = t.match(/^\\(?:begin\{)?([A-Za-z]+)/)
   const name = m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""
-  if (name && !["itemize", "enumerate", ...BLOCK_NAMES].includes(name)) throw new Unsupported(`beamer: \\${name} where a paragraph has begun`)
+  if (name && !["itemize", "enumerate", "description", ...BLOCK_NAMES].includes(name)) throw new Unsupported(`beamer: \\${name} where a paragraph has begun`)
   return paragraph(cx, v, t)
 }
 
