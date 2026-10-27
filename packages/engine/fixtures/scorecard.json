@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 812,
-  "exact": 812,
+  "fixtures": 822,
+  "exact": 822,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 460838
+  "glyphs": 465622
  },
  "areas": [
   {
@@ -116,8 +116,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 19,
+   "exact": 19
   },
   {
    "area": "math",
@@ -181,8 +181,8 @@
   },
   {
    "area": "text",
-   "fixtures": 25,
-   "exact": 25
+   "fixtures": 31,
+   "exact": 31
   },
   {
    "area": "tikz",
@@ -6560,6 +6560,50 @@
    "issue": "#30"
   },
   {
+   "id": "lists/enumitem-description-styles",
+   "file": "micro/lists/enumitem-description-styles.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1128,
+   "covers": "enumitem's description styles: nextline (\\enit@postlabel: a label wider than \\labelwidth ends its line, \\clubpenalty\\@M), sameline and unboxed (the label unboxed in the paragraph, its \\labelsep after \\penalty\\z@), standard with leftmargin, labelwidth and align=right, font=\\itshape, and \\setlist[description]",
+   "issue": "#334"
+  },
+  {
+   "id": "lists/enumitem-dimension-keys",
+   "file": "micro/lists/enumitem-dimension-keys.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1772,
+   "covers": "enumitem's \\setlist[itemize]{…} and \\setlist[enumerate,2]{…}, leftmargin=* on enumerate labels (\\enit@getwidth's widest 0, m, viii), labelsep (kept by nested lists), labelwidth, labelindent, itemindent, labelsep=* and a value after *, align=left, wide and wide=, itemsep, topsep, parsep, partopsep, nolistsep, font=\\bfseries and font=\\itshape on labels, resume*, \\setlist* and the shortlabels option (enumerate's and itemize's)",
+   "issue": "#334"
+  },
+  {
+   "id": "lists/enumitem-label-keys",
+   "file": "micro/lists/enumitem-label-keys.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 293,
+   "covers": "enumitem's label= with \\arabic* \\alph* \\Alph* \\roman* \\Roman* and text around them (\\alph*), (\\roman*), \\textbf{\\arabic*.}, \\textup{(\\roman*)}, {[\\arabic*]}; label* nested, ref=, start=, resume (also in a group inside), \\ref to such items (no \\p@ prefix), and \\@listii's \\labelwidth from an enclosing list's \\labelsep",
+   "issue": "#334"
+  },
+  {
+   "id": "lists/enumitem-spanish",
+   "file": "micro/lists/enumitem-spanish.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 136,
+   "covers": "enumitem's label= under babel's spanish (the corpus's hw-calculo-es): \\alph* and \\arabic* labels and their references, leftmargin=* on spanish.ldf's own itemize labels, a nested itemize keeping spanish.ldf's labels",
+   "issue": "#334"
+  },
+  {
    "id": "lists/enumitem-trivlist",
    "file": "micro/lists/enumitem-trivlist.tex",
    "area": "lists",
@@ -8022,6 +8066,17 @@
    "issue": "#336"
   },
   {
+   "id": "text/center-title-symbols",
+   "file": "micro/text/center-title-symbols.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "the corpus's physics-hw header: \\textbf{\\large …} with \\textemdash-style --- in a center, then \\textbullet between \\quad's after \\\\ (once a plain error in the paragraph adapter, now laid out)",
+   "issue": "#334"
+  },
+  {
    "id": "text/control-space-display",
    "file": "micro/text/control-space-display.tex",
    "area": "text",
@@ -8162,6 +8217,50 @@
    "issue": "#30"
   },
   {
+   "id": "text/text-symbols-ot1",
+   "file": "micro/text/text-symbols-ot1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 461,
+   "covers": "text symbols in OT1: TS1's companion font (\\textbullet \\textperiodcentered \\pounds \\S \\P \\dag \\ddag \\copyright \\textregistered \\texttrademark \\textordmasculine \\textordfeminine \\textdegree, after a robust command's \\relax or in the run), OMS's cmsy (\\textbar \\textbackslash \\{ \\}) and OML's cmmi (\\textless \\textgreater), OT1's own letters (\\ss \\ae \\AE \\oe \\OE \\o \\O \\i \\j), dashes and quotes, \\textexclamdown, \\textasciicircum{} \\textasciitilde, \\_ (\\kern.06em\\vbox{\\hrule}), \\ldots and \\textellipsis, \\slash, and the space factor after them",
+   "issue": "#334"
+  },
+  {
+   "id": "text/text-symbols-sizes",
+   "file": "micro/text/text-symbols-sizes.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 381,
+   "covers": "text symbols at other sizes and series: OMS's cmsy at 11pt and 9pt (gen*cmsy), bold cmbsy, OML's cmmi, TS1 in bold and italic, \\LaTeX's A at \\sf@size in \\small and \\large and in bold, \\LaTeXe's \\mbox with xcolor, \\today in a paragraph, \\textellipsis at its first use (\\@changed@cmd's \\global\\let ends the run) and later, the space factor 999 after TS1's \\textbullet (\"88)",
+   "issue": "#334"
+  },
+  {
+   "id": "text/text-symbols-spanish",
+   "file": "micro/text/text-symbols-spanish.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 83,
+   "covers": "text symbols under babel's spanish: OT1's \\textasciitilde is \\~{}, spanish.ldf's \\es@accent (\\bbl@allowhyphens after it unless a space follows), and the other symbols as in English",
+   "issue": "#334"
+  },
+  {
+   "id": "text/text-symbols-t1",
+   "file": "micro/text/text-symbols-t1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 263,
+   "covers": "text symbols in T1: the EC fonts' own characters in the run (\\S \\pounds \\textbar \\textbackslash \\{ \\} \\textless \\textgreater \\textasciicircum \\textasciitilde \\_ \\textquotedbl, guillemets, \\ss \\ae \\o \\i \\l \\L), TS1's for the others (\\textbullet \\copyright \\textordmasculine \\texttrademark), the uppercase \\sfcode 999 of \"C0–\"DF, \\ldots and the logos",
+   "issue": "#334"
+  },
+  {
    "id": "text/textdegree-amsmath",
    "file": "micro/text/textdegree-amsmath.tex",
    "area": "text",
@@ -8180,6 +8279,17 @@
    "status": "pass",
    "glyphs": 141,
    "covers": "\\textdegree (TS1, \\UseTextSymbol: the companion font's character 176 in a group), after a thin space \\, (\\kern.16667em), in bold and italic text and in \\small"
+  },
+  {
+   "id": "text/today",
+   "file": "micro/text/today.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 169,
+   "covers": "\\today in a paragraph: the spaces after the control word and its line's end go, a blank line after it still ends the paragraph, \\today\\ with a control space, and a list after it in the paragraph or after a blank line",
+   "issue": "#334"
   },
   {
    "id": "text/underline",
