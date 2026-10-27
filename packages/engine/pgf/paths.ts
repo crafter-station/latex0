@@ -1,14 +1,15 @@
 // pgf's paths: construction (pgfcorepathconstruct.code.tex), the soft path it builds
 // (pgfsyssoftpath.code.tex) and its use (pgfcorepathusage.code.tex). Points go through the current
 // transformation and into the soft path as \the prints them; each enlarges the path's extent and, while
-// relevant, the picture's (\pgf@protocolsizes). \pgfusepath hands the soft path to the driver. Rounded
-// corners, arrow tips, double lines and the non-linear transformations are later units: what would need
+// relevant, the picture's (\pgf@protocolsizes). \pgfusepath hands the soft path to the driver, its rounded
+// corners processed (round.ts). Arrow tips, double lines and the non-linear transformations are later units: what would need
 // them is not modeled here.
 
 import { Unsupported } from "../latex/unsupported"
 import { addArrow, prepareEndOfPath, prepareStartOfPath } from "./arrows"
 import type { PgfDriver } from "./drivers"
 import { toNumber } from "./fixed"
+import { pgfProcessRound, roundCornerIfNeeded } from "./round"
 import { pgfPoint, qpoint, type PgfPoint, type PgfPointMacro } from "./points"
 import { emptyExtent, EMPTY_EXTENT, type PgfState, type SoftPathItem } from "./state"
 import { mul, transformPoint } from "./transformations"
@@ -40,6 +41,12 @@ export function protocolSizes(s: PgfState, x: number, y: number, staleY?: number
   }
 }
 
+/** \pgf@process{#1}: `\global\pgf@x=\pgf@x` reads a point past max_dimen with TeX's error (only \advance makes one) */
+function processed(p: PgfPoint): PgfPoint {
+  if (Math.abs(p.x) >= TOO_LARGE || Math.abs(p.y) >= TOO_LARGE) throw new Unsupported(`pgf: a point at ${toNumber(p.x)}pt, ${toNumber(p.y)}pt`)
+  return p
+}
+
 /** \pgf@resetpathsizes (85–90) */
 export function resetPathSizes(s: PgfState) { s.path = emptyExtent() }
 
@@ -50,6 +57,7 @@ function add(s: PgfState, item: SoftPathItem) { s.softPath.push(item) }
 function moveto(s: PgfState, x: number, y: number) {
   protocolSizes(s, x, y)
   add(s, { op: "moveto", x, y })
+  s.lastMoveTo = { x, y }
 }
 function lineto(s: PgfState, x: number, y: number) {
   protocolSizes(s, x, y)
@@ -62,7 +70,7 @@ function curveto(s: PgfState, x1: number, y1: number, x2: number, y2: number, x:
   add(s, { op: "curveto", x1, y1, x2, y2, x, y })
 }
 /** \pgfsyssoftpath@closepath (121–123) (its token carries the last moveto, for arrow tips) */
-function closepath(s: PgfState) { add(s, { op: "closepath" }) }
+function closepath(s: PgfState) { add(s, { op: "closepath", ...s.lastMoveTo }) }
 
 /** \pgfpathmoveto{#1} (60–65) */
 export function pgfPathMoveTo(s: PgfState, p: PgfPointMacro) {
@@ -74,34 +82,39 @@ export function pgfPathMoveTo(s: PgfState, p: PgfPointMacro) {
 /** \pgfpathlineto{#1} (110–116) */
 export function pgfPathLineTo(s: PgfState, p: PgfPointMacro) {
   const q = transformPoint(s, p())
+  roundCornerIfNeeded(s)
   lineto(s, q.x, q.y)
   s.last = q
 }
 
 /** \pgfpathclose (121–124) */
-export function pgfPathClose(s: PgfState) { closepath(s) }
+export function pgfPathClose(s: PgfState) {
+  roundCornerIfNeeded(s)
+  closepath(s)
+}
 
 /** \pgfpathcurveto{#1}{#2}{#3} (128–140) */
 export function pgfPathCurveTo(s: PgfState, p1: PgfPointMacro, p2: PgfPointMacro, p3: PgfPointMacro) {
   const b = transformPoint(s, p3()), a = transformPoint(s, p2()), c = transformPoint(s, p1())
+  roundCornerIfNeeded(s)
   curveto(s, c.x, c.y, a.x, a.y, b.x, b.y)
   s.last = b
 }
 
 /**
- * \pgfpathrectangle{#1}{#2} (663–703): corner and size. Under no transformation the soft path takes a
- * rectangle with the size as given; otherwise four lines, closed, and a move to the corner.
+ * \pgfpathrectangle{#1}{#2} (663–703): corner and size. Under no transformation and no rounded corners the
+ * soft path takes a rectangle with the size as given; otherwise four lines, closed, and a move to the corner.
  */
 export function pgfPathRectangle(s: PgfState, corner: PgfPointMacro, size: PgfPointMacro) {
-  const z = size()
-  if (s.local.transform.identity) {
+  const z = processed(size())
+  if (s.local.transform.identity && !s.local.cornerArc) {
     const c = transformPoint(s, corner())
     add(s, { op: "rect", x: c.x, y: c.y, w: z.x, h: z.y })
     protocolSizes(s, c.x, c.y)
     protocolSizes(s, c.x + z.x, c.y + z.y)
     return
   }
-  const { x: xb, y: yb } = corner()
+  const { x: xb, y: yb } = processed(corner())
   const xa = z.x + xb, ya = z.y + yb
   pgfPathMoveTo(s, qpoint(xa, ya))
   pgfPathLineTo(s, qpoint(xb, ya))
@@ -161,13 +174,15 @@ export const pgfPathCircle = (s: PgfState, center: PgfPointMacro, r: string) => 
  */
 export function invoke(s: PgfState, d: PgfDriver) {
   for (const i of s.softPath) {
+    // (a specialround token gobbles its coordinates, a closepath token ignores them)
+    if (i.op === "specialround") continue
+    if (i.op === "closepath") { d.closepath(); continue }
     for (const [k, v] of Object.entries(i)) if (k !== "op" && Math.abs(v as number) >= TOO_LARGE) throw new Unsupported(`pgf: a path coordinate of ${toNumber(v as number)}pt`)
     switch (i.op) {
       case "moveto": d.moveto(i.x, i.y); break
       case "lineto": d.lineto(i.x, i.y); break
       case "curveto": d.curveto(i.x1, i.y1, i.x2, i.y2, i.x, i.y); break
       case "rect": d.rect(i.x, i.y, i.w, i.h); break
-      case "closepath": d.closepath(); break
     }
   }
 }
@@ -185,6 +200,8 @@ export function pgfUsePath(s: PgfState, d: PgfDriver, keys: string[]) {
   const stroke = keys.includes("stroke") || keys.includes("draw")
   const fill = keys.includes("fill"), clip = keys.includes("clip")
   // (with none of them, the soft path is emptied unused)
+  // \pgfprocessround on a path used (an unused one is emptied first)
+  if (stroke || fill || clip) pgfProcessRound(s)
   const action = fill && stroke ? () => d.fillstroke() : fill ? () => d.fill() : stroke ? () => d.stroke() : clip ? () => d.discardpath() : null
   if (s.local.relevant && stroke && s.picture.maxX !== -EMPTY_EXTENT) {
     const p = s.picture, q = s.path, half = (sign: string) => mul(`${sign}.5`, s.lineWidth)

@@ -1,10 +1,10 @@
-// pgf oracle (#292, #298, #304): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
+// pgf oracle (#292, #298, #304, #305): snippets of pgf's \pgfsys@ commands and whole pgfpictures, typeset by TeX as
 // `\setbox0\hbox{\nullfont <snippet>}\showbox0` with tikz loaded (a picture's \nullfont: every stray space in
 // pgf's macros is a \glue 0.0) by latex (pgf's dvips driver) and by pdflatex (its pdftex driver), and run
 // through pgf/ for each. The box dumps must agree node by node: every box's size and shift, every \special's
 // and \pdfliteral's text, every space. A tiny reader of the snippet's commands drives the TS side. Fixed
 // snippets cover each primitive, then seeded random sequences of system commands and random pictures (paths
-// under transformations, scopes, groups, graphic state, baselines and trims) and random pictures of nodes
+// under transformations, scopes, groups, graphic state, rounded corners, baselines and trims) and random pictures of nodes
 // (shapes, anchors, text, keys, named nodes' anchors and border points, \pgftext); a node's text is typeset
 // by the engine (latex/paragraph.ts). A TeX error (a dimension too large) must be the engine's Unsupported.
 //   bun engine pgf:check [--n 2000] [--seed 1]
@@ -33,6 +33,7 @@ import {
   setLength, type PgfPoint,
 } from "../../pgf/points"
 import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope, pgfSetBaseline, pgfSetTrimLeft, pgfSetTrimRight } from "../../pgf/scopes"
+import { pgfSetCornersArced } from "../../pgf/round"
 import { PgfState } from "../../pgf/state"
 import { pgfCoordinate, pgfMultipartNode, pgfNode, pgfPointAnchor, pgfPointShapeBorder, pgfText, SHAPE_KEYS, type PgfShapeKeys, type PgfText, type PgfTextOption } from "../../pgf/shapes"
 import { hlistInput } from "../../latex/paragraph"
@@ -175,6 +176,23 @@ const PICTURES = [
     .map((c) => `${c}\\pgfsetarrowsend{>>}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}\\begin{pgfscope}\\pgfsetfillcolor{red}\\end{pgfscope}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}`),
   // the minimum width met to the sp
   "\\pgfset{inner sep=1pt,minimum size=131071sp}\\pgfnode{rectangle}{north east}{}{}{\\pgfusepath{stroke}}\\pgfnode{rectangle}{south west}{}{}{\\pgfusepath{stroke}}",
+  // rounded corners: rectangles, polylines, curves, closepaths, consecutive marks, the arc switched off
+  "\\pgfsetcornersarced{\\pgfpoint{4pt}{4pt}}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{3pt}{5pt}}\\pgfpathrectanglecorners{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{-1pt}{-2pt}}\\pgfusepath{fill,stroke}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfsetcornersarced{\\pgfpoint{4pt}{4pt}}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{2cm}{3mm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{2pt}}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{1cm}{0cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathclose\\pgfusepath{draw}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{6pt}}\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{1cm}{0pt}}{\\pgfpoint{1cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfpathcurveto{\\pgfpoint{3cm}{1cm}}{\\pgfpoint{3cm}{0cm}}{\\pgfpoint{2cm}{-1cm}}\\pgfpathlineto{\\pgfpoint{0pt}{-1cm}}\\pgfpathclose\\pgfusepath{fill}",
+  "\\pgftransformrotate{20}\\pgfsetcornersarced{\\pgfpoint{3pt}{3pt}}\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{2cm}{1cm}}\\pgfsetcornersarced{\\pgfpointorigin}\\pgfpathlineto{\\pgfpoint{3cm}{0pt}}\\pgfpathlineto{\\pgfpoint{3cm}{2cm}}\\pgfusepath{clip}",
+  "\\pgfsetcornersarced{\\pgfpoint{0pt}{3pt}}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{5mm}}\\pgfpathrectangle{\\pgfpoint{2cm}{0pt}}{\\pgfpoint{-1cm}{-5mm}}\\pgfusepath{stroke}\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{5mm}}\\pgfusepath{discard}",
+  "\\pgfpathrectangle{\\pgfpointorigin}{\\pgfpoint{1cm}{5mm}}\\pgfsetcornersarced{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{0pt}{1cm}}\\pgfpathclose\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{5pt}{5pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathlineto{\\pgfpoint{2cm}{0pt}}\\pgfpathclose\\pgfpathclose\\pgfusepath{stroke}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfsetcornersarced{\\pgfpoint{3pt}{3pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfsetcornersarced{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{2cm}{0pt}}{\\pgfpoint{2cm}{1cm}}{\\pgfpoint{1cm}{2cm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{2pt}{3pt}}\\pgfpathmoveto{\\pgfpoint{1pt}{2pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfpathclose\\pgfpathlineto{\\pgfpoint{-1cm}{5mm}}\\pgfpathlineto{\\pgfpoint{-2cm}{-5mm}}\\pgfusepath{stroke}",
+  "\\pgfsetcornersarced{\\pgfpoint{900pt}{700.3pt}}\\pgfpathrectangle{\\pgfpoint{-11pt}{3pt}}{\\pgfpoint{2000pt}{1999pt}}\\pgfusepath{fill}",
+  // a rectangle's size past max_dimen; a corner past it from the point before, which only the rounding of a used path reads
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{1sp}{0pt}}}\\pgfusepath{discard}",
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathmoveto{\\pgfpoint{-16000pt}{0pt}}\\pgfsetcornersarced{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{0pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{1pt}}\\pgfusepath{discard}",
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathmoveto{\\pgfpoint{-16000pt}{0pt}}\\pgfsetcornersarced{\\pgfpoint{1pt}{1pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{0pt}}\\pgfpathlineto{\\pgfpoint{16000pt}{1pt}}\\pgfusepath{clip}",
 ]
 
 function rng(seed: number) {
@@ -283,6 +301,7 @@ export function makePictures(n: number, seed: number): string[] {
     () => `\\${pick(["pgfsetstrokecolor", "pgfsetfillcolor", "pgfsetcolor"])}{${colorExpr()}}`,
     () => `\\${pick(["pgfsetbaseline", "pgfsettrimleft", "pgfsettrimright"])}{${pick([len, expr, () => "default"])()}}`,
     () => pick(["\\pgfsys@clipnext", "\\pgfsys@stroke", "\\pgfsys@beginscope\\pgfsys@endscope"]),
+    () => `\\pgfsetcornersarced{${pick([point, () => "\\pgfpointorigin", () => `\\pgfpoint{${len()}}{${len()}}`])()}}`,
   ]
   const body = (depth: number): string => {
     let out = ""
@@ -555,6 +574,7 @@ export function runSnippet(source: string, driver: PgfDriver, colors: Colors, te
     pgftransformcm: () => { const [p, q, u, v] = strs(4); pgfTransformCm(s, p, q, u, v, pt(arg())) },
     pgftransformreset: () => pgfTransformReset(s), pgftransformresetnontranslations: () => pgfTransformResetNonTranslations(s),
     pgflowlevelsynccm: () => pgfLowLevelSyncCm(s, driver),
+    pgfsetcornersarced: () => pgfSetCornersArced(s, pt(arg())),
     pgfsetbaseline: () => pgfSetBaseline(s, arg()), pgfsettrimleft: () => pgfSetTrimLeft(s, arg()), pgfsettrimright: () => pgfSetTrimRight(s, arg()),
     pgfsetlinewidth: ignoring(() => pgfSetLineWidth(s, driver, arg())),
     pgfsetdash: ignoring(() => { const pattern = texArgs(arg()); pgfSetDash(s, driver, pattern, arg()) }),
@@ -670,8 +690,8 @@ function texBoxes(t: Target, snippets: string[]): (BoxNode | string)[] {
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}", "\\makeatletter",
     // (each snippet instantiates its arrow tips afresh, as the engine does)
     "\\let\\pgfcheck@fullname\\pgf@arrow@fullname\\def\\pgf@arrow@fullname#1{\\pgfcheckn @\\pgfcheck@fullname{#1}}",
-    // (the protocol is global: what one snippet leaves buffered must not reach the next)
-    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
+    // (the protocol and the last moveto are global: what one snippet leaves must not reach the next)
+    ...snippets.map((x, i) => `\\immediate\\write16{C:${i}}\\global\\let\\pgfsysprotocol@currentprotocol\\pgfutil@empty\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\def\\pgfcheckn{${i}}\\setbox0\\hbox{\\nullfont ${x}}\\showbox0`), "\\end{document}", "",
   ].join("\n")
   const file = join(DIR, `${t.name}.tex`), log = join(DIR, `${t.name}.log`)
   if (!existsSync(file) || readFileSync(file, "utf8") !== tex || !existsSync(log) || !/^(No pages of output|Output written)/m.test(readFileSync(log, "latin1"))) {

@@ -52,9 +52,11 @@ export interface PgfLocal {
   /** \pgf@shorten@start@additional, \pgf@shorten@end@additional (pgfcorepathusage.code.tex) */
   shortenStart: number
   shortenEnd: number
+  /** \pgf@corner@arc while \ifpgf@arccorners (\pgfsetcornersarced): the next corners rounded */
+  cornerArc: { x: number; y: number } | null
 }
 
-const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0 }
+const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null }
 
 /** a box's extent, as pgf's four registers (\pgf@picminx …, \pgf@pathminx …) */
 export interface PgfExtent { minX: number; maxX: number; minY: number; maxY: number }
@@ -68,7 +70,10 @@ export type SoftPathItem =
   | { op: "moveto" | "lineto"; x: number; y: number }
   | { op: "curveto"; x1: number; y1: number; x2: number; y2: number; x: number; y: number }
   | { op: "rect"; x: number; y: number; w: number; h: number }
-  | { op: "closepath" }
+  /** (its coordinates: \pgfsyssoftpath@lastmoveto when added) */
+  | { op: "closepath"; x: number; y: number }
+  /** \pgfsyssoftpath@specialround: the corner at the end of the next item rounded (\pgfprocessround) */
+  | { op: "specialround"; x: number; y: number }
 
 export class PgfState {
   /** the horizontal list the picture's commands append to */
@@ -92,6 +97,8 @@ export class PgfState {
   softPath: SoftPathItem[] = []
   /** \pgf@path@lastx, \pgf@path@lasty (global) */
   last = { x: 0, y: 0 }
+  /** \pgfsyssoftpath@lastmoveto (global) */
+  lastMoveTo = { x: 0, y: 0 }
   /** \ifpgfpicture: inside a pgfpicture */
   inPicture = false
   /** \pgfscope@linewidth of each open pgfscope */
