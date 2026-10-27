@@ -103,7 +103,8 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
   xcolor.on = usesColor
   xcolor.normal = usesXcolor ? "gray 0" : " Black"
   outputOptions.xcolor = usesColor
-  if (usesColor) v.nodes.push(colorPush()) // \begin{document}'s \normalcolor
+  // \begin{document}'s \normalcolor (\relax still when siunitx loads color, in its \AtBeginDocument after it)
+  if (usesXcolor) v.nodes.push(colorPush())
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   /** \Hy@writebookmark's state */
   const bookmarks = new Bookmarks()
