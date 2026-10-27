@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 519,
-  "exact": 517,
+  "fixtures": 540,
+  "exact": 538,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 334448
+  "glyphs": 337126
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 129,
-   "exact": 129
+   "fixtures": 149,
+   "exact": 149
   },
   {
    "area": "bibliography",
@@ -196,8 +196,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 14,
-   "exact": 14
+   "fixtures": 15,
+   "exact": 15
   }
  ],
  "fixtures": [
@@ -1841,6 +1841,50 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/madrid-noshadow-pdf",
+   "file": "micro/beamer/madrid-noshadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 340,
+   "covers": "beamer's Madrid theme without shadows (\\usetheme[shadow=false]{Madrid}: whale, orchid, rounded, infolines with the default headline), navigation symbols on: the rounded title page, a table of contents with ball numbers, ball items, rounded blocks, the infolines footline",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/madrid-noshadow",
+   "file": "micro/beamer/madrid-noshadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 340,
+   "covers": "beamer's Madrid theme without shadows (\\usetheme[shadow=false]{Madrid}: whale, orchid, rounded, infolines with the default headline), navigation symbols on: the rounded title page, a table of contents with ball numbers, ball items, rounded blocks, the infolines footline",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/madrid-slides-pdf",
+   "file": "micro/beamer/madrid-slides-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 267,
+   "covers": "corpus/slides.tex with Madrid's shadows off: \\frame{\\titlepage} on the rounded title page, ball itemize and enumerate items, \\% in items, \\today, the infolines footline and navigation symbols",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/madrid-slides",
+   "file": "micro/beamer/madrid-slides.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 267,
+   "covers": "corpus/slides.tex with Madrid's shadows off: \\frame{\\titlepage} on the rounded title page, ball itemize and enumerate items, \\% in items, \\today, the infolines footline and navigation symbols",
+   "issue": "#315"
+  },
+  {
    "id": "beamer/math-blocks-pdf",
    "file": "micro/beamer/math-blocks-pdf.tex",
    "area": "beamer",
@@ -2103,6 +2147,182 @@
    "glyphs": 162,
    "covers": "beamer: \\pause between paragraphs: one page per slide, the paragraphs after a \\pause invisible (pgf's invisible specials) on the slides before",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/rounded-blocks-pdf",
+   "file": "micro/beamer/rounded-blocks-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 220,
+   "covers": "beamer's rounded inner theme with whale and orchid: block, alertblock and exampleblock as beamerboxesrounded (head minipage after a picture filling its rounded top in upper.bg, the bmb@transition shading clipped to the width, the body minipage after a picture filling its rounded bottom in lower.bg), a body of two lines, a title with a descender, a theorem and a proof with its qed symbol",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-blocks-plain-pdf",
+   "file": "micro/beamer/rounded-blocks-plain-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "beamer's rounded inner theme with the default colors (block title and body without a bg: white pictures on white), and a block with an empty title (the empty head: its picture in lower.bg, no transition)",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-blocks-plain",
+   "file": "micro/beamer/rounded-blocks-plain.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "beamer's rounded inner theme with the default colors (block title and body without a bg: white pictures on white), and a block with an empty title (the empty head: its picture in lower.bg, no transition)",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-blocks",
+   "file": "micro/beamer/rounded-blocks.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 220,
+   "covers": "beamer's rounded inner theme with whale and orchid: block, alertblock and exampleblock as beamerboxesrounded (head minipage after a picture filling its rounded top in upper.bg, the bmb@transition shading clipped to the width, the body minipage after a picture filling its rounded bottom in lower.bg), a body of two lines, a title with a descender, a theorem and a proof with its qed symbol",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-colorbox-pdf",
+   "file": "micro/beamer/rounded-colorbox-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 106,
+   "covers": "beamer: beamercolorbox with rounded=true: in beamerboxesrounded[lower=the color,upper=normal text]{} where the color has a bg (an empty head, its picture in lower.bg, no transition), the box as it is where it has none; sep, colsep and a narrower width",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-colorbox",
+   "file": "micro/beamer/rounded-colorbox.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 106,
+   "covers": "beamer: beamercolorbox with rounded=true: in beamerboxesrounded[lower=the color,upper=normal text]{} where the color has a bg (an empty head, its picture in lower.bg, no transition), the box as it is where it has none; sep, colsep and a narrower width",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-items-pdf",
+   "file": "micro/beamer/rounded-items-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 92,
+   "covers": "beamer's rounded inner theme under pdflatex: ball itemize items (bigsphere, smallsphere below, raised 0.2pt, in item projected's bg on the bg in force) and ball enumerate items (a pgfpicture with the sphere scaled 1.75 or 1.4 and the number in item projected's font and fg), nested to the third level",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-items-whale-pdf",
+   "file": "micro/beamer/rounded-items-whale-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "beamer's rounded inner theme with the whale and orchid color themes at 17pt, navigation symbols on: ball items under a frame title, the spheres made at 17pt's ex, a list on a second frame using the shadings made on the first",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-items-whale",
+   "file": "micro/beamer/rounded-items-whale.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "beamer's rounded inner theme with the whale and orchid color themes at 17pt, navigation symbols on: ball items under a frame title, the spheres made at 17pt's ex, a list on a second frame using the shadings made on the first",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-items",
+   "file": "micro/beamer/rounded-items.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 92,
+   "covers": "beamer's rounded inner theme: ball itemize items (bigsphere, smallsphere below, raised 0.2pt, in item projected's bg on the bg in force) and ball enumerate items (a pgfpicture with the sphere scaled 1.75 or 1.4 and the number in item projected's font and fg), nested to the third level",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-titlepage-pdf",
+   "file": "micro/beamer/rounded-titlepage-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 102,
+   "covers": "beamer's rounded inner theme's title page with whale and orchid: the title (with its subtitle) in a rounded beamercolorbox [sep=8pt,center,colsep=-4bp,rounded=true] in its bg, the author, institute and date boxes without a bg as they are",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-titlepage",
+   "file": "micro/beamer/rounded-titlepage.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 102,
+   "covers": "beamer's rounded inner theme's title page with whale and orchid: the title (with its subtitle) in a rounded beamercolorbox [sep=8pt,center,colsep=-4bp,rounded=true] in its bg, the author, institute and date boxes without a bg as they are",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-toc-pdf",
+   "file": "micro/beamer/rounded-toc-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 84,
+   "covers": "beamer's rounded inner theme: the table of contents with ball numbers (a pgfpicture with the tocsphere and the section number in fg!90!bg, a gray color mixed into rgb, in an \\llap after a 2.75ex \\leftskip) and subsection balls (bigsphere raised 0.1ex after a 5ex \\leftskip)",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-toc-whale-pdf",
+   "file": "micro/beamer/rounded-toc-whale-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "beamer's rounded inner theme with the whale and orchid color themes at 9pt, navigation symbols on: toc balls in the theme's colors at another size (another tocsphere), then ball items using the bigsphere the toc made",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-toc-whale",
+   "file": "micro/beamer/rounded-toc-whale.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "beamer's rounded inner theme with the whale and orchid color themes at 9pt, navigation symbols on: toc balls in the theme's colors at another size (another tocsphere), then ball items using the bigsphere the toc made",
+   "issue": "#315"
+  },
+  {
+   "id": "beamer/rounded-toc",
+   "file": "micro/beamer/rounded-toc.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 84,
+   "covers": "beamer's rounded inner theme: the table of contents with ball numbers (a pgfpicture with the tocsphere and the section number in fg!90!bg, a gray color mixed into rgb, in an \\llap after a 2.75ex \\leftskip) and subsection balls (bigsphere raised 0.1ex after a 5ex \\leftskip)",
+   "issue": "#315"
   },
   {
    "id": "beamer/sections-atbegin-pdf",
@@ -5776,6 +5996,17 @@
    "status": "pass",
    "glyphs": 106,
    "covers": "xcolor loaded: the column's \\normalcolor, \\sbox (item labels, captions), float boxes, the footnote block, equation numbers, toc page numbers"
+  },
+  {
+   "id": "xcolor/mix-gray",
+   "file": "micro/xcolor/mix-gray.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6,
+   "covers": "xcolor's mixing of a gray color with one of another model (\\@xcolor@@): the gray converted to the other's model; 100 percent of a gray keeps it gray; gray with gray stays gray",
+   "issue": "#315"
   },
   {
    "id": "xcolor/mixes",
