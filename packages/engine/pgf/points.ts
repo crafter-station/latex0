@@ -136,6 +136,22 @@ export function pgfPointLineAtTime(time: string, a: PgfPointMacro, b: PgfPointMa
   return { x: p.x + scaled(t, c.x - p.x), y: p.y + scaled(t, c.y - p.y) }
 }
 
+/**
+ * \pgfpointcurveattime{#1}{#2}{#3}{#4}{#5} (528–563): the point at time #1 on the curve from #2 with supports #3 and
+ * #4 to #5 by de Casteljau's three steps, each `t\pgf@x` and `s\pgf@xa` TeX's products; and the tangent's two
+ * points (the second step's), \pgf@xb and \pgf@xa
+ */
+export function pgfPointCurveAtTime(time: string, p0: PgfPoint, p1: PgfPoint, p2: PgfPoint, p3: PgfPoint, units: PgfUnits): { p: PgfPoint; a: PgfPoint; b: PgfPoint } {
+  const s = parse(time, units)
+  const t = toNumber(65536 - new TexArith(units).dimen(`${s}pt`))
+  const mix = (u: PgfPoint, v: PgfPoint): PgfPoint => ({ x: scaled(t, u.x) + scaled(s, v.x), y: scaled(t, u.y) + scaled(s, v.y) })
+  let x = mix(p0, p1), xa = mix(p1, p2)
+  const xb = mix(p2, p3)
+  x = mix(x, xa)
+  xa = mix(xa, xb)
+  return { p: mix(x, xa), a: xa, b: x }
+}
+
 /** \pgfpointscale{#1}{#2} (72–77) */
 export function pgfPointScale(factor: string, p: PgfPoint, units: PgfUnits): PgfPoint {
   const f = parse(factor, units)

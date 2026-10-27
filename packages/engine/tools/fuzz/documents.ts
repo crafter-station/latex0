@@ -223,7 +223,9 @@ export function makeDocument(r: () => number): string {
     const names: string[] = []
     const target = () => (names.length && r() < 0.4 ? `(${pick(names)})` : coord())
     const op = () => pick([` -- ${target()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${target()}`, ` |- ${coord()}`, ` to ${target()}`,
-      ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`])
+      ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`,
+      ` .. controls ${coord()} and ${coord()} .. ${target()}`, ` to[${pick(["bend left", "out=90,in=180", "bend right=20"])}] ${target()}`, ` ${coord().replace(/^\+\+?/, "")} edge[->] ${target()}`,
+      ` arc (${pick(["0:90", "30:200", "180:-45"])}:${pick(["1", "5mm", "0.5"])})`, ` grid${pick(["", "[step=0.5]"])} ${coord().replace(/^\+\+?/, "")}`])
     const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
     const named = () => {
       const name = `n${names.length}`

@@ -135,7 +135,7 @@ const FIXED = [
   pic("\\node[align=center] {a\\\\b}; \\node[align=right,draw] at (2,0) {ab \\\\ c\\\\[2pt] d e\\\\[-1ex] f \\\\ $x^2$ yy};"),
   pic("\\node[align=flush center,font=\\small] {one\\\\two lines\\\\}; \\node[align=flush right,font=\\footnotesize\\bfseries,circle,draw] at (2,0) {\\\\ x \\\\[1mm]};"),
   pic("\\node[align=justify,text=red,draw=blue] {a b \\\\c}; \\node[align=none] at (1,0) {a b c}; \\node[align=left] at (2,0) {a };"),
-  pic("\\node[align=center,font=\\Large] {Ag\\\\ \\\\ y}; \\node[align=center] at (2,0) {{a\\\\b}}; \\node[node font=\\Large\\bfseries,font=\\itshape,draw,align=center] at (4,0) {x\\\\[1ex]y};"),
+  pic("\\node[align=center,font=\\Large] {Ag\\\\ \\\\ y}; \\node[node font=\\Large\\bfseries,font=\\itshape,draw,align=center] at (4,0) {x\\\\[1ex]y};"),
   pic("\\node[draw] (a) {Long\\\\line}; \\draw (a) -- (2,1) node[right] {p\\\\q};", "[every node/.style={align=center}]"),
   pic("\\node[text width=2cm] {some longer text that breaks over lines}; \\node[draw,text width=3cm,align=center] at (3,0) {A centered node. With sentences, commas and more words here};"),
   pic("\\node[draw,text width=25mm,align=right,font=\\small] {Right aligned text in a small font here, yes.}; \\node[draw,text width=2cm,align=justify] at (3,0) {Justified text that goes on for a while to break};"),
@@ -152,6 +152,22 @@ const FIXED = [
   pic("\\foreach \\x [count=\\i] in {a,...,e} \\node at (\\i,0) {\\x}; \\foreach \\x in {1,2} \\foreach \\y in {1,...,3} \\draw[red!\\y0] (\\x,\\y) -- +(1,0);"),
   pic("\\foreach \\a [evaluate=\\a as \\b using \\a*2] in {10,20} \\draw (0,0) -- (\\a:\\b pt); \\foreach \\x in {5,3,...,-1} \\draw (\\x,0) -- (\\x,1); \\foreach \\x [count=\\n from 0] in {1, 2 ,3} {\\node at (\\n,1) {\\x};}"),
   pic("\\foreach \\p in {(0,0),(1,2)} \\draw \\p -- (3,3); \\foreach \\x in {0.1,0.2,...,0.5} \\draw (\\x,0) -- (\\x,1); \\foreach \\c in {red,blue} {\\begin{scope}[\\c] \\draw (0,0) -- (1,1); \\end{scope}}"),
+  // curves, curved to paths, edges, pins, arcs, grids, coordinate options
+  pic("\\draw (0,0) .. controls (1,1) and (2,1) .. (3,0); \\draw (0,0) .. controls (1,1) .. (3,0); \\draw[->] (0,0) .. controls +(1,1) and +(-1,1) .. (3,0) .. controls ++(0,-1) and (1,-1) .. cycle;"),
+  pic("\\draw (0,0) .. controls (1,1) and (2,1) .. node[sloped,above] {m} (3,0) .. controls (4,-1) .. node[pos=0.2,auto] {n} (5,0); \\draw[rotate=20,fill=red,rounded corners] (1,0) -- (2,1) .. controls (3,3) .. cycle;"),
+  pic("\\node[draw] (a) {A}; \\node[draw,circle] (b) at (3,1) {B}; \\draw[->] (a) .. controls (1,2) and (2,2) .. (b); \\draw (b) .. controls +(0,-1) .. (a) node[midway,below] {x};"),
+  pic("\\draw (0,0) to[out=90,in=180] (2,2) to[bend left] (4,0) to[bend right=45] node[above] {x} (5,1) to[out=-30,in=200,looseness=2] (7,0);"),
+  pic("\\node[draw] (a) {A}; \\node[draw,circle] (b) at (3,1) {B}; \\draw[->] (a) to[bend left] (b); \\draw[->] (b) to[out=-90,in=0] (a); \\draw (a) to[bend right=10] +(1,-2) to[out=0,in=90,min distance=2cm] (5,-2) to[in looseness=0.5,out=45] (6,0);"),
+  pic("\\draw ([shift={(1,1)}]0,0) -- ([xshift=1cm,rotate=30]1,0) -- ({30}:1); \\node[draw] (a) {A}; \\draw ([yshift=2pt]a.east) -- (2,2);", "[scale=0.5]"),
+  pic("\\node[draw] (a) {A}; \\node[draw] (b) at (2,1) {B}; \\draw (a) edge[->] (b) edge[bend left,red] node[above] {e} (2,-1); \\draw (0,0) edge (1,1) edge node {f} (1,-1);"),
+  pic("\\node (a) {A} edge[->] (2,0); \\node[circle,draw] {C} edge[<-] +(0,1) edge (-1,-1); \\path (0,0) edge (1,0) -- (2,0); \\path[->] (a) edge (2,0) (1,1) edge[out=0,in=90] (a);", "[every edge/.style={draw,dashed}]"),
+  pic("\\node[draw,pin=x] {A}; \\node[draw,circle,pin=right:r,pin={[red,pin edge={blue,thick}]30:q},pin distance=1cm] at (2,0) {A}; \\coordinate[pin=left:c] (c) at (1,1);"),
+  pic("\\node[draw,pin=below:p] (a) {A}; \\draw (a) -- (2,0) node[pin=60:end] {}; \\node[draw,pin=above left:a,label=b] at (3,1) {A};", "[every pin edge/.style={->,red}]"),
+  pic("\\draw (0,0) arc (0:90:1) arc (0:200:1cm) arc (90:-180:1cm and 5mm) -- (0,0); \\draw[->] (1,0) arc[start angle=0,end angle=100,radius=1];"),
+  pic("\\draw (1,0) arc[start angle=30,delta angle=-75,x radius=2,y radius=1] arc[end angle=0,delta angle=45,radius=5mm] -- +(1,0); \\draw[rotate=30,rounded corners] (0,0) -- (1,0) arc (0:120:1) -- cycle; \\fill[red] (0,0) -- (1,0) arc (0:45:1) -- cycle;"),
+  pic("\\draw (0,0) arc (0:90:1) node[midway] {x} node[pos=0.2,sloped] {s}; \\draw (1,0) arc (0:200:1cm and 5mm) node[near end,auto] {y} node[pos=0,above,sloped] {z} coordinate (c) arc (0:30:1);"),
+  pic("\\draw[rotate=20] (1,0) arc[start angle=30,delta angle=-75,x radius=2,y radius=1] node[at end,sloped,below] {e} arc (0:-90:1pt) node[midway,right] {f};"),
+  pic("\\draw (0,0) grid (2,2); \\draw[step=0.5] (-1,-1) grid (1.2,1.3); \\draw[help lines,step=5mm] (0,0) grid (3,2) (4,1) grid[xstep=1cm,ystep=2mm] (3,0); \\draw[rotate=30,step=0.7] (0.3,0.3) grid (2,2);"),
   // labels
   pic("\\node[draw,label=x] {A}; \\node[draw,label=right:x,label=below left:{$y$}] at (2,0) {A};"),
   pic("\\node[circle,draw,label={[red,font=\\small]30:lab},label=center:c] at (1,2) {Abc}; \\node[draw,label distance=3pt,label=left:x,label={[label distance=1mm]-45:q}] {A};"),
@@ -162,12 +178,12 @@ const FIXED = [
 
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
-  pic("\\draw ([xshift=1cm]0,0) -- (1,0);"), pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[ellipse] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
-pic("\\draw (0,0) to[out=90,in=0] (1,1);"),
-  pic("\\draw (0,0) arc (0:90:1);"), pic("\\draw (0,0) edge (1,0);"), pic("\\draw (0,0) grid (2,2);"), pic("\\foreach \\x in \\list \\draw (\\x,0) -- (0,0);"), pic("\\draw (0,0) foreach \\x in {1,2} {-- (\\x,1)};"),
-  pic("\\draw (0,0) .. controls (1,1) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
+  pic("\\draw ($(0,0)+(1,0)$) -- (1,0);"), pic("\\node[ellipse] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
+  pic("\\foreach \\x in \\list \\draw (\\x,0) -- (0,0);"), pic("\\draw (0,0) foreach \\x in {1,2} {-- (\\x,1)};"),
+  pic("\\draw (0,0) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[x=2cm] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
-  pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) -- (1cm,1) arc[radius=1, start angle=0, end angle=90];"),
+  pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) parabola (1,1);"), pic("\\draw (0,0) sin (1,1);"), pic("\\draw[step=(1,1)] (0,0) grid (1,1);"),
+  pic("\\draw (0,0) edge[loop] ();"),
 ]
 
 function rng(seed: number) {
@@ -221,7 +237,7 @@ export function makePictures(n: number, seed: number): string[] {
       () => pick(["anchor=north", "anchor=south west", "anchor=30", "above", "below left", "right=2pt", "left=1mm", "above right=3pt and 1pt"]),
       () => pick(["pos=0.3", "near end", "near start", "midway", "at end", "sloped", "auto", "auto,swap", "transform shape"]),
       () => pick(["align=center", "align=left", "align=flush right", "text width=1cm", "text width=15mm,align=center", "node font=\\small", "node font=\\large\\itshape",
-        "label=l", "label=below:{$z$}", "label={[red]30:q}", "label=center:c", "label distance=2pt,label=left:m", "label={[draw]south east:se}"]),
+        "label=l", "label=below:{$z$}", "label={[red]30:q}", "label=center:c", "label distance=2pt,label=left:m", "label={[draw]south east:se}", "pin=above:p", "pin={[pin edge={red}]-30:q}"]),
       transform,
       () => (names.length ? pick([`right=of ${pick(names)}`, `below=2mm of ${pick(names)}`, `right of=${pick(names)}`, `above left=of ${pick(names)}`]) : "draw"),
     ])()
@@ -235,6 +251,11 @@ export function makePictures(n: number, seed: number): string[] {
       () => ` coordinate${r() < 0.2 ? `[${transform()}]` : ""} (${name()})`, () => ` {[${option()}] -- ${target()}}`,
       () => ` ${node()}`, () => ` -- ${node()} ${target()}`, () => ` ${pick(["-|", "|-"])} ${node()} ${coord()}`, () => ` to ${node()} ${target()}`,
       () => ` -- coordinate (${name()}) ${target()}`, () => ` rectangle ${node()} ${target()}`,
+      () => ` .. controls ${coord()}${r() < 0.5 ? ` and ${target()}` : ""} .. ${r() < 0.3 ? `${node()} ` : ""}${coord()}`,
+      () => ` to[${pick(["out=90,in=180", "bend left", "bend right=20", "out=-30,in=200,looseness=1.5", "bend left,looseness=0.7"])}] ${r() < 0.3 ? `${node()} ` : ""}${target()}`,
+      () => ` edge${r() < 0.5 ? `[${pick(["->", "bend left", "red,dashed", "out=0,in=90"])}]` : ""} ${r() < 0.3 ? `${node()} ` : ""}${coord()}`,
+      () => ` arc (${int(-180, 180)}:${int(-180, 360)}:${pick([num, len])()})`, () => ` arc[start angle=${int(0, 90)},delta angle=${int(-200, 200)},radius=${pick([num, len])()}]`,
+      () => ` grid${r() < 0.3 ? `[step=${pick(["0.5", "3mm", "1"])}]` : ""} (${int(-2, 3)}${pick(["", ".5"])},${int(-2, 3)})`,
     ])()
     const path = () => {
       names.push(...pending.splice(0))

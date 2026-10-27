@@ -21,17 +21,19 @@ import type { PgfDriver } from "../pgf/drivers"
 import { TexArith, toNumber } from "../pgf/fixed"
 import { isColorName, pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetStrokeColor } from "../pgf/graphicstate"
 import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "../pgf/mathparser"
-import { pgfPathClose, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfUsePath, resetPathSizes } from "../pgf/paths"
+import { pgfPathClose, pgfPathCurveTo, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfUsePath, resetPathSizes } from "../pgf/paths"
 import { pgfPoint, pgfPointAdd, pgfPointDiff, pgfPointNormalised, pgfPointOrigin, pgfPointScale, pgfPointPolar, pgfPointXY, parse, qpoint, setLength, trig, type PgfPoint, type PgfPointMacro } from "../pgf/points"
 import { beginPgfPicture, endPgfPicture, pgfSetBaseline } from "../pgf/scopes"
 import { pgfMultipartNode, pgfPointAnchor, pgfPointShapeBorder, usePgfNodes, type PgfNodeRecord, type PgfShapeKeys } from "../pgf/shapes"
 import type { PgfState } from "../pgf/state"
-import { mul, transformPoint, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
+import { applyTransform, mul, pgfTransformArcAxesAtTime, pgfTransformCm, pgfTransformCurveAtTime, pgfTransformInvert, pgfTransformReset, transformPoint, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
 import { chars } from "./keys"
 import { alignLines, type AlignLine, type Baselines } from "./text"
 import { readForeach, substitute } from "./foreach"
-import { LABEL_RESTORE, LABEL_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
+import { LABEL_RESTORE, LABEL_SAVE, PIN_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
 import { pgfArrowsMeta, pgfSetArrows, shareArrows } from "../pgf/arrows"
+import { pgfPathArc, pgfPathArcAxes } from "../pgf/arcs"
+import { pgfPathGrid } from "../pgf/grid"
 import { arg, contains, find, groupEnd, isCs, plain, spdef, str, tokenize, type Tok, type Toks } from "./tokens"
 
 /**
@@ -49,7 +51,11 @@ export interface TikzText {
 }
 
 /** \tikz@timer: how a label on the last operation is placed, between \tikz@timer@start and …end */
-interface Timer { kind: "line" | "hv" | "vh"; start: PgfPoint; end: PgfPoint }
+interface Timer {
+  kind: "line" | "hv" | "vh" | "curve" | "arc"; start: PgfPoint; end: PgfPoint; /** a curve's supports */ c1?: PgfPoint; c2?: PgfPoint
+  /** an arc's angles (\tikz@timer@start@angle, …end…) and axes (\tikz@timer@zero@axis, …ninety…) */
+  arc?: { start: string; end: string; zero: PgfPoint; ninety: PgfPoint }
+}
 
 /** TikZ's macros and registers a path changes, local to TeX's groups */
 interface Locals {
@@ -80,12 +86,20 @@ interface Locals {
   /** \tikzlastnode: the node made last (its name), and \tikz@save@last@fig@name around a label's node */
   lastNode: string
   savedLastFig: string
+  /** \tikz@save@last@node: the node a pin is of */
+  savedPinNode: string
+  /** \tikztostart, \tikztotarget (text) and \tikz@tonodes of the to path being scanned */
+  to: { start: Tok[]; target: Tok[]; nodes: Tok[] } | null
+  /** \tikz@to@use@whom: what an edge starts at, the last point scanned or the last node (undefined: neither yet) */
+  toUseWhom: "coordinate" | "node" | null
 }
 
 /** the special token \pgfextra{\tikz@updatenexttrue\tikz@updatecurrenttrue} after a to path (3097) */
 const UPDATE = "\\pgfextra@tikz@update"
 /** \pgfextra{\tikz@node@is@a@labeltrue}: what \tikztonodes begins with (3062) */
 const LABEL = "\\pgfextra@tikz@label"
+/** \tikz@to@path where the to path's options are read, and topaths' \pgfextra{…\tikz@to@compute…} */
+const TO_PATH = "\\tikz@to@path", TO_COMPUTE = "\\pgfextra@tikz@to@compute"
 /** \pgf@stop, which ends the labels \tikz@invoke@collected@onpath scans (2777–2783) */
 const STOP = "\\pgf@stop"
 
@@ -204,7 +218,7 @@ export class TikzPicture {
       lastx: 0, lasty: 0, lastxsaved: 0, lastysaved: 0,
       updatecurrent: true, updatenext: true, autoEndPath: false, doAtEnd: null, dot: setup.color, figbox: null,
       shapeborder: null, movetoWaiting: null, lastMoveTo: { x: 0, y: 0 }, timer: null, collected: [], isLabel: false, scopeLineWidth: 0,
-      lastNode: "", savedLastFig: "",
+      lastNode: "", savedLastFig: "", savedPinNode: "", to: null, toUseWhom: null,
     }
   }
 
@@ -354,8 +368,8 @@ export class TikzPicture {
   }
 
   /** \endpgfidscope: \pgfsys@end@idscope (pgfsys.code.tex 600–610) with no id, its body beginning with a space */
-  private endIdScope() {
-    this.s.space()
+  private endIdScope(blank = true) {
+    if (blank) this.s.space()
     this.end()
     this.end()
   }
@@ -585,12 +599,15 @@ export class TikzPicture {
         case "r": this.rect(inp); continue
         case "c": this.cchar(inp); continue
         case "e":
-          if (!inp.ifNext("l")) throw new Unsupported("tikz: edge")
+          if (!inp.ifNext("l")) { this.edge(inp); continue }
           inp.literal("llipse")
           this.flushMoveto()
           this.circle(inp)
           continue
         case "t": this.to(inp); continue
+        case ".": this.dot(inp); continue
+        case "a": this.arc(inp); continue
+        case "g": this.grid(inp); continue
         case "n": this.fig(inp); continue
         case "[": this.tz.set(inp.delimited(["]"])); continue
         case "{": this.begin(); this.L.autoEndPath = false; continue
@@ -601,10 +618,13 @@ export class TikzPicture {
           continue
         case ";": this.finish(inp, true); return false
         case UPDATE: this.L.updatenext = true; this.L.updatecurrent = true; continue
+        case TO_PATH: this.toPath(inp); continue
+        case TO_COMPUTE: this.toCompute(inp); continue
         case LABEL: this.L.isLabel = true; continue
         case STOP: this.L.isLabel = false; continue
         case LABEL_SAVE: this.L.savedLastFig = this.lastFigName; this.L.isLabel = false; continue
         case LABEL_RESTORE: this.lastFigName = this.L.savedLastFig; continue
+        case PIN_SAVE: this.L.savedPinNode = this.L.lastNode; this.L.isLabel = false; continue
         case "\\par": case "\\relax": continue
       }
       throw new Unsupported(`tikz: ${t} on a path`)
@@ -840,6 +860,176 @@ export class TikzPicture {
     this.L.timer = { kind: "line", start, end: this.L.lastMoveTo }
   }
 
+  /** \tikz@dot … \tikz@curveC (3165–3255): `.. controls (a) and (b) .. (c)`, `.. controls (a) .. (c)` */
+  private dot(inp: Input) {
+    inp.literal(".")
+    // \tikz@@dot: labels before the controls
+    for (;;) {
+      if (inp.ifNext("n")) { this.collectLabel(inp); continue }
+      if (inp.ifNext("p")) throw new Unsupported("tikz: pic on a path")
+      break
+    }
+    if (!inp.ifNext("c")) throw new Unsupported("tikz: .. without controls")
+    inp.literal("co")
+    if (inp.ifNext("o")) throw new Unsupported("tikz: coordinate before controls")
+    inp.literal("ntrols")
+    // \tikz@curveA: the first support, computed in a group with the current point the last one
+    const p1 = this.scanPoint(inp)
+    const start = this.lastPoint
+    const support = (p: PgfPointMacro): PgfPoint => {
+      const saved = { ...this.L }
+      this.L.lastxsaved = this.L.lastx
+      this.L.lastysaved = this.L.lasty
+      this.makeLast(p)
+      const q = this.lastPoint
+      this.L = saved
+      return q
+    }
+    const first = support(p1)
+    let second: PgfPointMacro = qpoint(first.x, first.y)
+    if (inp.ifNext("a")) { inp.literal("and"); second = this.scanPoint(inp) }
+    // \tikz@curveCdots: \let\pgfutil@next= takes a blank and the first dot, then the second
+    if (inp.peek() === " ") inp.next()
+    inp.literal("..")
+    if (this.L.updatenext) this.L.updatecurrent = true
+    // \tikz@curveCcheck; `cycle` is \tikz@cycle@expander@add's `(current subpath start)--cycle`
+    for (;;) {
+      if (inp.ifNext("n")) { this.collectLabel(inp); continue }
+      if (inp.ifNext("p")) throw new Unsupported("tikz: pic on a path")
+      if (inp.ifNext("c")) {
+        inp.next()
+        if (inp.ifNext("y")) { inp.literal("ycle"); inp.insert(["(", ...chars("current subpath start"), ")", "-", "-", ...chars("cycle")]); break }
+        this.collectCoordinate(inp)
+        continue
+      }
+      break
+    }
+    const p3 = this.scanPoint(inp)
+    // \tikz@curveC: the end, then the second support relative to it
+    this.makeLast(p3)
+    let third = this.lastPoint
+    const c2 = support(second)
+    let timerStart = start
+    const waiting = this.L.movetoWaiting
+    if (waiting) {
+      const b = pgfPointShapeBorder(this.s, waiting, qpoint(first.x, first.y))
+      timerStart = b
+      this.movetoSave(qpoint(b.x, b.y))
+    }
+    const name = this.L.shapeborder
+    if (name) {
+      // the end on the target's border, towards the second support (the current point stays the node's centre)
+      third = pgfPointShapeBorder(this.s, name, qpoint(c2.x, c2.y))
+      pgfPathCurveTo(this.s, qpoint(first.x, first.y), qpoint(c2.x, c2.y), qpoint(third.x, third.y))
+      this.L.movetoWaiting = name
+    } else {
+      pgfPathCurveTo(this.s, qpoint(first.x, first.y), qpoint(c2.x, c2.y), qpoint(third.x, third.y))
+      this.L.movetoWaiting = null
+    }
+    this.L.timer = { kind: "curve", start: timerStart, c1: first, c2, end: third }
+  }
+
+  /** \tikz@grid, \tikz@gridA, \tikz@gridB (3294–3326): `grid[options] (corner)` */
+  private grid(inp: Input) {
+    if (!inp.ifNext("r")) throw new Unsupported("tikz: grid expected")
+    inp.literal("rid")
+    this.flushMoveto()
+    const a = this.lastPoint
+    const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
+    if (inp.ifNext("c")) throw new Unsupported("tikz: grid to cycle")
+    this.makeLast(this.scanPoint(inp))
+    const b = this.lastPoint
+    this.begin()
+    this.tz.set(options)
+    this.s.space() // (the \tikzset line's end)
+    const st = this.tz.st
+    const gx = st.gridX, gy = st.gridY
+    // the steps' vectors added: \pgfpoint{x}{0pt} or \pgfpointxy{x}{0}, then the y step's
+    const vec = (t: Toks, axis: "x" | "y"): PgfPoint => {
+      const u = this.checkUnit(t)
+      if (u.units) return axis === "x" ? pgfPoint(this.s, `${u.result}pt`, "0pt") : pgfPoint(this.s, "0pt", `${u.result}pt`)
+      return axis === "x" ? pgfPointXY(text(t, "step"), "0", this.s.units) : pgfPointXY("0", text(t, "step"), this.s.units)
+    }
+    const vx = vec(gx, "x"), vy = vec(gy, "y")
+    pgfPathGrid(this.s, vx.x + vy.x, vx.y + vy.y, a, b, () => this.s.space())
+    this.end()
+  }
+
+  /** \tikz@arcA, \tikz@arc@cont, \tikz@arc@opt, \tikz@@arcto (3628–3678): `arc (s:e:r)`, `arc (s:e:rx and ry)`, `arc[keys]` */
+  private arc(inp: Input) {
+    if (!inp.ifNext("r")) throw new Unsupported("tikz: arc expected")
+    inp.literal("rc")
+    this.flushMoveto()
+    if (inp.ifNext("(")) {
+      inp.next()
+      const t = inp.delimited([")"])
+      const [sa, rest] = split(t, [":"])
+      const [ea, r] = split(rest, [":"])
+      const [rx, ry] = contains(r, chars(" and ")) ? split(r, chars(" and ")) : [r, r]
+      this.doArc(text(sa, "angle"), text(ea, "angle"), rx, ry)
+      return this.arcFinal()
+    }
+    const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
+    // in a group: the keys, the missing angle from the delta (\pgfmathsetmacro on a line of its own: a blank)
+    this.begin()
+    this.tz.set(["every arc/.try", ",", ...options])
+    const value = (k: string) => str(this.tz.keys.valueOf(`/tikz/${k}`) ?? [])
+    let sa = value("start angle"), ea = value("end angle")
+    const d = value("delta angle")
+    if (sa === "") { sa = this.checkUnit(chars(`${ea}-${d}`)).result; this.s.space() }
+    else if (ea === "") { ea = this.checkUnit(chars(`${sa}+${d}`)).result; this.s.space() }
+    const rx = this.tz.keys.valueOf("/tikz/x radius") ?? [], ry = this.tz.keys.valueOf("/tikz/y radius") ?? []
+    this.end()
+    this.doArc(sa, ea, rx, ry)
+    this.arcFinal()
+  }
+
+  /** the arc's ends relative to its centre, for \tikz@arcfinal, and its timer's angles and axes */
+  private arcEnds: [PgfPoint, PgfPoint] = [{ x: 0, y: 0 }, { x: 0, y: 0 }]
+  private arcTimer: NonNullable<Timer["arc"]> = { start: "0", end: "0", zero: { x: 0, y: 0 }, ninety: { x: 0, y: 0 } }
+
+  /** \tikz@do@arc (3680–3716) and \tikz@@@arcfinal (3718–3729), each line its blank */
+  private doArc(sa: string, ea: string, rx: Toks, ry: Toks) {
+    const s = this.s
+    // \tikz@timer@start@angle, …end… (\pgfmathsetmacro)
+    const start = this.checkUnit(chars(sa)).result, end = this.checkUnit(chars(ea)).result
+    const x = this.checkUnit(rx), y = this.checkUnit(ry)
+    if (x.units !== y.units) throw new Unsupported("tikz: dimensions and dimensionless values mixed in an arc")
+    const space = () => s.space()
+    if (x.units) {
+      const r = `${x.result}pt and ${y.result}pt`
+      pgfPathArc(s, start, end, r, space)
+      s.space()
+      const a = pgfPointPolar(s, start, r)
+      s.space()
+      this.arcEnds = [a, pgfPointPolar(s, end, r)]
+      s.space() // (the timer's axes, each \edef on a line)
+      s.space()
+      const ax = new TexArith(s.units)
+      this.arcTimer = { start, end, zero: { x: ax.dimen(`${x.result}pt`), y: 0 }, ninety: { x: 0, y: ax.dimen(`${y.result}pt`) } }
+    } else {
+      pgfPathArcAxes(s, start, end, pgfPointXY(x.result, "0", s.units), pgfPointXY("0", y.result, s.units), space)
+      s.space()
+      const a = this.polarXY(start, `${x.result} and ${y.result}`)
+      s.space()
+      this.arcEnds = [a, this.polarXY(end, `${x.result} and ${y.result}`)]
+      // the timer's axes, each \pgf@process and \edef on a line
+      for (let k = 0; k < 4; k++) s.space()
+      this.arcTimer = { start, end, zero: pgfPointXY(x.result, "0", s.units), ninety: pgfPointXY("0", y.result, s.units) }
+    }
+  }
+
+  /** \tikz@arcfinal (3732–3743): the current point moved by the arc */
+  private arcFinal() {
+    const [a, b] = this.arcEnds
+    const start = this.lastPoint
+    this.L.lastx += b.x - a.x
+    this.L.lasty += b.y - a.y
+    this.L.lastxsaved = this.L.lastx
+    this.L.lastysaved = this.L.lasty
+    this.L.timer = { kind: "arc", start, end: this.lastPoint, arc: this.arcTimer }
+  }
+
   /** \tikz@rect, \tikz@@rect, \tikz@rectB (3260–3290) */
   private rect(inp: Input) {
     inp.literal("ectangle")
@@ -926,6 +1116,19 @@ export class TikzPicture {
   /** \tikz@to, \tikz@to@or@edge, \tikz@do@to (2983–3101), with the default to path `-- (\tikztotarget) \tikztonodes` */
   private to(inp: Input) {
     inp.literal("o")
+    // \tikz@to@use@last@coordinate (3103–3108)
+    const start = this.lastCoordinate()
+    const { local, target, nodes } = this.toOrEdge(inp)
+    // \tikz@do@to: the to path scanned in a group of its own, then the current point updated again
+    this.L.to = { start, target, nodes }
+    inp.insert(["{", "[", ...chars("style=every to"), "]", "[", ...local, "]", TO_PATH, "}", UPDATE])
+  }
+
+  /** \tikz@to@use@last@coordinate (3103–3108): the node the last point was on, or the point */
+  private lastCoordinate(): Tok[] { return chars(this.L.shapeborder ?? `${pt(this.L.lastx)},${pt(this.L.lasty)}`) }
+
+  /** \tikz@to@or@edge … \tikz@@to@or@edge@@coordinate (2990–3039): local options, the labels (\tikz@tonodes) and the target */
+  private toOrEdge(inp: Input): { local: Tok[]; target: Tok[]; nodes: Tok[] } {
     const local: Tok[] = []
     for (;;) {
       if (inp.ifNext("[")) { inp.next(); local.push(",", ...inp.delimited(["]"])); continue }
@@ -947,8 +1150,152 @@ export class TikzPicture {
     }
     const nodes = this.L.collected
     this.L.collected = []
-    // \tikz@do@to: the to path scanned in a group of its own, then the current point updated again
-    inp.insert(["{", "[", ...chars("style=every to"), "]", "[", ...local, "]", "-", "-", " ", "(", ...target, ")", " ", "{", LABEL, ...nodes, "}", "}", UPDATE])
+    // (\tikztotarget, \edef'd where a node's name is looked up)
+    return { local, target: this.nodeNames(target), nodes }
+  }
+
+  /**
+   * \tikz@edge@plain, \tikz@do@edge (2971–2977, 3040–3082): in a group, a path of its own, `\path[every edge][local
+   * options](\tikztostart)` and the to path, in a box added to \tikz@figbox, in \pgfinterruptpath and a scope
+   */
+  private edge(inp: Input) {
+    inp.literal("dge")
+    if (inp.ifNext("f")) throw new Unsupported("tikz: edge from parent")
+    this.begin()
+    const whom = this.L.toUseWhom
+    if (!whom) throw new Unsupported("tikz: an edge from nowhere")
+    // (\tikz@to@last@fig@name, \let where \tikzlastnode is: a pin's node does not change it)
+    const start = whom === "node" ? chars(this.L.lastNode) : this.lastCoordinate()
+    const { local, target, nodes } = this.toOrEdge(inp)
+    const figbox = this.L.figbox ?? []
+    const outer = this.s.out
+    this.s.out = []
+    this.begin() // \setbox\tikz@whichbox=\hbox\bgroup
+    this.begin() // \hbox\bgroup
+    this.begin() // \bgroup
+    const saved = this.interruptPath()
+    this.pgfscope()
+    this.tz.st.transform = []
+    this.tz.st.options = []
+    this.begin() // \pgfidscope
+    this.begin()
+    this.tz.st.transform = null
+    this.tz.st.afterPath = []
+    this.L.to = { start, target, nodes }
+    this.command(new Input(["\\path", "[", ...chars("style=every edge"), "]", "[", ...local, "]", "(", ...start, ")", TO_PATH, ";"]))
+    // (the path's \tikz@finish, scanning \pgflinewidth's optional blank, takes the one \endpgfidscope begins with)
+    this.endIdScope(false)
+    this.endpgfscope()
+    this.endInterruptPath(saved)
+    this.end()
+    this.end()
+    this.end()
+    figbox.push(hpack(this.s.out))
+    this.s.out = outer
+    this.end()
+    this.L.figbox = figbox
+  }
+
+  /**
+   * \tikz@to@path once the options are read: `-- (\tikztotarget) \tikztonodes`, or topaths' \tikz@to@curve@path
+   * (tikzlibrarytopaths.code.tex 141–147)
+   */
+  private toPath(inp: Input) {
+    const to = this.L.to
+    if (!to) throw new Unsupported("tikz: a to path outside to")
+    const nodes = ["{", LABEL, ...to.nodes, "}"]
+    if (!this.tz.st.toCurve) inp.insert(["-", "-", " ", "(", ...to.target, ")", " ", ...nodes])
+    else inp.insert(["[", ...chars("every curve to"), "]", TO_COMPUTE, UPDATE, ...nodes])
+  }
+
+  /** \tikz@to@compute, \tikz@to@compute@relative (149–330): the curve's path, scanned next */
+  private toCompute(inp: Input) {
+    const to = this.L.to!
+    const st = this.tz.st
+    const s = this.s
+    const out = source(st.toOut), into = source(st.toIn)
+    const isNode = (t: Toks) => this.nodes.has(str(t))
+    const point = (t: Toks): PgfPoint => this.scanPoint(new Input(["(", ...t, ")"]))()
+    if (!st.toRelative) {
+      // \tikz@to@modify: a node's anchor at the angle (each leaves the blank that ends a line of it)
+      const from = isNode(to.start) ? [...to.start, ".", ...chars(out)] : to.start
+      s.space()
+      const toto = isNode(to.target) ? [...to.target, ".", ...chars(into)] : to.target
+      s.space()
+      const first = point(from)
+      const second = point(toto)
+      const [d1, d2] = this.toDistances(first, second)
+      s.space() // (the end of the line of \edef\tikz@computed@path)
+      inp.insert(tokenize(`.. controls ([shift=({${out}}:${pt(d1)})]${source(from)}) and ([shift=({${into}}:${pt(d2)})]${source(toto)}) .. (${source(to.target)})`))
+      return
+    }
+    const fromP = point(to.start), toP = point(to.target)
+    /** p rotated by the angles about c (in a group: the transformation reset) */
+    const rotated = (c: PgfPoint, angles: string[], p: PgfPoint): PgfPoint => {
+      s.begingroup()
+      pgfTransformReset(s)
+      pgfTransformShift(s, qpoint(c.x, c.y))
+      for (const a of angles) pgfTransformRotate(s, a)
+      pgfTransformShift(s, qpoint(-c.x, -c.y))
+      const q = transformPoint(s, p)
+      s.endgroup()
+      return q
+    }
+    let first = fromP, second = toP, startText = ""
+    if (isNode(to.start)) {
+      const q = rotated(fromP, [out], toP)
+      first = pgfPointShapeBorder(s, str(to.start), qpoint(q.x, q.y))
+      s.space() // (the end of the line of \xdef\tikz@tofrom@smuggle)
+      startText = `(${pt(first.x)},${pt(first.y)})`
+    }
+    if (isNode(to.target)) {
+      const q = rotated(toP, ["180", into], fromP)
+      second = pgfPointShapeBorder(s, str(to.target), qpoint(q.x, q.y))
+      s.space() // (\xdef\tikz@toto@smuggle's)
+    }
+    const [d1, d2] = this.toDistances(first, second)
+    // the start at the origin, the target on the x axis
+    const n = pgfPointNormalised({ x: second.x - first.x, y: second.y - first.y }, s.units)
+    const control = (at: PgfPoint, angle: string, d: number): PgfPoint => {
+      s.begingroup()
+      pgfTransformReset(s)
+      pgfTransformShift(s, qpoint(at.x, at.y))
+      pgfTransformCm(s, toNumber(n.x), toNumber(n.y), toNumber(-n.y), toNumber(n.x), pgfPointOrigin)
+      const q = transformPoint(s, pgfPointPolar(s, angle, pt(d)))
+      s.endgroup()
+      return q
+    }
+    const a = control(first, out, d1)
+    s.space() // (after each support's group)
+    const b = control(second, into, d2)
+    s.space()
+    inp.insert(tokenize(` ${startText} .. controls (${pt(a.x)},${pt(a.y)}) and (${pt(b.x)},${pt(b.y)}) .. (${pt(second.x)},${pt(second.y)})`))
+  }
+
+  /** \tikz@to@compute@distance@main (163–220): the supports' distances from the ends, by looseness and bounds */
+  private toDistances(first: PgfPoint, second: PgfPoint): [number, number] {
+    const units = this.s.units
+    let xa = Math.abs(second.x - first.x), ya = Math.abs(second.y - first.y)
+    const n = pgfPointNormalised({ x: xa, y: ya }, units)
+    if (n.x > n.y) {
+      const c = Math.trunc(n.x / 255)
+      if (n.x !== 0) xa = 16 * Math.trunc((16 * xa) / c)
+    } else {
+      const c = Math.trunc(n.y / 255)
+      if (n.y !== 0) { ya = Math.trunc((16 * ya) / c); xa = 16 * ya }
+    }
+    if (Math.abs(xa) >= 0x40000000) throw new Unsupported("tikz: a to path too long")
+    const x = mul("0.3915", xa)
+    const l = this.tz.st.toLooseness
+    let d1 = mul(l.out, x), d2 = mul(l.in, x)
+    const len = (v: string) => {
+      const r = pgfmathSetLength(v, units)
+      if (r.errors.length) throw new Unsupported(`tikz: ${r.errors[0]}`)
+      return r.value
+    }
+    d1 = Math.min(Math.max(d1, len(l.outMin)), len(l.outMax))
+    d2 = Math.min(Math.max(d2, len(l.inMin)), len(l.inMax))
+    return [d1, d2]
   }
 
   /**
@@ -957,6 +1304,7 @@ export class TikzPicture {
    */
   private toMath(inp: Input): Tok[] {
     const q = this.scanPoint(inp)()
+    if (!this.L.updatecurrent) this.L.updatenext = false
     return chars(`${pt(q.x)},${pt(q.y)}`)
   }
 
@@ -968,8 +1316,9 @@ export class TikzPicture {
    */
   private collectLabel(inp: Input) {
     inp.literal("node")
-    const c = this.L.collected
-    c.push(...chars("node"))
+    // (a copy: a group's saved state keeps its own)
+    const c = [...this.L.collected, ...chars("node")]
+    this.L.collected = c
     for (;;) {
       if (inp.ifNext("f")) throw new Unsupported("tikz: node foreach")
       if (inp.ifNext(":")) throw new Unsupported("tikz: animation")
@@ -1009,7 +1358,8 @@ export class TikzPicture {
     const name = inp.delimited([")"])
     if (!inp.ifNext("a")) { inp.insert([...head, "(", ...name, ")", "{", "}"]); return this.fig(inp) }
     inp.next()
-    if (!inp.ifNext("t")) throw new Unsupported("tikz: a node text after a coordinate")
+    // \tikz@@coordinate@at: `a` not followed by `t` is what comes after the node (an arc)
+    if (!inp.ifNext("t")) { inp.insert([...head, "(", ...name, ")", "{", "}", "a"]); return this.fig(inp) }
     inp.next()
     // at#3(: what lies before the ( goes
     const j = find(inp.t, ["("], inp.i)
@@ -1092,8 +1442,9 @@ export class TikzPicture {
     }
     const textBox = this.textBox(content)
     st = this.tz.st
-    // \tikz@fig@mustbenamed (4144–4151): a node with something after it gets a name
-    if (st.afterPath.length && st.figName === "") st.figName = `tikz@f@${++this.counts.fig}`
+    // \tikz@fig@mustbenamed (4144–4151): a node with something after it, or followed by c, [, t or e, gets a name
+    const follows = ["c", "[", "t", "e"].some((c) => inp.ifNext(c))
+    if ((st.afterPath.length || follows) && st.figName === "") st.figName = `tikz@f@${++this.counts.fig}`
     // \tikz@fig@continue (4081–4145): the transformations, then the node in a box of its own
     this.nodeTransformations()
     st = this.tz.st
@@ -1101,11 +1452,8 @@ export class TikzPicture {
     const outer = this.s.out
     this.s.out = []
     this.begin() // \hbox{{
-    // \pgfinterruptpath (pgfcorescopes.code.tex 452–473)
     this.begin()
-    const saved = { soft: this.s.softPath, extent: { ...this.s.path }, last: this.s.last, lastMoveTo: this.s.lastMoveTo }
-    this.s.softPath = []
-    this.begin()
+    const saved = this.interruptPath()
     this.pgfscope()
     this.runOptions()
     this.begin() // \pgfidscope
@@ -1122,11 +1470,7 @@ export class TikzPicture {
     pgfMultipartNode(this.s, this.d, st.shape, text(st.anchor, "anchor"), st.figName, () => this.nodePath(), keys, box)
     this.endIdScope()
     this.endpgfscope()
-    this.end()
-    this.s.softPath = saved.soft
-    this.s.path = saved.extent
-    this.s.last = saved.last
-    this.s.lastMoveTo = saved.lastMoveTo
+    this.endInterruptPath(saved)
     this.end()
     this.end() // }}
     figbox.push(hpack(this.s.out))
@@ -1142,6 +1486,7 @@ export class TikzPicture {
     this.globalLineWidth()
     // \tikz@do@after@path@smuggle: \tikz@scan@next@command{…}\pgf@stop, scanned here
     this.L.lastNode = this.lastFigName
+    this.L.toUseWhom = "node"
     if (after.length) inp.insert(["{", ...after, "}"])
   }
 
@@ -1153,7 +1498,8 @@ export class TikzPicture {
     const s = this.s
     s.space() // (the code begins with the end of its first line)
     // \edef\tikz@label@angle{\tikz@label@angle}, then \pgfkeys@spdef
-    let angle = plain(spdef(st.labelAngle.flatMap((t) => (t === "\\tikz@label@default@pos" ? st.labelPosition : [t]))), "label position")
+    const defaults: Record<string, Toks> = { "\\tikz@label@default@pos": st.labelPosition, "\\tikz@pin@default@pos": st.pinPosition }
+    let angle = plain(spdef(st.labelAngle.flatMap((t) => defaults[t] ?? [t])), "label position")
     angle = LABEL_ANGLES[angle] ?? angle
     const node = this.L.lastNode
     if (!this.nodes.has(node)) throw new Unsupported("tikz: a label of no node")
@@ -1240,6 +1586,21 @@ export class TikzPicture {
       this.s.out = outer
     }
     return box
+  }
+
+  /** \pgfinterruptpath (pgfcorescopes.code.tex 452–473): the path so far kept aside, an empty one, a group */
+  private interruptPath() {
+    const saved = { soft: this.s.softPath, extent: { ...this.s.path }, last: this.s.last, lastMoveTo: this.s.lastMoveTo }
+    this.s.softPath = []
+    this.begin()
+    return saved
+  }
+  private endInterruptPath(saved: ReturnType<TikzPicture["interruptPath"]>) {
+    this.end()
+    this.s.softPath = saved.soft
+    this.s.path = saved.extent
+    this.s.last = saved.last
+    this.s.lastMoveTo = saved.lastMoveTo
   }
 
   /** the node's font commands, then the text's: \tikz@node@textfont, \tikz@textfont */
@@ -1345,6 +1706,14 @@ export class TikzPicture {
     const s = this.s, time = this.tz.st.time
     const start = qpoint(t.start.x, t.start.y), end = qpoint(t.end.x, t.end.y)
     if (t.kind === "line") return pgfTransformLineAtTime(s, time, start, end, o)
+    if (t.kind === "curve") return pgfTransformCurveAtTime(s, time, t.start, t.c1!, t.c2!, t.end, o) // \tikz@timer@curve (4948–4950)
+    if (t.kind === "arc") {
+      // \tikz@timer@arc (4953–4971): the centre the start less the start angle's point on the axes
+      const c = t.arc!, cos = trig("cos", c.start, s.units), sin = trig("sin", c.start, s.units)
+      const p0 = pgfPointScale(cos, c.zero, s.units), p1 = pgfPointScale(sin, c.ninety, s.units)
+      const center = { x: t.start.x - (p0.x + p1.x), y: t.start.y - (p0.y + p1.y) }
+      return pgfTransformArcAxesAtTime(s, time, center, c.zero, c.ninety, c.start, c.end, o, () => s.space())
+    }
     // \tikz@timer@vhline, \tikz@timer@hvline: each half of the way a line of its own, through the corner
     const a = new TexArith(s.units)
     const corner = t.kind === "vh" ? qpoint(t.start.x, t.end.y) : qpoint(t.end.x, t.start.y)
@@ -1378,6 +1747,7 @@ export class TikzPicture {
   /** \tikz@scan@one@point (5181–5186) and \tikz@scan@relative (5482–5498) */
   private scanPoint(inp: Input): PgfPointMacro {
     this.L.shapeborder = null
+    this.L.toUseWhom = "coordinate"
     if (!inp.ifNext("+")) return this.scanAbsolute(inp)
     inp.next()
     if (inp.ifNext("+")) inp.next()
@@ -1391,13 +1761,35 @@ export class TikzPicture {
   private scanAbsolute(inp: Input): PgfPointMacro {
     if (!inp.ifNext("(")) throw new Unsupported(`tikz: a coordinate expected, not ${inp.peek() ?? "the end"}`)
     inp.next()
-    if (inp.ifNext("[")) throw new Unsupported("tikz: coordinate options")
+    if (inp.ifNext("[")) {
+      // \tikz@scan@options, \tikz@scan@handle@options (5204–5226): the point, then in a group the transformation reset
+      // and the options' transformations applied to it
+      inp.next()
+      const options = inp.delimited(["]"])
+      if (inp.ifNext("$")) throw new Unsupported("tikz: coordinate calculation")
+      const q = this.coordinateText(inp.delimited([")"]))()
+      this.begin()
+      pgfTransformReset(this.s)
+      this.tz.st.transform = []
+      this.tz.set(options)
+      for (const t of this.tz.st.transform) this.transform(t)
+      const r = transformPoint(this.s, q)
+      this.end()
+      return qpoint(r.x, r.y)
+    }
     if (inp.ifNext("$")) throw new Unsupported("tikz: coordinate calculation")
     return this.coordinateText(inp.delimited([")"]))
   }
 
+  /** the macros a pin's edge names its nodes by, expanded */
+  private nodeNames(t: Toks): Tok[] {
+    const names: Record<string, string> = { "\\tikz@save@last@node": this.L.savedPinNode, "\\tikzlastnode": this.L.lastNode }
+    return t.flatMap((x) => (x in names ? chars(names[x]) : [x]))
+  }
+
   /** \tikz@@scan@@no@calculator (5242–5266): a coordinate's text, \edef'd, by its kind */
   private coordinateText(t: Toks): PgfPointMacro {
+    t = this.nodeNames(t)
     if (t.some((x) => isCs(x))) throw new Unsupported(`tikz: macros in a coordinate`)
     if (contains(t, chars("cs:"))) throw new Unsupported("tikz: coordinate systems")
     if (contains(t, chars("intersection "))) throw new Unsupported("tikz: intersections")
@@ -1475,6 +1867,13 @@ export class TikzPicture {
    */
   private named(t: Toks): PgfPointMacro {
     const full = text(t, "node name")
+    if (full === "current subpath start") {
+      // pgfmoduleshapes.code.tex 1107–1112: a coordinate at \pgfsyssoftpath@lastmoveto, the identity its transformation
+      const m = [...this.s.softPath].reverse().find((i) => i.op === "moveto")
+      const q = m && m.op === "moveto" ? { x: m.x, y: m.y } : this.lastMoveTo
+      const p = applyTransform(pgfTransformInvert(this.s.local.transform, this.s.units), q)
+      return qpoint(p.x, p.y)
+    }
     const dot = full.indexOf(".")
     const name = dot < 0 ? full : full.slice(0, dot)
     const n = this.nodes.get(name)
@@ -1531,6 +1930,7 @@ export class TikzDocument {
       corners: (st) => this.at("rounded corners").corners(st),
       at: (v, st) => this.at("at").atOption(v, st),
       labelPost: (v, st) => this.at("label").labelPost(v, st),
+      space: () => this.at("a blank").s.space(),
     })
   }
 

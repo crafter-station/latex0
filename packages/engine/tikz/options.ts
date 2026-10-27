@@ -127,8 +127,23 @@ export interface TikzState {
   labelDistance: Toks
   labelPosition: Toks
   absolute: boolean
+  /** \tikz@pin@distance, \tikz@pin@default@pos, \tikz@pin@edge@style */
+  pinDistance: Toks
+  pinPosition: Toks
+  pinEdge: Toks
   /** \iftikz@current@point@local */
   currentPointLocal: boolean
+  /** \tikz@grid@x, \tikz@grid@y */
+  gridX: Toks
+  gridY: Toks
+  /** topaths: \tikz@to@path the curve (\tikz@to@switch@on), \tikz@to@out, \tikz@to@in, \tikz@to@bend, \iftikz@to@relative,
+   *  the loosenesses and the distances' bounds (their text) */
+  toCurve: boolean
+  toOut: Toks
+  toIn: Toks
+  toBend: string
+  toRelative: boolean
+  toLooseness: { out: string; in: string; outMin: string; outMax: string; inMin: string; inMax: string }
 }
 
 const clone = (s: TikzState): TikzState => ({
@@ -140,6 +155,7 @@ const clone = (s: TikzState): TikzState => ({
   startTips: [...s.startTips],
   endTips: [...s.endTips],
   afterPath: [...s.afterPath],
+  toLooseness: { ...s.toLooseness },
 })
 
 export interface TikzSetup {
@@ -165,6 +181,8 @@ export interface TikzSetup {
   corners?: (st: TikzState) => void
   /** an arrow specification: \pgfsetarrows (pgf's picture) */
   arrows?: (v: Toks, st: TikzState) => void
+  /** a blank TikZ's code leaves where it runs: \glue 0.0 in the picture (\nullfont) */
+  space?: () => void
   /** tikz@label@post with the distance: a label's place by the node it labels (\tikzlastnode) */
   labelPost?: (distance: Toks, st: TikzState) => void
 }
@@ -193,10 +211,10 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   align/justify/.style={text justified,node halign header=\\tikz@align@left@header},
   align/none/.style={text justified,node halign header=},
   help lines/.style={color=gray,line width=0.2pt},
-  style/.style={#1}, every to/.style={},
-  x radius/.initial=0pt, y radius/.initial=0pt,
+  style/.style={#1}, every to/.style={}, every curve to/.style={}, every edge/.style={draw},
+  x radius/.initial=0pt, y radius/.initial=0pt, start angle/.initial=, end angle/.initial=, delta angle/.initial=, every arc/.style={},
   every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={},
-  every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none},
+  every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none}, every pin edge/.style={help lines},
   ultra thin/.style={line width=0.1pt}, very thin/.style={line width=0.2pt}, thin/.style={line width=0.4pt},
   semithick/.style={line width=0.6pt}, thick/.style={line width=0.8pt}, very thick/.style={line width=1.2pt},
   ultra thick/.style={line width=1.6pt},
@@ -260,12 +278,15 @@ const OF: Record<string, string> = {
 const TEXT_ACTIONS: TextAction[] = ["ragged", "badly ragged", "ragged left", "badly ragged left", "justified", "centered", "badly centered"]
 
 const pt = (sp: number): Tok[] => chars(`${printScaled(sp)}pt`)
+const trimmed = (t: Toks): Tok[] => { let a = 0; while (t[a] === " ") a++; return t.slice(a) }
 
 /**
  * \pgfextra{\let\tikz@save@last@fig@name=\tikz@last@fig@name\tikz@node@is@a@labelfalse} and
  * \pgfextra{\global\let\tikz@last@fig@name=\tikz@save@last@fig@name} around a label's node
  */
 export const LABEL_SAVE = "\\pgfextra@tikz@label@save", LABEL_RESTORE = "\\pgfextra@tikz@label@restore"
+/** \pgfextra{\let\tikz@save@last@node=\tikzlastnode\tikz@node@is@a@labelfalse} before a pin's node */
+export const PIN_SAVE = "\\pgfextra@tikz@pin@save"
 
 /** TikZ inside a picture: its keys and its state, both local to TeX's groups */
 export class Tikz {
@@ -296,6 +317,10 @@ export class Tikz {
       figName: "", time: "", sloped: false, upsideDown: false, resetNonTranslations: true, fullyTransformed: false,
       currentArrows: chars("-"), startTips: [], endTips: [],
       afterPath: [], labelAngle: [], labelDistance: chars("0pt"), labelPosition: chars("above"), absolute: false, currentPointLocal: false,
+      pinDistance: chars("3ex"), pinPosition: chars("above"), pinEdge: [],
+      gridX: chars("1cm"), gridY: chars("1cm"),
+      toCurve: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
+      toLooseness: { out: "1", in: "1", outMin: "0pt", outMax: "10000pt", inMin: "0pt", inMax: "10000pt" },
     }
     this.install()
   }
@@ -493,6 +518,29 @@ export class Tikz {
     return { x: xa, y: ya }
   }
 
+  /** \tikz@pin@edge@style@smuggle (global) */
+  private pinEdgeSmuggle: Tok[] = []
+
+  /**
+   * a label's or pin's value `[options]position:text`: \tikz@parse@label@nonactive (878–891) and the pin's (729–736); with
+   * no position (or an empty one) the default's macro, expanded when the node reads its angle
+   */
+  private labelParts(v: Toks, def: string, emptyIsDefault = true): { options: Tok[]; position: Tok[]; text: Tok[] } {
+    let t = [...v]
+    let options: Tok[] = []
+    while (t[0] === " ") t = t.slice(1)
+    if (t[0] === "[") {
+      const e = find(t, ["]"], 1)
+      if (e < 0) throw new Unsupported("tikz: ] expected in a label")
+      options = t.slice(1, e)
+      t = t.slice(e + 1)
+    }
+    const c = find(t, [":"])
+    if (c < 0) return { options, position: [def], text: arg(t) }
+    if (c === 0 && emptyIsDefault) return { options, position: [def], text: arg(t.slice(1)) }
+    return { options, position: arg(t.slice(0, c)), text: arg(t.slice(c + 1)) }
+  }
+
   /** \tikz@processarrows (1201–1208) */
   private arrows(v: Toks) {
     this.st.currentArrows = [...v]
@@ -665,31 +713,79 @@ export class Tikz {
     ifKey("current point is local", (b) => { st().currentPointLocal = b })
     opt("tikz@label@post", (v) => {
       if (!this.setup.labelPost) throw new Unsupported("tikz: a label outside a picture")
-      // (.code 2 args: #1 the value's first argument, \tikz@label@distance, expanded where it is used)
-      if (!same(v, ["\\tikz@label@distance"])) throw new Unsupported("tikz: tikz@label@post")
-      this.setup.labelPost(st().labelDistance, st())
+      // (.code 2 args: #1 the value's first argument, \tikz@label@distance or \tikz@pin@distance, expanded where it is used)
+      if (same(v, ["\\tikz@label@distance"])) this.setup.labelPost(st().labelDistance, st())
+      else if (same(v, ["\\tikz@pin@distance"])) this.setup.labelPost(st().pinDistance, st())
+      else throw new Unsupported("tikz: tikz@label@post")
+    })
+    // pins (659–757)
+    opt("pin distance", (v) => { st().pinDistance = v })
+    opt("pin position", (v) => { st().pinPosition = v })
+    opt("pin edge", (v) => { st().pinEdge = v })
+    opt("tikz@pin@post", () => { this.pinEdgeSmuggle = [...st().pinEdge] }, "")
+    opt("tikz@pre@pin@edge", () => { k.pgfqkeys("/tikz", [...chars("tikz@pin@options/.style="), "{", ...this.pinEdgeSmuggle, "}"]) }, "")
+    opt("pin", (v) => {
+      // \tikz@parse@pin@nonactive[#1]#2:#3\pgf@nil on `value:\pgf@nil`
+      const { options, position, text } = this.labelParts(v, "\\tikz@pin@default@pos", false)
+      st().afterPath.push("{", "[", ...chars("current point is local = true"), "]", PIN_SAVE,
+        ...chars("node"), "[", ...chars("tikz@label@angle = "), "{", ...position, "}", ",", ...chars("anchor=@auto, every pin,"), ...options, ",",
+        ...chars("append after command = "), "{", "(", "\\tikz@save@last@node", ")", ...chars("edge [every pin edge, tikz@pre@pin@edge, tikz@pin@options]"),
+        "(", "\\tikzlastnode", ")", "}", ",", ...chars("tikz@label@post = "), "\\tikz@pin@distance", ",", ...chars("tikz@pin@post"), "]", "{", ...text, "}", "}")
     })
     opt("label", (v) => {
       // \tikz@parse@label@nonactive[#1]#2:#3\pgf@nil on `value:\pgf@nil`
-      let t = [...v]
-      let options: Tok[] = []
-      while (t[0] === " ") t = t.slice(1)
-      if (t[0] === "[") {
-        const e = find(t, ["]"], 1)
-        if (e < 0) throw new Unsupported("tikz: ] expected in a label")
-        options = t.slice(1, e)
-        t = t.slice(e + 1)
-      }
-      const c = find(t, [":"])
-      let position: Tok[], text: Tok[]
-      // (\tikz@label@default@pos, expanded when the label's node reads its angle)
-      if (c < 0) [position, text] = [["\\tikz@label@default@pos"], arg(t)]
-      else if (c === 0) [position, text] = [["\\tikz@label@default@pos"], arg(t.slice(1))]
-      else [position, text] = [arg(t.slice(0, c)), arg(t.slice(c + 1))]
+      const { options, position, text } = this.labelParts(v, "\\tikz@label@default@pos")
       st().afterPath.push("{", "[", ...chars("current point is local=true"), "]", LABEL_SAVE,
         ...chars("node"), "[", ...chars("tikz@label@angle="), "{", ...position, "}", ",", ...chars("anchor=@auto,every label,"), ...options,
         ",", ...chars("tikz@label@post="), "\\tikz@label@distance", "]", "{", ...text, "}", LABEL_RESTORE, "}")
     })
+    // topaths (tikzlibrarytopaths.code.tex 27–128): curved to paths
+    const macro = (v: Toks) => this.parse(plain(this.expand(v), "a number")).result // \pgfmathsetmacro
+    opt("out", (v) => { st().toOut = v; st().toCurve = true })
+    opt("in", (v) => { st().toIn = v; st().toCurve = true })
+    opt("bend angle", (v) => { st().toBend = macro(v) })
+    opt("bend left", (v) => {
+      if (v.length) st().toBend = macro(v)
+      st().toOut = chars(st().toBend)
+      st().toIn = chars(macro(chars(`180-(${st().toBend})`)))
+      st().toCurve = true
+      st().toRelative = true
+    }, "")
+    opt("bend right", (v) => {
+      if (v.length) st().toBend = macro(v)
+      // (its two \pgfmathsetmacro lines end with blanks: a space each, in the picture)
+      st().toOut = chars(macro(chars(`-(${st().toBend})`)))
+      this.setup.space?.()
+      st().toIn = chars(macro(chars(`180-(${str(st().toOut)})`)))
+      this.setup.space?.()
+      st().toCurve = true
+      st().toRelative = true
+    }, "")
+    ifKey("relative", (b) => { st().toRelative = b })
+    // grids (471–478): step= a point or both steps
+    opt("xstep", (v) => { st().gridX = v })
+    opt("ystep", (v) => { st().gridY = v })
+    opt("step", (v) => {
+      // (a point: TeX loops on \tikz@handle@vec's \relax, not modeled)
+      const t = trimmed(v)
+      if (t[0] === "(") throw new Unsupported("tikz: step=(…)")
+      st().gridX = st().gridY = t
+    })
+    // (each also switches the curve on)
+    const loose = (name: string, set: (l: TikzState["toLooseness"], v: Toks) => void) => opt(name, (v) => { set(st().toLooseness, v); st().toCurve = true })
+    const dist = (v: Toks) => plain(this.expand(v), "a distance")
+    loose("looseness", (l, v) => { l.out = l.in = macro(v) })
+    loose("out looseness", (l, v) => { l.out = macro(v) })
+    loose("in looseness", (l, v) => { l.in = macro(v) })
+    loose("min distance", (l, v) => { l.inMin = l.outMin = dist(v) })
+    loose("max distance", (l, v) => { l.inMax = l.outMax = dist(v) })
+    loose("distance", (l, v) => { l.inMin = l.inMax = l.outMin = l.outMax = dist(v) })
+    loose("out min distance", (l, v) => { l.outMin = dist(v) })
+    loose("out max distance", (l, v) => { l.outMax = dist(v) })
+    loose("out distance", (l, v) => { l.outMin = l.outMax = dist(v) })
+    loose("in min distance", (l, v) => { l.inMin = dist(v) })
+    loose("in max distance", (l, v) => { l.inMax = dist(v) })
+    loose("in distance", (l, v) => { l.inMin = l.inMax = dist(v) })
     k.pgfqkeys("/tikz", TIKZ_STYLES)
     k.define("/tikz/.unknown", [{ kind: "native", run: (kk, v) => this.unknown(kk, v) }])
 

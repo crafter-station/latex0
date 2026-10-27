@@ -8,7 +8,7 @@ import { Unsupported } from "../latex/unsupported"
 import type { PgfDriver } from "./drivers"
 import { TexArith, toNumber } from "./fixed"
 import type { PgfUnits } from "./mathparser"
-import { parse, pgfPoint, pgfPointLineAtTime, pgfPointNormalised, pgfPointOrigin, reciprocalOf, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
+import { parse, pgfPoint, pgfPointCurveAtTime, pgfPointLineAtTime, pgfPointScale, pgfPointNormalised, pgfPointOrigin, reciprocalOf, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
 import { IDENTITY, type PgfState, type PgfTransform } from "./state"
 
 /** `<factor><dimen register>` as TeX scans it; past max_dimen TeX would complain (not modeled) */
@@ -132,6 +132,53 @@ export function pgfTransformLineAtTime(s: PgfState, time: string, start: PgfPoin
     let xc = c.x - b.x, yc = c.y - b.y
     if (!o.upsideDown && xc < 0) { xc = -xc; yc = -yc }
     const n = pgfPointNormalised({ x: xc, y: yc }, s.units)
+    pgfTransformCm(s, toNumber(n.x), toNumber(n.y), toNumber(-n.y), toNumber(n.x), pgfPointOrigin)
+  }
+}
+
+/**
+ * \pgftransformarcaxesattime{#1}…{#6} (517–539) on \pgfpointarcaxesattime (pgfcorepoints.code.tex 588–622): the point at
+ * time #1 on the arc of centre #2 and axes #3, #4 from angle #5 to #6, sloped along its tangent; `space` typesets the
+ * blank after each of its two \edef lines
+ */
+export function pgfTransformArcAxesAtTime(s: PgfState, time: string, center: PgfPoint, zero: PgfPoint, ninety: PgfPoint, start: string, end: string, o: AtTime, space: () => void) {
+  const a = new TexArith(s.units)
+  const sa = parse(start, s.units), ea = parse(end, s.units)
+  const r = parse(time, s.units)
+  const t = toNumber(65536 - a.dimen(`${r}pt`))
+  const mid = parse(`${ea}*${r}+${sa}*${t}`, s.units)
+  const cos = trig("cos", mid, s.units), sin = trig("sin", mid, s.units)
+  space()
+  space()
+  const scale = (f: string, p: PgfPoint) => pgfPointScale(f, p, s.units)
+  const sum = (p: PgfPoint, q: PgfPoint): PgfPoint => ({ x: p.x + q.x, y: p.y + q.y })
+  const tangent = sum(scale(sin, zero), scale(`-${cos}`, ninety))
+  const along = a.dimen(`${sa}pt`) > a.dimen(`${ea}pt`) ? tangent : { x: -tangent.x, y: -tangent.y }
+  const pos = sum(center, sum(scale(cos, zero), scale(sin, ninety)))
+  if (a.errors.length) throw new Unsupported(`pgf: ${a.errors[0]}`)
+  pgfTransformShift(s, () => pos)
+  if (o.resetNonTranslations) pgfTransformResetNonTranslations(s)
+  if (o.sloped) {
+    let n = pgfPointNormalised(along, s.units)
+    if (!o.upsideDown && n.x < 0) n = { x: -n.x, y: -n.y }
+    pgfTransformCm(s, toNumber(n.x), toNumber(n.y), toNumber(-n.y), toNumber(n.x), pgfPointOrigin)
+  }
+}
+
+/** \pgftransformtriangle{#1}{#2}{#3} (305–321): #1 the origin, #2 and #3 the ends of the unit vectors */
+export function pgfTransformTriangle(s: PgfState, o: PgfPoint, x: PgfPoint, y: PgfPoint) {
+  pgfTransformCm(s, toNumber(x.x - o.x), toNumber(x.y - o.y), toNumber(y.x - o.x), toNumber(y.y - o.y), () => o)
+}
+
+/** \pgftransformcurveattime{#1}{#2}{#3}{#4}{#5} (566–590): like \pgftransformlineattime, sloped along the curve's tangent */
+export function pgfTransformCurveAtTime(s: PgfState, time: string, p0: PgfPoint, p1: PgfPoint, p2: PgfPoint, p3: PgfPoint, o: AtTime) {
+  const { p, a, b } = pgfPointCurveAtTime(time, p0, p1, p2, p3, s.units)
+  pgfTransformShift(s, () => p)
+  if (o.resetNonTranslations) pgfTransformResetNonTranslations(s)
+  if (o.sloped) {
+    let x = a.x - b.x, y = a.y - b.y
+    if (!o.upsideDown && x < 0) { x = -x; y = -y }
+    const n = pgfPointNormalised({ x, y }, s.units)
     pgfTransformCm(s, toNumber(n.x), toNumber(n.y), toNumber(-n.y), toNumber(n.x), pgfPointOrigin)
   }
 }
