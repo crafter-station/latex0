@@ -12,7 +12,8 @@ import { dimen, IGNORE_DEPTH } from "./vlist"
 import { penalty } from "../layout/nodes"
 import { crefWrites, labelWrite } from "./paragraph"
 import { bibliography, maketitle, tableOfContents } from "./frontmatter"
-import { chapter, heading, matter } from "./sectioning"
+import { chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
+import type { OutputHook } from "./output"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
 import { list, topCtx } from "./lists"
@@ -45,11 +46,26 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
   // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
-  if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
+  if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
+  // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
+  if (b.kind === "newpage") {
+    if (run.runIn) runInAlone(cx)
+    if (b.cmd === "newpage") newpage(cx); else if (b.cmd === "clearpage") clearpage(cx); else cleardoublepage(cx)
+    return
+  }
+  if (b.kind === "pagebreak" || b.kind === "pagestyle") {
+    if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.kind === "pagebreak" ? `${b.no ? "no" : ""}pagebreak` : b.cmd} right after a run-in heading`)
+    if (b.kind === "pagebreak") { v.nodes.push(penalty((b.no ? 1 : -1) * getpen(cx, b.n))); return }
+    // \thispagestyle: \global\@specialpagetrue\gdef\@specialstyle; \pagenumbering: \global\c@page\@ne, \gdef\thepage
+    const hook: OutputHook | null = b.cmd === "thispagestyle" ? (b.style === "plain" || b.style === "empty" ? b.style : null) : b.style === "roman" || b.style === "arabic" ? b.style : null
+    if (!hook) throw new Unsupported(`\\${b.cmd}{${b.style}}`)
+    v.nodes.push({ kind: "whatsit", text: "", hook })
+    return
+  }
   if (b.kind === "toc") { if (run.runIn) runInAlone(cx); tableOfContents(cx); return }
   if (b.kind === "matter") { if (run.runIn) runInAlone(cx); matter(cx, b.which); return }
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }
@@ -84,7 +100,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       if (!b.text) return
     }
     // counter commands in vertical mode make no paragraph
-    if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text); return }
+    // (\setcounter{page}{n}: \global\c@page, which the output routine reads when it ships the page)
+    if (!b.text.replace(COUNTER_COMMANDS, "").trim()) { counted(b.text.replace(/\\setcounter\s*\{\s*page\s*\}\s*\{\s*(\d+)\s*\}/g, (_, n: string) => { v.nodes.push({ kind: "whatsit", text: "", hook: `page=${Number(n)}` satisfies OutputHook }); return "{}" })); return }
     // \par in the text (a group that holds whole paragraphs, {\large … \par}) or skips between paragraphs
     if (needsVerticalMode(b.text)) {
       if (run.runIn) throw new Unsupported("\\par or a skip right after a run-in heading")
@@ -172,6 +189,12 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
   v.afterheadingEverypar = false
   v.endpePar = v.doendpe = v.endpeEverypar = true
+}
+
+/** \@getpen: 0, \@lowpenalty, \@medpenalty, \@highpenalty (51, 151, 301 in the standard classes; letter.cls sets none), \@M */
+export function getpen(cx: Ctx, n: number): number {
+  if (n === 0 || n >= 4) return n === 0 ? 0 : 10000
+  return cx.pre.cls === "letter" ? 0 : [51, 151, 301][n - 1]
 }
 
 /** a run-in heading followed by another heading: \@startsection's \leavevmode\par makes it a paragraph of its own */

@@ -19,6 +19,7 @@ import { leadingColor } from "./colors"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
+import { clearpage, newpage } from "./sectioning"
 
 export const ALIGNMENTS = ["centering", "raggedright", "raggedleft"] as const
 type Alignment = typeof ALIGNMENTS[number] | null
@@ -117,7 +118,9 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         i = j + 1; continue
       }
     }
-    if (/^\\(?:begin|end|newpage|clearpage|vskip|label|hrule|\\)(?![A-Za-z])/.test(rest)) throw new Unsupported(`${rest.slice(0, 20)} in vertical mode here`)
+    const np = rest.match(/^\\(newpage|clearpage)(?![A-Za-z])\s*/)
+    if (np) { if (np[1] === "newpage") newpage(cx); else clearpage(cx); i += np[0].length; continue }
+    if (/^\\(?:begin|end|vskip|label|hrule|\\)(?![A-Za-z])/.test(rest)) throw new Unsupported(`${rest.slice(0, 20)} in vertical mode here`)
     // a paragraph: to a blank line, a \par, \vfill, the end, or \@centercr (\\ under \centering and friends)
     let j = i
     let cr: RegExpMatchArray | null = null
@@ -129,7 +132,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         j = k + 1; continue
       }
       if (r[0] === "$") { const k = src.indexOf("$", j + 1); if (k < 0) throw new Unsupported("an unbalanced $"); j = k + 1; continue }
-      if (/^\n[ \t]*\n|^\\(?:par|vfill)(?![A-Za-z])/.test(r)) break
+      if (/^\n[ \t]*\n|^\\(?:par|vfill|newpage|clearpage)(?![A-Za-z])/.test(r)) break // (\newpage's \par)
       if (st.align && (cr = r.match(/^\\\\(\*)?\s*(?:\[([^\]]*)\])?/))) break
       j += r[0] === "\\" ? (r.match(/^\\(?:[A-Za-z]+|[^])/)?.[0].length ?? 1) : 1
     }

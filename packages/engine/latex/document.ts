@@ -46,7 +46,7 @@ import { hrefAt, urlAt } from "./url"
 import { boundingBox, graphicAt, type BoundingBox } from "./graphics"
 import { pgfCompatObjects, pgfShipoutBackground, tikzAt } from "./tikz"
 import type { Image } from "./images"
-import { processBlock, runInAlone } from "./body"
+import { getpen, processBlock, runInAlone } from "./body"
 import { CrefSetup, fillCrefWrites, type CrefEntry } from "./cleveref"
 import { documentClass } from "./classes"
 import { beamerDocument } from "./beamer"
@@ -245,6 +245,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   doc.href = (...a) => hrefAt(cx, ...a)
   doc.graphic = (...a) => graphicAt(cx, ...a)
   doc.widths = (lineWidth) => widthRegisters(cx, lineWidth)
+  doc.getpen = (n) => getpen(cx, n)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
   const cx: Ctx = { pre, run, v, doc, decisions, toc, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))

@@ -27,12 +27,19 @@ import { isSpanish } from "./babel"
  * {\parindent\z@ \raggedright \normalfont \huge\bfseries \@chapapp\space\thechapter \par\nobreak \vskip20pt
  * \interlinepenalty\@M \Huge\bfseries title\par\nobreak \vskip40pt}, then \@afterheading
  */
-/** \clearpage: \newpage (which ends \if@nobreak), \write\m@ne{}, \vbox{}, \penalty-\@Mi */
-export function clearpage(cx: Ctx) {
+/** \newpage: \if@noskipsec\leavevmode, \if@nobreak \@nobreakfalse \everypar{}, \par, \vfil, \penalty-\@M */
+export function newpage(cx: Ctx) {
   const { noskipsecPar, run, v } = cx
-  noskipsecPar("a page break"); run.noskipsec = false // \newpage: \leavevmode, \global\@noskipsecfalse
+  noskipsecPar("a page break"); run.noskipsec = false // \leavevmode, \global\@noskipsecfalse
   if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
-  v.nodes.push(filGlue(), penalty(-10000), { kind: "whatsit", text: "\\write-{}" })
+  v.nodes.push(filGlue(), penalty(-10000)) // (the \par: the caller's)
+}
+
+/** \clearpage: \newpage, \write\m@ne{}, \vbox{}, \penalty-\@Mi */
+export function clearpage(cx: Ctx) {
+  const { run, v } = cx
+  newpage(cx)
+  v.nodes.push({ kind: "whatsit", text: "\\write-{}" })
   v.box(emptyBox("vlist"), run.k.sizes.normalsize.baselineskip)
   v.nodes.push(penalty(-10001))
 }

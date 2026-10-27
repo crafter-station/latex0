@@ -151,6 +151,8 @@ export interface DocState {
   /** (`sfcodes`: the \sfcode changes in force, which the entries keep; `outer`: the paragraph it is in, whose
    *  footnote traces the p{width} entries' paragraphs join and whose \clubpenalty and \finalhyphendemerits they keep) */
   tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter) => Node
+  /** \@getpen{n}: the class's \@lowpenalty, \@medpenalty and \@highpenalty */
+  getpen?: (n: number) => number
   /** \textwidth, \columnwidth and \linewidth (where it is known) in a length */
   widths?: (lineWidth: number | undefined) => (name: string) => Internal | undefined
   /** minipage number n (taken out of the source after expansion) at a size in a font: what \@iiiparbox appends */
@@ -284,6 +286,8 @@ type Piece =
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
+  /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
+  | { kind: "pagebreak"; no: boolean; n: number }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
   | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
   /** \hfill, \hfil, \quad, \qquad, \enspace, \hrulefill, \dotfill */
@@ -498,6 +502,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (ni) { i += ni[0].length; continue }
     const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
+    const pb = body.slice(i).match(/^\\(no)?pagebreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/) // (\@testopt: the spaces before a [ go)
+    if (pb) { flushText(); out.push({ kind: "pagebreak", no: !!pb[1], n: pb[2] === undefined ? 4 : Number(pb[2]) }); i += pb[0].length; continue }
     const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
     if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
@@ -877,6 +883,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push({ kind: "adjust", list: [...(p.star ? [{ kind: "rule", width: null, height: 0, depth: 0 } as Node, penalty(10000)] : []), glueOf(g), glue(0)] })
+      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+    }
+    else if (p.kind === "pagebreak") {
+      // \@no@pgbk in horizontal mode: \@bsphack, \vadjust{\penalty ±\@getpen{n}}, \@esphack (after a space, \nobreak\hskip\z@skip)
+      if (ctx.restricted) throw new Unsupported(`\\${p.no ? "no" : ""}pagebreak in restricted horizontal mode`)
+      if (!doc.getpen) throw new Unsupported(`\\${p.no ? "no" : ""}pagebreak outside a document`)
+      const last = list[list.length - 1]
+      const savsk = last?.kind === "glue" ? last.width : 0
+      list.push({ kind: "adjust", list: [penalty((p.no ? 1 : -1) * doc.getpen(p.n))] })
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
     else if (p.kind === "float") {
