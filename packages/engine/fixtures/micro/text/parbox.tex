@@ -1,0 +1,19 @@
+% fixture: text/parbox
+% tier: T3
+% engine: document
+% covers: \parbox[pos][height][inner]{width}{text} (\@iiiparbox: \vcenter, \vtop, \vbox, to a height with the inner position's \vss), paragraphs in it, \linewidth its width and \textwidth the page's, \centering and \raggedleft with \\ (\@centercr) in it; \fbox{\parbox{…}}
+% issue: #336
+\documentclass{article}
+\begin{document}
+Before \parbox{3cm}{A centered parbox with a few words that wrap onto more lines.} between
+\parbox[t]{2.5cm}{Top aligned box, with text that wraps.} and \parbox[b]{2cm}{Bottom aligned, wrapping text.} after.
+
+\noindent\parbox[t][3cm][b]{4cm}{Inner bottom.\par A second paragraph.}\hfill
+\parbox[c][2cm]{3cm}{Inner centered by default.}\hfill\parbox[b][2cm][t]{3cm}{Inner top.}\hfill
+\parbox[t][1cm][s]{2cm}{Spread out}
+
+\fbox{\parbox{\linewidth}{\centering A framed and centered box\\ on two lines\\[4pt] and a third}}
+
+\parbox{.5\textwidth}{\raggedleft Name Surname\\ Title\\* Place\\} text after.
+\parbox{.5\textwidth}{\rule{.2\textwidth}{1pt} and \rule{.2\linewidth}{1pt}} the page width and its own.
+\end{document}

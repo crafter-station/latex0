@@ -151,6 +151,8 @@ export interface DocState {
   /** (`sfcodes`: the \sfcode changes in force, which the entries keep; `outer`: the paragraph it is in, whose
    *  footnote traces the p{width} entries' paragraphs join and whose \clubpenalty and \finalhyphendemerits they keep) */
   tabular?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter) => Node
+  /** \parbox[pos][height][inner]{width}{text} at a size in a font: its box (\@iiiparbox) */
+  parbox?: (p: { pos: string; height: string | null; inner: string; width: string; src: string }, size: SizeCommand, attrs: FontAttrs, sfcodes: Record<number, number> | undefined, outer: TabularOuter) => Node[]
   /** \@getpen{n}: the class's \@lowpenalty, \@medpenalty and \@highpenalty */
   getpen?: (n: number) => number
   /** \textwidth, \columnwidth and \linewidth (where it is known) in a length */
@@ -292,6 +294,11 @@ type Piece =
   | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
   /** \hfill, \hfil, \quad, \qquad, \enspace, \hrulefill, \dotfill */
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" | "enspace" | "hrulefill" | "dotfill" }
+  /** \mbox, \makebox[width][pos], \fbox, \framebox[width][pos] and \raisebox{lift}[height][depth]: the command, its
+   *  optional arguments as given (`lift`: \raisebox's first) and its text */
+  | { kind: "box"; cmd: "mbox" | "makebox" | "fbox" | "framebox" | "raisebox"; opts: (string | undefined)[]; lift?: string; inner: Piece[] }
+  /** \parbox[pos][height][inner]{width}{text} */
+  | { kind: "parbox"; pos: string; height: string | null; inner: string; width: string; src: string }
   /** \hspace{skip} and \hspace*{skip}; \rule[raise]{width}{height} */
   | { kind: "hspace"; star: boolean; skip: string } | { kind: "rule"; raise: string; width: string; height: string }
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
@@ -508,6 +515,34 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    // boxes: \@ifnextchar[ skips the spaces before an optional argument, and a macro those before an argument
+    const bx = body.slice(i).match(/^\\(mbox|makebox|fbox|framebox|raisebox|parbox)(?![A-Za-z])/)
+    if (bx) {
+      const cmd = bx[1]
+      let j = i + bx[0].length
+      const opt = (): string | undefined => { const m = body.slice(j).match(/^\s*\[([^[\]{}]*)\]/); if (!m) return undefined; j += m[0].length; return m[1] }
+      const arg = (): string => {
+        const m = body.slice(j).match(/^\s*\{/)
+        if (!m) throw new Unsupported(`\\${cmd} ${body.slice(j, j + 20)}`)
+        const open = j + m[0].length - 1, close = closingBrace(body, open)
+        j = close + 1
+        return body.slice(open + 1, close)
+      }
+      if ((cmd === "makebox" || cmd === "framebox") && /^\s*\(/.test(body.slice(j))) throw new Unsupported(`\\${cmd}(…): a picture box`)
+      flushText()
+      if (cmd === "parbox") {
+        const pos = opt(), height = pos === undefined ? undefined : opt(), inner = height === undefined ? undefined : opt()
+        const width = arg()
+        out.push({ kind: "parbox", pos: pos ?? "c", height: height ?? null, inner: inner ?? (height === undefined ? "s" : pos!), width, src: arg() })
+      } else {
+        const lift = cmd === "raisebox" ? arg() : undefined
+        const opts: (string | undefined)[] = []
+        if (cmd !== "mbox" && cmd !== "fbox") { opts.push(opt()); if (opts[0] !== undefined) opts.push(opt()) }
+        const src = arg()
+        out.push({ kind: "box", cmd: cmd as "mbox", opts, ...(lift !== undefined ? { lift } : {}), inner: pieces(src, false, { groups: true, grouped: true }) })
+      }
+      i = j; continue
+    }
     // \hspace (\@ifstar skips the spaces before the *); \rule (\@ifnextchar[ skips them before the [)
     const hs = body.slice(i).match(/^\\hspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (hs) { flushText(); out.push({ kind: "hspace", star: !!hs[1], skip: hs[2] }); i += hs[0].length; continue }
@@ -790,6 +825,55 @@ interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurrou
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
+/** \fboxsep and \fboxrule (3pt and .4pt in every class) */
+const FBOXSEP = 3 * 65536, FBOXRULE = 26214
+/**
+ * \@frameb@x{between}: \hbox{\lower(\fboxrule+\fboxsep+depth)\hbox{\vbox{\hrule\@height\fboxrule \hbox{\vrule\@width\fboxrule
+ * between \vbox{\vskip\fboxsep\box\@tempboxa\vskip\fboxsep} between \vrule\@width\fboxrule} \hrule\@height\fboxrule}}}
+ */
+function framed(box: BoxNode, between: Node[]): BoxNode {
+  const vrule = (): Node => ({ kind: "rule", width: FBOXRULE, height: null, depth: null }), hrule = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
+  const inner = vpack([hrule(), hpack([vrule(), ...between, vpack([glue(FBOXSEP), box, glue(FBOXSEP)]), ...between.map((n) => ({ ...n })), vrule()]), hrule()])
+  const lowered = hpack([inner])
+  lowered.shift = FBOXRULE + FBOXSEP + box.depth
+  return hpack([lowered])
+}
+
+/** \mbox, \makebox, \fbox, \framebox and \raisebox (latex.ltx): the text in an \hbox (\@begin@tempboxa, with \width,
+ *  \height, \depth and \totalheight in the lengths), then what each makes of it */
+function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  const content: Node[] = []
+  appendPieces(content, p.inner, font, size, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  state.spaceFactor = 1000 // (after a box)
+  if (p.cmd === "mbox") { list.push(hpack(content)); return }
+  if (p.cmd === "fbox" || (p.cmd === "framebox" && p.opts[0] === undefined)) { // \fbox: \hbox{\kern\fboxsep{text}\kern\fboxsep}, framed
+    list.push(framed(hpack([kern(FBOXSEP, true), ...content, kern(FBOXSEP, true)]), []))
+    return
+  }
+  const natural = hpack(content.slice())
+  const base = lengthEnv(ctx, font), outer = base.internal!
+  const dims: Record<string, number> = { width: natural.width, height: natural.height, depth: natural.depth, totalheight: natural.height + natural.depth }
+  const env: ScanEnv = { ...base, internal: (name, s) => (name in dims ? { level: "dimen", value: dims[name] } : outer(name, s)) }
+  const len = (x: string) => { try { return parseDimen(x, env) } catch { throw new Unsupported(`\\${p.cmd} length "${x}"`) } }
+  if (p.cmd === "raisebox") { // \hbox{\raise lift\box\@tempboxa}, then \ht and \dp as given
+    natural.shift = -len(p.lift!)
+    const box = hpack([natural])
+    if (p.opts[0] !== undefined) box.height = len(p.opts[0])
+    if (p.opts[1] !== undefined) box.depth = len(p.opts[1])
+    list.push(box)
+    return
+  }
+  if (p.cmd === "makebox" && p.opts[0] === undefined) { list.push(hpack(content)); return } // \makebox{text}: \mbox
+  // \hb@xt@ width{\bm@pos}: c \hss\unhbox\hss, l (and t) \unhbox\hss, r (and b) \hss\unhbox, s \unhbox
+  const pos = (p.opts[1] ?? "c").trim()
+  if (!/^[clrstb]$/.test(pos)) throw new Unsupported(`\\${p.cmd}[…][${pos}]`)
+  const aligned = [...(pos === "c" || pos === "r" || pos === "b" ? [ssGlue()] : []), ...content, ...(pos === "c" || pos === "l" || pos === "t" ? [ssGlue()] : [])]
+  const width = len(p.opts[0]!)
+  if (p.cmd === "makebox") { list.push(hpack(aligned, { exactly: width })); return }
+  // \framebox[width][pos]: \hb@xt@ width{\kern\fboxsep \bm@pos \kern\fboxsep}, framed with \kern-\fboxrule inside the rules
+  list.push(framed(hpack([kern(FBOXSEP, true), ...aligned, kern(FBOXSEP, true)], { exactly: width }), [kern(-FBOXRULE, true)]))
+}
+
 /** a length in text: em and ex of the current font, \fill, and the document's width registers (\linewidth only in a paragraph) */
 function lengthEnv(ctx: PieceContext, font: Font): ScanEnv {
   const widths = ctx.doc.widths?.(ctx.restricted ? undefined : lineWidthOf(ctx))
@@ -825,6 +909,12 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         list.push({ ...fillGlue(), leaders: { kind: p.cmd === "hrulefill" ? "leaders" : "cleaders", box } }, kern(0, true))
       }
       else list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
+    }
+    else if (p.kind === "box") boxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "parbox") {
+      if (!doc.parbox) throw new Unsupported("\\parbox outside a document")
+      list.push(...doc.parbox(p, size, attrs, state.sfcodes, { notes: ctx.notes, club: ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
+      state.spaceFactor = 1000
     }
     else if (p.kind === "hspace") {
       // \@hspace: \setlength\sp@ce@skip{skip}\hskip\sp@ce@skip; \@hspacer: \vrule\@width\z@\nobreak first, \hskip\z@skip after

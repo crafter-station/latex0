@@ -1,0 +1,30 @@
+% fixture: minipage/aligned
+% tier: T3
+% engine: document
+% covers: \raggedleft and \raggedright in a minipage with \\ (\@centercr: \unskip\par, \addvspace{-\parskip}, \\* and \\[skip]), a trailing \\ (its skip taken by \endminipage's \unskip), minipages with a height and an inner position
+% issue: #336
+\documentclass{article}
+\begin{document}
+\noindent
+\begin{minipage}[t]{0.5\textwidth}
+Prof.\ Ana Ruiz\\
+Department of Physics
+\end{minipage}%
+\begin{minipage}[t]{0.5\textwidth}
+\raggedleft
+Ana Ruiz\\
+Department of Physics\hspace{3pt} \\*
+University of Somewhere\\[2pt]
+May 4, 2026\\
+\end{minipage}
+
+\begin{minipage}[b][3cm][t]{4cm}
+\raggedright Top of a tall minipage with words that wrap around.
+\end{minipage}\hfill
+\begin{minipage}[b][2cm]{4cm}
+At the bottom, the inner position its position.
+\end{minipage}\hfill
+\begin{minipage}[t][2cm][b]{4cm}
+At the bottom.
+\end{minipage}
+\end{document}

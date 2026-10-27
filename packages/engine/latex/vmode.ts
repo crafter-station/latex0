@@ -64,7 +64,9 @@ function topPar(text: string, from = 0): number {
 }
 
 /** Whether a body paragraph's text needs this mode: a \par, or a skip between paragraphs. */
-export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:vfill|bigskip|medskip|smallskip|null)(?![A-Za-z])/.test(text)
+export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:vfill|bigskip|medskip|smallskip|null)(?![A-Za-z])/.test(text.replace(PARBOX_TEXT, ""))
+/** a \parbox's text, whose \par is the box's */
+const PARBOX_TEXT = /\\parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\}\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g
 
 /**
  * The material of a group or environment in vertical mode. `top`: the body's own level, where a declaration would

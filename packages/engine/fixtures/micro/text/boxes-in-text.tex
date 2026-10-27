@@ -1,0 +1,15 @@
+% fixture: text/boxes-in-text
+% tier: T3
+% engine: document
+% covers: \mbox, \makebox[w][pos] (c, l, r, s, \width), \fbox and \framebox[w][pos] (\@frameb@x: \fboxrule, \fboxsep, lowered by the depth), \raisebox{lift}[h][d], nested and with font changes inside, the space factor after a box
+% issue: #336
+\documentclass{article}
+\begin{document}
+An \mbox{unbreakable phrase} in a line, a \makebox[3cm]{centered} box, a \makebox[3cm][l]{left} and a
+\makebox[3cm][r]{right} one, \makebox[3cm][s]{spread \hfill out}, \makebox{plain}, \makebox[2\width]{twice}
+and \makebox[0pt][l]{over}lap. Framed: \fbox{a framed word}, \fbox{\textbf{bold} and $x^2_i$}, \framebox{same as fbox},
+\framebox[4cm]{wide frame}, \framebox[4cm][r]{right frame} and \framebox[1cm][l]{narrower than its text}.
+Raised \raisebox{2pt}{up}, lowered \raisebox{-.5ex}{down}, \raisebox{1ex}[0pt][0pt]{no height} and
+\raisebox{0pt}[2ex]{tall}, \raisebox{-1ex}[0pt][1pt]{low}, a label \label{lb}\mbox{y} z. Nested \fbox{\mbox{in \emph{an} mbox}} and \mbox{\fbox{x}\fbox{y}}. End.\mbox{} Next,
+end.\fbox{z} next.
+\end{document}
