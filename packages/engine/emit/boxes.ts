@@ -6,7 +6,7 @@ import type { BoxNode as BoxOut } from "../trace/schema"
 
 /** A token list as TeX prints it: UTF-8 input is bytes, each printed as itself (TeX Live's cp227.tcx), here one
  *  character per byte */
-const printBytes = (text: string) => /^[\x00-\x7f]*$/.test(text) ? text : String.fromCharCode(...new TextEncoder().encode(text))
+const printBytes = (text: string) => /^[\x00-\x7f]*$/.test(text) ? text : String.fromCharCode(...new TextEncoder().encode(text.replace(/\ue000/g, ""))) // (not latex/encodings.ts's ALLOW_HYPHENS marks)
 
 export function emitBoxes(n: Node): BoxOut {
   switch (n.kind) {

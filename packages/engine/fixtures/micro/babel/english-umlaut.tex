@@ -1,0 +1,11 @@
+% fixture: babel/english-umlaut
+% tier: T3
+% engine: document
+% covers: babel's OT1 \" composites (\AtBeginDocument: \bbl@umlauta and \bbl@umlaute, \umlauthigh's \accent127 with \bbl@allowhyphens in a group, space factor 1000) on a e i \i o u A E I O U, and \" on other letters (\add@accent)
+% issue: #63
+\documentclass{article}
+\usepackage[english]{babel}
+\begin{document}
+Na\"ive co\"operation, Br\"onte, \"Uber, \"{\i}, \"i, \"e, \"A, \"E, \"I, \"O, the letter \"U and \"y, \"Y, \"x.
+Fjörd, ä, ü and Ö appear in UTF-8; the end \"O. Next sentence after \"U. Again.
+\end{document}

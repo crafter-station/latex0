@@ -6,7 +6,7 @@
 
 import type { Font } from "../layout/font"
 import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH } from "../layout/font"
-import { appendText } from "./encodings"
+import { appendText, sourceText } from "./encodings"
 import { glue, penalty, type Node } from "../layout/nodes"
 import type { Shipped } from "./output"
 import { Unsupported } from "./unsupported"
@@ -19,8 +19,10 @@ export const EMPTY_MARK: MarkValue = { print: "", parts: [], upper: false }
 
 /** a mark's value: the \protected@xdef'd text (\MakeUppercase prints as itself), and what it typesets */
 export function markValue(parts: MarkValue["parts"], upper: boolean): MarkValue {
-  for (const p of parts) if ("text" in p && /[\\{}$^_~%&#]/.test(p.text)) throw new Unsupported(`a running head for "${p.text}"`)
-  const text = parts.map((p) => ("text" in p ? p.text : "quad" in p ? "\\hskip 1em\\relax " : "\\ ")).join("")
+  // (text accents print as typed: \'{I}ndice)
+  for (const p of parts) if ("text" in p && /[\\{}$^_~%&#]/.test(p.text.replace(/\\['~]\{(?:[A-Za-z]|\\i)\}/g, ""))) throw new Unsupported(`a running head for "${p.text}"`)
+  // (a control word prints with a space after it: \'{\i }; spanish.ts's marks go)
+  const text = parts.map((p) => ("text" in p ? p.text.replace(/\\i\}/g, "\\i }").replace(/\ue000/g, "") : "quad" in p ? "\\hskip 1em\\relax " : "\\ ")).join("")
   return { print: upper ? `\\MakeUppercase    []{${text}}` : text, parts, upper }
 }
 
@@ -80,7 +82,7 @@ export function pageMarks(pages: Shipped[]): { left: MarkValue | undefined; righ
 export function markText(m: MarkValue | undefined, font: Font): Node[] {
   const out: Node[] = [], state = { spaceFactor: 1000 }
   for (const p of m?.parts ?? []) {
-    if ("text" in p) appendText(out, m!.upper ? p.text.toUpperCase() : p.text, font, state, false)
+    if ("text" in p) appendText(out, m!.upper ? sourceText(p.text).toUpperCase() : sourceText(p.text), font, state, false)
     else if ("ctrl" in p) out.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], 0, font.params[SPACE_SHRINK], 0)) // \
     else out.push(glue(font.params[QUAD])) // \hskip 1em
   }

@@ -19,7 +19,8 @@ import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionS
 import type { CrefNameDef, CrefOptions } from "./cleveref"
 import { Unsupported } from "./unsupported"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
-import { babelOptions, captions, isBabelLanguage, withBabel, type Babel, type Captions } from "./babel"
+import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type Captions } from "./babel"
+import { markAccentHyphens } from "./spanish"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -403,6 +404,13 @@ export function readPreamble(src: string): Preamble {
   if (setspace) k = withSetspace(k, setspace)
   const bb = babel as Preamble["babel"]
   if (bb) k = withBabel(k, bb)
+  if (isSpanish(bb)) { // (spanish.ldf's accents in the texts the preamble sets, which the document typesets)
+    // (siunitx's numbers in math meet the active ., spanish.ldf's decimal comma; titlesec does not use \@seccntformat)
+    if (usesSiunitx || titlesec) throw new Unsupported(`spanish.ldf with ${usesSiunitx ? "siunitx" : "titlesec"}`)
+    for (const key of ["title", "author", "date"] as const) if (title[key] !== undefined) title[key] = markAccentHyphens(title[key]!)
+    for (const d of thmDefs.values()) d.title = markAccentHyphens(d.title)
+    if (fancy) for (const f of Object.keys(fancy.fields)) fancy.fields[f] = markAccentHyphens(fancy.fields[f])
+  }
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   let body = src.slice(begin + 16, end)
@@ -422,7 +430,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb), body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body }
 }
 
 /** braces balanced in s */

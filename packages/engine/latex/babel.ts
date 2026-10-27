@@ -2,10 +2,12 @@
 // selects (\selectlanguage, babel.sty's \AtBeginDocument): its captions (\captions<lang>), its \today
 // (\date<lang>), its patterns (\language, \l@<lang> of TeX Live's language.dat) and \lefthyphenmin and
 // \righthyphenmin (\<lang>hyphenmins), and its extras (\extras<lang>: \frenchspacing). Each language is
-// what its .ldf says (babel-english's english.ldf); options and languages not modeled throw Unsupported.
+// what its .ldf says (babel-english's english.ldf, babel-spanish's spanish.ldf with its defaults: what
+// spanish.ts models); options and languages not modeled throw Unsupported.
 
 import type { ClassOptionData } from "../layout/classdata"
 import { Unsupported } from "./unsupported"
+import { markAccentHyphens } from "./spanish"
 
 /** the names \captions<lang> defines, and the standard classes' (and amsthm's \proofname) without babel */
 export interface Captions {
@@ -25,19 +27,34 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const UK_DAYS = "1st 2nd 3rd 4th 5th 6th 7th 8th 9th 10th 11th 12th 13th 14th 15th 16th 17th 18th 19th 20th 21st 22nd 23rd 24th 25th 26th 27th 28th 29th 30th 31st".split(" ")
 
 interface LanguageDef {
-  captions: Captions
+  /** \captions<lang> (LaTeX source, as \SetString leaves it); `chapters`: the class has \chapter */
+  captions: Captions | ((chapters: boolean) => Captions)
   /** \today as \date<lang> defines it (LaTeX source: ~ is \nobreakspace) */
   today(d: Date): string
   /** the patterns of \l@<lang> (data/hyphenation) */
   patterns: string
   /** \<lang>hyphenmins */
   hyphenmins: [number, number]
+  /** \extras<lang> selects \frenchspacing */
+  frenchspacing?: boolean
 }
 
 /** english.ldf's dates: US (english, american, USenglish, canadian), UK (british, UKenglish), AU (australian, newzealand) */
 const usDate = (d: Date) => `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
 const ukDate = (d: Date) => `${UK_DAYS[d.getUTCDate() - 1]}~${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 const auDate = (d: Date) => `${d.getUTCDate()}~${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+
+/** spanish.ldf's \captionsspanish for pdfTeX (the block without unicode): cuadro, and \'{I}ndice general with \chapter */
+const spanishCaptions = (chapters: boolean): Captions => ({
+  refname: "Referencias", abstractname: "Resumen", bibname: "Bibliograf\\'{\\i}a", chaptername: "Cap\\'{\\i}tulo", appendixname: "Ap\\'{e}ndice",
+  contentsname: chapters ? "\\'{I}ndice general" : "\\'{I}ndice", listfigurename: "\\'{I}ndice de figuras", listtablename: "\\'{I}ndice de cuadros",
+  indexname: "\\'{I}ndice alfab\\'{e}tico", figurename: "Figura", tablename: "Cuadro", partname: "Parte", enclname: "Adjunto", ccname: "Copia a",
+  headtoname: "A", pagename: "p\\'{a}gina", proofname: "Demostraci\\'{o}n",
+})
+const SPANISH_MONTHS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+/** spanish.ldf's \spanishdate: \number\day~de \monthname\ de~\number\year (the control space as a space: the same
+ *  glue after a lowercase letter) */
+const esDate = (d: Date) => `${d.getUTCDate()}~de ${SPANISH_MONTHS[d.getUTCMonth()]} de~${d.getUTCFullYear()}`
 
 /** each option's language: english is TeX Live's language 0 (hyphen.tex), british and its dialects ukenglish's */
 const LANGUAGES: Record<string, LanguageDef> = {
@@ -49,6 +66,7 @@ const LANGUAGES: Record<string, LanguageDef> = {
   UKenglish: { captions: LATEX_CAPTIONS, today: ukDate, patterns: "en-gb", hyphenmins: [2, 3] },
   australian: { captions: LATEX_CAPTIONS, today: auDate, patterns: "en-gb", hyphenmins: [2, 3] },
   newzealand: { captions: LATEX_CAPTIONS, today: auDate, patterns: "en-gb", hyphenmins: [2, 3] },
+  spanish: { captions: spanishCaptions, today: esDate, patterns: "es", hyphenmins: [2, 2], frenchspacing: true },
 }
 
 /** the languages babel loaded and the main one (the last) */
@@ -59,14 +77,28 @@ export function babelOptions(own: string[], classOptions: string[]): Babel {
   for (const o of own) if (!Object.hasOwn(LANGUAGES, o)) throw new Unsupported(`babel option ${o}`)
   const languages = [...classOptions.filter((o) => Object.hasOwn(LANGUAGES, o)), ...own]
   if (!languages.length) throw new Unsupported("babel without a language")
-  return { languages: [...new Set(languages)], main: languages[languages.length - 1] }
+  const main = languages[languages.length - 1]
+  // (spanish.ldf's shorthands and its \AtBeginDocument act with another main language too)
+  if (languages.includes("spanish") && main !== "spanish") throw new Unsupported(`babel with spanish and the main language ${main}`)
+  return { languages: [...new Set(languages)], main }
 }
 
 /** whether a class option is a language babel reads */
 export const isBabelLanguage = (o: string) => Object.hasOwn(LANGUAGES, o)
 
 /** The main language's captions (none: LaTeX's) */
-export const captions = (b: Babel | null): Captions => (b ? LANGUAGES[b.main].captions : LATEX_CAPTIONS)
+export function captions(b: Babel | null, chapters: boolean): Captions {
+  const c = b ? LANGUAGES[b.main].captions : LATEX_CAPTIONS
+  const names = typeof c === "function" ? c(chapters) : c
+  // (spanish.ldf's accents: \bbl@allowhyphens where no space follows)
+  return isSpanish(b) ? Object.fromEntries(Object.entries(names).map(([k, v]) => [k, markAccentHyphens(v)])) as unknown as Captions : names
+}
+
+/** whether the main language selects \frenchspacing */
+export const babelFrenchspacing = (b: Babel | null): boolean => !!b && !!LANGUAGES[b.main].frenchspacing
+
+/** the main language's .ldf is spanish.ldf (whose layout and shorthands spanish.ts models) */
+export const isSpanish = (b: Babel | null | undefined): boolean => b?.main === "spanish"
 
 /** \today in the main language (LaTeX's without babel) */
 export const babelToday = (b: Babel | null, d: Date): string => (b ? LANGUAGES[b.main] : LANGUAGES.english).today(d)

@@ -18,6 +18,7 @@ import { type OutputHook } from "./output"
 import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
 import { titlesecHeading } from "./titlesec"
+import { isSpanish } from "./babel"
 
 /**
  * report's \chapter: \clearpage, \thispagestyle{plain}, \global\@topnum\z@, \@afterindentfalse; then
@@ -52,6 +53,7 @@ export function matter(cx: Ctx, which: "front" | "main" | "back") {
   const { cls } = cx.pre
   const { run, v } = cx
   if (cls !== "book") throw new Unsupported(`\\${which}matter in ${cls}`)
+  if (which === "front" && isSpanish(cx.pre.babel)) throw new Unsupported("\\frontmatter with spanish.ldf (its \\@roman page numbers in small capitals)")
   v.par()
   cleardoublepage(cx) // \backmatter's when openright, as book is
   run.mainmatter = which === "main"
@@ -198,7 +200,8 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const bold = run.k.sizes[size].bold
   const bf = loadFont(dataFont(bold.name), bold.at)
   const label: Node[] = [glue(0)] // \hskip #3 (\z@)
-  if (numbered) { appendText(label, number, bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
+  // (spanish.ldf's layout: \@seccntformat is \csname the#1\endcsname.\quad)
+  if (numbered) { appendText(label, number + (isSpanish(cx.pre.babel) ? "." : ""), bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) }
   const box = hpack(label)
   const start = hyper && !numbered ? [box, sectionAnchorBox(anchorName, 0, run.k.sizes[size].baselineskip.width)] : [box]
   typeset(b.title, { start, font: bold, hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub, ...(heading.end ? { end: heading.end } : {}) }, outerParskip, size)

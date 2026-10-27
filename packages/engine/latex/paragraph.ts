@@ -32,7 +32,8 @@ import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { babelAux, babelLanguage, type Babel } from "./babel"
-import { ACCENT_COMMAND, accentText, appendText, TEXT_LETTERS, utf8Text } from "./encodings"
+import { SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
+import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, TEXT_LETTERS, utf8Text } from "./encodings"
 import { xcolor } from "./xcolor"
 import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
@@ -75,7 +76,9 @@ const LETTERS = (fam: number): Record<number, number> => Object.fromEntries([...
 export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext): MItem[] {
   const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
   const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
-  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  // (spanish.ldf's \mathspanish: its operators and decimal comma)
+  const operators = spanishLayout.on ? SPANISH_OPERATORS : undefined
+  try { return parseMath(spanishLayout.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
@@ -263,6 +266,10 @@ type Piece =
   | { kind: "text" | "math" | "footnote" | "thanks"; src: string }
   /** a text symbol (TEXT_SYMBOLS), and \, (\thinspace) */
   | { kind: "symbol"; name: string } | { kind: "thinspace" }
+  /** spanish.ldf's \%: \es@sppercent\percentsign{} */
+  | { kind: "percent" }
+  /** spanish.ldf's guillemets: << and >> (the quoting environment's \lquoti, \rquoti), "< and "> */
+  | { kind: "guillemet"; right: boolean; quoting: boolean }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string }
   /** babel: \selectlanguage{lang}, \begin{otherlanguage}{lang} and its \end (`other`, `endother`), otherlanguage*'s
@@ -436,6 +443,11 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
   }
   while (i < body.length) {
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
+    if (spanishLayout.on) { // spanish.ldf's shorthands
+      if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
+      const sh = spanishShorthand(body.slice(i, i + 2))
+      if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
+    }
     if (body[i] === "\\" && "#%&".includes(body[i + 1] ?? "")) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
     // a text symbol (\textdegree …); the spaces after a control word go
@@ -449,6 +461,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (acc) { text += accentText(acc); i += acc[0].length; continue }
     const letter = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
     if (letter && Object.hasOwn(TEXT_LETTERS, letter[1])) { text += TEXT_LETTERS[letter[1]]; i += letter[0].length; continue }
+    if (body[i] === ALLOW_HYPHENS) { text += body[i++]; continue }
     if (body.charCodeAt(i) >= 128) { // UTF-8 input: the character as utf8.def reads it
       const ch = String.fromCodePoint(body.codePointAt(i)!)
       if (Object.hasOwn(UTF8_SYMBOLS, ch)) { flushText(); out.push({ kind: "symbol", name: UTF8_SYMBOLS[ch] }); i += ch.length; continue }
@@ -731,7 +744,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>): Lin
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean }
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
@@ -763,6 +776,14 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (p.kind === "size") appendPieces(list, p.inner, selectFont(k, p.size, attrs), p.size, state, ctx, attrs)
       else appendPieces(list, p.inner, font, size, state, ctx, attrs)
       ctx.noteClub = noteClub
+    }
+    else if (p.kind === "percent") list.push(...spanishPercent(list, k, size, font, !!ctx.amsmath, state))
+    else if (p.kind === "guillemet") {
+      if (p.quoting) { // (one level of the quoting environment, in one paragraph)
+        if (ctx.quoting === !p.right) throw new Unsupported(p.right ? "spanish.ldf's >> without <<" : "spanish.ldf's quoting in quoting")
+        ctx.quoting = !p.right
+      }
+      list.push(...spanishGuillemet(p.right, attrs.enc, k, size, font, state))
     }
     else if (p.kind === "babel" || p.kind === "foreign") {
       const lang = babelLanguage(doc.babel, p.lang)
@@ -1160,7 +1181,9 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, { k, params, mathSurround, doc, notes, lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base })
+  const pctx: PieceContext = { k, params, mathSurround, doc, notes, lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}) }, pctx)
+  if (pctx.quoting) throw new Unsupported("spanish.ldf's quoting over paragraphs") // (\es@quotcont in \everypar)
   for (let i = 0; i < (opts.unskip ?? 0) && list.at(-1)?.kind === "glue"; i++) list.pop()
   if (opts.end) list.push(...opts.end)
   return { list, params, notes }

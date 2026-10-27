@@ -1,0 +1,24 @@
+% fixture: babel/spanish-amsthm
+% tier: T3
+% engine: document
+% covers: spanish with amsthm: \proofname (Demostraci\'{o}n), theorem names with accents, amsthm's \frenchspacing (\@addpunct), \tablename
+% issue: #63
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage[spanish]{babel}
+\newtheorem{teo}{Teorema}
+\newtheorem{defi}{Definición}
+\begin{document}
+\begin{teo}[Pitágoras]
+Un teorema clásico. Sí: es así.
+\end{teo}
+\begin{defi}
+Una definición.
+\end{defi}
+\begin{proof}
+Una demostración.
+\end{proof}
+\begin{table}[h]
+\caption{Una tabla}
+\end{table}
+\end{document}

@@ -24,7 +24,7 @@ import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularLines } from "./tabular"
 import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
 import { ALIGNMENTS, topDeclarations, verticalMaterial } from "./vmode"
-import { babelToday, type Babel } from "./babel"
+import { babelToday, isSpanish, type Babel } from "./babel"
 
 /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
  *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
@@ -149,11 +149,11 @@ export function tocLine(cx: Ctx, e: TocEntry) {
   const font = e.level === top ? bold : roman
   const f = loadFont(dataFont(font.name), font.at)
   const fUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  // \numberline{n}: \hb@xt@\@tempdima{n\hfil}
+  // \numberline{n}: \hb@xt@\@tempdima{n\hfil} (spanish.ldf's layout: n.)
   const numberline = (width: number): Node[] => {
     if (e.number === null) return []
     const l: Node[] = []
-    appendText(l, e.number, f, { spaceFactor: 1000 }, false)
+    appendText(l, e.number + (isSpanish(cx.pre.babel) && e.number !== "" ? "." : ""), f, { spaceFactor: 1000 }, false)
     return [hpack([...l, filGlue()], { exactly: width })]
   }
   // the page number: \hb@xt@\@pnumwidth (in the line's font) {\hss or \hfil, #2, \kern-\p@\kern\p@}

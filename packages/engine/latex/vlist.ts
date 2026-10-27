@@ -27,8 +27,12 @@ export class VerticalList {
   prevDepth: number | null = 0
   /** \if@nobreak: right after a heading (\@afterheading), until the next paragraph starts */
   nobreak = false
-  /** \if@afterindent: whether that paragraph keeps its indentation */
-  afterindent = true
+  /** \if@afterindent: whether that paragraph keeps its indentation (always, when spanish.ldf's layout has made
+   *  \@afterindentfalse \@afterindenttrue) */
+  get afterindent() { return this.indentAfter || this.alwaysIndent }
+  set afterindent(x: boolean) { this.indentAfter = x }
+  private indentAfter = true
+  alwaysIndent = false
   /** \clubpenalty at the outer level: \@afterheading's \everypar sets \@M, which lasts until a later paragraph resets it */
   club = 150
   /** \@afterheading's \everypar is still in force (it clears itself in the first paragraph after the one it set up) */

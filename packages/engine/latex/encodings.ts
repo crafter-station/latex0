@@ -8,7 +8,7 @@
 
 import { X_HEIGHT, type Font } from "../layout/font"
 import { appendText as appendCodes, makeAccent, sfCode } from "../layout/hmode"
-import type { Node } from "../layout/nodes"
+import { glue, penalty, type Node } from "../layout/nodes"
 import { Unsupported } from "./unsupported"
 
 /** each text accent command's combining mark */
@@ -90,7 +90,16 @@ export function utf8Text(ch: string): string | null {
 
 /** a run of characters (a space is interword glue), or an accent over its base: \add@accent's (its
  *  \spacefactor after it is the base's) or \accent alone (OT1's \c: 1000) */
-export type TextItem = { run: string } | { accent: number; base: number; baseSpaceFactor: boolean }
+export type TextItem = { run: string } | { accent: number; base: number; baseSpaceFactor: boolean } | { allowhyphens: true }
+
+/** in the text, after an accent: the next token is not a space (spanish.ldf's \es@accent then adds \bbl@allowhyphens) */
+export const ALLOW_HYPHENS = "\ue000"
+/** spanish.ldf's OT1 \' and \~ (\es@accent): after the accent, \bbl@allowhyphens (\nobreak\hskip\z@skip) unless a space follows */
+export const accentHyphens = { on: false }
+/** babel's OT1 \" on a e i \i o u A E I O U (\DeclareTextCompositeCommand at \begin{document}): \bbl@umlauta and
+ *  \bbl@umlaute, \umlauthigh's \leavevmode\bgroup\accent127 #1\bbl@allowhyphens\egroup (space factor 1000); spanish.ldf's
+ *  \bbl@umlauta (a o u A O U) is \es@umlaut, \add@accent{127}#1\bbl@allowhyphens */
+export const babelUmlauts: { mode: null | "high" | "spanish" } = { mode: null }
 
 /** The paragraph's text (Unicode, accents as marks) in the font's encoding. */
 export function encodeText(text: string, enc: string, font: Font): TextItem[] {
@@ -107,6 +116,11 @@ export function encodeText(text: string, enc: string, font: Font): TextItem[] {
   const chars = [...[...text].map((ch) => ch >= "\x80" && !MARKS.has(ch) ? utf8Text(ch) ?? ch : ch).join("")]
   for (let i = 0; i < chars.length; i++) {
     const ch = chars[i], mark = chars[i + 1]
+    if (ch === ALLOW_HYPHENS) {
+      const last = out.at(-1)
+      if (!run && last && "accent" in last && accentHyphens.on && (last.accent === 19 || last.accent === 126)) out.push({ allowhyphens: true }) // (OT1's; T1's are 1 and 3)
+      continue
+    }
     if (mark !== undefined && MARKS.has(mark)) {
       i++
       // \'i, \`i, \^i, \"i and \=i are the same accents on \i (ot1enc.def's composites; t1enc.def's for \=)
@@ -132,6 +146,11 @@ export function encodeText(text: string, enc: string, font: Font): TextItem[] {
         accent(24, base, false)
         continue
       }
+      if (mark === "\u0308" && babelUmlauts.mode && "aeıouAEIOU".includes(base)) {
+        accent(127, base, babelUmlauts.mode === "spanish" && "aouAOU".includes(base))
+        out.push({ allowhyphens: true })
+        continue
+      }
       accent(ACCENTS.OT1[mark], base)
       continue
     }
@@ -154,9 +173,11 @@ export function encodingOf(font: Font): string {
  * hmode.ts): its characters, and each accent with \add@accent's \spacefactor after it, the base's (from 1000).
  */
 export function appendText(list: Node[], text: string, font: Font, state: { spaceFactor: number; sfcodes?: Record<number, number> }, paragraph = true) {
+  if (text.includes("\\")) throw new Unsupported(`text "${text}"`) // (a command, not a character: \ref's label 1\emph {a})
   if (/^[\x00-\x7f]*$/.test(text)) { appendCodes(list, text, font, state, paragraph); return }
   for (const item of encodeText(text, encodingOf(font), font)) {
     if ("run" in item) { appendCodes(list, item.run, font, state, paragraph); continue }
+    if ("allowhyphens" in item) { list.push(penalty(10000), glue(0)); continue }
     makeAccent(list, font, item.accent, item.base, state)
     if (!item.baseSpaceFactor) continue
     const s = state.sfcodes?.[item.base] ?? sfCode(item.base)

@@ -1,0 +1,20 @@
+% fixture: babel/spanish-lists
+% tier: T3
+% engine: document
+% covers: spanish.ldf's \layoutspanish lists: \spanishsymbitems (a square, \textbullet, $\circ$, $\diamond$), \es@enumerate{1.}{a)}{1)}{a$'$} (\emph{\alph} with its italic correction, the prime), \p@enum… in \label (\emph robust)
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+\begin{itemize}
+\item uno con acción
+\begin{itemize}\item dos\begin{itemize}\item tres\begin{itemize}\item cuatro\end{itemize}\end{itemize}\end{itemize}
+\item otro
+\end{itemize}
+\begin{enumerate}
+\item uno\label{a}
+\begin{enumerate}\item dos\label{b}\item tres\begin{enumerate}\item tres\label{c}\begin{enumerate}\item cuatro\item cinco\label{d}\end{enumerate}\end{enumerate}\item otro\end{enumerate}
+\item último
+\end{enumerate}
+Véase el punto~\ref{a}.
+\end{document}

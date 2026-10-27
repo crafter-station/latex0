@@ -5,6 +5,7 @@
 
 import type { CrefLabel } from "./cleveref"
 import { Unsupported } from "./unsupported"
+import { spanishLayout } from "./spanish"
 
 /** The sectioning counters, outermost first: \c@chapter … \c@subparagraph. */
 export const SECTIONAL = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"] as const
@@ -15,6 +16,8 @@ export const COUNTER_COMMANDS = /\\(?:setcounter|addtocounter|stepcounter|refste
 /** \arabic, \roman, \Roman, \alph, \Alph of a value. */
 export function representation(style: string, n: number): string {
   if (style === "arabic") return String(n)
+  // (spanish.ldf's layout: \@roman in small capitals, \es@scroman's \hbox; \@alph and \@Alph with \~n after n)
+  if (spanishLayout.on && (style === "roman" || (style === "alph" || style === "Alph") && n >= 15)) throw new Unsupported(`spanish.ldf's \\${style} of ${n}`)
   if (style === "roman" || style === "Roman") {
     let out = "", x = n
     for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (x >= v) { out += r; x -= v }

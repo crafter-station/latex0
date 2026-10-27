@@ -1,0 +1,35 @@
+% fixture: babel/spanish-basic
+% tier: T3
+% engine: document
+% covers: \usepackage[spanish]{babel} (spanish.ldf 5.0q, defaults): \captionsspanish (Resumen, \'{I}ndice, Figura, Cuadro, Referencias), \spanishdate's \today in \maketitle, \frenchspacing, the spanish patterns with hyphenmins 2 2, \es@accent's \bbl@allowhyphens after OT1 \' and \~ unless a space follows, \layoutspanish (numbers with a period in headings and the contents, the first paragraph after a heading indented), \% with a thin space
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\title{Título del artículo}
+\author{José Pérez}
+\begin{document}
+\maketitle
+\begin{abstract}
+Un resumen corto del artículo. ¿Qué tal? ¡Bien! El Dr. Pérez dijo: sí. Fin.
+\end{abstract}
+\tableofcontents
+\section{Introducción}\label{s}
+La teoría de la información estudia la cuantificación, el almacenamiento y la comunicación de la
+información digital. Fue establecida por Claude Shannon en los años cuarenta. Véase la
+sección~\ref{s}, la figura~\ref{f} y el cuadro~\ref{t}.\footnote{Una nota con acentuación.} Más texto:
+niño, año, \'arbol, ma\~nana, \'{\i}ndice y \'{I}ndice; el 50\% y el 50 \% del total, \'e.
+\begin{figure}[h]
+\caption{Descripción del método}\label{f}
+\end{figure}
+\begin{table}[h]
+\caption{Resultados numéricos}\label{t}
+\end{table}
+\begin{minipage}{60pt}
+Transformaciones establecidas y almacenamiento de comunicaciones electrónicas.
+\end{minipage}
+\subsection{Conclusión}
+Fin del artículo.
+\begin{thebibliography}{9}
+\bibitem{a} Un ítem.
+\end{thebibliography}
+\end{document}

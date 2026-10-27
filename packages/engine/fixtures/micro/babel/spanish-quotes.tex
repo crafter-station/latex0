@@ -1,0 +1,12 @@
+% fixture: babel/spanish-quotes
+% tier: T3
+% engine: document
+% covers: spanish.ldf's shorthands in OT1: << and >> (quoting: \layoutspanish's lasy guillemets, \penalty\@M and \save@sf@q), "< and ">, "u "U "i "I "c "C, the umlauts' \es@umlaut (\add@accent, \bbl@allowhyphens)
+% issue: #63
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+Texto <<entre comillas>> y m\'as. Un "<ping\"uino"> con ping"uino, ping"Uino, "c, ca"cer\'{\i}a, "i y "I. Fin.
+
+Otro <<p\'arrafo con comillas.>> Y <<otra>>. El "U y \"E y \"O y \"I y "U, fin.
+\end{document}

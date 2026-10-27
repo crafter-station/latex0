@@ -23,6 +23,8 @@ import { setgroup } from "./xcolor"
 import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
 import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
+import { isSpanish } from "./babel"
+import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
 
 /** the environments whose text may hold declarations here: no labels, one item */
 const DECLARING: string[] = ["center", "flushleft", "flushright", "quote", "quotation", "verse"]
@@ -190,6 +192,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   if (b.env === "enumerate") run.enums[level - 1] = 0 // \usecounter
   if (b.env === "thebibliography") run.enums[3] = 0
   const alph = (n: number) => (n > 0 && n <= 26 ? String.fromCharCode(96 + n) : "") // \@alph: \ifcase (\@ctrerr past z)
+  const spanish = isSpanish(cx.pre.babel) // (spanish.ldf's layout: its labels)
   const roman = (n: number) => { // \@roman (TeX's \romannumeral)
     let out = ""
     for (const [v, r] of [[1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"], [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"]] as const) while (n >= v) { out += r; n -= v }
@@ -227,20 +230,22 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       const l: Node[] = []
       if (given !== null) appendText(l, given.replace(/\s+/g, " "), font, { spaceFactor: 1000 }, false)
       else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
-        if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
+        if (spanish) l.push(...spanishItemLabel(level, run.k, ctx.size, font, companion, cx.pre.amsmath))
+        else if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
         else l.push(charNode(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
       } else { // \labelenumi … iv: 1. (a) i. A.
         const n = ++counter
         // \refstepcounter{enum…}: \p@enum… \theenum… (1, 1a, 1(a)i, 1(a)iA), and \@currentHref enum….n
         const [v1, v2, v3] = [...ctx.enums, n]
-        refs.label = [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
+        refs.label = spanish ? spanishEnumRef(level, [...ctx.enums, n]) : [`${n}`, `${v1}${alph(n)}`, `${v1}(${alph(v2)})${roman(n)}`, `${v1}(${alph(v2)})${roman(v3)}${alph(n).toUpperCase()}`][level - 1]
         refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
         run.enums[level - 1] = n // (no counter resets another: \@definecounter; cleveref's prefix only names the chain)
         if (refs.cleveref) refs.cleveref.current = { type: `enum${["i", "ii", "iii", "iv"][level - 1]}`, arabic: n, prefix: run.enums.slice(0, level - 1).join(","), label: refs.label }
         // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
         if (hyper) { refs.href = `Item.${++run.items}`; run.hyperItem = false; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
-        appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
+        if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
+        else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
       }
       content = [...(enumitem ? [penalty(10000)] : []), ssGlue(), hpack([ssGlue(), ...l], { exactly: 0 })] // \hss\llap{#1}; enumitem's \nobreak first
     } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \hskip\z@\nobreak, the label, \hfil)

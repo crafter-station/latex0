@@ -7,10 +7,16 @@ import { appendRun } from "./mainloop"
 import { charNode, glue, type Node } from "./nodes"
 import { hpack } from "./pack"
 
-/** \sfcode table as set by LaTeX's \nonfrenchspacing (plain.tex / latex.ltx). */
+/** \frenchspacing in force for the document being laid out (babel's languages select it): . ? ! : ; , are 1000, or
+ *  with amsgen's (amsmath's) or amsthm's \frenchspacing 1006 1005 1004 1003 1002 1001 (which \@addpunct tells apart) */
+export const spacing: { french: false | "latex" | "ams" } = { french: false }
+const AMS_FRENCH: Record<string, number> = { ".": 1006, "?": 1005, "!": 1004, ":": 1003, ";": 1002, ",": 1001 }
+
+/** \sfcode table as set by LaTeX's \nonfrenchspacing (plain.tex / latex.ltx), or \frenchspacing. */
 export function sfCode(c: number): number {
   // uppercase letters: A–Z and (latex.ltx, 8-bit) "80–"9C and "C0–"DF
   if (c >= 65 && c <= 90 || c >= 0x80 && c <= 0x9c || c >= 0xc0 && c <= 0xdf) return 999
+  if (spacing.french && ".?!:;,".includes(String.fromCharCode(c))) return spacing.french === "ams" ? AMS_FRENCH[String.fromCharCode(c)] : 1000
   switch (String.fromCharCode(c)) {
     case ")": case "'": case "]": return 0
     case ".": case "?": case "!": return 3000

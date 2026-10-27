@@ -1,0 +1,15 @@
+% fixture: babel/spanish-math-ams
+% tier: T3
+% engine: document
+% covers: spanish.ldf's operators with amsmath loaded (\mathop{\operator@font …}, no \qopname kern, which \sin keeps), the decimal comma in align, amsgen's \frenchspacing (. 1006 … , 1001)
+% issue: #63
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage[spanish]{babel}
+\begin{document}
+Sea $\lim_{n} a_n = 2.5$ y $\sin x$, $\max_{i} x_i$. Luego: fin; así, sí.
+\begin{align}
+f(x) &= 0.25 x + \lim_{h \to 0} \frac{1.5}{h} \\
+g(x) &= \sen x + \cos x
+\end{align}
+\end{document}

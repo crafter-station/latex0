@@ -25,7 +25,10 @@ import { listParagraphWithDisplays } from "./displays"
 import { prepareSource, type DocumentSource } from "./source"
 import { Counters } from "./counters"
 import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
-import { babelAux } from "./babel"
+import { babelAux, babelFrenchspacing, isSpanish } from "./babel"
+import { markAccentHyphens, spanishLayout } from "./spanish"
+import { accentHyphens, babelUmlauts } from "./encodings"
+import { spacing } from "../layout/hmode"
 import { TocWriter, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
 import { runState } from "./run"
@@ -73,7 +76,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
       try { return layout(prepared, notHere, aux, epoch, images, driver) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
-      }
+      } finally { spacing.french = false; markLanguage.name = null; accentHyphens.on = spanishLayout.on = false; babelUmlauts.mode = null } // (babel's, for this document only)
     }
   }
   // the oracle runs LaTeX twice: the second run reads the .toc and .aux files the first one wrote
@@ -91,16 +94,24 @@ interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings: listings0, tabulars: tabulars0, minipages: minipages0, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
+  // spanish.ldf's accents in what was taken out of the source: tabulars, minipages, listings' options (captions)
+  const es = isSpanish(pre.babel)
+  const tabulars = es ? tabulars0.map((t) => ({ ...t, body: markAccentHyphens(t.body) })) : tabulars0
+  const minipages = es ? minipages0.map((m) => ({ ...m, body: markAccentHyphens(m.body) })) : minipages0
+  const listings = es ? listings0.map((l) => ({ ...l, options: markAccentHyphens(l.options) })) : listings0
   const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsT1, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
   const run = runState(pre.k)
-  const blocks = blocksOf(body)
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(body) : body)
+  accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
+  babelUmlauts.mode = !pre.babel ? null : isSpanish(pre.babel) ? "spanish" : "high"
 
   const v = new VerticalList(run.k)
+  v.alwaysIndent = isSpanish(pre.babel) // (spanish.ldf's layout: \@afterindentfalse is \@afterindenttrue)
   // a color package: xcolor, or the color package siunitx loads at \begin{document} (its default color named Black)
   const usesColor = usesXcolor || pre.usesSiunitx
   xcolor.on = usesColor
@@ -129,6 +140,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
   }
   if (pre.babel && !pre.babel.beforeHyperref) babelStart()
   markLanguage.name = pre.babel?.main ?? null
+  spacing.french = babelFrenchspacing(pre.babel) ? (pre.amsmath || pre.usesAmsthm ? "ams" : "latex") : false
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
   for (const [n, m, x] of colorDefs) colors.define(n, m, x)
