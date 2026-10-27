@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 349,
-  "exact": 347,
+  "fixtures": 352,
+  "exact": 350,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 280043
+  "glyphs": 280983
  },
  "areas": [
   {
@@ -156,8 +156,8 @@
   },
   {
    "area": "siunitx",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "tabular",
@@ -3445,6 +3445,39 @@
    "glyphs": 361,
    "covers": "siunitx's \\num: signs (a + goes, a zero has none), leading zeros, decimal markers . and , and an empty integer or decimal part, digit groups of three with \\, in parts of five or more digits (integer and exponent from the right, decimals from the left), compact uncertainties from \\pm and +- (padded to the same decimals; a zero one goes) and in brackets, exponents e and d (none for 0, no mantissa), \\pm as a sign",
    "issue": "#267"
+  },
+  {
+   "id": "siunitx/options-numbers",
+   "file": "micro/siunitx/options-numbers.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 377,
+   "covers": "siunitx's number options in a command's [...]: group-digits (none, integer, decimal), group-minimum-digits, group-separator (\\, , {,} as \\mathord{,}, \\;), output-decimal-marker ({,} as \\mathord{,}, \\cdot), exponent-product (\\cdot), uncertainty-mode = separate and separate-uncertainty (value \\pm uncertainty with the value's decimals, in brackets before an exponent and in a quantity); in text and in math",
+   "issue": "#278"
+  },
+  {
+   "id": "siunitx/options-rounding",
+   "file": "micro/siunitx/options-rounding.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 319,
+   "covers": "siunitx's round-mode = places and figures with round-precision: rounded half up on the digits, carries into the integer part and a new leading digit (figures then drops a decimal), padding with zeros (round-pad = false: none), integer digits dropped as zeros, a value that rounds to zero without its minus (round-zero-positive = false keeps it), zeros, exponents and uncertainties left alone; in \\num, quantities, ranges and lists, set in the preamble and per command",
+   "issue": "#278"
+  },
+  {
+   "id": "siunitx/options-units",
+   "file": "micro/siunitx/options-units.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 244,
+   "covers": "siunitx's unit and phrase options: per-mode = symbol (numerator, \\! after a power, per-symbol, the denominator in brackets when its last unit follows another, 1 for no numerator, which a quantity leaves out with its \\nobreak and product), per-mode = fraction (\\frac, 1 for no numerator), per-mode = power; inter-unit-product (\\cdot, {}, \\,) in macro and literal units; quantity-product ({}, \\,); range-phrase, list-separator, list-final-separator and list-pair-separator as text (a -- ligature, ~ not allowed) and in math; \\usepackage[...]{siunitx} and \\sisetup in the preamble",
+   "issue": "#278"
   },
   {
    "id": "siunitx/quantities",

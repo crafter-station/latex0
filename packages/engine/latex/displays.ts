@@ -88,7 +88,7 @@ const skipsOf = (o: ParagraphOptions): Skips => ({ ...(o.leftSkip ? { leftSkip: 
  *  (to an alignment's cell), so the next one is an Item.n again. Only amsmath's \incr@eqnum goes through hyperref's
  *  \refstepcounter: without it, hyperref's equation steps the counter with the kernel's */
 /** siunitx's view of a display's text (displays are at \\normalsize) */
-const si = (cx: Ctx, font: Font) => (cx.doc.siunitx ? siContext(cx.run.k, "normalsize", font) : undefined)
+const si = (cx: Ctx, font: Font) => (cx.doc.siunitx ? siContext(cx.run.k, "normalsize", font, cx.doc.siunitx) : undefined)
 
 function stepHref(cx: Ctx, counter: string, n: number): string {
   return cx.run.hyperItem && cx.pre.amsmath ? `Item.${++cx.run.items}` : cx.counters.href(counter, n)

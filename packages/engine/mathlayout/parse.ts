@@ -46,9 +46,9 @@ export interface MathOptions {
   alphabets?: Record<string, number>
   /** \fontdimen6 of the current text font, the em of \quad and \qquad */
   em?: number
-  /** commands a package binding typesets from the source of its braced arguments (siunitx's): how many each takes,
-   *  and their mlist with \fam in force */
-  commands?: { arity: Record<string, number>; build: (cmd: string, args: string[], fam: number) => MItem[] }
+  /** commands a package binding typesets from the source of an optional […] and its braced arguments (siunitx's):
+   *  how many braced arguments each takes, and their mlist with \fam in force */
+  commands?: { arity: Record<string, number>; build: (cmd: string, opt: string | undefined, args: string[], fam: number) => MItem[] }
 }
 
 type Token = { cs: string; value?: number } | { ch: string }
@@ -245,11 +245,21 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         continue
       }
       if (opts.commands && t.cs in opts.commands.arity) {
+        let opt: string | undefined
+        if (isCh(toks[pos], "[")) { // to the first ] outside braces
+          const start = ++pos
+          for (let depth = 0; depth > 0 || !isCh(toks[pos], "]"); pos++) {
+            if (pos >= toks.length) throw new Error(`math: \\${t.cs}[ without ]`)
+            if (isCh(toks[pos], "{")) depth++
+            else if (isCh(toks[pos], "}")) depth--
+          }
+          opt = source(toks.slice(start, pos++))
+        }
         const args = Array.from({ length: opts.commands.arity[t.cs] }, () => {
           if (!isCh(toks[pos], "{")) throw new Error(`math: \\${t.cs} without its arguments in braces`)
           return source(argument())
         })
-        out.push(...opts.commands.build(t.cs, args, fam))
+        out.push(...opts.commands.build(t.cs, opt, args, fam))
         continue
       }
       if (t.cs in OPERATORS || t.cs === "operatorname") { // (amsmath's \operatorname{name}, \operatorname*{name}: \qopname\newmcodes@ o|m)

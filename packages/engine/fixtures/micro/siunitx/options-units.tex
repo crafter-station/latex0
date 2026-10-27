@@ -1,0 +1,25 @@
+% fixture: siunitx/options-units
+% tier: T3
+% engine: document
+% covers: siunitx's unit and phrase options: per-mode = symbol (numerator, \! after a power, per-symbol, the denominator in brackets when its last unit follows another, 1 for no numerator, which a quantity leaves out with its \nobreak and product), per-mode = fraction (\frac, 1 for no numerator), per-mode = power; inter-unit-product (\cdot, {}, \,) in macro and literal units; quantity-product ({}, \,); range-phrase, list-separator, list-final-separator and list-pair-separator as text (a -- ligature, ~ not allowed) and in math; \usepackage[...]{siunitx} and \sisetup in the preamble
+% issue: #278
+\documentclass{article}
+\usepackage[per-mode=symbol]{siunitx}
+\sisetup{range-phrase = --, list-final-separator = { and finally }}
+\begin{document}
+Symbol \si{\metre\per\second}, \si{\metre\per\second\squared}, \si{\metre\squared\per\second},
+\si{\kilogram\per\metre\per\second}, \si{\per\second\per\kelvin\metre}, \si{\joule\per\mole\per\kelvin},
+\si{\per\second}, \qty{0}{\per\second}, \qtyrange{1}{2}{\per\kelvin}, \si{\metre\tothe{-2}}, \qty{9.81}{\metre\per\second\squared},
+\si[per-symbol=\div]{\metre\per\second}, \si[per-mode=power]{\metre\per\second}.
+
+Fractions \si[per-mode=fraction]{\metre\per\second}, \qty[per-mode=fraction]{3}{\kilo\gram\per\cubic\metre},
+\si[per-mode=fraction]{\per\second}, \si[per-mode=fraction]{\newton\metre\per\kelvin\per\mole}; products
+\si[inter-unit-product=\cdot]{\newton\metre}, \si[inter-unit-product={}]{\kilo\watt\hour},
+\si[inter-unit-product=\cdot]{kg.m/s^2}, \qty[quantity-product={}]{5}{\metre} and
+\qty[quantity-product=\,]{6}{\second}.
+
+Phrases \numrange{1}{5}, \qtyrange{10}{20}{\metre}, \numlist{1;2;3}, \numlist{1;2},
+\numlist[list-separator={; }, list-pair-separator={ or }]{4;5}, \numlist[list-separator={; }]{6;7;8},
+\numrange[range-phrase={ to about }]{3}{4}, and in math $\numrange{1}{2}$, $\numlist{1;2;3}$ and
+$\si[per-mode=fraction]{\metre\per\second}$.
+\end{document}

@@ -99,13 +99,20 @@ export function makeDocument(r: () => number): string {
   const siUnit = () => pick(["\\metre", "\\second", "\\kilo\\gram", "\\metre\\per\\second", "\\metre\\per\\second\\squared", "\\square\\metre", "\\cubic\\centi\\metre", "\\degreeCelsius",
     "\\ohm", "\\kilo\\ohm", "\\micro\\metre", "\\percent", "\\joule\\per\\kilogram\\per\\kelvin", "\\newton\\metre", "\\degree", "\\arcminute", "\\hertz", "\\mA", "\\kWh", "\\dB",
     "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us"])
+  // its options: rounding, digit groups, markers and products, separate uncertainties, per-mode, phrases
+  const siKeys = () => Array.from({ length: 1 + Math.floor(r() * 2) }, () => pick(["round-mode=places", "round-mode = places, round-precision = 1", "round-mode=figures, round-precision=3",
+    "round-mode=places, round-pad=false, round-precision=3", "round-mode=places, round-zero-positive=false", "round-mode=figures, round-precision=1", "group-digits=none", "group-digits=integer",
+    "group-separator={,}", "group-minimum-digits=4", "output-decimal-marker={,}", "exponent-product=\\cdot", "separate-uncertainty", "uncertainty-mode=separate", "per-mode=symbol",
+    "per-mode=fraction", "inter-unit-product=\\cdot", "quantity-product={}", "range-phrase=--", "range-phrase={ -- }", "list-final-separator={ and finally }", "list-separator={; }",
+    "list-pair-separator={ or }"])).join(", ")
+  const siOpt = () => (r() < 0.25 ? `[${siKeys()}]` : "")
   const si = () => {
     const x = r()
-    if (x < 0.2) return `\\num{${siNum()}}`
-    if (x < 0.35) return `\\${pick(["si", "unit"])}{${siUnit()}}`
-    if (x < 0.75) return `\\${pick(["SI", "qty"])}{${siNum()}}{${siUnit()}}`
-    if (x < 0.85) return pick([`\\numrange{${siNum()}}{${siNum()}}`, `\\qtyrange{1}{${siNum()}}{${siUnit()}}`, `\\SIrange{2}{3}{${siUnit()}}`])
-    if (x < 0.95) return pick(["\\numlist{1;2;3}", `\\SIlist{${siNum()};${siNum()}}{${siUnit()}}`, `\\qtylist{1;2;3;4}{${siUnit()}}`, `\\numlist{${siNum()}}`])
+    if (x < 0.2) return `\\num${siOpt()}{${siNum()}}`
+    if (x < 0.35) return `\\${pick(["si", "unit"])}${siOpt()}{${siUnit()}}`
+    if (x < 0.75) return `\\${pick(["SI", "qty"])}${siOpt()}{${siNum()}}{${siUnit()}}`
+    if (x < 0.85) return pick([`\\numrange${siOpt()}{${siNum()}}{${siNum()}}`, `\\qtyrange{1}{${siNum()}}{${siUnit()}}`, `\\SIrange{2}{3}{${siUnit()}}`])
+    if (x < 0.95) return pick(["\\numlist{1;2;3}", `\\SIlist${siOpt()}{${siNum()};${siNum()}}{${siUnit()}}`, `\\qtylist{1;2;3;4}{${siUnit()}}`, `\\numlist${siOpt()}{${siNum()}}`])
     return `\\ang{${pick(["45", "1;2;3", ";;3", "12.5;30"])}}`
   }
   // a tabular: l, c, r and p{width} columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
@@ -354,7 +361,11 @@ export function makeDocument(r: () => number): string {
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
-  if (siOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{siunitx}")
+  if (siOn) {
+    const pkg = r() < 0.2 ? `\\usepackage[${siKeys()}]{siunitx}` : "\\usepackage{siunitx}"
+    out.splice(1 + Math.floor(r() * (out.length - 1)), 0, pkg)
+    if (r() < 0.3) out.splice(out.indexOf(pkg) + 1, 0, `\\sisetup{${siKeys()}}`)
+  }
   if (arOn) {
     out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{array}")
     const at = out.indexOf("\\usepackage{array}") + 1 // (after it: array.sty defines them)

@@ -1,0 +1,28 @@
+% fixture: siunitx/options-numbers
+% tier: T3
+% engine: document
+% covers: siunitx's number options in a command's [...]: group-digits (none, integer, decimal), group-minimum-digits, group-separator (\, , {,} as \mathord{,}, \;), output-decimal-marker ({,} as \mathord{,}, \cdot), exponent-product (\cdot), uncertainty-mode = separate and separate-uncertainty (value \pm uncertainty with the value's decimals, in brackets before an exponent and in a quantity); in text and in math
+% issue: #278
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+Groups \num[group-digits=none]{1234567.891011}, \num[group-digits=integer]{1234567.891011},
+\num[group-digits=decimal]{1234567.891011}, \num[group-digits]{12345}, \num[group-minimum-digits=4]{1234},
+\num[group-minimum-digits=4]{123.4567}, \num[group-separator={,}]{1234567}, \num[group-separator=\;]{98765.43210}
+and \num[group-separator = {,} , group-minimum-digits = 3]{123456.123}.
+
+Markers \num[output-decimal-marker={,}]{3.14159}, \num[output-decimal-marker=\cdot]{2.5},
+\num[output-decimal-marker={,}, group-separator={.}]{1234567.5}; products
+\num[exponent-product=\cdot]{1.5e3}, \num[exponent-product = \cdot]{e5} and \SI[exponent-product=\cdot]{6.022e23}{\per\mole}.
+
+Separate \num[uncertainty-mode=separate]{1.74 \pm 0.02}, \num[separate-uncertainty]{1.5(2)},
+\num[separate-uncertainty=true]{1.50(12)}, \num[uncertainty-mode=separate]{12.3(45)},
+\num[uncertainty-mode=separate]{100 \pm 5}, \num[uncertainty-mode=separate]{1234.5(123456)},
+\num[uncertainty-mode=separate]{-1.2(3)e4}, \num[separate-uncertainty=false]{1.2(3)}, then
+\SI[separate-uncertainty]{1.74 \pm 0.02}{\metre}, \qty[separate-uncertainty]{1.2(3)e4}{\second},
+\qty[separate-uncertainty]{5 \pm 0}{\gram} and \qtyrange[separate-uncertainty]{1.0(1)}{2.0(2)}{\volt}.
+
+In math $x = \num[output-decimal-marker={,}]{1.5}$, $\num[separate-uncertainty]{1.74 \pm 0.02}$,
+$y=\qty[separate-uncertainty, exponent-product=\cdot]{3.2(1)e-3}{\joule}$ and
+$\num[group-separator={,}]{1234567}$.
+\end{document}
