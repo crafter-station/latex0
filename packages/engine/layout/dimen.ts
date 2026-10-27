@@ -291,6 +291,65 @@ export class Scanner {
   }
 }
 
+/**
+ * e-TeX's \dimexpr (etex.ch, scan_expr), read after the \dimexpr: terms added and subtracted, each a dimension or a
+ * parenthesized expression, times an integer (then perhaps divided by one: one rounded step) or divided by one (rounded,
+ * halves away from zero); a \relax after it is consumed
+ */
+export function dimexpr(s: Scanner): number {
+  const skip = () => { for (let t = s.peek(); t?.ch === " "; t = s.peek()) s.pos = t.end }
+  const round = (a: number, d: number): number => { // a/d rounded, halves away from zero
+    if (d === 0) throw new Error("\\dimexpr: division by zero")
+    if (!Number.isSafeInteger(2 * a)) throw new Error("\\dimexpr: a product too large here")
+    const q = Math.floor((2 * Math.abs(a) + Math.abs(d)) / (2 * Math.abs(d)))
+    return (a < 0) !== (d < 0) ? -q : q
+  }
+  const factor = (): number => {
+    skip()
+    const t = s.peek()
+    if (t?.ch !== "(") return s.scanDimen().value
+    s.pos = t.end
+    const v = expr()
+    skip()
+    const c = s.peek()
+    if (c?.ch !== ")") throw new Error("\\dimexpr: missing )")
+    s.pos = c.end
+    return v
+  }
+  const term = (): number => {
+    let v = factor()
+    for (;;) {
+      skip()
+      const t = s.peek()
+      if (t?.ch === "*") {
+        s.pos = t.end
+        const n = s.scanInt().value
+        skip()
+        const u = s.peek()
+        if (u?.ch === "/") { s.pos = u.end; v = round(v * n, s.scanInt().value) }
+        else v = v * n
+      } else if (t?.ch === "/") { s.pos = t.end; v = round(v, s.scanInt().value) }
+      else return v
+    }
+  }
+  const expr = (): number => {
+    let v = term()
+    for (;;) {
+      skip()
+      const t = s.peek()
+      if (t?.ch === "+") { s.pos = t.end; v += term() }
+      else if (t?.ch === "-") { s.pos = t.end; v -= term() }
+      else break
+    }
+    if (Math.abs(v) > MAX_DIMEN) throw new Error("\\dimexpr: arithmetic overflow")
+    return v
+  }
+  const v = expr()
+  const t = s.peek()
+  if (t?.cs === "relax") s.pos = t.end
+  return v
+}
+
 /** A whole string as one dimension, e.g. "12.5pt", ".3\\textwidth". Throws on TeX errors or leftovers. */
 export function parseDimen(src: string, env: ScanEnv): number {
   const s = new Scanner(src, env)

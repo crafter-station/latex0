@@ -3,7 +3,7 @@
 
 import { type SizeCommand } from "../layout/classdata"
 import { QUAD, X_HEIGHT } from "../layout/font"
-import { parseDimen, parseGlue } from "../layout/dimen"
+import { dimexpr, parseDimen, parseGlue, type Internal, type Scanner } from "../layout/dimen"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, glue, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { vpack, type PackSpec } from "../layout/pack"
@@ -302,8 +302,11 @@ function centercrLines(text: string): { text: string; star: boolean; skip: strin
 /** \textwidth, \columnwidth and \linewidth in a width (`lineWidth`: \linewidth where it stands) */
 export function widthRegisters(cx: Ctx, lineWidth?: number) {
   const { run } = cx
-  return (name: string) => {
-    const value = name === "textwidth" ? run.minipageWidth ?? run.k.dimens.textwidth : name === "columnwidth" ? run.minipageWidth ?? run.k.dimens.columnwidth : name === "linewidth" ? lineWidth : undefined
+  // (\fboxsep and \fboxrule: 3pt and .4pt in every class; e-TeX's \dimexpr)
+  const internal = (name: string, s: Scanner): Internal | undefined => {
+    const value = name === "textwidth" ? run.minipageWidth ?? run.k.dimens.textwidth : name === "columnwidth" ? run.minipageWidth ?? run.k.dimens.columnwidth : name === "linewidth" ? lineWidth
+      : name === "fboxsep" ? 3 * 65536 : name === "fboxrule" ? 26214 : name === "dimexpr" ? dimexpr(s) : undefined
     return value === undefined ? undefined : { level: "dimen" as const, value }
   }
+  return internal
 }

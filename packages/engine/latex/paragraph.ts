@@ -156,7 +156,7 @@ export interface DocState {
   /** \@getpen{n}: the class's \@lowpenalty, \@medpenalty and \@highpenalty */
   getpen?: (n: number) => number
   /** \textwidth, \columnwidth and \linewidth (where it is known) in a length */
-  widths?: (lineWidth: number | undefined) => (name: string) => Internal | undefined
+  widths?: (lineWidth: number | undefined) => (name: string, s: Scanner) => Internal | undefined
   /** minipage number n (taken out of the source after expansion) at a size in a font: what \@iiiparbox appends */
   minipage?: (n: number, size: SizeCommand, attrs: FontAttrs, sfcodes: Record<number, number> | undefined, outer: TabularOuter) => Node[]
 }
@@ -297,6 +297,8 @@ type Piece =
   /** \mbox, \makebox[width][pos], \fbox, \framebox[width][pos] and \raisebox{lift}[height][depth]: the command, its
    *  optional arguments as given (`lift`: \raisebox's first) and its text */
   | { kind: "box"; cmd: "mbox" | "makebox" | "fbox" | "framebox" | "raisebox"; opts: (string | undefined)[]; lift?: string; inner: Piece[] }
+  /** xcolor's \colorbox[model]{bg}{text} and \fcolorbox[model]{frame}[model]{bg}{text} */
+  | { kind: "colorbox"; model?: string; spec: string; frame?: { model?: string; spec: string }; inner: Piece[] }
   /** \parbox[pos][height][inner]{width}{text} */
   | { kind: "parbox"; pos: string; height: string | null; inner: string; width: string; src: string }
   /** \hspace{skip} and \hspace*{skip}; \rule[raise]{width}{height} */
@@ -515,6 +517,16 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    // xcolor's \colorbox#1#{\color@box{#1}} and \fcolorbox (the model: what comes before the color's brace)
+    const cb = body.slice(i).match(/^\\(colorbox|fcolorbox)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}(?:\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\})?\s*\{/)
+    if (cb && (cb[1] === "fcolorbox") === (cb[5] !== undefined)) {
+      const open = i + cb[0].length - 1, j = closingBrace(body, open)
+      const inner = pieces(body.slice(open + 1, j), false, { groups: true, grouped: true })
+      flushText()
+      if (cb[1] === "colorbox") out.push({ kind: "colorbox", ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3], inner })
+      else out.push({ kind: "colorbox", ...(cb[4] ?? cb[2]) !== undefined ? { model: cb[4] ?? cb[2] } : {}, spec: cb[5]!, frame: { ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3] }, inner })
+      i = j + 1; continue
+    }
     // boxes: \@ifnextchar[ skips the spaces before an optional argument, and a macro those before an argument
     const bx = body.slice(i).match(/^\\(mbox|makebox|fbox|framebox|raisebox|parbox)(?![A-Za-z])/)
     if (bx) {
@@ -874,10 +886,43 @@ function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, 
   list.push(framed(hpack([kern(FBOXSEP, true), ...aligned, kern(FBOXSEP, true)], { exactly: width }), [kern(-FBOXRULE, true)]))
 }
 
+/**
+ * xcolor's \color@b@x: \setbox\z@\hbox{\kern\fboxsep{\set@color text}\kern\fboxsep} (the text in the current color),
+ * \ht and \dp grown by \fboxsep, then {\color{bg}\color@block{\wd\z@}{\ht\z@}{\dp\z@}\box\z@}, \color@block being
+ * {\set@color\rlap{\vrule…}} (no xcdraw). \fcolorbox: {\fboxsep\z@\color{frame}\fbox{that}} with \XC@frameb@x, its
+ * frame drawn by \boxframe over the box
+ */
+function colorboxPiece(list: Node[], p: Extract<Piece, { kind: "colorbox" }>, font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  const { doc } = ctx
+  if (!doc.color) throw new Unsupported(`\\${p.frame ? "f" : ""}colorbox without xcolor`)
+  const push = (spec: string): Node => ({ kind: "whatsit", text: `\\special{color push ${spec}}` }), pop = (): Node => ({ kind: "whatsit", text: "\\special{color pop}" })
+  const text: Node[] = []
+  appendPieces(text, p.inner, font, size, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  state.spaceFactor = 1000 // (after a box)
+  const z = hpack([kern(FBOXSEP, true), push(ctx.color ?? xcolor.normal), ...text, pop(), kern(FBOXSEP, true)])
+  z.height += FBOXSEP; z.depth += FBOXSEP
+  const bg = doc.color(p.spec, p.model)
+  const block = [push(bg), push(bg), hpack([{ kind: "rule", width: z.width, height: z.height, depth: z.depth }, ssGlue()], { exactly: 0 }), pop(), z, pop()]
+  if (!p.frame) { list.push(...block); return }
+  // \fbox with \fboxsep zero: \hbox{\kern\z@{…}\kern\z@}; \XC@frameb@x: \hbox{\lower(\fboxrule+depth)\hbox{\vbox{\kern\fboxrule
+  // \hbox{\kern\fboxrule\vbox{\kern\z@\box\kern\z@}\kern\fboxrule}\kern\fboxrule}}}, \kern-its width, \boxframe{w}{h}{d}
+  const t = hpack([kern(0, true), ...block, kern(0, true)])
+  const lowered = hpack([vpack([kern(FBOXRULE, true), hpack([kern(FBOXRULE, true), vpack([kern(0, true), t, kern(0, true)]), kern(FBOXRULE, true)]), kern(FBOXRULE, true)])])
+  lowered.shift = FBOXRULE + t.depth
+  const framedBox = hpack([lowered])
+  // \boxframe: \hbox{\lower d\vbox{\hrule\@height\fboxrule \kern-.5\fboxrule \hbox{\vrule \kern(w-2\fboxrule) \vrule} \kern-.5\fboxrule \hrule}},
+  // the rules \fboxrule wide and h+d-\fboxrule high
+  const half = -Math.trunc(FBOXRULE / 2) - (FBOXRULE % 2), hr = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
+  const side = (): Node => ({ kind: "rule", width: FBOXRULE, height: framedBox.height + framedBox.depth - FBOXRULE, depth: 0 })
+  const frame = vpack([hr(), kern(half, true), hpack([side(), kern(framedBox.width - 2 * FBOXRULE, true), side()]), kern(-Math.trunc(FBOXRULE / 2), true), hr()])
+  frame.shift = framedBox.depth
+  list.push(push(doc.color(p.frame.spec, p.frame.model)), hpack([framedBox, kern(-framedBox.width, true), hpack([frame])]), pop())
+}
+
 /** a length in text: em and ex of the current font, \fill, and the document's width registers (\linewidth only in a paragraph) */
 function lengthEnv(ctx: PieceContext, font: Font): ScanEnv {
   const widths = ctx.doc.widths?.(ctx.restricted ? undefined : lineWidthOf(ctx))
-  return { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: (name) => (name === "fill" ? { level: "glue", value: { width: 0, stretch: 65536, stretchOrder: FILL, shrink: 0, shrinkOrder: NORMAL } } : widths?.(name)) }
+  return { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: (name, s) => (name === "fill" ? { level: "glue", value: { width: 0, stretch: 65536, stretchOrder: FILL, shrink: 0, shrinkOrder: NORMAL } } : widths?.(name, s)) }
 }
 
 /** Text, formulas and footnotes into a horizontal list. */
@@ -911,6 +956,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       else list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     }
     else if (p.kind === "box") boxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "colorbox") colorboxPiece(list, p, font, size, state, ctx, attrs)
     else if (p.kind === "parbox") {
       if (!doc.parbox) throw new Unsupported("\\parbox outside a document")
       list.push(...doc.parbox(p, size, attrs, state.sfcodes, { notes: ctx.notes, club: ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
