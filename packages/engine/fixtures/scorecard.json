@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 545,
-  "exact": 544,
+  "fixtures": 547,
+  "exact": 546,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 1,
-  "glyphs": 337610
+  "glyphs": 337652
  },
  "areas": [
   {
@@ -176,8 +176,8 @@
   },
   {
    "area": "tikz",
-   "fixtures": 16,
-   "exact": 16
+   "fixtures": 18,
+   "exact": 18
   },
   {
    "area": "title",
@@ -5702,8 +5702,8 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 48,
-   "covers": "nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped, above and below, a coordinate on a line; nodes at the ends of a path and in \\tikz; a line to a circle node's border; math in a node",
+   "glyphs": 62,
+   "covers": "nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped (and turned not to be upside down), above and below, in a rotated scope, a coordinate on a line; nodes at the ends of a path and in \\tikz, a cycle after a node; a line to a circle node's border; math in a node, text= under a scope's draw=, a trailing space, transform shape, font=\\small",
    "issue": "#320"
   },
   {
@@ -5713,8 +5713,8 @@
    "tier": "T3",
    "reached": "T3",
    "status": "pass",
-   "glyphs": 48,
-   "covers": "nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped, above and below, a coordinate on a line; nodes at the ends of a path and in \\tikz; a line to a circle node's border; math in a node",
+   "glyphs": 62,
+   "covers": "nodes on paths: labels on --, -|, |-, to and rectangle (midway by default, pos=, near end), auto and swap, sloped (and turned not to be upside down), above and below, in a rotated scope, a coordinate on a line; nodes at the ends of a path and in \\tikz, a cycle after a node; a line to a circle node's border; math in a node, text= under a scope's draw=, a trailing space, transform shape, font=\\small",
    "issue": "#320"
   },
   {
@@ -5738,6 +5738,28 @@
    "glyphs": 92,
    "covers": "\\usepackage{tikz}; tikzpicture environments between paragraphs and in a paragraph: lines, -|, |-, cycle, colors, widths and dash patterns",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/node-borders-pdftex",
+   "file": "micro/tikz/node-borders-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7,
+   "covers": "lines from and to nodes on their borders: -| and |- from a node, a cycle, circle, ellipse and rectangle after a node's point, the border carried out of a path group, to between nodes; the old placements above of=, below left of= with node distance",
+   "issue": "#320"
+  },
+  {
+   "id": "tikz/node-borders",
+   "file": "micro/tikz/node-borders.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7,
+   "covers": "lines from and to nodes on their borders: -| and |- from a node, a cycle, circle, ellipse and rectangle after a node's point, the border carried out of a path group, to between nodes; the old placements above of=, below left of= with node distance",
+   "issue": "#320"
   },
   {
    "id": "tikz/nodes-pdftex",

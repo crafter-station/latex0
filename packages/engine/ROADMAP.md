@@ -273,8 +273,10 @@ draw/fill, colors and `text=`, inner/outer sep, minimum sizes, anchors (named an
 with nodes). Not yet: `text width`/`align` (the minipage), `node font`, `label=`/`pin=`, other shapes, `node also`,
 nodes in `foreach`, pics, matrices, `edge`, `remember picture`.
 Not yet (paths): `|` and other tip kinds pgf/arrows.ts lacks, arcs, curves,
-grids, plots, `\foreach`, calc's coordinates, coordinate options, x/y vectors, custom to paths, pgf's dvips
-header specials on the first page (`! /pgfHrgb…`, outside the column).
+grids, plots, `\foreach`, calc's coordinates, coordinate options, x/y vectors, custom to paths.
+Under dvips, what pgf writes outside pictures is exact too (TikZ fixtures compare specials): its shipout/background
+box on every page with the PostScript header on the first (`! /pgfHrgb…`), and the objects pgf.sty's compatibility
+arrows define in the preamble (`! /pgf1{…} bind def`, on the main vertical list after xcolor's color push).
 
 ### 4.7 Pages: the exact layout engine
 
