@@ -1,0 +1,22 @@
+% fixture: pdflatex/caption-anchor-size
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: under pdflatex, caption.sty with hypcap=false and hyperref: \caption@makeanchor's \Hy@raisedlink raises the \pdfdest by the \baselineskip of the caption's text font (font=small: 11pt; textfont=footnotesize: 9.5pt)
+% issue: #294
+\documentclass{article}
+\usepackage[hypcap=false,font={small,it}]{caption}
+\usepackage{hyperref}
+\begin{document}
+Text before.
+\begin{figure}[h]
+\centering
+\caption{Small and italic}
+\end{figure}
+\begin{table}[h]
+\captionsetup{textfont=footnotesize}
+\caption{Footnote size text}
+\centering
+\end{table}
+More text.
+\end{document}

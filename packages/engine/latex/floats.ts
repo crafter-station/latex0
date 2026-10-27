@@ -226,7 +226,7 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
     } else start.push(...sepNodes(false))
   }
   start.push(...strut())
-  if (c.anchor) start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width))
+  if (c.anchor) start.push(...spotAnchor(refs.href, "h", start.at(-1), sz.baselineskip.width)) // (\Hy@raisedlink: the text font's \baselineskip)
   lines.push(...out.lines(start, text, opts, tf.size))
   const inner: Node[] = []
   let pd: number | null = IGNORE_DEPTH
