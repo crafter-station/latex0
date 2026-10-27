@@ -22,7 +22,9 @@ import { colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
 import { frameList } from "./lists"
+import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
+import { titlePage } from "./titlepage"
 
 /** a frame as written: its options and what it holds */
 export interface FrameSource { options: string; body: string }
@@ -72,7 +74,8 @@ export function framesOf(body: string): FrameSource[] {
 
 /** What reading a frame's material needs: the class, the theme, the paragraphs' traces in the order TeX breaks them,
  *  and the frame's title and subtitle as \frametitle and \framesubtitle last set them */
-export interface FrameCtx { k: ClassOptionData; theme: Theme; decisions: ParagraphTrace[]; title?: string; subtitle?: string
+export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /** the date \today prints, in seconds since 1970 */ epoch: number
+  decisions: ParagraphTrace[]; title?: string; subtitle?: string
   /** a list ended (\@endpetrue) and no \par came since: the next paragraph loses its indentation box */
   endpe?: boolean
   /** the paragraph read last ran into a list's \begin, which ended it */
@@ -163,12 +166,12 @@ const list: FrameHandler = (cx, v, text) => {
   return rest
 }
 
-/** Text with only TEXT_COMMANDS in it (and their arguments' text): anything else throws Unsupported. */
+/** Text with only TEXT_COMMANDS in it (and their arguments' text) and \quad: anything else throws Unsupported. */
 function plainText(text: string) {
   let t = text, prev = ""
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
-  const bad = t.match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -226,8 +229,15 @@ const colorbox: FrameHandler = (cx, v, text) => {
   return text.slice(end + "\\end{beamercolorbox}".length)
 }
 
+/** \titlepage, and \maketitle (\titlepage in a frame) */
+const titlepage: FrameHandler = (cx, v, text) => {
+  if (cx.endpe) throw new Unsupported("beamer: a title page right after a list")
+  titlePage(cx, v)
+  return text.replace(/^\\(?:titlepage|maketitle)(?![A-Za-z])/, "")
+}
+
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {

@@ -58,7 +58,7 @@ export interface DocumentOptions {
 export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "pdftex" }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
   // beamer has a pipeline of its own
-  if (documentClass(prepared.src).cls === "beamer") return beamerDocument(prepared, driver)
+  if (documentClass(prepared.src).cls === "beamer") return beamerDocument(prepared, driver, epoch)
   // the graphics files' bounding boxes: the options', then the files the source writes
   const images = new Map<string, BoundingBox | Image>(Object.entries(given))
   for (const [name, contents] of prepared.files) { const bb = boundingBox(contents); if (bb) images.set(name, bb) }

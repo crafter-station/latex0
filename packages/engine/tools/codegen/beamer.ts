@@ -22,6 +22,8 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   orchid: { preamble: ["\\usecolortheme{orchid}"], files: ["beamercolorthemeorchid.sty"] },
   Madrid: { preamble: ["\\usetheme{Madrid}"], files: ["beamerthemeMadrid.sty", "beamercolorthemewhale.sty", "beamercolorthemeorchid.sty", "beamerinnerthemerounded.sty", "beamerouterthemeinfolines.sty"] },
 }
+/** colors and fonts no theme sets that templates use (\usebeamertemplate*{title page}): reported empty */
+const UNSET = ["title page"]
 /** beamer's sizes: geometry's margins (macros), the text margins and sidebars, and what \beamer@calculateheadfoot sets */
 const DIMENS = ["Gm@lmargin", "Gm@rmargin", "beamer@leftmargin", "beamer@rightmargin", "beamer@leftsidebar", "beamer@rightsidebar",
   "headheight", "headdp", "footheight", "footskip", "sidebarheight", "textheight", "textwidth", "headsep", "topmargin", "oddsidemargin"]
@@ -68,8 +70,8 @@ function run(theme: string, option: string, colors: string[], fonts: string[]): 
 
 function themeData(theme: string, cls: ClassData): BeamerThemeData {
   const { preamble, files } = THEMES[theme]
-  const colorNames = [...new Set([...names("beamercolorthemedefault.sty", "setbeamercolor"), ...files.flatMap((f) => names(f, "setbeamercolor"))])].sort()
-  const fontNames = [...new Set([...names("beamerfontthemedefault.sty", "setbeamerfont"), ...files.flatMap((f) => names(f, "setbeamerfont"))])].sort()
+  const colorNames = [...new Set([...names("beamercolorthemedefault.sty", "setbeamercolor"), ...files.flatMap((f) => names(f, "setbeamercolor")), ...UNSET])].sort()
+  const fontNames = [...new Set([...names("beamerfontthemedefault.sty", "setbeamerfont"), ...files.flatMap((f) => names(f, "setbeamerfont")), ...UNSET])].sort()
   const data: BeamerThemeData = { theme, tex: "beamer as loaded by `latex`", preamble, colors: {}, fonts: {}, options: {} }
   for (const option of OPTIONS) {
     const log = run(theme, option, colorNames, fontNames)

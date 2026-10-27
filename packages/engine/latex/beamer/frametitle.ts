@@ -17,16 +17,7 @@ import { dimen, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph } from "./colorbox"
 import { SANS, setParagraph, type FrameCtx } from "./frame"
-import { beamerFont, emptyBackground, outerColors, useColor } from "./theme"
-
-/** the size a beamer font sets (\usebeamerfont* starts from \normalfont): only sizes for now */
-function fontSize(cx: FrameCtx, name: string): SizeCommand {
-  const f = beamerFont(cx.theme, name)
-  if (f.family || f.series || f.shape || f.encoding) throw new Unsupported(`beamer font ${name} with a family, series or shape`)
-  const size = f.size ?? "normalsize"
-  if (!(size in cx.k.sizes)) throw new Unsupported(`beamer's \\${size}`)
-  return size as SizeCommand
-}
+import { emptyBackground, fontSize, outerColors, useColor } from "./theme"
 
 /** \strut: \unhcopy\strutbox at the size, a rule of no width */
 const strut = (cx: FrameCtx, size: SizeCommand): RuleNode => ({ kind: "rule", width: 0, ...cx.k.sizes[size].strut })
@@ -35,7 +26,7 @@ const strut = (cx: FrameCtx, size: SizeCommand): RuleNode => ({ kind: "rule", wi
 export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undefined): Node[] {
   const { k, theme } = cx
   if (!emptyBackground(theme, "frametitle")) throw new Unsupported("a frame title with a background")
-  const size = fontSize(cx, "frametitle")
+  const size = fontSize(theme, k, "frametitle", "normalsize")
   const font = selectFont(k, size, SANS)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
   const bs = k.sizes[size].baselineskip
@@ -60,7 +51,7 @@ export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undef
     boxParagraph(b.v, setParagraph(cx, title, { ...set, size, start: [strut(cx, size)], end: [strut(cx, size)] }), bs)
     if (subtitle !== undefined) {
       // {\usebeamerfont{framesubtitle}\usebeamercolor[fg]{framesubtitle}\strut\insertframesubtitle\strut\par}
-      const sub = fontSize(cx, "framesubtitle")
+      const sub = fontSize(theme, k, "framesubtitle", size)
       b.v.nodes.push(colorPush(useColor(theme, "framesubtitle", at).fg))
       boxParagraph(b.v, setParagraph(cx, subtitle, { ...set, size: sub, start: [strut(cx, sub)], end: [strut(cx, sub)] }), k.sizes[sub].baselineskip)
       b.v.nodes.push(colorPop())

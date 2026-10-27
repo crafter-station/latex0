@@ -4,6 +4,7 @@
 // \usebeamerfont{x} sets the NFSS attributes x sets.
 
 import type { BeamerColor, BeamerFont, BeamerThemeData } from "../../layout/beamerdata"
+import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
 import { beamerThemeFile } from "../data"
 import { Unsupported } from "../unsupported"
 
@@ -36,6 +37,16 @@ export function useColor(t: Theme, name: string, at: ColorState): ColorState {
 
 /** whether the theme leaves name's bg empty (\ifbeamercolorempty[bg]) */
 export const emptyBackground = (t: Theme, name: string): boolean => color(t, name).bg === undefined
+
+/** the size \usebeamerfont{name} leaves where `current` is in force: only sizes for now (the size is \usebeamerfont*'s
+ *  too, \normalfont keeping the size) */
+export function fontSize(t: Theme, k: ClassOptionData, name: string, current: SizeCommand): SizeCommand {
+  const f = beamerFont(t, name)
+  if (f.family || f.series || f.shape || f.encoding) throw new Unsupported(`beamer font ${name} with a family, series or shape`)
+  const size = f.size ?? current
+  if (!(size in k.sizes)) throw new Unsupported(`beamer's \\${size}`)
+  return size as SizeCommand
+}
 
 /** what \usebeamerfont{name} sets */
 export function beamerFont(t: Theme, name: string): BeamerFont {

@@ -1,0 +1,15 @@
+% fixture: beamer/titlepage-minimal
+% tier: T3
+% engine: document
+% covers: beamer: \maketitle in a frame with only a (short and long) title: the empty author and institute boxes still hold a line each, \date given; a long title broken into centered lines; at 10pt
+% issue: #290
+\documentclass[10pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\title[Short]{A long presentation title that does not fit on one line of the title page's box}
+\date{March 2024}
+\begin{document}
+\frame{\maketitle}
+\begin{frame}{Frame title}
+\titlepage
+\end{frame}
+\end{document}
