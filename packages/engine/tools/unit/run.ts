@@ -84,7 +84,7 @@ export function runFixture(path: string): UnitResult {
     base.cached = cached
     base.glyphs = expected.pages.reduce((n, p) => n + p.glyphs.length, 0)
     // the oracle's own check: the positions its box dumps imply are the DVI's (what a run without DVI relies on)
-    const fromBoxes = header.oracle === "pdflatex" ? null : compareTraces(expected, boxTrace(pages))
+    const fromBoxes = header.oracle === "pdflatex" ? null : compareTraces(expected, boxTrace(pages), { specials: header.specials })
     if (fromBoxes) return done({ status: "error", message: `oracle: positions from TeX's box dumps differ from its DVI at page ${fromBoxes.page + 1} ${fromBoxes.field}: DVI ${JSON.stringify(fromBoxes.expected)}, boxes ${JSON.stringify(fromBoxes.actual)}` })
     const { trace: actual, decisions, pages: pageDecisions, columns, notes } = adapter(src, expected, path)
     const schema = validateTrace(actual)
@@ -108,7 +108,7 @@ export function runFixture(path: string): UnitResult {
         if (bd) return done({ status: "fail", boxDivergence: { ...bd, path: `page ${k + 1}${bd.path}` }, message: `box tree differs on page ${k + 1} at ${bd.path}: ${bd.field}`, notes })
       }
     }
-    const divergence = compareTraces(expected, actual)
+    const divergence = compareTraces(expected, actual, { specials: header.specials })
     if (divergence) return done({ status: "fail", divergence, context: contextOf(expected, divergence), notes })
     return done({ status: "pass", notes })
   } catch (e) {
@@ -123,7 +123,10 @@ export function report(results: UnitResult[], verbose = false): string {
   const lines: string[] = []
   for (const r of results) {
     lines.push(`${ICON[r.status]} ${r.fixture}  ${r.tier} · ${r.engine} · ${r.glyphs} glyphs · ${r.ms}ms${r.cached ? " · cached" : ""}`)
-    if ((r.status === "fail" || r.status === "xfail") && r.divergence) {
+    if ((r.status === "fail" || r.status === "xfail") && r.divergence?.field.startsWith("special")) {
+      const d = r.divergence
+      lines.push(`    first divergence: page ${d.page + 1}, special ${d.index}, ${d.field}: TeX ${JSON.stringify(d.expected)} vs engine ${JSON.stringify(d.actual)}`)
+    } else if ((r.status === "fail" || r.status === "xfail") && r.divergence) {
       const d = r.divergence
       lines.push(`    first divergence: page ${d.page + 1}, glyph ${d.index}, ${d.field}: TeX ${JSON.stringify(d.expected)} vs engine ${JSON.stringify(d.actual)}` +
         (typeof d.expected === "number" && typeof d.actual === "number" ? ` (Δ ${d.actual - d.expected} sp)` : ""))

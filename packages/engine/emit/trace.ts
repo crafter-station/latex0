@@ -16,8 +16,13 @@ export type PageMark =
   /** (h, v) is the left end of the image box's baseline */
   | { kind: "image"; name: string; h: number; v: number; width: number; height: number; depth: number }
 
-const whatsit = (marks: PageMark[] | null, text: string, cur: Cursor, page: TracePage) =>
+/** The whatsits that reach the output file (§ 1366 out_what writes the others, \\write and \\openout, to files) */
+const SPECIAL = /^\\(?:special\{|pdf)/
+
+const whatsit = (marks: PageMark[] | null, text: string, cur: Cursor, page: TracePage) => {
+  if (SPECIAL.test(text)) page.specials.push({ text, h: cur.h, v: cur.v })
   marks?.push({ kind: "whatsit", text, h: cur.h, v: cur.v, glyphs: page.glyphs.length, rules: page.rules.length })
+}
 
 function hlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] | null) {
   let curG = 0, curGlue = 0

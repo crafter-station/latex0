@@ -21,6 +21,9 @@ Each fixture starts with `% key: value` comment lines:
 | `covers` | What the fixture exercises |
 | `issue` | Issue that owns it (optional) |
 | `xfail` | Reason it is expected to fail; an unexpected pass fails the run so the marker gets removed |
+| `oracle` | The reference TeX: `latex` (dvips, the default) or `pdflatex` |
+| `files` | Files next to the fixture that TeX reads (images) |
+| `specials` | `compare`: also compare every page's specials, in order and at their positions — the DVI's for `latex`, the specials and pdfTeX whatsits (`\pdfliteral`, `\pdfcolorstack`, `\pdfdest` …) its box dumps show for `pdflatex` |
 | `source` | Where a fixture was taken from (macro fixtures), with its license if it is not ours |
 
 A fixture whose `engine` has no adapter yet (whole documents use `document`)
