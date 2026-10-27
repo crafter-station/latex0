@@ -50,6 +50,8 @@ export interface ClassOptionData {
   singleSizes?: Record<SizeCommand, SizeData>
   /** array.sty loaded: its tabular and array, and \extrarowheight (added to \@arstrutbox's height) */
   array?: { extrarowheight: number }
+  /** the hyphenation patterns of \language (data/hyphenation/<id>.json): babel's main language's; en-us when not set */
+  patterns?: string
   /** what the paper and side options change ("a4paper,twoside"), against the class defaults */
   variants?: Record<string, { dimens: Record<string, number>; ints: Record<string, number> }>
 }
