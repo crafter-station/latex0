@@ -9,7 +9,8 @@ import { emptyBox, glue, paramGlue, penalty, type BoxNode, type Node } from "../
 import { vpack } from "../layout/pack"
 import type { Ctx } from "./context"
 import { centering as centeringShape, raggedleft, raggedright, sloppy } from "./kernel"
-import { caption, captionXref, type Captioned } from "./floats"
+import { caption, captionCall, captionXref, type Captioned } from "./floats"
+import { copyKeys, runList, setCaptionKeys } from "./captionsetup"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH } from "./vlist"
 import { preamble, tabularBox, tabularLines, vtop, type TabCol, type TabLine, type TabularEnv } from "./tabular"
@@ -35,7 +36,8 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   if (m.height !== null) throw new Unsupported("a minipage with a height")
   if (m.sub && (!cx.pre.usesSubcaption || run.captype !== m.sub)) throw new Unsupported(`a sub${m.sub} ${run.captype ? `in a ${run.captype}` : "outside a float"}`)
   // subcaption's position: b, or t after the float's \caption (\caption@ifcaption)
-  const f = run.floatCaption, pos = m.pos ?? (f.number !== null && !f.pending ? "t" : "b")
+  let f = run.floatCaption
+  const pos = m.pos ?? (f.number !== null && !f.pending ? "t" : "b")
   const font = selectFont(run.k, size, attrs), sz = run.k.sizes[size]
   let hsize: number
   try { hsize = parseDimen(m.width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, outer.lineWidth) }) } catch { throw new Unsupported(`a minipage {${m.width}}`) }
@@ -50,9 +52,25 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
   const list: Node[] = []
   let pd: number | null = IGNORE_DEPTH
   // (in it, \textwidth and \columnwidth are its \hsize, and so is \linewidth after \@parboxrestore)
-  const outerWidth = run.minipageWidth, outerTop = f.top
+  const outerWidth = run.minipageWidth, outerTop = f.top, outerKeys = f.keys, outerCaptype = run.captype, outerCaption = run.floatCaption
   run.minipageWidth = hsize
+  // caption.sty's lengths here: \linewidth (and \textwidth) the minipage's
+  const dim = (v: string) => parseDimen(v, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, hsize) })
   try {
+  // (\captionsetup in it ends with its group; outside a float, it starts from the preamble's)
+  if (!run.captype && cx.pre.caption) { run.floatCaption = f = { number: null, pending: false, sub: 0, top: null, subAbove: false, keys: cx.pre.caption.keys } }
+  if (f.keys) f.keys = copyKeys(f.keys)
+  // subcaption's \setcaptionsubtype: \caption@subtypehook (margin 0pt; list=false at the float sticks), the lists sub
+  // and sub<type>, then \caption@setanchor (with hypcap, an anchor of its own)
+  const listWas = f.keys?.list
+  const stickList = () => { if (m.sub && listWas === false) f.keys!.list = false }
+  if (m.sub && f.keys) {
+    const k = f.keys
+    k.left = 0; k.right = 0; k.width = 0
+    if (runList(cx.pre.caption!, "sub", k, "sub", dim, m.sub).position || runList(cx.pre.caption!, `sub${m.sub}`, k, "sub", dim, m.sub).position) f.top = null
+    stickList()
+    if (k.hypcap && hyper) throw new Unsupported("a subcaption with hypcap")
+  }
   const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
   // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
   // LaTeX's restart of the paragraph
@@ -65,12 +83,35 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     outer.notes.push(...p.notes, lb.trace)
     return lb.vlist
   }
-  for (const part of body.split(/(\\caption\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^{}]*\})/)) {
-    const cm = part.match(/^\\caption\s*\{([^]*)\}$/)
-    if (cm) {
+  let captionOf = false
+  const cleared = new Set<string>() // (\caption@setoptions clears the list it ran, in the group)
+  for (let part of body.split(/(\\caption(?:\*)?\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionsetup\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionof\s*\{(?:figure|table)\}\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\label\s*\{[^{}]*\})/)) {
+    // \captionsetup{keys}: for the rest of the minipage
+    const sm = part.match(/^\\captionsetup\s*\{([^]*)\}$/)
+    if (sm) {
+      if (!f.keys) throw new Unsupported("\\captionsetup without caption.sty")
+      if (setCaptionKeys(f.keys, sm[1], m.sub ? "sub" : "float", dim, run.captype ?? undefined).position) f.top = null
+      stickList()
+      continue
+    }
+    // caption.sty's \captionof{type}: \setcaptiontype*{type} (\caption@settype, the type's list, no hypcap anchor), then \caption
+    const om = part.match(/^\\captionof\s*\{(figure|table)\}([^]*)$/)
+    if (om) {
+      if (!cx.pre.caption || outerCaptype) throw new Unsupported(cx.pre.caption ? "\\captionof in a float" : "\\captionof without caption.sty")
+      // (\caption@normalsize's singlespacing: the caption and the paragraph around its \parbox single-spaced in the text)
+      if (run.k.singleSizes && run.k.sizes !== run.k.singleSizes) throw new Unsupported("\\captionof with setspace")
+      const type = om[1] as "figure" | "table"
+      run.captype = type; captionOf = true
+      run.floatCaption = f = { number: null, pending: false, sub: 0, top: null, subAbove: false, keys: f.keys }
+      if (!cleared.has(type)) runList(cx.pre.caption, type, f.keys!, "list", dim, type)
+      cleared.add(type)
+      part = `\\caption${om[2]}`
+    }
+    const call = captionCall(part)
+    if (call) {
       if (!run.captype) throw new Unsupported("\\caption in a minipage outside a float")
       if (size !== "normalsize" || attrs.ser !== "m" || attrs.shape !== "n" || attrs.fam !== "cmr") throw new Unsupported("a minipage caption in another font")
-      cap = caption(cx, run.captype, cm[1], hsize, {
+      cap = caption(cx, run.captype, call, hsize, {
         push: (x) => list.push(x),
         box: (x) => { pd = appendToVlist(list, x, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit) },
         // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits)
@@ -84,7 +125,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     const lm = part.match(/^\\label\s*\{([A-Za-z0-9:._-]+)\}$/)
     if (lm) {
       if (!cap) throw new Unsupported("a \\label in a minipage")
-      list.push(...captionXref(cx, true), labelWrite(refs, lm[1], cap.label, refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
+      list.push(...(captionOf ? [] : captionXref(cx, true)), labelWrite(refs, lm[1], cap.label, refs.href, hyper ? cap.name : refs.name)) // nameref: the caption
       // subcaption's \label: \label{key}, then \label{sub@key} with \@currentlabel \thesub<type>
       if (cap.sub !== undefined) {
         if (cx.pre.cleveref) throw new Unsupported("a subcaption's \\label with cleveref")
@@ -113,7 +154,7 @@ export function minipageAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAtt
     lines(lb.vlist)
   }
   }
-  } finally { run.minipageWidth = outerWidth; f.top = outerTop } // (the position a caption fixed in it ends with its group)
+  } finally { run.minipageWidth = outerWidth; run.captype = outerCaptype; run.floatCaption = outerCaption; outerCaption.top = outerTop; outerCaption.keys = outerKeys } // (the position a caption fixed in it ends with its group)
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   if (pos === "t") return [vtop(list)]
   const box = vpack(list)

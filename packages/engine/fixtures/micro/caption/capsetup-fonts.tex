@@ -1,0 +1,28 @@
+% fixture: caption/capsetup-fonts
+% tier: T3
+% engine: document
+% covers: caption.sty's font, labelfont and textfont keys (small, footnotesize, bf, it, sf, sc, up) as package options and \captionsetup, label font over the caption font, the colon in the label font
+% issue: #282
+\documentclass{article}
+\usepackage[font=small,labelfont=bf]{caption}
+\captionsetup[table]{font=footnotesize,labelfont={sf,bf},textfont=it}
+\begin{document}
+Text before the floats.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{A short one.}
+\label{fig:a}
+\end{figure}
+\begin{table}[h]
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\begin{figure}[h]
+\captionsetup{font={normalsize,sc},labelfont=up,textfont=up}
+\centering
+\begin{tabular}{c}Z\end{tabular}
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\end{figure}
+See Figure~\ref{fig:a}.
+\end{document}

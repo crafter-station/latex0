@@ -1,0 +1,22 @@
+% fixture: caption/capsetup-kernel-short
+% tier: T3
+% engine: document
+% covers: LaTeX's own \caption[short]{long} (no caption.sty): the lof line's short caption, an empty one still written, nameref's name with hyperref the short caption
+% issue: #282
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption[Short]{The long caption.}
+\label{fig:a}
+\end{figure}
+\begin{table}[h]
+\caption[]{An empty short one.}
+\label{tab:a}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+See \ref{fig:a} and \ref{tab:a}.
+\end{document}

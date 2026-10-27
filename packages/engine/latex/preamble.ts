@@ -4,7 +4,7 @@
 // body comes back with each theorem environment as \begin{LXtheorem}{name}.
 
 import type { ClassOptionData } from "../layout/classdata"
-import { parseGlue, type GlueSpec } from "../layout/dimen"
+import { parseDimen, parseGlue, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 import { classData, documentClass, withT1 } from "./classes"
 import { dataFont } from "./data"
@@ -15,6 +15,7 @@ import { times, setspaceCommand, setspaceOptions, withSetspace, type SetSpace } 
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import type { AlgorithmPackages } from "./algorithm"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
+import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
 import { Unsupported } from "./unsupported"
 
 export type ThmStyle = "plain" | "definition" | "remark"
@@ -44,6 +45,8 @@ export interface Preamble {
   usesCaption: boolean
   /** subcaption.sty (which loads caption): subfigure, subtable and their captions */
   usesSubcaption: boolean
+  /** caption.sty's options: package options and \captionsetup in the preamble (with caption.sty loaded) */
+  caption: CaptionSetup | null
   usesXcolor: boolean
   usesAmsthm: boolean
   amsmath: boolean
@@ -130,6 +133,31 @@ export function readPreamble(src: string): Preamble {
   let usesSiunitx = false
   let usesCaption = false
   let usesSubcaption = false
+  // caption.sty's and subcaption's options and \captionsetup, in order: keys set at once (null: a list) and whether T1
+  // was selected by then (the em and ex of their lengths)
+  const captionOps: { list: string | null; src: string; t1: boolean }[] = []
+  const loadCaption = (opts: string | null) => {
+    if (usesCaption && opts !== null) throw new Unsupported("caption loaded twice with options") // (LaTeX: Option clash)
+    usesCaption = true
+    if (opts !== null) captionOps.push({ list: null, src: opts, t1 })
+  }
+  const loadSubcaption = (opts: string | null) => {
+    if (usesSubcaption) { if (opts !== null) throw new Unsupported("subcaption loaded twice with options"); return }
+    if (!usesCaption) loadCaption(null)
+    usesSubcaption = true
+    // \caption@ExecuteOptions{subcaption}{font+=smaller,…}, then its options, each as \captionsetup[sub]
+    captionOps.push({ list: "sub", src: "font+=smaller,labelformat=parens,labelsep=space,skip=6pt,list=0,hypcap=0", t1 })
+    if (opts !== null) captionOps.push({ list: "sub", src: opts, t1 })
+  }
+  // \captionsetup and caption's options over more than one line: on one
+  pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:sub)?caption\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
+  const chars = pre.split("")
+  for (const m of pre.matchAll(/\\captionsetup\b[^{]*\{/g)) { // (spaces for newlines: the indices stay)
+    for (let j = m.index! + m[0].length, depth = 1; j < chars.length && depth; j++) {
+      if (chars[j] === "{") depth++; else if (chars[j] === "}") depth--; else if (chars[j] === "\n") chars[j] = " "
+    }
+  }
+  pre = chars.join("")
   const columnTypes: Preamble["columnTypes"] = {}
   const letterInfo: { signature?: string; address?: string; name?: string } = {}
   const newCounters: [string, string | null][] = []
@@ -166,6 +194,14 @@ export function readPreamble(src: string): Preamble {
       if (algorithm.algpseudocode) throw new Unsupported("algpseudocode loaded twice") // (LaTeX: Option clash)
       algorithm.algpseudocode = true; algorithm.noend = ap[1] === "noend"; continue
     }
+    const cpo = line.match(/^\\usepackage\[([^\]]*)\]\{(caption|subcaption)\}$/)
+    if (cpo) { if (cpo[2] === "caption") loadCaption(cpo[1]); else loadSubcaption(cpo[1]); continue }
+    // \captionsetup{keys} at once, \captionsetup[type]{keys} into the type's list
+    const cs = line.match(/^\\captionsetup\s*(?:\[([a-z]+)\])?\s*\{(.*)\}$/)
+    if (cs) {
+      if (!usesCaption || cs[1] !== undefined && !CAPTION_LISTS.includes(cs[1])) throw new Unsupported(`preamble: ${line}`)
+      captionOps.push({ list: cs[1] ?? null, src: cs[2], t1 }); continue
+    }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
@@ -186,8 +222,7 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("multirow")) usesMultirow = true
       if (names.includes("array")) usesArray = true
       if (names.includes("siunitx")) { usesSiunitx = true; usesArray = true } // (siunitx loads array)
-      if (names.includes("caption")) usesCaption = true
-      if (names.includes("subcaption")) { usesSubcaption = true; usesCaption = true } // (subcaption loads caption)
+      for (const n of names) { if (n === "caption") loadCaption(null); else if (n === "subcaption") loadSubcaption(null) } // (subcaption loads caption)
       if (names.includes("algorithm")) algorithm.algorithm = true
       if (names.includes("algpseudocode")) algorithm.algpseudocode = true
       if (unknown.length) throw new Unsupported(`preamble: ${line}`)
@@ -261,6 +296,19 @@ export function readPreamble(src: string): Preamble {
     }
   }
   if (usesArray && !k.array) k = { ...k, array: { extrarowheight: 0 } }
+  let caption: CaptionSetup | null = null
+  if (usesCaption) {
+    caption = { keys: captionDefaults(!!k.ints.twoside), lists: {} }
+    for (const op of captionOps) {
+      // a length as \setlength reads it there: in the font then, \textwidth the class's (not geometry's, which sets it later)
+      const font = (op.t1 ? k : kOT1).sizes.normalsize.font, f = loadFont(dataFont(font.name), font.at)
+      const internal = (name: string) => name === "textwidth" && !geometryOptions.length ? { level: "dimen" as const, value: classTextwidth } : undefined
+      const dim = (v: string) => parseDimen(v, { em: f.params[QUAD], ex: f.params[X_HEIGHT], internal })
+      if (op.list === null) { setCaptionKeys(caption.keys, op.src, "preamble", dim); continue }
+      setCaptionKeys(copyKeys(caption.keys), op.src, "list", () => 0, op.list.endsWith("table") ? "table" : "figure") // (\caption@checkoptions)
+      ;(caption.lists[op.list] ??= []).push(op.src)
+    }
+  }
   if (setspace) k = withSetspace(k, setspace)
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
@@ -279,7 +327,7 @@ export function readPreamble(src: string): Preamble {
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
   if (!usesAmsthm && /\\begin\{proof\}/.test(body)) throw new Unsupported("proof without amsthm")
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, usesCaption, usesSubcaption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, usesAmsthm, amsmath, enumitem, hyper, hyperNotes, cleveref, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
 }
 
 /** braces balanced in s */

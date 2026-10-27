@@ -1,0 +1,38 @@
+% fixture: caption/capsetup-position
+% tier: T3
+% engine: document
+% covers: caption.sty's position (top, bottom, above, below; auto from the preamble's figure list), skip and belowskip, list=false (no lof line), \caption* (no label, number or lof line), \caption[short]{long} (the lof line's short caption, none for an empty one), a \captionsetup position resetting the fixed one
+% issue: #282
+\documentclass{article}
+\usepackage[skip=4pt,position=top]{caption}
+\captionsetup[figure]{position=auto,belowskip=3pt}
+\begin{document}
+Text.
+\begin{table}[h]
+\begin{tabular}{c}Y\end{tabular}
+\caption[]{Top from the package option, below the table, and no lof line.}
+\end{table}
+\begin{figure}[h]
+\caption[Short]{Auto on top, a long caption that is wider than the line so it must break into a paragraph of more than one line.}
+\label{fig:a}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption*{A starred one below.}
+\end{figure}
+\begin{table}[h]
+\captionsetup{position=below,list=false}
+\caption{Below, first.}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\begin{table}[h]
+\captionsetup{position=above}
+\begin{tabular}{c}Y\end{tabular}
+\caption{Above, after the table.}
+\captionsetup{position=bottom}
+\caption{Bottom again.}
+\end{table}
+\begin{figure}[h]
+\caption*{Only a starred caption.}
+\end{figure}
+Figure~\ref{fig:a}.
+\end{document}

@@ -2,6 +2,7 @@
 // parts: the class parameters (letter changes \interlinepenalty), counters and
 // flags the kernel keeps globally.
 
+import type { CaptionKeys } from "./captionsetup"
 import type { ClassOptionData } from "../layout/classdata"
 import type { Node } from "../layout/nodes"
 
@@ -39,7 +40,7 @@ export interface RunState {
    *  `pending`, instead of stepping it again), the subcaption counter, and the position the group's first
    *  \caption fixed (\caption@fixposition: on top or not, null before), and whether a subcaption came before
    *  the float's \caption (\caption@ifsubcaption@above: position=auto is then bottom); with hyperref, hypcap's anchor name */
-  floatCaption: { number: number | null; pending: boolean; sub: number; top: boolean | null; subAbove: boolean; hypcap?: string }
+  floatCaption: { number: number | null; pending: boolean; sub: number; top: boolean | null; subAbove: boolean; hypcap?: string; /** caption.sty's keys in force */ keys?: CaptionKeys }
   /** a run-in heading (\paragraph, \subparagraph) waiting for its paragraph: what replaces the indent box
    *  (`em`: of the font where its \everypar runs, which reads \hskip -\@tempskipa's -1em) */
   runIn: ((em?: number, parindent?: number) => Node[]) | null

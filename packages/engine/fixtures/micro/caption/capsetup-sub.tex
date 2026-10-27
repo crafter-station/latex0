@@ -1,0 +1,47 @@
+% fixture: caption/capsetup-sub
+% tier: T3
+% engine: document
+% covers: subcaption's options (\usepackage[…]{subcaption} and \captionsetup[sub]: after its own font+=smaller and the rest), \captionsetup[subfigure] (over lines) after them, \captionsetup in a subfigure (labelformat=original as simple there; a position resetting the fixed one), the float's font making smaller footnotesize, the float's margin cleared for the subcaptions
+% issue: #282
+\documentclass{article}
+\usepackage[font=small,margin=20pt]{caption}
+\usepackage[labelfont=bf,labelformat=simple]{subcaption}
+\captionsetup[sub]{labelsep=colon}
+\captionsetup[subfigure]{
+  skip=2pt,
+  justification=raggedright,
+  singlelinecheck=false}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{subfigure}{0.45\textwidth}
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Setup}
+\label{fig:s}
+\end{subfigure}
+\begin{subfigure}{0.45\textwidth}
+\captionsetup{font=it,labelsep=period,labelformat=original}
+\begin{tabular}{c}Y\end{tabular}
+\caption{Period vs length of the pendulum measured in the lab}
+\end{subfigure}
+\caption{The experiment.}
+\label{fig:e}
+\end{figure}
+See \ref{fig:s} and \ref{fig:e}.
+\begin{table}[h]
+\caption{Before the subtables.}
+\begin{subtable}{0.3\textwidth}
+\caption{First}\label{tab:a}
+\begin{tabular}{ll}a & b\\\end{tabular}
+\end{subtable}
+\hfill
+\begin{subtable}[b]{0.3\textwidth}
+\captionsetup{margin=5pt,position=bottom}
+\begin{tabular}{ll}c & d\\\end{tabular}
+\caption{Second, a longer one}
+\end{subtable}
+\end{table}
+Table~\ref{tab:a}.
+\end{document}

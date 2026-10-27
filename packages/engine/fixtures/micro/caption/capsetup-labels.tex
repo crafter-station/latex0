@@ -1,0 +1,51 @@
+% fixture: caption/capsetup-labels
+% tier: T3
+% engine: document
+% covers: caption.sty's labelsep (colon, period, space, quad, endash, none), labelformat (original, simple, parens, brace, empty: no separator after it) and name (empty: original's \nobreakspace still there), in the floats and in \captionsetup[figure]; figurename and tablename (package options over lines)
+% issue: #282
+\documentclass{article}
+\usepackage[labelsep=period,
+  tablename=Tab.]{caption}
+\captionsetup[figure]{labelformat=parens,name=Fig}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Period and parens.}
+\label{fig:a}
+\end{figure}
+\begin{table}[h]
+\captionsetup{labelsep=space}
+\caption{Space.}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\begin{figure}[h]
+\captionsetup{labelsep=quad,labelformat=brace}
+\caption{Quad and brace, a long caption wider than the line so it must break into a paragraph of more than one line.}
+\end{figure}
+\begin{table}[h]
+\captionsetup{labelsep=endash,labelformat=simple,labelfont=bf}
+\caption{Endash.}
+\begin{tabular}{c}Z\end{tabular}
+\end{table}
+\begin{table}[h]
+\captionsetup{labelformat=empty}
+\caption{No label and no separator.}
+\begin{tabular}{c}W\end{tabular}
+\end{table}
+\begin{table}[h]
+\captionsetup{labelsep=none,name=Tabelle}
+\caption{None.}
+\begin{tabular}{c}V\end{tabular}
+\end{table}
+\begin{figure}[h]
+\captionsetup{name={},labelsep=colon,labelformat=original}
+\caption{An empty name, the original label format.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{name={},labelformat=simple}
+\caption{An empty name, simple.}
+\end{figure}
+See~\ref{fig:a}.
+\end{document}

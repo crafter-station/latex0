@@ -1,0 +1,25 @@
+% fixture: caption/capsetup-sizes
+% tier: T3
+% engine: document
+% covers: caption.sty's sizes in labelfont and textfont (the text's size sets the lines' \baselineskip and struts), larger and smaller, labelsep=endash under T1 (\textendash its char 21), labelsep=quad in the caption font, not the label font
+% issue: #282
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[labelfont={large,bf},textfont=footnotesize,labelsep=endash]{caption}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Short.}
+\end{figure}
+\begin{figure}[h]
+\begin{tabular}{c}X\end{tabular}
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here, and longer.}
+\end{figure}
+\begin{table}[h]
+\captionsetup{font=larger,labelfont=smaller,textfont=sl,labelsep=quad}
+\caption{A long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\end{document}

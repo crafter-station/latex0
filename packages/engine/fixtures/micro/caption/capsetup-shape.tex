@@ -1,0 +1,55 @@
+% fixture: caption/capsetup-shape
+% tier: T3
+% engine: document
+% covers: caption.sty's format=hang (the lines after the first hung by the label's width), indention, justification (centering, centerlast, raggedright, raggedleft), singlelinecheck=false (a short caption justified), margin (one and two values) and width (margin after width clears it, width clears the margins), no indention and plain's format for a single-line caption (hang's single-line format)
+% issue: #282
+\documentclass{article}
+\usepackage[format=hang,margin=10pt]{caption}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption{Hang with a long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{format=plain,indention=2em,justification=raggedright,margin={20pt,5pt}}
+\begin{tabular}{c}X\end{tabular}
+\caption{Indention with a long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{justification=centerlast,width=.7\linewidth}
+\begin{tabular}{c}X\end{tabular}
+\caption{Centerlast with a long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{justification=centering,format=hang,margin=0pt}
+\begin{tabular}{c}X\end{tabular}
+\caption{Centering hang with a long caption that is wider than the line so it must break into a paragraph of more than one line of text here.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{justification=raggedleft,singlelinecheck=false}
+\begin{tabular}{c}X\end{tabular}
+\caption{Raggedleft, short.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{indention=3em}
+\begin{tabular}{c}X\end{tabular}
+\caption{Short, so no indention.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{width=.5\linewidth,margin=30pt}
+\begin{tabular}{c}X\end{tabular}
+\caption{The margin after the width, a long caption that is wider than the line so it must break into a paragraph.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{margin=40pt,width=0pt,format=plain}
+\begin{tabular}{c}X\end{tabular}
+\caption{Margins zero after width, a long caption that is wider than the line so it must break into a paragraph.}
+\end{figure}
+\begin{figure}[h]
+\captionsetup{singlelinecheck=off,format=plain}
+\begin{tabular}{c}X\end{tabular}
+\caption{Short and justified.}
+\end{figure}
+\end{document}

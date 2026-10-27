@@ -1,0 +1,32 @@
+% fixture: caption/capsetup-hyperref
+% tier: T3
+% engine: document
+% covers: caption.sty with hyperref: hypcap=false (no anchor at the float's start, \hyper@@anchor before the caption's text, figure.n for \label), in the preamble and in \captionsetup[table]; \caption* and \caption[short] (nameref's name the short caption) with and without hypcap
+% issue: #282
+\documentclass{article}
+\usepackage{caption}
+\usepackage{hyperref}
+\captionsetup[table]{hypcap=false,labelfont=bf}
+\begin{document}
+Text.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}X\end{tabular}
+\caption[Short title]{With hypcap, a short caption.}
+\label{fig:a}
+\end{figure}
+\begin{table}[h]
+\caption[Its short title]{Without hypcap.}
+\label{tab:a}
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\begin{table}[h]
+\begin{tabular}{c}Y\end{tabular}
+\caption*{Starred without hypcap.}
+\end{table}
+\begin{figure}[h]
+\begin{tabular}{c}Z\end{tabular}
+\caption*{Starred with hypcap.}
+\end{figure}
+See \ref{fig:a} and \ref{tab:a}.
+\end{document}
