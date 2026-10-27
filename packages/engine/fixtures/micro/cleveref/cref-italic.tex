@@ -1,0 +1,25 @@
+% fixture: cleveref/cref-italic
+% tier: T3
+% engine: document
+% covers: \cref of equations in italic text, their names from \Crefname (\MakeLowercase of the first token: no kern between e and q after it), a theorem's from its title (\MakeLowercase, \MakeUppercase); the label format's \textup{(n)} with \check@icl and \check@icr around it, alone, before a conjunction within a group and between groups, and in a range
+% issue: #318
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\usepackage{cleveref}
+\Crefname{equation}{Eq.}{Eqs.}
+\newtheorem{fact}{Fact}
+\begin{document}
+\begin{equation}\label{e1}
+a = b
+\end{equation}
+\begin{equation}\label{e2}
+c = d
+\end{equation}
+\begin{equation}\label{e3}
+e = f
+\end{equation}
+\begin{fact}\label{f1}
+A fact.
+\end{fact}
+\emph{See \cref{f1}, \Cref{f1}, \cref{e1} here, \cref{e1,nowhere} there, \cref{e1,e3} and \cref{e1,e2,e3}, \cref{e3,e1,x,y} also \crefrange{e1}{e3} now.}
+\end{document}

@@ -741,8 +741,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const toPieces = (xs: CrefOut[]): Piece[] => {
         const ps: Piece[] = []
         for (const x of xs) {
-          const last = ps.at(-1)
-          if (x.t === "text") { if (last?.kind === "text") last.src += x.s; else ps.push({ kind: "text", src: x.s }) }
+          if (x.t === "text") {
+            // (a run of characters goes on into the next text, but not over a name's case change)
+            x.s.split("\u0000").forEach((t, i) => { const prev = ps.at(-1); if (i === 0 && prev?.kind === "text") prev.src += t; else ps.push({ kind: "text", src: t }) })
+          }
           else if (x.t === "tie") ps.push({ kind: "tie" })
           else if (x.t === "qq") ps.push({ kind: "qq" })
           else if (x.t === "link") ps.push({ kind: "creflink", key: x.key, inner: toPieces(x.out) })

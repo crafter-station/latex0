@@ -50,7 +50,11 @@ const COPIES: [string, string][] = [
 ]
 
 const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
+/** \MakeUppercase or \MakeLowercase of a name's first token: the rest after it is a new run of characters (no
+ *  ligature or kern across, BREAK) */
+const BREAK = "\u0000"
+const MakeUppercase = (s: string) => s.charAt(0).toUpperCase() + BREAK + s.slice(1)
+const MakeLowercase = (s: string) => s.charAt(0).toLowerCase() + BREAK + s.slice(1)
 
 /** What \cref and friends print with: the options and each type's names, as \begin{document} leaves them */
 export class CrefSetup {
@@ -67,7 +71,7 @@ export class CrefSetup {
       o[variant] = [s, p]
       const other = variant === "cref" ? "Cref" : "cref"
       if (!o[other]) {
-        const change = variant === "cref" ? upperFirst : capitalise ? (x: string) => x : lowerFirst
+        const change = variant === "cref" ? MakeUppercase : capitalise ? (x: string) => x : MakeLowercase
         o[other] = s === "" ? [s, p] : [change(s), change(p)]
       }
       own.set(type, o)
@@ -80,7 +84,7 @@ export class CrefSetup {
       if (!d.crefNamed) continue
       if (!/^[A-Za-z]*$/.test(d.title)) throw new Unsupported(`cleveref: the name of ${type}`)
       const t = d.title
-      preamble.set(type, t === "" ? { cref: ["", null], Cref: ["", null] } : { cref: [capitalise ? upperFirst(t) : lowerFirst(t), null], Cref: [upperFirst(t), null] })
+      preamble.set(type, t === "" ? { cref: ["", null], Cref: ["", null] } : { cref: [capitalise ? MakeUppercase(t) : MakeLowercase(t), null], Cref: [MakeUppercase(t), null] })
     }
     for (const [type, [s, p]] of Object.entries(ENGLISH)) {
       // (abbreviated, unless noabbrev: eq. and fig.)
@@ -129,7 +133,7 @@ export class CrefSetup {
 
 /** What a reference prints: text in the current font, \nobreakspace, a bold ?? (\nfss@text{\reset@font\bfseries ??}),
  *  a link to a label's anchor around its contents (\cref@hyperlink), \textup{…} */
-export type CrefOut = { t: "text"; s: string } | { t: "tie" } | { t: "qq" } | { t: "link"; key: string; out: CrefOut[] } | { t: "textup"; src: string; out: CrefOut[] }
+export type CrefOut = { t: "text"; s: string /* (BREAK: a new run) */ } | { t: "tie" } | { t: "qq" } | { t: "link"; key: string; out: CrefOut[] } | { t: "textup"; src: string; out: CrefOut[] }
 
 type Family = "cref" | "Cref"
 type Pos = "" | "@first" | "@middle" | "@last"
