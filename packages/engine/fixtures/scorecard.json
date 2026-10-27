@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 298,
-  "exact": 296,
+  "fixtures": 304,
+  "exact": 302,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 263760
+  "glyphs": 265796
  },
  "areas": [
   {
@@ -161,8 +161,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 21,
-   "exact": 19
+   "fixtures": 27,
+   "exact": 25
   },
   {
    "area": "text",
@@ -267,6 +267,72 @@
    "glyphs": 54,
    "covers": "snippet in a minimal article: Code block with syntax highlighting",
    "issue": "#30"
+  },
+  {
+   "id": "templates/corpus-cover-letter",
+   "file": "macro/templates/corpus-cover-letter.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 320,
+   "covers": "the starter-corpus cover letter (corpus/cover-letter.tex): 11pt letter class with geometry margin=1in, \\address, \\signature, \\opening and \\closing",
+   "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-cv",
+   "file": "macro/templates/corpus-cv.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 343,
+   "covers": "the starter-corpus CV (corpus/cv.tex): 11pt article with geometry margin=0.8in, enumitem, hyperref's \\href, titlesec's \\titleformat with \\titlerule, a centered \\LARGE header, tabular, itemize, \\hfill dates",
+   "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-homework",
+   "file": "macro/templates/corpus-homework.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 247,
+   "covers": "the starter-corpus homework (corpus/homework.tex): fancyhdr's \\fancyhead with \\pagestyle{fancy}, sections, an enumerate of problems, align* with \\frac, \\int and \\sum",
+   "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-math-notes",
+   "file": "macro/templates/corpus-math-notes.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 248,
+   "covers": "the starter-corpus math notes (corpus/math-notes.tex): amsthm's \\newtheorem with \\theoremstyle, theorem, lemma, definition and proof, \\DeclareMathOperator, gather and multline, cleveref's \\cref",
+   "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-paper",
+   "file": "macro/templates/corpus-paper.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 664,
+   "covers": "the starter-corpus paper (corpus/paper.tex): 11pt article, \\maketitle with \\and and \\today, abstract, \\cite into thebibliography, \\url, an equation with \\left\\frac\\right and \\eqref, a [t] figure with the real blocks.png at 0.8\\textwidth, an [h] table with \\hline rules",
+   "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-recipe",
+   "file": "macro/templates/corpus-recipe.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 214,
+   "covers": "the starter-corpus recipe (corpus/recipe.tex): xcolor's \\textcolor, enumitem lists, sections and subsections, \\textdegree",
+   "issue": "#272"
   },
   {
    "id": "templates/demo",
