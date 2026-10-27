@@ -4,8 +4,8 @@
 // classes (§ 1151), rule 5's bin demotion (§§ 728–729); make_ord's kerns and
 // ligatures (§§ 749–753); characters with their italic corrections (§ 755);
 // \overline and \underline (§§ 734–735);
-// operators with and without limits (§§ 749–750); generalized fractions with
-// null delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
+// operators with and without limits (§§ 749–750); generalized fractions and
+// their delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
 // 18a–f); and the inter-atom spacing and penalties of the second pass
 // (§§ 760–767); \left and \right with var_delimiter's variants and extensible
 // characters (§§ 706–714, 762); e-TeX's \middle; radicals (§ 737); accents (§§ 738–742); \nonscript (§ 732).
@@ -36,6 +36,8 @@ export type Field =
   /** \hbox{$\m@th<style>{…}$}, as \mathpalette's \mathsm@sh and \mathph@nt set it: `list` from the style node on; then
    *  \smash's \finsm@sh (zero height, depth or both) or \phantom's \finph@nt (an empty box with its height and depth, width) */
   | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh" }
+  /** \copy\strutbox: \hbox{\vrule height.7\baselineskip depth.3\baselineskip width\z@} (MathEnv.strut) */
+  | { kind: "strut" }
   | null
 /** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal;
  *  `vcenter` makes it a vcenter noad (§ 687) and `line` an over or under noad (§ 687), ords for spacing */
@@ -62,7 +64,7 @@ export interface NonscriptItem { kind: "nonscript" }
 /** A choice node (§ 689, \\mathchoice): the first pass puts in its place the list for its style (§ 731) */
 export interface ChoiceItem { kind: "choice"; choose: (style: number) => MItem[] }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
-export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
+export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[]; /** …withdelims */ left?: Delimiter; right?: Delimiter }
 /** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
 export interface StyleNode { kind: "style"; style: number }
 /** A delimiter field (§ 683): small and large variants; all zero is the null delimiter. */
@@ -120,6 +122,8 @@ export interface MathEnv {
   /** array.sty's \array: \hskip1sp before each cell's formula, and no ${} from its \@arraycr */
   arrayPackage?: boolean
   arstrut?: { height: number; depth: number }
+  /** \strutbox's height and depth */
+  strut?: { height: number; depth: number }
   /** called for a character the font lacks (char_warning) */
   missing?: (fam: number, c: number) => void
 }
@@ -271,7 +275,14 @@ class Converter {
           if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
         } else p = []
       } else if (!n) p = []
-      else if (n.kind === "big" || n.kind === "hmath") { const b = n.kind === "big" ? this.big(n) : this.hmath(n); q.nucleus = { kind: "box", box: b }; p = [b] }
+      else if (n.kind === "big" || n.kind === "hmath" || n.kind === "strut") {
+        let b: BoxNode
+        if (n.kind === "strut") {
+          if (!this.env.strut) throw new Error("math: \\strut without the \\strutbox")
+          b = hpack([{ kind: "rule", width: 0, height: this.env.strut.height, depth: this.env.strut.depth }])
+        } else b = n.kind === "big" ? this.big(n) : this.hmath(n)
+        q.nucleus = { kind: "box", box: b }; p = [b]
+      }
       else if (n.kind === "array") {
         const b = this.array(n)
         if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
@@ -431,7 +442,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "big" || field.kind === "hmath" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }
@@ -633,7 +644,7 @@ class Converter {
     return delta
   }
 
-  /** make_fraction (§§ 743–748) with null delimiters. */
+  /** make_fraction (§§ 743–748) */
   makeFraction(q: FractionNoad): Node[] {
     const t = q.thickness ?? this.ruleThickness
     let x = this.cleanBox({ kind: "mlist", list: q.num }, numStyle(this.curStyle))
@@ -662,9 +673,9 @@ class Converter {
     v.list = t === 0
       ? [x, kern((shiftUp - x.depth) - (z.height - shiftDown)), z]
       : [x, kern((shiftUp - x.depth) - (this.axisHeight + delta)), { kind: "rule", width: null, height: t, depth: 0 }, kern((this.axisHeight - delta) - (z.height - shiftDown)), z]
-    // § 748: var_delimiter of a null delimiter is an empty box of \\nulldelimiterspace, centered on the axis
-    const nullDelimiter = () => { const b = emptyBox("hlist", this.env.nulldelimiterspace); b.shift = half(0) - this.axisHeight; return b }
-    return [hpack([nullDelimiter(), v, nullDelimiter()])]
+    // § 748: the delimiters at least delim1 (display) or delim2 tall (a null delimiter: an empty box of \\nulldelimiterspace)
+    const size = this.mathsy(display ? 20 : 21, this.curSize), none: Delimiter = { smallFam: 0, smallChar: 0, largeFam: 0, largeChar: 0 }
+    return [hpack([this.varDelimiter(q.left ?? none, this.curSize, size), v, this.varDelimiter(q.right ?? none, this.curSize, size)])]
   }
 
   /** make_scripts (§§ 756–759): attach the scripts of q to its hlist p. */

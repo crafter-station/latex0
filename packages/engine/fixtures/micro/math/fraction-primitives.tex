@@ -1,0 +1,11 @@
+% fixture: math/fraction-primitives
+% tier: T3
+% engine: document
+% covers: TeX's generalized fractions without amsmath: \over, \atop, \above with a thickness, \overwithdelims, \atopwithdelims, \abovewithdelims, LaTeX's \choose, \brack and \brace, in text, scripts and displays, \over in \left … \middle … \right, a script after \middle (an empty nucleus)
+% issue: #330
+\documentclass{article}
+\begin{document}
+Binomials ${n \choose k}$, ${n\brack k}$ and ${n\brace k}$, fractions ${1 \over 2}$, ${a \atop b}$, ${x \above 1pt y}$ and
+${p \overwithdelims() q}$, ${p \atopwithdelims\langle\rangle q}$, ${p \abovewithdelims[] 0.8pt q}$, and $2^{n \choose 2}$.
+\[ {n+1 \choose k} = {n \choose k} + {n \choose k-1}, \qquad \left( a \over b \middle| c \atop d \right), \quad \left\{ x \middle| ^{2} y \right\} \]
+\end{document}

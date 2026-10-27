@@ -12,10 +12,10 @@
 
 import type { MathData } from "./data"
 import { Scanner, type GlueSpec } from "../layout/dimen"
-import { charNode, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
+import { charNode, filGlue, fillGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import type { Font } from "../layout/font"
-import { delimiterOf, groupField, groupNoad, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
+import { delimiterOf, groupField, groupNoad, type FractionNoad, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
@@ -49,6 +49,17 @@ const RIGHT_DELIMS = ["rbrack", "}", "rbrace", "rangle", "rceil", "rfloor", "rgr
 const ACCENTS: Record<string, number> = {
   acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e, dot: 0x705f,
   widetilde: 0x0365, widehat: 0x0362, mathring: 0x7017,
+}
+/** amsmath's \genfrac's: delimiters, thickness, style */
+const GENFRACS: Record<string, [string, string, string, string]> = {
+  dfrac: ["", "", "", "0"], tfrac: ["", "", "", "1"], binom: ["(", ")", "0pt", ""] /* (\z@) */, dbinom: ["(", ")", "0pt", "0"], tbinom: ["(", ")", "0pt", "1"],
+}
+/** the generalized fraction primitives (§ 1178) and LaTeX's \choose, \brack and \brace: thickness default, zero or
+ *  scanned; delimiters scanned ("") or given */
+const FRACTION_PRIMITIVES: Record<string, ["over" | "atop" | "above", string | null]> = {
+  over: ["over", null], atop: ["atop", null], above: ["above", null],
+  overwithdelims: ["over", ""], atopwithdelims: ["atop", ""], abovewithdelims: ["above", ""],
+  choose: ["atop", "()"], brack: ["atop", "[]"], brace: ["atop", "\\{\\}"],
 }
 /** amsmath's capitalized accents: the accent (\def\Hat{\hat}) */
 const ACCENT_ALIASES = ["Hat", "Check", "Tilde", "Acute", "Grave", "Dot", "Ddot", "Breve", "Bar", "Vec"]
@@ -184,7 +195,7 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
   const macroOf = (cs: string) => DELIMITER_MACROS[cs] ?? (opts.amsmath ? AMS_DELIMITERS[cs] : undefined) ?? cs
   const mathcode = (ch: string) => opts.mathcodes?.[ch.charCodeAt(0)] ?? data.mathcodes[ch.charCodeAt(0)]
   let pos = 0
-  const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && x.noad !== "fraction"
+  const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && typeof x.noad === "number" // (ord … inner, § 1176)
 
   /** An undelimited macro argument: a balanced group without its braces, or one token. */
   const argument = (): Token[] => {
@@ -302,6 +313,22 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
     const num = argument(), den = argument()
     return groupField([{ noad: "fraction", thickness: null, num: sub(num), denom: sub(den) }])
   }
+  /** scan_dimen (§ 448) on the characters that follow; em from the current font */
+  const dimension = (after: string): number => {
+    let text = ""
+    const starts: number[] = []
+    for (let i = pos; i < toks.length; i++) {
+      const x = toks[i]
+      starts.push(text.length)
+      if ("ch" in x && /^[-+.,0-9A-Za-z]$/.test(x.ch)) text += x.ch
+      else break
+    }
+    const sc = new Scanner(text, { em: opts.em ?? 0, ex: 0 })
+    const v = sc.scanDimen().value
+    if (sc.errors.length || (opts.em === undefined && /em/.test(text.slice(0, sc.pos))) || /ex/.test(text.slice(0, sc.pos))) throw new Error(`math: \\${after} ${text.slice(0, sc.pos)}`)
+    while (pos < toks.length && starts[0] !== undefined && starts.shift()! < sc.pos) pos++
+    return v
+  }
   /** scan_math (§ 1151): the field a script takes. */
   const scanMath = (): Field => {
     const t = toks[pos++]
@@ -339,20 +366,43 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
     return opts.amsmath ? { noad: ORD, nucleus: { kind: "mlist", list: [item] }, sup: null, sub: null } : item
   }
   /** sub_sup (§ 1176): attach to the tail noad, or to a new dummy noad. */
-  const subSup = (out: MItem[], which: "sup" | "sub", field: () => Field) => {
-    let tail = out[out.length - 1]
+  const subSup = (out: MItem[], which: "sup" | "sub", field: () => Field, head = 0) => {
+    let tail = out.length > head ? out[out.length - 1] : undefined // (after \over the list starts again)
     if (!scriptsAllowed(tail) || tail[which] !== null) { tail = { noad: ORD, nucleus: null, sup: null, sub: null }; out.push(tail) }
     tail[which] = field()
   }
 
   const list = (inGroup: boolean, inFence = false): MItem[] => {
-    const out: MItem[] = []
+    let out: MItem[] = []
+    // an incompleat noad (§ 1181): \over and its kin make what came before (since the last \middle) the numerator, what
+    // follows the denominator; fin_mlist (§ 1184) completes it
+    let incompleat: (Omit<FractionNoad, "num" | "denom"> & { at: number }) | null = null, segment = 0
+    const done = (): MItem[] => {
+      if (!incompleat) return out
+      const { at, ...f } = incompleat
+      incompleat = null
+      return [...out.slice(0, segment), { ...f, num: out.slice(segment, at), denom: out.slice(at) }]
+    }
     for (;;) {
       const t = toks[pos++]
-      if (!t) { if (inGroup || inFence) throw new Error(inFence ? "math: missing \\right" : "math: missing }"); return out }
-      if ("cs" in t && t.cs === "right") { if (!inFence) throw new Error("math: Extra \\right"); return out }
+      if (!t) { if (inGroup || inFence) throw new Error(inFence ? "math: missing \\right" : "math: missing }"); return done() }
+      if ("cs" in t && t.cs === "right") { if (!inFence) throw new Error("math: Extra \\right"); return done() }
       if ("cs" in t && t.cs === "relax") continue // (no noad)
-      if ("cs" in t && t.cs === "middle") { if (!inFence) throw new Error("math: Extra \\middle"); out.push({ noad: "middle", delim: delimiter("middle") }); continue } // e-TeX
+      if ("cs" in t && t.cs === "middle") { // e-TeX: it ends the group so far (fin_mlist), a fraction in it too
+        if (!inFence) throw new Error("math: Extra \\middle")
+        out = done()
+        out.push({ noad: "middle", delim: delimiter("middle") }); segment = out.length; continue
+      }
+      if ("cs" in t && t.cs in FRACTION_PRIMITIVES) { // math_fraction (§ 1181)
+        if (incompleat) throw new Error("math: Ambiguous; you need another { and }")
+        const [kind, delims] = FRACTION_PRIMITIVES[t.cs]
+        if (delims) toks.splice(pos, 0, ...tokenize(delims)) // \choose: \atopwithdelims()
+        const left = delims !== null ? delimiter(t.cs) : undefined
+        const right = left ? delimiter(t.cs) : undefined
+        const thickness = kind === "above" ? dimension(t.cs) : kind === "atop" ? 0 : null
+        incompleat = { noad: "fraction", thickness, at: out.length, ...(left ? { left, right } : {}) }
+        continue
+      }
       if ("cs" in t && t.cs === "begin") { // amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix, Vmatrix
         const { name, body } = environment()
         if (!opts.amsmath || !(name in MATRICES)) throw new Error(`math: unsupported environment ${name}`)
@@ -374,16 +424,16 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
       }
       if ("ch" in t) {
         const c = t.ch
-        if (c === "}") { if (!inGroup) throw new Error("math: extra }"); return out }
+        if (c === "}") { if (!inGroup) throw new Error("math: extra }"); return done() }
         if (c === "{") { out.push(groupNoad(group(() => list(true)))); continue }
-        if (c === "^" || c === "_") { subSup(out, c === "^" ? "sup" : "sub", scanMath); continue }
+        if (c === "^" || c === "_") { subSup(out, c === "^" ? "sup" : "sub", scanMath, incompleat?.at); continue }
         if (c === "'") { // latex.ltx \active@math@prime
           let n = 1
           while (isCh(toks[pos], "'")) { n++; pos++ }
           const primes = Array.from({ length: n }, () => mathCharNoad(data.symbols.prime))
           let more: MItem[] = []
           if (isCh(toks[pos], "^")) { pos++; more = sub(argument()) }
-          subSup(out, "sup", () => groupField([...primes, ...more]))
+          subSup(out, "sup", () => groupField([...primes, ...more]), incompleat?.at)
           continue
         }
         const code = mathcode(c)
@@ -489,6 +539,8 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         out.push({ noad: big[2] === "l" ? 4 : big[2] === "r" ? 5 : big[2] === "m" ? 3 : ORD, nucleus, sup: null, sub: null })
         continue
       }
+      if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox
+      if (t.cs === "hfill" || t.cs === "hfil") { out.push(t.cs === "hfill" ? fillGlue() : filGlue()); continue }
       if (t.cs === "mkern") { out.push({ kind: "mukern", width: t.spec!.width }); continue }
       if (t.cs === "mskip") { out.push({ kind: "muglue", spec: t.spec! }); continue }
       if (t.cs === "vdots" || t.cs === "ddots") { // fontmath.ltx: dots in \hbox'es of the current font, \p@ apart
@@ -544,6 +596,24 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
+      else if (opts.amsmath && (cs in GENFRACS || cs === "genfrac")) { // \genfrac[4] … \@genfrac: {#1{\begingroup#4\endgroup#2#3\relax#5}}
+        const [l, r, th, st] = cs === "genfrac" ? [argument(), argument(), argument(), argument()] : GENFRACS[cs].map((x) => tokenize(x))
+        if (!l.length !== !r.length) throw new Error("math: \\genfrac with one delimiter")
+        let left: Delimiter | undefined, right: Delimiter | undefined, thickness: number | null = null
+        if (l.length) { toks.splice(pos, 0, ...l, ...r); left = delimiter(cs); right = delimiter(cs) }
+        if (th.length) { toks.splice(pos, 0, ...th, { cs: "relax" }); thickness = dimension(cs); if (!("cs" in toks[pos] && (toks[pos] as { cs: string }).cs === "relax")) throw new Error(`math: \\${cs} thickness`); pos++ } // (\@@above#3\relax)
+        const style = st.map((x) => ("ch" in x ? x.ch : "?")).join("")
+        if (!/^[0-9]?$/.test(style)) throw new Error(`math: \\${cs} style ${style}`) // (\@mathstyle: \ifcase#1)
+        const num = argument(), den = argument()
+        const frac: FractionNoad = { noad: "fraction", thickness, num: sub(num), denom: sub(den), ...(left ? { left, right } : {}) }
+        out.push(groupNoad([...(style ? [{ kind: "style" as const, style: 2 * Math.min(Number(style), 3) }] : []), groupNoad([frac])]))
+      } else if (opts.amsmath && cs === "cfrac") { // \cfrac[#1]#2#3: {\displaystyle\frac{\strut\ifx r#1\hfill\fi#2\ifx l#1\hfill\fi}{#3}}\kern-\nulldelimiterspace
+        let side = "c"
+        if (isCh(toks[pos], "[")) { const end = toks.findIndex((x, i) => i > pos && isCh(x, "]")); side = toks.slice(pos + 1, end).map((x) => ("ch" in x ? x.ch : "?")).join(""); pos = end + 1 }
+        const num = argument(), den = argument()
+        const n = sub([{ cs: "strut" }, ...(side === "r" ? [{ cs: "hfill" }] : []), ...num, ...(side === "l" ? [{ cs: "hfill" }] : [])])
+        out.push(groupNoad([{ kind: "style", style: 0 }, groupNoad([{ noad: "fraction", thickness: null, num: n, denom: sub(den) }])]), kern(-data.dimens.nulldelimiterspace, true))
+      }
       else if (cs === "sqrt") { // \sqrtsign: \radical"270370; \sqrt[n] is \root n\of
         if (isCh(toks[pos], "[")) { out.push(root()); continue }
         out.push({ noad: ORD, radical: delimiterOf(0x270370), nucleus: scanMath(), sup: null, sub: null })

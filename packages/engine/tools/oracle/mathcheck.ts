@@ -41,6 +41,9 @@ type Nucleus =
   | { kind: "group"; items: Item[] } | { kind: "frac"; num: Item[]; den: Item[] }
   | { kind: "op"; name: string; limits?: "limits" | "nolimits" }
   | { kind: "fence"; left: string; items: Item[]; right: string; /** e-TeX's \middle and what follows it */ middle?: { delim: string; items: Item[] } }
+  /** a generalized fraction: {num \over den} and its kin (\above's thickness, …withdelims' delimiters), amsmath's \genfrac
+   *  and the commands it defines, \cfrac */
+  | { kind: "genfrac"; cs: string; num: Item[]; den: Item[]; delims?: [string, string]; thickness?: string; style?: string }
   /** a math accent and its argument (with amsmath none inside: \macc@nested) */
   /** \big … \Biggr and a delimiter */
   | { kind: "big"; cs: string; delim: string }
@@ -81,6 +84,9 @@ const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "b
 const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby"]
 const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
 const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
+/** the generalized fraction primitives and LaTeX's \choose, \brack, \brace; amsmath's \genfrac family */
+const PRIMITIVE_FRACTIONS = ["over", "atop", "above", "overwithdelims", "atopwithdelims", "abovewithdelims", "choose", "brack", "brace"]
+const AMS_FRACTIONS = ["genfrac", "dfrac", "tfrac", "binom", "dbinom", "tbinom", "cfrac"]
 const ACCENTS = "hat check tilde acute grave dot ddot breve bar vec mathring widehat widetilde".split(" ")
 const AMS_ACCENTS = "Hat Check Tilde Acute Grave Dot Ddot Breve Bar Vec".split(" ")
 
@@ -100,6 +106,13 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
     if (depth < 3 && x >= 0.5 && x < 0.55) {
       const cs = pick(ams() ? [...ACCENTS, ...AMS_ACCENTS] : ACCENTS)
       for (;;) { const arg = script(depth); if (!ams() || !/\\(hat|check|tilde|acute|grave|dot|ddot|breve|bar|vec|mathring|Hat|Check|Tilde|Acute|Grave|Dot|Ddot|Breve|Bar|Vec)(?![a-zA-Z])/.test(arg.kind === "group" ? print(arg.items) : "")) return { kind: "accent", cs, arg } }
+    }
+    if (depth < 3 && x >= 0.55 && x < 0.6) {
+      const cs = pick([...PRIMITIVE_FRACTIONS, ...(ams() ? AMS_FRACTIONS : [])])
+      const delims: [string, string] | undefined = cs.endsWith("withdelims") || (cs === "genfrac" && r() < 0.6) ? [pick(FENCES), pick(FENCES)] : undefined
+      return { kind: "genfrac", cs, num: list(depth + 1, 3), den: list(depth + 1, 3), delims,
+        thickness: cs.startsWith("above") || cs === "genfrac" ? pick(["", "0pt", "0.4pt", "1pt", "2.5pt"].slice(cs === "genfrac" ? 0 : 1)) : undefined,
+        style: cs === "genfrac" ? pick(["", "0", "1", "2", "3"]) : cs === "cfrac" ? pick(["", "[l]", "[r]", "[c]"]) : undefined }
     }
     if (x >= 0.47 && x < 0.5) return { kind: "big", cs: pick(["big", "Big", "bigg", "Bigg"]) + pick(["", "l", "r", "m"]), delim: pick(FENCES) }
     if (depth < 3 && x < 0.28 && ams()) { // amsmath's matrix environments: rows of cells, sometimes ragged, sometimes a final \\
@@ -146,7 +159,7 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
   return () => list(0, 8)
 }
 
-/** a group or alphabet whose list is a lone accent noad (or such a group, in turn): the noad replaces its ord */
+/** a group, alphabet or \mathord whose list is a lone accent noad (or such a group, in turn): the noad replaces its ord */
 function loneAccent(n: Nucleus | null): boolean {
   const inside = n?.kind === "group" || n?.kind === "alphabet" ? n.items : n?.kind === "cmd" && n.cs === "mathord" ? n.arg! : []
   return inside.length === 1 && inside[0].kind === "atom" && (inside[0].nucleus?.kind === "accent" || loneAccent(inside[0].nucleus))
@@ -167,6 +180,10 @@ function print(items: Item[]): string {
       // see; \@sqrt strips the braces)
       : n.kind === "line" && n.index ? `\\sqrt[${/[\]&]/.test(print(n.index)) ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "line" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : n.cs === "sqrt" && n.arg.kind === "char" && n.arg.code === 91 ? `{${arg(n.arg)}}` : ` ${arg(n.arg)}`}`
+      : n.kind === "genfrac" ? (n.cs === "genfrac" ? `\\genfrac{${n.delims?.[0] ?? ""}}{${n.delims?.[1] ?? ""}}{${n.thickness}}{${n.style}}{${print(n.num)}}{${print(n.den)}}`
+        : n.cs === "cfrac" ? `\\cfrac${n.style}{${print(n.num)}}{${print(n.den)}}`
+        : AMS_FRACTIONS.includes(n.cs) ? `\\${n.cs}{${print(n.num)}}{${print(n.den)}}`
+        : `{${print(n.num)}\\${n.cs}${n.delims ? n.delims.join("") : ""}${n.thickness ? ` ${n.thickness}` : ""} ${print(n.den)}}`)
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "big" ? `\\${n.cs}${n.delim}`
       : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
