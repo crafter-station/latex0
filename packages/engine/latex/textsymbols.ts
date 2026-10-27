@@ -8,7 +8,7 @@
 import type { ClassOptionData, SizeCommand } from "../layout/classdata"
 import { parseDimen } from "../layout/dimen"
 import { QUAD, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
-import { appendText as appendCodes } from "../layout/hmode"
+import { appendText as appendCodes, type HState } from "../layout/hmode"
 import { accentHyphens, appendText, SYMBOLS as LETTERS } from "./encodings"
 import { charNode, glue, kern, penalty, ssGlue, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
