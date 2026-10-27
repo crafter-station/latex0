@@ -1,0 +1,12 @@
+% fixture: beamer/frametitle-subtitle
+% tier: T3
+% engine: document
+% covers: beamer: a frame title and subtitle given after \begin{frame}: the subtitle \footnotesize in framesubtitle's color, with its own struts
+% issue: #290
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{The Title of a Frame}{And its \emph{subtitle}}
+Some text.
+\end{frame}
+\end{document}

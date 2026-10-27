@@ -1,7 +1,7 @@
 // beamer's frames (beamerbaseframe.sty, beamerbaseframesize.sty): the frame
 // environment and the \frame command, each one slide here (no overlays). The
 // slide's material is a \vbox (\beamer@framebox) that the frame then puts in
-// \vbox to\textheight with \nobreak's, the frame title (none yet), the top skip
+// \vbox to\textheight with \nobreak's, the frame title's box (frametitle.ts), the top skip
 // of its placement ([c] or [t]) and, after it, the bottom skip
 // (\beamer@autobreakframebox). What the frame holds is read by the handlers in
 // FRAME_CONTENT, one per construct; a construct none reads throws Unsupported.
@@ -19,6 +19,7 @@ import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type P
 import { Unsupported } from "../unsupported"
 import { negate, plain, VerticalList } from "../vlist"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
+import { frameTitle } from "./frametitle"
 import { outerColors, type Theme } from "./theme"
 
 /** a frame as written: its options and what it holds */
@@ -67,8 +68,9 @@ export function framesOf(body: string): FrameSource[] {
   }
 }
 
-/** What reading a frame's material needs: the class, the theme, the paragraphs' traces in the order TeX breaks them. */
-export interface FrameCtx { k: ClassOptionData; theme: Theme; decisions: ParagraphTrace[] }
+/** What reading a frame's material needs: the class, the theme, the paragraphs' traces in the order TeX breaks them,
+ *  and the frame's title and subtitle as \frametitle and \framesubtitle last set them */
+export interface FrameCtx { k: ClassOptionData; theme: Theme; decisions: ParagraphTrace[]; title?: string; subtitle?: string }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -77,7 +79,7 @@ type FrameList = VerticalList
 type FrameHandler = (cx: FrameCtx, v: FrameList, text: string) => string
 
 /** The text font: beamer's \familydefault is \sfdefault (OT1 cmss) */
-const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
+export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
 const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph"]
 
@@ -144,6 +146,18 @@ export function bracedArg(text: string, i: number): { arg: string; end: number }
   throw new Unsupported("an argument not closed")
 }
 
+/** \frametitle[short]{title} and \framesubtitle{subtitle} (beamerbaselocalstructure.sty): they keep the text (an empty
+ *  one changes nothing) for the title box the frame builds at its end; in vertical mode they add nothing. */
+const frametitle: FrameHandler = (cx, _v, text) => {
+  const m = text.match(/^\\(frametitle|framesubtitle)(?![A-Za-z])\s*/)!
+  let i = m[0].length
+  if (m[1] === "frametitle" && text[i] === "[") { const j = text.indexOf("]", i); if (j < 0) throw new Unsupported("\\frametitle's short title"); i = j + 1 }
+  const a = bracedArg(text, i)
+  if (!a) throw new Unsupported(`\\${m[1]} without a braced argument`)
+  if (a.arg.trim()) cx[m[1] === "frametitle" ? "title" : "subtitle"] = a.arg
+  return text.slice(a.end)
+}
+
 /** A beamercolorbox in vertical mode: the box after interline glue */
 const colorbox: FrameHandler = (cx, v, text) => {
   let i = "\\begin{beamercolorbox}".length, options = ""
@@ -169,12 +183,18 @@ const colorbox: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, beamercolorbox: colorbox }
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox }
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
-  // \beamer@checkframetitle: a { right after \begin{frame} opens the frame title
-  if (/^\s*\{/.test(body)) throw new Unsupported("a frame title")
+  // \beamer@checkframetitle: a { right after \begin{frame} is the frame title, a second one the subtitle
+  const title = /^[ \t]*\n?[ \t]*\{/.test(body) ? bracedArg(body, 0) : null
+  if (title) {
+    body = body.slice(title.end)
+    if (title.arg.trim()) cx.title = title.arg
+    const sub = /^[ \t]*\n?[ \t]*\{/.test(body) ? bracedArg(body, 0) : null
+    if (sub) { body = body.slice(sub.end); if (sub.arg.trim()) cx.subtitle = sub.arg }
+  }
   const v: FrameList = new VerticalList(cx.k)
   v.nodes = []
   v.prevDepth = null // a \vbox begins with \prevdepth -1000pt
@@ -208,7 +228,10 @@ export function frameBox(cx: FrameCtx, f: FrameSource, centered: boolean): BoxNo
     else throw new Unsupported(`a frame's option ${o}`)
   }
   const { top, bottom } = placement(cx.k, centered)
-  const list: Node[] = [penalty(10000), emptyBox("vlist"), penalty(10000), penalty(10000), penalty(10000), penalty(10000), plain(top), penalty(10000), penalty(10000)]
-  list.push(...frameMaterial(cx, f.body), plain(bottom))
+  // the material first, then the title's box (\setbox\beamer@frametitlebox after the frame's \vbox is read)
+  const material = frameMaterial(cx, f.body)
+  const list: Node[] = [penalty(10000), emptyBox("vlist"), penalty(10000), penalty(10000), penalty(10000)]
+  if (cx.title !== undefined) list.push(...frameTitle(cx, cx.title, cx.subtitle))
+  list.push(penalty(10000), plain(top), penalty(10000), penalty(10000), ...material, plain(bottom))
   return vpack(list, { exactly: cx.k.dimens.textheight })
 }

@@ -1,0 +1,21 @@
+% fixture: beamer/frametitle-sizes
+% tier: T3
+% engine: document
+% covers: beamer: frame titles at 8pt (\Large and \footnotesize of size8.clo), an empty title ({}: no title box), a title set twice (the last one counts)
+% issue: #290
+\documentclass[8pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Frame title at eight points}{with a subtitle}
+Text.
+\end{frame}
+\begin{frame}{}
+No title here.
+\end{frame}
+\begin{frame}
+\frametitle{First}
+\frametitle{Second}
+\frametitle{}
+Text.
+\end{frame}
+\end{document}
