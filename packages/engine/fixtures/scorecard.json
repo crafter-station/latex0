@@ -1,18 +1,18 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 310,
-  "exact": 308,
+  "fixtures": 324,
+  "exact": 322,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 267299
+  "glyphs": 273288
  },
  "areas": [
   {
    "area": "algorithm",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "amsmath",
@@ -26,8 +26,8 @@
   },
   {
    "area": "array",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "bibliography",
@@ -51,8 +51,8 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "display",
@@ -66,8 +66,8 @@
   },
   {
    "area": "floats",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "footnotes",
@@ -86,8 +86,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 9,
-   "exact": 9
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "hyphenation",
@@ -106,8 +106,8 @@
   },
   {
    "area": "lists",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "math",
@@ -136,8 +136,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "sections",
@@ -146,8 +146,8 @@
   },
   {
    "area": "setspace",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "siunitx",
@@ -511,6 +511,28 @@
    "issue": "#258"
   },
   {
+   "id": "algorithm/here-after-heading",
+   "file": "micro/algorithm/here-after-heading.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 561,
+   "covers": "[H] algorithms right after a heading: \\@setnobreak clears \\if@nobreak in the box and \\@endfloatbox's \\outer@nobreak sets it again, so the text after the box is still right after the heading (no indentation, \\clubpenalty\\@M); two in a row; after a run-in heading",
+   "issue": "#277"
+  },
+  {
+   "id": "algorithm/here-page-break",
+   "file": "micro/algorithm/here-page-break.tex",
+   "area": "algorithm",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2887,
+   "covers": "an [H] algorithm right after a paragraph's text, then a page break: the box's paragraphs are broken before the paragraph its \\vskip ends, all of them read before the page builder fires, so fancyhdr's fields trace after them and after that paragraph",
+   "issue": "#277"
+  },
+  {
    "id": "algorithm/here",
    "file": "micro/algorithm/here.tex",
    "area": "algorithm",
@@ -720,6 +742,17 @@
    "issue": "#264"
   },
   {
+   "id": "array/post-decl-skip",
+   "file": "micro/array/post-decl-skip.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 53,
+   "covers": "<{decl} columns in rows ended by \\\\[skip]: \\@xargarraycr's \\unskip, then \\textonly@unskip, the <{decl} and \\d@llarend, and \\do@row@strut's \\vrule of depth skip+\\dp\\@arstrutbox after them; entries ending with a group, a >{$}c<{$} column; an empty last entry, whose \\hskip1sp the \\unskip takes and the glue before it \\textonly@unskip (the \\hfil of a c column, the \\tabcolsep of an l one)",
+   "issue": "#277"
+  },
+  {
    "id": "array/shallow-rows",
    "file": "micro/array/shallow-rows.tex",
    "area": "array",
@@ -729,6 +762,17 @@
    "glyphs": 28,
    "covers": "array.sty with a negative \\extrarowheight: \\@arstrutbox lower than \\strutbox, so \\ar@align@mcell leaves a short m entry where it is and lowers a taller one",
    "issue": "#264"
+  },
+  {
+   "id": "array/size-pbox",
+   "file": "micro/array/size-pbox.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "a size in >{decl} of p, m and b columns: \\insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\\@endpbox's \\par): the entry's lines at its \\baselineskip; with \\bfseries, after \\centering\\arraybackslash, an empty entry, a row ended by \\\\[skip]",
+   "issue": "#277"
   },
   {
    "id": "bibliography/boxes",
@@ -1032,6 +1076,17 @@
    "issue": "#44"
   },
   {
+   "id": "cleveref/algorithm",
+   "file": "micro/cleveref/algorithm.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 166,
+   "covers": "algorithm floats with cleveref: the \\label after the caption writes \\newlabel{key@cref}{{[algorithm][n][]n}…} (float.sty's \\refstepcounter{algorithm}); cleveref's algorithmicx support refsteps ALG@line at each \\ALG@step (not for \\Require or \\Statex), in the label's group, but its \\@currentHref is global: a \\label after the algorithmic, in the float or in the text, goes to ALG@line.n; \\cref and \\Cref to them; a ruled [H] one",
+   "issue": "#277"
+  },
+  {
    "id": "cleveref/cref-pages",
    "file": "micro/cleveref/cref-pages.tex",
    "area": "cleveref",
@@ -1098,6 +1153,17 @@
    "issue": "#66"
   },
   {
+   "id": "cleveref/listing",
+   "file": "micro/cleveref/listing.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 142,
+   "covers": "a listing's caption and label with cleveref: \\refstepcounter{lstlisting} under \\crefalias{lstlisting}{listing}, the \\newlabel{key@cref}{{[listing][n][]n}…} after the kernel's write, each with its \\@esphack; \\cref and \\Cref to it; a listing with no label after it; one right after a heading (\\@esphack's \\nobreak after each write)",
+   "issue": "#277"
+  },
+  {
    "id": "cleveref/no-format",
    "file": "micro/cleveref/no-format.tex",
    "area": "cleveref",
@@ -1107,6 +1173,17 @@
    "glyphs": 52,
    "covers": "\\cref and \\Cref of a label whose type has no name (cref reference format undefined): ?? in bold, \\nobreakspace and the label; a label read before any \\refstepcounter has the empty type and label; an undefined label is ?? alone",
    "issue": "#66"
+  },
+  {
+   "id": "cleveref/roman-pages",
+   "file": "micro/cleveref/roman-pages.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 242,
+   "covers": "cleveref's \\newlabel{key@cref} under roman page numbers: its first page field is \\thepage with the page counter set to 1 when the \\label was read (i in book's \\frontmatter, 1 in \\mainmatter), the second \\arabic{page}",
+   "issue": "#277"
   },
   {
    "id": "cleveref/tag-flag",
@@ -1278,6 +1355,17 @@
    "glyphs": 632,
    "covers": "figure and table placed here (\\@specialoutput, \\@addtocurcol with \\intextsep, \\textfraction, \\@textfloatsheight), captions from \\@makecaption, \\label after a caption, one right after a heading (\\nobreak), and text after them",
    "issue": "#115"
+  },
+  {
+   "id": "floats/in-paragraph-club",
+   "file": "micro/floats/in-paragraph-club.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 157,
+   "covers": "a float in the paragraph right after a list that follows a run-in heading's paragraph: the heading's \\clubpenalty\\@M is still in force when the float is read (\\@doendpe's \\par resets it only at the end), so its p{width} entries break with it",
+   "issue": "#277"
   },
   {
    "id": "floats/in-paragraph-hyperref",
@@ -1515,6 +1603,17 @@
    "glyphs": 465,
    "covers": "hyperref links: \\ref and \\pageref through \\pdf@rect (H.S, the text in an hbox, \\raise\\ht H.R, /ANN; H.S \\lower\\dp in an hbox when the text has depth), the space factor kept from the text, no link for an empty label, undefined references as ?? without a link",
    "issue": "#30"
+  },
+  {
+   "id": "hyperref/multline",
+   "file": "micro/hyperref/multline.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 265,
+   "covers": "amsmath's multline and multline* with hyperref (dvips): the equation's anchor (\\make@display@tag's \\refstepcounter) right before the number, after \\hskip\\multlinetaggap (\\Hy@RestoreLastskip puts it back) at \\baselineskip plus \\jot; for a number below the last row, in the \\vtop's \\hbox after the \\strut@ at \\normalbaselines; no anchor without a number (multline*, \\notag); one row, three rows, an integral in the last row, a multline in an item",
+   "issue": "#277"
   },
   {
    "id": "hyperref/report-toc",
@@ -2206,6 +2305,17 @@
    "issue": "#30"
   },
   {
+   "id": "lists/group-start-display",
+   "file": "micro/lists/group-start-display.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 270,
+   "covers": "an item's paragraph that starts with a group and holds a display: a {\\color …} group right after a heading (\\@item's \\everypar runs in it, \\clubpenalty\\@M there: its footnote's lines see it) and a tabular; after the display, a footnote in a color group sees the \\clubpenalty from before",
+   "issue": "#277"
+  },
+  {
    "id": "lists/item-displays",
    "file": "micro/lists/item-displays.tex",
    "area": "lists",
@@ -2753,6 +2863,17 @@
    "covers": "hyperref's \\endequation under pdflatex: \\mathclose{\\Hy@raisedlink{\\hyper@anchorend}}, a close atom, so no thin space after a formula ending in \\right (an inner atom); \\mathopen at the start; with and without a \\label"
   },
   {
+   "id": "pdflatex/hyperref-multline",
+   "file": "micro/pdflatex/hyperref-multline.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 265,
+   "covers": "amsmath's multline and multline* with hyperref (pdfTeX): the equation's anchor (\\make@display@tag's \\refstepcounter) right before the number, after \\hskip\\multlinetaggap (\\Hy@RestoreLastskip puts it back) at \\baselineskip plus \\jot; for a number below the last row, in the \\vtop's \\hbox after the \\strut@ at \\normalbaselines; no anchor without a number (multline*, \\notag); one row, three rows, an integral in the last row, a multline in an item",
+   "issue": "#277"
+  },
+  {
    "id": "pdflatex/math-sqrt-index",
    "file": "micro/pdflatex/math-sqrt-index.tex",
    "area": "pdflatex",
@@ -2914,6 +3035,17 @@
    "issue": "#30"
   },
   {
+   "id": "setspace/after-hyperref",
+   "file": "micro/setspace/after-hyperref.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "setspace loaded after hyperref: its \\@footnotetext takes the place of hyperref's, so the notes have no anchor (the marks are still links to Hfootnote.n)",
+   "issue": "#277"
+  },
+  {
    "id": "setspace/double",
    "file": "micro/setspace/double.tex",
    "area": "setspace",
@@ -2923,6 +3055,28 @@
    "glyphs": 695,
    "covers": "setspace's \\doublespacing at 10pt in article (\\setstretch{1.667}); a footnote single-spaced (setspace's \\@footnotetext); a display, whose \\abovedisplayskip and \\belowdisplayskip \\everydisplay stretches (as dimensions)",
    "issue": "#253"
+  },
+  {
+   "id": "setspace/here-after-float",
+   "file": "micro/setspace/here-after-float.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 365,
+   "covers": "an [H] algorithm with setspace loaded after float.sty (algorithm.sty): setspace's \\@xfloat wraps float.sty's, so its \\def\\baselinestretch{\\setspace@singlespace}\\normalsize runs inside the [H] box too: caption and lines single-spaced, the text around stretched",
+   "issue": "#277"
+  },
+  {
+   "id": "setspace/here-before-float",
+   "file": "micro/setspace/here-before-float.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 365,
+   "covers": "an [H] algorithm with setspace loaded before float.sty (algorithm.sty): float.sty's \\@float@HH does not go through setspace's \\@xfloat, so the box keeps the document's \\setstretch{1.5}: its caption and lines stretched",
+   "issue": "#277"
   },
   {
    "id": "setspace/mixed",
