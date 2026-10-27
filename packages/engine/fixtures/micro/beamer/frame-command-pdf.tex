@@ -1,0 +1,15 @@
+% fixture: beamer/frame-command-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: the \frame{...} command, and the [t] option of the frame environment, at 10pt; \raggedright (what beamer sets already) before a paragraph
+% issue: #307
+\documentclass[10pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\frame{Text of a frame given as the argument of the frame command, long enough to be broken into two lines here.}
+\begin{frame}[t]
+\raggedright Text at the top.
+\end{frame}
+\end{document}

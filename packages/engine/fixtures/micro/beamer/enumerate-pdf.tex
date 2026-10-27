@@ -1,0 +1,18 @@
+% fixture: beamer/enumerate-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: enumerate with the default template (\insertenumlabel. in the structure color, flush right in \labelwidth), items of more than one line, hyperref's item anchors
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{enumerate}
+\item One.
+\item Two, an item with words enough to break into more than one line in the frame's width.
+\item Three.
+\end{enumerate}
+\end{frame}
+\end{document}

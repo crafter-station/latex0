@@ -1,0 +1,14 @@
+% fixture: beamer/frame-empty-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex, with the default theme and no navigation symbols: one empty frame, a page with beamer's head and foot, the .nav and .snm writes and the frame's anchors
+% issue: #307
+\documentclass{beamer}
+\usetheme{default}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\end{frame}
+\end{document}

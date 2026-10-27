@@ -15,13 +15,19 @@ import { vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { sloppy } from "../kernel"
+import type { Ctx } from "../context"
+import { DISPLAY } from "../blocks"
+import { listParagraphWithDisplays } from "../displays"
 import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { negate, plain, VerticalList } from "../vlist"
 import { colorPush } from "../xcolor"
+import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
+import { frameColumns } from "./columns"
+import { footnoteArea, readFootnotes } from "./footnotes"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
-import { frameList } from "./lists"
+import { frameList, LIST_BEGIN, listSource, type ListKind } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
 import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
@@ -31,7 +37,9 @@ import { titlePage } from "./titlepage"
 /** a frame as written: its options and what it holds */
 export interface FrameSource { kind: "frame"; options: string; body: string }
 /** \section[short]{title} or \subsection[short]{title} between frames (the short title is the title without one) */
-export interface SectionSource { kind: "section" | "subsection"; short: string; title: string }
+export interface SectionSource { kind: "section" | "subsection"; short: string; title: string
+  /** \section*{title} (\beamer@section[{title}]{}): no .toc line */
+  star?: boolean }
 export type BodyItem = FrameSource | SectionSource
 
 /** What the document body holds: frames (\begin{frame}[options]…\end{frame} and \frame[options]{…}) and \section's and
@@ -78,12 +86,15 @@ export function bodyOf(body: string): BodyItem[] {
       const kind = src.startsWith("\\subsection", i) ? "subsection" : "section"
       i += kind.length + 1
       while (/\s/.test(src[i] ?? "")) i++
-      if (src[i] === "*" || src[i] === "<") throw new Unsupported(`\\${kind}${src[i]}`)
+      if (src[i] === "<") throw new Unsupported(`\\${kind}${src[i]}`)
+      // (\@ifnextchar[ first, then *)
+      const star = src[i] === "*"
+      if (star) { i++; while (/\s/.test(src[i] ?? "")) i++; if (src[i] === "[") throw new Unsupported(`\\${kind}*[`) }
       let short: string | undefined
       if (src[i] === "[") { const j = src.indexOf("]", i); if (j < 0) throw new Unsupported(`\\${kind}'s short title`); short = src.slice(i + 1, j); i = j + 1 }
       const a = bracedArg(src, i)
       if (!a) throw new Unsupported(`\\${kind} without a braced argument`)
-      frames.push({ kind, short: short ?? a.arg, title: a.arg })
+      frames.push({ kind, short: short ?? a.arg, title: a.arg, ...(star ? { star } : {}) })
       i = a.end
     } else throw new Unsupported(`beamer: material outside frames: ${src.slice(i, i + 40)}`)
   }
@@ -102,7 +113,17 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** the slide being typeset and its overlay state */
   overlay: Overlay
   /** the nodes each \LXsmuggle{n} in the frame's text stands for (overlay specials) */
-  smuggled: Node[][] }
+  smuggled: Node[][]
+  /** a block began in the paragraph read last (blocks.ts): whether it is shown */
+  blockBegun?: boolean
+  /** \ifbeamer@centered: the frame's placement is c */
+  centered?: boolean
+  /** \c@equation */
+  equations: { n: number }
+  /** \c@footnote, and the slide's \beamer@footins (footnotes.ts) */
+  footnotes: { n: number }; footins: Node[]
+  /** in a column's minipage (columns.ts), where \footnote is the minipage's */
+  inMinipage?: boolean }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -113,11 +134,11 @@ type FrameHandler = (cx: FrameCtx, v: FrameList, text: string) => string
 /** The text font: beamer's \familydefault is \sfdefault (OT1 cmss) */
 export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
-const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph"]
+const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure"]
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
-export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape?: [number, number][]; leftskip?: GlueSpec; rightskip?: GlueSpec; sloppy?: number; start?: Node[]; end?: Node[]
+export interface ParagraphSetting { size?: SizeCommand; /** the font's attributes, when not the frame's (a theorem's \itshape) */ attrs?: FontAttrs; hsize?: number; parShape?: [number, number][]; leftskip?: GlueSpec; rightskip?: GlueSpec; sloppy?: number; start?: Node[]; end?: Node[]
   /** false: no indentation box (\@doendpe's \everypar takes it off, \@item's puts the labels in its place) */
   indent?: boolean
   /** the text ended in a space that stays (something other than \par follows it) */
@@ -126,14 +147,60 @@ export interface ParagraphSetting { size?: SizeCommand; hsize?: number; parShape
 /** Paragraph text broken into lines in the sans serif text font (ragged right, \textwidth wide, unless `s` says
  *  otherwise); its trace goes to cx.decisions. */
 export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {}): Node[] {
+  return breakParagraph(cx, paragraphSetup(cx, text, s), s)
+}
+
+/** The paragraph as paragraphSetup reads it, broken into lines */
+function breakParagraph(cx: FrameCtx, { t, doc, opts }: ReturnType<typeof paragraphSetup>, s: ParagraphSetting): Node[] {
+  if (DISPLAY.test(t)) throw new Unsupported("beamer: a display here")
+  const { list, params, notes } = adapted(() => paragraphInput(t, cx.k, s.size ?? "normalsize", doc, opts))
+  const { vlist, trace } = lineBreak(list, params)
+  cx.decisions.push(...notes, trace)
+  return vlist
+}
+
+/** A paragraph appended to `v` after \parskip (its lines \baselineskip apart, by default the size's), as setParagraph
+ *  breaks it; one with displays (\[ \], equation, align …) as LaTeX's displays.ts sets them, amsmath's, with
+ *  hyperref's implicit=false (no anchors) */
+export function addParagraph(cx: FrameCtx, v: VerticalList, text: string, s: ParagraphSetting, parskip: GlueSpec, baselineskip?: GlueSpec) {
+  const size = s.size ?? "normalsize"
+  // (its footnotes read: here a paragraph may have them)
+  const setup = paragraphSetup(cx, readFootnotes(cx, text, size), s)
+  const { t, doc, opts } = setup
+  if (!DISPLAY.test(t)) { v.paragraph(breakParagraph(cx, setup, s), parskip, baselineskip ?? cx.k.sizes[size].baselineskip); return }
+  if (baselineskip && baselineskip !== cx.k.sizes[size].baselineskip) throw new Unsupported("beamer: a display in a paragraph another size ends")
+  adapted(() => listParagraphWithDisplays(displayCtx(cx, v, doc), t, opts, parskip, size))
+}
+
+/** What displays.ts reads of the document's state, for a frame: amsmath without hyperref's anchors, the equation
+ *  counter (\resetcounteronoverlays: each slide of a frame starts it where the frame does), the normal font */
+function displayCtx(cx: FrameCtx, v: VerticalList, doc: DocState): Ctx {
+  const eq = cx.equations
+  const counters = { get equation() { return eq.n }, set equation(n: number) { eq.n = n }, the: (n: number) => String(n), href: () => "", crefPrefix: () => "" }
+  const partial = { pre: { amsmath: true, hyper: false }, run: { k: cx.k, tagFlag: false, hyperItem: false, items: 0 }, v, doc, decisions: cx.decisions,
+    counters, refs: { href: "" }, romanFont: selectFont(cx.k, "normalsize", SANS), counted: (t: string) => t }
+  return partial as unknown as Ctx
+}
+
+/** The paragraph adapter's own errors, for what it does not read, as Unsupported */
+function adapted<T>(f: () => T): T {
+  try { return f() } catch (e) {
+    if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`beamer: ${e.message}`)
+    throw e
+  }
+}
+
+/** The text as the paragraph reads it, the document state it reads it with, and its options */
+function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: string; doc: DocState; opts: ParagraphOptions } {
   plainText(text)
-  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n] }
+  // (\alert and \structure: \textcolor with the driver's spec)
+  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec } }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
-  let t = text, prev = ""
+  let t = alerts(cx, text), prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
   // (an empty group after the space keeps it from being the paragraph's last glue)
   if (s.trailingSpace) t = `${t.trimEnd()} {}`
-  const opts: ParagraphOptions = { attrs: SANS, groups: true }
+  const opts: ParagraphOptions = { attrs: s.attrs ?? SANS, groups: true, amsmath: true }
   if (s.hsize !== undefined) opts.hsize = s.hsize
   if (s.parShape) opts.parShape = s.parShape
   if (s.leftskip) opts.leftSkip = spec("leftskip", s.leftskip)
@@ -141,10 +208,7 @@ export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {
   if (s.sloppy !== undefined) Object.assign(opts, sloppy(s.sloppy))
   if (s.start || s.indent === false) opts.start = [...(s.indent === false ? [] : [emptyBox("hlist", cx.k.dimens.parindent)]), ...(s.start ?? [])]
   if (s.end) opts.end = s.end
-  const { list, params, notes } = paragraphInput(t, cx.k, s.size ?? "normalsize", doc, opts)
-  const { vlist, trace } = lineBreak(list, params)
-  cx.decisions.push(...notes, trace)
-  return vlist
+  return { t, doc, opts }
 }
 
 /** The text up to a blank line, and what follows */
@@ -154,24 +218,28 @@ const upToBlankLine = (text: string): [string, string] => {
 }
 
 /** the lists a paragraph's text may run into */
-const LIST_BEGIN = /\\begin\{(?:itemize|enumerate)\}/
 
-/** A paragraph of text up to a blank line or a list: broken into lines in the frame's \hsize (\textwidth), ragged
- *  right. A list's \begin pushes the list's body color in the paragraph, then \@trivlist ends it (\unskip\par: the
- *  push is last, so a space before it stays). After a list, \@doendpe's \everypar takes the indentation box off. */
+/** A paragraph of text up to a blank line, a list or a block: broken into lines in the frame's \hsize (\textwidth),
+ *  ragged right. A list's \begin pushes the list's body color in the paragraph, then \@trivlist ends it (\unskip\par:
+ *  the push is last, so a space before it stays). After a list, \@doendpe's \everypar takes the indentation box off.
+ *  A block's \begin ends it too (blocks.ts): its overlay specials smuggled past the last space, which \par takes. */
 const paragraph: FrameHandler = (cx, v, text) => {
   let [par, rest] = upToBlankLine(text)
-  const at = par.search(LIST_BEGIN)
+  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN)
   const s: ParagraphSetting = {}
-  if (at >= 0) {
+  if (block >= 0 && (at < 0 || block < at)) {
+    rest = par.slice(block) + rest
+    s.end = blockInParagraph(cx, rest)
+    par = par.slice(0, block).trimEnd()
+  } else if (at >= 0) {
     rest = par.slice(at) + rest
     par = par.slice(0, at)
-    s.end = [colorPush(useColor(cx.theme, "itemize/enumerate body", outerColors(cx.theme)).fg)]
+    s.end = [colorPush(useColor(cx.theme, par.startsWith("\\begin{description}", at) ? "description body" : "itemize/enumerate body", outerColors(cx.theme)).fg)]
     if (/\s$/.test(par)) s.trailingSpace = true
     cx.listInParagraph = true
   }
   if (cx.endpe) { s.indent = false; cx.endpe = false }
-  v.paragraph(setParagraph(cx, overlayText(cx.overlay, par, cx.smuggled), s), cx.k.glue.parskip)
+  addParagraph(cx, v, overlayText(cx.overlay, par, cx.smuggled), s, cx.k.glue.parskip)
   return rest
 }
 
@@ -190,31 +258,27 @@ const smuggled: FrameHandler = (cx, v, text) => {
   return text.slice(m[0].length)
 }
 
-/** itemize and enumerate (lists.ts); a paragraph right after one comes with \@endpetrue */
+/** itemize, enumerate and description (lists.ts); a paragraph right after one comes with \@endpetrue */
 const list: FrameHandler = (cx, v, text) => {
-  const kind = text.startsWith("\\begin{itemize}") ? "itemize" : "enumerate"
-  const begin = `\\begin{${kind}}`, end = `\\end{${kind}}`
+  const kind = text.match(/^\\begin\{(itemize|enumerate|description)\}/)![1] as ListKind
   // [<spec>]: the items' default overlay specification (\beamerdefaultoverlayspecification, <*> giving none)
-  let body = text.slice(begin.length), spec: string | undefined
-  const o = body.match(/^\s*\[\s*<([^<>]*)>\s*\]/)
-  if (o) { if (o[1].trim() !== "*") spec = o[1]; body = body.slice(o[0].length) }
-  if (/^\s*[[<]/.test(body)) throw new Unsupported(`beamer: ${kind}'s options`)
-  const stop = body.indexOf(end)
-  if (stop < 0) throw new Unsupported(`beamer: ${kind} not ended`)
-  frameList(cx, v, kind, body.slice(0, stop), cx.listInParagraph === true, spec)
+  const { body, spec, widest, rest } = listSource(kind, text.slice(kind.length + 8))
+  frameList(cx, v, kind, body, cx.listInParagraph === true, spec, undefined, widest)
   cx.listInParagraph = false
-  const rest = body.slice(stop + end.length)
   cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
   return rest
 }
 
 /** Text with only TEXT_COMMANDS in it (and their arguments' text) and \quad: anything else throws Unsupported. */
 function plainText(text: string) {
-  let t = text, prev = ""
+  // (math is read by the math parser, which throws on what it does not know; beamer's \mathrm is cmr, which it has no
+  // family for)
+  if (/\\mathrm(?![A-Za-z])/.test(text)) throw new Unsupported("beamer: \\mathrm")
+  let t = text.replace(new RegExp(DISPLAY.source, "g"), "").replace(/\$[^$]*\$/g, ""), prev = ""
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -272,6 +336,9 @@ const colorbox: FrameHandler = (cx, v, text) => {
   return text.slice(end + "\\end{beamercolorbox}".length)
 }
 
+/** block, alertblock, exampleblock, the theorems and proof (blocks.ts) */
+const blocks: FrameHandler = (cx, v, text) => frameBlock(cx, v, text)
+
 /** \titlepage, and \maketitle (\titlepage in a frame) */
 const titlepage: FrameHandler = (cx, v, text) => {
   if (cx.endpe) throw new Unsupported("beamer: a title page right after a list")
@@ -297,8 +364,29 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+  ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
+
+/** The constructs in `text`, each read by its handler into `v` */
+export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
+  for (text = text.trim(); text; text = text.trim()) {
+    const m = text.match(/^\\(?:begin\{)?([A-Za-z]+)/)
+    const handler = FRAME_CONTENT[m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""]
+    if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
+    text = handler(cx, v, text)
+  }
+}
+
+/** A paragraph begun already (\leavevmode) where `text` starts: the paragraph handler reads up to its end (text, or
+ *  nothing before a list or a block), unless something else comes first */
+export function begunParagraph(cx: FrameCtx, v: FrameList, text: string): string {
+  const t = text.trim()
+  const m = t.match(/^\\(?:begin\{)?([A-Za-z]+)/)
+  const name = m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""
+  if (name && !["itemize", "enumerate", "description", ...BLOCK_NAMES].includes(name)) throw new Unsupported(`beamer: \\${name} where a paragraph has begun`)
+  return paragraph(cx, v, t)
+}
 
 /** The frame's material, as \beamer@frameslide's \vbox reads it: \vskip-\parskip\vbox{}, then each construct. */
 function frameMaterial(cx: FrameCtx, body: string): Node[] {
@@ -315,12 +403,7 @@ function frameMaterial(cx: FrameCtx, body: string): Node[] {
   v.prevDepth = null // a \vbox begins with \prevdepth -1000pt
   v.vskip(negate(cx.k.glue.parskip))
   v.box(emptyBox("vlist"), cx.k.sizes.normalsize.baselineskip)
-  for (let text = body.trim(); text; text = text.trim()) {
-    const m = text.match(/^\\(?:begin\{)?([A-Za-z]+)/)
-    const handler = FRAME_CONTENT[m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""]
-    if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
-    text = handler(cx, v, text)
-  }
+  frameContent(cx, v, body)
   // \end{beamer@framepauses}: \beamer@endpause, then what waits for the group's end
   smuggle(v, groupEnd(cx.overlay, true))
   return v.nodes
@@ -345,10 +428,11 @@ export function frameBox(cx: FrameCtx, f: FrameSource, centered: boolean): BoxNo
     else throw new Unsupported(`a frame's option ${o}`)
   }
   const { top, bottom } = placement(cx.k, centered)
+  cx.centered = centered
   // the material first, then the title's box (\setbox\beamer@frametitlebox after the frame's \vbox is read)
   const material = frameMaterial(cx, f.body)
   const list: Node[] = [penalty(10000), emptyBox("vlist"), penalty(10000), penalty(10000), penalty(10000)]
   if (cx.title !== undefined) list.push(...frameTitle(cx, cx.title, cx.subtitle))
-  list.push(penalty(10000), plain(top), penalty(10000), penalty(10000), ...material, plain(bottom))
+  list.push(penalty(10000), plain(top), penalty(10000), penalty(10000), ...material, plain(bottom), ...footnoteArea(cx))
   return vpack(list, { exactly: cx.k.dimens.textheight })
 }

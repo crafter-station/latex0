@@ -1,0 +1,19 @@
+% fixture: beamer/frametitle-command-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \frametitle (with a short title) and \framesubtitle in the frame's body; the title box built after the body's paragraphs, on top of them; a long title broken into lines; \frame with \frametitle
+% issue: #307
+\documentclass[10pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}[t]
+\frametitle[Short]{A frame title long enough that it does not fit on one line of the frame's width, so it breaks}
+\framesubtitle{A subtitle}
+A paragraph under the title, with words enough to take more than one line in the frame.
+
+\textbf{A second paragraph.}
+\end{frame}
+\frame{\frametitle{Title \textit{in italics}}Text in a frame made with the command.}
+\end{document}

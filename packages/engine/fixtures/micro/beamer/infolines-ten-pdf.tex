@@ -1,0 +1,46 @@
+% fixture: beamer/infolines-ten-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: the infolines footline's frame number right-aligned in the width of "10 / 10" over ten frames, at 8pt
+% issue: #307
+\documentclass[8pt]{beamer}
+\useoutertheme{infolines}
+\setbeamertemplate{headline}[default]
+\setbeamertemplate{navigation symbols}{}
+\title{Ten}
+\author{A. Author}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+Frame 1.
+\end{frame}
+\begin{frame}
+Frame 2.
+\end{frame}
+\begin{frame}
+Frame 3.
+\end{frame}
+\begin{frame}
+Frame 4.
+\end{frame}
+\begin{frame}
+Frame 5.
+\end{frame}
+\begin{frame}
+Frame 6.
+\end{frame}
+\begin{frame}
+Frame 7.
+\end{frame}
+\begin{frame}
+Frame 8.
+\end{frame}
+\begin{frame}
+Frame 9.
+\end{frame}
+\begin{frame}
+Frame 10.
+\end{frame}
+\end{document}

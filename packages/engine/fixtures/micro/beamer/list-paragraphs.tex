@@ -1,0 +1,35 @@
+% fixture: beamer/list-paragraphs
+% tier: T3
+% engine: document
+% covers: beamer: an item of two paragraphs, a nested list after a blank line in its item (vertical mode: \partopsep, the color pushed on the list), a paragraph after it, a nested enumerate with \item[label] and a nested description in an enumerate, a paragraph after a description
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{enumerate}
+\item First paragraph of the item.
+
+Second paragraph of the item.
+
+\begin{itemize}
+\item Nested after a blank line.
+\end{itemize}
+
+And a last paragraph.
+\item Next.
+\begin{enumerate}
+\item[(a)] Labelled.
+\item Counted.
+\end{enumerate}
+\item Last.
+\begin{description}
+\item[Key] Value.
+\end{description}
+\end{enumerate}
+\begin{description}
+\item[Alone] A description at the first level.
+\end{description}
+Text right after it.
+\end{frame}
+\end{document}

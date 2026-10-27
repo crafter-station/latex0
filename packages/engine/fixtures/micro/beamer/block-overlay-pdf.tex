@@ -1,0 +1,26 @@
+% fixture: beamer/block-overlay-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: blocks with overlay specifications (\begin{block}<2->, an alertblock on the first slide only): covered blocks between pgf's invisible specials, on two slides; a block in the orchid theme with a theorem in its colors
+% issue: #307
+\documentclass{beamer}
+\usecolortheme{orchid}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{alertblock}<1>{First}
+Only on the first slide.
+\end{alertblock}
+\begin{block}<2->{Second}
+From the second slide on.
+\end{block}
+\begin{theorem}
+In orchid's colors.
+\end{theorem}
+\begin{proof}
+Done.
+\end{proof}
+\end{frame}
+\end{document}

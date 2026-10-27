@@ -8,6 +8,8 @@
 
 import type { Node } from "../../layout/nodes"
 import { DvipsDriver } from "../../pgf/drivers/dvips"
+import { PdftexDriver } from "../../pgf/drivers/pdftex"
+import { hyperDriver } from "../hyperref"
 import { PgfState } from "../../pgf/state"
 import { Unsupported } from "../unsupported"
 import { plain, type VerticalList } from "../vlist"
@@ -56,9 +58,9 @@ export function inSpec(o: Overlay, spec: string): boolean {
   return shown
 }
 
-/** \pgfsys@begininvisible or \pgfsys@endinvisible (dvips): the specials */
+/** \pgfsys@begininvisible or \pgfsys@endinvisible: dvips's specials, or pdfTeX's \pdfliteral (the driver hyperref has) */
 function invisible(begin: boolean): Node[] {
-  const d = new DvipsDriver(new PgfState())
+  const d = hyperDriver.pdftex ? new PdftexDriver(new PgfState()) : new DvipsDriver(new PgfState())
   if (begin) d.beginInvisible(); else d.endInvisible()
   return d.state.out
 }
@@ -70,6 +72,7 @@ export const emptyPair = () => [...beginInvisible(), ...endInvisible()]
 /** \beamer@smuggle in vertical mode: a \lastskip other than 0.0pt is taken off before the nodes and put back after
  *  them (\vskip\lastskip: plain glue) */
 export function smuggle(v: VerticalList, nodes: Node[]) {
+  if (!nodes.length) return // (nothing smuggled: no \beamer@smuggle)
   const i = v.nodes.findLastIndex((x) => !(x.kind === "whatsit" && x.hook))
   const last = v.nodes[i]
   if (last?.kind === "glue" && (last.width || last.stretch || last.shrink)) {

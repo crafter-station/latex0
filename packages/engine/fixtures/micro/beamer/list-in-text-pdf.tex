@@ -1,0 +1,19 @@
+% fixture: beamer/list-in-text-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: an itemize begun right after a paragraph's text (the body color pushed in the paragraph, which \@trivlist then ends) and text right after it (\@endpetrue)
+% issue: #307
+\documentclass[10pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+A paragraph before the list.
+\begin{itemize}
+\item An item.
+\item Another item.
+\end{itemize}
+Text after the list.
+\end{frame}
+\end{document}

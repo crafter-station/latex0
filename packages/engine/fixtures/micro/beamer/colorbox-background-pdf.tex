@@ -1,0 +1,16 @@
+% fixture: beamer/colorbox-background-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: a beamercolorbox with a background (\colorbox with \fboxsep 0), colsep and colsep*, centered lines
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{beamercolorbox}[wd=6cm,sep=2pt,colsep=3pt,colsep*=1pt,center]{item projected}
+A box in white on the structure color, its lines centered between the margins.
+\end{beamercolorbox}
+\end{frame}
+\end{document}

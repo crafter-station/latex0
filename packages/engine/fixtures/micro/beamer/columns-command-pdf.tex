@@ -1,0 +1,26 @@
+% fixture: beamer/columns-command-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: columns[t] with \column commands, a [b] column, a column that starts with an itemize (the empty paragraph \leavevmode began, the list's last skip taken by the minipage's \unskip), a block in a column (\textwidth the column's)
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{columns}[t]
+\column{.45\textwidth}
+\begin{itemize}
+\item One item.
+\item Another item that is long enough to break.
+\end{itemize}
+\column[b]{.5\textwidth}
+\begin{block}{In a column}
+A block as wide as the column it is in.
+\end{block}
+\end{columns}
+
+Below.
+\end{frame}
+\end{document}

@@ -1,0 +1,17 @@
+% fixture: beamer/itemize-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: itemize with the default templates: a \blacktriangleright (msam) raised 1.25pt in the structure color, beamer's list parameters, ragged right
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{itemize}
+\item First item.
+\item Second item, with words enough to break into more than one line in the frame's width, so the line breaks.
+\end{itemize}
+\end{frame}
+\end{document}

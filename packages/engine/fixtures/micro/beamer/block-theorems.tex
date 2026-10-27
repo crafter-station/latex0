@@ -1,0 +1,26 @@
+% fixture: beamer/block-theorems
+% tier: T3
+% engine: document
+% covers: beamer: theorem (italic body), definition, example (an exampleblock), theorem with an addition, and proof with its qed symbol, each a block in the default inner theme, with hyperref's theorem anchors
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{theorem}
+Every bounded sequence has a convergent subsequence.
+\end{theorem}
+\begin{definition}
+A set is open when it contains a ball around each of its points.
+\end{definition}
+\begin{theorem}[Euler]
+A statement.
+\end{theorem}
+\begin{example}
+The integers.
+\end{example}
+\begin{proof}
+Trivial.
+\end{proof}
+\end{frame}
+\end{document}

@@ -1,0 +1,14 @@
+% fixture: beamer/frametitle-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: a frame title (\begin{frame}{Title}) in the default outer theme's template: a beamercolorbox the text width plus the margins wide, \Large in the structure color
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{A Frame Title}
+Text under the title.
+\end{frame}
+\end{document}

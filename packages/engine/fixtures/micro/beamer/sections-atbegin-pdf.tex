@@ -1,0 +1,39 @@
+% fixture: beamer/sections-atbegin-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \AtBeginSection[starred]{…} with a [currentsection] table of contents frame after each \section and its own frame after \section*, \AtBeginSubsection[]{…} (nothing after \subsection*), \section* and \subsection* (no .toc line, the .nav lines, bookmarks and anchors), subsections in the table of contents
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\AtBeginSection[\begin{frame}{Starred [sic]}
+An unnumbered section.
+\end{frame}]{
+  \begin{frame}{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+\AtBeginSubsection[]{\begin{frame}{Subsection}
+Next part.
+\end{frame}}
+\begin{document}
+\begin{frame}{Contents}
+\tableofcontents
+\end{frame}
+\section{Introduction}
+\subsection{Motivation}
+\begin{frame}{First}
+Text.
+\end{frame}
+\section*{An aside}
+\begin{frame}
+Aside.
+\end{frame}
+\subsection*{Unlisted}
+\section{Results}
+\subsection{Main result}
+\begin{frame}
+Last.
+\end{frame}
+\end{document}

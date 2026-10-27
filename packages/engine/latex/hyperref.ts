@@ -18,6 +18,8 @@ export const pdfdest = (name: string): Node => ({ kind: "whatsit", text: `\\pdfd
 /** \pdfstartlink with its running size, and \pdfendlink (\close@pdflink) */
 const startLink = (action: string): Node => ({ kind: "whatsit", text: `\\pdfstartlink(*+*)x* ${action}` })
 const endLink = (): Node => ({ kind: "whatsit", text: "\\pdfendlink" })
+/** a pdfTeX link around the text where it stands: \pdfstartlink with its attributes and action, \pdfendlink */
+export const pdftexLink = (action: string, text: Node[]): Node[] => [startLink(action), ...text, endLink()]
 const sdict = (s: string): Node => special(`ps:SDict begin ${s} end`)
 
 /** \strip@pt@and@otherjunk: a dimension in pt without "pt", and without ".0" */

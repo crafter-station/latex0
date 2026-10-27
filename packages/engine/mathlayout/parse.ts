@@ -49,6 +49,8 @@ export interface MathOptions {
   /** commands a package binding typesets from the source of an optional […] and its braced arguments (siunitx's):
    *  how many braced arguments each takes, and their mlist with \fam in force */
   commands?: { arity: Record<string, number>; build: (cmd: string, opt: string | undefined, args: string[], fam: number) => MItem[] }
+  /** \mathcode's the document changes (beamer's \DeclareMathSymbol for the Latin letters), by character code */
+  mathcodes?: Record<number, number>
 }
 
 type Token = { cs: string; value?: number } | { ch: string }
@@ -93,6 +95,7 @@ export function parseMath(src: string, data: MathData, opts: MathOptions = {}): 
 /** `fam`: \fam in force (-1: none), which class-7 characters take (§ 1151) */
 function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: number): MItem[] {
   const macroOf = (cs: string) => DELIMITER_MACROS[cs] ?? (opts.amsmath ? AMS_DELIMITERS[cs] : undefined) ?? cs
+  const mathcode = (ch: string) => opts.mathcodes?.[ch.charCodeAt(0)] ?? data.mathcodes[ch.charCodeAt(0)]
   let pos = 0
   const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && x.noad !== "fraction"
 
@@ -165,7 +168,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     if (!t) throw new Error("math: missing script")
     if ("ch" in t) {
       if (t.ch === "{") { const l = list(true); return groupField(l) }
-      const code = data.mathcodes[t.ch.charCodeAt(0)]
+      const code = mathcode(t.ch)
       if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported script ${t.ch}`)
       return mathCharField(code, fam)
     }
@@ -239,7 +242,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
           subSup(out, "sup", () => groupField([...primes, ...more]))
           continue
         }
-        const code = data.mathcodes[c.charCodeAt(0)]
+        const code = mathcode(c)
         if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported character ${c}`)
         out.push(mathCharNoad(code, fam))
         continue
@@ -272,7 +275,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         // the nucleus: \mathop{\kern\z@\operator@font name}, a math group in family 0 (\symoperators)
         const nucleus: MItem[] = opts.amsmath ? [kern(0, true)] : []
         for (const x of name) {
-          if ("ch" in x && /^[A-Za-z0-9]$/.test(x.ch)) nucleus.push(mathCharNoad(data.mathcodes[x.ch.charCodeAt(0)], 0))
+          if ("ch" in x && /^[A-Za-z0-9]$/.test(x.ch)) nucleus.push(mathCharNoad(mathcode(x.ch), 0))
           else if ("cs" in x && x.cs === ",") nucleus.push({ kind: "muglue", spec: data.muskips.thinmuskip })
           else throw new Error(`math: an operator name with ${"ch" in x ? x.ch : `\\${x.cs}`}`)
         }

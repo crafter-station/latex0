@@ -10,7 +10,20 @@ import type { ClassOptionData } from "../../layout/classdata"
 import { classFile } from "../data"
 import { pdfString } from "../hyperref"
 import { Unsupported } from "../unsupported"
+import { bracedArg } from "./frame"
 import { loadTheme, type Theme } from "./theme"
+
+/** an optional argument at text[i] (a [): its text, braces kept, and where it ends */
+function bracketArg(text: string, i: number): { arg: string; end: number } {
+  let depth = 0
+  for (let j = i + 1; j < text.length; j++) {
+    if (text[j] === "\\") { j++; continue }
+    if (text[j] === "{") depth++
+    else if (text[j] === "}") depth--
+    else if (text[j] === "]" && depth === 0) return { arg: text.slice(i + 1, j), end: j + 1 }
+  }
+  throw new Unsupported("an optional argument not closed")
+}
 
 export interface BeamerPreamble {
   /** the size option (beamer's \beamer@size: the .clo it inputs) */
@@ -28,7 +41,12 @@ export interface BeamerPreamble {
   pdfAuthor: string
   /** between \begin{document} and \end{document} */
   body: string
+  /** \AtBeginSection[starred]{text} and \AtBeginSubsection[…]{…}: what each \section and \section* (\subsection,
+   *  \subsection*) is followed by */
+  hooks: Hooks
 }
+
+export interface Hooks { section: string; sectionStar: string; subsection: string; subsectionStar: string }
 
 export interface TitleInfo { title: string; subtitle: string; author: string; institute: string; date: string
   /** the short forms (\@dblarg's optional argument, the text itself without one), which the head and foot lines print */
@@ -57,7 +75,22 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   const at = (re: RegExp) => { for (const x of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", x.index!) + 1, x.index))) return x.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
   if (begin < 0 || end < begin) throw new Unsupported("a beamer document without its document environment")
-  const pre = src.slice(src.indexOf(m[0]) + m[0].length, begin).replace(/(^|[^\\])%.*$/gm, "$1")
+  let pre = src.slice(src.indexOf(m[0]) + m[0].length, begin).replace(/(^|[^\\])%.*$/gm, "$1")
+  // \AtBeginSection[starred]{text} (the text for both without [starred]), \AtBeginSubsection: their arguments may
+  // span lines
+  const hooks: Hooks = { section: "", sectionStar: "", subsection: "", subsectionStar: "" }
+  for (let at; (at = pre.search(/\\AtBegin(?:Sub)?[Ss]ection(?![A-Za-z])/)) >= 0;) {
+    const sub = pre.startsWith("\\AtBeginSubsection", at)
+    let i = at + (sub ? 18 : 15)
+    const o = pre.slice(i).match(/^\s*\[/)
+    let star: string | undefined
+    if (o) { const a = bracketArg(pre, i + o[0].length - 1); star = a.arg; i = a.end }
+    const a = bracedArg(pre, i)
+    if (!a) throw new Unsupported("beamer: \\AtBeginSection without its argument")
+    hooks[sub ? "subsection" : "section"] = a.arg
+    hooks[sub ? "subsectionStar" : "sectionStar"] = star ?? a.arg
+    pre = pre.slice(0, at) + pre.slice(a.end)
+  }
   let navigationSymbols = true
   const info: TitleInfo = { title: "", subtitle: "", author: "", institute: "", date: "\\today", short: { title: "", subtitle: "", author: "", institute: "", date: "\\today" } }
   /** the theme lines (other than the default themes'), and the theme they name */
@@ -95,7 +128,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   const title = pdfInfo(info.title + (info.subtitle ? ` - ${info.subtitle}` : ""))
   // (\beamer@stripands, then \and as ", ")
   const author = pdfInfo(info.author.replace(/\s*\\and(?![A-Za-z])\s*/g, ", "))
-  return { option, centered, k, theme, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end) }
+  return { option, centered, k, theme, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end), hooks }
 }
 
 /** a document information string as hyperref's \pdfstringdef makes it ("" for none) */

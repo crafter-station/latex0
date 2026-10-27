@@ -1,0 +1,28 @@
+% fixture: beamer/colorbox-sloppy-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \@arrayparboxrestore's \sloppy in a beamercolorbox (justified lines, a narrow box: \tolerance 9999 and the emergency pass with \emergencystretch 3em); an empty box (the paragraph \leavevmode began); a box lower than \baselineskip after a paragraph
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{beamercolorbox}[wd=2.6cm,rightskip=0pt]{structure}
+Justified lines in a narrow box with characteristically interminable words, notwithstanding typographical considerations.
+\end{beamercolorbox}
+
+\begin{beamercolorbox}[wd=2cm,rightskip=0pt]{structure}
+a b incomprehensibilities c
+\end{beamercolorbox}
+
+\begin{beamercolorbox}[wd=3cm]{structure}
+\end{beamercolorbox}
+A line.
+
+\begin{beamercolorbox}[wd=3cm,ht=4pt,dp=1pt]{structure}
+x
+\end{beamercolorbox}
+\end{frame}
+\end{document}

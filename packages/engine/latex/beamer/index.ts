@@ -1,5 +1,7 @@
 // beamer (beamer.cls 3.77 and its base packages) as `latex` lays it out, with the
-// dvips driver: its own pipeline, entered from document() for \documentclass{beamer}.
+// dvips driver, or `pdflatex` (pdfTeX's color stack, \pdfdest and \pdfstartlink, pgf's
+// \pdfliteral, no pdfmark specials): its own pipeline, entered from document() for
+// \documentclass{beamer}.
 // Each frame is a page: its box (frame.ts) on the main vertical list, the .nav
 // lines \beamer@writeslidentry writes, and the \clearpage after it; LaTeX's output
 // routine (output.ts) ships each page through \@outputpage with beamer's head and
@@ -13,6 +15,8 @@ import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layou
 import type { ParagraphTrace } from "../../trace/decisions"
 import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
+import { pdftexColors } from "../pdftex"
+import { MATH_ALPHABETS, mathFonts } from "../paragraph"
 import type { LayoutResult } from "../result"
 import type { DocumentSource } from "../source"
 import { Unsupported } from "../unsupported"
@@ -37,21 +41,29 @@ interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decis
   frames: number; /** \inserttotalframenumber: the last run's count (1 before) */ totalFrames: number
   /** \beamer@endpageofdocument: the last run's page count (1 before) */ lastPage: number
   /** the sectioning state, and the .toc lines the last run wrote */
-  sections: Sections; toc: TocEntry[] }
+  sections: Sections; toc: TocEntry[]
+  /** \c@equation and \c@footnote */
+  equations: { n: number }; footnotes: { n: number } }
 
 /** The body's constructs: frames (the environment and the \frame command), \section and \subsection */
 const BODY: { [K in BodyItem["kind"]]: (cx: BeamerCtx, item: Extract<BodyItem, { kind: K }>) => void } = { frame, section, subsection: section }
 
-/** \section or \subsection: its writes and anchor on the main vertical list, before the next frame's page */
+/** \section or \subsection: its writes and anchor on the main vertical list, before the next frame's page; then what
+ *  \AtBeginSection (\AtBeginSubsection) gave it, for \section or for \section*: frames */
 function section(cx: BeamerCtx, s: SectionSource) {
   cx.v.nodes.push(...sectionNodes(cx.sections, s, cx.pageFrames.length + 1, cx.pre.k))
+  const h = cx.pre.hooks
+  const hook = s.kind === "section" ? (s.star ? h.sectionStar : h.section) : s.star ? h.subsectionStar : h.subsection
+  for (const item of bodyOf(hook)) {
+    if (item.kind !== "frame") throw new Unsupported(`beamer: \\${item.kind} at the beginning of a section`)
+    frame(cx, item)
+  }
 }
 
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {
-  if (driver === "pdftex") throw new Unsupported("beamer with pdfTeX's driver")
   if (prepared.listings.length || prepared.tabulars.length || prepared.minipages.length || prepared.urls.length || prepared.graphics.length) throw new Unsupported("beamer: verbatim, tabular, minipage, url or graphics")
-  const first = layout(prepared.src, null, epoch)
-  return layout(prepared.src, first.written, epoch).result
+  const first = layout(prepared.src, null, epoch, driver)
+  return layout(prepared.src, first.written, epoch, driver).result
 }
 
 /** \begin{document}: \normalcolor, LaTeX's \write, hyperref's \AtBeginDocument (the /DOCVIEW and Catalog pdfmarks, the
@@ -62,6 +74,8 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
   const sdict = (s: string): Node => ({ kind: "whatsit", text: `\\special{ps:SDict begin ${s} end}` })
   const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...documentStart(prev ? prev.bookmarks : [], true)]
   out.push(...anchor("Doc-Start", pre.k.sizes.normalsize.baselineskip.width, "v", out.at(-1)))
+  // (with pdfTeX the document information and the page labels are \pdfinfo and \pdfcatalog: no nodes)
+  if (hyperDriver.pdftex) { out.push(colorPush(), colorPush(), colorPush(), colorPush()); return out }
   out.push(sdict(`[/Producer (dvips + Distiller)/Title (${pre.pdfTitle})/Subject ()/Creator (${pdfString("LaTeX with Beamer class")})/Author (${pre.pdfAuthor})/Keywords () /DOCINFO pdfmark`))
   if (prev) {
     const labels = prev.pageFrames.map((f, i) => (i && prev.pageFrames[i - 1] === f ? "" : `${i}<</P(${pdfString(String(f))})>>`))
@@ -82,11 +96,14 @@ function frame(cx: BeamerCtx, f: FrameSource) {
   // \beamer@calculateheadfoot (\c@framenumber stepped already) measures the footline
   footlineTemplate(k, cx.pre.theme, cx.pre.info, footlineAt(cx, number, cx.pageFrames.length + 1), cx.decisions)
   const bs = k.sizes.normalsize.baselineskip
-  const first = cx.pageFrames.length + 1
+  const first = cx.pageFrames.length + 1, equations = cx.equations.n, footnotes = cx.footnotes.n
   for (let slide = 1; ; slide++) {
     if (slide > 1) clearpage(cx)
     const overlay = newOverlay(slide)
-    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [] }, f, cx.pre.centered)
+    // (\resetcounteronoverlays{equation}: each slide starts the counter where the frame does)
+    cx.equations.n = equations; cx.footnotes.n = footnotes
+    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [], equations: cx.equations,
+      footnotes: cx.footnotes, footins: [] }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
     cx.v.box(box, bs)
@@ -111,15 +128,17 @@ function clearpage(cx: BeamerCtx) {
 const footlineAt = (cx: BeamerCtx, frame: number, page: number): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch })
 
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
-function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutResult; written: Aux } {
+function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux } {
   const pre = readBeamerPreamble(src)
   const k = pre.k
-  hyperDriver.pdftex = false
+  hyperDriver.pdftex = driver === "pdftex"
+  // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
+  mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const v = new VerticalList(k)
   v.nodes = documentBegin(pre, prev)
   const cx: BeamerCtx = { pre, epoch, v, decisions: [], pageEnds: [], pageFrames: [], frames: 0, totalFrames: prev ? prev.frames : 1, lastPage: prev ? prev.pages : 1,
-    sections: new Sections(), toc: prev ? prev.toc : [] }
+    sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 } }
   // beamerbasemisc.sty's \AtBeginDocument \beamer@calculateheadfoot (no frame yet, page 1)
   footlineTemplate(k, pre.theme, pre.info, footlineAt(cx, 0, 1), cx.decisions)
   for (const item of bodyOf(pre.body)) (BODY[item.kind] as (cx: BeamerCtx, item: BodyItem) => void)(cx, item)
@@ -136,6 +155,8 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     return box
   })
+  // (pdfTeX: the color specials as its color stack's nodes, in the columns too, which are inside the pages)
+  if (hyperDriver.pdftex) shipped.forEach(pdftexColors)
   const drawn: PageMark[][] = []
   const trace = shipOut(shipped, undefined, pages.map((p) => p.count), drawn)
   const { paperwidth, paperheight, hoffset, voffset } = k.dimens

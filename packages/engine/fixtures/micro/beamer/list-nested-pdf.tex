@@ -1,0 +1,32 @@
+% fixture: beamer/list-nested-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: itemize and enumerate nested to the third level (subbody \small and subsubbody \footnotesize, \@listii and \@listiii, the subitem triangles raised 1.5pt, enumerate subitem labels 2.1), a nested list ending its item's paragraph, text after a nested list in the item
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{itemize}
+\item Outer one.
+\begin{itemize}
+\item Inner one, long enough to break across lines in the narrower width of the nested list here.
+\item Inner two.
+\begin{itemize}
+\item Deepest.
+\end{itemize}
+\end{itemize}
+\item Outer two.
+\begin{enumerate}
+\item First.
+\item Second.
+\begin{enumerate}
+\item Third level.
+\end{enumerate}
+\end{enumerate}
+Text after the nested enumerate.
+\end{itemize}
+\end{frame}
+\end{document}

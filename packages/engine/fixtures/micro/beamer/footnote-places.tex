@@ -1,0 +1,28 @@
+% fixture: beamer/footnote-places
+% tier: T3
+% engine: document
+% covers: beamer: footnotes in a block's body and in an item (marks at \small in a nested item; spaces at a footnote's ends), \c@footnote across frames and reset on each slide of a frame with overlays, the whale color theme
+% issue: #307
+\documentclass{beamer}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Notes}
+\begin{block}{A block}
+Its body\footnote{From the block.} has a note.
+\end{block}
+\begin{itemize}
+\item An item\footnote{ From the item, \textbf{bold} }.
+\begin{itemize}
+\item A nested one\footnote{Nested.}.
+\end{itemize}
+\end{itemize}
+\end{frame}
+\begin{frame}
+First part\footnote{On both slides.}.
+
+\pause
+
+Second part.
+\end{frame}
+\end{document}

@@ -1,0 +1,25 @@
+% fixture: beamer/toc-current-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \tableofcontents[currentsection]: the other sections and their subsections shaded
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\section{Introduction}
+\subsection{Details}
+\begin{frame}
+Text.
+\end{frame}
+\section{Results}
+\subsection{Main}
+\begin{frame}
+\tableofcontents[currentsection]
+\end{frame}
+\section{End}
+\begin{frame}
+End.
+\end{frame}
+\end{document}

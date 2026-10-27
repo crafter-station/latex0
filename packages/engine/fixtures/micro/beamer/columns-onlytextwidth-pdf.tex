@@ -1,0 +1,23 @@
+% fixture: beamer/columns-onlytextwidth-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: columns[onlytextwidth] (\hbox to\textwidth, the last \hfill \unskip'ed) in a [t] frame (columns default to t), a theorem first in a column (the empty paragraph it ends), widths in \linewidth and in points
+% issue: #307
+\documentclass[t]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{columns}[onlytextwidth]
+\begin{column}{0.3\linewidth}
+\begin{theorem}
+Short.
+\end{theorem}
+\end{column}
+\begin{column}{150pt}
+Right text in a column of a hundred and fifty points.
+\end{column}
+\end{columns}
+\end{frame}
+\end{document}

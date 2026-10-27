@@ -1,0 +1,17 @@
+% fixture: beamer/list-20pt-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: itemize at 20pt (msam10 scaled up), in a frame placed at the top
+% issue: #307
+\documentclass[20pt,t]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{itemize}
+\item Big
+\item Bigger
+\end{itemize}
+\end{frame}
+\end{document}

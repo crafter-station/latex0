@@ -39,7 +39,7 @@ function outerVariants(colors: string[][], outerOnly = false): Record<string, { 
   return out
 }
 /** colors and fonts no theme sets that templates use (\usebeamertemplate*{title page}): reported empty */
-const UNSET = ["title page"]
+const UNSET = ["footnote", "footnote mark", "title page"]
 /** beamer's sizes: geometry's margins (macros), the text margins and sidebars, and what \beamer@calculateheadfoot sets */
 const DIMENS = ["Gm@lmargin", "Gm@rmargin", "beamer@leftmargin", "beamer@rightmargin", "beamer@leftsidebar", "beamer@rightsidebar",
   "headheight", "headdp", "footheight", "footskip", "sidebarheight", "textheight", "textwidth", "headsep", "topmargin", "oddsidemargin"]

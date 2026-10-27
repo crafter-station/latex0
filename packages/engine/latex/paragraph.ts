@@ -61,11 +61,19 @@ export { mathData }
 const ALPHABET_FONTS = ["mathbf", "mathit", "mathsf", "mathtt"] as const
 export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1, mathcal: 2, ...Object.fromEntries(ALPHABET_FONTS.map((a, i) => [a, 4 + i])) }
 
+/** The document's math fonts where they are not LaTeX's: `letters`, the family of the Latin letters' \mathcode
+ *  (beamer's pureletters: \DeclareMathSymbol{a}\mathalpha{pureletters}{"61}…, the \mathit alphabet's fonts), null
+ *  for LaTeX's (letters, cmmi). document() sets it for each run. */
+export const mathFonts: { letters: number | null } = { letters: null }
+/** \mathalpha (class 7) mathcodes for A–Z and a–z in family `fam` */
+const LETTERS = (fam: number): Record<number, number> => Object.fromEntries([..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"].map((c) => [c.charCodeAt(0), 0x7000 | (fam << 8) | c.charCodeAt(0)]))
+
 /** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's;
  *  `si`: siunitx is loaded, and its view of the text around */
 export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext): MItem[] {
   const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
-  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
+  try { return parseMath(src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */

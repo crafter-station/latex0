@@ -16,7 +16,9 @@ import { emptyBackground, useColor, type ColorState, type Theme } from "./theme"
 
 /** \setkeys{beamercolbox}'s results: the width, the height and depth when set, the left and right skips, sep, colsep
  *  and colsep* */
-export interface ColorboxOptions { wd: number; ht?: number; dp?: number; leftskip: GlueSpec; rightskip: GlueSpec; sep: number; colsep: number; colseps: number }
+export interface ColorboxOptions { wd: number; ht?: number; dp?: number; leftskip: GlueSpec; rightskip: GlueSpec; sep: number; colsep: number; colseps: number
+  /** colsep* at the box's end, where the body changed the font its ex is in (it is kept as written) */
+  colsepsEnd?: number }
 
 /** What the body of a box is set with: \hsize, \leftskip and \rightskip, and the \vbox's list so far */
 export interface ColorboxBody { hsize: number; leftskip: GlueSpec; rightskip: GlueSpec; v: VerticalList }
@@ -95,7 +97,7 @@ export function beamercolorbox(k: ClassOptionData, t: Theme, name: string, o: Co
   if (o.sep > 0) v.vskip(dimen(o.sep))
   if (bg) {
     if (o.colsep > 0) v.vskip(dimen(o.colsep))
-    if (o.colseps > 0) v.vskip(dimen(o.colseps))
+    if (o.colseps > 0) v.vskip(dimen(o.colsepsEnd ?? o.colseps))
   }
   // \hbox{\usebeamercolor[fg]{name}\vbox{…}}, its \ht and \dp then set (its \wd too, which its lines, \hsize wide, are)
   let box = hpack([colorPush(inner.fg), vpack(v.nodes), ...after, colorPop()])
