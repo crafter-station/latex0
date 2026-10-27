@@ -1,0 +1,14 @@
+% fixture: beamer/footnote-frame-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \footnote in a frame's paragraph: the mark (\@textsuperscript in footnote mark's color), the text in beamer's footins box (\footnotesize, the footnote template: \hbox to 1.8em{\hfil mark} and the text, ragged right, in \uncover's specials) set at the frame's bottom after \footnoterule, in footnote's color
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+A claim\footnote{A source for it, with words enough to break the line in the footnote's width.} and another\footnote{Second.} one.
+\end{frame}
+\end{document}

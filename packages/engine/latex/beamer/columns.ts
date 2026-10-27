@@ -138,7 +138,7 @@ const smuggleV = (v: VerticalList, nodes: Node[]) => smuggleH(v.nodes, nodes)
  */
 function minipage(cx: FrameCtx, c: ColumnSource, width: number): Node[] {
   const k: ClassOptionData = { ...cx.k, dimens: { ...cx.k.dimens, textwidth: width, columnwidth: width } }
-  const inner: FrameCtx = { ...cx, k }
+  const inner: FrameCtx = { ...cx, k, inMinipage: true }
   const v = new VerticalList(k)
   v.nodes = []
   v.prevDepth = null // a \vbox begins with \prevdepth -1000pt

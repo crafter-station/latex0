@@ -24,6 +24,7 @@ import { negate, plain, VerticalList } from "../vlist"
 import { colorPush } from "../xcolor"
 import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
 import { frameColumns } from "./columns"
+import { footnoteArea, readFootnotes } from "./footnotes"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
 import { frameList, LIST_BEGIN, listSource, type ListKind } from "./lists"
@@ -118,7 +119,11 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** \ifbeamer@centered: the frame's placement is c */
   centered?: boolean
   /** \c@equation */
-  equations: { n: number } }
+  equations: { n: number }
+  /** \c@footnote, and the slide's \beamer@footins (footnotes.ts) */
+  footnotes: { n: number }; footins: Node[]
+  /** in a column's minipage (columns.ts), where \footnote is the minipage's */
+  inMinipage?: boolean }
 
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
@@ -142,7 +147,11 @@ export interface ParagraphSetting { size?: SizeCommand; /** the font's attribute
 /** Paragraph text broken into lines in the sans serif text font (ragged right, \textwidth wide, unless `s` says
  *  otherwise); its trace goes to cx.decisions. */
 export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {}): Node[] {
-  const { t, doc, opts } = paragraphSetup(cx, text, s)
+  return breakParagraph(cx, paragraphSetup(cx, text, s), s)
+}
+
+/** The paragraph as paragraphSetup reads it, broken into lines */
+function breakParagraph(cx: FrameCtx, { t, doc, opts }: ReturnType<typeof paragraphSetup>, s: ParagraphSetting): Node[] {
   if (DISPLAY.test(t)) throw new Unsupported("beamer: a display here")
   const { list, params, notes } = adapted(() => paragraphInput(t, cx.k, s.size ?? "normalsize", doc, opts))
   const { vlist, trace } = lineBreak(list, params)
@@ -154,9 +163,11 @@ export function setParagraph(cx: FrameCtx, text: string, s: ParagraphSetting = {
  *  breaks it; one with displays (\[ \], equation, align …) as LaTeX's displays.ts sets them, amsmath's, with
  *  hyperref's implicit=false (no anchors) */
 export function addParagraph(cx: FrameCtx, v: VerticalList, text: string, s: ParagraphSetting, parskip: GlueSpec, baselineskip?: GlueSpec) {
-  const { t, doc, opts } = paragraphSetup(cx, text, s)
   const size = s.size ?? "normalsize"
-  if (!DISPLAY.test(t)) { v.paragraph(setParagraph(cx, text, s), parskip, baselineskip ?? cx.k.sizes[size].baselineskip); return }
+  // (its footnotes read: here a paragraph may have them)
+  const setup = paragraphSetup(cx, readFootnotes(cx, text, size), s)
+  const { t, doc, opts } = setup
+  if (!DISPLAY.test(t)) { v.paragraph(breakParagraph(cx, setup, s), parskip, baselineskip ?? cx.k.sizes[size].baselineskip); return }
   if (baselineskip && baselineskip !== cx.k.sizes[size].baselineskip) throw new Unsupported("beamer: a display in a paragraph another size ends")
   adapted(() => listParagraphWithDisplays(displayCtx(cx, v, doc), t, opts, parskip, size))
 }
@@ -422,6 +433,6 @@ export function frameBox(cx: FrameCtx, f: FrameSource, centered: boolean): BoxNo
   const material = frameMaterial(cx, f.body)
   const list: Node[] = [penalty(10000), emptyBox("vlist"), penalty(10000), penalty(10000), penalty(10000)]
   if (cx.title !== undefined) list.push(...frameTitle(cx, cx.title, cx.subtitle))
-  list.push(penalty(10000), plain(top), penalty(10000), penalty(10000), ...material, plain(bottom))
+  list.push(penalty(10000), plain(top), penalty(10000), penalty(10000), ...material, plain(bottom), ...footnoteArea(cx))
   return vpack(list, { exactly: cx.k.dimens.textheight })
 }

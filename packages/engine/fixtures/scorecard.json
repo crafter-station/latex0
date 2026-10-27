@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 493,
-  "exact": 490,
+  "fixtures": 497,
+  "exact": 494,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 331845
+  "glyphs": 332355
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 115,
-   "exact": 114
+   "fixtures": 119,
+   "exact": 118
   },
   {
    "area": "bibliography",
@@ -1229,6 +1229,50 @@
    "glyphs": 85,
    "covers": "beamer: enumerate with the default template (\\insertenumlabel. in the structure color, flush right in \\labelwidth), items of more than one line, hyperref's item anchors",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/footnote-frame-pdf",
+   "file": "micro/beamer/footnote-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 94,
+   "covers": "beamer under pdflatex: \\footnote in a frame's paragraph: the mark (\\@textsuperscript in footnote mark's color), the text in beamer's footins box (\\footnotesize, the footnote template: \\hbox to 1.8em{\\hfil mark} and the text, ragged right, in \\uncover's specials) set at the frame's bottom after \\footnoterule, in footnote's color",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/footnote-frame",
+   "file": "micro/beamer/footnote-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 94,
+   "covers": "beamer: \\footnote in a frame's paragraph: the mark (\\@textsuperscript in footnote mark's color), the text in beamer's footins box (\\footnotesize, the footnote template: \\hbox to 1.8em{\\hfil mark} and the text, ragged right, in \\uncover's specials) set at the frame's bottom after \\footnoterule, in footnote's color",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/footnote-places-pdf",
+   "file": "micro/beamer/footnote-places-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "beamer under pdflatex: footnotes in a block's body and in an item (marks at \\small in a nested item; spaces at a footnote's ends), \\c@footnote across frames and reset on each slide of a frame with overlays, the whale color theme",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/footnote-places",
+   "file": "micro/beamer/footnote-places.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "beamer: footnotes in a block's body and in an item (marks at \\small in a nested item; spaces at a footnote's ends), \\c@footnote across frames and reset on each slide of a frame with overlays, the whale color theme",
+   "issue": "#307"
   },
   {
    "id": "beamer/frame-17pt-pdf",
