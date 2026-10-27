@@ -27,7 +27,8 @@ export { document, type DocumentOptions } from "./latex/document"
 export { svgPages, type SvgOptions, type SvgPages } from "./emit/svg"
 export { installData, type DataSource, type WebFonts } from "./latex/data"
 export { Unsupported } from "./latex/unsupported"
-export { bitmapInfo, type Bitmap } from "./latex/images"
+export { bitmapInfo, imageInfo, type Bitmap, type Image } from "./latex/images"
+export type { Pdf, PdfPage, PdfBox } from "./latex/pdf"
 
 /** The source with the document's macro definitions removed and their uses expanded. */
 export function expandMacros(source: string): string {

@@ -1,9 +1,19 @@
-// Bitmap images as pdfTeX reads them for \pdfximage (writepng.c, writejpg.c): the size in pixels and the
-// resolution, from the file's header alone. The engine never reads files: the app passes what this returns for
-// each uploaded image (document(source, { images })).
+// Images as pdfTeX reads them for \pdfximage: a bitmap's size in pixels and its resolution, from the file's header
+// alone (writepng.c, writejpg.c), or a PDF file's page boxes (pdf.ts). The engine never reads files: the app passes
+// what imageInfo returns for each uploaded image (document(source, { images })).
+
+import { pdfInfo, type Pdf } from "./pdf"
 
 /** A PNG or JPEG: its size in pixels, and its resolution in dots per inch (0: none given) */
 export interface Bitmap { kind: "png" | "jpg"; width: number; height: number; xres: number; yres: number }
+
+/** What pdfTeX reads of an image file */
+export type Image = Bitmap | Pdf
+
+/** A PNG's, JPEG's or PDF file's size information, or null for another file */
+export function imageInfo(bytes: Uint8Array): Image | null {
+  return bitmapInfo(bytes) ?? pdfInfo(bytes)
+}
 
 /** The size and resolution in a PNG's or JPEG's header, or null for another file */
 export function bitmapInfo(bytes: Uint8Array): Bitmap | null {

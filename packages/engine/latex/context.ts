@@ -14,7 +14,7 @@ import type { DocState, FontAttrs, ParagraphOptions, Refs } from "./paragraph"
 import type { Preamble } from "./preamble"
 import type { RunState } from "./run"
 import type { BoundingBox } from "./graphics"
-import type { Bitmap } from "./images"
+import type { Image } from "./images"
 import type { GraphicSource, Listing, MinipageSource, TabularSource, UrlSource } from "./source"
 import type { TabularEnv } from "./tabular"
 import type { TocEntry } from "./toc"
@@ -33,7 +33,7 @@ export interface Ctx {
   minipages: MinipageSource[]
   /** \includegraphics by number, and the bounding boxes of the graphics files the engine knows */
   graphics: GraphicSource[]
-  images: Map<string, BoundingBox | Bitmap>
+  images: Map<string, BoundingBox | Image>
   /** the output driver (DocumentOptions.driver) */
   driver: "dvips" | "pdftex"
   /** \url, \nolinkurl and \href addresses */

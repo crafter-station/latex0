@@ -1,7 +1,7 @@
 // graphicx's \includegraphics (graphics.sty, graphicx.sty) with the dvips driver (dvips.def) or pdfTeX's
 // (pdftex.def). The file's bounding box gives the natural size (\Gin@setfile: ury−lly by urx−llx, in bp): an EPS
-// file's %%BoundingBox under dvips; under pdfTeX a PNG's or JPEG's image box, whose width and height
-// \Gread@pdftex takes as .99626 of their pt (\Gin@defaultbp). width=, height=, keepaspectratio and scale= ask
+// file's %%BoundingBox under dvips; under pdfTeX the image box of a PNG, a JPEG or a PDF file's page (page= and
+// pagebox=), whose width and height \Gread@pdftex takes as .99626 of their pt (\Gin@defaultbp). width=, height=, keepaspectratio and scale= ask
 // for another size (\Gin@esetsize, \Gscale@div); the result is an \hbox of that size, depth zero, holding
 // dvips's PSfile special (\Ginclude@eps) or pdfTeX's image scaled by \Gscale@box (\Ginclude@@pdftex), and
 // scale= puts it in an \mbox (\Gscale@@box with no size).
@@ -13,6 +13,7 @@ import { kern, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { widthRegisters } from "./boxes"
 import type { Ctx } from "./context"
 import type { Bitmap } from "./images"
+import type { Pdf, PdfPage } from "./pdf"
 import { Unsupported } from "./unsupported"
 
 /** An EPS file's %%BoundingBox, its numbers as written (dvips's special prints them back) */
@@ -32,14 +33,14 @@ export function graphicAt(cx: Ctx, n: number, lineWidth: number, units: { em: nu
   // \Gin@extensions: a name without one is tried with each, in order
   const exts = pdftex ? [".pdf", ".png", ".jpg", ".mps", ".jpeg", ".jbig2", ".jb2", ".PDF", ".PNG", ".JPG", ".JPEG", ".JBIG2", ".JB2"] : [".eps", ".ps"]
   const name = /\.[A-Za-z0-9]+$/.test(file) ? file : exts.map((e) => file + e).find((f) => cx.images.has(f)) ?? file + exts[0]
-  if (!(pdftex ? /\.(png|jpe?g)$/i : /\.e?ps$/i).test(name)) throw new Unsupported(`a graphic of type ${name.replace(/^.*\./, "")} with the ${cx.driver} driver`)
+  if (!(pdftex ? /\.(png|jpe?g|pdf)$/i : /\.e?ps$/i).test(name)) throw new Unsupported(`a graphic of type ${name.replace(/^.*\./, "")} with the ${cx.driver} driver`)
   const info = cx.images.get(name)
   if (!info || ("kind" in info) !== pdftex) throw new Unsupported(`a graphic whose size is not known: ${name}`)
-  // pdfTeX's image box, and \Gread@pdftex's bounding box: 0 0 and .99626 of its width and height
-  const image = "kind" in info ? bitmapSize(info) : null
-  const bb: BoundingBox = image ? { llx: "0", lly: "0", urx: stripPt(times(".99626", image.width)), ury: stripPt(times(".99626", image.height)) } : info as BoundingBox
   const keys = keyval(options)
-  for (const k of keys.keys()) if (!["width", "height", "keepaspectratio", "scale"].includes(k)) throw new Unsupported(`\\includegraphics option ${k}`)
+  for (const k of keys.keys()) if (!["width", "height", "keepaspectratio", "scale", "page", "pagebox"].includes(k)) throw new Unsupported(`\\includegraphics option ${k}`)
+  // pdfTeX's image box, and \Gread@pdftex's bounding box: 0 0 and .99626 of its width and height
+  const image = !("kind" in info) ? null : info.kind === "pdf" ? pdfSize(info, keys.get("page"), keys.get("pagebox")) : bitmapSize(info)
+  const bb: BoundingBox = image ? { llx: "0", lly: "0", urx: stripPt(times(".99626", image.width)), ury: stripPt(times(".99626", image.height)) } : info as BoundingBox
   if (keys.has("scale") && (keys.has("width") || keys.has("height"))) throw new Unsupported("\\includegraphics with scale and a size")
 
   const bp = (x: string) => parseDimen(`${x}bp`, { em: 0, ex: 0 })
@@ -89,6 +90,30 @@ export function bitmapSize(b: Bitmap): { width: number; height: number } {
   const hundredInch = 7227 * 65536
   const side = (px: number, res: number) => Math.round((hundredInch * px) / (100 * res))
   return { width: side(b.width, xr), height: side(b.height, yr) }
+}
+
+/**
+ * pdfTeX's image box for a PDF file's page (read_pdf_info, writeimg.c's readimage, scale_image): page= (\number of
+ * it; 1 when empty or not given) and the box pagebox= names (graphicx: the crop box by default, and for a name it
+ * does not know), its width and height in bp, each the difference of two doubles kept in a float (epdf_width) and
+ * made sp by bp2int, round(x × 6578176 / 100.0) with web2c's zround ((int)(x + .5)); the two swapped for a page
+ * whose /Rotate is 90 or 270
+ */
+export function pdfSize(pdf: Pdf, page: string | undefined, pagebox: string | undefined): { width: number; height: number } {
+  if (pdf.unsupported) throw new Unsupported(pdf.unsupported)
+  const pg = page === undefined || page.trim() === "" ? "1" : page.trim()
+  if (!/^[+-]?\d+$/.test(pg)) throw new Unsupported(`\\includegraphics page=${page}`)
+  const n = Number(pg)
+  if (n < 1 || n > pdf.pages.length) throw new Unsupported(`page ${n} of a PDF file of ${pdf.pages.length} pages`)
+  const p = pdf.pages[n - 1]
+  if (!p) throw new Unsupported(`page ${n} of a PDF file whose page tree does not lead to it (pdfTeX crashes writing it)`)
+  const named = /^(media|crop|bleed|trim|art)box$/.exec(pagebox?.trim() ?? "")?.[1] ?? "crop"
+  const box = p[named as Exclude<keyof PdfPage, "rotate">]
+  const bp2int = (x: number) => Math.trunc(Math.fround(x) * (6578176 / 100) + 0.5)
+  let width = bp2int(box[2] - box[0]), height = bp2int(box[3] - box[1])
+  if (p.rotate === 90 || p.rotate === 270) [width, height] = [height, width]
+  if (width <= 0 || height <= 0 || width > MAX_DIMEN || height > MAX_DIMEN) throw new Unsupported("a PDF page with no width or height, or too large")
+  return { width, height }
 }
 
 /**
