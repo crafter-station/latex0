@@ -1,0 +1,19 @@
+% fixture: beamer/colorbox-defaults-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: a beamercolorbox with its defaults (\textwidth wide, no sep, ragged right) holding two paragraphs
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{beamercolorbox}{structure}
+The first paragraph in the box, with words enough for its lines to break more than once inside the box's width.
+
+And a second paragraph.
+\end{beamercolorbox}
+Text after the box.
+\end{frame}
+\end{document}

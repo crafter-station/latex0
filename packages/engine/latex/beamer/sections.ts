@@ -16,7 +16,7 @@ import { appendText } from "../../layout/hmode"
 import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, fillGlue, glue, paramGlue, penalty, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
-import { Bookmarks, dest, HA, HS, linkBox } from "../hyperref"
+import { Bookmarks, dest, HA, HS, hyperDriver, linkBox, pdfdest, pdftexLink } from "../hyperref"
 import { classParams, selectFont, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { dimen, type VerticalList } from "../vlist"
@@ -46,8 +46,9 @@ export class Sections {
 }
 
 /** \beamer@hyperlink{Navigation<page>}{text}: hyperref's link with beamer's border (none) and highlight */
-export const navigationLink = (text: Node[], color: string, page: number): Node[] =>
-  linkBox(text, color, `[/Color [.5 .5 .5]/H /N/Border [0 0 0]BorderArrayPatch/Subtype /Link/Dest (Navigation${page}) cvn H.B /ANN pdfmark`)
+export const navigationLink = (text: Node[], color: string, page: number): Node[] => hyperDriver.pdftex
+  ? pdftexLink(`attr{/Border[0 0 0]/H/N/C[.5 .5 .5]} action goto name{Navigation${page}}`, text)
+  : linkBox(text, color, `[/Color [.5 .5 .5]/H /N/Border [0 0 0]BorderArrayPatch/Subtype /Link/Dest (Navigation${page}) cvn H.B /ANN pdfmark`)
 
 /** Text a section title or a .toc line may have: no commands, braces or special characters */
 function plainTitle(text: string): string {
@@ -92,7 +93,8 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
   st.subsectionStart = page
   const bookmark = st.bookmarks.add(level, name, title)
   if (!bookmark) throw new Unsupported(`beamer: a bookmark for ${title}`)
-  out.push(bookmark, HS(), HA(k.sizes.normalsize.baselineskip.width), dest(name))
+  // (\hyper@anchorstart\hyper@anchorend: hpdftex.def's \pdfdest)
+  out.push(bookmark, ...(hyperDriver.pdftex ? [pdfdest(name)] : [HS(), HA(k.sizes.normalsize.baselineskip.width), dest(name)]))
   return out
 }
 

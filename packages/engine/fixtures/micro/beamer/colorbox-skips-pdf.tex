@@ -1,0 +1,16 @@
+% fixture: beamer/colorbox-skips-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: a beamercolorbox's leftskip and rightskip (glue, in em), with sep and colsep (colsep unused without a background)
+% issue: #307
+\documentclass[10pt]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}[t]
+\begin{beamercolorbox}[wd=8cm,leftskip=2em,rightskip=1em plus 2em,sep=3pt,colsep=5pt]{alerted text}
+Text with skips on both sides of its lines, which are long enough to show where each one begins and ends.
+\end{beamercolorbox}
+\end{frame}
+\end{document}

@@ -1,0 +1,31 @@
+% fixture: beamer/block-default-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: block, alertblock and exampleblock in the default inner and color themes (no bg: title and body beamercolorboxes with colsep*, \medskipamount before, \smallskipamount after), text before and after (the specials past a space after a group), a list after a block
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Some text before the blocks.
+\begin{block}{A block}
+The body of the block, with words enough to break into more than one line in the frame's width.
+\end{block}
+\begin{alertblock}{Alerted}
+An alerted block.
+\end{alertblock}
+\begin{exampleblock}{Example}
+An example block.
+
+Its second paragraph.
+\end{exampleblock}
+Text after, \textbf{bold} \begin{block}{Last}
+Body.
+\end{block}
+\begin{itemize}
+\item An item.
+\end{itemize}
+\end{frame}
+\end{document}

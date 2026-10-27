@@ -1,0 +1,18 @@
+% fixture: beamer/titlepage-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \titlepage in the default inner theme: title, subtitle, author (with \and), institute and date (\today) in centered beamercolorboxes, each in its font and color
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\title{A Presentation Title}
+\subtitle{The Subtitle}
+\author{First Author \and Second Author}
+\institute{Some Institute}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\end{document}

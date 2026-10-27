@@ -13,10 +13,10 @@
 import type { ClassOptionData } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
 import { lineBreak } from "../../layout/linebreak"
-import { emptyBox, filGlue, fillGlue, glue, kern, paramGlue, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
+import { emptyBox, filGlue, fillGlue, glue, kern, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { spotAnchor } from "../hyperref"
+import { hyperDriver, pdfdest, spotAnchor } from "../hyperref"
 import { appendToVlist, classParams, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { setgroup } from "../xcolor"
@@ -28,8 +28,10 @@ const pop = () => special("color pop")
 const zero = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } as const
 const ENV0 = { em: 0, ex: 0 }
 
-/** hyperref's \hypersetup{pdfpagetransition=R} (each slide): \hyper@pagetransition's pdfmark */
+/** hyperref's \hypersetup{pdfpagetransition=R} (each slide): \hyper@pagetransition's pdfmark (with pdfTeX, \pdfpageattr:
+ *  no node) */
 const TRANSITION = "ps:SDict begin [ {ThisPage}<</Trans << /S /R >> >> /PUT pdfmark end"
+const transition = (): Node[] => (hyperDriver.pdftex ? [] : [special(TRANSITION)])
 
 /** \usebeamertemplate***'s colors at the outer level: \usebeamercolor*[fg]{name}, normal text's fg then name's */
 const templateColors = (t: Theme, name: string): string[] => [outerColors(t).fg, useColor(t, name, outerColors(t)).fg]
@@ -97,7 +99,7 @@ function head(k: ClassOptionData, t: Theme): { box: BoxNode; traces: ParagraphTr
   const d = k.dimens
   // the canvas template: \color{bg}\vrule width\paperwidth height\paperheight, nothing when its bg is empty
   const bg = emptyBackground(t, "background canvas") ? [] : [push(useColor(t, "background canvas", outerColors(t)).bg), { kind: "rule", width: d.paperwidth, height: d.paperheight, depth: null } as Node, pop()]
-  const canvas = hung(hpack([...templateColors(t, "background canvas").map(push), ...bg, pop(), pop(), special(TRANSITION)]))
+  const canvas = hung(hpack([...templateColors(t, "background canvas").map(push), ...bg, pop(), pop(), ...transition()]))
   const background = hung(hpack(emptyTemplate(t, "background")))
   const traces: ParagraphTrace[] = []
   const left = sidebar(k, t, "sidebar left", [glue(-d["Gm@lmargin"])], [...emptyTemplate(t, "sidebar left"), filGlue()], traces)
@@ -123,7 +125,9 @@ function foot(k: ClassOptionData, footline: Node[]): Node[] {
  *  \kern-1bp, the anchors Navigation<n> and page.<n>, \hss}\vss} */
 function pageAnchor(k: ClassOptionData, page: number): BoxNode {
   const d = k.dimens, bp = 65781
-  const marks = [...spotAnchor(`Navigation${page}`, "h", undefined), ...spotAnchor(`page.${page}`, "h", undefined)]
+  // (hpdftex.def's \hyper@anchor: the \pdfdest, then \Hy@RestoreLastskip's \nobreak)
+  const spot = (name: string) => (hyperDriver.pdftex ? [pdfdest(name), penalty(10000)] : spotAnchor(name, "h", undefined))
+  const marks = [...spot(`Navigation${page}`), ...spot(`page.${page}`)]
   const h = hpack([kern(d.hoffset, true), kern(d.oddsidemargin, true), kern(-bp, true), ...marks, ssGlue()], { exactly: 0 })
   return vpack([kern(d.voffset, true), kern(d.topmargin, true), kern(-bp, true), h, ssGlue()], { exactly: 0 })
 }
@@ -146,6 +150,7 @@ export function beamerPage(outputbox: BoxNode, page: number, k: ClassOptionData,
   appendToVlist(inner, footBox, outputbox.depth, { ...zero, width: d.footskip }, zero, 0)
   const body = vpack(inner)
   body.shift = d.oddsidemargin
-  const shipped = vpack([special(TRANSITION), vpack([glue(d.topmargin), body])])
+  const placed = vpack([glue(d.topmargin), body])
+  const shipped = hyperDriver.pdftex ? placed : vpack([special(TRANSITION), placed])
   return { box: vpack([pageAnchor(k, page), paramGlue("lineskip", glue(0)), shipped]), traces: h.traces }
 }

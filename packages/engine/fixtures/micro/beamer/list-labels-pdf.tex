@@ -1,0 +1,38 @@
+% fixture: beamer/list-labels-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \item[label] in itemize and enumerate (the label in the item's color, the counter not stepped), description with the default width (2cm plus \labelsep) and with [widest label], a description label wider than \labelwidth, a nested description, an itemize in a description (its first level) and a paragraph after it and a blank line
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{itemize}
+\item[a)] Labelled.
+\item Plain.
+\end{itemize}
+\begin{enumerate}
+\item One.
+\item[x.] Custom.
+\item Two.
+\end{enumerate}
+\begin{description}
+\item[Term] Its description, long enough to break across a line in the width that is left.
+\item[A much longer term] Short.
+\end{description}
+\begin{description}[Widest]
+\item[Short] A.
+\item[Widest] B.
+\begin{itemize}
+\item An itemize in a description.
+\end{itemize}
+
+After a blank line.
+\begin{description}
+\item[Inner] C.
+\end{description}
+\end{description}
+\end{frame}
+\end{document}

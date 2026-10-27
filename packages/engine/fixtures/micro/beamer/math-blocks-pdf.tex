@@ -1,0 +1,34 @@
+% fixture: beamer/math-blocks-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: displays in a theorem's block and in an item, the equation counter across frames and reset on each slide of a frame with overlays (\resetcounteronoverlays{equation}), a frame that ends with a display
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\begin{theorem}
+For all $n$,
+\begin{equation}
+\sum_{k=1}^n k = \frac{n(n+1)}{2}.
+\end{equation}
+\end{theorem}
+\begin{itemize}
+\item An item with a display
+\[ x^2 \geq 0 \]
+and text after it.
+\end{itemize}
+\end{frame}
+\begin{frame}
+First.
+
+\pause
+
+Then
+\begin{equation}
+e^{i\pi} + 1 = 0
+\end{equation}
+\end{frame}
+\end{document}

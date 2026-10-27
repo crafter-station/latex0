@@ -1,5 +1,7 @@
 // beamer (beamer.cls 3.77 and its base packages) as `latex` lays it out, with the
-// dvips driver: its own pipeline, entered from document() for \documentclass{beamer}.
+// dvips driver, or `pdflatex` (pdfTeX's color stack, \pdfdest and \pdfstartlink, pgf's
+// \pdfliteral, no pdfmark specials): its own pipeline, entered from document() for
+// \documentclass{beamer}.
 // Each frame is a page: its box (frame.ts) on the main vertical list, the .nav
 // lines \beamer@writeslidentry writes, and the \clearpage after it; LaTeX's output
 // routine (output.ts) ships each page through \@outputpage with beamer's head and
@@ -13,6 +15,7 @@ import { emptyBox, filGlue, penalty, type BoxNode, type Node } from "../../layou
 import type { ParagraphTrace } from "../../trace/decisions"
 import { anchor, documentStart, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
+import { pdftexColors } from "../pdftex"
 import { MATH_ALPHABETS, mathFonts } from "../paragraph"
 import type { LayoutResult } from "../result"
 import type { DocumentSource } from "../source"
@@ -58,10 +61,9 @@ function section(cx: BeamerCtx, s: SectionSource) {
 }
 
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {
-  if (driver === "pdftex") throw new Unsupported("beamer with pdfTeX's driver")
   if (prepared.listings.length || prepared.tabulars.length || prepared.minipages.length || prepared.urls.length || prepared.graphics.length) throw new Unsupported("beamer: verbatim, tabular, minipage, url or graphics")
-  const first = layout(prepared.src, null, epoch)
-  return layout(prepared.src, first.written, epoch).result
+  const first = layout(prepared.src, null, epoch, driver)
+  return layout(prepared.src, first.written, epoch, driver).result
 }
 
 /** \begin{document}: \normalcolor, LaTeX's \write, hyperref's \AtBeginDocument (the /DOCVIEW and Catalog pdfmarks, the
@@ -72,6 +74,8 @@ function documentBegin(pre: BeamerPreamble, prev: Aux | null): Node[] {
   const sdict = (s: string): Node => ({ kind: "whatsit", text: `\\special{ps:SDict begin ${s} end}` })
   const out: Node[] = [colorPush(), { kind: "whatsit", text: "\\write-{}" }, ...documentStart(prev ? prev.bookmarks : [], true)]
   out.push(...anchor("Doc-Start", pre.k.sizes.normalsize.baselineskip.width, "v", out.at(-1)))
+  // (with pdfTeX the document information and the page labels are \pdfinfo and \pdfcatalog: no nodes)
+  if (hyperDriver.pdftex) { out.push(colorPush(), colorPush(), colorPush(), colorPush()); return out }
   out.push(sdict(`[/Producer (dvips + Distiller)/Title (${pre.pdfTitle})/Subject ()/Creator (${pdfString("LaTeX with Beamer class")})/Author (${pre.pdfAuthor})/Keywords () /DOCINFO pdfmark`))
   if (prev) {
     const labels = prev.pageFrames.map((f, i) => (i && prev.pageFrames[i - 1] === f ? "" : `${i}<</P(${pdfString(String(f))})>>`))
@@ -123,10 +127,10 @@ function clearpage(cx: BeamerCtx) {
 const footlineAt = (cx: BeamerCtx, frame: number, page: number): FootlineAt => ({ frame, total: cx.totalFrames, page, lastPage: cx.lastPage, epoch: cx.epoch })
 
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet). */
-function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutResult; written: Aux } {
+function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux } {
   const pre = readBeamerPreamble(src)
   const k = pre.k
-  hyperDriver.pdftex = false
+  hyperDriver.pdftex = driver === "pdftex"
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
@@ -150,6 +154,8 @@ function layout(src: string, prev: Aux | null, epoch: number): { result: LayoutR
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     return box
   })
+  // (pdfTeX: the color specials as its color stack's nodes, in the columns too, which are inside the pages)
+  if (hyperDriver.pdftex) shipped.forEach(pdftexColors)
   const drawn: PageMark[][] = []
   const trace = shipOut(shipped, undefined, pages.map((p) => p.count), drawn)
   const { paperwidth, paperheight, hoffset, voffset } = k.dimens

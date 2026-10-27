@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 436,
-  "exact": 433,
+  "fixtures": 493,
+  "exact": 490,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 321692
+  "glyphs": 331845
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 58,
-   "exact": 57
+   "fixtures": 115,
+   "exact": 114
   },
   {
    "area": "bibliography",
@@ -879,6 +879,17 @@
    "issue": "#277"
   },
   {
+   "id": "beamer/block-default-pdf",
+   "file": "micro/beamer/block-default-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 201,
+   "covers": "beamer under pdflatex: block, alertblock and exampleblock in the default inner and color themes (no bg: title and body beamercolorboxes with colsep*, \\medskipamount before, \\smallskipamount after), text before and after (the specials past a space after a group), a list after a block",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/block-default",
    "file": "micro/beamer/block-default.tex",
    "area": "beamer",
@@ -887,6 +898,17 @@
    "status": "pass",
    "glyphs": 201,
    "covers": "beamer: block, alertblock and exampleblock in the default inner and color themes (no bg: title and body beamercolorboxes with colsep*, \\medskipamount before, \\smallskipamount after), text before and after (the specials past a space after a group), a list after a block",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/block-orchid-pdf",
+   "file": "micro/beamer/block-orchid-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "beamer under pdflatex: blocks in the orchid color theme (title and body with a bg: \\colorbox with colsep* .75ex, \\nointerlineskip\\vskip-0.5pt between them, \\vskip-.75ex in the body), alertblock and exampleblock colors, \\alert and \\structure in a block",
    "issue": "#307"
   },
   {
@@ -901,6 +923,17 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/block-overlay-pdf",
+   "file": "micro/beamer/block-overlay-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 172,
+   "covers": "beamer under pdflatex: blocks with overlay specifications (\\begin{block}<2->, an alertblock on the first slide only): covered blocks between pgf's invisible specials, on two slides; a block in the orchid theme with a theorem in its colors",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/block-overlay",
    "file": "micro/beamer/block-overlay.tex",
    "area": "beamer",
@@ -909,6 +942,17 @@
    "status": "pass",
    "glyphs": 172,
    "covers": "beamer: blocks with overlay specifications (\\begin{block}<2->, an alertblock on the first slide only): covered blocks between pgf's invisible specials, on two slides; a block in the orchid theme with a theorem in its colors",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/block-theorems-pdf",
+   "file": "micro/beamer/block-theorems-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 171,
+   "covers": "beamer under pdflatex: theorem (italic body), definition, example (an exampleblock), theorem with an addition, and proof with its qed symbol, each a block in the default inner theme, with hyperref's theorem anchors",
    "issue": "#307"
   },
   {
@@ -923,6 +967,17 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/block-whale-pdf",
+   "file": "micro/beamer/block-whale-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 155,
+   "covers": "beamer under pdflatex: blocks in the whale color theme under a frame title: a theorem right after a paragraph (\\unskip\\unskip\\par before its block), a lemma, a proof with its own name and the qed symbol, \\structure and \\alert in text",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/block-whale",
    "file": "micro/beamer/block-whale.tex",
    "area": "beamer",
@@ -931,6 +986,17 @@
    "status": "pass",
    "glyphs": 155,
    "covers": "beamer: blocks in the whale color theme under a frame title: a theorem right after a paragraph (\\unskip\\unskip\\par before its block), a lemma, a proof with its own name and the qed symbol, \\structure and \\alert in text",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/colorbox-background-pdf",
+   "file": "micro/beamer/colorbox-background-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 65,
+   "covers": "beamer under pdflatex: a beamercolorbox with a background (\\colorbox with \\fboxsep 0), colsep and colsep*, centered lines",
    "issue": "#307"
   },
   {
@@ -945,6 +1011,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/colorbox-defaults-pdf",
+   "file": "micro/beamer/colorbox-defaults-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 126,
+   "covers": "beamer under pdflatex: a beamercolorbox with its defaults (\\textwidth wide, no sep, ragged right) holding two paragraphs",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/colorbox-defaults",
    "file": "micro/beamer/colorbox-defaults.tex",
    "area": "beamer",
@@ -954,6 +1031,17 @@
    "glyphs": 126,
    "covers": "beamer: a beamercolorbox with its defaults (\\textwidth wide, no sep, ragged right) holding two paragraphs",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-plain-pdf",
+   "file": "micro/beamer/colorbox-plain-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "beamer under pdflatex: a beamercolorbox with no background (wd, sep), between paragraphs of a frame; one set left with a skip",
+   "issue": "#307"
   },
   {
    "id": "beamer/colorbox-plain",
@@ -967,6 +1055,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/colorbox-skips-pdf",
+   "file": "micro/beamer/colorbox-skips-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "beamer under pdflatex: a beamercolorbox's leftskip and rightskip (glue, in em), with sep and colsep (colsep unused without a background)",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/colorbox-skips",
    "file": "micro/beamer/colorbox-skips.tex",
    "area": "beamer",
@@ -976,6 +1075,17 @@
    "glyphs": 85,
    "covers": "beamer: a beamercolorbox's leftskip and rightskip (glue, in em), with sep and colsep (colsep unused without a background)",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/colorbox-sloppy-pdf",
+   "file": "micro/beamer/colorbox-sloppy-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 143,
+   "covers": "beamer under pdflatex: \\@arrayparboxrestore's \\sloppy in a beamercolorbox (justified lines, a narrow box: \\tolerance 9999 and the emergency pass with \\emergencystretch 3em); an empty box (the paragraph \\leavevmode began); a box lower than \\baselineskip after a paragraph",
+   "issue": "#307"
   },
   {
    "id": "beamer/colorbox-sloppy",
@@ -989,6 +1099,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/colorbox-wide-pdf",
+   "file": "micro/beamer/colorbox-wide-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "beamer under pdflatex: a beamercolorbox wider than \\textwidth (squeezed into it, into the margins) with a background, right-aligned lines, its height and depth set",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/colorbox-wide",
    "file": "micro/beamer/colorbox-wide.tex",
    "area": "beamer",
@@ -998,6 +1119,17 @@
    "glyphs": 101,
    "covers": "beamer: a beamercolorbox wider than \\textwidth (squeezed into it, into the margins) with a background, right-aligned lines, its height and depth set",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/colortheme-beaver-pdf",
+   "file": "micro/beamer/colortheme-beaver-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "beamer under pdflatex: the beaver color theme (no outer theme): the title page's boxes and the frame title in their bg, an enumerate in its colors",
+   "issue": "#307"
   },
   {
    "id": "beamer/colortheme-beaver",
@@ -1011,6 +1143,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/columns-command-pdf",
+   "file": "micro/beamer/columns-command-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "beamer under pdflatex: columns[t] with \\column commands, a [b] column, a column that starts with an itemize (the empty paragraph \\leavevmode began, the list's last skip taken by the minipage's \\unskip), a block in a column (\\textwidth the column's)",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/columns-command",
    "file": "micro/beamer/columns-command.tex",
    "area": "beamer",
@@ -1019,6 +1162,17 @@
    "status": "pass",
    "glyphs": 90,
    "covers": "beamer: columns[t] with \\column commands, a [b] column, a column that starts with an itemize (the empty paragraph \\leavevmode began, the list's last skip taken by the minipage's \\unskip), a block in a column (\\textwidth the column's)",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/columns-default-pdf",
+   "file": "micro/beamer/columns-default-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "beamer under pdflatex: columns with column environments (the default c alignment, widths in \\textwidth): minipages \\vcenter'ed in an \\hbox \\paperwidth less the margins wide, \\hfill between them, ragged right and \\sloppy inside",
    "issue": "#307"
   },
   {
@@ -1033,6 +1187,17 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/columns-onlytextwidth-pdf",
+   "file": "micro/beamer/columns-onlytextwidth-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 55,
+   "covers": "beamer under pdflatex: columns[onlytextwidth] (\\hbox to\\textwidth, the last \\hfill \\unskip'ed) in a [t] frame (columns default to t), a theorem first in a column (the empty paragraph it ends), widths in \\linewidth and in points",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/columns-onlytextwidth",
    "file": "micro/beamer/columns-onlytextwidth.tex",
    "area": "beamer",
@@ -1041,6 +1206,17 @@
    "status": "pass",
    "glyphs": 55,
    "covers": "beamer: columns[onlytextwidth] (\\hbox to\\textwidth, the last \\hfill \\unskip'ed) in a [t] frame (columns default to t), a theorem first in a column (the empty paragraph it ends), widths in \\linewidth and in points",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/enumerate-pdf",
+   "file": "micro/beamer/enumerate-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 85,
+   "covers": "beamer under pdflatex: enumerate with the default template (\\insertenumlabel. in the structure color, flush right in \\labelwidth), items of more than one line, hyperref's item anchors",
    "issue": "#307"
   },
   {
@@ -1055,6 +1231,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/frame-17pt-pdf",
+   "file": "micro/beamer/frame-17pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "beamer under pdflatex, at 17pt (extsizes' size17.clo): a frame's paragraph broken into lines in cmss17 at 20.74pt",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frame-17pt",
    "file": "micro/beamer/frame-17pt.tex",
    "area": "beamer",
@@ -1064,6 +1251,17 @@
    "glyphs": 90,
    "covers": "beamer at 17pt (extsizes' size17.clo): a frame's paragraph broken into lines in cmss17 at 20.74pt",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-20pt-pdf",
+   "file": "micro/beamer/frame-20pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 81,
+   "covers": "beamer under pdflatex, at 20pt with the c option; \\usetheme, \\usecolortheme and \\usefonttheme default; \\title with a short form, \\subtitle and \\author with \\and (hyperref's document information)",
+   "issue": "#307"
   },
   {
    "id": "beamer/frame-20pt",
@@ -1077,6 +1275,17 @@
    "issue": "#283"
   },
   {
+   "id": "beamer/frame-8pt-pdf",
+   "file": "micro/beamer/frame-8pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 909,
+   "covers": "beamer under pdflatex, at 8pt (extsizes' size8.clo) with the packages beamer loads itself loaded again; three paragraphs in a frame at the top, and one in a centered frame",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frame-8pt",
    "file": "micro/beamer/frame-8pt.tex",
    "area": "beamer",
@@ -1086,6 +1295,17 @@
    "glyphs": 909,
    "covers": "beamer at 8pt (extsizes' size8.clo) with the packages beamer loads itself loaded again; three paragraphs in a frame at the top, and one in a centered frame",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-command-pdf",
+   "file": "micro/beamer/frame-command-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "beamer under pdflatex: the \\frame{...} command, and the [t] option of the frame environment, at 10pt; \\raggedright (what beamer sets already) before a paragraph",
+   "issue": "#307"
   },
   {
    "id": "beamer/frame-command",
@@ -1099,6 +1319,17 @@
    "issue": "#283"
   },
   {
+   "id": "beamer/frame-empty-pdf",
+   "file": "micro/beamer/frame-empty-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 0,
+   "covers": "beamer under pdflatex, with the default theme and no navigation symbols: one empty frame, a page with beamer's head and foot, the .nav and .snm writes and the frame's anchors",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frame-empty",
    "file": "micro/beamer/frame-empty.tex",
    "area": "beamer",
@@ -1110,6 +1341,17 @@
    "issue": "#283"
   },
   {
+   "id": "beamer/frame-fonts-pdf",
+   "file": "micro/beamer/frame-fonts-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 329,
+   "covers": "beamer under pdflatex: an empty \\frame{}, a frame's paragraphs with \\textbf, \\textit, \\textsl, \\textsc, \\texttt, \\textrm and beamer's own \\emph ({\\itshape #1}: no italic correction, nested too), ligatures, dashes, quotes and a tie; blank lines around them; long words hyphenated in a ragged right paragraph",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frame-fonts",
    "file": "micro/beamer/frame-fonts.tex",
    "area": "beamer",
@@ -1119,6 +1361,17 @@
    "glyphs": 329,
    "covers": "beamer: an empty \\frame{}, a frame's paragraphs with \\textbf, \\textit, \\textsl, \\textsc, \\texttt, \\textrm and beamer's own \\emph ({\\itshape #1}: no italic correction, nested too), ligatures, dashes, quotes and a tie; blank lines around them; long words hyphenated in a ragged right paragraph",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-overfull-pdf",
+   "file": "micro/beamer/frame-overfull-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1765,
+   "covers": "beamer under pdflatex, with the smaller option (10pt): a frame at the top whose paragraph is taller than the page",
+   "issue": "#307"
   },
   {
    "id": "beamer/frame-overfull",
@@ -1143,6 +1396,17 @@
    "issue": "#296"
   },
   {
+   "id": "beamer/frame-text-pdf",
+   "file": "micro/beamer/frame-text-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 201,
+   "covers": "beamer under pdflatex: a frame's paragraphs, ragged right in the sans serif body font, centered vertically (the [c] default)",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frame-text",
    "file": "micro/beamer/frame-text.tex",
    "area": "beamer",
@@ -1152,6 +1416,17 @@
    "glyphs": 201,
    "covers": "beamer: a frame's paragraphs, ragged right in the sans serif body font, centered vertically (the [c] default)",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-top-pdf",
+   "file": "micro/beamer/frame-top-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "beamer under pdflatex: a frame placed at the top ([t]), a frame centered ([c]) in a document whose class option makes [t] the default, and \\textbf and \\emph in the frame's text",
+   "issue": "#307"
   },
   {
    "id": "beamer/frame-top",
@@ -1165,6 +1440,17 @@
    "issue": "#283"
   },
   {
+   "id": "beamer/frametitle-17pt-pdf",
+   "file": "micro/beamer/frametitle-17pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "beamer under pdflatex: a frame title and subtitle at 17pt, where the title box is taller",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frametitle-17pt",
    "file": "micro/beamer/frametitle-17pt.tex",
    "area": "beamer",
@@ -1174,6 +1460,17 @@
    "glyphs": 22,
    "covers": "beamer: a frame title and subtitle at 17pt, where the title box is taller",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-command-pdf",
+   "file": "micro/beamer/frametitle-command-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 215,
+   "covers": "beamer under pdflatex: \\frametitle (with a short title) and \\framesubtitle in the frame's body; the title box built after the body's paragraphs, on top of them; a long title broken into lines; \\frame with \\frametitle",
+   "issue": "#307"
   },
   {
    "id": "beamer/frametitle-command",
@@ -1187,6 +1484,28 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/frametitle-pdf",
+   "file": "micro/beamer/frametitle-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 29,
+   "covers": "beamer under pdflatex: a frame title (\\begin{frame}{Title}) in the default outer theme's template: a beamercolorbox the text width plus the margins wide, \\Large in the structure color",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/frametitle-sizes-pdf",
+   "file": "micro/beamer/frametitle-sizes-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "beamer under pdflatex: frame titles at 8pt (\\Large and \\footnotesize of size8.clo), an empty title ({}: no title box), a title set twice (the last one counts)",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/frametitle-sizes",
    "file": "micro/beamer/frametitle-sizes.tex",
    "area": "beamer",
@@ -1196,6 +1515,17 @@
    "glyphs": 64,
    "covers": "beamer: frame titles at 8pt (\\Large and \\footnotesize of size8.clo), an empty title ({}: no title box), a title set twice (the last one counts)",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/frametitle-subtitle-pdf",
+   "file": "micro/beamer/frametitle-subtitle-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "beamer under pdflatex: a frame title and subtitle given after \\begin{frame}: the subtitle \\footnotesize in framesubtitle's color, with its own struts",
+   "issue": "#307"
   },
   {
    "id": "beamer/frametitle-subtitle",
@@ -1220,6 +1550,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/infolines-17pt-pdf",
+   "file": "micro/beamer/infolines-17pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 100,
+   "covers": "beamer under pdflatex: the infolines footline at 17pt, with short author, institute and date, and the title page",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/infolines-17pt",
    "file": "micro/beamer/infolines-17pt.tex",
    "area": "beamer",
@@ -1229,6 +1570,17 @@
    "glyphs": 100,
    "covers": "beamer: the infolines footline at 17pt, with short author, institute and date, and the title page",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/infolines-footline-pdf",
+   "file": "micro/beamer/infolines-footline-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 102,
+   "covers": "beamer under pdflatex: the infolines outer theme's footline (author and institute, title, date and frame number n / total in three beamercolorboxes) with the default headline, two frames",
+   "issue": "#307"
   },
   {
    "id": "beamer/infolines-footline",
@@ -1242,6 +1594,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/infolines-ten-pdf",
+   "file": "micro/beamer/infolines-ten-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 302,
+   "covers": "beamer under pdflatex: the infolines footline's frame number right-aligned in the width of \"10 / 10\" over ten frames, at 8pt",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/infolines-ten",
    "file": "micro/beamer/infolines-ten.tex",
    "area": "beamer",
@@ -1251,6 +1614,17 @@
    "glyphs": 302,
    "covers": "beamer: the infolines footline's frame number right-aligned in the width of \"10 / 10\" over ten frames, at 8pt",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/infolines-whale-pdf",
+   "file": "micro/beamer/infolines-whale-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 225,
+   "covers": "beamer under pdflatex: whale and orchid color themes with the infolines footline (boxes in the palette's bg), short title, two authors with \\and, no institute, \\today; frame titles in frametitle's bg",
+   "issue": "#307"
   },
   {
    "id": "beamer/infolines-whale",
@@ -1264,6 +1638,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/itemize-pdf",
+   "file": "micro/beamer/itemize-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "beamer under pdflatex: itemize with the default templates: a \\blacktriangleright (msam) raised 1.25pt in the structure color, beamer's list parameters, ragged right",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/itemize",
    "file": "micro/beamer/itemize.tex",
    "area": "beamer",
@@ -1273,6 +1658,17 @@
    "glyphs": 98,
    "covers": "beamer: itemize with the default templates: a \\blacktriangleright (msam) raised 1.25pt in the structure color, beamer's list parameters, ragged right",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/list-20pt-pdf",
+   "file": "micro/beamer/list-20pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "beamer under pdflatex: itemize at 20pt (msam10 scaled up), in a frame placed at the top",
+   "issue": "#307"
   },
   {
    "id": "beamer/list-20pt",
@@ -1286,6 +1682,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/list-in-text-pdf",
+   "file": "micro/beamer/list-in-text-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer under pdflatex: an itemize begun right after a paragraph's text (the body color pushed in the paragraph, which \\@trivlist then ends) and text right after it (\\@endpetrue)",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/list-in-text",
    "file": "micro/beamer/list-in-text.tex",
    "area": "beamer",
@@ -1297,6 +1704,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/list-labels-pdf",
+   "file": "micro/beamer/list-labels-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 191,
+   "covers": "beamer under pdflatex: \\item[label] in itemize and enumerate (the label in the item's color, the counter not stepped), description with the default width (2cm plus \\labelsep) and with [widest label], a description label wider than \\labelwidth, a nested description, an itemize in a description (its first level) and a paragraph after it and a blank line",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/list-labels",
    "file": "micro/beamer/list-labels.tex",
    "area": "beamer",
@@ -1305,6 +1723,17 @@
    "status": "pass",
    "glyphs": 191,
    "covers": "beamer: \\item[label] in itemize and enumerate (the label in the item's color, the counter not stepped), description with the default width (2cm plus \\labelsep) and with [widest label], a description label wider than \\labelwidth, a nested description, an itemize in a description (its first level) and a paragraph after it and a blank line",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/list-nested-pdf",
+   "file": "micro/beamer/list-nested-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 174,
+   "covers": "beamer under pdflatex: itemize and enumerate nested to the third level (subbody \\small and subsubbody \\footnotesize, \\@listii and \\@listiii, the subitem triangles raised 1.5pt, enumerate subitem labels 2.1), a nested list ending its item's paragraph, text after a nested list in the item",
    "issue": "#307"
   },
   {
@@ -1319,6 +1748,17 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/list-paragraphs-pdf",
+   "file": "micro/beamer/list-paragraphs-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 187,
+   "covers": "beamer under pdflatex: an item of two paragraphs, a nested list after a blank line in its item (vertical mode: \\partopsep, the color pushed on the list), a paragraph after it, a nested enumerate with \\item[label] and a nested description in an enumerate, a paragraph after a description",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/list-paragraphs",
    "file": "micro/beamer/list-paragraphs.tex",
    "area": "beamer",
@@ -1327,6 +1767,17 @@
    "status": "pass",
    "glyphs": 187,
    "covers": "beamer: an item of two paragraphs, a nested list after a blank line in its item (vertical mode: \\partopsep, the color pushed on the list), a paragraph after it, a nested enumerate with \\item[label] and a nested description in an enumerate, a paragraph after a description",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/list-sizes-pdf",
+   "file": "micro/beamer/list-sizes-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 235,
+   "covers": "beamer under pdflatex: itemize and enumerate at 8pt (msam10 at 8pt, beamer's list skips), ten items (two-digit labels flush right), a list right after another, items of two paragraphs, a frame title over a list, text after a blank line (indented again)",
    "issue": "#307"
   },
   {
@@ -1341,6 +1792,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/math-blocks-pdf",
+   "file": "micro/beamer/math-blocks-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 111,
+   "covers": "beamer under pdflatex: displays in a theorem's block and in an item, the equation counter across frames and reset on each slide of a frame with overlays (\\resetcounteronoverlays{equation}), a frame that ends with a display",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/math-blocks",
    "file": "micro/beamer/math-blocks.tex",
    "area": "beamer",
@@ -1349,6 +1811,17 @@
    "status": "pass",
    "glyphs": 111,
    "covers": "beamer: displays in a theorem's block and in an item, the equation counter across frames and reset on each slide of a frame with overlays (\\resetcounteronoverlays{equation}), a frame that ends with a display",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/math-frame-pdf",
+   "file": "micro/beamer/math-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 187,
+   "covers": "beamer under pdflatex: math in a frame: inline $…$ (beamer's sans serif math: operators and digits cmss, Latin letters cmss italic with its ligatures, Greek cmmi, \\mathbf cmssbx), a \\[ \\] display in a paragraph, a numbered equation (amsmath's tag and hyperref's anchor), align with two rows, ragged right around them, amsmath's \\, in text, a frame that ends with a display",
    "issue": "#307"
   },
   {
@@ -1363,6 +1836,17 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/overlay-boundaries-pdf",
+   "file": "micro/beamer/overlay-boundaries-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 262,
+   "covers": "beamer under pdflatex: overlay commands between letters that kern (AV\\only<2>{V}A, W\\uncover<2>{A}V), between two spaces, with incremental specifications <+->, \\only around a list in vertical mode, \\uncover right after a list (its skip smuggled past the specials), and \\temporal alone asking for a second slide",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/overlay-boundaries",
    "file": "micro/beamer/overlay-boundaries.tex",
    "area": "beamer",
@@ -1372,6 +1856,17 @@
    "glyphs": 262,
    "covers": "beamer: overlay commands between letters that kern (AV\\only<2>{V}A, W\\uncover<2>{A}V), between two spaces, with incremental specifications <+->, \\only around a list in vertical mode, \\uncover right after a list (its skip smuggled past the specials), and \\temporal alone asking for a second slide",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-commands-pdf",
+   "file": "micro/beamer/overlay-commands-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 285,
+   "covers": "beamer under pdflatex: \\only, \\alt, \\temporal, \\uncover, \\visible, \\invisible and \\onslide in and between paragraphs over three slides (the covered parts between pgf's invisible specials, a space before them smuggled past them)",
+   "issue": "#307"
   },
   {
    "id": "beamer/overlay-commands",
@@ -1385,6 +1880,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/overlay-items-pdf",
+   "file": "micro/beamer/overlay-items-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "beamer under pdflatex: \\item<n-> in itemize (covered items invisible on the slides before), and [<+->] on enumerate (one more item each slide)",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/overlay-items",
    "file": "micro/beamer/overlay-items.tex",
    "area": "beamer",
@@ -1394,6 +1900,17 @@
    "glyphs": 112,
    "covers": "beamer: \\item<n-> in itemize (covered items invisible on the slides before), and [<+->] on enumerate (one more item each slide)",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/overlay-mixed-pdf",
+   "file": "micro/beamer/overlay-mixed-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 698,
+   "covers": "beamer under pdflatex: item specifications <n>, <n-m>, <-m> and lists, an item ended by a blank line, \\pause right after a list (the skip it ends with smuggled past the specials) and \\pause[n], with the infolines footline over the slides; a range's end alone asking for a second slide",
+   "issue": "#307"
   },
   {
    "id": "beamer/overlay-mixed",
@@ -1407,6 +1924,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/overlay-pause-pdf",
+   "file": "micro/beamer/overlay-pause-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "beamer under pdflatex: \\pause between paragraphs: one page per slide, the paragraphs after a \\pause invisible (pgf's invisible specials) on the slides before",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/overlay-pause",
    "file": "micro/beamer/overlay-pause.tex",
    "area": "beamer",
@@ -1418,6 +1946,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/sections-atbegin-pdf",
+   "file": "micro/beamer/sections-atbegin-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 230,
+   "covers": "beamer under pdflatex: \\AtBeginSection[starred]{…} with a [currentsection] table of contents frame after each \\section and its own frame after \\section*, \\AtBeginSubsection[]{…} (nothing after \\subsection*), \\section* and \\subsection* (no .toc line, the .nav lines, bookmarks and anchors), subsections in the table of contents",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/sections-atbegin",
    "file": "micro/beamer/sections-atbegin.tex",
    "area": "beamer",
@@ -1426,6 +1965,17 @@
    "status": "pass",
    "glyphs": 230,
    "covers": "beamer: \\AtBeginSection[starred]{…} with a [currentsection] table of contents frame after each \\section and its own frame after \\section*, \\AtBeginSubsection[]{…} (nothing after \\subsection*), \\section* and \\subsection* (no .toc line, the .nav lines, bookmarks and anchors), subsections in the table of contents",
+   "issue": "#307"
+  },
+  {
+   "id": "beamer/sections-short-pdf",
+   "file": "micro/beamer/sections-short-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 203,
+   "covers": "beamer under pdflatex: a \\subsection before any \\section, short titles, two frames in one subsection, and the table of contents last, in the whale and orchid colors with the infolines footline",
    "issue": "#307"
   },
   {
@@ -1440,6 +1990,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/sections-toc-pdf",
+   "file": "micro/beamer/sections-toc-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 69,
+   "covers": "beamer under pdflatex: \\section and \\subsection between frames (toc, nav and bookmark writes) and \\tableofcontents in a frame, in the default inner theme",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/sections-toc",
    "file": "micro/beamer/sections-toc.tex",
    "area": "beamer",
@@ -1449,6 +2010,17 @@
    "glyphs": 69,
    "covers": "beamer: \\section and \\subsection between frames (toc, nav and bookmark writes) and \\tableofcontents in a frame, in the default inner theme",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/titlepage-17pt-pdf",
+   "file": "micro/beamer/titlepage-17pt-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "beamer under pdflatex: a title page at 17pt (\\Large and \\scriptsize of size17.clo) with an empty date and a subtitle",
+   "issue": "#307"
   },
   {
    "id": "beamer/titlepage-17pt",
@@ -1462,6 +2034,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/titlepage-minimal-pdf",
+   "file": "micro/beamer/titlepage-minimal-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 154,
+   "covers": "beamer under pdflatex: \\maketitle in a frame with only a (short and long) title: the empty author and institute boxes still hold a line each, \\date given; a long title broken into centered lines; at 10pt",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/titlepage-minimal",
    "file": "micro/beamer/titlepage-minimal.tex",
    "area": "beamer",
@@ -1471,6 +2054,17 @@
    "glyphs": 154,
    "covers": "beamer: \\maketitle in a frame with only a (short and long) title: the empty author and institute boxes still hold a line each, \\date given; a long title broken into centered lines; at 10pt",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage-pdf",
+   "file": "micro/beamer/titlepage-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "beamer under pdflatex: \\titlepage in the default inner theme: title, subtitle, author (with \\and), institute and date (\\today) in centered beamercolorboxes, each in its font and color",
+   "issue": "#307"
   },
   {
    "id": "beamer/titlepage",
@@ -1484,6 +2078,17 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/toc-current-pdf",
+   "file": "micro/beamer/toc-current-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 42,
+   "covers": "beamer under pdflatex: \\tableofcontents[currentsection]: the other sections and their subsections shaded",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/toc-current",
    "file": "micro/beamer/toc-current.tex",
    "area": "beamer",
@@ -1495,6 +2100,17 @@
    "issue": "#300"
   },
   {
+   "id": "beamer/toc-empty-pdf",
+   "file": "micro/beamer/toc-empty-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 21,
+   "covers": "beamer under pdflatex: \\tableofcontents with no sections (an empty .toc), text after it, at 17pt",
+   "issue": "#307"
+  },
+  {
    "id": "beamer/toc-empty",
    "file": "micro/beamer/toc-empty.tex",
    "area": "beamer",
@@ -1504,6 +2120,17 @@
    "glyphs": 21,
    "covers": "beamer: \\tableofcontents with no sections (an empty .toc), text after it, at 17pt",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/two-frames-pdf",
+   "file": "micro/beamer/two-frames-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 0,
+   "covers": "beamer under pdflatex: two empty frames, each its own page after the \\clearpage of the frame before; the title data in the preamble (no title page); the total frame count read back on the second run",
+   "issue": "#307"
   },
   {
    "id": "beamer/two-frames",

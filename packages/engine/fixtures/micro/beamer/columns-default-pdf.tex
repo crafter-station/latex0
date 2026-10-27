@@ -1,0 +1,25 @@
+% fixture: beamer/columns-default-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: columns with column environments (the default c alignment, widths in \textwidth): minipages \vcenter'ed in an \hbox \paperwidth less the margins wide, \hfill between them, ragged right and \sloppy inside
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Before the columns.
+\begin{columns}
+\begin{column}{0.5\textwidth}
+The left column, with words enough to break into a few lines in its width.
+\end{column}
+\begin{column}{0.4\textwidth}
+The right one.
+
+A second paragraph.
+\end{column}
+\end{columns}
+After the columns.
+\end{frame}
+\end{document}

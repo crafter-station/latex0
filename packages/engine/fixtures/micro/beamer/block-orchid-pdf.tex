@@ -1,0 +1,26 @@
+% fixture: beamer/block-orchid-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: blocks in the orchid color theme (title and body with a bg: \colorbox with colsep* .75ex, \nointerlineskip\vskip-0.5pt between them, \vskip-.75ex in the body), alertblock and exampleblock colors, \alert and \structure in a block
+% issue: #307
+\documentclass{beamer}
+\usecolortheme{orchid}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Text before.
+\begin{block}{A block}
+The body of the block, with an \alert{alerted} word and a \structure{structured} one, and words enough to break the line.
+\end{block}
+\begin{alertblock}{Alerted}
+An alerted block.
+\end{alertblock}
+\begin{exampleblock}{Example}
+An example block.
+
+Its second paragraph.
+\end{exampleblock}
+\end{frame}
+\end{document}

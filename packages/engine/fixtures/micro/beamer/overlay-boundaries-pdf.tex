@@ -1,0 +1,31 @@
+% fixture: beamer/overlay-boundaries-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: overlay commands between letters that kern (AV\only<2>{V}A, W\uncover<2>{A}V), between two spaces, with incremental specifications <+->, \only around a list in vertical mode, \uncover right after a list (its skip smuggled past the specials), and \temporal alone asking for a second slide
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+AV\only<2>{V}A and W\uncover<2>{A}V and To\alt<2>{V}{W}A.
+
+one \only<2>{two} three \uncover<2>{four} five.
+
+\only<+->{First.} \only<+->{Second.} \uncover<+->{Third.}
+
+\only<2>{\begin{itemize}
+\item In a list
+\end{itemize}}
+Closing text.
+\end{frame}
+\begin{frame}
+\begin{itemize}
+\item An item
+\end{itemize}
+\uncover<1>{Uncovered after the list}
+
+\temporal<2>{Before}{Now}{After}
+\end{frame}
+\end{document}

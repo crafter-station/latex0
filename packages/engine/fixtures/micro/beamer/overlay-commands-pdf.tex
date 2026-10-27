@@ -1,0 +1,25 @@
+% fixture: beamer/overlay-commands-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \only, \alt, \temporal, \uncover, \visible, \invisible and \onslide in and between paragraphs over three slides (the covered parts between pgf's invisible specials, a space before them smuggled past them)
+% issue: #307
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Commands}
+Text \only<2>{only two} and \alt<2>{second}{first} here.
+
+\uncover<2>{Uncovered on two.}
+
+A \visible<1>{visible one} and \invisible<1>{invisible one} word.
+
+\temporal<2>{before}{now}{after} done.
+
+\only<3>{Third only.}
+
+\onslide<3->
+Last part.
+\end{frame}
+\end{document}

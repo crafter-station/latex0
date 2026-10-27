@@ -1,0 +1,24 @@
+% fixture: beamer/block-whale-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: blocks in the whale color theme under a frame title: a theorem right after a paragraph (\unskip\unskip\par before its block), a lemma, a proof with its own name and the qed symbol, \structure and \alert in text
+% issue: #307
+\documentclass{beamer}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Results}
+We state the \structure{main} result and an \alert{important }lemma.
+\begin{theorem}[Main]
+For every number there is a larger one.
+\end{theorem}
+\begin{lemma}
+Lemmas are small.
+\end{lemma}
+\begin{proof}[Sketch]
+Take the successor, which is larger by one.
+\end{proof}
+\end{frame}
+\end{document}

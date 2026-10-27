@@ -1,0 +1,24 @@
+% fixture: beamer/colortheme-beaver-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: the beaver color theme (no outer theme): the title page's boxes and the frame title in their bg, an enumerate in its colors
+% issue: #307
+\documentclass{beamer}
+\usecolortheme{beaver}
+\setbeamertemplate{navigation symbols}{}
+\title{Beaver}
+\author{A. Author}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{A title}
+\begin{enumerate}
+\item First
+\item Second
+\end{enumerate}
+\end{frame}
+\end{document}
