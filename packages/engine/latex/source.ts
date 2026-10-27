@@ -13,7 +13,9 @@ import { spanishText } from "./spanish"
 /** an lstlisting environment's [options] and lines */
 export interface Listing { options: string; lines: string[]; inline?: true }
 /** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
-export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
+export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string
+  /** tabular*'s width (the \\halign to it) */
+  width?: string }
 /** a minipage environment as typed (taken out of the source after expansion: \LXminipage{n}) */
 export interface MinipageSource {
   /** (null: subcaption's subfigure or subtable with no position, b before the float's \caption and t after it) */
@@ -143,12 +145,15 @@ export function prepareSource(source: string): DocumentSource {
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
   const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
-  const src0 = expanded.text.replace(/\\begin\{tabular\}\s*(?:\[([tbc])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}([^]*?)\\end\{tabular\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
+  // (tabular* first: its {width} before [pos]{cols})
+  const take = (t: string, env: "tabular" | "tabular\\*") => t.replace(new RegExp(`\\\\begin\\{${env}\\}${env === "tabular" ? "" : "\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}"}\\s*(?:\\[([tbc])\\])?\\s*\\{((?:[^{}]|\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})*)\\}([^]*?)\\\\end\\{${env}\\}`, "g"), (all: string, ...m: unknown[]) => {
+    const [width, pos, spec, body, offset, text] = (env === "tabular" ? [undefined, ...m] : m) as [string | undefined, string | undefined, string, string, number, string]
     if (commented(text, offset)) return all
-    if (/\\begin\{tabular\}/.test(body)) throw new Unsupported("a tabular in a tabular")
-    tabulars.push({ pos: (pos ?? "c") as "c", spec, body })
+    if (/\\begin\{tabular\*?\}|\\LXtabular\{/.test(body)) throw new Unsupported("a tabular in a tabular")
+    tabulars.push({ pos: (pos ?? "c") as "c", spec, body, ...(width !== undefined ? { width } : {}) })
     return `\\LXtabular{${tabulars.length - 1}}`
   })
+  const src0 = take(take(expanded.text, "tabular\\*"), "tabular")
   if ([...src0.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
   // minipages: \LXminipage{n}, laid out where they stand
   const minipages: MinipageSource[] = []

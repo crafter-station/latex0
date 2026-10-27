@@ -475,7 +475,7 @@ function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figur
     // the tabular's box, alone on its line; \centering sets \leftskip and \rightskip to \@flushglue
     const tab = it.match(/^\\LXtabular\{(\d+)\}$/)
     if (tab) {
-      floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits })], "", centered, captionAnchor(ii))
+      floatParagraph([hpack([]), doc.tabular!(Number(tab[1]), "normalsize", normalAttrs, undefined, { notes: decisions, club, widow: run.k.ints.widowpenalty, finalHyph: centered ? 0 : classParams(run.k).finalHyphenDemerits, lineWidth: hsize })], "", centered, captionAnchor(ii))
       continue
     }
     // \vspace{skip} in vertical mode: \vskip skip \vskip\z@skip

@@ -24,7 +24,7 @@ export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttr
   const { tabulars } = cx
   const t = tabulars[n]
   const lines = tabularLines(t.body), cols = preamble(t.spec, cx.run.k.array && { types: cx.pre.columnTypes, si: !!cx.doc.siunitx })
-  return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer)
+  return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer, t.width)
 }
 
 /**
@@ -216,7 +216,7 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
 }
 
 /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
-export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = cx.normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter): BoxNode {
+export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = cx.normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter, width?: string): BoxNode {
   const { amsmath } = cx.pre
   const { booktabs, doc, run } = cx
   const font = selectFont(run.k, size, attrs)
@@ -233,6 +233,11 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
       }
     },
     skip: (text) => { try { return parseGlue(text, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).width } catch { throw new Unsupported(`\\\\[${text}] in a tabular`) } },
+    // (\fill: 0pt plus 1fill; \stretch{n}: 0pt plus nfill)
+    glue: (text) => {
+      const st = text.match(/^\s*\\stretch\s*\{([^{}]*)\}\s*$/)
+      try { return parseGlue(st ? `0pt plus ${st[1]}fill` : text, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: (name, s) => name === "fill" ? { level: "glue", value: { width: 0, stretch: 65536, stretchOrder: 2, shrink: 0, shrinkOrder: 0 } } : widthRegisters(cx, outer?.lineWidth)(name, s) }) } catch { throw new Unsupported(`\\extracolsep{${text}}`) }
+    },
     // \vtop\bgroup \hsize width \@arrayparboxrestore (\parindent and \parskip zero, \leftskip and \rightskip zero,
     // \parfillskip \@flushglue, the normal \baselineskip, \lineskip and \lineskiplimit, \sloppy) \ignorespaces entry,
     // then \@finalstrut\@arstrutbox (\unskip, then \nobreak in a paragraph and \vskip-\baselineskip out of one, and
@@ -279,7 +284,12 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     // an S entry's boxes: $…$ in them (\mathsurround zero), text as the entry's
     ...(doc.siunitx ? { si: (text: string, options: string, state: { spaceFactor: number }) => siTableCell(text, options, state, { ...siContext(run.k, size, font, doc.siunitx!), formula: (l) => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(l, mathEnv(run.k, size, amsmath), TEXT, false), { kind: "math", on: false, width: 0 }], cell: (src) => env.cell(src, state) }) } : {}),
   }
-  return tabularBox(lines, cols, env, pos)
+  // tabular*'s width: \setlength\dimen@{width} where it stands
+  let to: number | undefined
+  if (width !== undefined) {
+    try { to = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, outer?.lineWidth) }) } catch { throw new Unsupported(`a tabular* of width ${width}`) }
+  }
+  return tabularBox(lines, cols, env, pos, to)
 }
 
 /** \\ under \centering and friends (\@centercr): the text's lines, each with the * and [skip] of the \\ that ends it */

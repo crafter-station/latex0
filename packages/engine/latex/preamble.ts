@@ -292,7 +292,7 @@ export function readPreamble(src: string): Preamble {
     }
     const ncol = line.match(/^\\newcolumntype\{?([A-Za-z])\}?\s*(?:\[(\d)\])?\s*\{(.*)\}$/)
     if (ncol) {
-      if (!usesArray || "clrmbpw".includes(ncol[1]) || ncol[1] in columnTypes || !balanced(ncol[3])) throw new Unsupported(`preamble: ${line}`)
+      if (!usesArray || "clrmbpwW".includes(ncol[1]) || ncol[1] in columnTypes || !balanced(ncol[3])) throw new Unsupported(`preamble: ${line}`)
       columnTypes[ncol[1]] = { n: Number(ncol[2] ?? 0), spec: ncol[3] }; continue
     }
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)

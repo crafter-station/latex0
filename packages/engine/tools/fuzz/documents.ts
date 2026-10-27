@@ -145,12 +145,12 @@ export function makeDocument(r: () => number): string {
     return `\\ang{${pick(["45", "1;2;3", ";;3", "12.5;30"])}}`
   }
   // a tabular: l, c, r and p{width} columns with | and || rules, @{} and @{text}, *{n}{cols}; entries in fonts, formulas, empty;
-  // \multicolumn with rules of its own, \hline (sometimes doubled), \cline, \\[skip]
+  // \multicolumn with rules of its own, \hline (sometimes doubled), \cline, \\[skip]; array.sty's w and W columns; tabular*
   const tabular = (pos = "") => {
     const n = 1 + Math.floor(r() * 4)
     const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
     let spec = r() < 0.2 ? pick(es ? ["@{}", "@{: }"] : ["@{}", "@{~}", "@{: }"]) : rule() // (spanish.ldf's active ~ in a preamble: an error)
-    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.1 ? pick(["C", "B"]) : siOn && r() < 0.2 ? pick(["S", "S", "S[table-format=2.2]", "S[table-format=3.1]", "S[table-format=-1.3]", "S[round-mode=places, round-precision=1]", "S[output-decimal-marker={,}]", "S[separate-uncertainty]"]) : pick(["l", "c", "r"]))
+    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.13 ? pick(["C", "B", "C", "B", "w{l}{2cm}", "W{c}{1cm}", "w{r}{15mm}", "w{s}{3cm}"]) : siOn && r() < 0.2 ? pick(["S", "S", "S[table-format=2.2]", "S[table-format=3.1]", "S[table-format=-1.3]", "S[round-mode=places, round-precision=1]", "S[output-decimal-marker={,}]", "S[separate-uncertainty]"]) : pick(["l", "c", "r"]))
     // siunitx's S columns: numbers, text in braces, nothing
     const sCell = () => pick(["1.5", "12.25", "-0.5", "100", "", "{Value}", "{\\textbf{x}}", "1234.5678", ".5", "3", "1.2e3", "1.5(2)", "0.001", "99.99", "{---}", "-12"])
     // array.sty: >{decl} before a column, <{decl} after it, !{text} between columns
@@ -188,7 +188,7 @@ export function makeDocument(r: () => number): string {
       const cells: string[] = []
       for (let j = 0; j < n;) {
         const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
-        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(kinds[j].startsWith("S") ? sCell() : entry(/^[pmbC]/.test(kinds[j]))); j++ }
+        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(kinds[j].startsWith("S") ? sCell() : entry(/^[pmbCwW]/.test(kinds[j]))); j++ }
       }
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
       rows.push(cells.join(" & ") + ` \\\\${end}`)
@@ -196,6 +196,8 @@ export function makeDocument(r: () => number): string {
     if (bt) { if (r() < 0.85) rows.push(pick(["\\bottomrule", "\\bottomrule", "\\bottomrule[0.5pt]"])) }
     else if (r() < 0.5) rows.push("\\hline")
     else if (r() < 0.3 && rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "").trim()) rows[rows.length - 1] = rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "") // (not a blank line)
+    // tabular*: to a width, \extracolsep{\fill} in its first @{} (or none)
+    if (r() < 0.06) return `\\begin{tabular*}{${pick(["\\linewidth", "0.8\\textwidth", "10cm", "4cm"])}}${pos}{${r() < 0.7 ? "@{\\extracolsep{\\fill}}" : ""}${spec}}\n${rows.join("\n")}\n\\end{tabular*}`
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
   // a minipage: one or two paragraphs (words, formulas, fonts), sometimes \centering first or a tabular inside

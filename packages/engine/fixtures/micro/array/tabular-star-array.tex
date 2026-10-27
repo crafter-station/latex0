@@ -1,0 +1,38 @@
+% fixture: array/tabular-star-array
+% tier: T3
+% engine: document
+% covers: array.sty's tabular*: \extracolsep{\fill} in @{} and in !{} (\NC@ecs), with text beside it, \extracolsep{\stretch{2}}, booktabs rules and \cmidrule across stretched tabskips, \multicolumn; w{l}{…}, w{c}{…}, w{r}{…}, w{s}{…} and W columns (an entry wider than the box, W's \hfil's), >{\bfseries} and <{decl} around a w column, an entry ending in a space and \hfill (\textonly@unskip and \endlrbox's \unskip), \multicolumn{1}{w{c}{2cm}}, a \\[skip] after a W entry (its \unskip in the box)
+% issue: #342
+\documentclass{article}
+\usepackage{array}
+\usepackage{booktabs}
+\begin{document}
+\begin{table}[h]
+\centering
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}lrr!{\extracolsep{\stretch{2}}}c@{}}
+\toprule
+Region & Revenue & Units & Note \\
+\midrule
+North & 4\,210 & 15\,320 & up \\
+Europe & 3\,180 & 12\,045 & flat \\
+\cmidrule(lr){2-3}
+\multicolumn{3}{l}{All regions together} & -- \\
+\bottomrule
+\end{tabular*}
+\caption{Stretched with booktabs.}
+\end{table}
+
+\begin{tabular}{|w{l}{2cm}|w{c}{2cm}|w{r}{1.5cm}|W{c}{1cm}|}
+\hline
+left & centre & right & a wide entry \\
+\hline
+x & {} & y \hfill & z \\
+\multicolumn{1}{|w{c}{2cm}|}{span} & & & z \quad\quad\\[3pt]
+\hline
+\end{tabular}
+
+\begin{tabular}{>{\bfseries}w{l}{2cm}w{c}{1cm}<{.}w{s}{3cm}@{\extracolsep{1em} --}l}
+bold & dot & s p r e a d & one \\
+w & overlapping text & w & two
+\end{tabular}
+\end{document}

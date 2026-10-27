@@ -29,19 +29,19 @@ export function node(n: BoxNode): Node {
       // shows only the final depth, and the ratio TeX printed tells which
       const matches = (r: number) => Math.abs(n.glueSet) >= 20000 || Math.round(65536 * r) === Math.round(65536 * n.glueSet)
       if (box.kind === "vlist" && n.glueSign && !matches(box.glueSet) && matches(glueSet(box, 0, false))) box.glueSet = glueSet(box, 0, false)
-      // a spanned alignment cell (§ 810) has the first column's width, its glue set against the whole span: the
-      // width, then the tabskip glue and the empty box of each column it spans, which follow it in the row
-      if (box.kind === "hlist") list.forEach((c, i) => {
+      if (box.kind === "hlist") spans(box, n)
+      // an alignment's row has the prototype row's glue set (§ 808), which its own contents give only when it has all
+      // the columns: a shorter row takes it from a sibling of the same width and printed setting that has them
+      else list.forEach((c, i) => {
         const printed = n.children[i]
-        if ((c.kind !== "hlist" && c.kind !== "vlist") || (printed.type !== "hbox" && printed.type !== "vbox") || !printed.glueSign) return
-        const shown = (r: number) => Math.round(65536 * r) === Math.round(65536 * printed.glueSet)
-        if (Math.abs(printed.glueSet) >= 20000 || shown(c.glueSet)) return
-        let extra = 0
-        for (let j = i + 1; list[j]?.kind === "glue" && list[j + 1]?.kind === "hlist" && (list[j + 1] as Box).list.length === 0; j += 2) {
-          extra += (list[j] as GlueNode).width + (list[j + 1] as Box).width
-          const r = glueSet(c, extra)
-          if (shown(r)) { c.glueSet = r; return }
-        }
+        if (c.kind !== "hlist" || printed.type !== "hbox" || !printed.glueSign || Math.abs(printed.glueSet) >= 20000) return
+        const same = (r: number, g: number) => Math.round(65536 * r) === Math.round(65536 * g)
+        if (same(c.glueSet, printed.glueSet)) return
+        const full = list.find((d, j) => {
+          const q = n.children[j]
+          return d.kind === "hlist" && q.type === "hbox" && d.width === c.width && q.glueSign === printed.glueSign && q.glueOrder === printed.glueOrder && q.glueSet === printed.glueSet && same(d.glueSet, q.glueSet)
+        })
+        if (full?.kind === "hlist") { c.glueSet = full.glueSet; spans(c, printed) }
       })
       return box
     }
@@ -77,6 +77,28 @@ function other(text: string, children: BoxNode[] | undefined): Node {
   // pdfTeX's images and forms take their size as a box does (§ pdf_ship_out)
   if ((m = text.match(/^\\pdfref(?:ximage|xform)\((-?[\d.]+)\+(-?[\d.]+)\)x(-?[\d.]+)/))) return { kind: "hlist", width: parseScaled(m[3]), height: parseScaled(m[1]), depth: parseScaled(m[2]), shift: 0, list: [], glueSign: 0, glueOrder: 0, glueSet: 0 }
   return { kind: "whatsit", text }
+}
+
+/**
+ * a spanned alignment cell (§ 810) has the first column's width, its glue set against the whole span: the width, then
+ * the tabskip glue (as the row sets it) and the empty box of each column it spans, which follow it in the row
+ */
+function spans(box: Box, n: BoxNode & { type: "hbox" | "vbox" }) {
+  const list = box.list
+  const setWidth = (g: GlueNode) => g.width + (box.glueSign === STRETCHING && g.stretchOrder === box.glueOrder ? Math.round(box.glueSet * g.stretch)
+    : box.glueSign === SHRINKING && g.shrinkOrder === box.glueOrder ? -Math.round(box.glueSet * g.shrink) : 0)
+  list.forEach((c, i) => {
+    const printed = n.children[i]
+    if ((c.kind !== "hlist" && c.kind !== "vlist") || (printed.type !== "hbox" && printed.type !== "vbox") || !printed.glueSign) return
+    const shown = (r: number) => Math.round(65536 * r) === Math.round(65536 * printed.glueSet)
+    if (Math.abs(printed.glueSet) >= 20000 || shown(c.glueSet)) return
+    let extra = 0
+    for (let j = i + 1; list[j]?.kind === "glue" && list[j + 1]?.kind === "hlist" && (list[j + 1] as Box).list.length === 0; j += 2) {
+      extra += setWidth(list[j] as GlueNode) + (list[j + 1] as Box).width
+      const r = glueSet(c, extra)
+      if (shown(r)) { c.glueSet = r; return }
+    }
+  })
 }
 
 /** hpack's and vpack's glue ratio (§§ 658, 664, 676) for the size TeX gave the box (and `extra` width, for a span; a

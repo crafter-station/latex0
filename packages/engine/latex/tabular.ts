@@ -12,16 +12,33 @@ import type { GlueSpec } from "../layout/dimen"
 import { appendToVlist } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
+import { setgroup } from "./xcolor"
 
 export class TabularUnsupported extends Unsupported {}
 
-/** what a preamble puts around a column's entry: a rule (|), a skip, or @-text */
-export type TabItem = { rule: true } | { skip: "tabcolsep" | "doublerulesep" | "halfrule" } | { text: string }
+/** what a preamble puts around a column's entry: a rule (|), a skip, @-text, or the \\tabskip an \\extracolsep in it sets */
+export type TabItem = { rule: true } | { skip: "tabcolsep" | "doublerulesep" | "halfrule" } | { text: string } | { tabskip: string }
+
+/**
+ * @{text} (array.sty: !{text} too) with an \extracolsep{skip}: \tabskip skip\relax in the preamble (the kernel's
+ * \@tabclassiv expands it; array.sty's \NC@ecs puts it there), which the \halign's preamble scan takes out (§ 782):
+ * the tabskip glue after this column and the next ones. The text around it stays.
+ */
+function atItems(text: string): TabItem[] {
+  const m = text.match(/\\extracolsep(?![A-Za-z])\s*(?:\{((?:[^{}]|\{[^{}]*\})*)\}|(\\[A-Za-z]+))/)
+  if (!m) return [{ text }]
+  const before = text.slice(0, m.index), after = text.slice(m.index! + m[0].length)
+  // (a second one: array.sty's \NC@ecs takes the first only; text on both sides has the \relax between)
+  if (/\\extracolsep(?![A-Za-z])/.test(after) || before.trim() && after.trim()) throw new TabularUnsupported(`@{${text}}`)
+  return [{ tabskip: m[1] ?? m[2] }, { text: before + after }]
+}
 /** a column's template: u, the entry aligned l, c or r or in a p{width} box (array.sty: an m or b one too, and
  *  the >{decl} before the entry and <{decl} after it), v */
 export interface TabCol { align: "l" | "c" | "r" | "p" | "m" | "b"; width?: string; u: TabItem[]; v: TabItem[]; pre?: string; post?: string
   /** siunitx's S[options] (a c column around \siunitx_cell_begin:w … \siunitx_cell_end:): its options */
-  si?: string }
+  si?: string
+  /** array.sty's w{align}{width} and W{align}{width}: a c column whose entry is \makebox[width][align]'d */
+  box?: { align: string; width: string; W: boolean } }
 /** array.sty's \newcolumntype{X}[n]{spec}'s */
 export type ColumnTypes = Record<string, { n: number; spec: string }>
 
@@ -77,7 +94,7 @@ function specTokens(spec: string, types: ColumnTypes = {}): string[] {
 /** array.sty's \@mkpream: the classes of \@testpach (0 a column, 1 a rule or !'s text, 2 <'s, 3 >'s, 5 @'s
  *  text, 6 !, 7 @, 8 <, 9 >, 10 m, p or b, before its width) and what each adds */
 function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {
-  type Col = { align: TabCol["align"]; width?: string; pre: string; post: string; si?: string }
+  type Col = { align: TabCol["align"]; width?: string; pre: string; post: string; si?: string; box?: TabCol["box"] }
   const bad = () => new TabularUnsupported(`tabular columns {${spec}}`)
   const flat: (TabItem | "&" | Col)[] = []
   let last = 4, firstAmp = true, num = 0, pre = "", col: Col | null = null
@@ -97,6 +114,13 @@ function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {
     else if ("clr".includes(t)) { ch = 0; num = "clr".indexOf(t) } else if (t === "|") { ch = 1; num = 0 } else if (t in ARRAY_CLASSES) ch = ARRAY_CLASSES[t]
     else if ("mpb".includes(t)) { ch = 10; num = "mpb".indexOf(t) + 3 }
     else if (t === "S" && si) { ch = 0; num = 0 } // (S's \NC@rewrite@S: >{…}c<{…})
+    else if (t === "w" || t === "W") { // \NC@rewrite@w: >{\begin{lrbox}…}c<{…\makebox[width][align]{…}}
+      const [a, w] = [toks[ti + 1], toks[ti + 2]]
+      if (w === undefined || !/^\{?\s*[lcrstb]\s*$/.test(a)) throw bad()
+      classx() // (as its > does; the >{decl}'s before it go inside the box)
+      col = { align: "c", pre, post: "", box: { align: a.replace(/^\{/, "").trim(), width: w.replace(/^\{/, ""), W: t === "W" } }
+      pre = ""; flat.push(col); ti += 2; last = 2; continue
+    }
     else throw new TabularUnsupported(`tabular column ${t} in {${spec}}`)
     switch (ch) {
       case 0: // \@classz: the separators, then the column with the >{decl}'s gathered so far
@@ -112,10 +136,10 @@ function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {
           col.si = opts
         }
         pre = ""; flat.push(col); break
-      case 1: classvi(); flat.push(num === 0 ? { rule: true } : { text: arg }); break // \@classi: \vline, or !'s text
+      case 1: classvi(); flat.push(...(num === 0 ? [{ rule: true } as const] : atItems(arg))); break // \@classi: \vline, or !'s text
       case 2: if (!col) throw bad(); col.post = cat(arg, col.post); break // \@classii (save@decl puts it first)
       case 3: pre = cat(arg, pre); break
-      case 5: flat.push({ text: arg }); break // \@classv
+      case 5: flat.push(...atItems(arg)); break // \@classv
       case 6: classvi(); break
       case 7: if (last === 3) throw bad(); break
       case 8: if (last > 0 && last !== 2) throw bad(); break
@@ -169,7 +193,7 @@ export function preamble(spec: string, array?: { types: ColumnTypes; si?: boolea
       if (last === 0 || last === 5) acol(); else if (last === 1) flat.push({ skip: "doublerulesep" })
       rule()
     } else if (ch === 2) { if (last === 1) flat.push({ skip: "halfrule" }) }
-    else flat.push({ text: t.replace(/^\{/, "") })
+    else flat.push(...atItems(t.replace(/^\{/, "")))
     last = ch
   }
   if (last === 0 || last === 5) acol()
@@ -323,6 +347,8 @@ export interface TabularEnv {
   pbox(text: string, width: string, cr: Node[], array?: { kind: "p" | "m" | "b"; shape: "centering" | "raggedright" | "raggedleft" | null; size?: SizeCommand }): BoxNode
   /** a \\[skip]'s dimension */
   skip(text: string): number
+  /** an \extracolsep's skip */
+  glue(text: string): GlueSpec
   /** multirow loaded */
   multirow?: boolean
   /** array.sty loaded, with its \newcolumntype's; \strutbox (\@arstrutbox has \extrarowheight too) */
@@ -338,7 +364,7 @@ export interface TabularEnv {
  * template&…\cr rows}}$}, with \baselineskip and \lineskip zero. An \hline is \noalign{\hrule height
  * \arrayrulewidth}, and one right after another adds \vskip\doublerulesep\vskip-\arrayrulewidth.
  */
-export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, pos: "t" | "b" | "c"): BoxNode {
+export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, pos: "t" | "b" | "c", to?: number): BoxNode {
   const arw = env.arrayrulewidth, half = Math.trunc(arw / 2)
   const strut = (): Node => ({ kind: "rule", width: 0, height: env.strut.height, depth: env.strut.depth }) // \@arstrut
   const items = (xs: TabItem[], st: { spaceFactor: number }): Node[] => xs.flatMap((x): Node[] => {
@@ -347,6 +373,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       return env.array ? [r] : [glue(-half), r, glue(-half)]
     }
     if ("text" in x) return env.cell(x.text, st)
+    if ("tabskip" in x) return []
     return [glue(x.skip === "tabcolsep" ? env.tabcolsep : x.skip === "doublerulesep" ? env.doublerulesep : half)]
   })
   /** an entry's list: its text, or a \multirow and what follows it */
@@ -358,6 +385,11 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     return [multirowBox(env, m), ...env.cell(m.rest, st)]
   }
   const unskip = (l: Node[]) => { if (l.at(-1)?.kind === "glue") l.pop() }
+  /** \unskip before the last n nodes, the color pops that end the group of a >{decl} with \color's, still open then */
+  const unskipUnder = (l: Node[], n: number) => {
+    const k = l.length - 1 - n
+    if (l.slice(k + 1).every((x) => x.kind === "whatsit" && x.text === "\\special{color pop}") && l[k]?.kind === "glue") l.splice(k, 1)
+  }
   /** {\hfil\hskip1sp\ignorespaces entry\unskip\hfil} as the column aligns it, or \@startpbox{width}\ignorespaces
    *  entry\@endpbox (whose \hfil follows the \vtop); `cr` is what \\[skip] puts before \unskip */
   /** the entry after `before` (the cell's list so far: array.sty's \unskip's may reach into it) */
@@ -401,6 +433,8 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       if (ended && !/^\\arraybackslash(?![A-Za-z])/.test(pre)) throw new TabularUnsupported(`>{\\${shape}} without \\arraybackslash before \\\\`)
     }
     pre = pre.replace(/\\arraybackslash(?![A-Za-z])\s*/g, "")
+    // (a \color in >{decl}: its pop where the declarations' group ends, after \textonly@unskip)
+    const pops = [...pre.matchAll(/\\color(?![A-Za-z])/g)].length
     if (/\\(?:centering|raggedright|raggedleft)(?![A-Za-z])/.test(pre + post) || shape && !"pmb".includes(col.align)) throw new TabularUnsupported(`>{${col.pre}}`)
     /** the entry's text, then <{decl}'s after \textonly@unskip, and >{decl}'s before, in a group of their own */
     const withDecls = (t: string) => {
@@ -416,6 +450,22 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       }
       // (the entry is a group already: the declarations in one of their own)
       return pre || post ? `{${cat(pre, t)}}` : t
+    }
+    if (col.box) {
+      // array.sty's w and W: \hfil\hskip1sp, then \begin{lrbox}\ar@cellbox … \ignorespaces entry\textonly@unskip
+      // <{decl}'s \end{lrbox} (\unskip) and \makebox[width][align]{\unhbox\ar@cellbox}: an \hbox to the width with
+      // \hss's as bm@<align> puts them (W's are \hfil's), then \hfil. A \\[skip]'s \unskip is in the box (before
+      // \textonly@unskip), \do@row@strut's \vrule after it
+      if (multirow(text.replace(/^\s+/, ""))) throw new TabularUnsupported("\\multirow in a w column")
+      const inner = env.cell(withDecls(text.replace(/^\s+/, "")), st)
+      if (!post) { unskipUnder(inner, pops); if (cr.length) unskipUnder(inner, pops) } // (\textonly@unskip in the declarations' group)
+      unskip(inner)
+      const a = col.box.align, ss = (): Node => col.box!.W ? filGlue() : ssGlue()
+      // (lrbox's \color@setgroup: with a color package, the color pushed and popped around the entry)
+      const box = hpack([..."crb".includes(a) ? [ss()] : [], ...setgroup(inner), ..."clt".includes(a) ? [ss()] : []], { exactly: env.glue(col.box.width).width })
+      st.spaceFactor = 1000
+      l.push(filGlue(), glue(1), box, ...cr, filGlue())
+      return l
     }
     // a \multirow after >{decl}: its text in the declarations' font
     const mr = (pre || post) && "lcr".includes(col.align) ? multirow(text.replace(/^\s+/, "")) : null
@@ -461,7 +511,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     if (!empty) l.push(glue(1))
     else if (cr.length) unskip(l)
     l.push(...content(body, st))
-    if (!post) { unskip(l); if (cr.length) unskip(l) }
+    if (!post) { unskipUnder(l, pops); if (cr.length) unskipUnder(l, pops) } // (in the declarations' group)
     l.push(...cr)
     if (col.align !== "r") l.push(filGlue())
     return l
@@ -548,8 +598,17 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     vlist.push({ row: rows.length }); rows.push(r)
     if (skip !== undefined && skip <= 0) vlist.push(glue(skip))
   })
-  const tabskip = Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0)))
-  const rowBoxes = halignSpans(rows, tabskip, { additional: 0 })
+  // the tabskip glue: zero before the first column (\ialign's \tabskip\z@skip), after each one the \tabskip its
+  // templates left (an \extracolsep), zero after the last (\tabskip\z@skip before the preamble's \cr)
+  let skip: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
+  const tabskip = [paramGlue("tabskip", glue(0))]
+  for (const c of cols) {
+    for (const x of [...c.u, ...c.v]) if ("tabskip" in x) skip = env.glue(x.tabskip)
+    tabskip.push(paramGlue("tabskip", glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder)))
+  }
+  tabskip[cols.length] = paramGlue("tabskip", glue(0))
+  // (tabular*: \halign to its width)
+  const rowBoxes = halignSpans(rows, tabskip, to === undefined ? { additional: 0 } : { exactly: to })
   const width = rowBoxes[0]?.width ?? 0
   const list: Node[] = []
   let pd: number | null = null
