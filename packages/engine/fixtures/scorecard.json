@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 398,
-  "exact": 395,
+  "fixtures": 399,
+  "exact": 396,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 305953
+  "glyphs": 305995
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 43,
-   "exact": 42
+   "fixtures": 44,
+   "exact": 43
   },
   {
    "area": "bibliography",
@@ -1229,6 +1229,17 @@
    "glyphs": 78,
    "covers": "beamer: \\titlepage in the default inner theme: title, subtitle, author (with \\and), institute and date (\\today) in centered beamercolorboxes, each in its font and color",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/toc-current",
+   "file": "micro/beamer/toc-current.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 42,
+   "covers": "beamer: \\tableofcontents[currentsection]: the other sections and their subsections shaded",
+   "issue": "#300"
   },
   {
    "id": "beamer/toc-empty",

@@ -97,8 +97,8 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   endpe?: boolean
   /** the paragraph read last ran into a list's \begin, which ended it */
   listInParagraph?: boolean
-  /** the .toc lines the last run wrote (\tableofcontents reads them) */
-  toc: TocEntry[]
+  /** the .toc lines the last run wrote (\tableofcontents reads them), and \c@section where the frame is */
+  toc: TocEntry[]; section: number
   /** the slide being typeset and its overlay state */
   overlay: Overlay
   /** the nodes each \LXsmuggle{n} in the frame's text stands for (overlay specials) */
@@ -279,12 +279,14 @@ const titlepage: FrameHandler = (cx, v, text) => {
   return text.replace(/^\\(?:titlepage|maketitle)(?![A-Za-z])/, "")
 }
 
-/** \tableofcontents (sections.ts), without options */
+/** \tableofcontents (sections.ts), and \tableofcontents[currentsection] */
 const toc: FrameHandler = (cx, v, text) => {
   if (cx.endpe) throw new Unsupported("beamer: a table of contents right after a list")
-  if (/^\\tableofcontents\s*\[/.test(text)) throw new Unsupported("beamer: \\tableofcontents' options")
-  tableOfContents(cx, v)
-  return text.replace(/^\\tableofcontents(?![A-Za-z])/, "")
+  // [currentsection] alone
+  const m = text.match(/^\\tableofcontents(?![A-Za-z])(?:\s*\[([^\]]*)\])?/)!
+  if (m[1] !== undefined && m[1].trim() !== "currentsection") throw new Unsupported(`beamer: \\tableofcontents[${m[1]}]`)
+  tableOfContents(cx, v, m[1] !== undefined)
+  return text.slice(m[0].length)
 }
 
 /** \pause and \pause[n] between paragraphs (overlays.ts) */

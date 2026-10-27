@@ -1,0 +1,23 @@
+% fixture: beamer/toc-current
+% tier: T3
+% engine: document
+% covers: beamer: \tableofcontents[currentsection]: the other sections and their subsections shaded
+% issue: #300
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\section{Introduction}
+\subsection{Details}
+\begin{frame}
+Text.
+\end{frame}
+\section{Results}
+\subsection{Main}
+\begin{frame}
+\tableofcontents[currentsection]
+\end{frame}
+\section{End}
+\begin{frame}
+End.
+\end{frame}
+\end{document}

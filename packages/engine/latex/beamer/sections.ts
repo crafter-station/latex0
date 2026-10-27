@@ -6,7 +6,8 @@
 // level 2, or 3 for a subsection) and its Outline anchor. \tableofcontents reads the
 // .toc the last run wrote: \vspace*{-.5em}, then in a group \pause[0] and each line
 // (a section after \vfill in \hbox{\vbox{…}}, a subsection a paragraph indented by
-// 1.5em), each title a link to its page, then \vfill.
+// 1.5em), each title a link to its page, then \vfill; with [currentsection] the other
+// sections shaded.
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
@@ -19,7 +20,7 @@ import { Bookmarks, dest, HA, HS, linkBox } from "../hyperref"
 import { classParams, selectFont, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { dimen, type VerticalList } from "../vlist"
-import { colorPop, colorPush } from "../xcolor"
+import { colorPop, colorPush, Colors } from "../xcolor"
 import { SANS, type FrameCtx, type SectionSource } from "./frame"
 import { groupEnd, pause, smuggle } from "./overlays"
 import { fontSize, outerColors, useColor } from "./theme"
@@ -91,8 +92,10 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
 
 /**
  * \tableofcontents in the frame's vertical list `v`. \pause[0] (\onslide<0->: shown) in its group (overlays.ts).
+ * `current` ([currentsection]): the sections other than the frame's, and their subsections, shaded (the "… in toc
+ * shaded" templates: the template in \begin{colormixin}{20!parent.bg}, each color mixed 20% with normal text's bg).
  */
-export function tableOfContents(cx: FrameCtx, v: VerticalList) {
+export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) {
   const { k, theme } = cx
   const font = selectFont(k, "normalsize", SANS)
   const bs = k.sizes.normalsize.baselineskip
@@ -106,28 +109,36 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList) {
   const outer = outerColors(theme)
   // \usebeamertemplate**{… in toc}: normal text's fg and the template's pushed, its font; the title a link to its
   // page, in a paragraph (\parindent zero, beamer's \raggedright), the subsection's \leftskip 1.5em
-  const entry = (e: TocEntry, name: string) => {
+  const entry = (e: TocEntry, kind: string) => {
+    const shaded = current && e.section !== cx.section
+    const name = `${kind} in toc${shaded ? " shaded" : ""}`
     if (fontSize(theme, k, name, "normalsize") !== "normalsize") throw new Unsupported(`beamer: a ${name} font with a size`)
-    const color = useColor(theme, name, outer).fg
+    let color = useColor(theme, name, outer).fg
+    const pushes = [colorPush(outer.fg), colorPush(color)]
+    if (shaded) {
+      const mix = new Colors(), def = (n: string, c: string) => { const [model, ...x] = c.split(" "); mix.define(n, model, x.join(",")) }
+      def("current", color); def("parentbg", outer.bg)
+      color = mix.spec("current!20!parentbg")
+      pushes.push(colorPush(color))
+    }
     const text: Node[] = []
     appendText(text, e.title, font, { spaceFactor: 1000 }, false)
     const leftskip = e.kind === "subsection" ? parseDimen("1.5em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) : 0
     const { vlist, trace } = lineBreak([emptyBox("hlist", k.dimens.parindent), ...navigationLink(text, color, e.page)], { ...classParams(k), leftSkip: spec("leftskip", dimen(leftskip)) })
     cx.decisions.push(trace)
-    return { color, vlist }
+    return { pushes, vlist, pops: pushes.map(() => colorPop()) }
   }
   for (const e of cx.toc) {
     if (e.kind === "section") {
       // \vfill, then {\hbox{\vbox{the template}}\par}
-      const { color, vlist } = entry(e, "section in toc")
+      const { pushes, vlist, pops } = entry(e, "section")
       v.nodes.push(fillGlue())
-      const inner: Node[] = [colorPush(outer.fg), colorPush(color), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)), ...vlist, colorPop(), colorPop()]
-      v.box(hpack([vpack(inner)]), bs)
+      v.box(hpack([vpack([...pushes, paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)), ...vlist, ...pops])]), bs)
     } else {
-      const { color, vlist } = entry(e, "subsection in toc")
-      v.nodes.push(colorPush(outer.fg), colorPush(color))
+      const { pushes, vlist, pops } = entry(e, "subsection")
+      v.nodes.push(...pushes)
       v.paragraph(vlist, k.glue.parskip, bs)
-      v.nodes.push(colorPop(), colorPop())
+      v.nodes.push(...pops)
     }
   }
   v.nodes.push(fillGlue())

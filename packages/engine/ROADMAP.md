@@ -278,7 +278,7 @@ navigation symbols switched off, frames as pages (the frame environment and `\fr
 frame number), frame titles, rectangular beamercolorboxes, the default title page, first-level
 itemize and enumerate, the frames' paragraphs ragged right in the sans serif fonts, `\textbf` and
 friends and beamer's `\emph`; `\section` and `\subsection` between frames (toc, nav and bookmark
-writes) and `\tableofcontents`; overlays (one page per slide, `\pause`, `\item<…>` and `[<+->]`,
+writes) and `\tableofcontents` (also `[currentsection]`); overlays (one page per slide, `\pause`, `\item<…>` and `[<+->]`,
 `\only`, `\alt`, `\temporal`, `\uncover`, `\visible`, `\invisible`, `\onslide`, covered material
 between pgf's invisible specials); the .nav writes and page anchors, with dvips (#289, #299, #300).
 Not yet: Madrid's rounded boxes and shadows, the navigation symbols, blocks, columns, nested
