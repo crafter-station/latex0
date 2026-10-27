@@ -1,0 +1,18 @@
+% fixture: beamer/frame-20pt
+% tier: T3
+% engine: document
+% covers: beamer at 20pt with the c option; \usetheme, \usecolortheme and \usefonttheme default; \title with a short form, \subtitle and \author with \and (hyperref's document information)
+% issue: #283
+\documentclass[20pt,c]{beamer}
+\usetheme{default}
+\usecolortheme{default}
+\usefonttheme{default}
+\setbeamertemplate{navigation symbols}{}
+\title[Short]{A Title}
+\subtitle{Sub}
+\author{X \and Y}
+\begin{document}
+\begin{frame}
+Text at twenty points that runs long enough to make a few lines of text on this frame here and there.
+\end{frame}
+\end{document}

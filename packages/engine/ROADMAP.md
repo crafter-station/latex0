@@ -263,6 +263,13 @@ beamer (frames as pages, overlays, blocks, themes), IEEEtran, acmart, llncs,
 elsarticle, revtex4, neurips/icml/iclr, exam, moderncv. Each is a binding + a
 conformance fixture set.
 
+🟡 beamer (#283), its own pipeline (`latex/beamer/`) with class data from TeX for every size option
+(8pt–20pt): the default theme with the navigation symbols switched off, frames as pages (the frame
+environment and `\frame`, `[c]` and `[t]`) with beamer's head (background canvas, sidebars) and foot,
+the frames' paragraphs ragged right in the sans serif fonts, `\textbf` and friends and beamer's
+`\emph`, the .nav writes and page anchors, with dvips. Not yet: other themes, the navigation
+symbols, frame titles, the title page, lists, blocks, columns, overlays, math, pdfTeX.
+
 ---
 
 ## 5. Engine changes required

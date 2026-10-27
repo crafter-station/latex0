@@ -1,0 +1,15 @@
+% fixture: beamer/frame-top
+% tier: T3
+% engine: document
+% covers: beamer: a frame placed at the top ([t]), a frame centered ([c]) in a document whose class option makes [t] the default, and \textbf and \emph in the frame's text
+% issue: #283
+\documentclass[t]{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Some \textbf{bold} text and some \emph{emphasis} at the top of the frame.
+\end{frame}
+\begin{frame}[c]
+Centered text.
+\end{frame}
+\end{document}

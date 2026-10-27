@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 337,
-  "exact": 335,
+  "fixtures": 347,
+  "exact": 345,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 276055
+  "glyphs": 279587
  },
  "areas": [
   {
@@ -28,6 +28,11 @@
    "area": "array",
    "fixtures": 6,
    "exact": 6
+  },
+  {
+   "area": "beamer",
+   "fixtures": 10,
+   "exact": 10
   },
   {
    "area": "bibliography",
@@ -773,6 +778,116 @@
    "glyphs": 105,
    "covers": "a size in >{decl} of p, m and b columns: \\insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\\@endpbox's \\par): the entry's lines at its \\baselineskip; with \\bfseries, after \\centering\\arraybackslash, an empty entry, a row ended by \\\\[skip]",
    "issue": "#277"
+  },
+  {
+   "id": "beamer/frame-17pt",
+   "file": "micro/beamer/frame-17pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "beamer at 17pt (extsizes' size17.clo): a frame's paragraph broken into lines in cmss17 at 20.74pt",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-20pt",
+   "file": "micro/beamer/frame-20pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 81,
+   "covers": "beamer at 20pt with the c option; \\usetheme, \\usecolortheme and \\usefonttheme default; \\title with a short form, \\subtitle and \\author with \\and (hyperref's document information)",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-8pt",
+   "file": "micro/beamer/frame-8pt.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 909,
+   "covers": "beamer at 8pt (extsizes' size8.clo) with the packages beamer loads itself loaded again; three paragraphs in a frame at the top, and one in a centered frame",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-command",
+   "file": "micro/beamer/frame-command.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "beamer: the \\frame{...} command, and the [t] option of the frame environment, at 10pt; \\raggedright (what beamer sets already) before a paragraph",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-empty",
+   "file": "micro/beamer/frame-empty.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 0,
+   "covers": "beamer with the default theme and no navigation symbols: one empty frame, a page with beamer's head and foot, the .nav and .snm writes and the frame's anchors",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-fonts",
+   "file": "micro/beamer/frame-fonts.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 329,
+   "covers": "beamer: an empty \\frame{}, a frame's paragraphs with \\textbf, \\textit, \\textsl, \\textsc, \\texttt, \\textrm and beamer's own \\emph ({\\itshape #1}: no italic correction, nested too), ligatures, dashes, quotes and a tie; blank lines around them; long words hyphenated in a ragged right paragraph",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-overfull",
+   "file": "micro/beamer/frame-overfull.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1765,
+   "covers": "beamer with the smaller option (10pt): a frame at the top whose paragraph is taller than the page",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-text",
+   "file": "micro/beamer/frame-text.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 201,
+   "covers": "beamer: a frame's paragraphs, ragged right in the sans serif body font, centered vertically (the [c] default)",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/frame-top",
+   "file": "micro/beamer/frame-top.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "beamer: a frame placed at the top ([t]), a frame centered ([c]) in a document whose class option makes [t] the default, and \\textbf and \\emph in the frame's text",
+   "issue": "#283"
+  },
+  {
+   "id": "beamer/two-frames",
+   "file": "micro/beamer/two-frames.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 0,
+   "covers": "beamer: two empty frames, each its own page after the \\clearpage of the frame before; the title data in the preamble (no title page); the total frame count read back on the second run",
+   "issue": "#283"
   },
   {
    "id": "bibliography/boxes",
