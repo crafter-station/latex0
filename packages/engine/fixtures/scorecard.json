@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 822,
-  "exact": 822,
+  "fixtures": 823,
+  "exact": 823,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 465622
+  "glyphs": 465692
  },
  "areas": [
   {
@@ -146,8 +146,8 @@
   },
   {
    "area": "parskip",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "pdflatex",
@@ -7251,6 +7251,17 @@
    "glyphs": 1539,
    "covers": "parskip.sty: \\parskip .5\\baselineskip plus 2pt and \\parindent 0pt; \\@listI, \\@listii, \\@listiii (\\topsep and \\itemsep zero, \\parsep\\parskip, \\partopsep zero) and \\small's own \\@listi (an abstract's quotation); \\@startsection's and \\@xsect's skips less \\parskip (display and run-in headings); \\@starttoc's skip and the toc lines' zero \\parskip; \\maketitle, center, quote, a list in a quotation (\\@listii's \\parsep the quotation's \\parsep) and footnotes",
    "issue": "#332"
+  },
+  {
+   "id": "parskip/parskip-listoffigures",
+   "file": "micro/parskip/parskip-listoffigures.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 70,
+   "covers": "parskip.sty's \\@starttoc in \\listoffigures and \\listoftables (report): \\vskip-\\lastskip \\vskip(\\lastskip plus \\parskip) after the \\chapter* heading, then report's \\addvspace{10\\p@} from each chapter",
+   "issue": "#334"
   },
   {
    "id": "parskip/parskip-report",
