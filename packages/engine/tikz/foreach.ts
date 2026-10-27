@@ -136,7 +136,7 @@ export function readForeach(r: Reader, units: PgfUnits, outer: Map<string, Tok[]
   const body = collectBody(r)
   if (body.includes("\\breakforeach")) throw new Unsupported("pgffor: \\breakforeach")
   // (a plot's \foreach over the samples defines \x again: the variable's text would not reach it)
-  if (find(body, [..."plot"]) >= 0 && vars.some((v) => body.includes(v))) throw new Unsupported("pgffor: a plot in a loop over its variable")
+  if (find(body, [..."plot"]) >= 0 && (vars.includes("\\x") || find(body, [..."variable"]) >= 0)) throw new Unsupported("pgffor: a plot in a loop over its variable")
   const iterations: Map<string, Tok[]>[] = []
   const assign = (value: Tok[]) => {
     const m = new Map<string, Tok[]>()
