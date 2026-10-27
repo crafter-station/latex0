@@ -31,8 +31,8 @@ import { runState } from "./run"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
 import { VerticalList } from "./vlist"
-import { endDocument, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
-import { anchor, Bookmarks, documentStart, hyperDriver, type Bookmark } from "./hyperref"
+import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
+import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, papersize, type Bookmark } from "./hyperref"
 import { Colors, colorPush, xcolor } from "./xcolor"
 import { paragraphInput, selectFont, type DocState, type FontAttrs, type NewLabel, type Refs } from "./paragraph"
 import { minipageAt, tabularAt } from "./boxes"
@@ -226,6 +226,18 @@ function layout({ src, listings, tabulars, minipages, urls, graphics }: Document
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
   if (driver === "pdftex") shipped.forEach(pdftexColors) // (the columns are inside the shipped pages)
+  // shipout/firstpage under dvips, by label: hyperref's, l3backend-dvips.def's PostScript header, then the \AtBeginDvi of
+  // geometry and of the graphics driver (dvips.def), both at \begin{document}
+  // (pdfTeX's drivers put nothing there)
+  else if (shipped.length) {
+    const { paperwidth: pw, paperheight: ph } = run.k.dimens
+    shipped[0] = firstPage(shipped[0], [
+      ...(hyper ? hyperFirstPage(pw, ph) : []),
+      L3BACKEND_HEADER,
+      ...(pre.geometry ? [papersize(pw, ph), ...(pre.geometry.landscape ? ["\\special{! /landplus90 true store}"] : [])] : []),
+      ...(pre.graphicsDriver ? [papersize(pw, ph)] : []),
+    ])
+  }
   if (pageTraces.length) {
     const merged: ParagraphTrace[] = []
     let next = 0

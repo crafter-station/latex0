@@ -1,6 +1,7 @@
 % fixture: hyperref/item-displays
 % tier: T3
 % engine: document
+% specials: compare
 % covers: displays in enumerate items under hyperref: an \item sets \if@hyper@item and the next \refstepcounter takes it (its anchor Item.n, hyperref's own counter); after an \item[label], which steps no counter, each equation and each numbered align row in that item is an Item.n anchor (the \@hyper@itemfalse is local to the display's group, to an alignment cell), its number still the equation's; in a numbered item the item's own step took it
 % issue: #76
 \documentclass{article}

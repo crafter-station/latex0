@@ -1,6 +1,7 @@
 % fixture: fancyhdr/twoside
 % tier: T3
 % engine: document
+% specials: compare
 % covers: two-sided fancyhdr: the even fields on even pages, \lhead and \rhead (the even field is \f@nch@olh and another \strut), \fancyhead[LE,RO]{\thepage} and an emptied \fancyfoot[C]; \hss before the head's box on even pages (\f@nch@Oelh); a head shorter than \headheight 20pt, so the \vskip-\headrulewidth after the 2pt rule shows; \renewcommand\footrulewidth without braces
 \documentclass[twoside]{article}
 \usepackage{fancyhdr}

@@ -3,6 +3,7 @@
 % files: tree.pdf rotate.pdf reals.pdf counts.pdf letter.pdf
 % tier: T3
 % engine: document
+% specials: compare
 % covers: PDF graphics under pdflatex: pdfTeX's image box for a page of a PDF file (read_pdf_info through xpdf): the crop box by default, pagebox= mediabox, bleedbox, trimbox and artbox (an unknown name, media: the crop box), page=; MediaBox, CropBox and Rotate inherited through the page tree, the other boxes defaulting to the crop box, every box clipped to the media box, corners put in order; /Rotate 90 and 270 (also -90, 450, an inherited one) swapping width and height, 45, 180 and an indirect -540 not, a real 180.0 ignored (the inherited 270 holds); 8.5 by 11 in with no MediaBox; pages found by the kids' /Count, a /Count 0 counted; each side a float (epdf_width) made sp by bp2int; reals read as xpdf reads them (488.4388885498047, --3.5, 7.)
 % issue: #274
 \documentclass{article}

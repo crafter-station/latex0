@@ -2,6 +2,7 @@
 % oracle: pdflatex
 % tier: T3
 % engine: document
+% specials: compare
 % covers: amsmath's multline and multline* with hyperref (pdfTeX): the equation's anchor (\make@display@tag's \refstepcounter) right before the number, after \hskip\multlinetaggap (\Hy@RestoreLastskip puts it back) at \baselineskip plus \jot; for a number below the last row, in the \vtop's \hbox after the \strut@ at \normalbaselines; no anchor without a number (multline*, \notag); one row, three rows, an integral in the last row, a multline in an item
 % issue: #277
 \documentclass{article}

@@ -1,6 +1,7 @@
 % fixture: hyperref/autoref-theorems
 % tier: T3
 % engine: document
+% specials: compare
 % covers: hyperref's anchor for an amsthm theorem (\MakeLinkTarget* at its first paragraph's start, raised, then \kern-\itemindent: no indent box for \lastbox; none in a second paragraph); \autoref to amsthm theorems: the counter's anchor (theorem.n: \theoremautorefname; a theorem sharing it says Theorem too; lemma.n: no autoref name, only the number), \nameref to a theorem with a note (amsthm's \@begintheorem patched: the note) and without one (empty: no link); a \label after a theorem (\@currentlabel and nameref's name back, \@currentHref still the theorem's)
 % issue: #280
 \documentclass{article}

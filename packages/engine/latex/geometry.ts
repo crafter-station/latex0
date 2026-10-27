@@ -38,7 +38,7 @@ const branch = (v: string) => { const parts = v.split(",").map((x) => x.trim());
  * \usepackage[opts]{geometry} and \geometry{opts} in the preamble, in order: the class data with the
  * page lengths geometry sets.
  */
-export function geometry(k: ClassOptionData, optionLists: string[], env: ScanEnv): ClassOptionData {
+export function geometry(k: ClassOptionData, optionLists: string[], env: ScanEnv, out: { landscape?: boolean } = {}): ClassOptionData {
   const d: Record<string, number> = { ...k.dimens }
   const len = (v: string): number => {
     // <factor><length register>, as \setlength reads it (a skip register gives its width)
@@ -138,6 +138,7 @@ export function geometry(k: ClassOptionData, optionLists: string[], env: ScanEnv
   // \Gm@setdefaultpaper: no paper given, the class's, read back through \strip@pt…pt; landscape swaps
   if (paper === null) { d.paperwidth = len(`${printScaled(d.paperwidth)}pt`); d.paperheight = len(`${printScaled(d.paperheight)}pt`) }
   if (landscape) [d.paperwidth, d.paperheight] = [d.paperheight, d.paperwidth]
+  out.landscape = landscape
   const layout = { h: d.paperwidth - bindingoffset, v: d.paperheight }
 
   // \Gm@adjustbody

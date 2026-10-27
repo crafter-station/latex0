@@ -1,6 +1,7 @@
 % fixture: hyperref/nameref-plain
 % tier: T3
 % engine: document
+% specials: compare
 % covers: nameref without hyperref: \label writes \@currentlabelname (a heading's title (a hyphen in the paragraph: its discretionary), math in it re-read from the .aux file, from the patched \@sect and \@ssect, a run-in heading's, a caption's from the patched \@caption with its final period dropped, an enumerate or description item keeping the heading's, a theorem's note), \nameref and \nameref* as \@setref (the name and \null, no link), \Nameref, an empty name (\null alone), the space factor 1000 after the \null, \ref and \pageref unchanged, an undefined key as bold ??
 % issue: #280
 \documentclass{article}

@@ -3,6 +3,7 @@
 % files: objstm.pdf hybrid.pdf update.pdf indirect.pdf pdftex.pdf malformed.pdf
 % tier: T3
 % engine: document
+% specials: compare
 % covers: PDF graphics under pdflatex, the ways a PDF file stores its pages: objects in a compressed object stream found through a cross-reference stream with a PNG predictor (an object the stream's header numbers otherwise is null: the box is inherited); pdfTeX's own output (object streams, \pdfpageattr's CropBox and Rotate); a hybrid file (an XRefStm after the table; CR LF line ends); an incremental update (the newer object wins); boxes, their numbers and the kids given by indirect objects, a box with a string in it ignored; xpdf's 50 by 50 bp page for a page dictionary whose /Contents or /Annots is of the wrong type; in a figure, centred
 % issue: #274
 \documentclass{article}

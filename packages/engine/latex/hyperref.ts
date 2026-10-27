@@ -181,6 +181,26 @@ export function documentStart(bookmarks: Bookmark[]): Node[] {
   ]
 }
 
+/** pdfmark.def's \Hy@DistillerDestFix, the first thing \Hy@EveryPageAnchor puts in every page (dvips only) */
+export const distillerDestFix = (): Node => sdict("/product where{pop product(Distiller)search{pop pop pop version(.)search{exch pop exch pop(3011)eq{gsave newpath 0 0 moveto closepath clip/Courier findfont 10 scalefont setfont 72 72 moveto(.)show grestore}if}{pop}ifelse}{pop}ifelse}if")
+
+/**
+ * hyperref's shipout/firstpage code under dvips, as the specials print: \Hy@FirstPageHook (pdfmark.def's
+ * \headerps@out testing for pdfmark, \PDF@FinishDoc's /DOCINFO with the default document information, hdvips.def's
+ * PostScript procedures for H.S, H.R, H.A …), then hdvips.def's \special{papersize=\the\paperwidth,\the\paperheight}
+ */
+export function hyperFirstPage(paperwidth: number, paperheight: number): string[] {
+  return [
+    "\\special{! systemdict /pdfmark known{userdict /?pdfmark systemdict /exec get put}{userdict /?pdfmark systemdict /pop get put userdict /pdfmark systemdict /cleartomark get put}ifelse}",
+    "\\special{ps:SDict begin [/Producer (dvips + Distiller)/Title ()/Subject ()/Creator (LaTeX with hyperref)/Author ()/Keywords () /DOCINFO pdfmark end}",
+    "\\special{! /DvipsToPDF{72.27 mul Resolution div} def/PDFToDvips{72.27 div Resolution mul} def/BPToDvips{72 div Resolution mul}def product (Ghostscript) search {pop pop pop revision 927 gt}{pop false} ifelse{/BorderArrayPatch{} def}{/BorderArrayPatch{[exch{dup dup type/integertype eq exch type/realtype eq or{BPToDvips}if}forall]}def} ifelse /HyperBorder {1 PDFToDvips} def/H.V {pdf@hoff pdf@voff null} def/H.B {/Rect[pdf@llx pdf@lly pdf@urx pdf@ury]} def/H.S {currentpoint HyperBorder add /pdf@lly exch def dup DvipsToPDF 72 add /pdf@hoff exch def HyperBorder sub /pdf@llx exch def} def/H.L {2 sub dup/HyperBasePt exch def PDFToDvips /HyperBaseDvips exch def currentpoint HyperBaseDvips sub /pdf@ury exch def/pdf@urx exch def} def/H.A {H.L currentpoint exch pop vsize 72 sub exch DvipsToPDF HyperBasePt sub sub /pdf@voff exch def} def/H.R {currentpoint HyperBorder sub /pdf@ury exch def HyperBorder add /pdf@urx exch def currentpoint exch pop vsize 72 sub exch DvipsToPDF sub /pdf@voff exch def} def}",
+    papersize(paperwidth, paperheight),
+  ]
+}
+
+/** \special{papersize=\the\paperwidth,\the\paperheight} (hdvips.def, geometry.sty) */
+export const papersize = (w: number, h: number): string => `\\special{papersize=${printScaled(w)}pt,${printScaled(h)}pt}`
+
 /**
  * \AtBeginShipout: the page in a \vbox after the page anchor, \vbox to 0pt{\kern\voffset \kern\topmargin
  * \kern-1bp \hbox to 0pt{\kern\hoffset \kern\oddsidemargin \kern-1bp H.S H.R /DEST page.n \nobreak\hss}\vss}

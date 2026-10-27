@@ -1,6 +1,7 @@
 % fixture: xcolor/item-group-notes
 % tier: T3
 % engine: document
+% specials: compare
 % covers: an item whose paragraph starts in a {\color …} group after a paragraph right after a heading: footnotes in the group see \@item's \everypar's \@clubpenalty, footnotes after it and the lines the \clubpenalty\@M from before; after a nested list, \@item's \everypar is still in force and footnotes see \@M; a list nested in a list starts with the \clubpenalty in force there
 \documentclass{article}
 \usepackage{xcolor}
