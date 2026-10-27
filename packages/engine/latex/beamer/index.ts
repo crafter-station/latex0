@@ -30,6 +30,7 @@ import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource }
 import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { navHeads, type NavHead } from "./headnav"
 import { beamerPage, headOrFoot } from "./page"
+import { sidebarTemplate } from "./sidebar"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { BeamerPgf } from "./pgf"
 import { outerColors, useColor } from "./theme"
@@ -204,7 +205,7 @@ function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | 
     const page = pages[i].count
     const symbols = pre.navigationSymbols ? [navigationSymbols(pgf, pre.theme, symbolColors, page, links[page - 1])] : []
     const at = footlineAt(cx, cx.pageFrames[i], page, cx.pageHeads[i])
-    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, (traces) => headlineTemplate(k, pre.theme, pre.info, at, traces), () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
+    const { box, traces } = beamerPage(c.outputbox, page, k, pre.theme, { headline: (traces) => headlineTemplate(k, pre.theme, pre.info, at, traces), sidebar: (traces) => sidebarTemplate(k, pre.theme, pre.info, at, traces) }, () => footlineTemplate(k, pre.theme, pre.info, at, foot), symbols)
     decisions.push(...cx.decisions.slice(i ? cx.pageEnds[i - 1] : 0, cx.pageEnds[i]), ...traces, ...foot)
     const shown = pgfBackground(box, i === 0)
     return i === 0 ? beamerFirstPage(shown, k) : shown

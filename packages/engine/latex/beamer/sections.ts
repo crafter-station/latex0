@@ -57,7 +57,7 @@ export class Sections {
 /** \beamer@hyperlink{Navigation<page>}{text}: hyperref's link with beamer's border (none) and highlight */
 export const navigationLink = (text: Node[], color: string, page: number): Node[] => hyperDriver.pdftex
   ? pdftexLink(`attr{/Border[0 0 0]/H/N/C[.5 .5 .5]} action goto name{Navigation${page}}`, text)
-  : linkBox(text, color, `[/Color [.5 .5 .5]/H /N/Border [0 0 0]BorderArrayPatch/Subtype /Link/Dest (Navigation${page}) cvn H.B /ANN pdfmark`)
+  : linkBox(text, color, `[/Color [.5 .5 .5]/H /N/Border [0 0 0]BorderArrayPatch/Subtype /Link/Dest (Navigation${page}) cvn H.B /ANN pdfmark`, true)
 
 /** Text a section title or a .toc line may have: no commands, braces or special characters */
 function plainTitle(text: string): string {

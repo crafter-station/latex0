@@ -5,6 +5,10 @@
 
 import type { BeamerColor, BeamerFont, BeamerThemeData } from "../../layout/beamerdata"
 import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
+import type { GlueSpec } from "../../layout/dimen"
+import type { Font } from "../../layout/font"
+import { fontAt, selectFont } from "../paragraph"
+import { Colors } from "../xcolor"
 import { beamerThemeFile } from "../data"
 import { Unsupported } from "../unsupported"
 
@@ -21,6 +25,8 @@ export interface Theme { name: string; data: BeamerThemeData
   headline: "default" | "infolines" | "split" | "miniframes" | "tree"
   /** the frame title's alignment (\setbeamertemplate{frametitle}[default][…]) */
   frametitle: "left" | "right"
+  /** the sidebar theme's sidebar (\useoutertheme{sidebar}: on the left by default) */
+  sidebar?: "left"
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
   boadillaItems?: true }
 
@@ -38,6 +44,7 @@ const PRESENTATION: Record<string, Partial<Theme>> = {
   Ilmenau: { inner: "rounded", footline: "authorinstitutetitle", headline: "miniframes" },
   Szeged: { footline: "institutetitle", headline: "miniframes" },
   Montpellier: { headline: "tree" },
+  Hannover: { inner: "circles", sidebar: "left", frametitle: "right" },
 }
 
 export function loadTheme(name: string): Theme {
@@ -75,9 +82,30 @@ export function outerColors(t: Theme): ColorState {
 /** \usebeamercolor{name} where `at` is in force: the fg and bg after it */
 export function useColor(t: Theme, name: string, at: ColorState): ColorState {
   const c = color(t, name), outer = outerColors(t)
-  // the data resolved an expression with fg or bg in it at the outer level only
-  if (c.contextual && (at.fg !== outer.fg || at.bg !== outer.bg)) throw new Unsupported(`beamer color ${name} inside another`)
+  // the data resolved an expression with fg or bg in it at the outer level: elsewhere it is evaluated with the colors
+  // in force
+  if (c.contextual && (at.fg !== outer.fg || at.bg !== outer.bg)) {
+    if (!c.fgExpr && !c.bgExpr) throw new Unsupported(`beamer color ${name} inside another`)
+    return { fg: c.fgExpr ? evaluate(t, c.fgExpr, at) : c.fg ?? at.fg, bg: c.bgExpr ? evaluate(t, c.bgExpr, at) : c.bg ?? at.bg }
+  }
   return { fg: c.fg ?? at.fg, bg: c.bg ?? at.bg }
+}
+
+/** an xcolor expression of a beamer color's (fg!40!bg, section in sidebar.fg!40!bg) where `at` is in force: fg and bg
+ *  its colors, name.fg and name.bg the beamer color name's there */
+function evaluate(t: Theme, expr: string, at: ColorState): string {
+  const mix = new Colors()
+  const def = (n: string, spec: string) => { const [model, ...x] = spec.split(" "); mix.define(n, model, x.join(",")) }
+  def("fg", at.fg); def("bg", at.bg)
+  let n = 0
+  const e = expr.split("!").map((part) => {
+    const m = part.trim().match(/^(.+)\.(fg|bg)$/)
+    if (!m) return part.trim()
+    const name = `beamer${n++}`
+    def(name, useColor(t, m[1], at)[m[2] as "fg" | "bg"])
+    return name
+  })
+  return mix.spec(e.join("!"))
 }
 
 /** whether the theme leaves name's bg empty (\ifbeamercolorempty[bg]) */
@@ -91,6 +119,21 @@ export function fontSize(t: Theme, k: ClassOptionData, name: string, current: Si
   const size = f.size ?? current
   if (!(size in k.sizes)) throw new Unsupported(`beamer's \\${size}`)
   return size as SizeCommand
+}
+
+/** A size's sans font and \baselineskip, beamer's \Tiny (\@setfontsize\Tiny{4}{5}: cmss8 below 9pt, ot1cmss.fd) among them */
+export interface SizedFont { size: SizeCommand | "Tiny"; font: Font; baselineskip: GlueSpec }
+const BEAMER_SIZES: Record<string, [number, number]> = { Tiny: [4, 5] }
+
+/** the font \usebeamerfont{name} selects where the size `current` is in force (a size alone, as fontSize) */
+export function sizedFont(t: Theme, k: ClassOptionData, name: string, current: SizedFont["size"]): SizedFont {
+  const f = beamerFont(t, name)
+  if (f.family || f.series || f.shape || f.encoding) throw new Unsupported(`beamer font ${name} with a family, series or shape`)
+  const size = (f.size ?? current) as SizedFont["size"]
+  const b = BEAMER_SIZES[size]
+  if (b) return { size, font: fontAt("cmss8", b[0] * 65536), baselineskip: { width: b[1] * 65536, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
+  if (!(size in k.sizes)) throw new Unsupported(`beamer's \\${size}`)
+  return { size, font: selectFont(k, size as SizeCommand, { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }), baselineskip: k.sizes[size as SizeCommand].baselineskip }
 }
 
 /** what \usebeamerfont{name} sets */

@@ -109,9 +109,12 @@ export function fileLink(text: Node[], file: string, color?: string): Node[] {
 }
 
 /** The text in an \hbox between H.S and H.R, then the link's pdfmark */
-export function linkBox(text: Node[], color: string | undefined, pdfmark: string): Node[] {
-  // (with a color package the text's box is a \color@setgroup: the current color pushed and popped)
-  const box = hpack(color ? [{ kind: "whatsit", text: `\\special{color push ${color}}` }, ...text, { kind: "whatsit", text: "\\special{color pop}" }] : text)
+export function linkBox(text: Node[], color: string | undefined, pdfmark: string, unskip = false): Node[] {
+  // (with a color package the text's box is a \color@setgroup: the current color pushed and popped; `unskip`: beamer's
+  // \reset@color, the pop before a skip that ends the text)
+  const last = text.at(-1), skip = unskip && last?.kind === "glue" && (last.width || last.stretch || last.shrink)
+  const pop: Node = { kind: "whatsit", text: "\\special{color pop}" }
+  const box = hpack(color ? [{ kind: "whatsit", text: `\\special{color push ${color}}` }, ...(skip ? [...text.slice(0, -1), pop, last] : [...text, pop])] : text)
   // H.S at the box's bottom, \lower\dp in an hbox unless the depth is zero; H.R at its top likewise
   let start: Node = HS(), end: Node = HR()
   if (box.depth) { start = hpack([HS()]); start.shift = box.depth }

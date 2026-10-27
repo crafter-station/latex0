@@ -7,7 +7,9 @@
  *  where fg and bg are normal text's: the driver's color ("rgb 0.2 0.2 0.7"), absent when the theme leaves it empty
  *  (the color in force then stays). `contextual`: an expression with the current fg or bg in it (fg!50!bg), so only
  *  right at the outer level. */
-export interface BeamerColor { fg?: string; bg?: string; contextual?: true }
+export interface BeamerColor { fg?: string; bg?: string; contextual?: true
+  /** where contextual: the expression fg or bg comes from (xcolor's, with other beamer colors' name.fg and name.bg in it) */
+  fgExpr?: string; bgExpr?: string }
 
 /** A beamer font: the NFSS attributes \usebeamerfont sets (absent: the current one stays). `size` is a size command
  *  (tiny … Huge, or beamer's Tiny and TINY). */

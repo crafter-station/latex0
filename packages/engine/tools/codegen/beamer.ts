@@ -46,6 +46,13 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...presentation("Szeged", false, ["outerthememiniframes"]),
   tree: { preamble: ["\\useoutertheme{tree}"], files: ["beamerouterthemetree.sty"] },
   ...presentation("Montpellier", false, ["outerthemetree"]),
+  sidebar: { preamble: ["\\useoutertheme{sidebar}"], files: ["beamerouterthemesidebar.sty"] },
+  ...presentation("Hannover", false, ["outerthemesidebar", "colorthemeseahorse", "innerthemecircles"]),
+  ...presentation("Berkeley", false, ["outerthemesidebar", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("Rochester", false, ["outerthemesidebar", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("PaloAlto", true, ["outerthemesidebar", "innerthemerounded", "colorthemeorchid", "colorthemewhale"]),
+  ...presentation("Goettingen", false, ["outerthemesidebar"]),
+  ...presentation("Marburg", false, ["outerthemesidebar", "colorthemewhale"]),
   ...presentation("Copenhagen", false, ["outerthemesplit", "innerthemerounded", "colorthemewhale", "colorthemeorchid"]),
   ...presentation("Luebeck", false, ["outerthemesplit", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
 }
@@ -164,7 +171,11 @@ function themeData(theme: string, cls: ClassData): BeamerThemeData {
       if (f[0] === "D" && f.length === 3) dimens[f[1]] = parseScaled(f[2].replace(/pt$/, ""))
       else if (f[0] === "C" && f.length === 4) { const c = (colors[f[1]] ??= {}); if (f[3]) c[f[2] as "fg" | "bg"] = f[3] }
       // an expression with the current fg or bg in it (not a beamer color's X.fg)
-      else if (f[0] === "X" && f.length === 4 && /(^|[!,])\s*(fg|bg)\s*($|[!,])/.test(f[3])) (colors[f[1]] ??= {}).contextual = true
+      else if (f[0] === "X" && f.length === 4 && /(^|[!,])\s*(fg|bg)\s*($|[!,])/.test(f[3])) {
+        const c = (colors[f[1]] ??= {})
+        c.contextual = true
+        c[f[2] === "fg" ? "fgExpr" : "bgExpr"] = f[3]
+      }
       else if (f[0] === "F" && f.length === 8) {
         const [, name, size, fsize, family, series, shape, encoding] = f
         if (!size && fsize !== "SIZE") throw new Error(`${theme} [${option}]: beamer font ${name} sets a size with no size command (${fsize})`)

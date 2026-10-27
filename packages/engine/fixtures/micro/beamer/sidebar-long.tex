@@ -1,0 +1,33 @@
+% fixture: beamer/sidebar-long
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer's Hannover theme: a short title and authors that wrap in the sidebar's minipages, section and subsection titles that wrap in the sidebar, a section's short title, subsections of the same number in two sections
+% issue: #322
+\documentclass{beamer}
+\usetheme{Hannover}
+\title[A Rather Long Short Title]{A Talk}
+\author{A. Author \and B. Writer}
+\date{1 May 2025}
+\begin{document}
+\begin{frame}{Title}
+Text.
+\end{frame}
+\section{First Section Title}
+\begin{frame}{1}
+Text.
+\end{frame}
+\subsection{A Subsection}
+\begin{frame}{2}
+Text.
+\end{frame}
+\subsection{Another}
+\begin{frame}{3}
+Text.
+\end{frame}
+\section[Short]{Second}
+\subsection{Again}
+\begin{frame}{4}
+Text.
+\end{frame}
+\end{document}
