@@ -12,7 +12,7 @@
 import type { MathData } from "./data"
 import type { GlueSpec } from "../layout/dimen"
 import { glue, kern, penalty } from "../layout/nodes"
-import { delimiterOf, groupField, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
+import { delimiterOf, groupField, groupNoad, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
@@ -24,6 +24,21 @@ const OPERATORS: Record<string, [string, "o" | "m"]> = {
   tan: ["tan", "o"], arctan: ["arctan", "o"], tanh: ["tanh", "o"], cot: ["cot", "o"], coth: ["coth", "o"], sec: ["sec", "o"], csc: ["csc", "o"],
   max: ["max", "m"], min: ["min", "m"], sup: ["sup", "m"], inf: ["inf", "m"], arg: ["arg", "o"], ker: ["ker", "o"], dim: ["dim", "o"],
   hom: ["hom", "o"], det: ["det", "m"], exp: ["exp", "o"], Pr: ["Pr", "m"], gcd: ["gcd", "m"], deg: ["deg", "o"],
+}
+/** fontmath.ltx's math accents (\mathaccent; amsmath's \mathaccentV is the same for one accent) */
+const MATH_ACCENTS: Record<string, number> = {
+  acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e,
+  dot: 0x705f, mathring: 0x7017, widehat: 0x0362, widetilde: 0x0365,
+}
+/** whether an mlist has an accent noad, at any depth */
+function hasAccent(list: MItem[]): boolean {
+  const inField = (f: Field) => f?.kind === "mlist" && hasAccent(f.list)
+  return list.some((x) => {
+    if (!("noad" in x) || x.noad === "left" || x.noad === "right") return false
+    if (x.noad === "fraction") return hasAccent(x.num) || hasAccent(x.denom)
+    const n = x as Noad
+    return !!n.accent || inField(n.nucleus) || inField(n.sup) || inField(n.sub)
+  })
 }
 /** \tmspace in math (latex.ltx, amsmath): \mskip with a sign and a mu skip register (\> is \:) */
 const MU_SPACES: Record<string, [1 | -1, "thinmuskip" | "medmuskip" | "thickmuskip"]> = {
@@ -51,6 +66,9 @@ export interface MathOptions {
   commands?: { arity: Record<string, number>; build: (cmd: string, opt: string | undefined, args: string[], fam: number) => MItem[] }
   /** \mathcode's the document changes (beamer's \DeclareMathSymbol for the Latin letters), by character code */
   mathcodes?: Record<number, number>
+  /** operators a language redefines (spanish.ldf's \es@operators: \mathop{\operator@font l\acute{\dotlessi}m}): the
+   *  name (letters, \, and \acute{letter or \dotlessi}, in family 0) and whether \nolimits follows */
+  operators?: Record<string, { name: string; nolimits: boolean }>
 }
 
 type Token = { cs: string; value?: number } | { ch: string }
@@ -192,7 +210,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     let index = toks.slice(start, pos++)
     if (index.length >= 2 && isCh(index[0], "{") && isCh(index.at(-1), "}") && balanced(index.slice(1, -1))) index = index.slice(1, -1)
     if (index.some((t) => "cs" in t && (t.cs === "uproot" || t.cs === "leftroot"))) throw new Error("math: \\uproot and \\leftroot")
-    const item: MItem = { kind: "root", index: groupField(sub(index)), radicand: groupField(sub(argument())), amsmath: !!opts.amsmath }
+    const item: MItem = { kind: "root", index: groupNoad(sub(index)), radicand: groupField(sub(argument())), amsmath: !!opts.amsmath } // (\rootbox: $\scriptscriptstyle{#1}$)
     // amsmath's \root is \bgroup…\egroup: a math group, an ord noad (§ 1186)
     return opts.amsmath ? { noad: ORD, nucleus: { kind: "mlist", list: [item] }, sup: null, sub: null } : item
   }
@@ -231,7 +249,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       if ("ch" in t) {
         const c = t.ch
         if (c === "}") { if (!inGroup) throw new Error("math: extra }"); return out }
-        if (c === "{") { out.push({ noad: ORD, nucleus: groupField(list(true)), sup: null, sub: null }); continue }
+        if (c === "{") { out.push(groupNoad(list(true))); continue }
         if (c === "^" || c === "_") { subSup(out, c === "^" ? "sup" : "sub", scanMath); continue }
         if (c === "'") { // latex.ltx \active@math@prime
           let n = 1
@@ -263,6 +281,22 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
           return source(argument())
         })
         out.push(...opts.commands.build(t.cs, opt, args, fam))
+        continue
+      }
+      if (opts.operators && Object.hasOwn(opts.operators, t.cs)) { // \mathop{\operator@font name}: a math group in family 0
+        const op = opts.operators[t.cs], name = tokenize(op.name), nucleus: MItem[] = []
+        for (let j = 0; j < name.length; j++) {
+          const x = name[j]
+          if ("ch" in x && /^[A-Za-z]$/.test(x.ch)) nucleus.push(mathCharNoad(data.mathcodes[x.ch.charCodeAt(0)], 0))
+          else if ("cs" in x && x.cs === ",") nucleus.push({ kind: "muglue", spec: data.muskips.thinmuskip })
+          else if ("cs" in x && x.cs === "acute" && isCh(name[j + 1], "{") && isCh(name[j + 3], "}")) {
+            // \acute{\dotlessi}: {\mathchar"7010} in family 0, one ord, whose group gives up its nucleus
+            const b = name[j + 2], base = "cs" in b && b.cs === "dotlessi" ? 0x7010 : "ch" in b ? data.mathcodes[b.ch.charCodeAt(0)] : -1
+            if (base < 0) throw new Error(`math: an operator name with \\acute{${"cs" in b ? `\\${b.cs}` : b.ch}}`)
+            nucleus.push({ noad: ORD, accent: mathCharField(MATH_ACCENTS.acute, 0), nucleus: mathCharField(base, 0), sup: null, sub: null }); j += 3
+          } else throw new Error(`math: an operator name with ${"ch" in x ? x.ch : `\\${x.cs}`}`)
+        }
+        out.push({ noad: OP, nucleus: { kind: "mlist", list: nucleus }, sup: null, sub: null, ...(op.nolimits ? { limits: "nolimits" as const } : {}) })
         continue
       }
       if (t.cs in OPERATORS || t.cs === "operatorname") { // (amsmath's \operatorname{name}, \operatorname*{name}: \qopname\newmcodes@ o|m)
@@ -300,6 +334,12 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         if (!tail || !("noad" in tail) || tail.noad !== OP) throw new Error("math: Limit controls must follow a math operator")
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
+      else if (cs in MATH_ACCENTS) { // math_ac (§ 1165)
+        const nucleus = scanMath()
+        // (amsmath's \mathaccentV counts the accents in its argument: with more than one, \macc@nucleus and \skew)
+        if (opts.amsmath && nucleus?.kind === "mlist" && hasAccent(nucleus.list)) throw new Error("math: amsmath's nested accents")
+        out.push({ noad: ORD, accent: mathCharField(MATH_ACCENTS[cs], fam), nucleus, sup: null, sub: null })
+      }
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
       else if (cs === "sqrt") { // \sqrtsign: \radical"270370; \sqrt[n] is \root n\of
         if (isCh(toks[pos], "[")) { out.push(root()); continue }

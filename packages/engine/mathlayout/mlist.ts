@@ -35,7 +35,9 @@ export type Field =
  *  `vcenter` makes it a vcenter noad (§ 687) and `line` an over or under noad (§ 687), ords for spacing */
 export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; limits?: "limits" | "nolimits"; vcenter?: boolean; line?: "over" | "under"
   /** a radical noad (§ 683, \radical): its left delimiter */
-  radical?: Delimiter }
+  radical?: Delimiter
+  /** an accent noad (§ 687, \mathaccent): its accent character, an ord for spacing */
+  accent?: Field }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
 /** \\mskip glue (§ 149 mu_glue): in mu, converted with the math unit of its style (§ 732) */
@@ -46,7 +48,7 @@ export interface MuKern { kind: "mukern"; width: number }
  * \\root index\\of radicand (latex.ltx; amsmath's \\plainroot@ with \\uproot and \\leftroot zero): the index in
  * \\rootbox at scriptscript style, then a \\mathchoice of \\r@@t, which the first pass expands in its style
  */
-export interface RootItem { kind: "root"; index: Field; radicand: Field; amsmath: boolean }
+export interface RootItem { kind: "root"; index: Noad; radicand: Field; amsmath: boolean }
 /** A choice node (§ 689, \\mathchoice): the first pass puts in its place the list for its style (§ 731) */
 export interface ChoiceItem { kind: "choice"; choose: (style: number) => MItem[] }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
@@ -79,8 +81,16 @@ export function mathCharField(mathcode: number, fam = -1): Field {
 }
 /** A math group {…} as scan_math leaves it (§ 1186): a lone ord without scripts gives up its nucleus. */
 export function groupField(list: MItem[]): Field {
-  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !("vcenter" in p && p.vcenter) && !("line" in p && p.line) && !("radical" in p && p.radical) && !p.sub && !p.sup) return p.nucleus }
+  if (list.length === 1) { const p = list[0]; if (isNoad(p) && p.noad === ORD && !("vcenter" in p && p.vcenter) && !("line" in p && p.line) && !("radical" in p && p.radical) && !("accent" in p && p.accent) && !p.sub && !p.sup) return p.nucleus }
   return { kind: "mlist", list }
+}
+
+/** A math group {…} that is the nucleus of a new ord (§§ 1186–1187): groupField's, except that one accent noad replaces
+ *  the ord, scripts and all */
+export function groupNoad(list: MItem[]): Noad {
+  const p = list[0]
+  if (list.length === 1 && isNoad(p) && p.noad === ORD && "accent" in p && p.accent) return p
+  return { noad: ORD, nucleus: groupField(list), sup: null, sub: null }
 }
 
 export interface MathEnv {
@@ -232,6 +242,7 @@ class Converter {
         if (q.limits === "limits") { check(hl.get(q)); r = q; rType = q.noad; continue }
       } else if (q.line) q.nucleus = { kind: "box", box: q.line === "over" ? this.makeOver(q.nucleus) : this.makeUnder(q.nucleus) }
       else if (q.radical) q.nucleus = { kind: "box", box: this.makeRadical(q.nucleus, q.radical) }
+      else if (q.accent) this.makeMathAccent(q)
       else if (q.noad === ORD) this.makeOrd(list, i)
       // § 754: the nucleus as an hlist
       let p: Node[]
@@ -395,7 +406,7 @@ class Converter {
       const p = list[i + 1]
       const n = q.nucleus
       if (q.sub || q.sup || n?.kind !== "char" || n.text) return
-      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT || p.vcenter || p.line || p.radical) return
+      if (!p || !isNoad(p) || p.noad === "fraction" || isFence(p) || p.noad > PUNCT || p.vcenter || p.line || p.radical || p.accent) return
       const pn = p.nucleus
       if (pn?.kind !== "char" || pn.text || pn.fam !== n.fam) return
       n.text = true
@@ -428,6 +439,56 @@ class Converter {
     }
   }
 
+  /**
+   * make_math_accent (§§ 738–742): the nucleus cramped in a box x; the accent (the largest of its successors no wider
+   * than x) over it, shifted right by the skew (the kern with the \skewchar after a lone character) and centered,
+   * lowered by min(height(x), its x-height); the scripts of a lone character go into x first
+   */
+  makeMathAccent(q: Noad) {
+    const { f, m } = this.fetch(q as never, "accent")
+    if (!m) return
+    const a = q.accent as Extract<Field, { kind: "char" }>
+    let c = a.char, i = m
+    let s = 0 // § 741: the skew
+    if (q.nucleus?.kind === "char") {
+      const { f: nf, m: nm } = this.fetch(q as never, "nucleus")
+      const skew = skewChar(nf.name), n = q.nucleus as Extract<Field, { kind: "char" }> | null
+      if (nm && n && skew >= 0 && nm.tag === LIG_TAG) {
+        let k = nm.remainder, w = nf.ligKern[k] >>> 0
+        if (w >>> 24 > 128) { k = 256 * ((w >>> 8) & 255) + (w & 255); w = nf.ligKern[k] >>> 0 }
+        for (;;) {
+          const skip = w >>> 24, next = (w >>> 16) & 255, op = (w >>> 8) & 255, rem = w & 255
+          if (next === skew) { if (op >= 128 && skip <= 128) s = nf.kerns[256 * (op - 128) + rem]; break }
+          if (skip >= 128) break
+          k += skip + 1; w = nf.ligKern[k] >>> 0
+        }
+      }
+    }
+    let x = this.cleanBox(q.nucleus, crampedStyle(this.curStyle))
+    const w = x.width
+    let h = x.height
+    for (;;) { // § 740: a larger accent, while one no wider than x follows
+      if (i.tag !== LIST_TAG) break
+      const y = i.remainder, iy = f.chars.get(y)
+      if (!iy || iy.width > w) break
+      c = y; i = iy
+    }
+    const xh = f.params[5]
+    let delta = h < xh ? h : xh
+    if ((q.sup || q.sub) && q.nucleus?.kind === "char") { // § 742: the scripts go into x
+      q.nucleus = { kind: "mlist", list: [{ noad: ORD, nucleus: q.nucleus, sup: q.sup, sub: q.sub }] }
+      q.sup = q.sub = null
+      x = this.cleanBox(q.nucleus, this.curStyle)
+      delta += x.height - h; h = x.height
+    }
+    const y = charBox(f, c)
+    y.shift = s + half(w - y.width); y.width = 0
+    const v = vpack([y, kern(-delta), x])
+    v.width = x.width
+    if (v.height < h) { v.list.unshift(kern(h - v.height)); v.height = h } // § 739
+    q.nucleus = { kind: "box", box: v }
+  }
+
   /** make_over (§ 734): the nucleus, cramped, under a rule of default thickness θ, 3θ above it and θ clear */
   makeOver(n: Field): BoxNode {
     const t = this.ruleThickness
@@ -446,7 +507,7 @@ class Converter {
    */
   root(q: RootItem): (Noad | MuKern)[] {
     const mathBox = (l: MItem[], style: number) => hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(structuredClone(l), style, false), { kind: "math", on: false, width: 0 }])
-    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, { noad: ORD, nucleus: q.index, sup: null, sub: null }], TEXT)
+    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, q.index], TEXT)
     const box0 = mathBox([{ noad: ORD, radical: delimiterOf(0x270370), nucleus: q.radicand, sup: null, sub: null }], this.curStyle)
     rootbox.shift = -xnOverD(box0.height - box0.depth, 39322, 0o200000) // .6 (round_decimals, § 452) times \\dimen@ (§ 455)
     const zero: MuKern[] = q.amsmath ? [{ kind: "mukern", width: 0 }] : []
@@ -600,6 +661,9 @@ class Converter {
   }
 }
 
+
+/** \skewchar as LaTeX's font families set it (\DeclareFontFamily{OML}{cmm}{\skewchar\font'177}, OMS cmsy's '60), else -1 */
+const skewChar = (name: string) => (/^cmmib?\d/.test(name) ? 127 : /^cm(b?)sy\d/.test(name) ? 48 : -1)
 
 /** char_box (§ 709): a character in an hbox whose width includes its italic correction */
 function charBox(f: Font, c: number): BoxNode {

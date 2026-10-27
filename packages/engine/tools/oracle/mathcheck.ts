@@ -1,7 +1,8 @@
 // Math oracle (#74–#77): random formulas typeset by TeX in \hbox{$…$} and shown
 // with \showbox, against the engine's mlist_to_hlist (mathlayout/mlist.ts).
 // Formulas are random trees of math characters, symbols, groups, fractions and
-// big operators with \limits and \nolimits, \overline, \underline and \sqrt, with superscripts, subscripts and
+// big operators with \limits and \nolimits, \overline, \underline and \sqrt, math accents (with amsmath, never one
+// inside another: \mathaccentV's nested accents are not modeled), with superscripts, subscripts and
 // primes, under \displaystyle, \textstyle, \scriptstyle and
 // \scriptscriptstyle. Each tree is printed as LaTeX, typeset by TeX, and read
 // for the engine by its math parser (mathlayout/parse.ts).
@@ -40,6 +41,7 @@ type Nucleus =
   | { kind: "fence"; left: string; items: Item[]; right: string }
   | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
   | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
+  | { kind: "accent"; cs: string; arg: Script }
 type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | { kind: "group"; items: Item[] }
 type Item =
   | { kind: "atom"; nucleus: Nucleus | null; sup?: Script; sub?: Script; primes: number; subFirst: boolean }
@@ -60,6 +62,7 @@ function rng(seed: number) {
 /** \tmspace's commands in math (\mskip), \quad and \qquad (\hskip in em) */
 const SPACES = [",", ":", ">", ";", "!", "thinspace", "negthinspace", "medspace", "negmedspace", "thickspace", "negthickspace", "quad", "qquad"]
 const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix"]
+const ACCENTS = ["hat", "check", "tilde", "acute", "grave", "dot", "ddot", "breve", "bar", "vec", "mathring", "widehat", "widetilde"]
 
 function generator(r: () => number, pool: number[], busy: number[], symbols: string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
@@ -83,6 +86,10 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: str
       const cs = pick(["overline", "underline", "sqrt"] as const)
       return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: list(depth + 1, 2, true) } : {}) }
     }
+    if (depth < 3 && x >= 0.33 && x < 0.38) { // (with amsmath, a character only)
+      const cs = pick(ACCENTS), withAms = ams()
+      return { kind: "accent", cs, arg: !withAms && r() < 0.5 ? { kind: "group", items: list(depth + 1, 3) } : char() }
+    }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
     return char()
   }
@@ -97,11 +104,15 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: str
       const bare = (!prev || prev.kind === "style") && r() < 0.1 && !noBare
       const primes = r() < 0.12 ? 1 + Math.floor(r() * 2) : 0
       const s = r()
-      out.push({
+      const atom: Item = {
         kind: "atom", nucleus: bare ? null : nucleus(depth), primes, subFirst: r() < 0.5,
         ...(s < 0.25 || (bare && s < 0.6) ? { sup: script(depth) } : {}),
         ...((s > 0.15 && s < 0.4) || (bare && s >= 0.6) ? { sub: script(depth) } : {}),
-      })
+      }
+      // (a group of one accent noad becomes that noad, § 1187: its scripts and the group's would be doubled)
+      const n = atom.nucleus, only = n?.kind === "group" && n.items.length === 1 ? n.items[0] : null
+      if (only?.kind === "atom" && only.nucleus?.kind === "accent" && (only.sup || only.sub || only.primes)) { delete atom.sup; delete atom.sub; atom.primes = 0 }
+      out.push(atom)
     }
     return out
   }
@@ -122,6 +133,7 @@ function print(items: Item[]): string {
       // (\sqrt[index]: braced when the index holds a ], which would end it; \@sqrt strips the braces)
       : n.kind === "line" && n.index ? `\\sqrt[${print(n.index).includes("]") ? `{${print(n.index)}}` : print(n.index)}]${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "line" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : n.cs === "sqrt" && n.arg.kind === "char" && n.arg.code === 91 ? `{${arg(n.arg)}}` : ` ${arg(n.arg)}`}`
+      : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""
     const primes = "'".repeat(it.primes)

@@ -1,0 +1,14 @@
+% fixture: math/accents-amsmath
+% tier: T3
+% engine: document
+% covers: with amsmath (\mathaccentV: the primitive for a single accent): math accents (\mathaccent, make_math_accent §§ 738–742): \hat \check \tilde \acute \grave \dot \ddot \breve \bar \vec \mathring, the skew of a lone character (its kern with the \skewchar: cmmi's '177, cmsy's '60), \widehat and \widetilde taking the largest variant no wider than the nucleus, a box lower than the x-height, scripts of a lone character moved into the box, accents in scripts and in displays
+% issue: #82
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Accents $\hat{x}\check{y}\tilde{z}\acute{a}\grave{e}\dot{u}\ddot{o}\breve{\imath}\bar{\jmath}\vec{v}\mathring{A}$ on
+letters, $\hat{\mathcal{L}}$, $\bar{1}$, $\hat{f}$, $\vec{x}_{i}$, $\bar{x}^{2}_{1}$, $\tilde{y}'$ and $x^{\hat{a}}$; wide ones
+$\widehat{x}$, $\widehat{xy}$, $\widehat{xyz}$, $\widehat{abcdefg}$, $\widetilde{x}$, $\widetilde{xyz}$ and $\widetilde{abcdefgh}$;
+and over a sum $\bar{x+y}$.
+\[ \hat{f}(\xi) = \int \bar{g}(x)\, dx, \qquad \widehat{AB} = \vec{u}\cdot\vec{w}. \]
+\end{document}
