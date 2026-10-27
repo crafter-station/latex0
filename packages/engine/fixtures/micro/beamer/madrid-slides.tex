@@ -1,0 +1,30 @@
+% fixture: beamer/madrid-slides
+% specials: compare
+% tier: T3
+% engine: document
+% covers: corpus/slides.tex with Madrid's shadows off: \frame{\titlepage} on the rounded title page, ball itemize and enumerate items, \% in items, \today, the infolines footline and navigation symbols
+% issue: #315
+\documentclass{beamer}
+\usetheme[shadow=false]{Madrid}
+\title{Quarterly Review}
+\author{Data Team}
+\date{\today}
+
+\begin{document}
+\frame{\titlepage}
+
+\begin{frame}{Highlights}
+  \begin{itemize}
+    \item Revenue up 12\%
+    \item Churn down to 3.1\%
+    \item Two new data pipelines
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Next quarter}
+  \begin{enumerate}
+    \item Migrate the warehouse
+    \item Launch self-serve dashboards
+  \end{enumerate}
+\end{frame}
+\end{document}

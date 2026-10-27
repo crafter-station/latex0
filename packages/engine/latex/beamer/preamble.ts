@@ -1,10 +1,11 @@
 // A beamer document's class options and preamble (beamer.cls 3.77). The class
 // loads geometry (paper 128mm × 96mm, 1cm side margins), xcolor, hyperref,
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
-// of one of them changes nothing. The themes are the default ones, color themes
-// and the infolines outer theme (with the default headline), as data/beamer has
-// them, with the default navigation symbols or none: any other theme or template
-// setting throws Unsupported.
+// of one of them changes nothing. The themes are the default ones, color themes,
+// the rounded and circles inner themes and the infolines outer theme (with the
+// default headline), and Madrid without its shadows, as data/beamer has them, with
+// the default navigation symbols or none: any other theme or template setting
+// throws Unsupported.
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { classFile } from "../data"
@@ -56,8 +57,8 @@ export interface TitleInfo { title: string; subtitle: string; author: string; in
 
 /** \DeclareOptionBeamer for the sizes: 8pt … 20pt, bigger (12pt) and smaller (10pt) */
 const SIZES: Record<string, string> = { "8pt": "8pt", "9pt": "9pt", "10pt": "10pt", "11pt": "11pt", "12pt": "12pt", "14pt": "14pt", "17pt": "17pt", "20pt": "20pt", bigger: "12pt", smaller: "10pt" }
-/** the themes data/beamer has (tools/codegen/beamer.ts), by the parts of their preamble lines: color themes, then the
- *  infolines outer theme with the default headline */
+/** the themes data/beamer has (tools/codegen/beamer.ts), by the parts of their preamble lines: color themes, then an
+ *  inner theme, then the infolines outer theme with the default headline */
 const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "whale-orchid", "infolines", "whale-infolines", "orchid-infolines",
   "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
   "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles"]
@@ -111,6 +112,15 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     if (inner) { themeLines.push(line); themeParts.push(inner[1]); continue }
     // (infolines' headline set back to the default one, as Madrid does)
     if (line === "\\setbeamertemplate{headline}[default]" && themeLines.at(-1) === "\\useoutertheme{infolines}") { themeLines.push(line); continue }
+    // Madrid (beamerthemeMadrid.sty): the whale and orchid color themes, the rounded inner theme, the infolines outer
+    // theme with the default headline; without its shadows (the rounded theme's shadow=true: pgf's fadings) only
+    if (/^\\usetheme(?:\[[^\]]*\])?\{Madrid\}$/.test(line)) {
+      if (line !== "\\usetheme[shadow=false]{Madrid}") throw new Unsupported("beamer: Madrid's shadows (pgf's fadings)")
+      if (themeLines.length) throw new Unsupported(`beamer: ${line} after another theme`)
+      themeLines.push("\\usecolortheme{whale}", "\\usecolortheme{orchid}", "\\useinnertheme{rounded}", "\\useoutertheme{infolines}", "\\setbeamertemplate{headline}[default]")
+      themeParts.push("whale", "orchid", "rounded", "infolines")
+      continue
+    }
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk && pk[1].split(",").every((n) => LOADED.includes(n.trim()))) continue
