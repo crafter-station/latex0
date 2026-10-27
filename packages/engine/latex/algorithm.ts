@@ -86,9 +86,10 @@ interface Item { kind: "entity" | "label" | "statex"; entity?: string; label?: s
  * The algorithmic environment's lines, as \list builds them in a float (\@minipagetrue: the first \item adds
  * nothing above it): \list{\ALG@step}{… \labelwidth 1.2em (0.5em unnumbered) \labelsep 0.5em \leftmargin
  * \labelwidth+\labelsep \topsep 0.2em …}; each entity is \item (\item[] with no text) \noindent\hskip\ALG@tlm
- * and its text, \Require and \Ensure \item[\textbf{…}], \Statex \item[]. Returns \prevdepth.
+ * and its text, \Require and \Ensure \item[\textbf{…}], \Statex \item[]. Returns \prevdepth and the lines
+ * \ALG@step counted (ALG@line).
  */
-function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | null, decisions: ParagraphTrace[], noend: boolean): number | null {
+function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | null, decisions: ParagraphTrace[], noend: boolean): { prevDepth: number | null; lines: number } {
   const { amsmath } = cx.pre
   const { doc, romanFont, run } = cx
   const k = run.k
@@ -174,7 +175,7 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
   })
   // \endtrivlist: \@endparenv, \addpenalty\@endparpenalty \addvspace\@topsepadd (\topsep, with \partopsep zero)
   content.push(penalty(-LOW_PENALTY), glue(topsep))
-  return pd
+  return { prevDepth: pd, lines: line }
 }
 
 /**
@@ -234,7 +235,10 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
       if (listed) throw new Unsupported("two algorithmic environments in an algorithm")
       if (!algorithm.algpseudocode) throw new Unsupported("algorithmic without algpseudocode")
       listed = true
-      pd = algorithmic(cx, m[3], content, pd, decisions, algorithm.noend)
+      const alg = algorithmic(cx, m[3], content, pd, decisions, algorithm.noend)
+      pd = alg.prevDepth
+      // cleveref's algorithmicx support: \ALG@step's \refstepcounter{ALG@line}, whose \@currentHref is global
+      if (cx.pre.cleveref && alg.lines) refs.href = `ALG@line.${alg.lines}`
       continue
     }
     throw new Unsupported(`${m[0]} in an algorithm`)
