@@ -5,6 +5,7 @@
 
 import { Unsupported } from "../latex/unsupported"
 import type { ColorModel, ColorTarget, PgfDriver } from "./drivers"
+import { TexArith } from "./fixed"
 import { setLength } from "./points"
 import type { PgfState } from "./state"
 
@@ -27,3 +28,14 @@ export function pgfSetLineWidth(s: PgfState, d: PgfDriver, w: string) {
   d.setlinewidth(s.lineWidth)
 }
 
+/** \pgfsetdash{#1}{#2} (37–56): each dash length of #1 (one token or group each) and the phase, \pgfmathsetlength'ed */
+export function pgfSetDash(s: PgfState, d: PgfDriver, pattern: string[], phase: string) {
+  const lengths = pattern.map((x) => setLength(x, s))
+  d.setdash(lengths, setLength(phase, s))
+}
+
+/** \pgfsetmiterlimit{#1} (30–33): below 1 pgf complains (not modeled) */
+export function pgfSetMiterLimit(s: PgfState, d: PgfDriver, m: string) {
+  if (new TexArith(s.units).dimen(`${m}pt`) < 65536) throw new Unsupported("pgf: a miter limit below 1")
+  d.setmiterlimit(m)
+}

@@ -24,9 +24,9 @@ import { TexArith } from "../../pgf/fixed"
 import { DvipsDriver } from "../../pgf/drivers/dvips"
 import { PdftexDriver } from "../../pgf/drivers/pdftex"
 import type { ColorModel, PgfDriver } from "../../pgf/drivers"
-import { pgfSetColor, pgfSetFillColor, pgfSetLineWidth, pgfSetStrokeColor } from "../../pgf/graphicstate"
+import { pgfSetColor, pgfSetDash, pgfSetFillColor, pgfSetLineWidth, pgfSetMiterLimit, pgfSetStrokeColor } from "../../pgf/graphicstate"
 import { texArgs } from "../../pgf/mathfunctions"
-import { pgfPathMoveTo, pgfUsePath } from "../../pgf/paths"
+import { pgfPathCircle, pgfPathClose, pgfPathCurveTo, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfPathRectangle, pgfPathRectangleCorners, pgfUsePath } from "../../pgf/paths"
 import { pgfPoint, pgfPointAdd, pgfPointDiff, pgfPointOrigin, pgfPointPolar, pgfPointScale, pgfPointXY, setLength, type PgfPoint } from "../../pgf/points"
 import { beginPgfPicture, beginPgfScope, endPgfPicture, endPgfScope, pgfSetBaseline, pgfSetTrimLeft, pgfSetTrimRight } from "../../pgf/scopes"
 import { PgfState } from "../../pgf/state"
@@ -84,7 +84,7 @@ const FIXED = [
   "{\\pgfsysprotocol@bufferedtrue\\pgfsys@setlinewidth{1pt}}\\pgfsys@setlinewidth{2pt}",
 ].map((body) => `\\pgfsys@beginpicture${body}\\pgfsys@endpicture`)
 
-/** Whole pictures: the box, its size and baseline; scopes, transformations, the bounding box. */
+/** Whole pictures: the box, its size and baseline; scopes, transformations, every path construction and use. */
 const PICTURES = [
   // the picture box: empty; a space after \begin{pgfpicture} skipped; baseline and trims; the old syntax's bounding box
   "",
@@ -107,6 +107,30 @@ const PICTURES = [
   "\\pgfpathmoveto{\\pgfqpoint{16383.99998pt}{0pt}}\\pgfpathmoveto{\\pgfqpoint{-1sp}{0pt}}",
   "\\pgfpathmoveto{\\pgfqpoint{0pt}{16383.99998pt}}\\pgfpathmoveto{\\pgfqpoint{0pt}{0sp}}",
   "\\pgfpathmoveto{\\pgfqpoint{0pt}{16383.99998pt}}\\pgfpathmoveto{\\pgfqpoint{0pt}{-1sp}}",
+  // paths: each construction and use, line widths in scopes, clips and bounding boxes
+  "\\pgfpathmoveto{\\pgfpoint{1pt}{2pt}} \\pgfpathlineto{\\pgfpoint{10pt}{-5pt}}\\pgfusepath{stroke} ",
+  "\\pgftransformrotate{30}\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{3pt}{4pt}}\\pgfusepath{fill,draw}",
+  "\\pgfpathrectangle{\\pgfpoint{1pt}{2pt}}{\\pgfpoint{3pt}{4pt}}\\pgfusepath{fill}\\pgfpathrectanglecorners{\\pgfpoint{-1pt}{2pt}}{\\pgfpoint{3pt}{-4pt}}\\pgfusepath{draw}",
+  "\\pgfpathcircle{\\pgfpoint{1cm}{1cm}}{5mm}\\pgfusepath{stroke}\\pgfpathellipse{\\pgfpointorigin}{\\pgfpoint{2cm}{1pt}}{\\pgfpoint{-3pt}{1cm}}\\pgfusepath{fill}",
+  "\\pgfpathmoveto{\\pgfpointorigin}\\pgfpathcurveto{\\pgfpoint{1cm}{0pt}}{\\pgfpoint{1cm}{1cm}}{\\pgfpoint{2cm}{1cm}}\\pgfpathclose\\pgfusepath{stroke}",
+  "\\pgfsetlinewidth{2pt}\\begin{pgfscope}\\pgfsetlinewidth{5pt}\\pgfpathmoveto{\\pgfpoint{0pt}{0pt}}\\pgfpathlineto{\\pgfpoint{1cm}{0pt}}\\pgfusepath{stroke}\\end{pgfscope}\\pgfpathmoveto{\\pgfpoint{0pt}{1cm}}\\pgfpathlineto{\\pgfpoint{1cm}{1cm}}\\pgfusepath{draw}",
+  "\\pgfsetbaseline{3pt}\\pgfsettrimleft{2pt}\\pgfsettrimright{1cm}\\pgfpathrectangle{\\pgfpoint{-1pt}{-2pt}}{\\pgfpoint{2cm}{1cm}}\\pgfusepath{stroke}",
+  "\\pgfpathrectangle{\\pgfpoint{0pt}{0pt}}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{clip}\\pgfpathcircle{\\pgfpoint{1cm}{1cm}}{1cm}\\pgfusepath{fill,stroke,clip}\\pgfpathmoveto{\\pgfpoint{5cm}{5cm}}\\pgfusepath{stroke}",
+  "\\pgfpathrectangle{\\pgfpoint{0pt}{0pt}}{\\pgfpoint{1cm}{1cm}}\\pgfusepath{use as bounding box}\\pgfpathcircle{\\pgfpoint{3cm}{1cm}}{1cm}\\pgfusepath{fill,stroke}",
+  "\\pgfsetdash{{3pt}{1pt}}{0pt}\\pgfsetroundcap\\pgfsetbeveljoin\\pgfsetmiterlimit{4}\\pgfseteorule\\pgfsetcolor{red}\\pgfpathmoveto{\\pgfpoint{0pt}{0pt}} \\pgfpathlineto{\\pgfpoint{1pt}{0pt}} \\pgfusepath{discard} \\pgfusepath{fill}",
+  // ellipses: \pgf@yc still the centre's while the first \ifdim's of each quarter expand
+  "\\pgfpathellipse{\\pgfpoint{0pt}{0pt}}{\\pgfpoint{10pt}{3pt}}{\\pgfpoint{4pt}{20pt}}",
+  "\\pgfpathellipse{\\pgfpoint{0pt}{0pt}}{\\pgfpointpolar{49.4}{478389.751sp}}{\\pgfpointpolar{-17.3}{.95in}}\\pgfusepath{fill}",
+  "\\pgfpathellipse{\\pgfpoint{0pt}{0pt}}{\\pgfpoint{7.29pt}{0pt}}{\\pgfpoint{-20pt}{-65pt}}",
+  // \pgfpathrectanglecorners evaluates #1 twice: two \unskip's
+  "\\pgfsys@stroke{ }  \\pgfpathrectanglecorners{\\pgfpoint{-336033sp}{+-.3bp}}{\\pgfpointxy{-1}{-1}}",
+  "\\pgftransformyslant{2}\\pgfsys@stroke{ }  \\pgfpathrectanglecorners{\\pgfpoint{-336033sp}{+-.3bp}}{\\pgfpointxy{-1}{-1}}",
+  // a miter limit below 1: pgf's error
+  "\\pgfsetmiterlimit{0.99999}", "\\pgfsetmiterlimit{1.0}",
+  // a path's coordinates, read again from \the's text
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathmoveto{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{0sp}{-16383.99998pt}}}\\pgfusepath{fill}",
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{0sp}{0pt}}}\\pgfusepath{fill}",
+  "{0pt}{0pt}{1pt}{1pt}\\pgfpathrectangle{\\pgfqpoint{-1pt}{0pt}}{\\pgfpointadd{\\pgfqpoint{16383.99998pt}{0pt}}{\\pgfqpoint{1sp}{0pt}}}\\pgfusepath{fill}",
 ]
 
 function rng(seed: number) {
@@ -165,7 +189,7 @@ export function makeSnippets(n: number, seed: number): string[] {
   return Array.from({ length: n }, () => `\\pgfsys@beginpicture${body(0)}\\pgfsys@endpicture`)
 }
 
-/** Random pictures: moves and uses under random transformations, scopes, groups, line widths, baselines, trims and spaces. */
+/** Random pictures: path constructions and uses under random transformations, scopes, groups, graphic state and spaces. */
 export function makePictures(n: number, seed: number): string[] {
   const r = rng(seed * 7919 + 17)
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
@@ -194,18 +218,24 @@ export function makePictures(n: number, seed: number): string[] {
   }
   const colorExpr = () => pick(["red", "blue", "green!50", "red!30!blue", "cyan", "black", "mine", "dark", "ink", "mid", "dark!25!red"])
   const uses = () => {
-    const keys = ["discard", "use as bounding box"].filter(() => r() < 0.4)
+    const keys = ["stroke", "draw", "fill", "clip", "discard", "use as bounding box"].filter(() => r() < 0.3)
     return `\\pgfusepath{${keys.join(pick([",", ", "]))}}`
   }
   const commands: (() => string)[] = [
-    () => `\\pgfpathmoveto{${point()}}`, () => `\\pgfpathmoveto{${point()}}`, () => `\\pgfpathmoveto{${point()}}`,
-    uses, uses,
+    () => `\\pgfpathmoveto{${point()}}`, () => `\\pgfpathlineto{${point()}}`, () => `\\pgfpathlineto{${point()}}`,
+    () => `\\pgfpathcurveto{${point()}}{${point()}}{${point()}}`, () => "\\pgfpathclose",
+    () => `\\pgfpathrectangle{${point()}}{${point()}}`, () => `\\pgfpathrectanglecorners{${point()}}{${point()}}`,
+    () => `\\pgfpathcircle{${point()}}{${len()}}`, () => `\\pgfpathellipse{${point()}}{${point()}}{${point()}}`,
+    uses, uses, uses,
     () => `\\pgftransformshift{${point()}}`, () => `\\pgftransformxshift{${expr()}}`, () => `\\pgftransformyshift{${expr()}}`,
     () => `\\pgftransformscale{${factor()}}`, () => `\\pgftransformxscale{${factor()}}`, () => `\\pgftransformyscale{${factor()}}`,
     () => `\\pgftransformxslant{${factor()}}`, () => `\\pgftransformyslant{${factor()}}`, () => `\\pgftransformrotate{${angle()}}`,
     () => `\\pgftransformcm{${factor()}}{${factor()}}{${factor()}}{${factor()}}{${point()}}`,
     () => pick(["\\pgftransformreset", "\\pgftransformresetnontranslations", "\\pgflowlevelsynccm"]),
     () => `\\pgfsetlinewidth{${pick([len, () => "0.4pt", () => "1pt"])()}}`,
+    () => `\\pgfsetdash{${Array.from({ length: int(0, 3) }, () => `{${len()}}`).join("")}}{${len()}}`,
+    () => `\\pgfsetmiterlimit{${pick(["1", "4", "10", `${int(1, 20)}.${digits(2)}`])}}`,
+    () => pick(["\\pgfsetbuttcap", "\\pgfsetroundcap", "\\pgfsetrectcap", "\\pgfsetmiterjoin", "\\pgfsetroundjoin", "\\pgfsetbeveljoin", "\\pgfseteorule", "\\pgfsetnonzerorule"]),
     () => `\\${pick(["pgfsetstrokecolor", "pgfsetfillcolor", "pgfsetcolor"])}{${colorExpr()}}`,
     () => `\\${pick(["pgfsetbaseline", "pgfsettrimleft", "pgfsettrimright"])}{${pick([len, expr, () => "default"])()}}`,
     () => pick(["\\pgfsys@clipnext", "\\pgfsys@stroke", "\\pgfsys@beginscope\\pgfsys@endscope"]),
@@ -335,8 +365,13 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
   const ignoring = (f: () => void) => () => { f(); skipSpaces() }
   const basic: Record<string, () => void> = {
     begin: () => environment(0), end: () => environment(1),
-    pgfpathmoveto: () => pgfPathMoveTo(s, pt(arg())),
-    pgfusepath: ignoring(() => pgfUsePath(s, arg().split(",").map((k) => k.trim()).filter((k) => k !== ""))),
+    pgfpathmoveto: () => pgfPathMoveTo(s, pt(arg())), pgfpathlineto: () => pgfPathLineTo(s, pt(arg())),
+    pgfpathcurveto: () => pgfPathCurveTo(s, pt(arg()), pt(arg()), pt(arg())), pgfpathclose: () => pgfPathClose(s),
+    pgfpathrectangle: () => pgfPathRectangle(s, pt(arg()), pt(arg())),
+    pgfpathrectanglecorners: () => pgfPathRectangleCorners(s, pt(arg()), pt(arg())),
+    pgfpathcircle: () => { const c = pt(arg()); pgfPathCircle(s, c, arg()) },
+    pgfpathellipse: () => pgfPathEllipse(s, pt(arg()), pt(arg()), pt(arg())),
+    pgfusepath: ignoring(() => pgfUsePath(s, driver, arg().split(",").map((k) => k.trim()).filter((k) => k !== ""))),
     pgftransformshift: () => pgfTransformShift(s, pt(arg())),
     pgftransformxshift: () => pgfTransformXShift(s, arg()), pgftransformyshift: () => pgfTransformYShift(s, arg()),
     pgftransformscale: () => pgfTransformScale(s, arg()),
@@ -348,6 +383,11 @@ export function runSnippet(src: string, driver: PgfDriver, colors: Colors): void
     pgflowlevelsynccm: () => pgfLowLevelSyncCm(s, driver),
     pgfsetbaseline: () => pgfSetBaseline(s, arg()), pgfsettrimleft: () => pgfSetTrimLeft(s, arg()), pgfsettrimright: () => pgfSetTrimRight(s, arg()),
     pgfsetlinewidth: ignoring(() => pgfSetLineWidth(s, driver, arg())),
+    pgfsetdash: ignoring(() => { const pattern = texArgs(arg()); pgfSetDash(s, driver, pattern, arg()) }),
+    pgfsetmiterlimit: ignoring(() => pgfSetMiterLimit(s, driver, arg())),
+    pgfsetbuttcap: ignoring(() => driver.cap("butt")), pgfsetroundcap: ignoring(() => driver.cap("round")), pgfsetrectcap: ignoring(() => driver.cap("rect")),
+    pgfsetmiterjoin: ignoring(() => driver.join("miter")), pgfsetroundjoin: ignoring(() => driver.join("round")), pgfsetbeveljoin: ignoring(() => driver.join("bevel")),
+    pgfseteorule: ignoring(() => { s.sw.eoRule = true }), pgfsetnonzerorule: ignoring(() => { s.sw.eoRule = false }),
   }
   const commands: Record<string, () => void> = {
     ...basic, begingroup, endgroup, setbox,
