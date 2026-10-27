@@ -89,7 +89,7 @@ export function makeDocument(r: () => number): string {
   let hyper = false, crefOn = false, tsOn = false, natOn = false, algOn = false, nrOn = false
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, subOn = false, urlOn = false, amsOn = false, graphOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -184,8 +184,9 @@ export function makeDocument(r: () => number): string {
       ...(at === "list" ? [() => `name=${pick(["Fig.", "Tab", "Plate"])}`] : at === "pre" ? [() => `${pick(["figurename", "tablename"])}=${pick(["Fig.", "Tab.", "Exhibit"])}`] : []),
     ]
     const keys = Array.from({ length: 1 + Math.floor(r() * 3) }, () => pick(pool)())
-    // (newline with hang is caption's error; a sub-float's list= and hypcap= true are not modeled)
-    return keys.filter((k) => !(k === "labelsep=newline" && keys.includes("format=hang"))).join(",")
+    // (newline with hang is caption's error, wherever each was set: a document has one or the other; a sub-float's
+    // list= and hypcap= true are not modeled)
+    return keys.filter((k) => k !== (capHang ? "labelsep=newline" : "format=hang")).join(",")
   }
   const minipage = (pos = "", inline = false, cap = "", env = "minipage") => {
     const par = () => words(3 + Math.floor(r() * 25)).split(" ").map((w) => r() < 0.04 ? `${w} ${math()}` : r() < 0.03 ? `\\textbf{${w}}` : w).join(" ")
@@ -423,19 +424,25 @@ export function makeDocument(r: () => number): string {
     const cmd = pick(["\\onehalfspacing", "\\doublespacing", "\\setstretch{1.3}", "\\setstretch{1.1}", "\\singlespacing", ""])
     if (cmd) out.push(cmd)
   }
-  // algorithm floats with algpseudocode (noend sometimes); not with hyperref or cleveref yet
-  algOn = !hyper && !crefOn && !isLetter && r() < 0.15
+  // algorithm floats with algpseudocode (noend sometimes)
+  algOn = !isLetter && r() < 0.15
   if (algOn) out.push(...(r() < 0.25 ? ["\\usepackage{algorithm}", "\\usepackage[noend]{algpseudocode}"] : r() < 0.4 ? ["\\usepackage{algorithm,algpseudocode}"] : ["\\usepackage{algorithm}", "\\usepackage{algpseudocode}"]))
-  // caption.sty, and subcaption with it sometimes (with hyperref too: hypcap); not with algorithms or listing captions yet
-  capOn = !algOn && !isLetter && r() < 0.2
+  // caption.sty, and subcaption with it sometimes (with hyperref too: hypcap); with algorithms and listing captions
+  capOn = !isLetter && r() < 0.2
   subOn = capOn && r() < 0.5
+  capHang = capOn && r() < 0.5
   if (capOn) {
     // with options sometimes, and \captionsetup for all, a type or the sub-floats
     // (subcaption's options go to \captionsetup[sub]: no figurename= there)
     const both = subOn && r() < 0.5, opts = r() < 0.3 ? `[${capKeys(subOn && !both ? "sub" : "pre")}]` : ""
     out.splice(1 + Math.floor(r() * (out.length - 1)), 0, subOn ? both ? `\\usepackage${opts}{caption}\n\\usepackage{subcaption}` : `\\usepackage${opts}{subcaption}` : `\\usepackage${opts}{caption}`)
     if (r() < 0.3) out.push(`\\captionsetup{${capKeys("pre")}}`)
-    if (r() < 0.3) out.push(`\\captionsetup[${pick(["figure", "table"])}]{${capKeys("list")}}`)
+    // (a listing's or an algorithm's list: no name= there, no position=bottom for a listing)
+    if (r() < 0.3) {
+      const type = pick(["figure", "table", ...(lst ? ["lstlisting"] : []), ...(algOn ? ["algorithm"] : [])])
+      const keys = capKeys("list").split(/,(?![^{]*\})/).filter((k) => type === "figure" || type === "table" || !/^(?:name|position)=/.test(k))
+      if (keys.length) out.push(`\\captionsetup[${type}]{${keys.join(",")}}`)
+    }
     if (subOn && r() < 0.3) out.push(`\\captionsetup[${pick(["sub", "subfigure", "subtable"])}]{${capKeys("sub")}}`)
   }
   urlOn = !hyper && r() < 0.15
@@ -557,7 +564,7 @@ export function makeDocument(r: () => number): string {
       // a listing, maybe right after text, maybe with a caption and a label, maybe text right after it
       if (!afterPar || r() < 0.5) out.push("")
       const keys = lstKeys(true)
-      if (cls === "article" && !hyper && !capOn && r() < 0.3) keys.push(`caption={${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`label=lst:${b}`] : []))
+      if (cls === "article" && r() < 0.3) keys.push(`caption={${words(1 + Math.floor(r() * 6))}}`, ...(r() < 0.5 ? [`label=lst:${b}`] : []))
       out.push(`\\begin{lstlisting}${keys.length ? `[${keys.join(",")}]` : ""}`, ...code(!/language=\{?(\[\w+\])?C/.test(keys.join(",") + lstsetKeys)), "\\end{lstlisting}")
       afterPar = false
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }
