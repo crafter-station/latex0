@@ -7,8 +7,9 @@ import { times } from "../layout/dimen"
 import { Unsupported } from "../latex/unsupported"
 import type { PgfDriver } from "./drivers"
 import { TexArith, toNumber } from "./fixed"
-import { parse, pgfPoint, pgfPointOrigin, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
-import { IDENTITY, type PgfState } from "./state"
+import type { PgfUnits } from "./mathparser"
+import { parse, pgfPoint, pgfPointOrigin, reciprocalOf, setLength, trig, type PgfPoint, type PgfPointMacro } from "./points"
+import { IDENTITY, type PgfState, type PgfTransform } from "./state"
 
 /** `<factor><dimen register>` as TeX scans it; past max_dimen TeX would complain (not modeled) */
 export function mul(factor: string, x: number): number {
@@ -19,8 +20,10 @@ export function mul(factor: string, x: number): number {
 }
 
 /** \pgf@pos@transform@glob (74–85): the point through the current transformation */
-export function transformPoint(s: PgfState, p: PgfPoint): PgfPoint {
-  const t = s.local.transform
+export const transformPoint = (s: PgfState, p: PgfPoint): PgfPoint => applyTransform(s.local.transform, p)
+
+/** \pgf@pos@transform@glob under the transformation `t` */
+export function applyTransform(t: PgfTransform, p: PgfPoint): PgfPoint {
   let { x, y } = p
   if (!t.identity) {
     const temp = x
@@ -48,6 +51,33 @@ export function pgfTransformCm(s: PgfState, a: string, b: string, c: string, d: 
   const aa = toNumber(xa), ab = toNumber(ya), ba = toNumber(xb), bb = toNumber(yb)
   const identity = `${aa},${ba},${ab},${bb}` === "1.0,0.0,0.0,1.0"
   s.setLocal({ transform: { aa, ab, ba, bb, x, y, identity } })
+}
+
+/**
+ * \pgftransforminvert (156–206): the inverse of `t`, its matrix entries \pgf@sys@tonumber's text: the
+ * reciprocals of a diagonal matrix, else the adjugate times the reciprocal of the determinant.
+ */
+export function pgfTransformInvert(t: PgfTransform, units: PgfUnits): PgfTransform {
+  let x = -t.x, y = -t.y
+  if (t.identity) return { ...t, x, y }
+  let { aa, ab, ba, bb } = t
+  if (`${ab},${ba}` === "0.0,0.0") {
+    aa = reciprocalOf(aa, units)
+    bb = reciprocalOf(bb, units)
+  } else {
+    const a = new TexArith(units)
+    // \advance: no overflow check
+    const det = mul(bb, a.dimen(`${aa}pt`)) - mul(ab, a.dimen(`${ba}pt`))
+    let r = a.dimen(`${reciprocalOf(toNumber(det), units)}pt`)
+    const nAa = toNumber(mul(bb, r)), nBb = toNumber(mul(aa, r))
+    r = -r
+    const nBa = toNumber(mul(ba, r)), nAb = toNumber(mul(ab, r))
+    ;[aa, ab, ba, bb] = [nAa, nAb, nBa, nBb]
+  }
+  const temp = x
+  x = mul(aa, x) + mul(ba, y)
+  y = mul(bb, y) + mul(ab, temp)
+  return { aa, ab, ba, bb, x, y, identity: false }
 }
 
 /** \pgftransformreset (208–216) */

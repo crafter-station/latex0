@@ -134,6 +134,14 @@ export class DvipsDriver extends ProtocolDriver implements PgfDriver {
     this.state.space()
   }
 
+  /** pgfsys.code.tex 1537–1539: the box in a graphic scope, after the transformation (no TeX group) */
+  hboxsynced(box: BoxNode | null, register: boolean, synccm: () => void) {
+    this.beginscope()
+    synccm()
+    this.hbox(box, register)
+    this.endscope()
+  }
+
   // dvips.def 47–55
   beginInvisible() {
     this.state.special("ps::[begin]")

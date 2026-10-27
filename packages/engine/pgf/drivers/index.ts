@@ -52,6 +52,11 @@ export interface PgfDriver {
    * name (\pgfnodeparttextbox), after which `\box#1`'s end of line is a space; digits end there instead.
    */
   hbox(box: BoxNode | null, register: boolean): void
+  /**
+   * \pgfsys@hboxsynced#1: the box placed under the current transformation, which `synccm` (the basic
+   * layer's \pgflowlevelsynccm) hands to the driver
+   */
+  hboxsynced(box: BoxNode | null, register: boolean, synccm: () => void): void
   /** \pgfsys@begininvisible, \pgfsys@endinvisible: what lies between draws nothing */
   beginInvisible(): void
   endInvisible(): void

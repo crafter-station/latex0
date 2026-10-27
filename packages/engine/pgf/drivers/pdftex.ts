@@ -2,7 +2,7 @@
 // pgfsys.code.tex's defaults where neither defines a command. Every literal is a \pdfliteral, each protocol
 // flush one; a picture's begin and end write nothing.
 
-import type { BoxNode } from "../../layout/nodes"
+import { glue, ssGlue, type BoxNode } from "../../layout/nodes"
 import { hpack } from "../../layout/pack"
 import { TexArith } from "../fixed"
 import { ProtocolDriver, type ColorModel, type ColorTarget, type PgfDriver } from "./index"
@@ -88,6 +88,30 @@ export class PdftexDriver extends ProtocolDriver implements PgfDriver {
     this.state.box({ ...hpack(box ? [box] : []), width: 0, height: 0, depth: 0 })
     this.endscope()
     this.state.space()
+  }
+
+  /**
+   * pdftex.def 27–47: in a group and a graphic scope, the translation as TeX's (\hskip, \raise), the rest
+   * of the transformation synced inside, the box (of size 0) and the id scope's end space
+   */
+  hboxsynced(box: BoxNode | null, register: boolean, synccm: () => void) {
+    const s = this.state
+    s.begingroup()
+    this.beginscope()
+    const outer = s.out
+    const { x, y } = s.local.transform
+    s.out = []
+    s.begingroup()
+    s.setLocal({ transform: { ...s.local.transform, x: 0, y: 0 } })
+    synccm()
+    this.hbox(box, register)
+    const inner = hpack(s.out)
+    s.endgroup()
+    s.out = outer
+    s.box({ ...hpack([glue(x), { ...inner, shift: -y }, ssGlue()]), width: 0, height: 0, depth: 0 })
+    this.endscope()
+    s.space()
+    s.endgroup()
   }
 
   // pgfsys.code.tex 1696–1702: everything moved 2000bp away

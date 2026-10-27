@@ -6,6 +6,7 @@ import { Unsupported } from "../latex/unsupported"
 import { times } from "../layout/dimen"
 import type { Node } from "../layout/nodes"
 import { TexArith, toNumber } from "./fixed"
+import { reciprocal } from "./mathfunctions"
 import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "./mathparser"
 import { TRIGONOMETRIC } from "./mathtrig"
 import type { PgfState } from "./state"
@@ -144,4 +145,110 @@ export function pgfPointXY(x: string, y: string, units: PgfUnits): PgfPoint {
   const tx = parse(x, units), ty = parse(y, units)
   const cm = pgfmathSetLength("1cm", units).value
   return { x: scaled(tx, cm) + scaled(ty, 0), y: scaled(tx, 0) + scaled(ty, cm) }
+}
+
+/** \pgfmathreciprocal@{#1} */
+export function reciprocalOf(x: string, units: PgfUnits): string {
+  const m = new Ctx(units, [])
+  const r = reciprocal(m, x)
+  m.flush()
+  return clean(`1/${x}`, r, m.errors)
+}
+
+/** \pgfpointnormalised of a point (an empty argument: the registers as they are) */
+export function pgfPointNormalised(p: PgfPoint, units: PgfUnits): PgfPoint {
+  const r = pointNormalised(p, units)
+  return clean("\\pgfpointnormalised", r.point, r.errors)
+}
+
+/** `\divide<register> by<count>`: by zero TeX's error */
+function divide(x: number, n: number): number {
+  if (n === 0) throw new Unsupported("pgf: a division by zero")
+  return Math.trunc(x / n) || 0
+}
+
+/** 8192pt, the dividend of pgf's reciprocals of a register's sp */
+const P8192 = 8192 * 65536
+
+/**
+ * \pgfpointborderrectangle{#1}{#2} (972–1043): where the ray from the origin in direction #1 leaves the
+ * rectangle of upper right corner #2, the direction's slope through 8192pt divided by its sp (/8).
+ */
+export function pgfPointBorderRectangle(dir: PgfPoint, corner: PgfPoint): PgfPoint {
+  const { x: xb, y: yb } = corner
+  let { x, y } = dir
+  const xa = x, ya = y
+  if (xa < 0) x = -x
+  if (ya < 0) y = -y
+  const counta = scaled(".125", x), countb = scaled(".125", y)
+  const n = (v: number) => toNumber(v)
+  if (countb < counta) {
+    if (counta < 255) { y = yb; x = 0 }
+    else {
+      const xc = divide(P8192, counta)
+      y = scaled(n(xc), y)
+      y = scaled(n(xb), y)
+      if (y < yb) x = xb
+      else if (countb < 255) { x = xb; y = 0 }
+      else {
+        const yc = divide(P8192, countb)
+        x = scaled(n(yc), x)
+        x = scaled(n(yb), x)
+        y = yb
+      }
+    }
+  } else if (countb < 255) { x = xb; y = 0 }
+  else {
+    const yc = divide(P8192, countb)
+    x = scaled(n(yc), x)
+    x = scaled(n(yb), x)
+    if (x < xb) y = yb
+    else if (counta < 255) { y = yb; x = 0 }
+    else {
+      const xc = divide(P8192, counta)
+      y = scaled(n(xc), y)
+      y = scaled(n(xb), y)
+      x = xb
+    }
+  }
+  if (xa < 0) x = -x
+  if (ya < 0) y = -y
+  return { x, y }
+}
+
+/**
+ * \pgfpointborderellipse{#1}{#2} (1060–1104): the ray from the origin in direction #1 (a macro, evaluated
+ * where pgf evaluates it) on the ellipse of axes #2. A circle scales the normalised direction; otherwise
+ * the direction is first stretched by the axes' ratio, through 8192pt divided by the scaled axis.
+ */
+export function pgfPointBorderEllipse(dir: PgfPointMacro, axes: PgfPoint, units: PgfUnits): PgfPoint {
+  const { x: xa, y: ya } = axes
+  let { x, y } = axes
+  if (xa === ya) {
+    const p = pgfPointNormalised(dir(), units)
+    return { x: scaled(toNumber(xa), p.x), y: scaled(toNumber(xa), p.y) }
+  }
+  if (xa < ya) {
+    const countb = Math.trunc(ya / 65536)
+    x = divide(x, countb)
+    y = divide(y, countb)
+    const xc = x
+    y = scaled(".125", y)
+    const yc = divide(P8192, y)
+    ;({ x, y } = dir())
+    y = scaled(toNumber(yc), y)
+    y = scaled(toNumber(xc), y)
+  } else {
+    const countb = Math.trunc(xa / 65536)
+    x = divide(x, countb)
+    y = divide(y, countb)
+    const yc = y
+    x = scaled(".125", x)
+    const xc = divide(P8192, x)
+    ;({ x, y } = dir())
+    x = scaled(toNumber(yc), x)
+    x = scaled(toNumber(xc), x)
+  }
+  const p = pgfPointNormalised({ x, y }, units)
+  return { x: scaled(toNumber(xa), p.x), y: scaled(toNumber(ya), p.y) }
 }
