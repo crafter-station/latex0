@@ -199,14 +199,26 @@ export function makeDocument(r: () => number): string {
     if (capOn && (cap || inline) && r() < 0.2) body.unshift(`\\captionsetup{${capKeys(env === "minipage" && cap ? "list" : "sub")}}`)
     return `\\begin{${env}}${pos}{${pick(["3cm", "4cm", "0.4\\textwidth", "0.45\\linewidth", ".3\\linewidth", "5em", "2.5in"])}}\n${body.join("\n")}\n\\end{${env}}`
   }
-  // TikZ pictures of paths (no nodes): a tikzpicture or \tikz
+  // TikZ pictures of paths and nodes (named ones, labels on paths, lines between nodes): a tikzpicture or \tikz
   const tikzPic = (inline: boolean) => {
     const num = () => pick(["0", "1", "2", "0.5", "-1", "1.5", "3"])
     const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
-    const op = () => pick([` -- ${coord()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${coord()}`, ` |- ${coord()}`, ` to ${coord()}`])
-    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]"])} ${pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
-    if (inline) return r() < 0.5 ? `\\tikz${pick(["", "[baseline=-0.5ex]", "[scale=0.3]"])} ${path()}` : `\\tikz[scale=0.2]{${path()}}`
-    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, path).join("\n")}\n\\end{tikzpicture}`
+    const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", ""])
+    const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]"])
+    const node = () => `node${nodeOptions()} {${nodeText()}}`
+    const names: string[] = []
+    const target = () => (names.length && r() < 0.4 ? `(${pick(names)})` : coord())
+    const op = () => pick([` -- ${target()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${target()}`, ` |- ${coord()}`, ` to ${target()}`,
+      ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`])
+    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+    const named = () => {
+      const name = `n${names.length}`
+      const at = names.length && r() < 0.5 ? `[draw,${pick(["right", "below", "above"])} of=${pick(names)}]` : `${pick(["[draw]", "[draw,circle]", "[fill=yellow!20]", ""])} at ${coord().replace(/^\+\+?/, "")}`
+      names.push(name)
+      return `\\node${at} (${name}) {${nodeText()}};`
+    }
+    if (inline) return r() < 0.5 ? `\\tikz${pick(["", "[baseline=-0.5ex]", "[scale=0.3]"])} ${r() < 0.2 ? `\\node${nodeOptions()} {${nodeText()}};` : path()}` : `\\tikz[scale=0.2]{${path()}}`
+    return `\\begin{tikzpicture}${pick(["", "[scale=0.5]", "[thick]", "[node distance=2cm]"])}\n${Array.from({ length: 1 + Math.floor(r() * 3) }, () => (r() < 0.4 ? named() : path())).join("\n")}\n\\end{tikzpicture}`
   }
   const graphic = () => `\\includegraphics${pick(["", "[width=0.8\\textwidth]", "[height=2cm]", "[scale=0.3]", "[width=3cm,height=1cm,keepaspectratio]", "[width=0.4\\linewidth]", "[width=2cm,height=2cm]"])}{${pick(["wide", "tall.eps", "wide.eps"])}}`
   // URLs with the characters \url lays out (no spaces, %, ~, `, or what a link's string would escape)
