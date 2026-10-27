@@ -3,7 +3,7 @@
 
 import { dataFont } from "./data"
 import { loadFont, QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
-import { Scanner } from "../layout/dimen"
+import { Scanner, type GlueSpec } from "../layout/dimen"
 import { appendText, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
@@ -125,8 +125,15 @@ export function tableOfContents(cx: Ctx) {
   const end = mkboth ? marks.insert(markboth(contents, contents), false) : undefined
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source, end })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source, end })
+  // parskip.sty's \@starttoc: \vskip-\lastskip \vskip(\lastskip plus \parskip), and \parskip zero for the lines (tocskip)
+  const last = v.nodes.at(-1)
+  if (cx.pre.parskip) {
+    if (last?.kind !== "glue") throw new Unsupported("parskip's \\@starttoc after no skip")
+    const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
+    v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
+  }
   const tocdepth = cls === "article" ? 3 : 2
-  for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(cx, e)
+  for (const e of toc ?? []) if (e.level <= tocdepth) tocLine(cx, e, cx.pre.parskip ? dimen(0) : cx.outerParskip)
   v.nobreak = false
 }
 
@@ -140,7 +147,7 @@ export function tableOfContents(cx: Ctx) {
  * \leaders\hbox{$\m@th\mkern\@dotsep mu\hbox{.}\mkern\@dotsep mu$}\hfill\nobreak
  * \hb@xt@\@pnumwidth{\hfil\normalfont\normalcolor #5\kern-\p@\kern\p@}\par
  */
-export function tocLine(cx: Ctx, e: TocEntry) {
+export function tocLine(cx: Ctx, e: TocEntry, parskip: GlueSpec) {
   const { amsmath, cls, hyper } = cx.pre
   const { bodyUnits, decisions, doc, outerParskip, roman, run, v } = cx
   const top = cls === "article" ? 1 : 0
@@ -206,7 +213,7 @@ export function tocLine(cx: Ctx, e: TocEntry) {
   list.push(...tail)
   const lb = lineBreak(list, ps)
   decisions.push(...notes, lb.trace)
-  v.paragraph(lb.vlist, outerParskip)
+  v.paragraph(lb.vlist, parskip)
   if (e.level === top && cls !== "article") v.nodes.push(penalty(301)) // \penalty\@highpenalty
 }
 

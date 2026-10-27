@@ -1,0 +1,45 @@
+% fixture: parskip/parskip-article
+% tier: T3
+% engine: document
+% covers: parskip.sty: \parskip .5\baselineskip plus 2pt and \parindent 0pt; \@listI, \@listii, \@listiii (\topsep and \itemsep zero, \parsep\parskip, \partopsep zero) and \small's own \@listi (an abstract's quotation); \@startsection's and \@xsect's skips less \parskip (display and run-in headings); \@starttoc's skip and the toc lines' zero \parskip; \maketitle, center, quote, a list in a quotation (\@listii's \parsep the quotation's \parsep) and footnotes
+% issue: #332
+\documentclass{article}
+\usepackage{parskip}
+\title{A Title}
+\author{An Author}
+\date{}
+\begin{document}
+\maketitle
+\tableofcontents
+\section{First}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\footnote{A footnote with text.}
+\begin{itemize}
+\item One item that runs long enough to take two lines in the list, which is what we need to see here.
+
+A second paragraph in the item.
+\item Two
+\begin{enumerate}
+\item Nested
+\begin{itemize}\item Deeper\item Again\end{itemize}
+\item Back
+\end{enumerate}
+\end{itemize}
+After the list.
+\subsection{Second}
+\begin{abstract}
+An abstract, in a smaller size, its quotation in that size's own list; it runs long enough to take a few lines so that its margins show.
+\end{abstract}
+\begin{center}Centered text\\and more\end{center}
+\begin{quotation}A quotation, its paragraphs 0pt plus 1pt apart.
+\begin{itemize}\item An item in it.
+
+Its second paragraph, as far from the first as the quotation says.\item Another.\end{itemize}
+After.\end{quotation}
+\begin{quote}Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\end{quote}
+\paragraph{Run in.} Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\subsubsection*{Third}
+\begin{description}\item[Term] Its description.\item[Other] Another.\end{description}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\end{document}

@@ -1,0 +1,23 @@
+% fixture: parskip/parskip-report
+% tier: T3
+% engine: document
+% covers: parskip.sty with report at 11pt: its \parskip from the class's \baselineskip (6.8pt plus 2pt), chapters (\@makechapterhead unpatched), sections after them, the toc after \chapter*'s skip, a later \setlength{\parskip} that the lists' \parsep follows
+% issue: #332
+\documentclass[11pt]{report}
+\usepackage{parskip}
+\setlength{\parskip}{1ex plus 1pt minus 1pt}
+\begin{document}
+\tableofcontents
+\chapter{One}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\section{A section}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\begin{enumerate}\item First\item Second
+
+with a second paragraph.\end{enumerate}
+\section{Another}
+\subsection{Sub}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\end{document}

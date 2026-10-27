@@ -539,6 +539,8 @@ export function makeDocument(r: () => number): string {
     else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${lang}]{babel}`)
     es = lang === "spanish"; esAscii = hyper
   }
+  // parskip.sty (not with titlesec or theorems yet), first in the preamble
+  if (!isLetter && !tsOn && !thms.length && r() < 0.12) out.splice(1, 0, "\\usepackage{parskip}")
   out.push("\\begin{document}")
   // book: front matter (roman page numbers, unnumbered chapters) before the main matter (not in spanish: spanish.ldf's
   // \@roman in small capitals)

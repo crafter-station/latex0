@@ -69,18 +69,20 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   // enumitem's \trivlist: \parsep\parskip, then \@list<depth> again (inside a list), then \@trivlist; its
   // paragraphs keep the enclosing \parskip, and a list inside it inherits the new \parsep
   let childParsep = parsep
+  // parskip.sty's \@listI (\normalsize's \@listi), \@listii and \@listiii: \parsep\parskip, the \parskip in force
+  const parskipParsep = (d: number, p: string) => (cx.pre.parskip && p === "parsep" && (d === 2 || d === 3 || d === 1 && ctx.size !== "small" && ctx.size !== "footnotesize") ? ctx.parskip : undefined)
   // what \@list<depth> sets: article, report and book \@listi–iii \topsep \parsep \itemsep, \@listiii also
   // \partopsep; letter \@listI \parsep \topsep \itemsep, \@listii none of them, \@listiii \topsep \itemsep
   const listSets = (d: number): string[] => cls === "letter" ? (d === 1 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "itemsep"] : [])
     : d <= 2 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "parsep", "itemsep", "partopsep"] : []
   if (trivial && enumitem && ctx.depth >= 1) {
-    const d = ctx.depth, L = (p: string) => run.k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
+    const d = ctx.depth, L = (p: string) => parskipParsep(d, p) ?? run.k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
     for (const p of listSets(d)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") childParsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
   }
   if (!trivial) {
     depth++
     if (depth > 6) throw new Unsupported("lists nested more than six deep") // LaTeX: Too deeply nested
-    const L = (p: string) => run.k.glue[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
+    const L = (p: string) => parskipParsep(depth, p) ?? run.k.glue[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
     const D = (p: string) => run.k.dimens[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
     leftmargin = D("leftmargin")
     for (const p of listSets(depth)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") parsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }

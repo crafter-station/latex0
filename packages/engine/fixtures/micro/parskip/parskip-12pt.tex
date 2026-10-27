@@ -1,0 +1,17 @@
+% fixture: parskip/parskip-12pt
+% tier: T3
+% engine: document
+% covers: parskip.sty with article at 12pt (7.25pt plus 2pt) and T1, a heading right after a heading (no skip before it), a list
+% issue: #332
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{parskip}
+\begin{document}
+\section{One}
+\subsection{Two}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\begin{itemize}\item c\item d\end{itemize}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+\end{document}
