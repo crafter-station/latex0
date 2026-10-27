@@ -45,9 +45,16 @@ interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decis
 /** The body's constructs: frames (the environment and the \frame command), \section and \subsection */
 const BODY: { [K in BodyItem["kind"]]: (cx: BeamerCtx, item: Extract<BodyItem, { kind: K }>) => void } = { frame, section, subsection: section }
 
-/** \section or \subsection: its writes and anchor on the main vertical list, before the next frame's page */
+/** \section or \subsection: its writes and anchor on the main vertical list, before the next frame's page; then what
+ *  \AtBeginSection (\AtBeginSubsection) gave it, for \section or for \section*: frames */
 function section(cx: BeamerCtx, s: SectionSource) {
   cx.v.nodes.push(...sectionNodes(cx.sections, s, cx.pageFrames.length + 1, cx.pre.k))
+  const h = cx.pre.hooks
+  const hook = s.kind === "section" ? (s.star ? h.sectionStar : h.section) : s.star ? h.subsectionStar : h.subsection
+  for (const item of bodyOf(hook)) {
+    if (item.kind !== "frame") throw new Unsupported(`beamer: \\${item.kind} at the beginning of a section`)
+    frame(cx, item)
+  }
 }
 
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {

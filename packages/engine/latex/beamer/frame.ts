@@ -36,7 +36,9 @@ import { titlePage } from "./titlepage"
 /** a frame as written: its options and what it holds */
 export interface FrameSource { kind: "frame"; options: string; body: string }
 /** \section[short]{title} or \subsection[short]{title} between frames (the short title is the title without one) */
-export interface SectionSource { kind: "section" | "subsection"; short: string; title: string }
+export interface SectionSource { kind: "section" | "subsection"; short: string; title: string
+  /** \section*{title} (\beamer@section[{title}]{}): no .toc line */
+  star?: boolean }
 export type BodyItem = FrameSource | SectionSource
 
 /** What the document body holds: frames (\begin{frame}[options]…\end{frame} and \frame[options]{…}) and \section's and
@@ -83,12 +85,15 @@ export function bodyOf(body: string): BodyItem[] {
       const kind = src.startsWith("\\subsection", i) ? "subsection" : "section"
       i += kind.length + 1
       while (/\s/.test(src[i] ?? "")) i++
-      if (src[i] === "*" || src[i] === "<") throw new Unsupported(`\\${kind}${src[i]}`)
+      if (src[i] === "<") throw new Unsupported(`\\${kind}${src[i]}`)
+      // (\@ifnextchar[ first, then *)
+      const star = src[i] === "*"
+      if (star) { i++; while (/\s/.test(src[i] ?? "")) i++; if (src[i] === "[") throw new Unsupported(`\\${kind}*[`) }
       let short: string | undefined
       if (src[i] === "[") { const j = src.indexOf("]", i); if (j < 0) throw new Unsupported(`\\${kind}'s short title`); short = src.slice(i + 1, j); i = j + 1 }
       const a = bracedArg(src, i)
       if (!a) throw new Unsupported(`\\${kind} without a braced argument`)
-      frames.push({ kind, short: short ?? a.arg, title: a.arg })
+      frames.push({ kind, short: short ?? a.arg, title: a.arg, ...(star ? { star } : {}) })
       i = a.end
     } else throw new Unsupported(`beamer: material outside frames: ${src.slice(i, i + 40)}`)
   }

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 435,
-  "exact": 432,
+  "fixtures": 436,
+  "exact": 433,
   "expectedFailures": 1,
   "failing": 0,
   "pending": 2,
-  "glyphs": 321462
+  "glyphs": 321692
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 57,
-   "exact": 56
+   "fixtures": 58,
+   "exact": 57
   },
   {
    "area": "bibliography",
@@ -1416,6 +1416,17 @@
    "glyphs": 162,
    "covers": "beamer: \\pause between paragraphs: one page per slide, the paragraphs after a \\pause invisible (pgf's invisible specials) on the slides before",
    "issue": "#300"
+  },
+  {
+   "id": "beamer/sections-atbegin",
+   "file": "micro/beamer/sections-atbegin.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 230,
+   "covers": "beamer: \\AtBeginSection[starred]{…} with a [currentsection] table of contents frame after each \\section and its own frame after \\section*, \\AtBeginSubsection[]{…} (nothing after \\subsection*), \\section* and \\subsection* (no .toc line, the .nav lines, bookmarks and anchors), subsections in the table of contents",
+   "issue": "#307"
   },
   {
    "id": "beamer/sections-short",

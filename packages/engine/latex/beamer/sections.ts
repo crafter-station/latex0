@@ -68,18 +68,24 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
   const out: Node[] = []
   let name: string, level: number
   if (s.kind === "section") {
-    st.section++; st.subsection = 0; st.tocNumber++; st.subsectionSlide = 0; st.lastSubsection = ""
-    st.toc.push({ kind: "section", section: st.section, subsection: 0, title, page })
-    out.push(write("toc", `\\beamer@sectionintoc {${st.section}}{${title}}{${page}}{0}{${st.tocNumber}}`),
-      nav(`\\beamer@sectionpages {${st.sectionStart}}{${page - 1}}`), nav(`\\beamer@subsectionpages {${st.subsectionStart}}{${page - 1}}`),
+    st.section++; st.subsection = 0; st.subsectionSlide = 0; st.lastSubsection = ""
+    // (\section*: no .toc line, \beamer@tocsectionnumber kept)
+    if (!s.star) {
+      st.tocNumber++
+      st.toc.push({ kind: "section", section: st.section, subsection: 0, title, page })
+      out.push(write("toc", `\\beamer@sectionintoc {${st.section}}{${title}}{${page}}{0}{${st.tocNumber}}`))
+    }
+    out.push(nav(`\\beamer@sectionpages {${st.sectionStart}}{${page - 1}}`), nav(`\\beamer@subsectionpages {${st.subsectionStart}}{${page - 1}}`),
       nav(`\\sectionentry {${st.section}}{${short}}{${page}}{${title}}{0}`))
     st.sectionStart = page
     name = `Outline0.${st.section}`; level = 2
   } else {
     st.subsection++; st.subsectionSlide = 0; st.lastSubsection = short
-    st.toc.push({ kind: "subsection", section: st.section, subsection: st.subsection, title, page })
-    out.push(write("toc", `\\beamer@subsectionintoc {${st.section}}{${st.subsection}}{${title}}{${page}}{0}{${st.tocNumber}}`),
-      nav(`\\beamer@subsectionpages {${st.subsectionStart}}{${page - 1}}`),
+    if (!s.star) {
+      st.toc.push({ kind: "subsection", section: st.section, subsection: st.subsection, title, page })
+      out.push(write("toc", `\\beamer@subsectionintoc {${st.section}}{${st.subsection}}{${title}}{${page}}{0}{${st.tocNumber}}`))
+    }
+    out.push(nav(`\\beamer@subsectionpages {${st.subsectionStart}}{${page - 1}}`),
       nav(`\\beamer@subsectionentry {0}{${st.section}}{${st.subsection}}{${page}}{${short}}`))
     name = `Outline0.${st.section}.${st.subsection}.${page}`; level = 3
   }
