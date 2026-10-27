@@ -8,7 +8,7 @@ import type { GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT, type Font } from "../layout/font"
 import { parseGlue, Scanner } from "../layout/dimen"
 import { spaceGlue } from "../layout/hmode"
-import { appendText } from "./encodings"
+import { appendText, sourceText } from "./encodings"
 import { emptyBox, glue, kern, paramGlue, penalty, type GlueNode, type Node, charNode, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
@@ -248,7 +248,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       if (given) appendText(content, given.replace(/\s+/g, " "), bold, { spaceFactor: 1000 }, false)
       if (enumitem) content.push(filGlue())
     } else if (b.env === "proof") { // \item[\hskip\labelsep\itshape title\@addpunct{.}]
-      const title = (b.proofTitle ?? "Proof").replace(/\s+/g, " ").trim()
+      const title = (b.proofTitle ?? sourceText(cx.pre.names.proofname)).replace(/\s+/g, " ").trim()
       if (/[{}$%&#^_]/.test(title.replace(/\\ref\{[A-Za-z0-9:._-]+\}/g, "")) || /\\(?!ref\{)/.test(title)) throw new Unsupported(`proof title "${title}"`)
       if (hyper && /\\ref/.test(title)) throw new Unsupported("a \\ref in a proof title with hyperref")
       const it = selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" })
@@ -386,7 +386,7 @@ export function abstract(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const small = { ...ctx, size: "small" as SizeCommand }
   const bf = loadFont(dataFont(run.k.sizes.small.bold.name), run.k.sizes.small.bold.at)
   const head: Node[] = []
-  appendText(head, "Abstract", bf, { spaceFactor: 1000 }, false)
+  appendText(head, sourceText(cx.pre.names.abstractname), bf, { spaceFactor: 1000 }, false)
   const em = bf.params[QUAD]
   // \vspace in a paragraph: \vadjust{\vskip#1\vskip\z@skip}
   head.push({ kind: "adjust", list: [glue(-xnOverD(em, 32768, 65536)), glue(0)] }, { kind: "adjust", list: [glue(0), glue(0)] })

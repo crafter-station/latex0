@@ -18,6 +18,28 @@ export const ACCENT_MARKS: Record<string, string> = {
 }
 const MARKS = new Set(Object.values(ACCENT_MARKS))
 
+/** a text accent command on a letter, \i or \j (\'e, \'{e}, \'\i, \u{a} …) */
+export const ACCENT_COMMAND = /^\\([`'^"~=.]|[uvHrck](?![A-Za-z]))\s*(?:\{(\\[ij](?![A-Za-z])\s*|[A-Za-z])\}|(\\[ij](?![A-Za-z])\s*)|([A-Za-z]))/
+/** that command as text: the letter and the accent's combining mark */
+export function accentText(m: RegExpMatchArray): string {
+  const base = (m[2] ?? m[3] ?? m[4]).trim()
+  return (base === "\\i" ? "ı" : base === "\\j" ? "ȷ" : base) + ACCENT_MARKS[m[1]]
+}
+
+/** LaTeX source of letters and accents (a caption name, \'{I}ndice) as text */
+export function sourceText(src: string): string {
+  let out = ""
+  for (let i = 0; i < src.length; ) {
+    const acc = src.slice(i).match(ACCENT_COMMAND)
+    if (acc) { out += accentText(acc); i += acc[0].length; continue }
+    const letter = src.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
+    if (letter && Object.hasOwn(TEXT_LETTERS, letter[1])) { out += TEXT_LETTERS[letter[1]]; i += letter[0].length; continue }
+    if ("\\{}~".includes(src[i])) throw new Unsupported(`text "${src}"`)
+    out += src[i++]
+  }
+  return out
+}
+
 /** \DeclareTextAccent: each mark's accent character (\c and \k are text commands of their own) */
 const ACCENTS: Record<"OT1" | "T1", Record<string, number>> = {
   OT1: { "\u0308": 127, "\u0301": 19, "\u0307": 95, "\u0304": 22, "\u0302": 94, "\u0300": 18, "\u0303": 126, "\u030b": 125, "\u0306": 21, "\u030c": 20, "\u030a": 23 },

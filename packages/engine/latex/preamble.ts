@@ -19,6 +19,7 @@ import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionS
 import type { CrefNameDef, CrefOptions } from "./cleveref"
 import { Unsupported } from "./unsupported"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
+import { babelOptions, captions, isBabelLanguage, withBabel, type Babel, type Captions } from "./babel"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -96,13 +97,25 @@ export interface Preamble {
   natbib: { first: NatStyle; later: NatStyle } | null
   /** algorithm.sty, algpseudocode (and its noend option) */
   algorithm: AlgorithmPackages
+  /** babel: its languages, the main one, and whether it was loaded before hyperref (its \AtBeginDocument first) */
+  babel: (Babel & { beforeHyperref: boolean }) | null
+  /** \figurename, \contentsname …: the main language's captions (LaTeX's without babel) */
+  names: Captions
   /** between \begin{document} and \end{document} */
   body: string
 }
 
 export function readPreamble(src: string): Preamble {
-  const { cls, option, extras, unknown } = documentClass(src)
+  const { cls, option, extras, unknown: classUnknown } = documentClass(src)
+  // (languages are global options babel reads)
+  const usesBabel = /^[^%\n]*\\usepackage\s*(?:\[[^\]]*\])?\{[^}]*\bbabel\b/m.test(src.slice(0, src.indexOf("\\begin{document}")))
+  const unknown = classUnknown.filter((o) => !(usesBabel && isBabelLanguage(o)))
   if (unknown.length) throw new Unsupported(`class option ${unknown.join(",")}`)
+  let babel: Preamble["babel"] = null
+  const loadBabel = (own: string[], beforeHyperref: boolean) => {
+    if (babel) throw new Unsupported("babel loaded twice") // (LaTeX: Option clash, or nothing)
+    babel = { ...babelOptions(own, classUnknown.filter(isBabelLanguage)), beforeHyperref }
+  }
   if (!["article", "report", "book", "letter"].includes(cls)) throw new Unsupported(`class ${cls}`)
   let k = classData(cls, option, extras)
   // letter.cls sets \longindentation to .5\textwidth and \medskipamount to \parskip when it loads
@@ -225,6 +238,8 @@ export function readPreamble(src: string): Preamble {
       if (algorithm.algpseudocode) throw new Unsupported("algpseudocode loaded twice") // (LaTeX: Option clash)
       algorithm.algpseudocode = true; algorithm.noend = ap[1] === "noend"; continue
     }
+    const bab = line.match(/^\\usepackage\[([^\]]*)\]\{babel\}$/)
+    if (bab) { loadBabel(bab[1].split(",").map((o) => o.trim()).filter(Boolean), !hyper); continue }
     const cpo = line.match(/^\\usepackage\[([^\]]*)\]\{(caption|subcaption)\}$/)
     if (cpo) { if (cpo[2] === "caption") loadCaption(cpo[1]); else loadSubcaption(cpo[1]); continue }
     // \captionsetup{keys} at once, \captionsetup[type]{keys} into the type's list
@@ -264,7 +279,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz"].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel"].includes(n))
       if (names.includes("booktabs")) booktabsT1 = t1
       // (float.sty after hyperref: its \caption replaces hyperref's, and hyperref saw no float.sty to patch)
       if (names.includes("algorithm") && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf("algorithm"))) algorithm.afterHyperref = true
@@ -274,6 +289,7 @@ export function readPreamble(src: string): Preamble {
         hyper = true
       }
       if (names.includes("nameref")) nameref = true
+      if (names.includes("babel")) loadBabel([], !(hyper && (!names.includes("hyperref") || names.indexOf("hyperref") < names.indexOf("babel"))))
       if (names.includes("enumitem")) enumitem = true
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
@@ -385,6 +401,8 @@ export function readPreamble(src: string): Preamble {
     }
   }
   if (setspace) k = withSetspace(k, setspace)
+  const bb = babel as Preamble["babel"]
+  if (bb) k = withBabel(k, bb)
   if (pagestyle === "fancy" && geometryOptions.length) throw new Unsupported("fancyhdr with geometry") // (\headwidth is \textwidth when \ps@fancy first runs)
   if (thmDefs.size && !usesAmsthm) throw new Unsupported("\\newtheorem without amsthm")
   let body = src.slice(begin + 16, end)
@@ -404,7 +422,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, body }
+  return { cls, option, k, classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb), body }
 }
 
 /** braces balanced in s */

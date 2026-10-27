@@ -171,7 +171,8 @@ const TEXT_COMMANDS = [
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
   "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
-  "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS)
+  "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
+  "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
@@ -180,6 +181,9 @@ const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.key
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 export function blocksOf(body: string): Block[] {
+  // babel's otherlanguage and otherlanguage* (the end goes back to the language before: the paragraph knows it)
+  body = body.replace(/\\begin\{otherlanguage(\*?)\}\s*\{([A-Za-z]+)\}/g, (_, star: string, lang: string) => `\\LXotherlanguage${star ? "star" : ""}{${lang}}`)
+    .replace(/\\end\{otherlanguage(\*?)\}/g, (_, star: string) => `\\LXendotherlanguage${star ? "star" : ""}{}`)
   // comments: % takes the rest of the line and its end, and the next line's leading spaces go (TeX's state N);
   // a blank line after it stays one
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")

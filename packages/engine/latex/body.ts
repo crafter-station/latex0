@@ -20,6 +20,7 @@ import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
 import { needsVerticalMode, titlepage, verticalMaterial } from "./vmode"
+import { babelAux, babelLanguage } from "./babel"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -62,11 +63,15 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // the \nobreak of \protected@write and of \@esphack
     // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
     // (\vspace*: \@vspacer's \hrule\@height\z@ \nobreak first, \prevdepth kept)
-    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])))+\s*/)
+    // babel's \selectlanguage and otherlanguage's \begin and \end write to the .aux file there (\nobreak too)
+    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
     if (lead) {
-      if (run.runIn) throw new Unsupported("\\label, \\vspace or \\hrule right after a run-in heading")
-      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule/g)) {
-        if (m[1] !== undefined) {
+      if (run.runIn) throw new Unsupported("\\label, \\vspace, \\hrule or \\selectlanguage right after a run-in heading")
+      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}/g)) {
+        if (m[4] !== undefined) {
+          const lang = babelLanguage(cx.pre.babel, m[6])
+          if (!m[5]) v.nodes.push({ kind: "whatsit", text: babelAux(lang) }, ...(v.nobreak ? [penalty(10000)] : []))
+        } else if (m[1] !== undefined) {
           for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
         } else if (m[3] !== undefined) {
           let g: GlueSpec

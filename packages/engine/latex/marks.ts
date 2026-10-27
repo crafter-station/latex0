@@ -24,8 +24,13 @@ export function markValue(parts: MarkValue["parts"], upper: boolean): MarkValue 
   return { print: upper ? `\\MakeUppercase    []{${text}}` : text, parts, upper }
 }
 
-export const markboth = (left: MarkValue, right: MarkValue): Mark[] => [[1, left], [2, right], ...(right.print ? [[3, right] as Mark] : [])]
-export const markright = (right: MarkValue): Mark[] => [[2, right], ...(right.print ? [[3, right] as Mark] : [])]
+/** babel's \markboth and \markright: a value not blank in \foreignlanguage of the language then (\languagename) */
+export const markLanguage: { name: string | null } = { name: null }
+const babelMark = (v: MarkValue): MarkValue =>
+  markLanguage.name && v.print ? { ...v, print: `\\protect \\foreignlanguage {${markLanguage.name}}{\\protect \\bbl@restore@actives ${v.print}}` } : v
+
+export const markboth = (left: MarkValue, right: MarkValue): Mark[] => { left = babelMark(left); right = babelMark(right); return [[1, left], [2, right], ...(right.print ? [[3, right] as Mark] : [])] }
+export const markright = (right: MarkValue): Mark[] => { right = babelMark(right); return [[2, right], ...(right.print ? [[3, right] as Mark] : [])] }
 
 /**
  * \sectionmark and \subsectionmark (article: \thesection\quad title; report two-sided: \thesection. \ title);

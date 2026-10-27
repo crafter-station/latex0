@@ -52,7 +52,7 @@ export function letter(cx: Ctx, b: Extract<Block, { kind: "letter" }>) {
   // \opening
   v.nodes.push(hook("empty"))
   const from = letterInfo.address.split(/\\\\/).map((x) => x.trim())
-  const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch)).trim()
+  const date = (title.date ?? "\\today").replace(/\\today\b\s*/g, today(epoch, cx.pre.babel)).trim()
   check(date)
   const lines: TabLine[] = from.map((r, i) => ({ cells: [{ text: r }], ...(i === from.length - 1 ? { skip: 2 * parskip } : {}) }))
   lines.push({ cells: [{ text: date }] })

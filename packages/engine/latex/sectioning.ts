@@ -82,7 +82,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
     v.nodes.push(...contentsWrites(0, numbered ? String(counters.sectional[0]) : null, b.title, refs.href, false))
     // \chaptermark: \MakeUppercase{\@chapapp\ \thechapter. \ title}, to both marks when two-sided
     if (headings) {
-      const cv = markValue(numbered ? [{ text: "Chapter" }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
+      const cv = markValue(numbered ? [{ text: cx.pre.names.chaptername }, { ctrl: true }, { text: `${counters.sectional[0]}. ` }, { ctrl: true }, { text: b.title }] : [{ text: b.title }], true)
       v.nodes.push(...marks.insert(run.k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
     }
     for (const ext of ["lof", "lot"]) v.nodes.push({ kind: "whatsit", text: `\\write1{\\@writefile{${ext}}{\\protect \\addvspace {10\\p@ }}}` })
@@ -103,7 +103,7 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
   const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club }) // \parindent\z@ \raggedright
   if (numbered) {
-    typeset(`Chapter ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
+    typeset(`${cx.pre.names.chaptername} ${counters.sectional[0]}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
     v.nodes.push(penalty(10000))
     v.vskip(dimen(20 * 65536))
   }

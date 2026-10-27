@@ -1,0 +1,17 @@
+% fixture: babel/english-hyperref
+% tier: T3
+% engine: document
+% covers: babel loaded after hyperref: its \begin{document} \write after hyperref's anchors; \autoref and bookmarks in english
+% issue: #63
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage[american]{babel}
+\pagestyle{headings}
+\begin{document}
+\section{Introduction}\label{s}
+See \autoref{s} and \ref{s}.
+\begin{figure}[h]
+\caption{A caption}\label{f}
+\end{figure}
+\autoref{f}.
+\end{document}

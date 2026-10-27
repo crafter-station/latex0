@@ -24,7 +24,8 @@ import { blocksOf, displaySegments } from "./blocks"
 import { listParagraphWithDisplays } from "./displays"
 import { prepareSource, type DocumentSource } from "./source"
 import { Counters } from "./counters"
-import { markText, MarkWriter, pageMarks } from "./marks"
+import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
+import { babelAux } from "./babel"
 import { TocWriter, type TocEntry } from "./toc"
 import { readPreamble } from "./preamble"
 import { runState } from "./run"
@@ -116,12 +117,18 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
   const bookmarks = new Bookmarks(pre.tikz ? 4 : 3)
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
   const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
+  // babel's \AtBeginDocument: \selectlanguage of the main language, its \write to the .aux file (before or after
+  // hyperref's, as the packages were loaded)
+  const babelStart = () => { if (pre.babel) v.nodes.push({ kind: "whatsit", text: babelAux(pre.babel.main) }) }
+  if (pre.babel?.beforeHyperref) babelStart()
   if (hyper) {
     // \AtBeginDocument: the outlines, /DOCVIEW, the Catalog; the Doc-Start anchor
     v.nodes.push(...documentStart(prev ? prev.bookmarks : []))
     v.nodes.push(...anchor("Doc-Start", run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     if (prev?.pageLabels && !hyperDriver.pdftex) v.nodes.push(putPageLabels(prev.pageLabels))
   }
+  if (pre.babel && !pre.babel.beforeHyperref) babelStart()
+  markLanguage.name = pre.babel?.main ?? null
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
   for (const [n, m, x] of colorDefs) colors.define(n, m, x)
@@ -129,7 +136,7 @@ function layout({ src, listings, tabulars, minipages, urls, graphics, tikz }: Do
     if (!usesXcolor) throw new Unsupported("a color without xcolor")
     return colors.spec(spec, model)
   }
-  const doc: DocState = { footnote: 0, refs, xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
+  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
