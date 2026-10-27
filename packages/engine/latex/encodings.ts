@@ -139,7 +139,7 @@ export function encodeText(text: string, enc: string, font: Font): TextItem[] {
         // a composite is its character (\.i and \.\i: `\i, which is `i); \c and \k without one are \ooalign's
         if (mark === "\u0307" && (ch === "i" || ch === "ı")) { run += "i"; continue }
         const key = (base === "ı" ? "i" : base) + mark
-        const composite = key === "i\u0304" ? undefined : T1_COMPOSITES[key.normalize("NFC")] // (\=\i has none)
+        const composite = T1_COMPOSITES[key.normalize("NFC")] // (\=\i has none)
         if (composite !== undefined) { run += String.fromCharCode(composite); continue }
         if (mark === "\u0327" || mark === "\u0328") throw new Unsupported(`\\${mark === "\u0327" ? "c" : "k"}{${ch}} in T1`)
         accent(ACCENTS.T1[mark], base)
@@ -152,7 +152,7 @@ export function encodeText(text: string, enc: string, font: Font): TextItem[] {
         // OT1's \c: \accent24 on a base 1ex high, else \ooalign
         const code = base === "ı" || base === "ȷ" ? SYMBOLS.OT1[base] as number : base.charCodeAt(0)
         if (font.chars.get(code)?.height !== font.params[X_HEIGHT]) throw new Unsupported(`\\c{${ch}} in OT1`)
-        accent(24, base, false)
+        accent(24, base) // (\accent, not \add@accent: the space factor 1000, a lowercase base's)
         continue
       }
       if (mark === "\u0308" && babelUmlauts.mode && "aeıouAEIOU".includes(base)) {
