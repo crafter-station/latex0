@@ -5,6 +5,8 @@
 
 import { Unsupported } from "../latex/unsupported"
 import type { ColorModel, ColorTarget, PgfDriver } from "./drivers"
+import { setLength } from "./points"
+import type { PgfState } from "./state"
 
 function setColor(d: PgfDriver, spec: string, target: ColorTarget) {
   const [model, ...values] = spec.split(" ")
@@ -18,3 +20,10 @@ export const pgfSetStrokeColor = (d: PgfDriver, spec: string) => setColor(d, spe
 export const pgfSetFillColor = (d: PgfDriver, spec: string) => setColor(d, spec, "fill")
 /** \pgfsetcolor (186–202): \pgfsys@color@<model>, both at once */
 export const pgfSetColor = (d: PgfDriver, spec: string) => setColor(d, spec, "both")
+
+/** \pgfsetlinewidth{#1} (9–13): \pgflinewidth, global */
+export function pgfSetLineWidth(s: PgfState, d: PgfDriver, w: string) {
+  s.lineWidth = setLength(w, s)
+  d.setlinewidth(s.lineWidth)
+}
+
