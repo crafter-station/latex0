@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 769,
-  "exact": 769,
+  "fixtures": 796,
+  "exact": 796,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 453607
+  "glyphs": 459821
  },
  "areas": [
   {
@@ -61,13 +61,13 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 36,
-   "exact": 36
+   "fixtures": 37,
+   "exact": 37
   },
   {
    "area": "display",
-   "fixtures": 7,
-   "exact": 7
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "fancyhdr",
@@ -126,8 +126,8 @@
   },
   {
    "area": "minipage",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 5,
+   "exact": 5
   },
   {
    "area": "multirow",
@@ -141,8 +141,8 @@
   },
   {
    "area": "pages",
-   "fixtures": 14,
-   "exact": 14
+   "fixtures": 18,
+   "exact": 18
   },
   {
    "area": "parskip",
@@ -156,8 +156,8 @@
   },
   {
    "area": "sections",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 21,
+   "exact": 21
   },
   {
    "area": "setspace",
@@ -181,8 +181,8 @@
   },
   {
    "area": "text",
-   "fixtures": 22,
-   "exact": 22
+   "fixtures": 25,
+   "exact": 25
   },
   {
    "area": "tikz",
@@ -191,8 +191,8 @@
   },
   {
    "area": "title",
-   "fixtures": 10,
-   "exact": 10
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "titlesec",
@@ -206,8 +206,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 16,
-   "exact": 16
+   "fixtures": 19,
+   "exact": 19
   }
  ],
  "fixtures": [
@@ -5155,6 +5155,17 @@
    "issue": "#66"
   },
   {
+   "id": "cleveref/page-counter",
+   "file": "micro/cleveref/page-counter.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 56,
+   "covers": "cleveref's \\label writes \\arabic{page} as it is read: a \\setcounter{page} and a \\pagenumbering later on the same page do not change it, one before it does",
+   "issue": "#336"
+  },
+  {
    "id": "cleveref/roman-pages",
    "file": "micro/cleveref/roman-pages.tex",
    "area": "cleveref",
@@ -5263,6 +5274,17 @@
    "glyphs": 102,
    "covers": "\\label in LaTeX's equation: the \\newlabel write stays where it stands in the formula",
    "issue": "#30"
+  },
+  {
+   "id": "display/leaders-before-display",
+   "file": "micro/display/leaders-before-display.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 104,
+   "covers": "\\predisplaysize (§ 1146) with leaders in the line before the display: visible material, so a stretched \\hrulefill or \\dotfill makes it max_dimen (\\abovedisplayskip), unstretched leaders count their width",
+   "issue": "#336"
   },
   {
    "id": "fancyhdr/custom",
@@ -6807,6 +6829,17 @@
    "covers": "\\sqrt (\\radical\"270370, make_radical § 737): the nucleus cramped, the clearance (text and display styles), the radical sign's variants as the content grows (cmsy, then cmex's larger signs and the extensible one), its extra depth halved into the clearance, the overbar; in scripts and fractions"
   },
   {
+   "id": "minipage/aligned",
+   "file": "micro/minipage/aligned.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 182,
+   "covers": "\\raggedleft and \\raggedright in a minipage with \\\\ (\\@centercr: \\unskip\\par, \\addvspace{-\\parskip}, \\\\* and \\\\[skip]), a trailing \\\\ (its skip taken by \\endminipage's \\unskip), minipages with a height and an inner position",
+   "issue": "#336"
+  },
+  {
    "id": "minipage/captions",
    "file": "micro/minipage/captions.tex",
    "area": "minipage",
@@ -7110,6 +7143,50 @@
    "issue": "#115"
   },
   {
+   "id": "pages/myheadings-book",
+   "file": "micro/pages/myheadings-book.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 87,
+   "covers": "\\pagestyle{myheadings} in book, after its \\ps@headings: \\chaptermark and \\sectionmark \\@gobble, the heads from \\markboth alone",
+   "issue": "#336"
+  },
+  {
+   "id": "pages/myheadings",
+   "file": "micro/pages/myheadings.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 148,
+   "covers": "\\pagestyle{myheadings} (\\ps@headings's heads, no marks from the headings) with \\markboth and \\markright in vertical mode, after a heading (\\nobreak), two-sided",
+   "issue": "#336"
+  },
+  {
+   "id": "pages/page-breaks",
+   "file": "micro/pages/page-breaks.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1045,
+   "covers": "\\pagebreak and \\nopagebreak after a list (its \\@doendpe still pending) and after \\\\ under \\centering (vertical mode); \\newpage between paragraphs, after a run-in heading (its \\leavevmode), in a titlepage, in a paragraph (its \\par first, the text after it a new paragraph), after a heading (\\@nobreakfalse\\everypar{}) and after a list (\\@doendpe's \\par); \\clearpage with a float waiting; \\pagebreak and \\nopagebreak[n] in vertical mode (\\penalty\\@getpen) and in a paragraph (\\vadjust, \\@esphack after a space)",
+   "issue": "#336"
+  },
+  {
+   "id": "pages/page-numbering",
+   "file": "micro/pages/page-numbering.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 159,
+   "covers": "\\thispagestyle{empty} and {plain} in vertical mode, \\pagenumbering{roman} and {arabic} mid-document (\\global\\c@page\\@ne), \\setcounter{page}{n}, \\cleardoublepage one- and two-sided",
+   "issue": "#336"
+  },
+  {
    "id": "parskip/parskip-12pt",
    "file": "micro/parskip/parskip-12pt.tex",
    "area": "parskip",
@@ -7356,6 +7433,83 @@
    "covers": "under pdflatex (\\pdfcolorstack for dvips color specials): \\textcolor and {\\color …} with named colors and [rgb], [RGB] (the driver's \\divide), [HTML] (\\rdivide), [gray], [cmyk]"
   },
   {
+   "id": "sections/addcontentsline-hyperref",
+   "file": "micro/sections/addcontentsline-hyperref.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 129,
+   "covers": "\\addcontentsline{toc} with hyperref (its bookmark and the toc line point to \\@currentHref, the starred heading's anchor), report's \\chapter* entries",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/addcontentsline",
+   "file": "micro/sections/addcontentsline.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 138,
+   "covers": "\\addcontentsline{toc}{level}{title} in vertical mode after starred headings (\\protected@write with \\nobreak while \\if@nobreak) and between paragraphs, read back by \\tableofcontents",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/appendix-article",
+   "file": "micro/sections/appendix-article.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 300,
+   "covers": "article's \\appendix (\\par, section and subsection counters zero (a subsection right after it is .1), \\thesection \\@Alph): headings, the toc, \\label and \\ref (the kernel's \\theHsection stays arabic in \\@currentHref), \\pagestyle{headings} marks",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/appendix-book",
+   "file": "micro/sections/appendix-book.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 124,
+   "covers": "book's \\appendix with hyperref: Appendix A, and an unnumbered back-matter chapter after it, whose anchor is of type appendix* (\\Hy@chapapp)",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/appendix-hyperref",
+   "file": "micro/sections/appendix-hyperref.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 139,
+   "covers": "article's \\appendix with hyperref: \\theHsection \\@Alph and the sections' anchors of type appendix (\\Hy@chapapp), \\autoref's \\appendixautorefname, toc links and bookmarks",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/appendix-report-kernel",
+   "file": "micro/sections/appendix-report-kernel.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 117,
+   "covers": "report's \\appendix without hyperref: the kernel's \\theHchapter stays arabic (\\@currentHref chapter.1, figure.1.1, section.1.1, a document counter's ex.1.1 in the \\newlabel writes) while \\thechapter is A",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/appendix-report",
+   "file": "micro/sections/appendix-report.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 365,
+   "covers": "report's \\appendix: \\@chapapp (Appendix A), \\thechapter \\@Alph in the chapter head, its marks, the toc, figures and equations numbered A.1; with hyperref the chapter anchor of type appendix (and a starred chapter's appendix*), figure.A.1, equation.A.1",
+   "issue": "#336"
+  },
+  {
    "id": "sections/chapters-report",
    "file": "micro/sections/chapters-report.tex",
    "area": "sections",
@@ -7387,6 +7541,50 @@
    "glyphs": 67,
    "covers": "\\newlabel values in report: \\@currentlabel (local: lists, equations and floats restore it) and \\@currentHref (global) for a chapter, a section, items four enumerate levels deep (1, 1a, 1(a)i, 1(a)iA), an \\item[x], an equation, \\refstepcounter of a \\newcounter where it stands in a paragraph, a figure, a \\ref in a footnote",
    "issue": "#30"
+  },
+  {
+   "id": "sections/lists-of-figures-article",
+   "file": "micro/sections/lists-of-figures-article.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 527,
+   "covers": "\\listoffigures and \\listoftables in article (\\section*{\\listfigurename}, \\@starttoc: \\l@figure as \\@dottedtocline{1}{1.5em}{2.3em}), read from the .lof and .lot the first run wrote: short captions, pages of floats that moved",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/lists-of-figures-book",
+   "file": "micro/sections/lists-of-figures-book.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 293,
+   "covers": "\\listoftables in book's front matter, the .lot lines in the order they were shipped out (a table before the first chapter, deferred to a page of floats, and the chapter's \\addvspace{10\\p@})",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/lists-of-figures-hyperref",
+   "file": "micro/sections/lists-of-figures-hyperref.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 117,
+   "covers": "\\listoffigures with hyperref: each line's number and title in a link to the float's anchor; an empty \\listoftables (\\@starttoc's \\@nobreakfalse: the paragraph after it keeps its indent)",
+   "issue": "#336"
+  },
+  {
+   "id": "sections/lists-of-figures-report",
+   "file": "micro/sections/lists-of-figures-report.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 310,
+   "covers": "\\listoffigures and \\listoftables in report (\\chapter*, the chapters' \\addvspace{10\\p@} in the .lof and .lot, between lines and at the start), numbers within chapters, \\pagestyle{headings} marks",
+   "issue": "#336"
   },
   {
    "id": "sections/run-in-headings",
@@ -7802,6 +8000,17 @@
    "issue": "#63"
   },
   {
+   "id": "text/boxes-in-text",
+   "file": "micro/text/boxes-in-text.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 264,
+   "covers": "\\mbox, \\makebox[w][pos] (c, l, r, s, \\width), \\fbox and \\framebox[w][pos] (\\@frameb@x: \\fboxrule, \\fboxsep, lowered by the depth), \\raisebox{lift}[h][d], nested and with font changes inside, the space factor after a box",
+   "issue": "#336"
+  },
+  {
    "id": "text/control-space-display",
    "file": "micro/text/control-space-display.tex",
    "area": "text",
@@ -7897,6 +8106,28 @@
    "status": "pass",
    "glyphs": 212,
    "covers": "glyph runs, ligatures (fi, ff), kerning, interword glue, paragraph indent, line breaking"
+  },
+  {
+   "id": "text/parbox",
+   "file": "micro/text/parbox.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 302,
+   "covers": "e-TeX's \\dimexpr in lengths (+, -, *, /, parentheses, rounding halves away from zero, \\relax); \\parbox[pos][height][inner]{width}{text} (\\@iiiparbox: \\vcenter, \\vtop, \\vbox, to a height with the inner position's \\vss), paragraphs in it, \\linewidth its width and \\textwidth the page's, \\centering and \\raggedleft with \\\\ (\\@centercr) in it; \\fbox{\\parbox{…}}",
+   "issue": "#336"
+  },
+  {
+   "id": "text/rules-and-spaces",
+   "file": "micro/text/rules-and-spaces.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 407,
+   "covers": "\\rule[raise]{w}{h} in text (\\leavevmode\\hbox{\\vrule}, lengths in the current font and with \\textwidth, \\linewidth), a paragraph of a rule alone; \\hspace and \\hspace* (\\vrule width0pt\\nobreak\\hskip\\hskip\\z@skip) with glue and \\fill; \\hrulefill and \\dotfill (leaders, \\kern\\z@); \\enspace, \\thinspace",
+   "issue": "#336"
   },
   {
    "id": "text/space-factor",
@@ -8181,6 +8412,39 @@
    "issue": "#309"
   },
   {
+   "id": "title/abstract-report-toc",
+   "file": "micro/title/abstract-report-toc.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 284,
+   "covers": "report's abstract right after \\tableofcontents (the contents' \\@afterheading \\everypar, \\if@nobreak cleared by \\@starttoc, back after the environment's group), and a paragraph right after it",
+   "issue": "#336"
+  },
+  {
+   "id": "title/abstract-report-twoside",
+   "file": "micro/title/abstract-report-twoside.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "report's abstract two-sided after \\maketitle (its \\setcounter{page}\\@ne at the start, none at its end), its text starting after a blank line (indented), a size group ending its paragraph in it",
+   "issue": "#336"
+  },
+  {
+   "id": "title/abstract-report",
+   "file": "micro/title/abstract-report.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 251,
+   "covers": "report's abstract on a title page of its own (\\titlepage, \\null\\vfil, \\@beginparpenalty\\@lowpenalty, a bold centered \\abstractname with \\@endparpenalty\\@M, the text after the center's \\@doendpe, \\par\\vfil\\null\\endtitlepage, \\setcounter{page}\\@ne one-sided)",
+   "issue": "#336"
+  },
+  {
    "id": "title/maketitle-authors",
    "file": "micro/title/maketitle-authors.tex",
    "area": "title",
@@ -8407,6 +8671,28 @@
    "issue": "#329"
   },
   {
+   "id": "xcolor/colorbox",
+   "file": "micro/xcolor/colorbox.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 128,
+   "covers": "xcolor's \\colorbox[model]{bg}{text} (\\color@b@x: the text in the current color, \\fboxsep around, \\color@block's \\rlap{\\vrule}) and \\fcolorbox[model]{frame}{bg}{text} (\\XC@frameb@x and \\boxframe), in a paragraph, in color, around a \\parbox",
+   "issue": "#336"
+  },
+  {
+   "id": "xcolor/definecolor-rgb",
+   "file": "micro/xcolor/definecolor-rgb.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 30,
+   "covers": "\\definecolor in RGB converted to rgb by xcolor (\\XC@cnv@RGB: \\rdivide, five digits rounded by the sixth: 30/255 is 0.11766), next to a raw \\textcolor[RGB], which the dvips driver divides, truncating (0.11765)",
+   "issue": "#336"
+  },
+  {
    "id": "xcolor/definecolor",
    "file": "micro/xcolor/definecolor.tex",
    "area": "xcolor",
@@ -8415,6 +8701,17 @@
    "status": "pass",
    "glyphs": 10,
    "covers": "\\definecolor in rgb, gray, HTML, cmyk and RGB (values as \\XC@calcN keeps them)"
+  },
+  {
+   "id": "xcolor/fbox-xcolor",
+   "file": "micro/xcolor/fbox-xcolor.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 83,
+   "covers": "\\fbox and \\framebox[w][pos] with xcolor loaded: its \\XC@frameb@x (kerns inside, \\boxframe drawn over the box) in place of the kernel's \\@frameb@x, in small caps and in color",
+   "issue": "#336"
   },
   {
    "id": "xcolor/group-start",
