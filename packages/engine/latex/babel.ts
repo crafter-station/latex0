@@ -3,7 +3,8 @@
 // (\date<lang>), its patterns (\language, \l@<lang> of TeX Live's language.dat) and \lefthyphenmin and
 // \righthyphenmin (\<lang>hyphenmins), and its extras (\extras<lang>: \frenchspacing). Each language is
 // what its .ldf says (babel-english's english.ldf, babel-spanish's spanish.ldf with its defaults: what
-// spanish.ts models); options and languages not modeled throw Unsupported.
+// spanish.ts models, babel-portuges's portuges.ldf, babel-french's french3.ldf: french.ts); options and languages not
+// modeled throw Unsupported. babel's commands select other languages loaded (#338): babelState.
 
 import type { ClassOptionData } from "../layout/classdata"
 import { Unsupported } from "./unsupported"
@@ -39,6 +40,8 @@ interface LanguageDef {
   number: number
   /** \extras<lang> selects \frenchspacing */
   frenchspacing?: boolean
+  /** \extras<lang> changes \lccode (which hyphenation reads at the paragraph's end) */
+  lc?: Record<number, number>
 }
 
 /** english.ldf's dates: US (english, american, USenglish, canadian), UK (british, UKenglish), AU (australian, newzealand) */
@@ -70,6 +73,18 @@ const PORTUGUESE_MONTHS = ["janeiro", "fevereiro", "mar\\c{c}o", "abril", "maio"
 /** portuges.ldf's \today: \number\day\space de\space <month>\space de\space\number\year */
 const ptDate = (d: Date) => `${d.getUTCDate()} de ${PORTUGUESE_MONTHS[d.getUTCMonth()]} de ${d.getUTCFullYear()}`
 
+/** french3.ldf's \captionsfrench for pdfTeX (the block without unicode); \partname is \FB@partname (not modeled) */
+const frenchCaptions: Captions = {
+  refname: "R\\'ef\\'erences", abstractname: "R\\'esum\\'e", bibname: "Bibliographie", chaptername: "Chapitre", appendixname: "Annexe",
+  contentsname: "Table des mati\\`eres", listfigurename: "Table des figures", listtablename: "Liste des tableaux", indexname: "Index",
+  figurename: "Figure", tablename: "Table", partname: "Partie", enclname: "P.~J. ", ccname: "Copie \\`a ", headtoname: "", pagename: "page",
+  proofname: "D\\'emonstration",
+}
+const FRENCH_MONTHS = ["janvier", "f\\'evrier", "mars", "avril", "mai", "juin", "juillet", "ao\\^ut", "septembre", "octobre", "novembre", "d\\'ecembre"]
+/** french3.ldf's \today, \FB@date: {\number\day}\ifnum1=\day{\ier}\fi\FBdatespace month\FBdatespace\number\year (\ier:
+ *  \up{er}\xspace, \xspace \relax; \FBdatespace \space) */
+const frDate = (d: Date) => `${d.getUTCDate()}${d.getUTCDate() === 1 ? "\\up{er}" : ""} ${FRENCH_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+
 /** each option's language: english is TeX Live's language 0 (hyphen.tex), british and its dialects ukenglish's */
 const LANGUAGES: Record<string, LanguageDef> = {
   english: { captions: LATEX_CAPTIONS, today: usDate, patterns: "en-us", hyphenmins: [2, 3], number: 0 },
@@ -85,6 +100,7 @@ const LANGUAGES: Record<string, LanguageDef> = {
   portuges: { captions: portugueseCaptions(false), today: ptDate, patterns: "pt", hyphenmins: [2, 3], number: 9 },
   brazil: { captions: portugueseCaptions(true), today: ptDate, patterns: "pt", hyphenmins: [2, 3], number: 9 },
   brazilian: { captions: portugueseCaptions(true), today: ptDate, patterns: "pt", hyphenmins: [2, 3], number: 9 },
+  french: { captions: frenchCaptions, today: frDate, patterns: "fr", hyphenmins: [2, 3], number: 5, frenchspacing: true, lc: { 39: 39 } },
 }
 
 /** the languages babel loaded, the main one (the last), and those the class's options gave (global: hyperref and
@@ -200,6 +216,9 @@ export function babelSelect(lang: string): void {
 
 /** the language selected's captions (\captions<lang>; `chapters`: the class has \chapter) */
 export const languageCaptions = (lang: string, chapters: boolean): Captions => captions({ languages: [lang], main: lang, global: [] }, chapters)
+
+/** the \lccode changes of a language's extras */
+export const languageLc = (lang: string): Record<number, number> | undefined => LANGUAGES[lang]?.lc
 
 /** the hyphenation of a language: its patterns, \l@<lang>, its hyphenmins (none: the class's, English) */
 export function languageHyphenation(lang: string): { patterns: string; number: number; lhm: number; rhm: number } | null {

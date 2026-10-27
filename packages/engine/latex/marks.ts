@@ -10,6 +10,7 @@ import { ACCENT_COMMAND, appendText, sourceText } from "./encodings"
 import { glue, penalty, type Node } from "../layout/nodes"
 import type { Shipped } from "./output"
 import { Unsupported } from "./unsupported"
+import { frenchTextGuard } from "./french"
 
 /** A mark's value: what \marks holds (`print`), and what \leftmark or \rightmark typesets (\MakeUppercase'd when `upper`) */
 export interface MarkValue { print: string; parts: ({ text: string } | { ctrl: true } | { quad: true })[]; upper: boolean }
@@ -85,6 +86,7 @@ export function pageMarks(pages: Shipped[]): { left: MarkValue | undefined; righ
 export function markText(m: MarkValue | undefined, font: Font): Node[] {
   const out: Node[] = [], state = { spaceFactor: 1000 }
   for (const p of m?.parts ?? []) {
+    if ("text" in p) frenchTextGuard(p.text, true)
     if ("text" in p) appendText(out, m!.upper ? sourceText(p.text).toUpperCase() : sourceText(p.text), font, state, false)
     else if ("ctrl" in p) out.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], 0, font.params[SPACE_SHRINK], 0)) // \
     else out.push(glue(font.params[QUAD])) // \hskip 1em

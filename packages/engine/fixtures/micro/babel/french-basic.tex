@@ -1,0 +1,18 @@
+% fixture: babel/french-basic
+% tier: T3
+% engine: document
+% covers: babel's french (french.ldf through french3.ldf for pdfTeX) as the main language, in T1: its captions (Table des mati\`eres), \today (1\up{er} janvier, \fup's scaled superscript), the fr patterns (hyphenmins 2 3, the apostrophe a letter), \frenchspacing, the high punctuation (; ! ? with a thin space, : with a space, after a space or not), \og and \fg, \up, and none of it in \texttt or math
+% issue: #338
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\title{Un titre}
+\author{Auteur}
+\begin{document}
+\maketitle
+\tableofcontents
+\section{Introduction}
+La théorie de l'information étudie la quantification, le stockage et la communication de l'information numérique. Elle fut établie par Claude Shannon ; c'est-à-dire : en 1948! Vraiment ? Oui !
+Les \og guillemets\fg{} et \og autres \fg. Le 2\up{e} siècle, M\up{me} Dupont. Le code \texttt{a;b:c!d?} et $x;y:z$.
+L'établissement de l'information transformationnelle n'existe qu'aujourd'hui dans l'administration internationale.
+\end{document}

@@ -119,7 +119,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   spanishLayout.on = isSpanish(pre.babel)
 
   const v = new VerticalList(run.k)
-  v.alwaysIndent = isSpanish(pre.babel) // (spanish.ldf's layout: \@afterindentfalse is \@afterindenttrue)
+  // (spanish.ldf's layout, french.ldf's \bbl@frenchindent: \@afterindentfalse is \@afterindenttrue)
+  v.alwaysIndent = isSpanish(pre.babel) || pre.babel?.main === "french"
   // a color package: xcolor, or the color package siunitx or hyperref's colorlinks loads at \begin{document} (its
   // default color named Black)
   const colorlinks = hyper && pre.hyperOpts.colorlinks
@@ -247,6 +248,9 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   })()
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
+  // (french.ldf with hyperref, natbib, cleveref, caption.sty, TikZ or in a letter: its names, active punctuation and layout there
+  // are not modeled)
+  if (pre.babel?.languages.includes("french") && (hyper || pre.natbib || pre.cleveref || pre.usesCaption || pre.tikz || cls === "letter")) throw new Unsupported(`french.ldf with ${hyper ? "hyperref" : pre.natbib ? "natbib" : pre.cleveref ? "cleveref" : pre.usesCaption ? "caption.sty" : pre.tikz ? "TikZ" : "the letter class"}`)
   const counters = new Counters(cls, newCounters, () => doc.footnote)
   // (cleveref's language options among the class's, with babel: its brazilian not modeled; its english and spanish also
   // \crefname in babel's \extras<lang>, over the preamble's)

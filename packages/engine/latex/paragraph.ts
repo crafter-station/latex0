@@ -31,7 +31,8 @@ import type { LayoutResult } from "./result"
 import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefLanguage, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
-import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, type Babel, type BabelCommand } from "./babel"
+import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
+import { frenchMarkSpace, frenchNoteStart, frenchNumero, frenchPunctuation, frenchQuote, frenchUp } from "./french"
 import { babelGuillemet, isPortuguese, portugueseHyphen, portugueseShorthand } from "./portuguese"
 import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand, spanishText } from "./spanish"
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
@@ -293,6 +294,8 @@ type Piece =
   | { kind: "babelskip" } | { kind: "babelhyphen" }
   /** \TeX, \LaTeX, \LaTeXe (textsymbols.ts) */
   | { kind: "logo"; name: string }
+  /** french.ldf's active ; : ! ?, \og and \fg, \up{text} (and \ier …), \no (\No, \nos, \Nos) */
+  | { kind: "frpunct"; ch: string } | { kind: "frquote"; right: boolean } | { kind: "frup"; text: string } | { kind: "frno"; cmd: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string }
   /** babel: \selectlanguage{lang}, \begin{otherlanguage}{lang} and its \end (`other`, `endother`), otherlanguage*'s
@@ -505,6 +508,10 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
         i = j; continue
       }
     }
+    if (lang.name === "french" && ";:!?".includes(body[i])) { // (french.ldf's active punctuation)
+      if (body[i + 1] === "`") throw new Unsupported(`french's ${body[i]}\``) // (the ligature of ?` and !`)
+      flushText(); out.push({ kind: "frpunct", ch: body[i] }); i++; continue
+    }
     if (isPortuguese(lang.name) && body[i] === '"') { flushText(); out.push(portugueseShorthand(body.slice(i, i + 2))); i += 2; continue } // (portuges.ldf's)
     if (body[i] === "\\" && body[i + 1] !== undefined && "#%&".includes(body[i + 1])) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
@@ -632,6 +639,20 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       if (what.startsWith("end")) lang.name = lang.stack.pop() ?? lang.name
       else { if (what !== "select") lang.stack.push(lang.name); lang.name = sel[2] }
       flushText(); out.push({ kind: "babel", what, lang: sel[2] ?? sel[4] }); i += sel[0].length; continue
+    }
+    // french.ldf's \og and \fg, \up (\fup, \up*), \ier and the like, \no and the like
+    const fr = body.slice(i).match(/^\\(og|fg|ier|iere|iers|ieres|ieme|iemes|no|No|nos|Nos)(?![A-Za-z])\s*|^\\f?up\*?\s*\{([^{}]*)\}/)
+    if (fr) {
+      if (!babelState.b?.languages.includes("french")) throw new Unsupported(`${fr[0].trim()} without babel's french`)
+      i += fr[0].length
+      // (outside french: \og is \textquotedblleft, a character of the run; \fg \unskip's a space, then \textquotedblright
+      // and \xspace, \relax: the run ends there)
+      if (fr[1] === "og" && lang.name !== "french") { text += "“"; continue }
+      if (fr[1] === "fg" && lang.name !== "french") { text = text.replace(/ +$/, "") + "”"; flushText(); continue }
+      flushText()
+      const sup: Record<string, string> = { ier: "er", iere: "re", iers: "ers", ieres: "res", ieme: "e", iemes: "es" }
+      out.push(fr[1] === "og" || fr[1] === "fg" ? { kind: "frquote", right: fr[1] === "fg" } : fr[1] === undefined ? { kind: "frup", text: fr[2] } : fr[1] in sup ? { kind: "frup", text: sup[fr[1]] } : { kind: "frno", cmd: fr[1] })
+      continue
     }
     const fgn = body.slice(i).match(/^\\foreignlanguage\s*\{([A-Za-z]+)\}\s*\{/)
     if (fgn) {
@@ -875,7 +896,10 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
   const lang0 = languageHyphenation(babelState.lang)
   const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
-  const list: Node[] = [markBox, strut]
+  // (french.ldf's footnotes, but for \maketitle's \thanks: its own \@makefntext)
+  const french = !mark && babelState.b?.main === "french"
+  if (french && hn) throw new Unsupported("french.ldf's footnotes with hyperref")
+  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut] : [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
   const from = list.length, languages: LanguageMark[] = []
   appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
@@ -907,6 +931,7 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>, lang
     hyphenator: hyphenator(lang?.patterns ?? k.patterns),
     fontOf: (name, size) => (name === font.name && size === font.size ? font : fontAt(name, size)),
     lHyf: lang?.lhm ?? k.ints.lefthyphenmin, rHyf: lang?.rhm ?? k.ints.righthyphenmin, ucHyph: k.ints.uchyph, patterns: hyphenator,
+    ...(languageLc(babelState.lang) ? { lc: languageLc(babelState.lang) } : {}), // (the extras in force at the paragraph's end)
   }
 }
 
@@ -1124,6 +1149,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push(...(spanishLayout.on ? spanishGuillemet(p.right, attrs.enc, k, size, font, state) : babelGuillemet(p.right, attrs.enc, k, size, font, state, !!ctx.amsmath)))
     }
     else if (p.kind === "babelskip") list.push(glue(0))
+    else if (p.kind === "frpunct") frenchPunctuation(list, p.ch, font, state, attrs.fam === "cmtt", !ctx.restricted)
+    else if (p.kind === "frquote") frenchQuote(list, p.right, attrs.enc, k, size, font, state, !!ctx.amsmath)
+    else if (p.kind === "frup") list.push(...frenchUp(p.text, attrs.enc, attrs.fam, attrs.ser, attrs.shape, font, state))
+    else if (p.kind === "frno") list.push(...frenchNumero(p.cmd, attrs.enc, attrs.fam, attrs.ser, attrs.shape, font, state, !ctx.restricted))
     else if (p.kind === "babelhyphen") list.push(...portugueseHyphen(font, state, !ctx.restricted))
     else if (p.kind === "babel" || p.kind === "foreign") {
       // (\language and the hyphenmins change: the next character marks it, in a paragraph)
@@ -1464,6 +1493,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // \@fnsymbol\c@footnote}}, the space factor kept); the text waits for \@thanks
       if (!doc.thanks) throw new Unsupported("\\thanks outside \\maketitle")
       const n = ++doc.footnote
+      if (babelState.b?.main === "french") frenchMarkSpace(list, font)
       list.push(penalty(10000), hpack([...fnsymbolMark(n, k, size, ctx.amsmath), ssGlue()], { exactly: 0 }))
       doc.thanks.push({ n, src: p.src })
     } else {
@@ -1472,6 +1502,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // hyperref: the mark in a link to the note's anchor (\hyper@linkstart{link}{Hfootnote.n} … \hyper@linkend)
       const hn = doc.refs?.hyper ? (doc.refs.hfootnotes = (doc.refs.hfootnotes ?? 0) + 1) : 0
       const mark = footnoteMark(n, k, size, ctx.amsmath)
+      if (babelState.b?.main === "french") frenchMarkSpace(list, font)
       list.push(penalty(10000), ...(hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : [mark]))
       const { ins, trace } = footnoteInsert(p.src, n, ctx, hn)
       list.push(ins)

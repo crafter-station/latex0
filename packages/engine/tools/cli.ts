@@ -4,7 +4,7 @@
 //   bun engine codegen [--check]                       regenerate committed font metrics (#42)
 //   bun engine decisions <fixture.tex>                 TeX line-break and page-break decisions (#28)
 //   bun engine search:badness 12,13                    ask TeX for paragraphs hitting given badness values; write fixtures
-//   bun engine hyphen:check [--words N] [--lang id]    engine hyphenation vs TeX \\showhyphens (#113; en-us, en-gb, es, pt)
+//   bun engine hyphen:check [--words N] [--lang id]    engine hyphenation vs TeX \\showhyphens (#113; en-us, en-gb, es, pt, fr)
 //   bun engine fuzz:paragraphs [--n 200] [--seed 1]    random paragraphs: engine line breaks vs TeX's decisions (#112)
 //   bun engine dimen:check [--n 5000] [--seed 1]       numbers, dimensions and glue: engine scanner vs TeX (#52)
 //   bun engine scorecard [--check] [--base f] [--markdown out.md]   fixture scorecard; CI gate and PR comment (#37)
@@ -99,6 +99,7 @@ function ci(): number {
     ["hyphen:check", "--lang", "en-gb", "--words", "5000"],
     ["hyphen:check", "--lang", "es", "--words", "5000"],
     ["hyphen:check", "--lang", "pt", "--words", "5000"],
+    ["hyphen:check", "--lang", "fr", "--words", "5000"],
   ]
   const summary: string[] = []
   for (const step of steps) {

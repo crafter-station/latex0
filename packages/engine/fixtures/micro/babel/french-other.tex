@@ -1,0 +1,22 @@
+% fixture: babel/french-other
+% tier: T3
+% engine: document
+% covers: french selected in an english document at 12pt (no french layout: english lists, footnotes and captions): its punctuation, \og and \fg with \FBguillspace, \up in bold, italic and \footnotesize (eccc and size substitution: ecbx0800, ecti0800, ecrm0500), the fr patterns and the apostrophe a letter in a french paragraph, \frenchspacing only there
+% issue: #338
+\documentclass[12pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[french,english]{babel}
+\begin{document}
+English text. Sentences end here: yes; no! Really?
+\begin{otherlanguage}{french}
+Texte en français. Les phrases finissent ici : oui ; non ! Vraiment ? L'établissement de l'information transformationnelle n'existe qu'aujourd'hui dans l'administration internationale des télécommunications.
+\textbf{Le 2\up{e}} et \textit{le 3\up{e}} et {\footnotesize le 4\up{e}}, \og citation\fg.
+\begin{itemize}
+\item Un élément.
+\end{itemize}
+\end{otherlanguage}
+Back: \foreignlanguage{french}{oui !} and \og quotes\fg.\footnote{A note.}
+\begin{figure}[h]
+\caption{A figure}
+\end{figure}
+\end{document}

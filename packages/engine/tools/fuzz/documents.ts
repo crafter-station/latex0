@@ -6,7 +6,8 @@
 // blank line, displays (numbered equations, amsmath's too), figures and tables
 // of any height and placement (here, top, bottom, float pages) with tabulars in
 // them, \label in both, babel (english, british, american, portuguese, brazil, spanish: Spanish words with accents typed and in UTF-8,
-// its shorthands << >> "< "> "u and \%, decimals and operators in math; a second language that \foreignlanguage, \selectlanguage
+// its shorthands << >> "< "> "u and \%, decimals and operators in math; french: French words, its punctuation, \og, \fg
+// and \up; a second language that \foreignlanguage, \selectlanguage
 // and otherlanguage select) — each compared with TeX as a fixture is:
 // every glyph, every line and page decision, every page's box tree.
 //
@@ -28,6 +29,10 @@ paragraphs hyphenation algorithm demerits badness tolerance Knuth Plass Paris Lo
 const ES_ASCII = `la de el y en los que una para con por del se las como estudio datos resultados metodo nuevo grande siempre
 entre sobre desde hasta durante tiempo forma parte manera trabajo sistema proceso valor punto caso problema Madrid Lima.
 cuarenta transformaciones establecida almacenamiento comunicaciones Bien! Claro?`.split(/\s+/)
+/** French words for babel's french (with accents in UTF-8, elided articles) */
+const FR_WORDS = `le la les de des du un une et en est que qui dans pour par sur avec plus tout comme mais nous vous ils elles
+étude résultats méthode théorie système première données réseau élevé été très déjà où là être après problème l'information
+d'abord qu'il aujourd'hui l'établissement transformationnelle communications Paris. Lyon. Oui! Vraiment?`.split(/\s+/)
 const ES_WORDS = [...ES_ASCII, ..."información teoría comunicación año niño también más está según qué él sí pingüino español acción último análisis método investigación transformación electrónica Pérez Índice ¿Qué? ¡Sí! canción".split(" ")]
 /** Spanish words with accents typed as commands (text only: headings and captions take none) */
 const ES_TYPED = ["\\'arbol", "ma\\~nana", "ca\\'{\\i}da", "acci\\'on", "\\'Unico", "ping\\\"uino", "pa\\'{\\i}s"]
@@ -46,11 +51,11 @@ function rng(seed: number) {
 export function makeDocument(r: () => number): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   // babel's spanish: Spanish words in the body (ASCII ones with hyperref)
-  let es = false, esAscii = false
+  let es = false, esAscii = false, fr = false
   // babel's second language, which \foreignlanguage selects in text, and \selectlanguage and otherlanguage between
   // paragraphs (`switches`)
   let other: string | null = null, switches = false, babelMain: string | null = null
-  const words = (n: number) => Array.from({ length: n }, () => pick(es ? esAscii ? ES_ASCII : ES_WORDS : WORDS)).join(" ")
+  const words = (n: number) => Array.from({ length: n }, () => pick(fr ? FR_WORDS : es ? esAscii ? ES_ASCII : ES_WORDS : WORDS)).join(" ")
   // algpseudocode: statements, conditions and nested blocks, a procedure around them sometimes
   const algorithmic = (): string[] => {
     const lines: string[] = []
@@ -261,6 +266,8 @@ export function makeDocument(r: () => number): string {
       if (siOn && r() < 0.03) ws[i] += pick([" ", " ", "~"]) + si()
       if (subOn && r() < 0.004) ws[i] += ` \\subref{${pick(["figure", "table"])}:${20 + Math.floor(r() * 40)}${pick(["a", "b", "c"])}}`
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
+      // french's punctuation (its spaces), \og and \fg, \up
+      if (fr && r() < 0.03) ws[i] = pick([`${ws[i]} ;`, `${ws[i]};`, `${ws[i]} :`, `${ws[i]} !`, `${ws[i]}?`, `\\og ${ws[i]}\\fg{}`, `\\og ${ws[i]} \\fg,`, `${ws[i]} 2\\up{e}`, `${ws[i]} \\No 3`, `${ws[i]} 1\\ier`])
       if (other && r() < 0.01) ws[i] += ` \\foreignlanguage{${pick([other, babelMain!])}}{${words(1 + Math.floor(r() * 6))}}`
       if (es && !esAscii && r() < 0.03) ws[i] = pick([`<<${ws[i]}>>`, `"<${ws[i]}">`, `${ws[i]} 50\\%`, `ping"uino ${ws[i]}`, `"U${ws[i]}`, `${pick(ES_TYPED)} ${ws[i]}`])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
@@ -549,10 +556,12 @@ export function makeDocument(r: () => number): string {
     thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
   // babel, its option or the class's (not with siunitx or titlesec in spanish: not modeled; nor TikZ, whose arrows are a TeX error with its active < and >; nor in letters)
-  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(siOn || tsOn || tikzOn ? [] : ["spanish", "spanish", "spanish"])]) : null
+  // (french: not with hyperref, natbib, caption.sty or TikZ, nor cleveref: not modeled there)
+  const frOk = !hyper && !natOn && !capOn && !tikzOn
+  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(siOn || tsOn || tikzOn ? [] : ["spanish", "spanish", "spanish"]), ...(frOk ? ["french", "french"] : [])]) : null
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
   // (after hyperref; its options sometimes, and \crefname: not with cleveref's spanish, which redefines them)
-  crefOn = !nrOn && !isLetter && r() < 0.2
+  crefOn = !nrOn && !isLetter && lang !== "french" && r() < 0.2
   if (crefOn) {
     const opts = pick(["", "", "", "[capitalise]", "[noabbrev]", "[nameinlink]", "[nosort]", "[compress]", "[sort]", "[capitalise,noabbrev]"])
     const at = out.indexOf("\\usepackage{amsthm}")
@@ -561,13 +570,13 @@ export function makeDocument(r: () => number): string {
   }
   if (lang) {
     // (not with cleveref or hyperref, whose names are the language's own, nor caption.sty or fancyhdr: not modeled there)
-    other = r() < 0.4 ? pick(["english", "british", "portuguese", "brazil"].filter((l) => l !== lang)) : null
+    other = r() < 0.4 ? pick(["english", "british", "portuguese", "brazil", ...(frOk && !crefOn ? ["french"] : [])].filter((l) => l !== lang)) : null
     switches = !!other && !crefOn && !hyper && !capOn && !out.includes("\\usepackage{fancyhdr}")
     babelMain = lang
     const langs = other ? `${other},${lang}` : lang
     if (r() < 0.25) { out[0] = out[0].replace(/^\\documentclass(?:\[([^\]]*)\])?/, (_, o: string | undefined) => `\\documentclass[${o ? `${o},` : ""}${langs}]`); out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{babel}") }
     else out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage[${langs}]{babel}`)
-    es = lang === "spanish"; esAscii = hyper
+    es = lang === "spanish"; esAscii = hyper; fr = lang === "french"
   }
   if (fontPkg) out.splice(1, 0, fontPkg)
   // parskip.sty (not with titlesec or theorems yet), first in the preamble
