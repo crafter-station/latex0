@@ -1,0 +1,16 @@
+% fixture: array/size-pbox
+% tier: T3
+% engine: document
+% covers: a size in >{decl} of p, m and b columns: \insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\@endpbox's \par): the entry's lines at its \baselineskip; with \bfseries, after \centering\arraybackslash, an empty entry, a row ended by \\[skip]
+% issue: #277
+\documentclass{article}
+\usepackage{array}
+\begin{document}
+\begin{tabular}{|>{\small}p{2cm}|>{\footnotesize\bfseries}m{25mm}|>{\centering\arraybackslash\small}b{2cm}|l|}
+\hline
+some words that run over more than one line here & and more words in a smaller bold font here & centred small words in a box & x \\
+\hline
+short & & a & y \\[3pt]
+\hline
+\end{tabular}
+\end{document}

@@ -168,7 +168,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
       const shape = array?.shape === "centering" ? centeringShape() : array?.shape === "raggedright" ? raggedright() : array?.shape === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph }
       let p: ReturnType<typeof paragraphInput>
       try {
-        p = paragraphInput(text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start, amsmath, groups: true, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, ...shape, unskip: 1, end })
+        p = paragraphInput(text, run.k, array?.size ?? size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start, amsmath, groups: true, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, ...shape, unskip: 1, end })
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
         throw e
@@ -177,7 +177,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
       outer.notes.push(...p.notes, lb.trace)
       let pd: number | null = IGNORE_DEPTH
       for (const n of lb.vlist) {
-        if (n.kind === "hlist") pd = appendToVlist(list, n, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
+        if (n.kind === "hlist") pd = appendToVlist(list, n, pd, array?.size ? run.k.sizes[array.size].baselineskip : sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
         else list.push(n)
       }
       return !array || array.kind === "p" ? vtop(list) : vpack(list)
