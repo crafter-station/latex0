@@ -177,6 +177,14 @@ const FIXED = [
   pic("\\draw[line cap=round,line join=bevel,line width=3pt] (0,0) -- (1,1) -- (2,0); \\draw[line cap=rect,line join=miter,miter limit=4] (0,1) -- (1,2) -- (2,1);"),
   pic("\\fill[red,opacity=0.5] (0,0) circle (1); \\filldraw[fill=blue,fill opacity=0.3,draw opacity=0.7] (0,0) rectangle (1,1); \\fill[semitransparent,green] (2,0) circle (1); \\node[draw,fill=red,fill opacity=0.2] at (3,0) {x};"),
   pic("\\draw (0,0) -- (1,1);", "[nearly transparent]"),
+  // plots, marks, ellipses
+  pic("\\draw plot coordinates {(0,0) (1,1) (2,0.5) (3,1.5)}; \\draw (0,0) -- plot coordinates {(1,1) (2,0.5)} -- (3,0); \\draw[domain=0:2,samples=10] plot (\\x,{\\x*\\x/2});"),
+  pic("\\draw[red,thick,domain=-1:1] plot (\\x,{sin(\\x r)}); \\draw plot[domain=0:360,samples=37] ({cos(\\x)},{sin(\\x)}) -- cycle; \\draw[variable=\\t,domain=0:1,samples=5] plot (\\t,{exp(\\t)}) node[right] {e};"),
+  pic("\\draw plot[samples at={0,0.5,...,2}] (\\x,\\x/2); \\draw plot[mark=*] coordinates {(0,0) (1,1) (2,0.5)}; \\draw[blue] plot[mark=x,mark size=3pt] coordinates {(0,0) (1,1)} -- (2,0) plot[mark=+,only marks] coordinates {(3,0) (3,1)};"),
+  pic("\\draw[domain=0:2,samples=5,mark=o,mark options={red,scale=1.5}] plot (\\x,{\\x*\\x/2}); \\draw[mark=*] plot coordinates {(0,0) (1,1)} node[above] {n};"),
+  pic("\\node[ellipse,draw] {Ellipse text}; \\node[ellipse,draw,fill=red!20,minimum height=1cm] (a) at (0,-1) {A}; \\node[ellipse,draw] (b) at (3,1) {Bb}; \\draw[->] (a) -- (b);"),
+  pic("\\node[ellipse,draw] (a) {A}; \\node[ellipse,draw] (b) at (3,1) {Bb}; \\draw (a.north) -- (b.south west) (a.east) -- (b.mid west) (a.base east) -- (b.30) (a.north east) |- (b.south) (a.west) -- (a.south east) (b.mid east) -- (b.base west) (b.north west) -- (b.east);"),
+  pic("\\node[ellipse,draw,inner sep=1pt,outer sep=2pt,label=above:l] (e) {$x^2$} edge[bend left,->] +(2,0);"),
   // labels
   pic("\\node[draw,label=x] {A}; \\node[draw,label=right:x,label=below left:{$y$}] at (2,0) {A};"),
   pic("\\node[circle,draw,label={[red,font=\\small]30:lab},label=center:c] at (1,2) {Abc}; \\node[draw,label distance=3pt,label=left:x,label={[label distance=1mm]-45:q}] {A};"),
@@ -187,9 +195,9 @@ const FIXED = [
 
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
 const REFUSED = [
-  pic("\\draw let \\p1=(1,0) in (\\p1) -- (0,0);"), pic("\\node[ellipse] {x};"), pic("\\node[text opacity=0.5] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
+  pic("\\draw let \\p1=(1,0) in (\\p1) -- (0,0);"), pic("\\draw plot[smooth] coordinates {(0,0) (1,1) (2,0)};"), pic("\\draw plot[mark=square] coordinates {(0,0)};"), pic("\\node[diamond] {x};"), pic("\\node[text opacity=0.5] {x};"), pic("\\node[draw,label={[absolute]x}] {A};"),
   pic("\\foreach \\x in \\list \\draw (\\x,0) -- (0,0);"), pic("\\draw (0,0) foreach \\x in {1,2} {-- (\\x,1)};"),
-  pic("\\draw (0,0) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw (0,0) -- (1,{2});"), pic("\\draw[line cap=square] (0,0) -- (1,0);"),
+  pic("\\draw (0,0) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw[line cap=square] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
   pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) parabola (1,1);"), pic("\\draw (0,0) sin (1,1);"), pic("\\draw[step=(1,1)] (0,0) grid (1,1);"),
   pic("\\draw (0,0) edge[loop] ();"),
@@ -244,7 +252,7 @@ export function makePictures(n: number, seed: number): string[] {
     // nodes: their text, options (shape, sizes, colors, placement, a label's position, positioning) and names
     const nodeText = () => pick(["x", "Ab", "$y$", "a b", "", "fi", "Some words, in a line."])
     const nodeOption = () => pick([
-      () => pick(["draw", "fill=red!20", "circle", "rectangle", "inner sep=2pt", "minimum size=5mm", "minimum width=1cm", "outer sep=1pt", "rounded corners", "thick", "red", "text=blue", "draw=mine", "font=\\small", "font=\\bfseries"]),
+      () => pick(["draw", "fill=red!20", "circle", "rectangle", "ellipse", "inner sep=2pt", "minimum size=5mm", "minimum width=1cm", "outer sep=1pt", "rounded corners", "thick", "red", "text=blue", "draw=mine", "font=\\small", "font=\\bfseries"]),
       () => pick(["anchor=north", "anchor=south west", "anchor=30", "above", "below left", "right=2pt", "left=1mm", "above right=3pt and 1pt"]),
       () => pick(["pos=0.3", "near end", "near start", "midway", "at end", "sloped", "auto", "auto,swap", "transform shape"]),
       () => pick(["align=center", "align=left", "align=flush right", "text width=1cm", "text width=15mm,align=center", "node font=\\small", "node font=\\large\\itshape",
@@ -269,6 +277,8 @@ export function makePictures(n: number, seed: number): string[] {
       () => ` grid${r() < 0.3 ? `[step=${pick(["0.5", "3mm", "1"])}]` : ""} (${int(-2, 3)}${pick(["", ".5"])},${int(-2, 3)})`,
       () => ` -- ($${coord()}${pick(["+", "-", "+.5*"])}${coord()}$)`, () => ` -- ($${coord()}!${pick(["0.3", ".5", "1cm", "-0.2"])}!${pick(["", "30:"])}${coord()}$)`,
       () => ` -- ($${coord()}!${coord()}!${coord()}$)`, () => ` -- ([${transform()}]${coord().slice(1)}`,
+      () => ` ${pick(["", "-- "])}plot${pick(["", "[mark=*]", "[mark=x,mark size=1pt]", "[only marks,mark=o]"])} coordinates {${coord()} ${coord()}${r() < 0.5 ? ` ${coord()}` : ""}}`,
+      () => ` ${pick(["", "-- "])}plot[domain=${int(-2, 0)}:${int(1, 3)},samples=${int(2, 9)}${pick(["", ",mark=+"])}] (\\x,{${pick(["\\x*\\x/3", "sin(\\x r)", "0.5*\\x", "exp(\\x/4)"])}})`,
     ])()
     const path = () => {
       names.push(...pending.splice(0))
@@ -301,7 +311,7 @@ export function makePictures(n: number, seed: number): string[] {
 function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   mkdirSync(DIR, { recursive: true })
   const tex = [
-    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta,positioning,calc}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
+    "\\documentclass{article}", "\\usepackage{tikz}", "\\usetikzlibrary{arrows.meta,positioning,calc,shapes.geometric,plotmarks}", ...COLORS.map(([n, m, v]) => `\\definecolor{${n}}{${m}}{${v}}`),
     "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
     // (pgf's globals one picture leaves must not reach the next)
     ...pictures.map((x, i) => `\\immediate\\write16{C:${i}}\\makeatletter\\gdef\\pgfsyssoftpath@lastmoveto{{0pt}{0pt}}\\makeatother\\setbox0\\hbox{${x}}\\showbox0`), "\\end{document}", "",
@@ -337,7 +347,7 @@ const TEXT: TikzText = {
 function tikzDocument(units: PgfUnits): TikzDocument {
   const colors = new Colors()
   for (const [name, model, values] of COLORS) colors.define(name, model, values)
-  return new TikzDocument({ units, colors, arrowsMeta: true, positioning: true, calc: true, text: TEXT })
+  return new TikzDocument({ units, colors, arrowsMeta: true, positioning: true, calc: true, geometric: true, plotmarks: true, text: TEXT })
 }
 
 /** the engine's box for a picture under a target */

@@ -135,6 +135,8 @@ export function readForeach(r: Reader, units: PgfUnits, outer: Map<string, Tok[]
   const list = substitute(group(r, "the list"), outer)
   const body = collectBody(r)
   if (body.includes("\\breakforeach")) throw new Unsupported("pgffor: \\breakforeach")
+  // (a plot's \foreach over the samples defines \x again: the variable's text would not reach it)
+  if (find(body, [..."plot"]) >= 0 && vars.some((v) => body.includes(v))) throw new Unsupported("pgffor: a plot in a loop over its variable")
   const iterations: Map<string, Tok[]>[] = []
   const assign = (value: Tok[]) => {
     const m = new Map<string, Tok[]>()
@@ -152,19 +154,7 @@ export function readForeach(r: Reader, units: PgfUnits, outer: Map<string, Tok[]
     }
     iterations.push(m)
   }
-  // \pgffor@scan (155–158) over `list, \pgffor@stop,`: an item in parentheses up to the comma after them
-  const items = values(list)
-  let last: Tok[] = [], prevlast: Tok[] = []
-  for (let k = 0; k < items.length; k++) {
-    const value = items[k]
-    if (!containsDots(value)) { prevlast = last; last = value; assign(value); continue }
-    // \pgffor@handledots: no context before or after the dots modeled
-    const d = value.join("").indexOf("...")
-    if (str(value).slice(0, d).trim() || str(value).slice(d + 3).trim()) throw new Unsupported("pgffor: a range with context")
-    if (k + 1 >= items.length) throw new Unsupported("pgffor: a range with no end")
-    const end = items[++k]
-    range(last, prevlast, end, units).forEach((v) => assign(v))
-  }
+  for (const v of sampleValues(list, units)) assign(v)
   return { iterations, body }
 }
 
@@ -216,6 +206,24 @@ function values(list: Toks): Tok[][] {
     out.push(arg(t.slice(i, j)))
     i = j + 1
   }
+}
+
+/**
+ * the values a list gives \foreach (\pgffor@scan, 155–158, over `list, \pgffor@stop,`: an item in parentheses up to the
+ * comma after them; \pgffor@handledots for `...`, no context before or after the dots modeled)
+ */
+export function sampleValues(list: Toks, units: PgfUnits): Tok[][] {
+  const items = values(list)
+  const out: Tok[][] = []
+  let last: Tok[] = [], prevlast: Tok[] = []
+  for (let k = 0; k < items.length; k++) {
+    const value = items[k]
+    if (!containsDots(value)) { prevlast = last; last = value; out.push(value); continue }
+    if (str(value).trim() !== "...") throw new Unsupported("pgffor: a range with context")
+    if (k + 1 >= items.length) throw new Unsupported("pgffor: a range with no end")
+    out.push(...range(last, prevlast, items[++k], units))
+  }
+  return out
 }
 
 /** \pgffor@dots@in@: `...` in the value */

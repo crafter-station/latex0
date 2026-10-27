@@ -221,7 +221,7 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
   let nodes = nodeRegistries.get(cx.doc)
   if (!nodes) nodeRegistries.set(cx.doc, (nodes = new Map()))
   const doc = new TikzDocument({
-    units, colors, positioning: tikz.libraries.includes("positioning"), arrowsMeta: tikz.libraries.includes("arrows.meta"), calc: tikz.libraries.includes("calc"),
+    units, colors, positioning: tikz.libraries.includes("positioning"), arrowsMeta: tikz.libraries.includes("arrows.meta"), calc: tikz.libraries.includes("calc"), plotmarks: tikz.libraries.includes("plotmarks"), geometric: tikz.libraries.includes("shapes.geometric"),
     text: { hlist: (text, font) => nodeHlist(text, font, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath), baselines: (font) => nodeBaselines(font, cx.run.k, size),
       units: (font) => nodeUnits(font, cx.run.k, size, cx.doc, attrs),
       minipage: (text, nodeFont, textFont, width, action, before, after) => nodeMinipage(text, nodeFont, textFont, width, action, before, after, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath, outer) }, nodes,

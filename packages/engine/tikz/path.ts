@@ -30,11 +30,12 @@ import type { PgfState } from "../pgf/state"
 import { applyTransform, mul, pgfTransformArcAxesAtTime, pgfTransformCm, pgfTransformCurveAtTime, pgfTransformInvert, pgfTransformReset, transformPoint, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
 import { chars } from "./keys"
 import { alignLines, type AlignLine, type Baselines } from "./text"
-import { readForeach, substitute } from "./foreach"
+import { readForeach, sampleValues, substitute } from "./foreach"
 import { LABEL_RESTORE, LABEL_SAVE, PIN_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
 import { pgfArrowsMeta, pgfSetArrows, shareArrows } from "../pgf/arrows"
 import { pgfPathArc, pgfPathArcAxes } from "../pgf/arcs"
 import { pgfPathGrid } from "../pgf/grid"
+import { pgfUsePathQFillStroke, pgfUsePathQStroke } from "../pgf/quick"
 import { arg, contains, find, groupEnd, isCs, plain, spdef, str, tokenize, type Tok, type Toks } from "./tokens"
 
 /**
@@ -104,13 +105,30 @@ const TO_PATH = "\\tikz@to@path", TO_COMPUTE = "\\pgfextra@tikz@to@compute"
 /** \pgf@stop, which ends the labels \tikz@invoke@collected@onpath scans (2777–2783) */
 const STOP = "\\pgf@stop"
 
-/** the shapes pgf/shapes.ts models */
-const SHAPES = new Set(["coordinate", "rectangle", "circle"])
-
 /** \tikz@polar@dir@<name> (5320–5333) */
 const POLAR_DIRS: Record<string, string> = {
   up: "90", down: "-90", left: "180", right: "0", north: "90", south: "-90", east: "0", west: "180",
   "north east": "45", "north west": "135", "south east": "-45", "south west": "-135",
+}
+
+/** the plot marks of pgflibraryplothandlers (972–1000) and plotmarks' o */
+const MARKS = new Set(["*", "+", "x", "o"])
+
+/** \pgfuseplotmark{mark} at the origin, \pgfplotmarksize `r` */
+function drawMark(s: PgfState, d: PgfDriver, mark: string, r: number) {
+  const q = (x: number, y: number) => qpoint(x, y)
+  if (mark === "*" || mark === "o") {
+    pgfPathEllipse(s, pgfPointOrigin, q(r, 0), q(0, r))
+    return mark === "*" ? pgfUsePathQFillStroke(s, d) : pgfUsePathQStroke(s, d)
+  }
+  const a = mark === "x" ? mul(".70710678", r) : r
+  if (mark === "+") {
+    pgfPathMoveTo(s, q(-r, 0)); pgfPathLineTo(s, q(r, 0)); pgfPathMoveTo(s, q(0, r)); pgfPathLineTo(s, q(0, -r))
+  } else {
+    const b = mul("-.70710678", r)
+    pgfPathMoveTo(s, q(b, b)); pgfPathLineTo(s, q(a, a)); pgfPathMoveTo(s, q(b, a)); pgfPathLineTo(s, q(a, b))
+  }
+  pgfUsePathQStroke(s, d)
 }
 
 /** the commands \tikz@installcommands makes path commands (1940–1963): the options they put in front */
@@ -625,6 +643,9 @@ export class TikzPicture {
         case ".": this.dot(inp); continue
         case "a": this.arc(inp); continue
         case "g": this.grid(inp); continue
+        case "p":
+          if (inp.ifNext("l")) { this.plot(inp, "move"); continue }
+          throw new Unsupported(inp.ifNext("i") ? "tikz: pic" : "tikz: parabola")
         case "n": this.fig(inp); continue
         case "[": this.tz.set(inp.delimited(["]"])); continue
         case "{": this.begin(); this.L.autoEndPath = false; continue
@@ -770,7 +791,12 @@ export class TikzPicture {
         if (inp.ifNext("o")) { this.collectCoordinate(inp); continue }
         return this.close(inp)
       }
-      if (inp.ifNext("p")) throw new Unsupported("tikz: plot or pic on a path")
+      if (inp.ifNext("p")) {
+        // \tikz@lineto@plot@or@pic: a plot whose first point a line goes to
+        inp.next()
+        if (inp.ifNext("i")) throw new Unsupported("tikz: pic on a path")
+        return this.plot(inp, "line")
+      }
       break
     }
     const p = this.scanPoint(inp)
@@ -944,6 +970,103 @@ export class TikzPicture {
       this.L.movetoWaiting = null
     }
     this.L.timer = { kind: "curve", start: timerStart, c1: first, c2, end: third }
+  }
+
+  /**
+   * \tikz@plot … \tikz@@@plot (tikz.code.tex 3330–3420) on pgfmoduleplot.code.tex: `plot[options] coordinates {…}` or
+   * `plot[options] (expression)` sampled over the domain (\pgfplotfunction: a \foreach over \tikz@plot@samplesat),
+   * each point streamed to the line handler (the first one moved or lined to); the last point is the current one
+   */
+  private plot(inp: Input, first: "move" | "line") {
+    inp.literal("lot")
+    this.flushMoveto()
+    const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
+    this.begin()
+    this.tz.st.afterPath = []
+    this.tz.st.options = []
+    this.tz.set(["every plot/.try"])
+    this.tz.set(options)
+    const st = this.tz.st
+    if (st.plotHandler !== "lineto" && st.plotHandler !== "discard") throw new Unsupported(`tikz: plot handler ${st.plotHandler}`)
+    const mark = str(st.plotMark).trim()
+    if (mark && !MARKS.has(mark)) throw new Unsupported(`tikz: plot mark ${mark}`)
+    if (mark === "o" && !this.tz.plotmarks) throw new Unsupported("tikz: plot mark o without plotmarks")
+    // \tikz@plot@data: the stream of points, run once for the path and once more for the marks
+    let data: (point: (p: PgfPoint) => void) => void
+    if (inp.ifNext("c")) {
+      inp.literal("coordinates")
+      // (\pgfplothandlerrecord: the points scanned once, then the record replayed)
+      const coords = inp.undelimited()
+      let record: PgfPoint[] | null = null
+      data = (point) => {
+        if (record) { record.forEach(point); return }
+        record = []
+        const inner = new Input([...coords])
+        for (;;) {
+          inner.skipSpaces()
+          if (inner.peek() === undefined) break
+          const p = this.scanPoint(inner)()
+          record.push(p)
+          point(p)
+        }
+      }
+    } else if (inp.ifNext("(")) {
+      inp.next()
+      const expr = inp.delimited([")"])
+      const samples = sampleValues(st.plotSamplesAt, this.s.units)
+      data = (point) => {
+        for (const v of samples) {
+          // \foreach: \x the value, in a group
+          this.begin()
+          point(this.scanPoint(new Input(["(", ...substitute(expr, new Map([[st.plotVar, v]])), ")"]))())
+          this.end()
+        }
+        this.s.space() // (the end of line after \pgfplotfunction's \foreach body)
+      }
+    } else throw new Unsupported("tikz: plot data")
+    let started = false, last: PgfPoint = { x: 0, y: 0 }
+    data((p) => {
+      last = p
+      if (st.plotHandler === "discard") return
+      if (!started && first === "move") pgfPathMoveTo(this.s, qpoint(p.x, p.y))
+      else pgfPathLineTo(this.s, qpoint(p.x, p.y))
+      started = true
+    })
+    if (mark) {
+      // the marks after the path: a box in \tikz@figbox, in \pgfinterruptpath and a scope, each mark shifted to its point
+      const figbox = this.L.figbox ?? []
+      const outer = this.s.out
+      this.s.out = []
+      this.begin() // \hbox{{
+      this.begin()
+      const saved = this.interruptPath()
+      this.pgfscope()
+      this.tz.st.options = []
+      this.tz.st.transform = []
+      this.tz.set("every mark")
+      this.runOptions()
+      const transforms = this.tz.st.transform
+      const size = this.tz.st.plotMarkSize
+      data((p) => {
+        this.begin()
+        pgfTransformShift(this.s, qpoint(p.x, p.y))
+        for (const t of transforms) this.transform(t)
+        drawMark(this.s, this.d, mark, size)
+        this.end()
+      })
+      this.endpgfscope()
+      this.endInterruptPath(saved)
+      this.end()
+      this.end()
+      figbox.push(hpack(this.s.out))
+      this.s.out = outer
+      this.L.figbox = figbox
+    }
+    if (st.afterPath.length) throw new Unsupported("tikz: a plot's after path")
+    const figbox = this.L.figbox
+    this.end()
+    this.L.figbox = figbox
+    this.makeLast(qpoint(last.x, last.y))
   }
 
   /** \tikz@grid, \tikz@gridA, \tikz@gridB (3294–3326): `grid[options] (corner)` */
@@ -1447,10 +1570,10 @@ export class TikzPicture {
     }
     const content = inp.undelimited()
     // \tikz@@fig@main (3847–3863)
-    if (!SHAPES.has(this.tz.st.shape)) throw new Unsupported(`tikz: the shape ${this.tz.st.shape}`)
+    if (!this.tz.hasShape(this.tz.st.shape)) throw new Unsupported(`tikz: the shape ${this.tz.st.shape}`)
     this.tz.set(`every ${this.tz.st.shape} node/.try`)
     st = this.tz.st
-    if (!SHAPES.has(st.shape)) throw new Unsupported(`tikz: the shape ${st.shape}`)
+    if (!this.tz.hasShape(st.shape)) throw new Unsupported(`tikz: the shape ${st.shape}`)
     // \tikz@node@textfont: the node's font, which pgfmath's em and ex are in from here on
     const units = this.s.units
     if (st.nodeFont.length) {
@@ -1958,7 +2081,8 @@ export class TikzPicture {
     let rest = t.slice(c + 1)
     // \pgfutil@ifnextchar\bgroup: the blanks before the y coordinate go
     while (rest[0] === " ") rest = rest.slice(1)
-    if (rest[0] === "{") throw new Unsupported("tikz: a braced y coordinate")
+    // \tikz@@parse@regular: a braced y coordinate is its group (pgfmath reads the braces as parentheses)
+    while (rest.at(-1) === " ") rest = rest.slice(0, -1)
     const yt = arg(rest)
     if (contains(yt, [","])) throw new Unsupported("tikz: xyz coordinates")
     const x = this.checkUnit(xt), y = this.checkUnit(yt)

@@ -140,6 +140,15 @@ export interface TikzState {
   pinEdge: Toks
   /** \iftikz@current@point@local */
   currentPointLocal: boolean
+  /** \tikz@plot@handler (its name), \tikz@plot@mark, \tikz@plot@samples, \tikz@plot@domain, \tikz@plot@samplesat, \tikz@plot@var */
+  plotHandler: string
+  plotMark: Toks
+  plotSamples: string
+  plotDomain: string
+  plotSamplesAt: Toks
+  plotVar: Tok
+  /** \pgfplotmarksize (sp) */
+  plotMarkSize: number
   /** \tikz@grid@x, \tikz@grid@y */
   gridX: Toks
   gridY: Toks
@@ -174,6 +183,9 @@ export interface TikzSetup {
   positioning?: boolean
   arrowsMeta?: boolean
   calc?: boolean
+  plotmarks?: boolean
+  /** \usetikzlibrary{shapes.geometric} (or shapes): its ellipse */
+  geometric?: boolean
   /**
    * positioning's `of`: \tikz@scan@one@point(#2), the point and, for a node's name, the node whose border it
    * is on (\iftikz@shapeborder)
@@ -228,6 +240,8 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   transparent/.style={opacity=0}, ultra nearly transparent/.style={opacity=0.05}, very nearly transparent/.style={opacity=0.1},
   nearly transparent/.style={opacity=0.25}, semitransparent/.style={opacity=0.5}, nearly opaque/.style={opacity=0.75},
   very nearly opaque/.style={opacity=0.9}, ultra nearly opaque/.style={opacity=0.95}, opaque/.style={opacity=1},
+  no marks/.style={mark=none}, no markers/.style={mark=none}, every plot/.style={}, every mark/.style={},
+  mark options/.style={every mark/.style={#1}},
   every label/.style={draw=none,fill=none}, every pin/.style={draw=none,fill=none}, every pin edge/.style={help lines},
   ultra thin/.style={line width=0.1pt}, very thin/.style={line width=0.2pt}, thin/.style={line width=0.4pt},
   semithick/.style={line width=0.6pt}, thick/.style={line width=0.8pt}, very thick/.style={line width=1.2pt},
@@ -315,6 +329,10 @@ export class Tikz {
   get positioning(): boolean { return !!this.setup.positioning }
   /** \usetikzlibrary{calc} */
   get calc(): boolean { return !!this.setup.calc }
+  /** \usetikzlibrary{plotmarks} */
+  get plotmarks(): boolean { return !!this.setup.plotmarks }
+  /** whether pgf declares the shape (\pgf@sh@s@<name>) */
+  hasShape(name: string): boolean { return SHAPES.has(name) || (name === "ellipse" && !!this.setup.geometric) }
 
   constructor(setup: TikzSetup) {
     this.setup = setup
@@ -335,6 +353,7 @@ export class Tikz {
       afterPath: [], labelAngle: [], labelDistance: chars("0pt"), labelPosition: chars("above"), absolute: false, currentPointLocal: false,
       pinDistance: chars("3ex"), pinPosition: chars("above"), pinEdge: [],
       gridX: chars("1cm"), gridY: chars("1cm"),
+      plotHandler: "lineto", plotMark: [], plotSamples: "25", plotDomain: "-5:5", plotSamplesAt: chars("-5,-4.5833333,...,5"), plotVar: "\\x", plotMarkSize: 2 * 65536,
       toCurve: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
       toLooseness: { out: "1", in: "1", outMin: "0pt", outMax: "10000pt", inMin: "0pt", inMax: "10000pt" },
     }
@@ -583,7 +602,7 @@ export class Tikz {
     // (xcolor's current color "." is a color too)
     if (name === "." || this.setup.colors.has(name)) return this.compatColor(name)
     if (contains(key, ["-"])) return this.arrows(key)
-    if (SHAPES.has(name)) { this.st.shape = name; return }
+    if (this.hasShape(name)) { this.st.shape = name; return }
     throw new Unsupported(`tikz: I do not know the key '/tikz/${name}'`)
   }
 
@@ -794,6 +813,31 @@ export class Tikz {
     opt("opacity", (v) => { st().options.push({ op: "strokeopacity", arg: v }, { op: "fillopacity", arg: v }) })
     opt("x", (v) => { if (!this.setup.vector) throw new Unsupported("tikz: x= outside a picture"); this.setup.vector("x", v) })
     opt("y", (v) => { if (!this.setup.vector) throw new Unsupported("tikz: y= outside a picture"); this.setup.vector("y", v) })
+    // plots (1225–1319)
+    const recalc = () => {
+      // \tikz@plot@samples@recalc: start, start + the step, ..., end
+      const [a, b] = st().plotDomain.split(":")
+      if (b === undefined) throw new Unsupported("tikz: domain without :")
+      const start = this.parse(a).result, end = this.parse(b).result
+      const diff = this.parse(`(${end}-${start})/(${st().plotSamples}-1)`).result
+      const abs = this.parse(`abs(${diff})`).result
+      const ta = new TexArith(this.setup.units)
+      st().plotSamplesAt = chars(ta.dimen(`${abs}pt`) < ta.dimen("0.0001pt") ? `${start},${end}` : `${start},${this.parse(`${start}+${diff}`).result},...,${end}`)
+    }
+    opt("domain", (v) => { st().plotDomain = plain(this.expand(v), "domain"); recalc() })
+    opt("samples", (v) => { st().plotSamples = this.parse(`max(2,${plain(v, "samples")})`).result; recalc() })
+    opt("samples at", (v) => { st().plotSamplesAt = v })
+    opt("variable", (v) => {
+      const t = v.filter((x) => x !== " ")
+      if (t.length !== 1 || !isCs(t[0])) throw new Unsupported("tikz: variable")
+      st().plotVar = t[0]
+    })
+    for (const [name, handler] of [["smooth", "curveto"], ["smooth cycle", "closedcurve"], ["sharp plot", "lineto"], ["sharp cycle", "polygon"], ["only marks", "discard"],
+      ["xcomb", "xcomb"], ["ycomb", "ycomb"], ["polar comb", "polarcomb"], ["ybar", "ybar"], ["xbar", "xbar"], ["const plot", "constantlineto"]] as const) {
+      opt(name, () => { st().plotHandler = handler }, "")
+    }
+    opt("mark", (v) => { st().plotMark = plain(v, "mark").trim() === "none" ? [] : v })
+    opt("mark size", (v) => { st().plotMarkSize = this.length(v) })
     // grids (471–478): step= a point or both steps
     opt("xstep", (v) => { st().gridX = v })
     opt("ystep", (v) => { st().gridY = v })

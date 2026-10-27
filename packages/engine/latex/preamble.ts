@@ -379,7 +379,7 @@ export function readPreamble(src: string): Preamble {
     const tl = line.match(/^\\usetikzlibrary\s*\{([^{}]*)\}$/)
     if (tl && tikz) {
       const libs = tl[1].split(",").map((x) => x.trim()).filter(Boolean)
-      if (libs.some((x) => !["positioning", "arrows.meta", "calc"].includes(x))) throw new Unsupported(`preamble: ${line}`)
+      if (libs.some((x) => !["positioning", "arrows.meta", "calc", "plotmarks", "shapes.geometric"].includes(x))) throw new Unsupported(`preamble: ${line}`)
       tikz.libraries.push(...libs); continue
     }
     if (tikz && /^\\tikz(?:set\s*\{.*\}|style\b.*)$/.test(line)) { tikz.sets.push(line); continue }
