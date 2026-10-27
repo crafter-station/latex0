@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 297,
-  "exact": 295,
+  "fixtures": 298,
+  "exact": 296,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 2,
-  "glyphs": 263487
+  "glyphs": 263760
  },
  "areas": [
   {
@@ -161,8 +161,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 20,
-   "exact": 18
+   "fixtures": 21,
+   "exact": 19
   },
   {
    "area": "text",
@@ -333,6 +333,17 @@
    "glyphs": 32,
    "covers": "snippet in a minimal article: Unordered list with items",
    "issue": "#30"
+  },
+  {
+   "id": "templates/lab-report",
+   "file": "macro/templates/lab-report.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 273,
+   "covers": "the lab report template: \\maketitle, siunitx's \\SI with a ± uncertainty, a booktabs tabular with @{} and \\multirow in a [h] table, two subcaption subfigures holding a JPEG and a PNG at \\linewidth under pdflatex, caption.sty's captions",
+   "issue": "#271"
   },
   {
    "id": "templates/letter",
