@@ -3,12 +3,11 @@
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
 // of one of them changes nothing. The themes are the default ones, color themes,
 // the rounded, circles and rectangles inner themes, the infolines, split,
-// miniframes, tree and sidebar outer themes, Pittsburgh, Malmoe, Copenhagen, Luebeck, Berlin,
-// Dresden, Ilmenau, Szeged, Montpellier, Hannover, Berkeley, Rochester, Goettingen and
-// Marburg, and Madrid,
-// CambridgeUS, AnnArbor, Boadilla and PaloAlto without their shadows,
-// as data/beamer has them, with
-// the default navigation symbols or none: any other theme or template setting
+// miniframes, tree and sidebar outer themes, the presentation themes Pittsburgh,
+// Malmoe, Copenhagen, Luebeck, Berlin, Dresden, Ilmenau, Szeged, Montpellier,
+// Hannover, Berkeley, Rochester, Goettingen and Marburg, and Madrid, CambridgeUS,
+// AnnArbor, Boadilla and PaloAlto without their shadows, as data/beamer has them,
+// with the default navigation symbols or none: any other theme or template setting
 // throws Unsupported.
 
 import type { ClassOptionData } from "../../layout/classdata"
