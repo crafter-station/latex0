@@ -184,11 +184,11 @@ function algorithmic(cx: Ctx, src: string, content: Node[], prevDepth: number | 
  * \kern2pt\hrule, \vskip\z@.
  */
 export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[], club: number, here = false): BoxNode {
-  const { algorithm, hyper, cleveref } = cx.pre
+  const { algorithm, hyper } = cx.pre
   const { counters, doc, refs, romanFont, run } = cx
   const k = run.k
   if (!algorithm.algorithm) throw new Unsupported("an algorithm float without algorithm.sty")
-  if (hyper || cleveref) throw new Unsupported(`an algorithm float with ${hyper ? "hyperref" : "cleveref"}`)
+  if (hyper) throw new Unsupported("an algorithm float with hyperref")
   const content: Node[] = []
   // ([H]: \setbox\@floatcapt=\vbox{}, so the caption's rule comes even with no caption)
   let cap: Node[] | null = here ? [] : null, number = 0, captioned = false
@@ -225,7 +225,9 @@ export function algorithmBox(cx: Ctx, fbody: string, decisions: ParagraphTrace[]
     if (m[2] !== undefined) {
       if (!number) throw new Unsupported("\\label before the caption")
       if (!/^[A-Za-z0-9:._-]+$/.test(m[2])) throw new Unsupported(`\\label{${m[2]}}`)
-      content.push(labelWrite(refs, m[2], String(number), refs.href, refs.name), ...crefWrites(refs, m[2], false))
+      // (cleveref: the caption's \refstepcounter{algorithm}, a counter within nothing; algorithmicx's line
+      // counter is the type only in the algorithmic's group)
+      content.push(labelWrite(refs, m[2], String(number), refs.href, refs.name), ...crefWrites(refs, m[2], false, { type: "algorithm", arabic: number, prefix: "", label: String(number) }))
       continue
     }
     if (m[3] !== undefined) {

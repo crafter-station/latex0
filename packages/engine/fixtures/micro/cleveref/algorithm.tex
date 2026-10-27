@@ -1,0 +1,28 @@
+% fixture: cleveref/algorithm
+% tier: T3
+% engine: document
+% covers: algorithm floats with cleveref: the \label after the caption writes \newlabel{key@cref}{{[algorithm][n][]n}…} (float.sty's \refstepcounter{algorithm}), algorithmicx's \ALG@step refstepping the line counter changes nothing on the page; \cref and \Cref to them; a ruled [H] one
+% issue: #277
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{cleveref}
+\begin{document}
+\Cref{alg:a} is a float and \cref{alg:b} is here.
+\begin{algorithm}
+\caption{Euclid}\label{alg:a}
+\begin{algorithmic}[1]
+\State $x \gets a$
+\State $y \gets b$
+\end{algorithmic}
+\end{algorithm}
+Text between them.
+
+\begin{algorithm}[H]
+\caption{Two}\label{alg:b}
+\begin{algorithmic}
+\State $z \gets 0$
+\end{algorithmic}
+\end{algorithm}
+More text after \cref{alg:a}.
+\end{document}
