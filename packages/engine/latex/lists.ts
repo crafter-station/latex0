@@ -216,7 +216,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const outerHyperItem = run.hyperItem
   if (b.env === "enumerate") run.enums[level - 1] = counter
   // \theenum… as text: label= or ref= (\enit@reflabel), else \arabic \alph \roman \Alph; the enclosing ones
-  const thes = ctx.thes ?? ctx.enums.map((n, j) => representation(["arabic", "alph", "roman", "Alph"][j], n))
+  const thes = () => ctx.thes ?? ctx.enums.map((n, j) => representation(["arabic", "alph", "roman", "Alph"][j], n))
   const the = (n: number) => eit?.ref != null ? labelText(eit.ref, [...ctx.enums, n]) : representation(["arabic", "alph", "roman", "Alph"][level - 1], n)
   /** \enit@format around a label, in the label's font */
   const formatted = (attrs: FontAttrs, src: string) => labelFont(attrs, eit?.format ? `{${eit.format}{${src}}}` : src)
@@ -269,7 +269,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       } else { // \labelenumi … iv: 1. (a) i. A.
         const n = ++counter
         // \refstepcounter{enum…}: \p@enum… \theenum… (1, 1a, 1(a)i, 1(a)iA; with label= or ref= no \p@), and \@currentHref enum….n
-        refs.label = eit?.ref != null ? the(n) : spanish ? spanishEnumRef(level, [...ctx.enums, n]) : [the(n), `${thes[0]}${the(n)}`, `${thes[0]}(${thes[1]})${the(n)}`, `${thes[0]}(${thes[1]})${thes[2]}${the(n)}`][level - 1]
+        refs.label = eit?.ref != null ? the(n) : spanish ? spanishEnumRef(level, [...ctx.enums, n]) : ((t) => [the(n), `${t[0]}${the(n)}`, `${t[0]}(${t[1]})${the(n)}`, `${t[0]}(${t[1]})${t[2]}${the(n)}`][level - 1])(thes())
         refs.href = `enum${["i", "ii", "iii", "iv"][level - 1]}.${n}`
         run.enums[level - 1] = n // (no counter resets another: \@definecounter; cleveref's prefix only names the chain)
         if (refs.cleveref) refs.cleveref.current = { type: `enum${["i", "ii", "iii", "iv"][level - 1]}`, arabic: n, prefix: run.enums.slice(0, level - 1).join(","), label: refs.label }
@@ -277,7 +277,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         if (hyper) { refs.href = `Item.${++run.items}`; run.hyperItem = false; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
         // (a \label whose text is more than characters, or has groups inside them: not modeled)
-        if (/[\\{}$]/.test(unbraced(refs.label)) && parts.some((p) => p.kind === "text" && /\\label\b/.test(p.text))) throw new Unsupported(`a \\label to "${refs.label}"`)
+        if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /[\\{}$]/.test(unbraced(refs.label)) && parts.some((p) => p.kind === "text" && /\\label\b/.test(p.text))) throw new Unsupported(`a \\label to "${refs.label}"`)
         if (eit?.label != null || eit?.format) l.push(...formatted(cx.normalAttrs, labelText(eit.label ?? `{${ENUM_LABELS[level - 1]}}`, [...ctx.enums, n])))
         else if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
         else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
@@ -351,7 +351,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         // (enumitem: \labelsep, \enit@outerparindent, \labelenum… and \labelitem…, \theenum…, and the list's group for resume)
         const labels = eit && b.env !== "description" ? { ...ctx.labels, [`${b.env === "enumerate" ? "enum" : "item"}${level}`]: eit.label ?? (b.env === "enumerate" ? `{${ENUM_LABELS[level - 1]}}` : null) } : ctx.labels
         return list(cx, p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums, club: inForce,
-          labelsep: ls, parindent, descDepth, outerParindent: eit && depth === 1 ? parindentAt : ctx.outerParindent, labels, thes: b.env === "enumerate" ? [...thes, the(counter)] : thes, scope: innerScope })
+          labelsep: ls, parindent, descDepth, outerParindent: eit && depth === 1 ? parindentAt : ctx.outerParindent, labels, thes: b.env === "enumerate" ? (eit?.ref != null || ctx.thes ? [...thes(), the(counter)] : undefined) : ctx.thes, scope: innerScope })
       }
       if (p.text.trim()) started = true
       // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe

@@ -8,6 +8,7 @@
 import type { ClassOptionData, SizeCommand } from "../layout/classdata"
 import { parseDimen } from "../layout/dimen"
 import { QUAD, SPACE_STRETCH, X_HEIGHT, type Font } from "../layout/font"
+import { appendText as appendCodes } from "../layout/hmode"
 import { appendText, SYMBOLS as LETTERS } from "./encodings"
 import { charNode, kern, penalty, ssGlue, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
@@ -39,7 +40,8 @@ const SYMBOLS: Record<string, Sym> = {
 }
 /** commands for the same symbols; robust ones (\DeclareRobustCommand) start with \protect */
 const ALIASES: Record<string, { sym: string; robust?: boolean }> = {
-  S: { sym: "textsection", robust: true }, // (a TEXT_SYMBOLS symbol) P: { sym: "textparagraph", robust: true }, dag: { sym: "textdagger", robust: true },
+  // (\S's textsection is paragraph.ts's TEXT_SYMBOLS symbol)
+  S: { sym: "textsection", robust: true }, P: { sym: "textparagraph", robust: true }, dag: { sym: "textdagger", robust: true },
   ddag: { sym: "textdaggerdbl", robust: true }, pounds: { sym: "textsterling", robust: true }, copyright: { sym: "textcopyright", robust: true },
   dots: { sym: "textellipsis", robust: true }, ldots: { sym: "textellipsis", robust: true },
 }
@@ -73,7 +75,7 @@ export function textSymbolAt(body: string, i: number): { end: number; text?: str
   if (name in SYMBOLS) return { end, text: char(name) }
   if (name in ALIASES) {
     const a = ALIASES[name]
-    return a.sym in SYMBOLS ? { end, text: char(a.sym), flush: !!a.robust } : { end, symbol: a.sym }
+    return a.sym in SYMBOLS ? { end, text: char(a.sym), flush: !!a.robust } : { end, symbol: a.sym, flush: true }
   }
   if (LOGOS.includes(name)) return { end, logo: name, flush: true }
   return null
@@ -104,9 +106,9 @@ export function appendSymbols(list: Node[], text: string, font: Font, env: Symbo
     }
     if (name === "slash") { run += "/"; flush(); list.push(penalty(50)); continue }
     flush()
-    if (s.TS1 !== undefined) { appendText(list, String.fromCharCode(s.TS1), env.select("TS1"), state, paragraph); continue }
-    if (s.OMS !== undefined) { appendText(list, String.fromCharCode(s.OMS), env.select("OMS"), state, paragraph); continue }
-    if (s.OML !== undefined) { appendText(list, String.fromCharCode(s.OML), env.select("OML"), state, paragraph); continue }
+    if (s.TS1 !== undefined) { appendCodes(list, String.fromCharCode(s.TS1), env.select("TS1"), state, paragraph); continue }
+    if (s.OMS !== undefined) { appendCodes(list, String.fromCharCode(s.OMS), env.select("OMS"), state, paragraph); continue }
+    if (s.OML !== undefined) { appendCodes(list, String.fromCharCode(s.OML), env.select("OML"), state, paragraph); continue }
     // \add@accent{94 or 126}{}: \accent with no letter after it, the space factor 1000
     if (name === "textasciicircum" || name === "textasciitilde") { list.push(charNode(font, name === "textasciicircum" ? 94 : 126)); state.spaceFactor = 1000; continue }
     if (name === "textunderscore") { list.push(kern(em(".06em"), true), vpack([{ kind: "rule", width: em(".3em"), height: 26214, depth: 0 }])); state.spaceFactor = 1000; continue }
