@@ -1,0 +1,17 @@
+% fixture: macros/control-word-spaces
+% tier: T3
+% engine: document
+% covers: an expansion that ends with a control word, before a space of the source: in text the space stays a space token (\bfseries{} …); in math, $…$, $$…$$, \[…\] and an equation, it is nothing and no {} (a noad) is made; a space token of the expansion before a space of the source; a definition between two spaces
+% issue: #344
+\documentclass{article}
+\newcommand{\op}[1]{#1\cdot}
+\newcommand{\bold}[1]{#1 \bfseries}
+\newcommand{\pad}[1]{#1 }
+\begin{document}
+Text {\bold{now} bold} and \pad{one} two, then \def\x{y} three.
+In math $\op{a} b$ and
+\[ \op{c} d \]
+then
+\begin{equation} \op{e} f \end{equation}
+and $$\op{g} h$$ end.
+\end{document}

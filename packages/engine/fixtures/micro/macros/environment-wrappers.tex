@@ -1,0 +1,33 @@
+% fixture: macros/environment-wrappers
+% tier: T3
+% engine: document
+% covers: environments that wrap other environments: enumerate (its \items in the body), center, quote with \small inside it, a theorem (amsthm), one of the document's own inside another; text right after them (\@doendpe)
+% issue: #344
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{thm}{Theorem}
+\newenvironment{steps}{\begin{enumerate}}{\end{enumerate}}
+\newenvironment{centred}{\begin{center}}{\end{center}}
+\newenvironment{aside}{\begin{quote}\small}{\end{quote}}
+\newenvironment{claim}{\begin{thm}}{\end{thm}}
+\newenvironment{boxed}{\begin{centred}\textbf{Box:} }{\end{centred}}
+\begin{document}
+First we list the steps.
+\begin{steps}
+\item Read the input.
+\item Write the output.
+\end{steps}
+and go on without a new paragraph.
+\begin{centred}
+Centered text.
+\end{centred}
+\begin{aside}
+A small remark set apart.
+\end{aside}
+
+\begin{claim}
+Every step ends.
+\end{claim}
+\begin{boxed}inside\end{boxed}
+Last words.
+\end{document}

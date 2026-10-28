@@ -1,0 +1,12 @@
+% fixture: macros/environment-math
+% tier: T3
+% engine: document
+% covers: the document's environments in math: one wrapping amsmath's pmatrix (no group: no noad), in a formula and a display
+% issue: #344
+\documentclass{article}
+\usepackage{amsmath}
+\newenvironment{mat}{\begin{pmatrix}}{\end{pmatrix}}
+\begin{document}
+The map $A = \begin{mat} 1 & 0 \\ 0 & 1 \end{mat}$ is the identity, and
+\[ x + y = \begin{mat} a \\ b \end{mat}. \]
+\end{document}

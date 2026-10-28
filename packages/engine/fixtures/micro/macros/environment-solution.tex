@@ -1,0 +1,18 @@
+% fixture: macros/environment-solution
+% tier: T3
+% engine: document
+% covers: \newenvironment with begin code \par\noindent\textbf{\textcolor{…}{…}}\ and end code \hfill$\diamond$\par\medskip (no assignment at its level: no group needed), after a question's paragraph and on lines of its own, a paragraph inside, text after it
+% issue: #344
+\documentclass{article}
+\usepackage{xcolor}
+\newenvironment{solution}{\par\noindent\textbf{\textcolor{blue}{Solution.}}\ }{\hfill$\diamond$\par\medskip}
+\begin{document}
+Question one asks for the sum of the first $n$ odd numbers.
+\begin{solution}
+The sum is $n^2$, by induction on $n$: the step adds $2n+1$.
+
+It also follows from a picture.
+\end{solution}
+Question two asks for more.
+\begin{solution} None. \end{solution}
+\end{document}

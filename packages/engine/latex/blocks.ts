@@ -4,6 +4,7 @@
 // commands the layout does not handle yet throws Unsupported here.
 
 import type { Node } from "../layout/nodes"
+import { SIZE_COMMANDS } from "../layout/classdata"
 import { BODY_DECLARATIONS, squeeze, TEXT_SYMBOLS } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { SI_COMMANDS } from "./siunitx"
@@ -209,9 +210,10 @@ const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspa
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS), ...SYMBOL_COMMANDS].join("|")}|the[a-zA-Z]+)(?![A-Za-z]))[a-zA-Z]+(?!\\s*=)`)
 
-/** text that starts in vertical mode: empty groups there (what a definition left, expand/document.ts) and the spaces
- *  after them start no paragraph */
-const vertical = (t: string) => t.replace(/^(?:\{\}\s*)+/, "")
+/** text that starts in vertical mode: empty groups there (what a definition left, expand/document.ts), among the
+ *  declarations it may start with, and the spaces after them start no paragraph */
+const LEADING = new RegExp(`^(?:\\{\\}\\s*|\\\\(?:${[...BODY_DECLARATIONS, ...SIZE_COMMANDS, "centering", "raggedright", "raggedleft"].join("|")})(?![A-Za-z])\\s*)+`)
+const vertical = (t: string) => t.replace(LEADING, (m) => m.replace(/\{\}\s*/g, " ").trimStart()) // (a control word still ends)
 
 /** how many groups the text leaves open (\{ and \} do not count) */
 function braceDepth(t: string): number {

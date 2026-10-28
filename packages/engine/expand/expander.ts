@@ -9,7 +9,8 @@
 // \else \fi; \relax, {}, \begingroup \endgroup.
 //
 // With `latex: true` it also knows LaTeX's \newcommand, \renewcommand,
-// \providecommand and \DeclareRobustCommand (latex.ltx \@argdef, \@xargdef), and
+// \providecommand, \DeclareRobustCommand (latex.ltx \@argdef, \@xargdef),
+// \newenvironment and \renewenvironment (\@newenv: \name and \endname), and
 // \let to a command it does not know makes an alias, for documents (#46). A
 // macro with an optional argument is two macros, as in LaTeX: \foo looks for
 // [ after \@ifnextchar skips spaces and calls the internal \\foo, so a \let copy
@@ -26,6 +27,8 @@ export interface Macro {
   /** LaTeX's optional first argument: its default, and the internal macro that takes [#1] */
   optional?: Tok[]
   inner?: string
+  /** made by \\newenvironment: \\begin{name} calls it */
+  env?: boolean
 }
 export type Meaning = Macro | { kind: "prim"; name: string } | { kind: "char"; cat: number; c: number } | { kind: "undefined" }
 
@@ -34,7 +37,7 @@ const EXPANDABLE = new Set(["expandafter", "noexpand", "csname", "string", "numb
 const CONDITIONALS = new Set(["ifx", "if", "ifcat", "ifnum", "iftrue", "iffalse"])
 const PRIMITIVES = [...EXPANDABLE, "def", "gdef", "edef", "xdef", "let", "global", "long", "protected", "relax", "endcsname",
   "begingroup", "endgroup", "par"]
-const LATEX_DEFINITIONS = ["newcommand", "renewcommand", "providecommand", "DeclareRobustCommand"]
+const LATEX_DEFINITIONS = ["newcommand", "renewcommand", "providecommand", "DeclareRobustCommand", "newenvironment", "renewenvironment"]
 const DEFINITIONS = new Set(["def", "gdef", "edef", "xdef", "let", "global", "long", "protected", ...LATEX_DEFINITIONS])
 
 export interface ExpanderOptions {
@@ -416,6 +419,7 @@ export class Expander {
       }
       case "def": case "gdef": case "edef": case "xdef": this.def(m.name, pre); return
       case "newcommand": case "renewcommand": case "providecommand": case "DeclareRobustCommand": this.newcommand(m.name); return
+      case "newenvironment": case "renewenvironment": this.newenvironment(m.name); return
       case "let": this.let(pre.global); return
       case "begingroup": this.beginGroup(); return
       case "endgroup": this.endGroup(); return
@@ -458,44 +462,76 @@ export class Expander {
 
   /** \\newcommand{\\cs}[n][default]{body} and its relatives (latex.ltx \\@star@or@long, \\@argdef, \\@xargdef). */
   private newcommand(kind: string) {
-    let x = this.need(this.getNext())
-    while (x.cat === SPACER) x = this.need(this.getNext())
+    let x = this.nonSpace()
     const long = !(x.cat === OTHER_CHAR && x.c === 42) // \\newcommand* makes a short macro
-    if (!long) x = this.need(this.getNext())
-    while (x.cat === SPACER) x = this.need(this.getNext())
+    if (!long) x = this.nonSpace()
     let target: Tok = x
     if (x.cat === LEFT_BRACE) {
       const name = this.balanced(x, true).filter((y) => y.cat !== SPACER)
       if (name.length !== 1 || name[0].cs === undefined) throw new ExpansionError(`\\${kind}: missing control sequence`)
       target = name[0]
     } else if (x.cs === undefined) throw new ExpansionError(`\\${kind}: missing control sequence`)
-    const next = () => { let y = this.need(this.getNext()); while (y.cat === SPACER) y = this.need(this.getNext()); return y }
-    const bracket = (): Tok[] => this.delimitedArg(target, [{ cat: OTHER_CHAR, c: 93 }], true)
-    let y = next(), n = 0
-    let optional: Tok[] | undefined
-    if (y.cat === OTHER_CHAR && y.c === 91) {
-      const digits = bracket().filter((z) => z.cat !== SPACER).map((z) => String.fromCharCode(z.c ?? 0)).join("")
-      if (!/^[0-9]$/.test(digits)) throw new ExpansionError(`\\${kind}: illegal number of arguments [${digits}]`)
-      n = Number(digits)
-      y = next()
-      if (y.cat === OTHER_CHAR && y.c === 91) { optional = bracket(); y = next() }
-    }
-    if (y.cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
-    const body = this.readBody(target, n, false)
-    const params: ParamItem[] = optional
-      ? [{ tok: { cat: OTHER_CHAR, c: 91 } }, { param: 1 }, { tok: { cat: OTHER_CHAR, c: 93 } }, ...Array.from({ length: n - 1 }, (_, i) => ({ param: i + 2 }))]
-      : Array.from({ length: n }, (_, i) => ({ param: i + 1 }))
-    if (optional && n === 0) throw new ExpansionError(`\\${kind}: a default value needs an argument`)
+    const { params, optional, body } = this.signature(target, kind)
     const k = key(target)!
     const defined = this.meanings.has(k) && this.meanings.get(k)!.kind !== "undefined"
     if (kind === "providecommand" && (defined || this.known(target.cs!) || this.latexOwned(target))) return
     if (this.latexOwned(target)) this.latexError(kind, target)
     if (kind === "newcommand" && defined) { this.warnings.push(`Command ${printCs(target.cs!).trim()} already defined`); return }
-    const macro: Macro = { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }
+    this.defineCommand(k, { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }, optional)
+  }
+
+  /**
+   * \\newenvironment{name}[n][default]{begin}{end} and \\renewenvironment (latex.ltx \\@newenv): \\name is a command with
+   * the arguments, as \\newcommand makes one, and \\endname one without (`env` marks \\name for \\begin)
+   */
+  private newenvironment(kind: string) {
+    let x = this.nonSpace()
+    const long = !(x.cat === OTHER_CHAR && x.c === 42)
+    if (!long) x = this.nonSpace()
+    if (x.cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
+    const chars = this.balanced(x, true)
+    if (!chars.length || chars.some((y) => y.cs !== undefined || y.cat === SPACER)) throw new ExpansionError(`\\${kind}: an environment name of characters`)
+    const name = String.fromCharCode(...chars.map((y) => y.c!))
+    const target: Tok = { cs: name }
+    const { params, optional, body } = this.signature(target, kind)
+    if (this.nonSpace().cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
+    const end = this.readBody({ cs: `end${name}` }, 0, false)
+    if (this.latexOwned(target)) this.latexError(kind, target)
+    const m = this.meanings.get(name)
+    if (kind === "newenvironment" && m && m.kind !== "undefined") { this.warnings.push(`Environment ${name} already defined`); return }
+    this.defineCommand(name, { kind: "macro", params, brace: false, body, long, protected: false, env: true }, optional)
+    this.define(`end${name}`, { kind: "macro", params: [], brace: false, body: end, long, protected: false }, false)
+  }
+
+  private nonSpace(): Tok { let y = this.need(this.getNext()); while (y.cat === SPACER) y = this.need(this.getNext()); return y }
+
+  /** [n][default]{body}: the parameters (an optional first one delimited by [ ]), its default and the body */
+  private signature(target: Tok, kind: string): { params: ParamItem[]; optional?: Tok[]; body: BodyItem[] } {
+    const bracket = (): Tok[] => this.delimitedArg(target, [{ cat: OTHER_CHAR, c: 93 }], true)
+    let y = this.nonSpace(), n = 0
+    let optional: Tok[] | undefined
+    if (y.cat === OTHER_CHAR && y.c === 91) {
+      const digits = bracket().filter((z) => z.cat !== SPACER).map((z) => String.fromCharCode(z.c ?? 0)).join("")
+      if (!/^[0-9]$/.test(digits)) throw new ExpansionError(`\\${kind}: illegal number of arguments [${digits}]`)
+      n = Number(digits)
+      y = this.nonSpace()
+      if (y.cat === OTHER_CHAR && y.c === 91) { optional = bracket(); y = this.nonSpace() }
+    }
+    if (y.cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
+    const body = this.readBody(target, n, false)
+    if (optional && n === 0) throw new ExpansionError(`\\${kind}: a default value needs an argument`)
+    const params: ParamItem[] = optional
+      ? [{ tok: { cat: OTHER_CHAR, c: 91 } }, { param: 1 }, { tok: { cat: OTHER_CHAR, c: 93 } }, ...Array.from({ length: n - 1 }, (_, i) => ({ param: i + 2 }))]
+      : Array.from({ length: n }, (_, i) => ({ param: i + 1 }))
+    return { params, optional, body }
+  }
+
+  /** a command \\newcommand defines: with an optional argument, \\foo is \\@protected@testopt\\foo\\\\foo{default} and \\\\foo
+   *  takes [#1] */
+  private defineCommand(k: string, macro: Macro, optional: Tok[] | undefined) {
     if (!optional) { this.define(k, macro, false); return }
-    // \foo is \@protected@testopt\foo\\foo{default}; \\foo takes [#1]
-    this.define("\\" + k, macro, false)
-    this.define(k, { kind: "macro", params: [], brace: false, body: [], long: false, protected: true, optional, inner: "\\" + k }, false)
+    this.define("\\" + k, { ...macro, env: undefined }, false)
+    this.define(k, { kind: "macro", params: [], brace: false, body: [], long: false, protected: true, optional, inner: "\\" + k, ...(macro.env ? { env: true } : {}) }, false)
   }
 
   /** A macro body up to the matching right brace (the left brace already read), with #1…#n (§ 477). */
