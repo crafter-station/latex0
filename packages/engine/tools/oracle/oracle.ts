@@ -10,7 +10,7 @@ import { parseDvi, type Trace } from "./dvi"
 import { parseDecisions } from "./tracing"
 import { parseShipouts } from "./boxes"
 import type { BoxNode } from "../../trace/schema"
-import { ORACLE_EPOCH, texEnv } from "../tex"
+import { kpsewhich, ORACLE_EPOCH, texEnv } from "../tex"
 import { parseTfm, type Tfm } from "./tfm"
 import { boxTrace } from "./boxtrace"
 import { parseHeader } from "../unit/header"
@@ -23,7 +23,7 @@ const tfmCache = new Map<string, Tfm>()
 export function loadTfm(name: string): Tfm {
   const hit = tfmCache.get(name)
   if (hit) return hit
-  const path = execFileSync("kpsewhich", [`${name}.tfm`], { env: ENV, encoding: "utf8" }).trim()
+  const path = kpsewhich([`${name}.tfm`], ENV)
   if (!path) throw new Error(`TFM not found: ${name}`)
   const tfm = parseTfm(new Uint8Array(readFileSync(path)), name)
   tfmCache.set(name, tfm)
@@ -36,7 +36,7 @@ export function texVersion(): string {
 
 /** The TeX version plus a hash of the installation's package database, so a reference never outlives the packages that made it. */
 export function texInstallation(): string {
-  const root = execFileSync("kpsewhich", ["-var-value", "TEXMFROOT"], { env: ENV, encoding: "utf8" }).trim()
+  const root = kpsewhich(["-var-value", "TEXMFROOT"], ENV)
   const tlpdb = join(root, "tlpkg", "texlive.tlpdb")
   return texVersion() + (existsSync(tlpdb) ? " " + createHash("sha256").update(readFileSync(tlpdb)).digest("hex").slice(0, 16) : "")
 }
