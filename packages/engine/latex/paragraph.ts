@@ -744,13 +744,32 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
   return out
 }
 
-/** \UseTextSymbol's font: TS1, or OMS (cmsy) and OML (cmmi) as omscmsy.fd and omlcmm.fd give them at the size, in the series */
+/** \UseTextSymbol's font: TS1, or OMS and OML (otherFont) at the size */
 function symbolFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs, enc: "TS1" | "OMS" | "OML"): Font {
   if (enc === "TS1") return selectFont(k, size, { ...a, enc: "TS1" })
-  const at = k.sizes[size].font.at, pt = at / 65536, b = a.ser === "bx" ? "b" : ""
-  const gen = Number.isInteger(pt) && pt >= 5 && pt <= 9
-  const name = enc === "OMS" ? (gen ? `cm${b}sy${pt}` : `cm${b}sy10`) : gen ? `cmmi${b}${pt}` : b || pt < 12 ? `cmmi${b}10` : "cmmi12"
-  return fontAt(name, at)
+  const at = k.sizes[size].font.at
+  return fontAt(otherFontName(k, a, enc, at / 65536), at)
+}
+
+/**
+ * The OMS or OML font of a family at a size in points: the roman's shapes go to cmsy and cmm (omscmr.fd, omlcmr.fd;
+ * with lmodern omslmr.fd and omllmr.fd's lmsy and lmm), its bold to their b series; the sans and typewriter families
+ * have no OMS or OML shapes, so \wrong@fontshape takes the default family's m series (OMS/cmsy/m/n, OML/cmm/m/it).
+ * The sizes are omscmsy.fd's and omlcmm.fd's (gen* from 5 to 9, then 10, and cmmi12 from 12), omslmsy.fd's and
+ * omllmm.fd's (lmsy5–lmsy10, lmmi5–lmmi10 and lmmi12 from 11; bold lmbsy and lmmib 5, 7 and 10).
+ */
+export function otherFontName(k: ClassOptionData, a: FontAttrs, enc: "OMS" | "OML", pt: number): string {
+  const family = a.fam === "cmr" ? (k.families?.rm ?? "cmr") : "cmr"
+  const bold = a.ser === "bx" && a.fam === "cmr"
+  if (family === "lmr") {
+    if (bold) return `${enc === "OMS" ? "lmbsy" : "lmmib"}${pt < 6 ? 5 : pt < 8 ? 7 : 10}`
+    const step = pt < 5.5 ? 5 : pt < 6.5 ? 6 : pt < 7.5 ? 7 : pt < 8.5 ? 8 : pt < 9.5 ? 9 : enc === "OML" && pt >= 11 ? 12 : 10
+    return `${enc === "OMS" ? "lmsy" : "lmmi"}${step}`
+  }
+  // (PSNFSS's omsptm.fd and friends: ssub to cmsy and cmm, bold by its b series, which \bfseries's bx is not)
+  if (family !== "cmr" && bold) throw new Unsupported(`OMS and OML symbols in bold ${family}`)
+  const b = bold ? "b" : "", gen = Number.isInteger(pt) && pt >= 5 && pt <= 9
+  return enc === "OMS" ? (gen ? `cm${b}sy${pt}` : `cm${b}sy10`) : gen ? `cmmi${b}${pt}` : b || pt < 12 ? `cmmi${b}10` : "cmmi12"
 }
 /** the font at \sf@size in the attributes: the size command of that size */
 function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {

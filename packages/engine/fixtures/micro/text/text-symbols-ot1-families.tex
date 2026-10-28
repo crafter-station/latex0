@@ -1,0 +1,10 @@
+% fixture: text/text-symbols-ot1-families
+% tier: T3
+% engine: document
+% covers: OT1's OMS and OML text symbols in the sans and typewriter families, which have no OMS or OML shapes: \wrong@fontshape's OMS/cmsy/m/n and OML/cmm/m/it, in the m series even in bold (cmsy, not cmbsy), and in the roman's bold cmbsy and cmmib
+% issue: #347
+\documentclass{article}
+\begin{document}
+\textsf{Sans \{\textbar\} \textless s\textgreater{} \textbf{bold \textbackslash\{\}\textless\textgreater}} and \texttt{mono \{\textbackslash\} \textless t\textgreater{} \textbf{bold \textbar\textless}}
+and \textbf{roman bold \{\textbar\} \textless b\textgreater}. {\small\sffamily\bfseries small \{\textless\}} {\large\ttfamily\bfseries large \{\textless\}}
+\end{document}

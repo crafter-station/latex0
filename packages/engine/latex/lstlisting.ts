@@ -18,7 +18,7 @@ import { dimen, IGNORE_DEPTH, negate } from "./vlist"
 import { anchor, labelName } from "./hyperref"
 import { COLOR_CMD, colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { lstFrameBoxV, lstFrameH, lstFrameShapes, lstOptions, lstScan, type LstFrame, type LstOptions } from "./listings"
-import { crefWrites, fontAt, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions } from "./paragraph"
+import { crefWrites, fontAt, fontDeclaration, labelWrite, otherFontName, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions } from "./paragraph"
 import { styleColors } from "./colors"
 import { captionMake } from "./floats"
 import { widthRegisters } from "./boxes"
@@ -48,15 +48,12 @@ export function lstFontsAt(cx: Ctx, size0: SizeCommand, attrs0: FontAttrs) {
   const fonts = {
     colors: (style: string) => styleColors(cx, style),
     font(style: string) { const { size, a } = styleOf(style); return { font: selectFont(run.k, size, a), tt: a.fam === "cmtt", bold: a.ser === "bx", italicShape: a.shape !== "n", size } },
-    /** TS1 from the class's table; OML and OMS by omlcmm.fd and omscmsy.fd (bold: cmmib, cmbsy, 10pt from 10 up) */
+    /** TS1 from the class's table; OML and OMS as the .fd files give them (otherFontName) */
     other(style: string, enc: "TS1" | "OML" | "OMS") {
       const { size, a } = styleOf(style)
       if (enc === "TS1") return selectFont(run.k, size, { ...a, enc: "TS1" })
-      const at = run.k.sizes[size].font.at, pt = at / 65536
-      // omlcmr.fd and omscmr.fd: cmr's bold to cmm/b and cmsy/b; no cmss family: \DeclareFontSubstitution's m series
-      const bold = a.ser === "bx" && a.fam === "cmr"
-      const step = pt < 6 ? 5 : pt < 7 ? 6 : pt < 8 ? 7 : pt < 9 ? 8 : pt < 10 ? 9 : enc === "OML" && !bold && pt >= 12 ? 12 : 10
-      return fontAt((enc === "OML" ? (bold ? "cmmib" : "cmmi") : bold ? "cmbsy" : "cmsy") + step, at)
+      const at = run.k.sizes[size].font.at
+      return fontAt(otherFontName(run.k, a, enc, at / 65536), at)
     },
   }
   return { styleOf, fonts }

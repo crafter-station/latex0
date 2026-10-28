@@ -1,0 +1,12 @@
+% fixture: fonts/lmodern-ot1-symbols-11pt
+% tier: T3
+% engine: document
+% covers: OT1's text symbols from OMS and OML with lmodern at 11pt: lmsy10 and lmmi10 at 10.95pt (omllmm.fd's <9.5-11>), lmmi12 from 11pt up (\large's 12pt), lmmi8 and lmsy8 in \footnotesize (9pt → lmsy9)
+% issue: #347
+\documentclass[11pt]{article}
+\usepackage{lmodern}
+\begin{document}
+A bar \textbar, a backslash \textbackslash, braces \{x\} and \textless tag\textgreater{} at 10.95pt, \textbf{bold \{\textless\}}.
+{\large large \{\textbar\} \textless\textgreater{} \bfseries \{x\}\textless} {\footnotesize foot \{\textbar\} \textless\textgreater}
+{\small small \{\textbar\} \textless\textgreater} {\scriptsize script \{\textbar\} \textless\textgreater}.
+\end{document}
