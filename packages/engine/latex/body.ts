@@ -2,7 +2,7 @@
 // \@noskipsec), headings, lists, floats, listings, letters and the front and back matter.
 
 import type { GlueSpec } from "../layout/dimen"
-import { parseGlue } from "../layout/dimen"
+import { parseGlue, type Internal, type Scanner } from "../layout/dimen"
 import { blocksOf, displaySegments, HEADINGS, type Block, type ListBlock } from "./blocks"
 import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
@@ -14,10 +14,11 @@ import { hpack } from "../layout/pack"
 import { appendText, sourceText } from "./encodings"
 import { loadFont } from "../layout/font"
 import { dataFont } from "./data"
-import { crefWrites, labelWrite } from "./paragraph"
+import { crefWrites, hsizeOf, labelWrite } from "./paragraph"
+import { widthRegisters } from "./boxes"
 import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
 import { appendix, chapter, cleardoublepage, clearpage, columnSwitch, heading, matter, newpage, topnewpageBox } from "./sectioning"
-import type { OutputHook } from "./output"
+import { enlargeInsert, type OutputHook } from "./output"
 import { markboth, markright, markValue } from "./marks"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
@@ -100,11 +101,12 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
     // (\vspace*: \@vspacer's \hrule\@height\z@ \nobreak first, \prevdepth kept)
     // babel's \selectlanguage and otherlanguage's \begin and \end write to the .aux file there (\nobreak too)
-    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
+    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\enlargethispage\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
     if (lead) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace, \\hrule or \\selectlanguage right after a run-in heading")
-      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}/g)) {
-        if (m[4] !== undefined) {
+      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}|\\enlargethispage\s*(\*?)\s*\{([^{}]*)\}/g)) {
+        if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7])) // (\@bsphack, \@esphack: nothing in vertical mode)
+        else if (m[4] !== undefined) {
           const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
           const { lang, write } = babelSwitch(what, m[6])
           // (otherlanguage's group: what its end restores)
@@ -227,6 +229,14 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
   v.afterheadingEverypar = false
   v.endpePar = v.doendpe = v.endpeEverypar = true
+}
+
+/** a length for \enlargethispage: in the body font, with \baselineskip, \textheight and the widths */
+export function pageLength(cx: Ctx, src: string): GlueSpec {
+  const { run } = cx, widths = widthRegisters(cx, hsizeOf(run.k))
+  const internal = (name: string, s: Scanner): Internal | undefined =>
+    name === "baselineskip" ? { level: "glue", value: run.k.glue.baselineskip } : name === "textheight" ? { level: "dimen", value: run.k.dimens.textheight } : widths(name, s)
+  try { return parseGlue(src, { ...cx.bodyUnits, internal }) } catch { throw new Unsupported(`\\enlargethispage{${src}}`) }
 }
 
 /**

@@ -28,7 +28,7 @@ import { classData, documentClass, familyFont } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
-import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
+import { endDocument, enlargeInsert, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefLanguage, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
@@ -320,6 +320,8 @@ type Piece =
   | { kind: "pagebreak"; no: boolean; n: number }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
   | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
+  /** \enlargethispage{len} and \enlargethispage*{len} in a paragraph */
+  | { kind: "enlarge"; star: boolean; skip: string }
   /** \hfill, \hfil, \quad, \qquad, \enspace, \hrulefill, \dotfill */
   | { kind: "space"; cmd: "hfill" | "hfil" | "quad" | "qquad" | "enspace" | "hrulefill" | "dotfill" }
   /** \mbox, \makebox[width][pos], \fbox, \framebox[width][pos] and \raisebox{lift}[height][depth]: the command, its
@@ -569,6 +571,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (ni) { i += ni[0].length; continue }
     const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
+    const el = body.slice(i).match(/^\\enlargethispage(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
+    if (el) { flushText(); out.push({ kind: "enlarge", star: !!el[1], skip: el[2] }); i += el[0].length; continue }
     const pb = body.slice(i).match(/^\\(no)?pagebreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/) // (\@testopt: the spaces before a [ go)
     if (pb) { flushText(); out.push({ kind: "pagebreak", no: !!pb[1], n: pb[2] === undefined ? 4 : Number(pb[2]) }); i += pb[0].length; continue }
     const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
@@ -1200,6 +1204,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
       list.push({ kind: "adjust", list: [...(p.star ? [{ kind: "rule", width: null, height: 0, depth: 0 } as Node, penalty(10000)] : []), glueOf(g), glue(0)] })
+      if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
+    }
+    else if (p.kind === "enlarge") {
+      // \@bsphack, \insert\@kludgeins{…} (it leaves the line and follows it on the vertical list, § 655), \@esphack
+      if (ctx.restricted) throw new Unsupported("\\enlargethispage in restricted horizontal mode")
+      const env = lengthEnv(ctx, font), widths = env.internal!
+      let g: GlueSpec
+      try { g = parseGlue(p.skip, { ...env, internal: (name, s) => (name === "baselineskip" ? { level: "glue", value: k.sizes[size].baselineskip } : name === "textheight" ? { level: "dimen", value: k.dimens.textheight } : widths(name, s)) }) } catch { throw new Unsupported(`\\enlargethispage{${p.skip}}`) }
+      const last = list[list.length - 1]
+      const savsk = last?.kind === "glue" ? last.width : 0
+      list.push(enlargeInsert(g, p.star))
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
     else if (p.kind === "pagebreak") {

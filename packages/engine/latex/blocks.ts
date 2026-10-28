@@ -205,7 +205,7 @@ const TEXT_COMMANDS = [
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
 /** \rule and \hspace with their arguments, and the boxes' length arguments (which may name registers: \textwidth, \width) */
-const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
+const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|enlargethispage\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS), ...SYMBOL_COMMANDS].join("|")}|the[a-zA-Z]+)(?![A-Za-z]))[a-zA-Z]+(?!\\s*=)`)
 

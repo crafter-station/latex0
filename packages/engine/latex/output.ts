@@ -9,7 +9,7 @@ import type { ClassOptionData } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { xnOverD } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
-import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode, filGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, type WhatsitNode, filGlue, ssGlue } from "../layout/nodes"
 import { loadFont } from "../layout/font"
 import { appendText } from "./encodings"
 import { appendToVlist } from "./paragraph"
@@ -22,6 +22,8 @@ import { setgroup, xcolor } from "./xcolor"
 import { Unsupported } from "./unsupported"
 
 const MAX_DIMEN = 0o7777777777
+/** \@kludgeins, \enlargethispage's insertion class (\newinsert's 200th box in LaTeX 2025): \count 1000, \dimen \maxdimen, \skip 0pt */
+export const KLUDGEINS = 200
 
 /** A float as \end@float leaves it: its box, and \count\@currbox — the placement bits h (1), t (2), b (4), p (8), 16 unless !, plus 32 × \ftype. */
 export interface Float {
@@ -37,7 +39,7 @@ export interface Float {
 
 /** A column as \@makecol leaves it: text with its top and bottom floats, or a column of floats (\@vtryfc, with the
  *  two-column float page's skips when `dbl`); `colht` is \@colht then, the height of its \vbox */
-type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number; /** \columnwidth then (the footnote rule's) */ columnwidth: number }
+type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[]; /** \@kludgeins (\enlargethispage) on the page */ kludge?: BoxNode } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number; /** \columnwidth then (the footnote rule's) */ columnwidth: number }
 /** What the output routine ships: a column (one-column mode, or a page of two-column floats), or two columns side by
  *  side with the two-column floats above them (\@outputdblcol, \@combinedblfloats) */
 type ShippedContent = Column | { kind: "dbl"; left: Column; right: Column; dbltop: BoxNode[] }
@@ -162,6 +164,14 @@ export class LatexOutput {
       const fb = vpack(foot.slice())
       out.push({ kind: "ins", n: k.ints.footins, height: fb.height + fb.depth, depth: MAX_DIMEN, splitTopSkip: glue(655360), floatCost: 0, list: foot.slice() })
       delete boxes[k.ints.footins]
+    }
+    // \@kludgeins: its height in \@pageht unless \enlargethispage* made it (its \hbox{\kern\p@}: a width); \@reinserts
+    const kludge = boxes[KLUDGEINS]
+    if (kludge) {
+      const kb = vpack(kludge.slice())
+      if (kb.width === 0) pageht += kb.height
+      out.push({ kind: "ins", n: KLUDGEINS, height: kb.height + kb.depth, depth: MAX_DIMEN, splitTopSkip: glue(655360), floatCost: 0, list: kludge.slice() })
+      delete boxes[KLUDGEINS]
     }
     const here = this.addtocurcol(f, pageht)
     if (f.nobreak && here !== f.here) throw new NobreakFloat(f.index)
@@ -321,7 +331,8 @@ export class LatexOutput {
 
   /** \@makecol: the column, with the floats it holds (the lists are emptied) */
   private makecol(page: Page): Column {
-    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht, columnwidth: this.columnwidth }
+    const kludge = page.inserts[KLUDGEINS]
+    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht, columnwidth: this.columnwidth, ...(kludge ? { kludge: vpack(kludge.slice()) } : {}) }
     this.toplist = []; this.botlist = []; this.midlist = []
     return c
   }
@@ -408,6 +419,7 @@ export class LatexOutput {
       // footnotes still held over: \vbox{\box\@cclv\vfil}, \@makecol\@opcol, and \clearpage again
       // (its \newpage falls on an empty page: \write\m@ne{}\vbox{}\penalty-\@Mi)
       if (this.twocolumn) throw new OutputUnsupported("footnotes held over at a \\clearpage in two columns")
+      if (page.inserts[KLUDGEINS]) throw new OutputUnsupported("\\enlargethispage with footnotes held over at a \\clearpage")
       this.opcol(this.makecol(page))
       return [...clearRest(), ...this.endOutput()]
     }
@@ -479,6 +491,17 @@ export function roman(n: number): string {
   return out
 }
 
+/**
+ * \enlargethispage{len} (\@enlargepage): \insert\@kludgeins{\vskip-len}, \enlargethispage* {\hbox{\kern\p@}\vskip-len}: a
+ * negative height that raises the page's goal (with \splitmaxdepth \maxdimen, \splittopskip 10pt, \floatingpenalty 0)
+ */
+export function enlargeInsert(g: GlueSpec, star: boolean): InsNode {
+  if (g.width > MAX_DIMEN / 2) throw new OutputUnsupported("\\enlargethispage dangerously large")
+  const list: Node[] = [...(star ? [hpack([kern(65536, true)])] : []), plain(negate(g))]
+  const b = vpack(list.slice())
+  return { kind: "ins", n: KLUDGEINS, height: b.height + b.depth, depth: MAX_DIMEN, splitTopSkip: glue(655360), floatCost: 0, list }
+}
+
 /** \newpage: \vfil\penalty-\@M */
 const newpage = (): Node[] => [filGlue(), penalty(-10000)]
 /** The rest of \clearpage after its \newpage: \write\m@ne{}\vbox{}\penalty-\@Mi */
@@ -504,7 +527,7 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
   const fs = k.glue.footinsskip
   const built = buildPages(contrib, {
     vsize: () => out.vsize(), maxDepth: k.dimens.maxdepth, topSkip: paramGlue("topskip", plain(k.glue.topskip)),
-    inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen } },
+    inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen }, [KLUDGEINS]: { skip: glue(0), count: 1000, dimen: MAX_DIMEN } },
     float: (held, marker, boxes) => out.float(held, marker, boxes),
     hook: (h, empty) => out.hook(h as OutputHook, empty),
     output: (page) => out.output(page),
@@ -558,6 +581,22 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     if (sh.top.length) list = [...sh.top.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep)), plain(textfloatsep), ...list]
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)
+    if (sh.kludge) {
+      // \@make@specialcolbox: \vskip-\@outputbox@depth appended; \enlargethispage*'s box (a width): \vbox to\@colht with
+      // \vskip(\@colht-\ht\@outputbox+\pageshrink) after the text, squeezing it; \enlargethispage's: \vbox to\@colht{\vbox
+      // to(\@colht-\ht\@kludgeins){… \@textbottom}\vss}
+      if (letter) throw new Unsupported("\\enlargethispage in a letter")
+      const text = [...list, glue(-out.depth)]
+      if (sh.kludge.width > 0) {
+        const ht = vpack(text.slice(), { additional: 0 }, maxDepth).height
+        const col = [...text, glue(sh.colht - ht + pg.shrink), ...textbottom]
+        const top = col.findIndex((n) => n.kind === "glue" && n.param === "topskip")
+        return { outputbox: vpack(col, { exactly: sh.colht }), column: top < 0 ? null : col.slice(top) }
+      }
+      const inner = vpack([...text, ...textbottom], { exactly: sh.colht - sh.kludge.height })
+      const top = inner.list.findIndex((n) => n.kind === "glue" && n.param === "topskip")
+      return { outputbox: vpack([inner, ssGlue()], { exactly: sh.colht }), column: top < 0 ? null : inner.list.slice(top) }
+    }
     // letter.cls's \@texttop: \vskip\z@ plus.00006fil on page 1
     const col = [...(letter && count === 1 ? [glue(0, 4, FIL)] : []), ...list, glue(-out.depth), ...textbottom]
     const column = first === box255 ? col : first.list

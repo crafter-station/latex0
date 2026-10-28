@@ -60,6 +60,8 @@ export interface Page {
   outputPenalty: number
   /** the vertical lists of the insertion boxes this page filled (box n, packaged natural, § 1021) */
   inserts: Record<number, Node[]>
+  /** \pageshrink in the output routine: the page's shrink when it was cut, with the material past the best break */
+  shrink: number
 }
 
 /** precedes_break (§ 148) for vertical lists: boxes, rules, insertions and whatsits */
@@ -293,7 +295,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
       for (const [k, l] of Object.entries(regs)) if (l.length) boxes[Number(k)] = l.slice()
       for (const r of pageIns) if (r.bestIns) boxes[r.n] ??= []
       const { nodes, held } = takeInserts(queue.slice(0, bestBreak), boxes)
-      const out: Page = { nodes, goal: bestSize, outputPenalty, inserts: boxes }
+      const out: Page = { nodes, goal: bestSize, outputPenalty, inserts: boxes, shrink }
       pages.push(out)
       regs = {} // the output routine empties the insertion boxes
       const material = p.output?.(out) ?? []
@@ -302,7 +304,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     }
     function finish() {
       // material left without a break (whatsits alone, such as a \write put back at the very end, make no page)
-      if (page.some((n) => n.kind !== "whatsit")) pages.push({ nodes: page, goal, outputPenalty: INF_PENALTY, inserts: {} })
+      if (page.some((n) => n.kind !== "whatsit")) pages.push({ nodes: page, goal, outputPenalty: INF_PENALTY, inserts: {}, shrink })
       return { pages, trace }
     }
   }
