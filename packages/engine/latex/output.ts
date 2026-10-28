@@ -14,7 +14,7 @@ import { loadFont } from "../layout/font"
 import { appendText } from "./encodings"
 import { appendToVlist } from "./paragraph"
 import { hpack, vpack } from "../layout/pack"
-import { buildPages, type Page } from "../layout/pagebuilder"
+import { buildPages, type Page, type PageState } from "../layout/pagebuilder"
 import { documentPages } from "../trace/decisions"
 import { dataFont } from "./data"
 import { distillerDestFix, hyperDriver, pageAnchor } from "./hyperref"
@@ -39,7 +39,9 @@ export interface Float {
 
 /** A column as \@makecol leaves it: text with its top and bottom floats, or a column of floats (\@vtryfc, with the
  *  two-column float page's skips when `dbl`); `colht` is \@colht then, the height of its \vbox */
-type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[]; /** \@kludgeins (\enlargethispage) on the page */ kludge?: BoxNode; /** \@textbottom */ raggedbottom: boolean } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number; /** \columnwidth then (the footnote rule's) */ columnwidth: number }
+type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[]; /** \@kludgeins (\enlargethispage) on the page */ kludge?: BoxNode; /** \@textbottom */ raggedbottom: boolean
+  /** \maxdepth in the output routine, when longtable's \maxdepth\z@ is in force (\@backup@outputbox@depth reads it) */
+  maxDepth?: number } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number; /** \columnwidth then (the footnote rule's) */ columnwidth: number }
 /** What the output routine ships: a column (one-column mode, or a page of two-column floats), or two columns side by
  *  side with the two-column floats above them (\@outputdblcol, \@combinedblfloats) */
 type ShippedContent = Column | { kind: "dbl"; left: Column; right: Column; dbltop: BoxNode[] }
@@ -65,6 +67,11 @@ export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman
   | { clearpage: Node[] | null }
   /** the \baselineskip in force where the page builder goes on from here (a size group's paragraphs: their \par's) */
   | { baselineskip: number }
+  /** a package's macros that read and set the page so far and the output routine's state (longtable.ts, multicol.ts) */
+  | { state: (o: LatexOutput, page: PageState) => Node[] }
+
+/** longtable's boxes while its output routine (\LT@output) is in force */
+export interface LongtableBoxes { head: BoxNode | null; foot: BoxNode | null; lastfoot: BoxNode | null }
 
 /** Thrown for what the output routine does that is not modeled yet. */
 export class OutputUnsupported extends Unsupported {}
@@ -92,11 +99,14 @@ export class LatexOutput {
   private toplist: Float[] = []
   private botlist: Float[] = []
   private midlist: Float[] = []
-  private colroom: number
+  /** \@colroom */
+  colroom: number
+  /** what \@makecol's and the output routines' state the class gives (multicol reads \@maxdepth, \topskip) */
+  get classData() { return this.k }
   private topnum = 0; private toproom = 0; private botnum = 0; private botroom = 0; private colnum = 0
   private textfloatsheight = 0
   /** \@colht: \textheight, less what the two-column floats at the top of the page take */
-  private colht: number
+  colht: number
   /** \if@twocolumn, \if@firstcolumn, and \@leftcolumn: the first column, waiting for the second */
   private twocolumn: boolean
   private firstcolumn = true
@@ -116,6 +126,15 @@ export class LatexOutput {
 
   /** \columnwidth: \textwidth, or in two columns half of it less \columnsep */
   private get columnwidth() { return this.twocolumn ? Math.trunc((this.k.dimens.textwidth - this.k.dimens.columnsep) / 2) : this.k.dimens.textwidth }
+  /** longtable's output routine and boxes, while one is set */
+  lt: LongtableBoxes | null = null
+  /** another package's output routine while it is in force (multicol's): what it puts back for a page */
+  custom: ((page: Page) => Node[]) | null = null
+  /** \topskip while a group sets it (multicol's {\topskip\z@\null}) */
+  topSkipNow: GlueNode | null = null
+  /** \maxdepth while longtable's \maxdepth\z@ is in force (each \@makecol sets it back to \@maxdepth, globally) */
+  maxDepthNow: number | null = null
+  maxDepth(): number { return this.maxDepthNow ?? this.k.dimens.maxdepth }
 
   /** \@floatplacement: the rooms are fractions of \@colht (\@fpmin, local, is computed where it is used) */
   private floatplacement() {
@@ -136,7 +155,7 @@ export class LatexOutput {
 
   /** \vsize after an output: \@colroom (a column left with less than 1.5\baselineskip gets \@emptycol) */
   vsize(): number { return this.vsizeNow }
-  private vsizeNow: number
+  vsizeNow: number
 
   /**
    * The end of \output: \vsize becomes \@colroom, unless less than 1.5\baselineskip is left for text on a
@@ -155,6 +174,7 @@ export class LatexOutput {
    * contribution list: the page so far, \@reinserts, and the float if it goes here.
    */
   float(held: Node[], marker: WhatsitNode, boxes: Record<number, Node[]>): Node[] {
+    if (this.custom || this.lt) throw new OutputUnsupported(`a float in ${this.lt ? "a longtable" : "multicols"}`)
     const f = marker.float as Float
     const k = this.k
     const hp = vpack(held.slice())
@@ -336,8 +356,9 @@ export class LatexOutput {
   /** \@makecol: the column, with the floats it holds (the lists are emptied) */
   private makecol(page: Page): Column {
     const kludge = page.inserts[KLUDGEINS]
-    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht, columnwidth: this.columnwidth, raggedbottom: this.raggedbottom, ...(kludge ? { kludge: vpack(kludge.slice()) } : {}) }
+    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht, columnwidth: this.columnwidth, raggedbottom: this.raggedbottom, ...(kludge ? { kludge: vpack(kludge.slice()) } : {}), ...(this.maxDepthNow !== null ? { maxDepth: this.maxDepthNow } : {}) }
     this.toplist = []; this.botlist = []; this.midlist = []
+    this.maxDepthNow = null // (\global\maxdepth\@maxdepth)
     return c
   }
 
@@ -394,6 +415,8 @@ export class LatexOutput {
 
   /** The output routine at a page break (\outputpenalty ≥ -\@Mi): \@makecol\@opcol\@startcolumn, or \@doclearpage. */
   output(page: Page): Node[] | void {
+    if (this.custom) return this.custom(page)
+    if (this.lt) return this.ltOutput(page, this.lt)
     if (page.outputPenalty === -10001) {
       if (!page.inserts[this.k.ints.footins]?.length) {
         // the page (\write and \vbox{}) is dropped, all but what \vsplit\@cclv to\z@ splits off, the
@@ -435,7 +458,9 @@ export class LatexOutput {
 
   /** An assignment from the document: article's \maketitle sets \@topnum to 0 for its page */
   /** \global\@topnum\z@; \thispagestyle, which \@outputpage applies to the next page it ships; \setcounter{page} */
-  hook(h: OutputHook, empty = false): Node[] | void {
+  hook(h: OutputHook, page: PageState): Node[] | void {
+    const empty = page.noBox
+    if (typeof h === "object" && "state" in h) return h.state(this, page)
     if (typeof h === "object" && "topnewpage" in h) { this.topnewpage(h.topnewpage); return }
     if (typeof h === "object" && "clearpage" in h) {
       if (this.dbltopnum !== -1 || !empty) return
@@ -488,6 +513,50 @@ export class LatexOutput {
     this.shipped.push(shipped)
   }
 
+  /**
+   * longtable's \LT@output: at a page break, \setbox\@cclv\vbox{\unvbox\@cclv\copy\LT@foot\vss}, \@makecol,
+   * \@outputpage, \global\vsize\@colroom, then \copy\LT@head\nobreak (no \@opcol, no \@startcolumn). At the
+   * table's end (\penalty-30000) the page goes back with \LT@lastfoot (or \LT@foot) after it, unless a taller last
+   * foot leaves too little room (\pagegoal + \ht\LT@foot - \ht\LT@lastfoot < the page's height): then the page is
+   * output with the foot, and the head starts the next before the last foot. \box empties the last foot's register
+   */
+  private ltOutput(page: Page, lt: LongtableBoxes): Node[] {
+    if (this.twocolumn) throw new OutputUnsupported("longtable in two columns")
+    const copy = (b: BoxNode | null): Node[] => (b ? [structuredClone(b)] : [])
+    const ship = (nodes: Node[]) => {
+      this.outputpage(this.makecol({ ...page, nodes: [...nodes, ...copy(lt.foot), glue(0, 65536, FIL, 65536, FIL)] }))
+      this.vsizeNow = this.colroom
+    }
+    if (page.outputPenalty < -10001) {
+      if (page.outputPenalty !== -30000) throw new OutputUnsupported("floats and marginpars in a longtable")
+      // (footnotes on its last page stay in \box\footins, and \endlongtable's \insert\footins{} holds them)
+      if (Object.values(page.inserts).some((l) => l.length)) throw new OutputUnsupported("footnotes on a longtable's last page")
+      let nodes = page.nodes
+      const ht = (b: BoxNode | null) => b?.height ?? 0
+      if (ht(lt.lastfoot) > ht(lt.foot) && page.goal + ht(lt.foot) - ht(lt.lastfoot) < vpack(nodes.slice()).height) { ship(nodes); nodes = lt.head ? [lt.head] : [] }
+      // (\box: the register is void after, at its level, so \endlongtable finds no foot to give the \vsize back for)
+      const last = lt.lastfoot ?? lt.foot
+      if (lt.lastfoot) lt.lastfoot = null; else lt.foot = null
+      return [...nodes, ...(last ? [last] : [])]
+    }
+    ship(page.nodes)
+    return [...copy(lt.head), penalty(10000)]
+  }
+
+  /**
+   * multicol's \multi@column@out after it has set the page (\box\@cclv the page so far and the row of columns):
+   * \@makecol\@outputpage, \global\@colroom\@colht, \@mparbottom and \@textfloatsheight zero, \process@deferreds
+   * (\@floatplacement, and the deferred floats, which are not laid out yet here)
+   */
+  multicolPage(page: Page, nodes: Node[]) {
+    if (this.twocolumn) throw new OutputUnsupported("multicols in two columns")
+    this.outputpage(this.makecol({ ...page, nodes }))
+    this.colroom = this.colht
+    this.textfloatsheight = 0
+    this.floatplacement()
+    if (this.deferlist.length) throw new OutputUnsupported("deferred floats at a page of multicols")
+  }
+
   /** At the end: floats still waiting were never output, nor a first column. */
   done() {
     if (this.deferlist.length || this.toplist.length || this.botlist.length || this.dbltoplist.length) throw new OutputUnsupported("floats lost at the end of the document")
@@ -537,10 +606,10 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
   const out = new LatexOutput(k, parskip, twocolumn)
   const fs = k.glue.footinsskip
   const built = buildPages(contrib, {
-    vsize: () => out.vsize(), maxDepth: k.dimens.maxdepth, topSkip: paramGlue("topskip", plain(k.glue.topskip)),
+    vsize: () => out.vsize(), maxDepth: () => out.maxDepth(), topSkip: () => out.topSkipNow ?? paramGlue("topskip", plain(k.glue.topskip)),
     inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen }, [KLUDGEINS]: { skip: glue(0), count: 1000, dimen: MAX_DIMEN } },
     float: (held, marker, boxes) => out.float(held, marker, boxes),
-    hook: (h, empty) => out.hook(h as OutputHook, empty),
+    hook: (h, page) => out.hook(h as OutputHook, page),
     output: (page) => out.output(page),
     reached: (i) => { out.reached = i },
   })
@@ -583,7 +652,7 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     if (last?.kind === "glue" && last.stretchOrder !== NORMAL) {
       list.pop()
       const d = vpack(list.slice(), { additional: 0 }, maxDepth).depth
-      if (!foot && !sh.bot.length && d > 0) list.push(glue(-Math.min(d, maxDepth)))
+      if (!foot && !sh.bot.length && d > 0) list.push(glue(-Math.min(d, sh.maxDepth ?? maxDepth)))
       list.push(plain(last))
     }
     // \color@begingroup\normalcolor\footnoterule\unvbox\footins\color@endgroup

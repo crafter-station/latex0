@@ -6,13 +6,14 @@
 // its S[options] column (siunitx.ts).
 
 import { halignSpans, type AlignCell } from "../layout/align"
-import { emptyBox, glue, kern, paramGlue, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack, type PackSpec } from "../layout/pack"
 import type { GlueSpec } from "../layout/dimen"
 import { appendToVlist } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
-import { setgroup } from "./xcolor"
+import { colorPop, colorPush, xcolor } from "./xcolor"
+import { FILL } from "../layout/nodes"
 
 export class TabularUnsupported extends Unsupported {}
 
@@ -38,7 +39,19 @@ export interface TabCol { align: "l" | "c" | "r" | "p" | "m" | "b"; width?: stri
   /** siunitx's S[options] (a c column around \siunitx_cell_begin:w … \siunitx_cell_end:): its options */
   si?: string
   /** array.sty's w{align}{width} and W{align}{width}: a c column whose entry is \makebox[width][align]'d */
-  box?: { align: string; width: string; W: boolean } }
+  box?: { align: string; width: string; W: boolean }
+  /** colortbl's \columncolor[model]{color} in its >{decl} */
+  color?: CtColor }
+/** a color as colortbl's commands take it: [model]{spec} */
+export interface CtColor { spec: string; model?: string }
+
+/** colortbl's \columncolor[model]{color} in >{decl}s (\CT@extract: the first one), taken out of them */
+function columnColor(pre: string): { pre: string; color?: CtColor } {
+  const m = pre.match(/\\columncolor\s*(?:\[([^\]]*)\])?\s*\{([^{}]*)\}/)
+  if (!m) return { pre }
+  if (/^\s*\[/.test(pre.slice(m.index! + m[0].length))) throw new TabularUnsupported(`${m[0]}[overhang]`)
+  return { pre: pre.slice(0, m.index) + pre.slice(m.index! + m[0].length), color: { spec: m[2].trim(), ...(m[1] !== undefined ? { model: m[1].trim() } : {}) } }
+}
 /** array.sty's \newcolumntype{X}[n]{spec}'s */
 export type ColumnTypes = Record<string, { n: number; spec: string }>
 
@@ -99,7 +112,7 @@ export function xColumns(spec: string, types: ColumnTypes): number {
 /** array.sty's \@mkpream: the classes of \@testpach (0 a column, 1 a rule or !'s text, 2 <'s, 3 >'s, 5 @'s
  *  text, 6 !, 7 @, 8 <, 9 >, 10 m, p or b, before its width) and what each adds */
 function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {
-  type Col = { align: TabCol["align"]; width?: string; pre: string; post: string; si?: string; box?: TabCol["box"] }
+  type Col = { align: TabCol["align"]; width?: string; pre: string; post: string; si?: string; box?: TabCol["box"]; color?: CtColor }
   const bad = () => new TabularUnsupported(`tabular columns {${spec}}`)
   const flat: (TabItem | "&" | Col)[] = []
   let last = 4, firstAmp = true, num = 0, pre = "", col: Col | null = null
@@ -131,6 +144,7 @@ function arrayPreamble(spec: string, toks: string[], si: boolean): TabCol[] {
       case 0: // \@classz: the separators, then the column with the >{decl}'s gathered so far
         classx()
         col = { align: (["c", "l", "r", "m", "p", "b"] as const)[num], ...(num >= 3 ? { width: arg } : {}), pre, post: "" }
+        if (/\\columncolor(?![A-Za-z])/.test(pre)) { const cc = columnColor(pre); col.pre = cc.pre; col.color = cc.color }
         if (t === "S" && last !== 10) { // its [options], to the ] (groups keep their braces)
           let opts = ""
           if (toks[ti + 1] === "[") {
@@ -207,9 +221,11 @@ export function preamble(spec: string, array?: { types: ColumnTypes; si?: boolea
 }
 
 /** a cell as typed: its text, or a \multicolumn */
-export type TabCell = { text: string } | { span: number; spec: string; text: string }
+export type TabCell = { text: string } | { span: number; spec: string; text: string
+  /** (longtable's \caption: the entry's material, made already, and what follows the \multicolumn in its cell) */
+  nodes?: Node[]; after?: Node[] }
 /** a row (and the [skip] of the \\ ending it), an \hline, a \cline{a-b}, or a booktabs rule */
-export type TabLine = { cells: TabCell[]; skip?: string | number; ended?: boolean } | { hline: true } | { cline: [number, number] } | BooktabsLine
+export type TabLine = { cells: TabCell[]; skip?: string | number; ended?: boolean; /** \\* */ star?: boolean } | { rowcolor: CtColor } | { hline: true } | { cline: [number, number] } | BooktabsLine
 /** booktabs's rules between rows: \toprule, \midrule, \bottomrule[width], \specialrule{width}{above}{below},
  *  \addlinespace[space], \cmidrule[width](trim){a-b}, \morecmidrules */
 export type BooktabsLine =
@@ -264,6 +280,12 @@ export function tabularLines(body: string): TabLine[] {
         if (a < 1 || b < a || !/^[lr]*$/.test(cm[2] ?? "")) throw new TabularUnsupported(`\\cmidrule(${cm[2] ?? ""}){${a}-${b}}`)
         lines.push({ cmid: [a, b], trim: cm[2] ?? "", ...(cm[1] !== undefined ? { width: cm[1] } : {}) }); rest = rest.slice(cm[0].length); continue
       }
+      // colortbl's \rowcolor[model]{color}: \noalign{…} for the row after it
+      const rc = rest.match(/^\\rowcolor(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*\{([^{}]*)\}\s*/)
+      if (rc) {
+        if (rest.slice(rc[0].length).startsWith("[")) throw new TabularUnsupported("\\rowcolor[…]{…}[overhang]")
+        lines.push({ rowcolor: { spec: rc[2].trim(), ...(rc[1] !== undefined ? { model: rc[1].trim() } : {}) } }); rest = rest.slice(rc[0].length); continue
+      }
       const mc = rest.match(/^\\morecmidrules(?![A-Za-z])\s*/)
       if (mc) { lines.push({ morecmid: true }); rest = rest.slice(mc[0].length); continue }
       break
@@ -274,10 +296,10 @@ export function tabularLines(body: string): TabLine[] {
     rest = end < 0 ? "" : rest.slice(end + 2)
     // \\* and \\[skip] (\@tabularcr)
     let skip: string | undefined
-    const opt = rest.match(/^\*?\s*(?:\[([^\]]*)\])?/)!
-    if (opt[1] !== undefined) skip = opt[1]
+    const opt = rest.match(/^(\*?)\s*(?:\[([^\]]*)\])?/)!
+    if (opt[2] !== undefined) skip = opt[2]
     rest = rest.slice(opt[0].length).trim()
-    if (/\\(?:hline|cline|toprule|midrule|bottomrule|cmidrule|specialrule|addlinespace|morecmidrules)(?![A-Za-z])/.test(row)) throw new TabularUnsupported("a rule inside a row")
+    if (/\\(?:hline|cline|toprule|midrule|bottomrule|cmidrule|specialrule|addlinespace|morecmidrules|rowcolor)(?![A-Za-z])/.test(row)) throw new TabularUnsupported("a rule inside a row")
     const cells: TabCell[] = []
     for (let i = 0; ;) {
       const e = upTo(row, i, "&")
@@ -291,7 +313,7 @@ export function tabularLines(body: string): TabLine[] {
       if (e < 0) break
       i = e + 1
     }
-    lines.push({ cells, ...(skip !== undefined ? { skip } : {}), ...(end >= 0 ? { ended: true } : {}) })
+    lines.push({ cells, ...(skip !== undefined ? { skip } : {}), ...(end >= 0 ? { ended: true } : {}), ...(opt[1] ? { star: true } : {}) })
   }
   return lines
 }
@@ -349,9 +371,16 @@ export interface TabularEnv {
   cell(text: string, state: { spaceFactor: number }): Node[]
   /** a p{width} column's \vtop (\@startpbox … \@endpbox) around an entry; `cr` is what \\[skip] puts at its end.
    *  With array.sty, `array`: the box (a \vtop for p, a \vbox for m and b) and the paragraph shape >{decl} gave */
-  pbox(text: string, width: string, cr: Node[], array?: { kind: "p" | "m" | "b"; shape: "centering" | "raggedright" | "raggedleft" | null; size?: SizeCommand }): BoxNode
+  pbox(text: string, width: string, cr: Node[], array?: { kind: "p" | "m" | "b"; shape: "centering" | "raggedright" | "raggedleft" | null; size?: SizeCommand }, everypar?: boolean): BoxNode
+  /** longtable's \LT@startpbox, without array.sty too: the \everypar strut in a p{width} entry */
+  everyparStrut?: boolean
   /** a \\[skip]'s dimension */
   skip(text: string): number
+  /** xcolor's current color where the tabular stands, when not the document's */
+  color?: string
+  /** colortbl loaded: its column template, its colors as the driver's specials take them, and \rowcolors in force
+   *  (with \rownum, which counts on from tabular to tabular) */
+  colortbl?: { color(c: CtColor): string; rows?: { start: number; odd: string; even: string; num: { n: number } } }
   /** an \extracolsep's skip */
   glue(text: string): GlueSpec
   /** multirow loaded */
@@ -370,6 +399,31 @@ export interface TabularEnv {
  * \arrayrulewidth}, and one right after another adds \vskip\doublerulesep\vskip-\arrayrulewidth.
  */
 export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, pos: "t" | "b" | "c", to?: number): BoxNode {
+  const { list } = tabularList(lines, cols, env, to)
+  const box = pos === "t" ? vtop(list) : vpack(list)
+  if (pos === "c") { // \vcenter: make_vcenter (§ 736), about the axis
+    const delta = box.height + box.depth
+    box.height = env.axis + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+    box.depth = delta - box.height
+  }
+  return hpack([{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }])
+}
+
+/** a longtable chunk's \halign (longtable.ts): to \hsize, \LTleft and \LTright the tabskip glue around the columns */
+export interface ChunkAlign {
+  hsize: number; left: GlueSpec; right: GlueSpec
+  /** \LT@save@row, the alignment's last row: in each column \omit and \kern its width (null: \omit alone) */
+  save: (number | null)[]
+  /** \prevdepth where the chunk's \vbox starts: 0pt after a chunk \LTchunksize ended (\LT@setprevdepth) */
+  prevDepth: number | null
+}
+
+/**
+ * The alignment's vertical list: its rows and what \noalign puts between them. `to` is tabular*'s width; `chunk` a
+ * longtable chunk's (its \hline is \LT@hline's two rule rows, a booktabs rule \@BLTrule's row after \nobreak, \\*
+ * puts \noalign{\nobreak} after its row); with it, `widths` are the save row's columns, which it leaves out
+ */
+export function tabularList(lines: TabLine[], cols: TabCol[], env: TabularEnv, to?: number, chunk?: ChunkAlign): { list: Node[]; widths: number[] } {
   const arw = env.arrayrulewidth, half = Math.trunc(arw / 2)
   const strut = (): Node => ({ kind: "rule", width: 0, height: env.strut.height, depth: env.strut.depth }) // \@arstrut
   const items = (xs: TabItem[], st: { spaceFactor: number }): Node[] => xs.flatMap((x): Node[] => {
@@ -406,7 +460,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
   }
   const kernelEntry = (col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }): Node[] => {
     const align = col.align
-    if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr), filGlue()] } // (a box: the space factor is 1000)
+    if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr, undefined, env.everyparStrut), filGlue()] } // (a box: the space factor is 1000)
     const l: Node[] = align === "l" ? [] : [filGlue()]
     l.push(glue(1), ...content(text.replace(/^\s+/, ""), st))
     if (cr.length) { unskip(l); l.push(...cr) }
@@ -420,7 +474,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
    * the box: before it for m, where \ar@align@mcell lowers a box taller than \strutbox). A \\[skip] has \unskip'd
    * the entry, and \do@row@strut's \vrule depth skip+\dp\@arstrutbox comes in `cr`
    */
-  const arrayEntry = (l: Node[], col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }, ended: boolean): Node[] => {
+  const arrayEntry = (l: Node[], col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }, ended: boolean, ct = false): Node[] => {
     if (col.si !== undefined) { // \hfil\hskip1sp, the entry siunitx collects (it takes \textonly@unskip too), \hfil
       if (!env.si || col.post) throw new TabularUnsupported(`an S column{${col.post ? ` <{${col.post}}` : ""}}`)
       if (multirow(text.replace(/^\s+/, ""))) throw new TabularUnsupported("\\multirow in an S column")
@@ -467,7 +521,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       unskip(inner)
       const a = col.box.align, ss = (): Node => col.box!.W ? filGlue() : ssGlue()
       // (lrbox's \color@setgroup: with a color package, the color pushed and popped around the entry)
-      const box = hpack([..."crb".includes(a) ? [ss()] : [], ...setgroup(inner), ..."clt".includes(a) ? [ss()] : []], { exactly: env.glue(col.box.width).width })
+      const box = hpack([..."crb".includes(a) ? [ss()] : [], ...(xcolor.on ? [colorPush(env.color ?? xcolor.normal), ...inner, colorPop()] : inner), ..."clt".includes(a) ? [ss()] : []], { exactly: env.glue(col.box.width).width })
       st.spaceFactor = 1000
       l.push(filGlue(), glue(1), box, ...cr, filGlue())
       return l
@@ -508,18 +562,43 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       l.push(filGlue(), box, ...cr)
       return l
     }
-    if (col.align !== "l") l.push(filGlue())
+    // (colortbl's: \hskip\stretch{.5}\kern\z@ or \hfill\kern\z@ first, in a box of its own, and no \hskip1sp)
+    if (ct) { if (col.align !== "l") l.push(col.align === "c" ? glue(0, 32768, FILL) : fillGlue(), kern(0, true)) }
+    else if (col.align !== "l") l.push(filGlue())
     // (an empty entry: \textonly@unskip takes the \hskip1sp, before the <{decl})
     const empty = post && !text.trim()
     if (empty && content(`{${pre}}`, { ...st }).length) throw new TabularUnsupported(`>{${col.pre}} with an empty entry`)
     // (after \\[skip], whose \unskip took the \hskip1sp, a glue before it)
-    if (!empty) l.push(glue(1))
+    if (ct) { /* (nothing before the entry for \unskip to take) */ }
+    else if (!empty) l.push(glue(1))
     else if (cr.length) unskip(l)
     l.push(...content(body, st))
     if (!post) { unskipUnder(l, pops); if (cr.length) unskipUnder(l, pops) } // (in the declarations' group)
     l.push(...cr)
-    if (col.align !== "r") l.push(filGlue())
+    if (ct) { if (col.align !== "r") l.push(col.align === "c" ? glue(0, 32768, FILL) : fillGlue()) }
+    else if (col.align !== "r") l.push(filGlue())
     return l
+  }
+  /**
+   * colortbl's column template (its \@classz): \setbox\z@\hbox{the entry, aligned with \hskip\stretch{.5}\kern\z@ (c),
+   * \hfill (l) or \hfill\kern\z@ (r) and no \hskip1sp; p, m and b as array.sty's}, then in a group the column's, the
+   * row's and the cell's \color (each a push) and, with one, \CT@@do@color: \kern-\tabcolsep \leaders\vrule (0.4pt wide)
+   * \hskip(\wd\z@ + 2\tabcolsep)\@plus1fill \kern-\tabcolsep \hskip-\wd\z@\@plus-1fill; then \vrule height
+   * \ht\z@ width0pt and \unhbox\z@. \cellcolor in the entry sets the cell's (\gdef; it typesets nothing)
+   */
+  const ctCell = (before: Node[], col: TabCol, text: string, cr: Node[], st: { spaceFactor: number }, ended = false): Node[] => {
+    let cell: CtColor | null = null
+    text = text.replace(/\\cellcolor(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*\{([^{}]*)\}/g, (_, model: string | undefined, spec: string) => { cell = { spec: spec.trim(), ...(model !== undefined ? { model: model.trim() } : {}) }; return "{}" })
+    if (col.si !== undefined || col.box || (col.pre || col.post) && multirow(text.replace(/^\s+/, ""))) throw new TabularUnsupported("an S or w column, or a \\multirow after >{decl}, with colortbl")
+    return ctWrap(before, arrayEntry([], col, text, cr, st, ended, true), [col.color, rowColor, cell])
+  }
+  const ctWrap = (before: Node[], box0: Node[], cs: (CtColor | null | undefined)[]): Node[] => {
+    const colors = cs.filter((c): c is CtColor => !!c).map((c) => ct!.color(c))
+    const b = hpack(box0.slice()), sep = env.tabcolsep
+    const out = [...before]
+    if (colors.length) out.push(...colors.map((c) => colorPush(c)), kern(-sep, true), { ...glue(b.width + 2 * sep, 65536, FILL), leaders: { kind: "leaders", box: { kind: "rule", width: 26214, height: null, depth: null } } }, kern(-sep, true), glue(-b.width, -65536, FILL), ...colors.map(() => colorPop()))
+    out.push({ kind: "rule", width: 0, height: b.height, depth: null }, ...box0)
+    return out
   }
   const rows: AlignCell[][] = []
   const vlist: ({ row: number } | Node)[] = []
@@ -531,7 +610,23 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
     lastClass = isBooktabs(next) && !("morecmid" in next) ? cls : 0
     if (lastClass !== 1) vlist.push(glue(belowSep))
   }
+  const ruleRow = (w: number): AlignCell[] => [{ nodes: [{ ...fillGlue(), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: w, depth: 0 } } }], span: cols.length }]
+  let gobbled = -1
+  // colortbl: \CT@row@color for the row to come, reset at each \cr (\everycr), or with \rowcolors in force set by
+  // \@rowc@lors there from \rownum; \rowcolor sets it for its row
+  const ct = env.colortbl
+  let rowColor: CtColor | null = null
+  const everycr = () => {
+    const rc = ct?.rows
+    if (!rc) { rowColor = null; return }
+    rc.num.n++
+    const c = rc.num.n < rc.start ? "" : rc.num.n % 2 ? rc.odd : rc.even
+    rowColor = c ? { spec: c } : null
+  }
+  if (ct) everycr() // (after the preamble's \cr)
   lines.forEach((line, li) => {
+    if (li === gobbled) return
+    if ("rowcolor" in line) { if (!ct) throw new TabularUnsupported("\\rowcolor without colortbl"); rowColor = line.rowcolor; return }
     if (isBooktabs(line)) {
       const bt = env.booktabs
       if (!bt) throw new TabularUnsupported("booktabs rules without \\usepackage{booktabs}")
@@ -545,6 +640,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
         const r: AlignCell[] = a > 1 ? [{ nodes: [], span: a - 1 }] : []
         r.push({ nodes: [glue(line.trim.includes("l") ? bt.cmidrulekern : 0), { ...fillGlue(), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: w, depth: 0 } } }, kern(0, true), glue(line.trim.includes("r") ? bt.cmidrulekern : 0)], span: b - a + 1 })
         vlist.push({ row: rows.length }); rows.push(r)
+        everycr()
         const next = lines[li + 1] // \@xcmidrule
         if (next && "cmid" in next) { vlist.push(glue(-w)); lastClass = 1 }
         else if (next && "morecmid" in next) { vlist.push(glue(bt.cmidrulesep)); lastClass = 1 }
@@ -557,13 +653,29 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       const above = special ? env.skip(line.special[1]) : line.btrule === "top" ? bt.abovetopsep : bt.aboverulesep
       belowSep = special ? env.skip(line.special[2]) : line.btrule === "bottom" ? bt.belowbottomsep : bt.belowrulesep
       const w = special ? env.skip(line.special[0]) : line.width !== undefined ? env.skip(line.width) : line.btrule === "mid" ? bt.lightrulewidth : bt.heavyrulewidth
+      if (chunk) vlist.push(penalty(10000)) // (in a longtable: \nobreak)
       if (cls === 2 || lastClass === 0) vlist.push(glue(above))
       else if (lastClass === 1) vlist.push(glue(env.doublerulesep))
-      vlist.push({ kind: "rule", width: null, height: w, depth: 0 })
+      // (in a longtable, \@BLTrule: \@cmidruleb across every column, \multispan\LT@cols \unskip\hskip0pt
+      // {\leaders\hrule\hfill\kern\z@}\hskip0pt\cr)
+      if (chunk) { vlist.push({ row: rows.length }); rows.push([{ nodes: [glue(0), { ...fillGlue(), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: w, depth: 0 } } }, kern(0, true), glue(0)], span: cols.length }]); everycr() }
+      else vlist.push({ kind: "rule", width: null, height: w, depth: 0 })
       endRule(cls, li)
       return
     }
     lastClass = 0
+    if ("hline" in line && chunk) {
+      // \LT@hline: \noalign{\penalty\@M}, a row of \leaders\hrule across the columns, \noalign{\penalty-\@lowpenalty
+      // \vskip-\arrayrulewidth} (for \hline\hline, which takes the second: \penalty-\@medpenalty\vskip\doublerulesep),
+      // the row again, \noalign{\penalty\@M}
+      // (colortbl's \LT@@hline looks for the second \hline in \LT@next, which longtable no longer sets: never doubled)
+      const twice = !ct && "hline" in (lines[li + 1] ?? {})
+      if (twice) gobbled = li + 1
+      vlist.push(penalty(10000), { row: rows.length }, ...twice ? [penalty(-151), glue(env.doublerulesep)] : [penalty(-51), glue(-arw)], { row: rows.length + 1 }, penalty(10000))
+      rows.push(ruleRow(arw), ruleRow(arw))
+      everycr(); everycr()
+      return
+    }
     if ("hline" in line) {
       // (fin_align gives the rule the alignment's width, § 806)
       if (li > 0 && "hline" in lines[li - 1]) vlist.push(glue(env.doublerulesep), ...(env.array ? [] : [glue(-arw)])) // (array.sty's \@xhline: no \vskip-\arrayrulewidth)
@@ -576,6 +688,7 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
       const r: AlignCell[] = a > 1 ? [{ nodes: [], span: a - 1 }] : []
       r.push({ nodes: [{ ...fillGlue(), leaders: { kind: "leaders", box: { kind: "rule", width: null, height: arw, depth: 0 } } }], span: b - a + 1 })
       vlist.push({ row: rows.length }); rows.push(r)
+      everycr()
       vlist.push(glue(-arw))
       return
     }
@@ -592,42 +705,50 @@ export function tabularBox(lines: TabLine[], cols: TabCol[], env: TabularEnv, po
         const own = preamble(c.spec, env.array)
         if (own.length !== 1 || c.span < 1) throw new TabularUnsupported(`\\multicolumn{${c.span}}{${c.spec}}`)
         if (j + c.span > cols.length) throw new TabularUnsupported("a \\multicolumn past the last column")
-        const nodes = [...entry([strut(), ...items(own[0].u, st)], own[0], c.text, [], st), ...items(own[0].v, st), emptyBox("hlist", 0)]
+        // (longtable's \caption: \hfil\hskip1sp, the material made already, \hfil around a c column's)
+        if (c.nodes && (own[0].align !== "c" || own[0].pre || own[0].post)) throw new TabularUnsupported("a \\caption's \\multicolumn")
+        const nodes = c.nodes && ct ? [...ctWrap([strut(), ...items(own[0].u, st)], [glue(0, 32768, FILL), kern(0, true), ...c.nodes, glue(0, 32768, FILL)], [own[0].color, rowColor]), ...items(own[0].v, st), emptyBox("hlist", 0), ...c.after ?? []]
+          : c.nodes ? [strut(), ...items(own[0].u, st), filGlue(), glue(1), ...c.nodes, filGlue(), ...items(own[0].v, st), emptyBox("hlist", 0), ...c.after ?? []]
+          : ct ? [...ctCell([strut(), ...items(own[0].u, st)], own[0], c.text, [], st), ...items(own[0].v, st), emptyBox("hlist", 0)]
+          : [...entry([strut(), ...items(own[0].u, st)], own[0], c.text, [], st), ...items(own[0].v, st), emptyBox("hlist", 0)]
         if (last && cr.length) { unskip(nodes); nodes.push(...cr) }
         j += c.span
         return { nodes, span: c.span }
       }
       const col = cols[j++]
-      return { nodes: [...entry([...(j === 1 ? [strut()] : []), ...items(col.u, st)], col, c.text, last ? cr : [], st, last && !!line.ended), ...items(col.v, st)], span: 1 }
+      const before = [...(j === 1 ? [strut()] : []), ...items(col.u, st)]
+      return { nodes: [...(ct ? ctCell(before, col, c.text, last ? cr : [], st, last && !!line.ended) : entry(before, col, c.text, last ? cr : [], st, last && !!line.ended)), ...items(col.v, st)], span: 1 }
     })
     vlist.push({ row: rows.length }); rows.push(r)
+    everycr() // (\\, or for a last row with none, \endtabular's \crcr)
     if (skip !== undefined && skip <= 0) vlist.push(glue(skip))
+    if (line.star && chunk) vlist.push(penalty(10000)) // (longtable's \\*: \noalign{\nobreak})
   })
   // the tabskip glue: zero before the first column (\ialign's \tabskip\z@skip), after each one the \tabskip its
-  // templates left (an \extracolsep), zero after the last (\tabskip\z@skip before the preamble's \cr)
+  // templates left (an \extracolsep), zero after the last (\tabskip\z@skip before the preamble's \cr); in a longtable
+  // \LTleft before the first (\tabskip\z@ starts its template) and \LTright after the last
+  const tab = (g: GlueSpec) => paramGlue("tabskip", glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
   let skip: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
-  const tabskip = [paramGlue("tabskip", glue(0))]
+  const tabskip = [chunk ? tab(chunk.left) : paramGlue("tabskip", glue(0))]
   for (const c of cols) {
     for (const x of [...c.u, ...c.v]) if ("tabskip" in x) skip = env.glue(x.tabskip)
-    tabskip.push(paramGlue("tabskip", glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder)))
+    tabskip.push(tab(skip))
   }
-  tabskip[cols.length] = paramGlue("tabskip", glue(0))
-  // (tabular*: \halign to its width)
-  const rowBoxes = halignSpans(rows, tabskip, to === undefined ? { additional: 0 } : { exactly: to })
+  tabskip[cols.length] = chunk ? tab(chunk.right) : paramGlue("tabskip", glue(0))
+  if (chunk) rows.push(chunk.save.map((w) => ({ nodes: w === null ? [] : [kern(w, true)], span: 1 }))) // (\LT@entry: \omit\kern width)
+  // (tabular*: \halign to its width; a longtable chunk's to \hsize)
+  const rowBoxes = halignSpans(rows, tabskip, chunk ? { exactly: chunk.hsize } : to === undefined ? { additional: 0 } : { exactly: to })
   const width = rowBoxes[0]?.width ?? 0
   const list: Node[] = []
-  let pd: number | null = null
+  let pd: number | null = chunk ? chunk.prevDepth : null
   const zero: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
   for (const x of vlist) {
     if ("row" in x) { pd = appendToVlist(list, rowBoxes[x.row], pd, zero, zero, env.lineskiplimit); continue }
     if (x.kind === "rule") { list.push({ ...x, width }); pd = null } // a rule leaves \prevdepth at -1000pt
     else list.push(x)
   }
-  const box = pos === "t" ? vtop(list) : vpack(list)
-  if (pos === "c") { // \vcenter: make_vcenter (§ 736), about the axis
-    const delta = box.height + box.depth
-    box.height = env.axis + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
-    box.depth = delta - box.height
-  }
-  return hpack([{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }])
+  // the save row's columns (\LT@get@widths); \lastbox takes it and \unskip its interline glue (with none, the glue before)
+  const widths = chunk ? rowBoxes[rowBoxes.length - 1].list.flatMap((n) => (n.kind === "hlist" ? [n.width] : [])) : []
+  if (chunk && pd === null && list.at(-1)?.kind === "glue") list.pop()
+  return { list, widths }
 }

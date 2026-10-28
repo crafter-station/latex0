@@ -1,7 +1,7 @@
 % fixture: array/w-columns-xcolor
 % tier: T3
 % engine: document
-% covers: array.sty's w and W columns with xcolor loaded: lrbox's \color@setgroup pushes the color and pops it around the entry (inside the \makebox), a \color in >{decl} inside the box, \textcolor in an entry; a \color in >{decl} of c, l and r columns: \textonly@unskip (and \\[skip]'s \unskip) before its pop
+% covers: array.sty's w and W columns with xcolor loaded: lrbox's \color@setgroup pushes the color and pops it around the entry (inside the \makebox), a \color in >{decl} inside the box, \textcolor in an entry; a w column in a tabular in a \color group (the color pushed is the current one); a \color in >{decl} of c, l and r columns: \textonly@unskip (and \\[skip]'s \unskip) before its pop
 % issue: #342
 \documentclass{article}
 \usepackage{array}
@@ -15,4 +15,8 @@ plain & red & \textcolor{blue}{b} \\
 red & blue  & x\quad \\
 two words  & z & y \\[2pt]
 \end{tabular}.
+
+{\color{blue} Blue text and \begin{tabular}{w{c}{1cm}l}
+x & y
+\end{tabular} in it.}
 \end{document}

@@ -27,7 +27,17 @@ export function tabularAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttr
   const lines = tabularLines(t.body)
   if (t.x) return tabularx(cx, t, lines, size, attrs, sfcodes, outer)
   const cols = preamble(t.spec, cx.run.k.array && { types: cx.pre.columnTypes, si: !!cx.doc.siunitx })
-  return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer, t.width)
+  return tabular(cx, lines, cols, size, t.pos, attrs, sfcodes, outer, t.width, cx.pre.columnTypes, rowcolorsOf(cx, t))
+}
+
+/** colortbl's \rowcolors in force for a tabular: \rownum is reset where each one stands, and counts on after */
+function rowcolorsOf(cx: Ctx, t: TabularSource) {
+  const rc = t.rowcolors
+  if (!rc) return undefined
+  if (!cx.pre.colortbl) throw new Unsupported("\\rowcolors without colortbl")
+  const num = cx.run.rownum
+  if (num.k !== rc.k) { num.n = 0; num.k = rc.k }
+  return { start: rc.start, odd: rc.odd, even: rc.even, num }
 }
 
 /** tabularx.sty's \TX@delta: \hfuzz when it is loaded (0.1pt) */
@@ -49,10 +59,12 @@ function tabularx(cx: Ctx, t: TabularSource, lines: TabLine[], size: SizeCommand
   const user = cx.pre.columnTypes
   /** the column types with X as `column` (#1 the width) */
   const types = (column: string, width: number): ColumnTypes => ({ ...user, X: { n: 0, spec: column.split("#1").join(`${width}sp`) } })
+  // (colortbl's \rownum is no LaTeX counter: \TX@ckpt leaves it counting through the trials)
+  const rows = rowcolorsOf(cx, t)
   /** a trial's \wd\@tempboxa */
   const trial = (column: string, width: number) => {
     const x = types(column, width)
-    return tabular(cx, lines, preamble(t.spec, { types: x, si: !!cx.doc.siunitx }), size, t.pos, attrs, sfcodes, outer, undefined, x).width
+    return tabular(cx, lines, preamble(t.spec, { types: x, si: !!cx.doc.siunitx }), size, t.pos, attrs, sfcodes, outer, undefined, x, rows).width
   }
   let cols = 1 + xColumns(t.spec, user)
   for (const l of lines) if ("cells" in l) for (const c of l.cells) if ("span" in c) cols += xColumns(c.spec, user)
@@ -70,7 +82,7 @@ function tabularx(cx: Ctx, t: TabularSource, lines: TabLine[], size: SizeCommand
     wd = trial(tx.column, width)
   }
   const x = types(tx.column, width)
-  return tabular(cx, lines, preamble(t.spec, { types: x, si: !!cx.doc.siunitx }), size, t.pos, attrs, sfcodes, outer, `${target}sp`, x)
+  return tabular(cx, lines, preamble(t.spec, { types: x, si: !!cx.doc.siunitx }), size, t.pos, attrs, sfcodes, outer, `${target}sp`, x, rows)
 }
 
 /**
@@ -262,7 +274,19 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
 }
 
 /** a tabular's \hbox at a size, its entries in the font `attrs` (tabular.ts) */
-export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = cx.normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter, width?: string, types: ColumnTypes = cx.pre.columnTypes): BoxNode {
+export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCommand, pos: "t" | "b" | "c", attrs: FontAttrs = cx.normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter, width?: string, types: ColumnTypes = cx.pre.columnTypes, rows?: NonNullable<TabularEnv["colortbl"]>["rows"]): BoxNode {
+  const env = tabularEnv(cx, size, attrs, sfcodes, outer, types, rows)
+  const font = selectFont(cx.run.k, size, attrs)
+  // tabular*'s width: \setlength\dimen@{width} where it stands
+  let to: number | undefined
+  if (width !== undefined) {
+    try { to = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, outer?.lineWidth) }) } catch { throw new Unsupported(`a tabular* of width ${width}`) }
+  }
+  return tabularBox(lines, cols, env, pos, to)
+}
+
+/** what a tabular's entries are set with at a size, in the font `attrs` (tabular.ts) */
+export function tabularEnv(cx: Ctx, size: SizeCommand, attrs: FontAttrs = cx.normalAttrs, sfcodes?: Record<number, number>, outer?: TabularOuter, types: ColumnTypes = cx.pre.columnTypes, rows?: NonNullable<TabularEnv["colortbl"]>["rows"]): TabularEnv {
   const { amsmath } = cx.pre
   const { booktabs, doc, run } = cx
   const font = selectFont(run.k, size, attrs)
@@ -278,6 +302,8 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
         throw e
       }
     },
+    ...(outer?.color ? { color: outer.color } : {}),
+    ...(cx.pre.colortbl ? { colortbl: { color: (c: { spec: string; model?: string }) => cx.colorSpec(c.spec, c.model), ...(rows ? { rows } : {}) } } : {}),
     skip: (text) => { try { return parseGlue(text, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }).width } catch { throw new Unsupported(`\\\\[${text}] in a tabular`) } },
     // (\fill: 0pt plus 1fill; \stretch{n}: 0pt plus nfill)
     glue: (text) => {
@@ -290,7 +316,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     // \vrule depth \dp\@arstrutbox) \par\egroup
     // array.sty's \@startpbox adds \everypar{\vrule height\ht\@arstrutbox width0pt}, and its \@finalstrut leaves out
     // the \vskip-\baselineskip when the box is empty
-    pbox: (text, width, cr, array) => {
+    pbox: (text, width, cr, array, everypar = !!array) => {
       if (!outer) throw new Unsupported("a p{width} column here")
       if (/\\(?:footnote|label|par|newline|linebreak|multirow)(?![A-Za-z])|\n\s*\n/.test(text)) throw new Unsupported(`a p{width} entry "${text.trim().slice(0, 40)}"`)
       let hsize: number
@@ -306,7 +332,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
         if (!array) list.push(glue(-sz.baselineskip.width), paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
         end = [strut]
       }
-      const start: Node[] = [emptyBox("hlist", 0), ...(array ? [{ kind: "rule", width: 0, height: env.strut.height, depth: null } as Node] : [])]
+      const start: Node[] = [emptyBox("hlist", 0), ...(everypar ? [{ kind: "rule", width: 0, height: env.strut.height, depth: null } as Node] : [])]
       const shape = array?.shape === "centering" ? centeringShape() : array?.shape === "raggedright" ? raggedright() : array?.shape === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph }
       let p: ReturnType<typeof paragraphInput>
       try {
@@ -330,12 +356,7 @@ export function tabular(cx: Ctx, lines: TabLine[], cols: TabCol[], size: SizeCom
     // an S entry's boxes: $…$ in them (\mathsurround zero), text as the entry's
     ...(doc.siunitx ? { si: (text: string, options: string, state: { spaceFactor: number }) => siTableCell(text, options, state, { ...siContext(run.k, size, font, doc.siunitx!), formula: (l) => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(l, mathEnv(run.k, size, amsmath), TEXT, false), { kind: "math", on: false, width: 0 }], cell: (src) => env.cell(src, state) }) } : {}),
   }
-  // tabular*'s width: \setlength\dimen@{width} where it stands
-  let to: number | undefined
-  if (width !== undefined) {
-    try { to = parseDimen(width, { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, outer?.lineWidth) }) } catch { throw new Unsupported(`a tabular* of width ${width}`) }
-  }
-  return tabularBox(lines, cols, env, pos, to)
+  return env
 }
 
 /** \\ under \centering and friends (\@centercr): the text's lines, each with the * and [skip] of the \\ that ends it */

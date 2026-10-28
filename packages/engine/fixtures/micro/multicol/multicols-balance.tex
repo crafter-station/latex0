@@ -1,0 +1,26 @@
+% fixture: multicol/multicols-balance
+% tier: T3
+% engine: document
+% covers: multicol's multicols on one page: \enough@room, \addvspace\multicolsep, the \kern before it, the page so far kept in \partial@page by an \eject, the body two and three columns wide (\tolerance 9999, \pretolerance -1, \emergencystretch), \balance@columns's \vsplit iterations, \page@sofar's row of columns, text after it
+% issue: #342
+\documentclass{article}
+\usepackage{multicol}
+\begin{document}
+Some text before the columns, a line or two long so that the page so far is kept and put back above them when the
+columns are balanced.
+
+\begin{multicols}{2}
+The first paragraph in the columns is long enough to run over several lines of the narrow measure, so that the
+balancing has something to work with. A second sentence makes it longer still, and a third one adds a few more words.
+
+A second paragraph follows it, shorter than the first one but long enough to take a few lines.
+
+And a third.
+\end{multicols}
+Text after the columns.
+
+\begin{multicols}{3}
+Three columns now, with a paragraph that is long enough to fill some lines in each of the three columns once they are
+balanced against each other by the vertical splitting of the material.
+\end{multicols}
+\end{document}

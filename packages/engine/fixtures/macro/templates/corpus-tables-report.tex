@@ -1,0 +1,99 @@
+% fixture: templates/corpus-tables-report
+% tier: T3
+% engine: document
+% covers: the corpus tables report as it is: xcolor's [table] option (colortbl's template in every table, \rowcolors and \rowcolor in a booktabs table, a \multirow table with \cline), a tabularx, and a longtable with \caption and heads over two pages
+% issue: #342
+% source: packages/engine/corpus/tables-report.tex
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+
+\title{Regional Sales Summary --- Q3 2026}
+\author{Finance Operations}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Overview by region}
+
+\begin{table}[h]
+\centering
+\rowcolors{2}{gray!10}{white}
+\begin{tabular}{l r r r}
+\toprule
+\rowcolor{gray!30}
+\textbf{Region} & \textbf{Revenue (k\$)} & \textbf{Units} & \textbf{Growth} \\
+\midrule
+North America & 4\,210 & 15\,320 & +6.2\% \\
+Europe        & 3\,180 & 12\,045 & +3.9\% \\
+Asia-Pacific  & 2\,760 & 11\,880 & +11.4\% \\
+Latin America & 940    & 4\,105  & +8.0\% \\
+\bottomrule
+\end{tabular}
+\caption{Revenue and units by region.}
+\end{table}
+
+\section{Product line detail}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|c|c|}
+\hline
+\textbf{Line} & \textbf{Product} & \textbf{Q2} & \textbf{Q3} \\ \hline
+\multirow{3}{*}{Hardware} & Router X1 & 1\,200 & 1\,350 \\ \cline{2-4}
+                          & Switch S8 & 860    & 910 \\ \cline{2-4}
+                          & Access Point A3 & 2\,040 & 2\,300 \\ \hline
+\multirow{2}{*}{Software} & Cloud Console & 3\,400 & 3\,900 \\ \cline{2-4}
+                          & Security Suite & 1\,150 & 1\,240 \\ \hline
+\multicolumn{2}{|r|}{\textbf{Total}} & \textbf{8\,650} & \textbf{9\,700} \\ \hline
+\end{tabular}
+\caption{Units sold per product line.}
+\end{table}
+
+\section{Risks and mitigations}
+
+\noindent
+\begin{tabularx}{\textwidth}{>{\bfseries}l X >{\centering\arraybackslash}p{2cm}}
+\toprule
+Risk & Description & Severity \\
+\midrule
+Supply & Lead times for chipsets have increased from 8 to 14 weeks, delaying
+hardware shipments in October. & High \\
+Currency & A stronger dollar reduces reported revenue from Europe and Latin America. & Medium \\
+Churn & Two enterprise customers are evaluating competitors at renewal. & Medium \\
+\bottomrule
+\end{tabularx}
+
+\section{Account list}
+
+\begin{longtable}{p{4cm} l r}
+\caption{Top accounts by revenue.}\\
+\toprule
+Account & Region & Revenue (k\$) \\
+\midrule
+\endfirsthead
+\toprule
+Account & Region & Revenue (k\$) \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Acme Corporation & North America & 512 \\
+Globex GmbH & Europe & 433 \\
+Initech Ltd & Europe & 398 \\
+Umbrella KK & Asia-Pacific & 377 \\
+Stark Industries & North America & 352 \\
+Wayne Enterprises & North America & 341 \\
+Soylent S.A. & Latin America & 220 \\
+Hooli Pte & Asia-Pacific & 214 \\
+Vandelay Imports & North America & 198 \\
+Tyrell Corp & Asia-Pacific & 187 \\
+\end{longtable}
+
+\end{document}

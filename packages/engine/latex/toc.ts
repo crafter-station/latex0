@@ -20,9 +20,10 @@ export class TocWriter {
   private readonly listWrites: { node: Node; file: ListFile; entry: { number: string; title: string; anchor: string } | { vspace: true } }[] = []
 
   /** \addcontentsline{lof}{figure}{\protect\numberline{n}{\ignorespaces text}} (or lot): its \write */
-  listLine(file: ListFile, number: string, source: string, anchor: string): Node {
+  listLine(file: ListFile, number: string, source: string, anchor: string, ignorespaces = true): Node {
     const title = printTokens(source) // (as \protected@write prints it)
-    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{${file}}{\\protect \\contentsline {${file === "lof" ? "figure" : "table"}}{\\protect \\numberline {${number}}{\\ignorespaces ${title}}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
+    // (\@caption's line starts with \ignorespaces; longtable's \LT@c@ption's has none)
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{${file}}{\\protect \\contentsline {${file === "lof" ? "figure" : "table"}}{\\protect \\numberline {${number}}{${ignorespaces ? "\\ignorespaces " : ""}${title}}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
     this.listWrites.push({ node, file, entry: { number, title, anchor } })
     return node
   }

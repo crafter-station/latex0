@@ -1,0 +1,30 @@
+% fixture: multicol/multicols-room
+% tier: T3
+% engine: document
+% covers: multicol's \enough@room: less than \premulticols (50pt) left on the page (\newpage first), and less than \postmulticols (20pt) after the columns (\newpage after); \columnbreak[3] and [0] (penalties, not forced), a \columnbreak before \end{multicols} (the page empty again: \colbreak@box put back), three columns
+% issue: #342
+\documentclass{article}
+\usepackage{multicol}
+\begin{document}
+\vspace*{480pt}
+A line near the bottom.
+
+\begin{multicols}{2}
+These columns start on the next page, as less than fifty points are left below the line before them on this one.
+\columnbreak[3]
+More words for the columns, and a few more after that.
+\end{multicols}
+
+\vspace*{440pt}
+\begin{multicols}{3}
+Three narrow columns of text near the bottom of the page, long enough to take a few lines in each of them once they are
+balanced.\columnbreak[0] And some more words for the last one.
+\end{multicols}
+After the columns.
+
+\begin{multicols}{2}
+A paragraph, and then a column break right before the end.
+
+\columnbreak
+\end{multicols}
+\end{document}

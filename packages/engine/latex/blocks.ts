@@ -41,6 +41,12 @@ export type Block =
   | { kind: "bib"; keys: string[]; /** each \bibitem's [label] (natbib's) */ labels: (string | null)[] }
   /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
   | { kind: "listing"; n: number }
+  /** \begin{longtable}: the n-th longtable taken out of the source (longtable.ts) */
+  | { kind: "longtable"; n: number }
+  /** \begin{multicols}{n} (multicols*: star) and the blocks of its body (multicol.ts) */
+  | { kind: "multicols"; n: number; star: boolean; blocks: Block[] }
+  /** \columnbreak[n] in vertical mode */
+  | { kind: "columnbreak"; n: number }
   /** \newpage, \clearpage and \cleardoublepage (in a paragraph: its \par first) */
   | { kind: "newpage"; cmd: "newpage" | "clearpage" | "cleardoublepage"; /** ending a paragraph (its \leavevmode does nothing) */ inPar?: boolean }
   /** \pagebreak[n] and \nopagebreak[n] in vertical mode: \penalty -\@getpen{n}, \penalty \@getpen{n} */
@@ -200,7 +206,7 @@ const TEXT_COMMANDS = [
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
   "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
-  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
   "og", "fg", "up", "fup", "ier", "iere", "iers", "ieres", "ieme", "iemes", "no", "No", "nos", "Nos"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
@@ -232,7 +238,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure\*?|table\*?|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\(onecolumn|twocolumn)(?![A-Za-z])\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure\*?|table\*?|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\(onecolumn|twocolumn)(?![A-Za-z])\s*|\\LXlongtable\{(\d+)\}\s*|\\begin\{multicols(\*?)\}\s*\{\s*(\d+)\s*\}|\\columnbreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -250,6 +256,7 @@ export function blocksOf(body: string): Block[] {
     // (counter commands start no paragraph)
     const pageInPar = !!(m[15] || m[18] || /^\\(?:no)?pagebreak/.test(m[0])) && inParagraph(before.replace(COUNTER_COMMANDS, ""))
     if (/^\\(?:no)?pagebreak/.test(m[0]) && pageInPar) continue
+    if (m[0].startsWith("\\columnbreak") && inParagraph(before)) continue // (in a paragraph: \vadjust, as \pagebreak there)
     if ((m[15] || m[18]) && braceDepth(before) !== 0) throw new Unsupported(`\\${m[15] ?? m[18]} in a group`)
     if (m[18] && pageInPar) throw new Unsupported(`\\${m[18]} in a paragraph`)
     // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
@@ -271,6 +278,28 @@ export function blocksOf(body: string): Block[] {
       out.push({ kind: "pagebreak", no: m[16] !== undefined, n }); at = re.lastIndex; continue
     }
     if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
+    if (m[31] !== undefined) { // \begin{multicols}{n} … \end{multicols} (its \par first; a list's \@doendpe stays for the text after)
+      if (braceDepth(before) !== 0) throw new Unsupported("multicols in a group")
+      const end = body.indexOf(`\\end{multicols${m[30]}}`, re.lastIndex)
+      if (end < 0) throw new Unsupported("\\begin{multicols} without its \\end")
+      const inner = body.slice(re.lastIndex, end)
+      if (/\\begin\{multicols/.test(inner)) throw new Unsupported("multicols in multicols")
+      if (/^\s*\[/.test(inner)) throw new Unsupported("multicols with a heading or \\premulticols")
+      out.push({ kind: "multicols", n: Number(m[31]), star: !!m[30], blocks: blocksOf(inner) })
+      re.lastIndex = at = end + `\\end{multicols${m[30]}}`.length
+      endpe = false
+      continue
+    }
+    if (m[0].startsWith("\\columnbreak")) {
+      if (braceDepth(before) !== 0) throw new Unsupported("\\columnbreak in a group")
+      const n = m[32] === undefined ? 4 : /^\s*[0-4]\s*$/.test(m[32]) ? Number(m[32]) : NaN
+      if (Number.isNaN(n)) throw new Unsupported(m[0].trim())
+      out.push({ kind: "columnbreak", n }); at = re.lastIndex; continue
+    }
+    if (m[29] !== undefined) { // (\longtable's \par)
+      if (braceDepth(before) !== 0) throw new Unsupported("a longtable in a group")
+      out.push({ kind: "longtable", n: Number(m[29]) }); at = re.lastIndex; endpe = false; continue
+    }
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[21]) { out.push({ kind: "appendix" }); at = re.lastIndex; endpe = false; continue }
     if (m[28]) { // \onecolumn, \twocolumn[top material]: \clearpage first (\newpage's \par)
@@ -379,7 +408,7 @@ export function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
+    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "longtable" || b.kind === "multicols" || b.kind === "columnbreak" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
     else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out

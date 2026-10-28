@@ -12,6 +12,12 @@ export interface RunState {
   mainmatter: boolean
   /** \Hy@linkcounter: anchors of unnumbered headings */
   linkcounter: number
+  /** \g__kernel_target_int: \MakeLinkTarget's targets (target*.n) */
+  targets: number
+  /** in multicols: its number of columns */
+  multicols: number | null
+  /** colortbl's \rownum (global), and which \rowcolors last reset it */
+  rownum: { n: number; k: number }
   /** \item's so far (each an anchor with hyperref) */
   items: number
   /** \c@enumi … \c@enumiv: an item steps one, a list's \usecounter zeroes its own, none resets another; they keep
@@ -70,5 +76,5 @@ export interface RunState {
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [], captions: 0, captionLabel: false, oddPages: [] }
+  return { k, mainmatter: true, linkcounter: 0, targets: 0, multicols: null, rownum: { n: 0, k: -1 }, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [], captions: 0, captionLabel: false, oddPages: [] }
 }

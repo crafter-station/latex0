@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1006,
-  "exact": 993,
+  "fixtures": 1031,
+  "exact": 1018,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 13,
-  "glyphs": 673303
+  "glyphs": 701849
  },
  "areas": [
   {
@@ -26,8 +26,8 @@
   },
   {
    "area": "array",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "babel",
@@ -63,6 +63,11 @@
    "area": "cleveref",
    "fixtures": 39,
    "exact": 39
+  },
+  {
+   "area": "colortbl",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "display",
@@ -125,6 +130,16 @@
    "exact": 21
   },
   {
+   "area": "longtable",
+   "fixtures": 5,
+   "exact": 5
+  },
+  {
+   "area": "longtable-pdftex",
+   "fixtures": 1,
+   "exact": 1
+  },
+  {
    "area": "macros",
    "fixtures": 36,
    "exact": 23
@@ -138,6 +153,11 @@
    "area": "minipage",
    "fixtures": 5,
    "exact": 5
+  },
+  {
+   "area": "multicol",
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "multirow",
@@ -181,13 +201,18 @@
   },
   {
    "area": "tabular",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
+  },
+  {
+   "area": "tabularx",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "templates",
-   "fixtures": 32,
-   "exact": 32
+   "fixtures": 36,
+   "exact": 36
   },
   {
    "area": "text",
@@ -381,6 +406,28 @@
    "issue": "#272"
   },
   {
+   "id": "templates/corpus-propuesta-tesis",
+   "file": "macro/templates/corpus-propuesta-tesis.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1445,
+   "covers": "the corpus thesis proposal in Spanish: its \\cellcolor Gantt chart with xcolor's [table] option",
+   "issue": "#342"
+  },
+  {
+   "id": "templates/corpus-receta-multicols",
+   "file": "macro/templates/corpus-receta-multicols.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 764,
+   "covers": "the corpus recipe in Spanish (receta-es.tex) without its enumitem options (not laid out yet): multicols with \\section* and itemize in each column and a \\columnbreak between, then a numbered method",
+   "issue": "#342"
+  },
+  {
    "id": "templates/corpus-recipe",
    "file": "macro/templates/corpus-recipe.tex",
    "area": "templates",
@@ -401,6 +448,28 @@
    "glyphs": 267,
    "covers": "the starter-corpus slides (corpus/slides.tex): beamer with \\usetheme{Madrid} (its shadows), \\frame{\\titlepage}, itemize and enumerate frames, the infolines footline, the navigation symbols",
    "issue": "#324"
+  },
+  {
+   "id": "templates/corpus-tables-report-nocolor",
+   "file": "macro/templates/corpus-tables-report-nocolor.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1026,
+   "covers": "the corpus tables report without xcolor's [table] option and its \\rowcolors and \\rowcolor (not laid out yet): booktabs and \\multirow tables in floats, a tabularx with >{\\bfseries}l X >{\\centering\\arraybackslash}p{2cm}, a longtable with \\caption, \\endfirsthead, \\endhead and \\endfoot over two pages",
+   "issue": "#342"
+  },
+  {
+   "id": "templates/corpus-tables-report",
+   "file": "macro/templates/corpus-tables-report.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1026,
+   "covers": "the corpus tables report as it is: xcolor's [table] option (colortbl's template in every table, \\rowcolors and \\rowcolor in a booktabs table, a \\multirow table with \\cline), a tabularx, and a longtable with \\caption and heads over two pages",
+   "issue": "#342"
   },
   {
    "id": "templates/corpus-thesis-chapter",
@@ -1094,6 +1163,28 @@
    "glyphs": 105,
    "covers": "a size in >{decl} of p, m and b columns: \\insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\\@endpbox's \\par): the entry's lines at its \\baselineskip; with \\bfseries, after \\centering\\arraybackslash, an empty entry, a row ended by \\\\[skip]",
    "issue": "#277"
+  },
+  {
+   "id": "array/tabular-star-array",
+   "file": "micro/array/tabular-star-array.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "array.sty's tabular*: \\extracolsep{\\fill} in @{} and in !{} (\\NC@ecs), with text beside it, \\extracolsep{\\stretch{2}}, booktabs rules and \\cmidrule across stretched tabskips, \\multicolumn; w{l}{…}, w{c}{…}, w{r}{…}, w{s}{…} and W columns (an entry wider than the box, W's \\hfil's), >{\\bfseries} and <{decl} around a w column, an entry ending in a space and \\hfill (\\textonly@unskip and \\endlrbox's \\unskip), \\multicolumn{1}{w{c}{2cm}}, a \\\\[skip] after a W entry (its \\unskip in the box)",
+   "issue": "#342"
+  },
+  {
+   "id": "array/w-columns-xcolor",
+   "file": "micro/array/w-columns-xcolor.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 70,
+   "covers": "array.sty's w and W columns with xcolor loaded: lrbox's \\color@setgroup pushes the color and pops it around the entry (inside the \\makebox), a \\color in >{decl} inside the box, \\textcolor in an entry; a w column in a tabular in a \\color group (the color pushed is the current one); a \\color in >{decl} of c, l and r columns: \\textonly@unskip (and \\\\[skip]'s \\unskip) before its pop",
+   "issue": "#342"
   },
   {
    "id": "babel/australian",
@@ -5676,6 +5767,39 @@
    "issue": "#66"
   },
   {
+   "id": "colortbl/colortbl-colors-pdf",
+   "file": "micro/colortbl/colortbl-colors-pdf.tex",
+   "area": "colortbl",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 226,
+   "covers": "colortbl through xcolor's [table] option: its column template in every tabular (the entry in \\hbox\\z@ aligned with \\hskip\\stretch{.5}\\kern\\z@, \\hfill or \\hfill\\kern\\z@, \\vrule height\\ht\\z@, \\unhbox\\z@), \\rowcolors{2}{gray!10}{white} in a table float (\\rownum counting each \\cr, the preamble's too) with \\rowcolor over the head row and booktabs rules, \\cellcolor in entries (a Gantt chart), >{\\columncolor{…}} columns, a \\multicolumn in a colored row, p and r columns, \\hline and | rules, a plain tabular with no colors",
+   "issue": "#342"
+  },
+  {
+   "id": "colortbl/colortbl-colors",
+   "file": "micro/colortbl/colortbl-colors.tex",
+   "area": "colortbl",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 226,
+   "covers": "colortbl through xcolor's [table] option: its column template in every tabular (the entry in \\hbox\\z@ aligned with \\hskip\\stretch{.5}\\kern\\z@, \\hfill or \\hfill\\kern\\z@, \\vrule height\\ht\\z@, \\unhbox\\z@), \\rowcolors{2}{gray!10}{white} in a table float (\\rownum counting each \\cr, the preamble's too) with \\rowcolor over the head row and booktabs rules, \\cellcolor in entries (a Gantt chart), >{\\columncolor{…}} columns, a \\multicolumn in a colored row, p and r columns, \\hline and | rules, a plain tabular with no colors",
+   "issue": "#342"
+  },
+  {
+   "id": "colortbl/colortbl-rowcolors",
+   "file": "micro/colortbl/colortbl-rowcolors.tex",
+   "area": "colortbl",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "colortbl's \\rowcolors at the top level: \\rownum counting on from tabular to tabular (each \\cr, \\cline's too, and a last row's \\crcr with no \\\\), an empty odd color, start 1; a tabularx in its scope (\\rownum counts through tabularx's trial tables too, two rows: an odd count each); a tabularx with no X column (one trial); a second \\rowcolors (a \\cmidrule's \\cr counted) (\\rownum from 0 again), an empty even color; a \\rowcolor over a longtable's \\caption; a longtable before it, with \\hline\\hline (colortbl's \\LT@@hline: two single rules) and \\rowcolor",
+   "issue": "#342"
+  },
+  {
    "id": "display/align-amsmath",
    "file": "micro/display/align-amsmath.tex",
    "area": "display",
@@ -7498,6 +7622,72 @@
    "issue": "#30"
   },
   {
+   "id": "longtable/longtable-booktabs",
+   "file": "micro/longtable/longtable-booktabs.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1111,
+   "covers": "longtable with array.sty and booktabs (the corpus report's account list): a p{4cm} column, \\caption then \\toprule … \\midrule \\endfirsthead, \\toprule … \\midrule \\endhead, \\bottomrule \\endfoot (in longtable, booktabs's rules are \\@BLTrule rows after \\nobreak), rows over two pages after a paragraph, \\midrule and \\addlinespace in the body; a head of \\addlinespace alone (\\unskip takes it: no interline glue before the save row); a \\label after the table (\\@currentHref: \\MakeLinkTarget's target*.1)",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-chunks",
+   "file": "micro/longtable/longtable-chunks.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 467,
+   "covers": "longtable with \\setcounter{LTchunksize}{3}: chunks of three rows (\\prevdepth 0pt after each), a wider row in a later chunk (the save row's widths from the .aux file the first run wrote), \\\\* and \\\\[4pt], \\hline\\hline in the body, [l] and [r] tables, a table starting near the bottom of a page (head, foot and first row do not fit: \\vfil\\break first), a last foot taller than the foot",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-kernel",
+   "file": "micro/longtable/longtable-kernel.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 899,
+   "covers": "longtable without array: a table over three pages, \\endfirsthead, \\endhead, \\endfoot and \\endlastfoot, \\hline and \\hline\\hline, a \\caption in the first head, the text before and after it",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-lastfoot",
+   "file": "micro/longtable/longtable-lastfoot.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 388,
+   "covers": "longtable's end with a last foot taller than the foot and too little room left for it (\\LT@output at \\penalty-30000 ships the page with the foot, then the head and the last foot start the next), \\box emptying the foot's register (\\vsize not given back), an [r] table, \\\\[6pt] in the last foot",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-start",
+   "file": "micro/longtable/longtable-start.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 40,
+   "covers": "\\LT@start's room check with a first row taller than the strut (\\vsplit of the first chunk to \\ht\\@arstrutbox: the row's height and depth count), a p{1cm} column (\\LT@startpbox's \\everypar strut without array.sty, and the kernel's \\@finalstrut for an empty entry), a head and no foot, after \\vspace* near the bottom of the page",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable-pdftex/longtable-kernel-pdf",
+   "file": "micro/longtable-pdftex/longtable-kernel-pdf.tex",
+   "area": "longtable-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 899,
+   "covers": "longtable without array: a table over three pages, \\endfirsthead, \\endhead, \\endfoot and \\endlastfoot, \\hline and \\hline\\hline, a \\caption in the first head, the text before and after it",
+   "issue": "#342"
+  },
+  {
    "id": "macros/caption-short-robust",
    "file": "micro/macros/caption-short-robust.tex",
    "area": "macros",
@@ -8191,6 +8381,72 @@
    "status": "pass",
    "glyphs": 328,
    "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
+  },
+  {
+   "id": "multicol/multicols-balance",
+   "file": "micro/multicol/multicols-balance.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 555,
+   "covers": "multicol's multicols on one page: \\enough@room, \\addvspace\\multicolsep, the \\kern before it, the page so far kept in \\partial@page by an \\eject, the body two and three columns wide (\\tolerance 9999, \\pretolerance -1, \\emergencystretch), \\balance@columns's \\vsplit iterations, \\page@sofar's row of columns, text after it",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-columnbreak",
+   "file": "micro/multicol/multicols-columnbreak.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 420,
+   "covers": "multicol's \\columnbreak (\\penalty-\\@Mv: the material so far kept in \\colbreak@box, \\vsize less \\pagetotal, then balanced with the forced break), right after a \\section* (the meeting notes' and the recipe's layout), lists and \\section* in the columns, \\columnseprule and \\columnsep set in the preamble with xcolor loaded (the rule's \\normalcolor), multicols first on a page (an empty page so far)",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-full",
+   "file": "micro/multicol/multicols-full.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1263,
+   "covers": "multicols with a page's worth of material: \\vsize two columns' worth (\\set@mult@vsize) holding it all, the balanced height more than \\@colroom (cut to it: a last column too large, by less than \\maxbalancingoverflow)",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-pages",
+   "file": "micro/multicol/multicols-pages.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9000,
+   "covers": "multicols over three pages: \\multi@column@out at each page break (the material \\vsplit into columns to \\@colroom, what is left back on the list, \\partial@page above the first page's columns only, \\@colroom\\@colht and \\vsize again), then balancing on the last page; a \\columnbreak on the second page",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-room",
+   "file": "micro/multicol/multicols-room.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 354,
+   "covers": "multicol's \\enough@room: less than \\premulticols (50pt) left on the page (\\newpage first), and less than \\postmulticols (20pt) after the columns (\\newpage after); \\columnbreak[3] and [0] (penalties, not forced), a \\columnbreak before \\end{multicols} (the page empty again: \\colbreak@box put back), three columns",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-star",
+   "file": "micro/multicol/multicols-star.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6736,
+   "covers": "multicols* (no balancing: \\multi@column@out at \\penalty-\\@Mvi, the last skip and depth taken back and \\vfil before it): short (ending with a list: its skip taken back), and over a page into a second",
+   "issue": "#342"
   },
   {
    "id": "multirow/array",
@@ -9597,6 +9853,50 @@
    "status": "pass",
    "glyphs": 88,
    "covers": "a table float with a \\multicolumn wider than its columns, \\hline\\hline, a span to the end, \\cline from the first column, \\small entries"
+  },
+  {
+   "id": "tabular/tabular-star-kernel",
+   "file": "micro/tabular/tabular-star-kernel.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "the kernel's tabular*: \\extracolsep{\\fill} in @{} first and between columns (the tabskip glue after each column, the last one zero), \\extracolsep{2pt} and \\extracolsep\\fill without braces, text before one, a width narrower than the natural one, \\hline, \\cline and \\multicolumn across stretched tabskips, [t] and [b] positions, in a table float with \\centering (\\linewidth there: \\columnwidth) and in text",
+   "issue": "#342"
+  },
+  {
+   "id": "tabularx/tabularx-column-m",
+   "file": "micro/tabularx/tabularx-column-m.tex",
+   "area": "tabularx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 96,
+   "covers": "tabularx.sty with \\tabularxcolumn \\renewcommand'd to >{\\raggedright\\arraybackslash}m{#1} (the first trial's X columns still p{…}), in a \\small table with \\extrarowheight, X entries of two widths, \\\\[skip]",
+   "issue": "#342"
+  },
+  {
+   "id": "tabularx/tabularx-columns",
+   "file": "micro/tabularx/tabularx-columns.tex",
+   "area": "tabularx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 535,
+   "covers": "tabularx.sty's X columns: the trial tabulars (each X p{\\TX@col@width}) and \\TX@arith's steps to the target width, then tabular* to it; one and two X columns, >{\\raggedright\\arraybackslash}X, a \\newcolumntype over X, booktabs rules and \\cmidrule, \\multirow, \\multicolumn over an X column and an X \\multicolumn (counted), @{} and @{\\extracolsep{\\fill}}, [t], a table with no X column, X columns too narrow (\\TX@error@width), a span wider than the table (the minimum width reached: backing up), \\noindent before one, in a table float, the corpus's risk table",
+   "issue": "#342"
+  },
+  {
+   "id": "tabularx/tabularx-cv-es",
+   "file": "micro/tabularx/tabularx-cv-es.tex",
+   "area": "tabularx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 551,
+   "covers": "the corpus CV's tabularx tables (cv-es.tex): @{}l X r@{} with \\multicolumn{2}{p{0.75\\textwidth}} entries and \\\\[6pt], X r and l X, with spanish babel, geometry and xcolor, \\parindent zero",
+   "issue": "#342"
   },
   {
    "id": "text/accent-commands-headings",

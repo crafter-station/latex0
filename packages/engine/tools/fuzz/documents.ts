@@ -52,8 +52,11 @@ function rng(seed: number) {
   }
 }
 
-export function makeDocument(r: () => number): string {
+export function makeDocument(r: () => number, s: () => number = rng(1)): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  // (tables and columns, #342: their choices from a stream of their own, `s`, so that the documents' stream stays main's)
+  const spick = <T>(xs: T[]): T => xs[Math.floor(s() * xs.length)]
+  const sText = (n: number) => Array.from({ length: n }, () => spick(WORDS)).join(" ")
   // babel's spanish: Spanish words in the body (ASCII ones with hyperref)
   let es = false, esAscii = false, fr = false, de = false
   // babel's second language, which \foreignlanguage selects in text, and \selectlanguage and otherlanguage between
@@ -117,7 +120,7 @@ export function makeDocument(r: () => number): string {
   // its \@mkboth sets marks under headings and fancy; documents go on from the list with a heading)
   let listNamed = false
   // top: a paragraph at the outer level, where \\ is \newline
-  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, txOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
+  let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, txOn = false, ltOn = false, mcOn = false, ctOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
   const color = () => pick(["red", "blue", "gray", "darkgray", "orange", "teal", "cyan", "olive", "magenta", "brown", "violet", "black", "fz", "blue!50", "red!30!black", "gray!20", "green!60!blue", "fz!40", "orange!75!white", "-red", "cyan!25", "black!60"])
   const colorArg = () => r() < 0.85 ? `{${color()}}` : pick(["[rgb]{0.2,0.4,0.6}", "[rgb]{.5, 0.25 ,1}", "[RGB]{10,200,30}", "[HTML]{1F77B4}", "[gray]{0.6}", "[cmyk]{0,1,0.5,0}"])
@@ -150,7 +153,9 @@ export function makeDocument(r: () => number): string {
     const n = 1 + Math.floor(r() * 4)
     const rule = () => (r() < 0.3 ? (r() < 0.2 ? "||" : "|") : "")
     let spec = r() < 0.2 ? pick(es ? ["@{}", "@{: }"] : ["@{}", "@{~}", "@{: }"]) : rule() // (spanish.ldf's active ~ in a preamble: an error)
-    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.13 ? pick(["C", "B", "C", "B", "w{l}{2cm}", "W{c}{1cm}", "w{r}{15mm}", "w{s}{3cm}"]) : siOn && r() < 0.2 ? pick(["S", "S", "S[table-format=2.2]", "S[table-format=3.1]", "S[table-format=-1.3]", "S[round-mode=places, round-precision=1]", "S[output-decimal-marker={,}]", "S[separate-uncertainty]"]) : pick(["l", "c", "r"]))
+    const kinds = Array.from({ length: n }, () => r() < 0.12 ? `${arOn && r() < 0.4 ? pick(["m", "b"]) : "p"}{${pick(["2cm", "3cm", "25mm", "1.2in", "5em", "0.3\\textwidth"])}}` : arOn && r() < 0.1 ? pick(["C", "B"]) : siOn && r() < 0.2 ? pick(["S", "S", "S[table-format=2.2]", "S[table-format=3.1]", "S[table-format=-1.3]", "S[round-mode=places, round-precision=1]", "S[output-decimal-marker={,}]", "S[separate-uncertainty]"]) : pick(["l", "c", "r"]))
+    // array.sty's w and W columns
+    if (arOn && s() < 0.15) { const j = Math.floor(s() * n), w = spick(["w{l}{2cm}", "W{c}{1cm}", "w{r}{15mm}", "w{s}{3cm}"]); if ("lcr".includes(kinds[j])) kinds[j] = w } // (in place of l, c or r: the same draws)
     // siunitx's S columns: numbers, text in braces, nothing
     const sCell = () => pick(["1.5", "12.25", "-0.5", "100", "", "{Value}", "{\\textbf{x}}", "1234.5678", ".5", "3", "1.2e3", "1.5(2)", "0.001", "99.99", "{---}", "-12"])
     // array.sty: >{decl} before a column, <{decl} after it, !{text} between columns
@@ -188,18 +193,21 @@ export function makeDocument(r: () => number): string {
       const cells: string[] = []
       for (let j = 0; j < n;) {
         const span = r() < 0.15 ? 1 + Math.floor(r() * (n - j)) : 0
-        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(kinds[j].startsWith("S") ? sCell() : entry(/^[pmbCwW]/.test(kinds[j]))); j++ }
+        if (span) { const sp = pick(["c", "|c|", "l", "r|", "|l", "p{3cm}", ...(arOn ? [">{\\bfseries}c", "m{2cm}", "|>{\\itshape}l|"] : [])]); cells.push(`\\multicolumn{${span}}{${sp}}{${entry(/^[pmb]|\}[pmb]/.test(sp))}}`); j += span } else { cells.push(kinds[j].startsWith("S") ? sCell() : entry(/^[pmbC]/.test(kinds[j]))); j++ }
       }
       const end = r() < 0.1 ? pick(["[2pt]", "[-1pt]", "[1ex]", "[0pt]"]) : ""
+      // colortbl: \rowcolor before a row, \cellcolor in an entry
+      const tcolor = () => spick(["red!20", "blue!10", "gray!30", "fz!40", "cyan!25", "-red", "white"])
+      if (ctOn && s() < 0.3) { if (s() < 0.5) rows.push(`\\rowcolor{${tcolor()}}`); else { const k = Math.floor(s() * cells.length); if (!cells[k].startsWith("\\multicolumn")) cells[k] = `\\cellcolor{${tcolor()}}${cells[k]}` } }
       rows.push(cells.join(" & ") + ` \\\\${end}`)
     }
     if (bt) { if (r() < 0.85) rows.push(pick(["\\bottomrule", "\\bottomrule", "\\bottomrule[0.5pt]"])) }
     else if (r() < 0.5) rows.push("\\hline")
     else if (r() < 0.3 && rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "").trim()) rows[rows.length - 1] = rows[rows.length - 1].replace(/ \\\\(\[[^\]]*\])?$/, "") // (not a blank line)
-    // tabular*: to a width, \extracolsep{\fill} in its first @{} (or none); tabularx: an X column first
-    const star = r()
-    if (txOn && star < 0.3) return `\\begin{tabularx}{${pick(["\\linewidth", "\\textwidth", "0.9\\textwidth", "12cm"])}}${pos}{${star < 0.1 ? ">{\\raggedright\\arraybackslash}" : ""}X${spec}}\n${rows.join("\n")}\n\\end{tabularx}`
-    if (star < 0.06) return `\\begin{tabular*}{${pick(["\\linewidth", "0.8\\textwidth", "10cm", "4cm"])}}${pos}{${r() < 0.7 ? "@{\\extracolsep{\\fill}}" : ""}${spec}}\n${rows.join("\n")}\n\\end{tabular*}`
+    // tabular*: to a width, \extracolsep{\fill} in its first @{} (or none); tabularx: an X column last (no entries)
+    const star = s()
+    if (txOn && star < 0.3) return `\\begin{tabularx}{${spick(["\\linewidth", "\\textwidth", "0.9\\textwidth", "12cm"])}}${pos}{${spec}${star < 0.1 ? ">{\\raggedright\\arraybackslash}" : ""}X}\n${rows.join("\n")}\n\\end{tabularx}`
+    if (star < 0.06) return `\\begin{tabular*}{${spick(["\\linewidth", "0.8\\textwidth", "10cm", "4cm"])}}${pos}{${s() < 0.7 ? "@{\\extracolsep{\\fill}}" : ""}${spec}}\n${rows.join("\n")}\n\\end{tabular*}`
     return `\\begin{tabular}${pos}{${spec}}\n${rows.join("\n")}\n\\end{tabular}`
   }
   // a minipage: one or two paragraphs (words, formulas, fonts), sometimes \centering first or a tabular inside
@@ -455,16 +463,21 @@ export function makeDocument(r: () => number): string {
   // (a third of them through \lstdefinestyle and style=, by the keys' length: no draw)
   const lstStyled = lstsetKeys.length % 3 === 0 ? [`\\lstdefinestyle{Fuzz Style}{${lstsetKeys}}`, "\\lstset{style=fuzzstyle}"] : [`\\lstset{${lstsetKeys}}`]
   if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? lstStyled : []))
-  if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
+  ctOn = colorOn && s() < 0.3 // (xcolor's [table]: colortbl)
+  if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, ctOn ? "\\usepackage[table]{xcolor}" : "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
+  ltOn = s() < 0.15
+  if (ltOn) out.splice(1 + Math.floor(s() * (out.length - 1)), 0, "\\usepackage{longtable}")
+  mcOn = s() < 0.15
+  if (mcOn) out.splice(1 + Math.floor(s() * (out.length - 1)), 0, "\\usepackage{multicol}")
   if (siOn) {
     const pkg = r() < 0.2 ? `\\usepackage[${siKeys()}]{siunitx}` : "\\usepackage{siunitx}"
     out.splice(1 + Math.floor(r() * (out.length - 1)), 0, pkg)
     if (r() < 0.3) out.splice(out.indexOf(pkg) + 1, 0, `\\sisetup{${siKeys()}}`)
   }
   if (arOn) {
-    txOn = r() < 0.4
+    txOn = s() < 0.4
     out.splice(1 + Math.floor(r() * (out.length - 1)), 0, txOn ? "\\usepackage{tabularx}" : "\\usepackage{array}")
     const at = out.indexOf(txOn ? "\\usepackage{tabularx}" : "\\usepackage{array}") + 1 // (after it: array.sty defines them)
     out.splice(at, 0, "\\newcolumntype{C}{>{\\centering\\arraybackslash}p{2.5cm}}", "\\newcolumntype{B}{>{\\bfseries}l}", ...(r() < 0.3 ? [`\\setlength{\\extrarowheight}{${pick(["2pt", "1ex", "4pt"])}}`] : []))
@@ -727,8 +740,19 @@ export function makeDocument(r: () => number): string {
       afterPar = false
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true }
     } else if (x > 0.97 && !isLetter) {
-      // a tabular centered on its own
-      out.push("", "\\begin{center}", tabular(), "\\end{center}")
+      // a tabular centered on its own, or (longtable loaded) a longtable of its rows, sometimes the first row a head;
+      // or (multicol loaded) multicols or multicols* in its place: paragraphs, sometimes a \columnbreak between them
+      const tb = tabular()
+      if (mcOn && s() < 0.5) {
+        const pars = Array.from({ length: 1 + Math.floor(s() * 3) }, () => sText(10 + Math.floor(s() * 50)) + ".")
+        if (s() < 0.4) pars.splice(1 + Math.floor(s() * pars.length), 0, "\\columnbreak")
+        const env = spick(["multicols", "multicols", "multicols*"])
+        out.push("", `\\begin{${env}}{${spick(["2", "2", "3"])}}`, pars.join("\n\n"), `\\end{${env}}`)
+      } else if (ltOn && /^\\begin\{tabular\}/.test(tb) && s() < 0.6) {
+        let lt = tb.replace(/^\\begin\{tabular\}(\[[tbc]\])?/, `\\begin{longtable}${spick(["", "", "[l]", "[r]", "[c]"])}`).replace(/\\end\{tabular\}$/, "\\end{longtable}")
+        if (s() < 0.5) lt = lt.replace(/\\\\(\[[^\]]*\])?\n/, (m) => `${m}\\endhead\n`)
+        out.push("", lt)
+      } else out.push("", "\\begin{center}", tb, "\\end{center}")
       if (r() < 0.4) { out.push(text(10 + Math.floor(r() * 40))); afterPar = true } else afterPar = false
     } else if (switches && x < 0.53 && x >= 0.5) {
       // babel: \selectlanguage between paragraphs, or paragraphs in otherlanguage or otherlanguage*
@@ -807,7 +831,9 @@ export function makeDocument(r: () => number): string {
   }
   if (cls === "book" && r() < 0.3) out.push("\\backmatter", ...(r() < 0.5 ? [`\\chapter{${words(2)}}`, text(20)] : []))
   out.push("\\end{document}", "")
-  return [...files, ...out].join("\n")
+  const doc = [...files, ...out].join("\n")
+  // (longtable in two columns is an error: its rows as a centered tabular there)
+  return /\\twocolumn|\[[^\]]*twocolumn/.test(doc) ? doc.replace(/\\begin\{longtable\}(\[[lcr]\])?/g, "\\begin{center}\\begin{tabular}").replace(/\\end\{longtable\}/g, "\\end{tabular}\\end{center}").replace(/\\endhead\n/g, "") : doc
 }
 
 export function fuzzDocuments(n: number, seed: number): number {
@@ -817,10 +843,11 @@ export function fuzzDocuments(n: number, seed: number): number {
   let pass = 0, glyphs = 0, pending = 0
   const failures: string[] = []
   const reasons = new Map<string, number>()
+  const s = rng(seed + 0x9e3779b9) // (the tables' and columns' choices)
   for (let i = 0; i < n; i++) {
     const file = join(dir, `doc-${seed}-${i}.tex`)
     // some under pdflatex (positions from its box dumps; its hyperref and xcolor nodes), unless they use EPS graphics
-    const doc = makeDocument(r)
+    const doc = makeDocument(r, s)
     writeFileSync(file, `% engine: document\n${!doc.includes("\\includegraphics") && r() < 0.3 ? "% oracle: pdflatex\n" : ""}` + doc)
     const res = runFixture(file)
     // TeX's work files (a log with \tracingassigns runs to tens of megabytes) and its saved reference are
