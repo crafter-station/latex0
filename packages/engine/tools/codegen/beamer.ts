@@ -10,7 +10,7 @@ import { join } from "node:path"
 import type { BeamerColor, BeamerFont, BeamerThemeData } from "../../layout/beamerdata"
 import { SIZE_COMMANDS, type ClassData } from "../../layout/classdata"
 import { parseScaled } from "../oracle/tracing"
-import { texEnv } from "../tex"
+import { kpsewhich, texEnv } from "../tex"
 
 const OUT = "packages/engine/data/beamer"
 const OPTIONS = ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"]
@@ -101,7 +101,7 @@ const SENTINEL = { family: "FAMILY", series: "SERIES", shape: "SHAPE", encoding:
 
 /** the names a .sty sets with \setbeamercolor (or \setbeamerfont) */
 function names(file: string, command: string): string[] {
-  const path = execFileSync("kpsewhich", [file], { env: texEnv(), encoding: "utf8" }).trim()
+  const path = kpsewhich([file])
   const src = readFileSync(path, "latin1").replace(/(^|[^\\])%.*$/gm, "$1")
   return [...src.matchAll(new RegExp(`\\\\${command}\\*?\\{([^}]*)\\}`, "g"))].map((m) => m[1])
 }

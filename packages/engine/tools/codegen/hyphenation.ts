@@ -3,11 +3,10 @@
 // pdfTeX's loaders read them (loadhyph-<id>.tex), UTF-8 turned into the EC (T1) characters of
 // conv-utf8-ec.tex.
 
-import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import type { HyphenationData } from "../../layout/hyphenate"
-import { texEnv } from "../tex"
+import { kpsewhich } from "../tex"
 
 const OUT = "packages/engine/data/hyphenation"
 
@@ -34,7 +33,7 @@ function block(src: string, cmd: string, optional = false): string[] {
 
 /** conv-utf8-ec.tex: each two-byte UTF-8 sequence's EC character (\def^^c3#1{\ifx#1^^a9^^e9\else …}) */
 function ecConversion(): Map<string, string> {
-  const path = execFileSync("kpsewhich", ["conv-utf8-ec.tex"], { encoding: "utf8", env: texEnv() }).trim()
+  const path = kpsewhich(["conv-utf8-ec.tex"])
   const src = readFileSync(path, "latin1")
   const map = new Map<string, string>()
   for (const d of src.matchAll(/\\def\^\^([0-9a-f]{2})#1\{([^]*?)\\errmessage/g)) {
@@ -67,7 +66,7 @@ export function codegenHyphenation(check: boolean): number {
   let stale = 0
   const ec = ecConversion()
   for (const [id, lang] of Object.entries(LANGUAGES)) {
-    const path = execFileSync("kpsewhich", [lang.file], { encoding: "utf8", env: texEnv() }).trim()
+    const path = kpsewhich([lang.file])
     const src = readFileSync(path, lang.ec ? "utf8" : "latin1")
     const chars = (word: string) => !lang.ec ? word : [...word].map((ch) => {
       const c = ch.charCodeAt(0) < 128 ? ch : ec.get(ch)
