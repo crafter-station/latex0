@@ -1,0 +1,24 @@
+% fixture: hyperref/nameref-counter
+% tier: T3
+% engine: document
+% covers: \nameref to a label whose name holds a document counter's \the<counter> (a \paragraph{Theorem \thethm.} from a user macro): the .aux file keeps \thethm, which prints the counter's value where \nameref reads it, not where the label was set
+% issue: #347
+\documentclass{article}
+\usepackage{hyperref}
+\newcounter{thm}
+\newcommand{\thm}{\stepcounter{thm}\paragraph{Theorem \thethm.}}
+\begin{document}
+Before: \nameref{t:2} and \nameref*{t:1}.
+
+\thm
+First statement\label{t:1} and \nameref{t:1}.
+
+\thm
+Second statement\label{t:2}.
+
+\thm
+Third.
+
+\thm
+After two more: \nameref{t:1}, \Nameref{t:2} and \nameref*{t:2}.
+\end{document}

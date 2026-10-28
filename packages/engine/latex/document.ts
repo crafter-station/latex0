@@ -135,12 +135,18 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
   // a name macro in a label's name (\tableofcontents's \contentsname \@mkboth{…}{…}, \listoftables's \listtablename) means
   // what it means where \nameref reads it: the document's caption names (no language switch changes them), \@mkboth
-  // the page style's (\@gobbletwo in plain, empty and myheadings; headings and fancy's \markboth would set marks)
-  refs.nameMacros = (name) => name.replace(/\\(contentsname|listfigurename|listtablename|refname|bibname|indexname)(?![A-Za-z])\s*(\\@mkboth\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*\{(?:[^{}]|\{[^{}]*\})*\})?/g, (all, macro: keyof typeof pre.names, mkboth) => {
-    if (/\\(?:selectlanguage|LXotherlanguage)\b/.test(pre.body)) throw new Unsupported(`\\nameref to "${all}" with a language switch`)
-    if (mkboth && !["plain", "empty", "myheadings"].includes(pre.pagestyle)) throw new Unsupported(`\\nameref to "${all}" with \\pagestyle{${pre.pagestyle}}`)
-    return pre.names[macro]
-  })
+  // the page style's (\@gobbletwo in plain, empty and myheadings; headings and fancy's \markboth would set marks); a
+  // document counter's \the<counter> its value there (not known when the paragraph's own text also changes counters)
+  let countersInText = false
+  refs.nameMacros = (name) => {
+    const counter = counters.counted(name, true, () => {})
+    if (counter !== name && countersInText) throw new Unsupported(`\\nameref to "${name}" in a paragraph that changes a counter`)
+    return counter.replace(/\\(contentsname|listfigurename|listtablename|refname|bibname|indexname)(?![A-Za-z])\s*(\\@mkboth\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*\{(?:[^{}]|\{[^{}]*\})*\})?/g, (all, macro: keyof typeof pre.names, mkboth) => {
+      if (/\\(?:selectlanguage|LXotherlanguage)\b/.test(pre.body)) throw new Unsupported(`\\nameref to "${all}" with a language switch`)
+      if (mkboth && !["plain", "empty", "myheadings"].includes(pre.pagestyle)) throw new Unsupported(`\\nameref to "${all}" with \\pagestyle{${pre.pagestyle}}`)
+      return pre.names[macro]
+    })
+  }
   /** \Hy@writebookmark's state */
   // (its .out file is \write3, or \write4 after pgf's \newwrite\w@pgf@writea: pgfsys.code.tex 67)
   const bookmarks = new Bookmarks(pre.tikz ? 4 : 3, pre.hyperOpts.bookmarksOpen ? "" : "-")
@@ -237,11 +243,11 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const crefSpanish = isSpanish(pre.babel) && pre.babel!.global.includes("spanish") ? (n: string) => sourceText(markAccentHyphens(n)) : undefined
   if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames, crefSpanish) }
   /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
-  const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
+  const counted = (text: string, inText = false): string => (countersInText = inText && /\\(?:set|addto|step|refstep)counter\b/.test(text), counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h
     if (refs.cleveref) refs.cleveref.current = counters.crefs.get(h)!
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
-  })
+  }))
   /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
   const esphackNobreaks = (nobreak: boolean): Node[] => [...(nobreak ? [penalty(10000)] : []), ...(nobreak || run.noskipsec ? [penalty(10000)] : [])]
   /** \if@noskipsec \leavevmode: an empty paragraph (the indent box) in the \everypar in force */
