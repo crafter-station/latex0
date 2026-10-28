@@ -1,0 +1,11 @@
+% fixture: babel/ngerman-siunitx
+% tier: T3
+% engine: document
+% covers: ngerman's \frenchspacing with siunitx loaded (its amstext's amsgen: \frenchspacing's 1006 1005 1004 … space factors), \SI in the text
+% issue: #338
+\documentclass{article}
+\usepackage{siunitx}
+\usepackage[ngerman]{babel}
+\begin{document}
+Ein Satz. Noch einer? Ja! Hier: so; und, so. Die L"ange ist \SI{5}{\metre}. Wirklich? Ja.
+\end{document}

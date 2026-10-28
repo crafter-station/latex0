@@ -1,0 +1,29 @@
+% fixture: babel/french-ot1
+% tier: T3
+% engine: document
+% covers: french as the main language in OT1 at 11pt: babel's OT1 guillemets in \og and \fg, \textemdash labels (124), the caption's \textendash (123), \up in cmr (cmr7: .65 of 10.95pt), the punctuation in a heading, a tabular cell and a footnote; english selected (\og and \fg as quotes, no spacing) and back
+% issue: #338
+\documentclass[11pt]{article}
+\usepackage[english,french]{babel}
+\begin{document}
+\section{Résultats : une étude}
+Le 1\up{er} et le 2\ieme{} cas ; \og bonjour \fg{} et \No 5.
+\begin{itemize}
+\item Un ; deux !
+\end{itemize}
+\begin{tabular}{l}
+a ; b \\
+\end{tabular}
+Une note\footnote{Note : texte ?}.
+\begin{figure}[h]
+\caption{Légende}
+\end{figure}
+
+\begin{otherlanguage}{english}
+English text; no space: here! \og quoted\fg{} words?
+\begin{figure}[h]
+\caption{A caption}
+\end{figure}
+\end{otherlanguage}
+Retour : oui !
+\end{document}

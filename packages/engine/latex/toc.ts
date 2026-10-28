@@ -6,7 +6,7 @@ import type { Node } from "../layout/nodes"
 import { printTokens } from "./encodings"
 
 /** A line the run before wrote to the .toc file: \contentsline{name}{\numberline{number}title}{page}{anchor} */
-export interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string }
+export interface TocEntry { level: 0 | 1 | 2 | 3 | 4 | 5; number: string | null; title: string; /** \thepage */ page: string; /** with hyperref, the heading's anchor */ anchor: string; /** babel's language of the .toc's \babel@toc line before it (the last \babel@aux written) */ language?: string }
 
 const NAMES = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"]
 
@@ -40,10 +40,10 @@ export class TocWriter {
   }
 
   /** \addcontentsline{toc}'s \write */
-  write(level: TocEntry["level"], number: string | null, source: string, anchor = ""): Node {
+  write(level: TocEntry["level"], number: string | null, source: string, anchor = "", language?: string): Node {
     const title = printTokens(source) // (as \protected@write prints it, and the next run reads it)
     const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${NAMES[level]}}{${number !== null ? `\\protect \\numberline {${number}}` : ""}${title}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
-    this.writes.push({ node, entry: { level, number, title, anchor } })
+    this.writes.push({ node, entry: { level, number, title, anchor, ...(language ? { language } : {}) } })
     return node
   }
 

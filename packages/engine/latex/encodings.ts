@@ -8,6 +8,8 @@
 
 import { X_HEIGHT, type Font } from "../layout/font"
 import { appendText as appendCodes, makeAccent, sfCode, type HState } from "../layout/hmode"
+import { xnOverD } from "../layout/arith"
+import { roundDecimals } from "../layout/dimen"
 import { glue, penalty, type Node } from "../layout/nodes"
 import { Unsupported } from "./unsupported"
 
@@ -72,7 +74,7 @@ export const SYMBOLS: Record<"OT1" | "T1", Record<string, number | string>> = {
   OT1: { ß: 25, æ: 26, œ: 27, ø: 28, Æ: 29, Œ: 30, Ø: 31, ı: 16, ȷ: 17, "“": 92, "”": 34, "‘": 96, "’": 39, "–": 123, "—": 124, "¡": "!`", "¿": "?`" },
   T1: {
     ß: 255, æ: 230, œ: 247, ø: 248, Æ: 198, Œ: 215, Ø: 216, ı: 25, ȷ: 26, ł: 170, Ł: 138, ð: 240, Ð: 208, þ: 254, Þ: 222,
-    "“": 16, "”": 17, "‘": 96, "’": 39, "–": 21, "—": 22, "¡": 189, "¿": 190, "«": 19, "»": 20,
+    "“": 16, "”": 17, "‘": 96, "’": 39, "–": 21, "—": 22, "¡": 189, "¿": 190, "«": 19, "»": 20, "„": 18,
   },
 }
 
@@ -99,7 +101,7 @@ export function utf8Text(ch: string): string | null {
 
 /** a run of characters (a space is interword glue), or an accent over its base: \add@accent's (its
  *  \spacefactor after it is the base's) or \accent alone (OT1's \c: 1000) */
-export type TextItem = { run: string } | { accent: number; base: number; baseSpaceFactor: boolean } | { allowhyphens: true }
+export type TextItem = { run: string } | { accent: number; base: number; baseSpaceFactor: boolean; /** the x-height the accent is placed for (babel's \lower@umlaut) */ x?: number } | { allowhyphens: true }
 
 /** in the text, after an accent: the next token is not a space (spanish.ldf's \es@accent then adds \bbl@allowhyphens) */
 export const ALLOW_HYPHENS = "\ue000"
@@ -107,8 +109,8 @@ export const ALLOW_HYPHENS = "\ue000"
 export const accentHyphens = { on: false }
 /** babel's OT1 \" on a e i \i o u A E I O U (\DeclareTextCompositeCommand at \begin{document}): \bbl@umlauta and
  *  \bbl@umlaute, \umlauthigh's \leavevmode\bgroup\accent127 #1\bbl@allowhyphens\egroup (space factor 1000); spanish.ldf's
- *  \bbl@umlauta (a o u A O U) is \es@umlaut, \add@accent{127}#1\bbl@allowhyphens */
-export const babelUmlauts: { mode: null | "high" | "spanish" } = { mode: null }
+ *  \bbl@umlauta (a o u A O U) is \es@umlaut, \add@accent{127}#1\bbl@allowhyphens; german's (\umlautlow) \lower@umlaut */
+export const babelUmlauts: { mode: null | "high" | "spanish" | "german" } = { mode: null }
 
 /** The paragraph's text (Unicode, accents as marks) in the font's encoding. */
 export function encodeText(text: string, enc: string, font: Font): TextItem[] {
@@ -155,6 +157,14 @@ export function encodeText(text: string, enc: string, font: Font): TextItem[] {
         accent(24, base) // (\accent, not \add@accent: the space factor 1000, a lowercase base's)
         continue
       }
+      if (mark === "\u0308" && babelUmlauts.mode === "german" && "aouAOU".includes(base)) {
+        // \lower@umlaut: \accent127 placed for an x-height of the umlaut's height less .45ex, when that is more than 1ex
+        // (\fontdimen5 changed for make_accent, § 1123, and back before the base), in a group: no \bbl@allowhyphens
+        const xh = font.params[X_HEIGHT], low = font.chars.get(127)!.height - xnOverD(xh, roundDecimals([4, 5]), 65536)
+        if (run) out.push({ run }); run = ""
+        out.push({ accent: 127, base: base.charCodeAt(0), baseSpaceFactor: false, ...(xh < low ? { x: low } : {}) })
+        continue
+      }
       if (mark === "\u0308" && babelUmlauts.mode && "aeıouAEIOU".includes(base)) {
         accent(127, base, babelUmlauts.mode === "spanish" && "aouAOU".includes(base))
         out.push({ allowhyphens: true })
@@ -188,7 +198,7 @@ export function appendText(list: Node[], text: string, font: Font, state: HState
   for (const item of encodeText(text, encodingOf(font), font)) {
     if ("run" in item) { appendCodes(list, item.run, font, state, paragraph); continue }
     if ("allowhyphens" in item) { list.push(penalty(10000), glue(0)); continue }
-    makeAccent(list, font, item.accent, item.base, state)
+    makeAccent(list, font, item.accent, item.base, state, item.x)
     if (!item.baseSpaceFactor) continue
     const s = state.sfcodes?.[item.base] ?? sfCode(item.base)
     if (s < 1000 && s > 0 || s > 1000) state.spaceFactor = s

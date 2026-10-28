@@ -57,6 +57,9 @@ export interface WhatsitNode {
   hook?: unknown
   /** a \marks node (§ 141): its class and value, which the output routine reads */
   mark?: { cls: number; value: unknown }
+  /** a language node (§ 1341, \setlanguage): the patterns of its language and its hyphenmins, which hyphenation
+   *  takes up from here on (§ 1362) */
+  language?: { patterns: string; lhm: number; rhm: number }
 }
 /**
  * An insertion (§ 140): \\insert n with its vertical list. `height` is the list's

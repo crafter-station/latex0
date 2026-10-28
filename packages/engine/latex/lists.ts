@@ -23,11 +23,12 @@ import { setgroup } from "./xcolor"
 import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
 import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
-import { isSpanish } from "./babel"
+import { isSpanish, languageGroups } from "./babel"
 import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
 import { hlistInput } from "./paragraph"
 import { labelText, preset, unbraced, type ListSetup, type ResumeScope } from "./enumitem"
 import { representation } from "./counters"
+import { frenchItemLabel, frenchListDimens, frenchTextGuard } from "./french"
 
 /** the environments whose text may hold declarations here: no labels, one item */
 const DECLARING: string[] = ["center", "flushleft", "flushright", "quote", "quotation", "verse"]
@@ -40,8 +41,8 @@ export interface EnvCtx { depth: number; itemDepth: number; enumDepth: number; t
   /** \@beginparpenalty and \@endparpenalty, when not -\@lowpenalty (report's abstract) */ beginparpenalty?: number; endparpenalty?: number
   /** \labelsep (a list's keys may set it, and the lists inside keep it); description's depth; enumitem's
    *  \enit@outerparindent, the enclosing lists' labels (\labelenumi …, \labelitemi …), \theenumi … as text, and
-   *  resume's saved lists in the enclosing group */
-  labelsep?: number; /** \parindent in force (center and its kind zero it) */ parindent?: number; descDepth?: number; outerParindent?: number; labels?: Record<string, string | null>; thes?: string[]; scope?: ResumeScope }
+   *  resume's saved lists in the enclosing group; in a list that took french.ldf's \\FB@listHsettings */
+  labelsep?: number; frenchMargins?: boolean; /** \parindent in force (center and its kind zero it) */ parindent?: number; descDepth?: number; outerParindent?: number; labels?: Record<string, string | null>; thes?: string[]; scope?: ResumeScope }
 
 /** the document's group: resume's saved lists at the outer level, for each run */
 const outerScopes = new WeakMap<object, ResumeScope>()
@@ -79,6 +80,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const ems = (x: string) => new Scanner(x, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
   let ls = ctx.labelsep ?? run.k.dimens.labelsep // \labelsep (an enclosing list's keys may have set it)
   let depth = ctx.depth, leftmargin = 0, labelwidth = 0, itemindent = 0, listparindent = 0, rightmargin = 0
+  const french = cx.pre.babel?.main === "french" // (french.ldf's \update@legacylists)
   // \trivlist: \parsep\parskip; \list: \@listi … \@listvi set some parameters, the others stay as they are
   let topsep = ctx.topsep, partopsep = ctx.partopsep, parsep = trivial ? ctx.parskip : ctx.parsep, itemsep = ctx.itemsep
   labelwidth = trivial ? 0 : ctx.labelwidth
@@ -103,8 +105,32 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     leftmargin = D("leftmargin")
     for (const p of listSets(depth)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") parsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
     if (depth >= 2) labelwidth = D("labelwidth") + run.k.dimens.labelsep - ls // \labelwidth\leftmargin<depth> \advance\labelwidth-\labelsep
+    // (in a list that took \FB@listHsettings, \leftmarginii … vi are \leftmarginFB: \@listii … vi's \leftmargin, and their
+    // \labelwidth less \labelsep)
+    if (ctx.frenchMargins && depth >= 2) { const fb = frenchListDimens(cx); leftmargin = fb.labelwidth + ls; labelwidth = fb.labelwidth }
+    if (french) {
+      // french.ldf's lists (its main language): \list is \listFB, whose \FB@listVsettings come before the environment's
+      // own (itemize's \itemizeFB calls \listORI: \FB@itemizesettings, all four zero); itemize, enumerate and
+      // description take \FB@listHsettings: \leftmargin\labelwidthFB+\labelsep, and \listindentFB more at depth 1
+      if (enumitem) throw new Unsupported("french.ldf's lists with enumitem")
+      // (\FB@pardim, \parskip's width: in a list, the enclosing one's \parsep)
+      const pd = Math.max(ctx.parskip.width, 0), plus = (g: GlueSpec, d: number): GlueSpec => ({ ...g, width: g.width + d })
+      if (b.env === "itemize") { topsep = dimen(-pd); partopsep = dimen(pd); parsep = dimen(pd); itemsep = dimen(-pd) }
+      else {
+        const ex = (x: number) => ems(`${x}ex`), half = { width: ex(0.4), stretch: ex(0.2), stretchOrder: 0 as const, shrink: ex(0.2), shrinkOrder: 0 as const }
+        topsep = plus({ width: ex(0.8), stretch: ex(0.4), stretchOrder: 0, shrink: ex(0.4), shrinkOrder: 0 }, -pd)
+        partopsep = plus(half, pd); itemsep = plus(half, -pd); parsep = pd > 0 ? dimen(pd) : half
+      }
+      if (b.env === "itemize" || b.env === "enumerate" || b.env === "description") {
+        const fb = frenchListDimens(cx)
+        leftmargin = fb.labelwidth + ls + (depth === 1 ? fb.listindent : 0)
+        listparindent = ctx.parindent ?? run.k.dimens.parindent // (\listparindent\parindent: the enclosing list's)
+        if (b.env === "itemize") labelwidth = frenchItemLabel(cx, sizeFont).width
+        else if (b.env === "description") { labelwidth = 0; itemindent = -leftmargin + (depth === 1 ? fb.listindent : 0) }
+      }
+    }
     // \labelwidth\z@ \itemindent-\leftmargin (enumitem: \enit@calcleft's)
-    if (b.env === "description") { labelwidth = 0; itemindent = enumitem ? 0 : -leftmargin }
+    if (b.env === "description" && !french) { labelwidth = 0; itemindent = enumitem ? 0 : -leftmargin }
     else if (b.env === "quote") rightmargin = leftmargin
     // (letter.cls: quotation keeps \parsep, verse indents 15pt)
     else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
@@ -248,6 +274,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   // what declarations in the environment's text set (center, flushleft, flushright, quote, quotation, verse)
   let envState: DeclState = { size: ctx.size, attrs: bodyAttrs ?? cx.normalAttrs, align: null }, declared = false
   b.items.forEach(({ label: given, parts }, i) => {
+    if (given) frenchTextGuard(given)
+    // (babel's otherlanguage over an item's paragraphs: what its end restores is not modeled in a list)
+    if (parts.some((p) => p.kind === "text" && languageGroups(p.text).closed)) throw new Unsupported("otherlanguage over an item's paragraphs")
     run.hyperItem = hyper && (b.env === "enumerate" || b.env === "thebibliography") // hyperref's \item: \if@nmbrlist
     // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
     // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
@@ -265,6 +294,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       else if (b.env === "itemize") { // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered
         if (eit?.format) throw new Unsupported(`enumitem font=${eit.format} for itemize's own labels`)
         if (spanish) l.push(...spanishItemLabel(level, run.k, ctx.size, font, companion, cx.pre.amsmath))
+        else if (french) l.push(frenchItemLabel(cx, font).node) // (\Frlabelitemi … iv: \FrenchLabelItem, \textemdash)
         else if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
         else l.push(charNode(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
       } else { // \labelenumi … iv: 1. (a) i. A.
@@ -284,7 +314,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
       }
       // \hss\llap{#1}, enumitem's \nobreak first; or \nobreak #1\hfil (align=left)
-      content = eit?.align === "left" ? [penalty(10000), ...l, filGlue()] : [...(enumitem ? [penalty(10000)] : []), ssGlue(), hpack([ssGlue(), ...l], { exactly: 0 })]
+      content = french && b.env === "itemize" ? [filGlue(), ...l] // (\itemizeFB keeps \list's \@mklab, \hfil #1)
+        : eit?.align === "left" ? [penalty(10000), ...l, filGlue()] : [...(enumitem ? [penalty(10000)] : []), ssGlue(), hpack([ssGlue(), ...l], { exactly: 0 })]
     } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \labelsep\z@ and \nobreak, the label, \hfil)
       const l: Node[] = []
       if (given && eit?.format) l.push(...formatted({ ...cx.normalAttrs, ser: "bx" }, given))
@@ -355,7 +386,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         // (enumitem: \labelsep, \enit@outerparindent, \labelenum… and \labelitem…, \theenum…, and the list's group for resume)
         const labels = eit && b.env !== "description" ? { ...ctx.labels, [`${b.env === "enumerate" ? "enum" : "item"}${level}`]: eit.label ?? (b.env === "enumerate" ? `{${ENUM_LABELS[level - 1]}}` : null) } : ctx.labels
         return list(cx, p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums, club: inForce,
-          labelsep: ls, parindent, descDepth, outerParindent: eit && depth === 1 ? parindentAt : ctx.outerParindent, labels, thes: b.env === "enumerate" ? (eit?.ref != null || ctx.thes ? [...thes(), the(counter)] : undefined) : ctx.thes, scope: innerScope })
+          labelsep: ls, parindent, descDepth, outerParindent: eit && depth === 1 ? parindentAt : ctx.outerParindent, labels, frenchMargins: ctx.frenchMargins || french && (b.env === "itemize" || b.env === "enumerate" || b.env === "description"), thes: b.env === "enumerate" ? (eit?.ref != null || ctx.thes ? [...thes(), the(counter)] : undefined) : ctx.thes, scope: innerScope })
       }
       if (p.text.trim()) started = true
       // \everypar: the indent box gives way to \box\@labels \penalty\z@; after a nested environment, \@doendpe
@@ -414,7 +445,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       }
       // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
       // heading); \@doendpe's \par sets \@clubpenalty for the lines
-      else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, ...groups, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty }, parsep, size); itemClub = undefined }
+      else if (p.start === "doendpe") { typeset(p.text, { ...shape, ...un, ...body, ...groups, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty, everyparNoindent: true }, parsep, size); itemClub = undefined }
       else {
         // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
         if (p.text) itemClub = undefined

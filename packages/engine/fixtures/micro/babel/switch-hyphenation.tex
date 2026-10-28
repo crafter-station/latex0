@@ -1,0 +1,23 @@
+% fixture: babel/switch-hyphenation
+% tier: T3
+% engine: document
+% covers: babel's languages in narrow paragraphs: a paragraph that starts in \foreignlanguage (new_graf's language is the foreign one), a switch in the middle of a word (the language nodes that the line breaker's main loop takes up for the words after it), an accent (OT1's \accent, no language node) as the first character after a switch, british and english patterns, in footnotes too
+% issue: #338
+\documentclass{article}
+\usepackage[british,portuguese,english]{babel}
+\begin{document}
+\begin{minipage}{90pt}
+\foreignlanguage{portuguese}{Transformações estabelecidas} information representations, \foreignlanguage{portuguese}{\'agua comunicações eletrônicas} and representations.
+\end{minipage}
+\begin{minipage}{90pt}
+Representa\foreignlanguage{portuguese}{ções estabelecidas armazenamento} information representations transformations.
+\end{minipage}
+\begin{minipage}{90pt}
+\foreignlanguage{portuguese}{Armazenamento de informação\foreignlanguage{english}{ representations transformations} comunicações estabelecidas e transformações.}
+\end{minipage}
+
+\selectlanguage{british}
+Hyphenation in british: representations of the information transformations, in the standardisation of organisation and characterisation.\footnote{A note with \foreignlanguage{portuguese}{informação armazenamento} and \foreignlanguage{portuguese}{comunicações estabelecidas armazenamento informação}.}
+\foreignlanguage{english}{Representations of the information transformations} and back to british representations of the information, \foreignlanguage{portuguese}{$x$ informação}.
+\selectlanguage{english}
+\end{document}

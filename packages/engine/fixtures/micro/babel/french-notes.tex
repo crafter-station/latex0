@@ -1,0 +1,22 @@
+% fixture: babel/french-notes
+% tier: T3
+% engine: document
+% covers: french.ldf as the main language: its footnotes (\FBlegacyfootnote@switch: \@makefntextFB, the mark on the line, \dotFFN and \kernFFN, \parindentFFN; \@footnotemarkFB's \unskip and \unkern (after \,) and \FBfnmarkspace before the mark), the figure and table captions (\fnum@figure in \scshape, the text's punctuation, \CaptionSeparator: a space, \textendash, a space), \thanks, \up's \MakeLowercase
+% issue: #338
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\title{Titre\thanks{Merci beaucoup.}}
+\author{Auteur}
+\begin{document}
+\maketitle
+Un texte avec une note\footnote{La note de bas de page, qui est assez longue pour continuer sur une deuxième ligne entière de texte.} et une autre note après un espace \footnote{Seconde note.} et à la fin.\footnote{Troisième.} Puis un texte\,\footnote{Après une espace fine.} et M\up{ME} Durand.
+\begin{figure}[h]
+\centering
+\caption{Une figure : avec une légende !}
+\end{figure}
+\begin{table}[h]
+\caption{Un tableau dont la légende est très longue, si longue qu'elle doit passer à la ligne suivante dans la page}
+\end{table}
+Fin du texte.
+\end{document}

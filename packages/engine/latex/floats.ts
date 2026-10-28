@@ -20,10 +20,11 @@ import type { ParagraphTrace } from "../trace/decisions"
 import { type Float } from "./output"
 import { anchor, labelName, spotAnchor } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
-import { classParams, appendToVlist, crefWrites, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions } from "./paragraph"
+import { classParams, hlistInput, appendToVlist, crefWrites, fontDeclaration, labelWrite, paragraphInput, selectFont, type FontAttrs, type ParagraphOptions } from "./paragraph"
 import { representation } from "./counters"
 import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
 import { algorithmBox } from "./algorithm"
+import { frenchCaptionStart, frenchTextGuard } from "./french"
 
 /** where a caption goes, and what caption.sty reads there */
 export interface CaptionOut {
@@ -55,6 +56,7 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
     return c
   }
   const text = clean(source.text), short = source.short === null ? null : clean(source.short)
+  if (cx.pre.babel?.main !== "french") frenchTextGuard(text) // (french's own \FB@makecaption reads the text as a paragraph does)
   if (cx.pre.usesCaption) {
     if (text === "") throw new Unsupported("an empty caption with caption.sty") // (\caption@xdblarg's [\relax])
     return captionPackage(cx, env, { text, short, star: source.star }, hsize, out, sub)
@@ -69,6 +71,16 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
   const l: Node[] = [], state = { spaceFactor: 1000 }
   const name = sourceText(env === "figure" ? cx.pre.names.figurename : cx.pre.names.tablename) // (\figurename, \tablename)
+  if (cx.pre.babel?.main === "french") { // (french.ldf's \FB@makecaption)
+    if (hyper) throw new Unsupported("french.ldf's captions with hyperref")
+    const st = { spaceFactor: 1000 }, start = frenchCaptionStart(cx, name, counters.the(number), romanFont, st), cl = [...start]
+    cl.push(...hlistInput(text, run.k, "normalsize", cx.doc, cx.normalAttrs, st))
+    const cap = hpack(setgroup(cl))
+    if (cap.width > hsize) out.paragraph([hpack([]), ...start], text)
+    else out.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }))
+    out.push(glue(run.k.dimens.belowcaptionskip))
+    return { number, label: counters.the(number), name: labelName(short ?? text) }
+  }
   appendText(l, name, romanFont, state, false)
   l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
   // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "

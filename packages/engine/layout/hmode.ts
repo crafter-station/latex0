@@ -93,9 +93,9 @@ export function appendText(list: Node[], text: string, font: Font, state: HState
  * height when that is not the x-height, between kerns that center it over the base (corrected by the font's
  * slant), then the base. Space factor 1000 after it.
  */
-export function makeAccent(list: Node[], f: Font, a: number, base: number, state: { spaceFactor: number }) {
+export function makeAccent(list: Node[], f: Font, a: number, base: number, state: { spaceFactor: number }, xHeight = f.params[X_HEIGHT]) {
   const p = charNode(f, a), q = charNode(f, base)
-  const x = f.params[X_HEIGHT], s = Math.floor(f.params[SLANT] / 16) / 65536 // (slant(f): the TFM's fix_word in sp)
+  const x = xHeight, s = Math.floor(f.params[SLANT] / 16) / 65536 // (slant(f): the TFM's fix_word in sp)
   const h = q.height
   let acc: Node = p
   if (h !== x) { acc = hpack([p]); acc.shift = x - h }

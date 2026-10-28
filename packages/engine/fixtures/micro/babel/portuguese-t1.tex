@@ -1,0 +1,11 @@
+% fixture: babel/portuguese-t1
+% tier: T3
+% engine: document
+% covers: portuges.ldf's "< and "> in T1: \guillemetleft and \guillemetright as characters of the run (their kerns with the letters and punctuation next to them)
+% issue: #338
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\begin{document}
+Aspas "<Vamos">, "<assim">. e "<Tudo">; fim.
+\end{document}

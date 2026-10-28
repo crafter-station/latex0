@@ -1,0 +1,13 @@
+% fixture: babel/english-after-british
+% tier: T3
+% engine: document
+% covers: english.ldf's \dateenglish after british (its \bbl@tempb left as UK: 1st~January), in \maketitle, with british selected too
+% issue: #338
+\documentclass{article}
+\usepackage[british,english]{babel}
+\title{A title}
+\author{An author}
+\begin{document}
+\maketitle
+Some text.
+\end{document}

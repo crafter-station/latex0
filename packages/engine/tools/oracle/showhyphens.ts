@@ -2,7 +2,7 @@
 // the engine's Liang implementation word by word, in each language's patterns: English
 // (/usr/share/dict/words in cmr10), British English likewise, Spanish and Portuguese (words made
 // of their syllables, in T1: ecrm1000, whose characters the patterns are in).
-//   bun engine hyphen:check [--words N] [--lang en-us|en-gb|es|pt]
+//   bun engine hyphen:check [--words N] [--lang en-us|en-gb|es|pt|fr|de-1901|de-1996]
 
 import { execFileSync } from "node:child_process"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -37,23 +37,57 @@ export function shortDisplay(list: Node[]): string {
 export function engineShowHyphens(h: Hyphenator, word: string, lang: HyphenLanguage = LANGUAGES["en-us"]): string {
   const font = loadFont(dataFont(lang.font), 10 * 65536)
   const list: Node[] = [glue(0)]
-  appendText(list, word, font, { spaceFactor: 1000 })
+  appendText(list, lang.t1 ? word.replace(/œ/g, "\xf7").replace(/ß/g, "\xff") : word, font, { spaceFactor: 1000 }) // (the characters in T1: Latin-1's, œ and ß)
   list.push(glue(0))
-  hyphenateFollowingWord(list, 0, { hyphenator: h, fontOf: () => font, lHyf: lang.mins[0], rHyf: lang.mins[1], ucHyph: 1 })
+  hyphenateFollowingWord(list, 0, { hyphenator: h, fontOf: () => font, lHyf: lang.mins[0], rHyf: lang.mins[1], ucHyph: 1, ...(lang.lc ? { lc: lang.lc } : {}) })
   return shortDisplay(list.slice(1, -1))
 }
 
 /** a language's check: TeX's language (\l@<name>), its \lefthyphenmin and \righthyphenmin (babel's), the font */
-interface HyphenLanguage { tex: string; mins: [number, number]; font: string; t1: boolean }
+interface HyphenLanguage { tex: string; mins: [number, number]; font: string; t1: boolean; /** \lccode changes (babel's extras) */ lc?: Record<number, number> }
 const LANGUAGES: Record<string, HyphenLanguage> = {
   "en-us": { tex: "english", mins: [2, 3], font: "cmr10", t1: false },
   "en-gb": { tex: "british", mins: [2, 3], font: "cmr10", t1: false },
   es: { tex: "spanish", mins: [2, 2], font: "ecrm1000", t1: true },
   pt: { tex: "portuguese", mins: [2, 3], font: "ecrm1000", t1: true },
+  fr: { tex: "french", mins: [2, 3], font: "ecrm1000", t1: true, lc: { 39: 39 } },
+  "de-1901": { tex: "german", mins: [2, 2], font: "ecrm1000", t1: true },
+  "de-1996": { tex: "ngerman", mins: [2, 2], font: "ecrm1000", t1: true },
 }
 
-/** Words of Spanish (or Portuguese) syllables (onset, nucleus with or without an accent, coda), from a fixed seed */
-function syllableWords(n: number, pt = false): string[] {
+/** Words of German syllables (compounds of two to five), from a fixed seed */
+function germanWords(n: number): string[] {
+  const onsets = ["", "b", "d", "f", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "w", "z", "sch", "ch", "pf", "st", "sp", "str", "kr", "tr", "gr", "br", "bl", "fl", "fr", "gl", "kl", "schw", "zw"]
+  const nuclei = ["a", "e", "i", "o", "u", "ä", "ö", "ü", "ei", "au", "eu", "ie", "äu", "aa", "ee"]
+  const codas = ["", "", "n", "r", "s", "t", "ch", "ck", "ß", "ng", "nd", "st", "tz", "ft", "ll", "mm", "rn", "lt"]
+  let seed = 91
+  const r = (k: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % k }
+  const words: string[] = []
+  while (words.length < n) {
+    let w = ""
+    for (let s = 2 + r(4); s > 0; s--) w += onsets[r(onsets.length)] + nuclei[r(nuclei.length)] + codas[r(codas.length)]
+    if (!/^(ck|ß|ng|tz|ll|mm)/.test(w)) words.push(w)
+  }
+  return words
+}
+
+/** Words of Spanish (or Portuguese, or French) syllables (onset, nucleus with or without an accent, coda), from a fixed
+ *  seed; French ones after an elided article now and then (l', d', qu' …: the apostrophe is a letter there) */
+function syllableWords(n: number, pt = false, fr = false): string[] {
+  if (fr) {
+    const onsets = ["", "b", "c", "ç", "ch", "d", "f", "g", "gu", "j", "l", "m", "n", "gn", "p", "ph", "qu", "r", "s", "ss", "t", "th", "v", "z", "bl", "br", "cl", "cr", "dr", "fl", "fr", "gl", "gr", "pl", "pr", "tr", "h", "x"]
+    const nuclei = ["a", "e", "i", "o", "u", "é", "è", "ê", "à", "â", "î", "ï", "ô", "û", "ai", "ei", "oi", "ou", "au", "eau", "eu", "œu", "ie", "io", "ui", "y"]
+    const codas = ["", "", "", "n", "s", "r", "l", "m", "t", "x", "nt", "st", "rs"]
+    let seed = 47
+    const r = (k: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % k }
+    const words: string[] = []
+    while (words.length < n) {
+      let w = ["", "", "", "l'", "d'", "qu'", "j'", "n'", "s'", "jusqu'", "lorsqu'", "'"][r(12)] // (and an apostrophe first: a letter)
+      for (let s = 2 + r(4); s > 0; s--) w += onsets[r(onsets.length)] + nuclei[r(nuclei.length)] + codas[r(codas.length)]
+      if (!/^(ss|ç|gn)/.test(w)) words.push(w)
+    }
+    return words
+  }
   const onsets = pt
     ? ["", "b", "c", "ç", "ch", "d", "f", "g", "gu", "j", "l", "lh", "m", "n", "nh", "p", "qu", "r", "rr", "s", "ss", "t", "v", "x", "z", "bl", "br", "cl", "cr", "dr", "fl", "fr", "gl", "gr", "pl", "pr", "tr", "h"]
     : ["", "b", "c", "ch", "d", "f", "g", "gu", "j", "l", "ll", "m", "n", "ñ", "p", "qu", "r", "rr", "s", "t", "v", "y", "z", "bl", "br", "cl", "cr", "dr", "fl", "fr", "gl", "gr", "pl", "pr", "tr", "x", "h"]
@@ -80,7 +114,8 @@ export function texShowHyphens(words: string[], lang: HyphenLanguage = LANGUAGES
   const head = `[] \\${lang.t1 ? "T1" : "OT1"}/cmr/m/n/10 `
   for (let i = 0; i < words.length; i += 100) {
     const batch = words.slice(i, i + 100)
-    const setup = `${lang.t1 ? "\\usepackage[T1]{fontenc}\n" : ""}\\begin{document}\n\\language=\\csname l@${lang.tex}\\endcsname\\lefthyphenmin=${lang.mins[0]}\\righthyphenmin=${lang.mins[1]}\n`
+    const lc = Object.entries(lang.lc ?? {}).map(([c, v]) => `\\lccode${c}=${v}`).join("")
+    const setup = `${lang.t1 ? "\\usepackage[T1]{fontenc}\n" : ""}\\begin{document}\n\\language=\\csname l@${lang.tex}\\endcsname\\lefthyphenmin=${lang.mins[0]}\\righthyphenmin=${lang.mins[1]}${lc}\n`
     writeFileSync(join(dir, "sh.tex"), `\\documentclass{article}\n${setup}\\showhyphens{${batch.join(" ")}}\n\\end{document}\n`)
     execFileSync("latex", ["-interaction=nonstopmode", "sh.tex"], { cwd: dir, env: texEnv({ max_print_line: "1000000" }), stdio: "pipe" })
     const line = readFileSync(join(dir, "sh.log"), "latin1").split("\n").find((l) => l.startsWith(head))
@@ -96,7 +131,8 @@ export function hyphenCheck(n: number, id = "en-us"): number {
   const lang = LANGUAGES[id]
   if (!lang) throw new Error(`hyphen:check: no language ${id}`)
   let words: string[]
-  if (id === "es" || id === "pt") words = syllableWords(n, id === "pt")
+  if (id === "es" || id === "pt" || id === "fr") words = syllableWords(n, id === "pt", id === "fr")
+  else if (id.startsWith("de-")) words = germanWords(n)
   else {
     const all = readFileSync("/usr/share/dict/words", "utf8").split("\n").filter((w) => /^[A-Za-z]+$/.test(w))
     const step = Math.max(1, Math.floor(all.length / n))
@@ -109,7 +145,7 @@ export function hyphenCheck(n: number, id = "en-us"): number {
   // displayed exactly as TeX displays it.
   const diffs = words.map((w, i) => ({ w, tex: tex[i], ours: engineShowHyphens(h, w, lang) })).filter((d) => d.tex !== d.ours)
   const hyphenated = tex.filter((t) => t.includes("-")).length
-  console.log(`${words.length} ${id} words${id === "es" ? " of Spanish syllables" : id === "pt" ? " of Portuguese syllables" : " from /usr/share/dict/words"}, ${hyphenated} hyphenated by TeX`)
+  console.log(`${words.length} ${id} words${id === "es" ? " of Spanish syllables" : id === "pt" ? " of Portuguese syllables" : id === "fr" ? " of French syllables" : id.startsWith("de-") ? " of German syllables" : " from /usr/share/dict/words"}, ${hyphenated} hyphenated by TeX`)
   for (const d of diffs.slice(0, 20)) console.log(`  ✗ ${d.w}: TeX ${d.tex}  engine ${d.ours}`)
   console.log(diffs.length ? `HYPHENATION CHECK FAILED: ${diffs.length} differences` : "HYPHENATION CHECK PASSED: identical to TeX")
   return diffs.length ? 1 : 0

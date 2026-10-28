@@ -1,0 +1,63 @@
+% fixture: babel/french-lists
+% tier: T3
+% engine: document
+% covers: french.ldf's lists as the main language: \listFB's vertical settings (.8ex and .4ex, in the list's font: the abstract's \small too), itemize's \itemizeFB (no skips, less \parsep in a list's item, \textemdash labels, \leftmargin from \labelwidthFB, \labelsep and \listindentFB), enumerate and description with \FB@listHsettings, quote (\listparindent zero for a list in it), quotation, verse and thebibliography with \listFB
+% issue: #338
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\begin{document}
+\begin{abstract}
+Un résumé court qui parle de la théorie de l'information et de son application aux communications numériques modernes.
+\end{abstract}
+Texte avant les listes.
+\begin{itemize}
+\item Premier élément de la liste avec un texte assez long pour remplir plus d'une ligne entière de la page.
+\item Deuxième élément.
+\begin{itemize}
+\item Imbriqué.
+\begin{itemize}
+\item Encore plus profond.
+\end{itemize}
+\end{itemize}
+\end{itemize}
+Puis une énumération :
+\begin{enumerate}
+\item Un.
+\item Deux, avec une sous-liste :
+\begin{enumerate}
+\item alpha ;
+\item beta.
+\end{enumerate}
+\item Trois, avec des puces :
+\begin{itemize}
+\item une ;
+\item deux.
+\end{itemize}
+\end{enumerate}
+
+\begin{description}
+\item[Terme] Sa définition, qui est longue et qui continue sur la ligne suivante pour voir l'indentation.
+\item[Autre] Encore.
+\end{description}
+\begin{quote}
+Une citation courte.
+\begin{itemize}
+\item Un élément de deux paragraphes, assez long pour remplir la ligne entière de la citation.
+
+Le second paragraphe de l'élément.
+\end{itemize}
+\end{quote}
+\begin{quotation}
+Une longue citation en plusieurs paragraphes.
+
+Le second paragraphe.
+\end{quotation}
+\begin{verse}
+Un vers\\
+et un autre.
+\end{verse}
+\begin{thebibliography}{9}
+\bibitem{a} Un ouvrage.
+\end{thebibliography}
+\end{document}

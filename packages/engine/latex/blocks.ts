@@ -178,8 +178,9 @@ export function displaySegments(text: string): (string | Display)[] {
  *  only \label commands, which do not start one */
 export function inParagraph(before: string): boolean {
   const last = before.split(/\n[ \t]*\n/).pop()!
-  // (nor a \par, perhaps at the end of a group: {\large … \par})
-  return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*\\label\{[^{}]*\})+\s*$/.test(last) && !/\\par(?![A-Za-z])[\s}]*$/.test(before)
+  // (nor a \par, perhaps at the end of a group: {\large … \par}; nor \label or babel's language commands alone, which
+  // stay in vertical mode)
+  return /\S[ \t]*\n?[ \t]*$/.test(before) && !/\n[ \t]*\n[ \t]*$/.test(before) && before.trim() !== "" && !/^(?:\s*(?:\\label\{[^{}]*\}|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*$/.test(last) && !/\\par(?![A-Za-z])[\s}]*$/.test(before)
 }
 
 /** The commands a paragraph lays out (paragraph.ts), less \the<counter> and the text symbols */
@@ -193,6 +194,7 @@ const TEXT_COMMANDS = [
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
   "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
   "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
+  "og", "fg", "up", "fup", "ier", "iere", "iers", "ieres", "ieme", "iemes", "no", "No", "nos", "Nos"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")

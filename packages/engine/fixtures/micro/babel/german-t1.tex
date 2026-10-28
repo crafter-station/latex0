@@ -1,0 +1,19 @@
+% fixture: babel/german-t1
+% tier: T3
+% engine: document
+% covers: babel's german (1901 spelling: the de-1901 patterns of dehypht.tex) in T1 at 11pt, with ngerman and english selected: the T1 umlauts and \ss as characters, \glqq and \grqq (\quotedblbase, \textquotedblleft), the guillemets, "- "= "" in report's chapters, \chaptername (Kapitel), the language nodes between german and ngerman (languages 6 and 7), english's " a character
+% issue: #338
+\documentclass[11pt]{report}
+\usepackage[T1]{fontenc}
+\usepackage[english,ngerman,german]{babel}
+\begin{document}
+\chapter{Einleitung}
+Die Informationstheorie besch"aftigt sich mit der Quantifizierung, Speicherung und "Ubertragung von Informationen, Gr"o"sen und Ma"sst"aben. Ein "`Zitat"' und "<Guillemets">, Mann"-Schaft, Kinder"=Garten, Rot""Gr"un.
+Hier \foreignlanguage{ngerman}{Schifffahrt und Stra"senbahnhaltestelle} und wieder Schiffahrtsgesellschaft.
+
+\selectlanguage{ngerman}
+Neue Rechtschreibung: Schifffahrtsgesellschaft, Stra"senbahnhaltestellen und Gr"o"senordnungen.
+
+\selectlanguage{english}
+English text with a "quoted" word and Stra"se.
+\end{document}

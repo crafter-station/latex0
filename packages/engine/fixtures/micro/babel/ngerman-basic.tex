@@ -1,0 +1,30 @@
+% fixture: babel/ngerman-basic
+% tier: T3
+% engine: document
+% covers: babel's ngerman (babel-german.def) in OT1: its captions (Inhaltsverzeichnis, Zusammenfassung, Abbildung, Tabelle, Beweis), \today (1.~Januar), the de-1996 patterns (dehyphn.tex: hyphenmins 2 2), \frenchspacing, \umlautlow (\lower@umlaut's x-height for \"a \"o \"u; \"e and \"i high, with \bbl@allowhyphens), the shorthands "a "o "u "s "S "z "i "e "` "' "< "> "- "= "~ "" "| "/ and ngerman's "c "f "l …, \ss
+% issue: #338
+\documentclass{article}
+\usepackage{amsthm}
+\usepackage[ngerman]{babel}
+\title{Ein Titel}
+\author{Autor}
+\begin{document}
+\maketitle
+\begin{abstract}
+Eine kurze Zusammenfassung.
+\end{abstract}
+\tableofcontents
+\section{Einf"uhrung}
+Die Informationstheorie besch"aftigt sich mit der Quantifizierung, Speicherung und "Ubertragung von Informationen. Sie wurde von Claude Shannon begr"undet. Gr"o"se, Stra"se, Fu"sball, "Ol und "Arger, Na"ive Ko"effizient, GRO"SE, ma"zvoll und "`AUS"' sagt er.
+Ein "`Zitat"' und "<Guillemets">, Bindestrich-Wort: Mann"-Schaft, Kinder"=Garten, Ma"~Strich, Rot""Gr"un, Druck"|erzeugnis, Ein"/Aus, Schi"ffahrt und Ro"lladen.
+Lange W"orter: Donaudampfschifffahrtsgesellschaftskapit"an und Rechtsschutzversicherungsgesellschaften sowie Geschwindigkeitsbegrenzungen auf Autobahnen.
+\begin{figure}[h]
+\caption{Eine Abbildung}
+\end{figure}
+\begin{table}[h]
+\caption{Eine Tabelle}
+\end{table}
+\begin{proof}
+Ein Beweis mit \"a, \"o und \"u.
+\end{proof}
+\end{document}

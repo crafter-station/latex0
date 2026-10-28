@@ -25,9 +25,9 @@ import { listParagraphWithDisplays } from "./displays"
 import { prepareSource, type DocumentSource } from "./source"
 import { Counters } from "./counters"
 import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
-import { babelAux, babelFrenchspacing, isSpanish } from "./babel"
-import { markAccentHyphens, spanishLayout } from "./spanish"
-import { portugueseLayout } from "./portuguese"
+import { babelAux, babelBegin, babelState, babelFrenchspacing, isSpanish, languageCaptions, selectInGroups } from "./babel"
+import { markAccentHyphens, spanishLayout, spanishText } from "./spanish"
+import { germanT1, isGerman } from "./german"
 import { accentHyphens, babelUmlauts, sourceText } from "./encodings"
 import { spacing } from "../layout/hmode"
 import { TocWriter, type ListEntry, type ListFile, type TocEntry } from "./toc"
@@ -79,7 +79,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
       try { return layout(prepared, notHere, aux, epoch, images, driver) } catch (e) {
         if (!(e instanceof NobreakFloat) || notHere.has(e.index)) throw e
         notHere.add(e.index)
-      } finally { spacing.french = false; markLanguage.name = null; accentHyphens.on = spanishLayout.on = portugueseLayout.on = false; babelUmlauts.mode = null } // (babel's, for this document only)
+      } finally { spacing.french = false; markLanguage.name = null; accentHyphens.on = spanishLayout.on = spanishText.on = false; babelUmlauts.mode = null; babelBegin(null) } // (babel's, for this document only)
     }
   }
   // the oracle runs LaTeX twice: the second run reads the .toc and .aux files the first one wrote
@@ -112,14 +112,17 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   mathFonts.letters = null
   const run = runState(pre.k)
   // \today: the date's characters (the spaces after the control word go, and its line's end, unless a blank line follows)
+  // (in the main language: with babel's language commands, the one selected there is not modeled)
+  if (pre.babel && /\\today(?![A-Za-z])/.test(body) && /\\(?:selectlanguage|foreignlanguage)(?![A-Za-z])|\\begin\s*\{otherlanguage/.test(body)) throw new Unsupported("\\today with babel's language commands")
   const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
+  if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
   const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
-  accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
-  portugueseLayout.on = ["portuguese", "portuges", "brazil", "brazilian"].includes(pre.babel?.main ?? "")
-  babelUmlauts.mode = !pre.babel ? null : isSpanish(pre.babel) ? "spanish" : "high"
+  spanishLayout.on = isSpanish(pre.babel)
+  germanT1.on = !!run.k.ints.T1
 
   const v = new VerticalList(run.k)
-  v.alwaysIndent = isSpanish(pre.babel) // (spanish.ldf's layout: \@afterindentfalse is \@afterindenttrue)
+  // (spanish.ldf's layout, french.ldf's \bbl@frenchindent: \@afterindentfalse is \@afterindenttrue)
+  v.alwaysIndent = isSpanish(pre.babel) || pre.babel?.main === "french"
   // a color package: xcolor, or the color package siunitx or hyperref's colorlinks loads at \begin{document} (its
   // default color named Black)
   const colorlinks = hyper && pre.hyperOpts.colorlinks
@@ -163,8 +166,22 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
     if (prev?.pageLabels && !hyperDriver.pdftex) v.nodes.push(putPageLabels(prev.pageLabels))
   }
   if (pre.babel && !pre.babel.beforeHyperref) babelStart()
-  markLanguage.name = pre.babel?.main ?? null
-  spacing.french = babelFrenchspacing(pre.babel) ? (pre.amsmath || pre.usesAmsthm ? "ams" : "latex") : false
+  // the language selected's extras: spanish.ldf's \textspanish (\frenchspacing, its accents and umlauts), \mathspanish
+  // and shorthands; the marks' \foreignlanguage
+  const extras = (lang: string | null) => {
+    accentHyphens.on = spanishText.on = lang === "spanish"
+    babelUmlauts.mode = lang === null ? null : lang === "spanish" ? "spanish" : isGerman(lang) ? "german" : "high"
+    // (amsgen's \frenchspacing: amsmath's, amsthm's or siunitx's amstext)
+    spacing.french = lang !== null && babelFrenchspacing(lang) ? (pre.amsmath || pre.usesAmsthm || pre.usesSiunitx ? "ams" : "latex") : false
+    markLanguage.name = lang
+  }
+  extras(pre.babel?.main ?? null)
+  // babel's language commands select a language's captions and extras
+  babelBegin(pre.babel, (lang) => {
+    // (caption.sty's names, set after babel's at \begin{document}, are its own until \captions<lang> sets them again)
+    if (pre.caption && Object.keys(pre.caption.keys.names).length) throw new Unsupported("caption.sty's names with babel's language commands")
+    Object.assign(pre.names, languageCaptions(lang, cls === "report" || cls === "book")); extras(lang)
+  }, body)
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
   for (const [n, m, x] of colorDefs) colors.define(n, m, x)
@@ -222,7 +239,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
       out.push(bm)
       if (nobreak) out.push(penalty(10000))
     }
-    out.push(tocFile.write(level, number, title, hyper ? anchorName : ""))
+    out.push(tocFile.write(level, number, title, hyper ? anchorName : "", babelState.written))
     if (nobreak) out.push(penalty(10000))
     return out
   }
@@ -234,10 +251,17 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   })()
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
+  // (french.ldf with hyperref, natbib, cleveref, caption.sty, TikZ or in a letter: its names, active punctuation and layout there
+  // are not modeled)
+  if (pre.babel?.languages.includes("french") && (hyper || pre.natbib || pre.cleveref || pre.usesCaption || pre.tikz || cls === "letter")) throw new Unsupported(`french.ldf with ${hyper ? "hyperref" : pre.natbib ? "natbib" : pre.cleveref ? "cleveref" : pre.usesCaption ? "caption.sty" : pre.tikz ? "TikZ" : "the letter class"}`)
+  // (babel-german with hyperref: its shorthands in the bookmarks are not modeled; listings with babel-german's active " or
+  // french's ; : ! ?, neither)
+  if (hyper && pre.babel?.languages.some(isGerman)) throw new Unsupported("babel-german with hyperref")
+  if (pre.usesListings && pre.babel?.languages.some((l) => isGerman(l) || l === "french")) throw new Unsupported("listings with babel-german or french")
   const counters = new Counters(cls, newCounters, () => doc.footnote)
   // (cleveref's language options among the class's, with babel: its brazilian not modeled; its english and spanish also
   // \crefname in babel's \extras<lang>, over the preamble's)
-  if (pre.cleveref && pre.babel?.global.includes("brazilian")) throw new Unsupported("cleveref's brazilian option")
+  if (pre.cleveref && pre.babel?.global.some((o) => o === "brazilian" || isGerman(o))) throw new Unsupported(`cleveref's ${pre.babel.global} option`)
   if (pre.cleveref && pre.crefNames.length && pre.babel?.global.some((o) => o === "english" || o === "spanish")) throw new Unsupported(`\\crefname with cleveref's ${pre.babel.global} option`)
   // (cleveref's spanish option, the class's: its names, with spanish.ldf's accents)
   const crefSpanish = isSpanish(pre.babel) && pre.babel!.global.includes("spanish") ? (n: string) => sourceText(markAccentHyphens(n)) : undefined

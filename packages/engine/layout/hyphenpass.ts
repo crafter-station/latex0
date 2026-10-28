@@ -22,6 +22,17 @@ export interface HyphenContext {
   lHyf: number
   rHyf: number
   ucHyph: number
+  /** the hyphenator of a language node's patterns */
+  patterns?: (id: string) => Hyphenator
+  /** \lccode where it differs from the format's at the paragraph's end (babel's french: the apostrophe a letter) */
+  lc?: Record<number, number>
+}
+
+/** A language node (§ 1362): cur_lang, l_hyf and r_hyf are its own from here on */
+export function setLanguage(ctx: HyphenContext, n: Node): void {
+  if (n.kind !== "whatsit" || !n.language) return
+  if (!ctx.patterns) throw new Error("a language node without patterns")
+  ctx.hyphenator = ctx.patterns(n.language.patterns); ctx.lHyf = n.language.lhm; ctx.rHyf = n.language.rhm
 }
 
 const isLigature = (n: CharNode) => n.ligature === true || n.text.length !== 1 || n.text.charCodeAt(0) !== n.char
@@ -44,9 +55,9 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
       if (isLigature(n)) { if (n.text.length === 0) { prevS = s; s++; continue } c = n.text.charCodeAt(0) }
       else c = n.char
       hf = ctx.fontOf(n.font, n.size); hfKey = fontKey(n)
-    } else if ((n.kind === "kern" && !n.explicit && !n.accent) || n.kind === "whatsit") { prevS = s; s++; continue } // (a normal kern)
+    } else if ((n.kind === "kern" && !n.explicit && !n.accent) || n.kind === "whatsit") { setLanguage(ctx, n); prevS = s; s++; continue } // (a normal kern)
     else return // done1: a formula, box, rule or glue
-    const lc = lcCode(c)
+    const lc = ctx.lc?.[c] ?? lcCode(c)
     if (lc !== 0) { if (lc === c || ctx.ucHyph > 0) break; else return }
     prevS = s; s++
   }
@@ -66,7 +77,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
     if (n && n.kind === "char" && !isLigature(n)) {
       if (fontKey(n) !== hfKey) break
       hyfBchar = n.char
-      const lc = lcCode(n.char)
+      const lc = ctx.lc?.[n.char] ?? lcCode(n.char)
       if (lc === 0) break
       if (hn === 63) break
       hb = s; hn++; hu[hn] = n.char; hc[hn] = lc; hyfBchar = NON_CHAR
@@ -76,7 +87,7 @@ export function hyphenateFollowingWord(list: Node[], k: number, ctx: HyphenConte
       if (n.text.length) hyfBchar = n.text.charCodeAt(0)
       let ok = true
       for (const ch of n.text) {
-        const c = ch.charCodeAt(0), lc = lcCode(c)
+        const c = ch.charCodeAt(0), lc = ctx.lc?.[c] ?? lcCode(c)
         if (lc === 0 || j === 63) { ok = false; break }
         j++; hu[j] = c; hc[j] = lc
       }

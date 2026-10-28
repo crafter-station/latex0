@@ -1,0 +1,33 @@
+% fixture: babel/spanish-alph
+% tier: T3
+% engine: document
+% covers: spanish.ldf's \@alph past n (\~n, then o to z): enumerate's second level (\emph{\alph}: OT1's \~n with \es@accent's \bbl@allowhyphens before the italic correction), \label's write (\~n in it), \alph and \Alph in the text
+% issue: #338
+\documentclass{article}
+\usepackage[spanish]{babel}
+\newcounter{c}
+\begin{document}
+\begin{enumerate}
+\item Uno.
+\begin{enumerate}
+\item b1
+\item b2
+\item b3
+\item b4
+\item b5
+\item b6
+\item b7
+\item b8
+\item b9
+\item b10
+\item b11
+\item b12
+\item b13
+\item b14
+\item b15\label{n}
+\item b16
+\item b17
+\end{enumerate}
+\end{enumerate}
+\setcounter{c}{15}Contador: \alph{c} y \Alph{c}, \stepcounter{c}\alph{c}.
+\end{document}
