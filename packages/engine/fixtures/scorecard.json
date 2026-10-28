@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 923,
-  "exact": 923,
+  "fixtures": 978,
+  "exact": 965,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 0,
-  "glyphs": 609735
+  "pending": 13,
+  "glyphs": 618678
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "classes",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 16,
+   "exact": 16
   },
   {
    "area": "cleveref",
@@ -116,13 +116,18 @@
   },
   {
    "area": "listings",
-   "fixtures": 39,
-   "exact": 39
+   "fixtures": 41,
+   "exact": 41
   },
   {
    "area": "lists",
    "fixtures": 19,
    "exact": 19
+  },
+  {
+   "area": "macros",
+   "fixtures": 36,
+   "exact": 23
   },
   {
    "area": "math",
@@ -141,8 +146,8 @@
   },
   {
    "area": "natbib",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 16,
+   "exact": 16
   },
   {
    "area": "pages",
@@ -156,8 +161,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 27,
-   "exact": 27
+   "fixtures": 29,
+   "exact": 29
   },
   {
    "area": "sections",
@@ -171,8 +176,8 @@
   },
   {
    "area": "siunitx",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "tabular",
@@ -191,8 +196,8 @@
   },
   {
    "area": "tikz",
-   "fixtures": 32,
-   "exact": 32
+   "fixtures": 36,
+   "exact": 36
   },
   {
    "area": "title",
@@ -201,8 +206,8 @@
   },
   {
    "area": "titlesec",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "twocolumn",
@@ -5091,6 +5096,17 @@
    "covers": "letter [12pt]"
   },
   {
+   "id": "classes/letter-cc-encl",
+   "file": "micro/classes/letter-cc-encl.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 446,
+   "covers": "letter's \\encl and \\cc after \\closing: \\par\\noindent and a \\parbox[t]{\\textwidth} hanging from the name's box (\\@hangfrom), \\sloppy, \\stopbreaks's \\nobreak after each \\par and the blank lines between them; a long list that wraps",
+   "issue": "#352"
+  },
+  {
    "id": "classes/letter-geometry",
    "file": "micro/classes/letter-geometry.tex",
    "area": "classes",
@@ -6789,6 +6805,17 @@
    "covers": "lstlisting: \\allowbreak, the caption between \\nobreak\\vskip\\smallskipamount, \\lst@doendpe"
   },
   {
+   "id": "listings/define-style",
+   "file": "micro/listings/define-style.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 156,
+   "covers": "\\lstdefinestyle and style= (the style's keys where style= stands, the name lower case without spaces, a style naming another), keepspaces=true (each space its own token, no lost space) in fixed and fullflexible columns and in a style, a listing's own keys after its style",
+   "issue": "#352"
+  },
+  {
    "id": "listings/flexible",
    "file": "micro/listings/flexible.tex",
    "area": "listings",
@@ -6937,6 +6964,17 @@
    "status": "pass",
    "glyphs": 45,
    "covers": "\\lstinline inside \\emph: the argument already tokenized (spaces in a row are one)"
+  },
+  {
+   "id": "listings/lstinline-breaklines",
+   "file": "micro/listings/lstinline-breaklines.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 379,
+   "covers": "\\lstinline with breaklines=true: a discretionary after each token (its post-break text the empty frame box and \\lst@breakcurrindent), lines broken inside the inline code, breakatwhitespace, breakindent, and the break indent carried to a later listing",
+   "issue": "#352"
   },
   {
    "id": "listings/lstinline-spaces",
@@ -7339,6 +7377,402 @@
    "issue": "#30"
   },
   {
+   "id": "macros/caption-short-robust",
+   "file": "micro/macros/caption-short-robust.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 69,
+   "covers": "a robust command of the document's (\\DeclareRobustCommand) in a caption's short title, a moving argument: LaTeX writes \\protect\\proj to the .lof, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/caption-short",
+   "file": "micro/macros/caption-short.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 75,
+   "covers": "a caption with a short title: the short one is written to the .lof (a moving argument), the long one only typeset, so a robust command of the document's (\\DeclareRobustCommand) may stand in it",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/class-names",
+   "file": "micro/macros/class-names.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 22,
+   "covers": "\\renewcommand of a command the class defines (report's \\chaptername): not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/control-word-spaces",
+   "file": "micro/macros/control-word-spaces.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 67,
+   "covers": "an expansion that ends with a control word, before a space of the source: in text the space stays a space token (\\bfseries{} …); in math, $…$, $$…$$, \\[…\\] and an equation, it is nothing and no {} (a noad) is made; a space token of the expansion before a space of the source; a definition between two spaces",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-class-report",
+   "file": "micro/macros/counters-class-report.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 73,
+   "covers": "the class's counters in report: \\setcounter{chapter} before \\chapter, \\thechapter and \\thesection (within the chapter), \\setcounter{equation} (an equation's number after it, within the chapter) and \\theequation, \\stepcounter{subsection} in text",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-class",
+   "file": "micro/macros/counters-class.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "\\setcounter, \\addtocounter and \\stepcounter of the class's counters in text and between paragraphs: section (the next \\section steps it; \\stepcounter resets subsection, \\setcounter does not), subsection, figure (the next caption's number), with \\thesection, \\thesubsection and \\arabic{section} in text",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-text-hyperref",
+   "file": "micro/macros/counters-text-hyperref.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "the document's counter in text: \\refstepcounter then \\label as a paragraph starts (both in vertical mode: the \\write before the paragraph, the label the counter's), \\setcounter, \\stepcounter, \\addtocounter with \\value (in text and alone between paragraphs), \\arabic \\roman \\Roman \\alph \\Alph, \\theq, \\ref to them (two runs), with hyperref (the anchors)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-text",
+   "file": "micro/macros/counters-text.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "the document's counter in text: \\refstepcounter then \\label as a paragraph starts (both in vertical mode: the \\write before the paragraph, the label the counter's), \\setcounter, \\stepcounter, \\addtocounter with \\value (in text and alone between paragraphs), \\arabic \\roman \\Roman \\alph \\Alph, \\theq, \\ref to them (two runs)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/def-latex",
+   "file": "micro/macros/def-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 115,
+   "covers": "\\def of a command LaTeX defines (\\baselinestretch) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/definitions-in-text",
+   "file": "micro/macros/definitions-in-text.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 140,
+   "covers": "\\def with undelimited and delimited parameters, \\edef, \\gdef in a group, a local \\renewcommand in a group, \\let of the document's macro (a copy, unchanged by a later \\renewcommand), \\providecommand, all used in text with the spaces after control words; a definition at a line's start, with a space after it, in a paragraph and before one; a definition between two letters (a command: no ffi ligature across it)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-after",
+   "file": "micro/macros/environment-after.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 114,
+   "covers": "whether an \\@doendpe is in force where the document's environment begins (no group needed when not): after a tabular in the paragraph (none), after a list's end in math (none there), after a list with a blank line between (none)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-arguments",
+   "file": "micro/macros/environment-arguments.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 133,
+   "covers": "\\newenvironment with an argument, with an optional one (its default and a given one; \\@protected@testopt's \\relax) and starred, used in a paragraph and as paragraphs of their own, the spaces around \\begin and \\end as TeX reads them, no ligature across them; \\renewenvironment of the document's environment",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-command",
+   "file": "micro/macros/environment-command.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 31,
+   "covers": "\\begin{name} of a command the document defined with \\newcommand (\\begin{name} is \\begingroup\\name, and \\endname is undefined: \\relax), a declaration in it kept in the group; \\begin {name} with a space",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-content",
+   "file": "micro/macros/environment-content.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 115,
+   "covers": "what an environment's material may hold and still need no group: a display (\\[…\\]), a counter's \\the…, \\$ (no formula) before one, a URL, a footnote; the environment starts and ends paragraphs (\\par), so a group around them could not be laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-declarations",
+   "file": "micro/macros/environment-declarations.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 136,
+   "covers": "environments whose begin code makes an assignment (\\bfseries, \\itshape): the group is kept, {…}, in a paragraph; one used right after a list keeps it too (\\@doendpe's \\par and \\everypar)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-math",
+   "file": "micro/macros/environment-math.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 41,
+   "covers": "the document's environments in math: one wrapping amsmath's pmatrix (no group: no noad), in a formula and a display",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-solution",
+   "file": "micro/macros/environment-solution.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "\\newenvironment with begin code \\par\\noindent\\textbf{\\textcolor{…}{…}}\\ and end code \\hfill$\\diamond$\\par\\medskip (no assignment at its level: no group needed), after a question's paragraph and on lines of its own, a paragraph inside, text after it",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-wrappers",
+   "file": "micro/macros/environment-wrappers.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 158,
+   "covers": "environments that wrap other environments: enumerate (its \\items in the body), center, quote with \\small inside it, a theorem (amsthm), one of the document's own inside another; text right after them (\\@doendpe)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/headings",
+   "file": "micro/macros/headings.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 197,
+   "covers": "the document's (fragile) macros in moving arguments, expanded where LaTeX writes them: section and subsection titles (the .toc, \\tableofcontents), a caption (the .lof, \\listoffigures); a robust one (an optional argument) in a \\section* title, which writes nothing, and in a group right after a title",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/implicit-characters",
+   "file": "micro/macros/implicit-characters.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "\\let of a control sequence to a letter or other character (\\let\\foo=a, \\let\\bar x): typeset as the character, in text (ligatures and kerns with its neighbours) and math, in a macro's body; the spaces after the control word go",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/implicit-tab",
+   "file": "micro/macros/implicit-tab.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 3,
+   "covers": "\\let of a control sequence to an alignment tab (\\let\\amp=&) used in a tabular: not read by the engine yet (only letters and other characters are), so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/let-latex",
+   "file": "micro/macros/let-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 26,
+   "covers": "\\let of a command LaTeX defines (\\emph) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped); \\let of a new name to it is an alias",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/lists-tables",
+   "file": "micro/macros/lists-tables.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "the document's macros with arguments and optional arguments in itemize and enumerate items, a description label (a fragile macro), a tabular's cells and a footnote; a macro that expands to \\item; a definition at an item's start (vertical mode: the space after it starts nothing)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/newcounter-the",
+   "file": "micro/macros/newcounter-the.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 14,
+   "covers": "\\newcounter{q} defines \\theq, which the engine reads (\\ref, \\label): its \\renewcommand is not read yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/optional-argument",
+   "file": "micro/macros/optional-argument.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 154,
+   "covers": "\\newcommand with an optional argument (\\@protected@testopt: \\@ifnextchar's assignments end a ligature and a kern run, so of\\opt{…} makes no ffi and A\\opt[V]{…} no AV kern), the default and a given one, spaces before [ and before the argument skipped, at a paragraph's start and end; \\newcommand* with one",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/optional-math",
+   "file": "micro/macros/optional-math.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 52,
+   "covers": "a \\newcommand with an optional argument in math (its \\relax makes no noad): inline and displayed, default and given, inside a group and a script",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/optional-moving",
+   "file": "micro/macros/optional-moving.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 16,
+   "covers": "a command with an optional argument (robust: \\@protected@testopt) in a caption, a moving argument: LaTeX writes \\protect\\opt to the .lof, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/package-names",
+   "file": "micro/macros/package-names.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 20,
+   "covers": "a package's commands are LaTeX's only when it is loaded (not in a comment): \\newcommand{\\checkmark} without amssymb (amsfonts defines it) is the document's own",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/providecommand-latex",
+   "file": "micro/macros/providecommand-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "\\providecommand of a command LaTeX defines (\\textordfeminine, \\abstractname) does nothing; of one it does not (\\tightlist), defines it; the document's own \\providecommand after its \\newcommand does nothing",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/renewcommand-latex",
+   "file": "micro/macros/renewcommand-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 28,
+   "covers": "\\renewcommand of a command LaTeX defines (\\thesection) changes LaTeX, not a macro of the document's: not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/renewcommand-package",
+   "file": "micro/macros/renewcommand-package.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 20,
+   "covers": "\\renewcommand of a command a loaded package defines (amssymb's \\checkmark): not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/renewenvironment-latex",
+   "file": "micro/macros/renewenvironment-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 17,
+   "covers": "\\renewenvironment of an environment LaTeX defines (quote) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/robust-moving",
+   "file": "micro/macros/robust-moving.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 41,
+   "covers": "a robust command of the document's (\\DeclareRobustCommand) in a section title: LaTeX writes \\protect\\proj to the .toc, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/theorem-the",
+   "file": "micro/macros/theorem-the.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 35,
+   "covers": "\\newtheorem{thm} defines the counter thm and \\thethm, which the engine reads: its \\renewcommand is not read yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/xspace-moving",
+   "file": "micro/macros/xspace-moving.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 14,
+   "covers": "\\xspace (robust) from the document's macro in a section title, a moving argument: LaTeX writes \\xspace to the .toc, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/xspace",
+   "file": "micro/macros/xspace.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 131,
+   "covers": "xspace's \\xspace at the end of the document's macros: a space before a letter, a digit, an opening parenthesis, a command (\\emph) and at a paragraph's end (where \\par takes it); none before its exceptions , . ; : ! ? ) ' - / ~ \\  {} and \\footnote; a macro after it expanded and looked at again; a character \\let to a control sequence (\\fullstop) is the character",
+   "issue": "#344"
+  },
+  {
    "id": "math/accents-amsmath",
    "file": "micro/math/accents-amsmath.tex",
    "area": "math",
@@ -7669,6 +8103,94 @@
    "glyphs": 325,
    "covers": "natbib's author-year citations with no .bbl (every key undefined): \\citep, \\citet, \\cite, \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar, \\Citet; several keys; pre- and post-notes; \\bibliography with no .bbl",
    "issue": "#251"
+  },
+  {
+   "id": "natbib/bibitems-agsm",
+   "file": "micro/natbib/bibitems-agsm.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 407,
+   "covers": "natbib with \\bibliographystyle{agsm} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-agu",
+   "file": "micro/natbib/bibitems-agu.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 413,
+   "covers": "natbib with \\bibliographystyle{agu} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-authoryear",
+   "file": "micro/natbib/bibitems-authoryear.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1445,
+   "covers": "natbib's thebibliography with \\bibitem[Author(year)Long]{key} (\\bibsection, \\bibhang and \\bibsep, labels \\hfil\\hfill, \\@clubpenalty in the items, \\bibcleanup) and the citations it defines the run after: \\citep, \\citet, \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar, \\cite, \\Citet, \\citet*, pre- and post-notes, several keys, the same authors twice (\\NAT@yrsep, the year's extra label), an undefined key among them",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-chicago",
+   "file": "micro/natbib/bibitems-chicago.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 413,
+   "covers": "natbib with \\bibliographystyle{chicago} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-dcu",
+   "file": "micro/natbib/bibitems-dcu.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 413,
+   "covers": "natbib with \\bibliographystyle{dcu} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-hyperref",
+   "file": "micro/natbib/bibitems-hyperref.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 464,
+   "covers": "natbib's thebibliography with hyperref: \\hyper@natanchorstart in each label (\\Hy@raisedlink, the cite.key anchor around \\@biblabel), and the citations' \\hyper@natlinkstart … \\hyper@natlinkend links (\\hyper@linkstart's hbox, colorlinks' citecolor), \\hyper@natlinkbreak between the names and the year, numbers in \\mbox es, undefined keys, a hyphen in a name (in the link's hbox no discretionary after it)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-numbers",
+   "file": "micro/natbib/bibitems-numbers.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 537,
+   "covers": "natbib's numbers with thebibliography: \\NAT@bibsetnum (the widest [n], \\bibsep), [n] labels from the run before (a [label]) or \\c@NAT@ctr (none), \\natexlab empty; \\citep with several keys (\\NAT@sep\\penalty\\@m), notes, \\citet (the names, the brackets in \\mbox es, the same names twice), \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar and an undefined key",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-twice",
+   "file": "micro/natbib/bibitems-twice.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 109,
+   "covers": "natbib's numbers with two thebibliography environments: \\c@NAT@ctr from 1 in each, a key in both (the last \\bibcite wins: the first list's [label] shows the number the second gave it)",
+   "issue": "#352"
   },
   {
    "id": "natbib/first-run",
@@ -8249,6 +8771,17 @@
    "covers": "under pdflatex (PDF, positions from its box dumps): \\sqrt[n] (\\root n\\of: the index in \\rootbox at scriptscript style, a \\mathchoice of \\r@@t: \\mkern5mu, the index raised .6(height-depth) of the radical box, \\mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)"
   },
   {
+   "id": "pdflatex/natbib-bibitems-hyperref",
+   "file": "micro/pdflatex/natbib-bibitems-hyperref.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 464,
+   "covers": "natbib's thebibliography with hyperref: \\hyper@natanchorstart in each label (\\Hy@raisedlink, the cite.key anchor around \\@biblabel), and the citations' \\hyper@natlinkstart … \\hyper@natlinkend links (\\hyper@linkstart's hbox, colorlinks' citecolor), \\hyper@natlinkbreak between the names and the year, numbers in \\mbox es, undefined keys, a hyphen in a name (in the link's hbox no discretionary after it)",
+   "issue": "#352"
+  },
+  {
    "id": "pdflatex/palatino-t1-pdftex",
    "file": "micro/pdflatex/palatino-t1-pdftex.tex",
    "area": "pdflatex",
@@ -8291,6 +8824,17 @@
    "glyphs": 348,
    "covers": "under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), \\usepackage[T1]{fontenc} with times in report at 11pt: ptmr8t and friends, accents and T1 composites, quotes and dashes, hyphenation, chapter headings, footnote marks in T1 at \\sf@size, the bold \\textendash, sans and typewriter (phv, pcr) in T1",
    "issue": "#340"
+  },
+  {
+   "id": "pdflatex/titlesec-hyperref-after",
+   "file": "micro/pdflatex/titlesec-hyperref-after.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 424,
+   "covers": "hyperref loaded after titlesec: its titlesec patches (\\ttl@Hy@refstepcounter saves the anchor, which \\ttl@select puts after the space above the title, none for starred titles), with \\label, \\ref, nameref and a table of contents",
+   "issue": "#352"
   },
   {
    "id": "pdflatex/xcolor-definecolor",
@@ -8772,6 +9316,17 @@
    "glyphs": 258,
    "covers": "siunitx's S column (a c column around \\siunitx_cell_begin:w … \\siunitx_cell_end:): an entry's tokens without spaces, text in braces alone between \\hskip 0pt plus .5fill's, empty entries; numbers in marker mode (integer and decimal boxes aligned on the decimal marker, the wider side padded with \\hfil), with exponents, compact and separate uncertainties, no integer or no decimals, and the column's options (output-decimal-marker, group-separator, round-mode); table-format (the model's integer width, 0 for none, a number wider than it squeezed with \\hss, the decimal carry after it; an exponent or separate uncertainty the model lacks dropped) with signs and none, per column and from \\sisetup; \\\\[skip] after an S entry (its \\unskip takes the \\hskip1sp); the space factor an S entry leaves (1000 after a number, its text's after text, none changed when empty); S with rules, booktabs and \\multicolumn headers",
    "issue": "#278"
+  },
+  {
+   "id": "siunitx/units-emulated",
+   "file": "micro/siunitx/units-emulated.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 180,
+   "covers": "siunitx's \\celsius (\\degreeCelsius) and the deprecated letter units it still defines (\\bar, \\barn, \\knot, \\mmHg, \\nauticalmile, \\atomicmassunit), alone, with prefixes, powers and \\per, in quantities and in math",
+   "issue": "#352"
   },
   {
    "id": "siunitx/units",
@@ -9335,6 +9890,28 @@
    "issue": "#326"
   },
   {
+   "id": "tikz/double-pdftex",
+   "file": "micro/tikz/double-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5,
+   "covers": "TikZ double lines: double (2\\pgflinewidth+0.6pt over an inner 0.6pt line in white, in a group and a scope), double=color, double distance, double distance between line centers, double equal sign distance, double=none, on lines with arrow tips, closed paths, filled paths and drawn nodes (a state as in an automaton), every double, with thick and line width",
+   "issue": "#352"
+  },
+  {
+   "id": "tikz/double",
+   "file": "micro/tikz/double.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5,
+   "covers": "TikZ double lines: double (2\\pgflinewidth+0.6pt over an inner 0.6pt line in white, in a group and a scope), double=color, double distance, double distance between line centers, double equal sign distance, double=none, on lines with arrow tips, closed paths, filled paths and drawn nodes (a state as in an automaton), every double, with thick and line width",
+   "issue": "#352"
+  },
+  {
    "id": "tikz/figure-pdftex",
    "file": "micro/tikz/figure-pdftex.tex",
    "area": "tikz",
@@ -9487,6 +10064,28 @@
    "glyphs": 92,
    "covers": "\\usepackage{tikz}; tikzpicture environments between paragraphs and in a paragraph: lines, -|, |-, cycle, colors, widths and dash patterns",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/loops-pdftex",
+   "file": "micro/tikz/loops-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "TikZ loops (topaths' loop, loop above, below, left and right: the target the start, looseness=8, min distance=5mm, every loop's -> and shorten >=1pt) on nodes and with labels, a loop on a small node (min distance), a loop whose target is another node (the start it is), edges with bend left between nodes, shorten < and shorten >",
+   "issue": "#352"
+  },
+  {
+   "id": "tikz/loops",
+   "file": "micro/tikz/loops.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "TikZ loops (topaths' loop, loop above, below, left and right: the target the start, looseness=8, min distance=5mm, every loop's -> and shorten >=1pt) on nodes and with labels, a loop on a small node (min distance), a loop whose target is another node (the start it is), edges with bend left between nodes, shorten < and shorten >",
+   "issue": "#352"
   },
   {
    "id": "tikz/node-borders-pdftex",
@@ -9773,6 +10372,17 @@
    "glyphs": 371,
    "covers": "titlesec loaded without changes: the straight class, the hang shape, the spacing taken from \\@startsection",
    "issue": "#249"
+  },
+  {
+   "id": "titlesec/hyperref-after-titlesec",
+   "file": "micro/titlesec/hyperref-after-titlesec.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 424,
+   "covers": "hyperref loaded after titlesec: its titlesec patches (\\ttl@Hy@refstepcounter saves the anchor, which \\ttl@select puts after the space above the title, none for starred titles), with \\label, \\ref, nameref and a table of contents",
+   "issue": "#352"
   },
   {
    "id": "titlesec/labels",
