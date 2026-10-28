@@ -1,0 +1,29 @@
+% fixture: parskip/parskip-listof-headings
+% tier: T3
+% engine: document
+% covers: parskip.sty's \@starttoc in \listoffigures and \listoftables with \pagestyle{headings}: after \@mkboth's mark and \nobreak in vertical mode \lastskip is zero, so \vskip-0pt \vskip\parskip (article)
+% issue: #363
+\documentclass{article}
+\usepackage{parskip}
+\pagestyle{headings}
+\begin{document}
+\listoffigures
+\listoftables
+\section{One}
+Text of the section.
+\begin{figure}[h]
+\centering
+\begin{tabular}{l}
+a
+\end{tabular}
+\caption{A figure}
+\end{figure}
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+b
+\end{tabular}
+\caption{A table}
+\end{table}
+More text.
+\end{document}

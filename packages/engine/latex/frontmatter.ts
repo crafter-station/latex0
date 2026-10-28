@@ -154,18 +154,21 @@ function contents(cx: Ctx) {
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source, end })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source, end })
   // parskip.sty's \@starttoc: \vskip-\lastskip \vskip(\lastskip plus \parskip), and \parskip zero for the lines (tocskip)
-  const last = v.nodes.at(-1)
-  if (cx.pre.parskip) {
-    if (last?.kind !== "glue") throw new Unsupported("parskip's \\@starttoc after no skip")
-    const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
-    v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
-  }
+  if (cx.pre.parskip) parskipStarttoc(cx)
   const tocdepth = cls === "article" ? 3 : 2
   // (\@starttoc reads the .toc in a group: its \babel@toc lines select their languages there)
   const lang = babelState.lang
   for (const e of toc ?? []) { if (e.language) babelSelect(e.language); if (e.level <= tocdepth) tocLine(cx, e, cx.pre.parskip ? dimen(0) : cx.outerParskip) }
   babelSelect(lang)
   v.nobreak = false
+}
+
+/** parskip.sty's \@starttoc: \vskip-\lastskip \vskip(\lastskip plus \parskip); \lastskip is zero after a mark or a
+ *  penalty (\@mkboth's in vertical mode) */
+function parskipStarttoc(cx: Ctx) {
+  const last = cx.v.nodes.at(-1)
+  const g: GlueSpec = last?.kind === "glue" ? { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder } : dimen(0)
+  cx.v.vskip(negate(g)); cx.v.vskip(addGlue(g, cx.outerParskip))
 }
 
 /**
@@ -184,12 +187,7 @@ function list(cx: Ctx, file: ListFile) {
   const value = markValue([{ text: name }], true)
   if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
   // parskip.sty's \@starttoc, as \tableofcontents has it
-  if (cx.pre.parskip) {
-    const last = v.nodes.at(-1)
-    if (last?.kind !== "glue") throw new Unsupported("parskip's \\@starttoc after no skip")
-    const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
-    v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
-  }
+  if (cx.pre.parskip) parskipStarttoc(cx)
   // (the .lof's and .lot's \babel@toc lines are not modeled: their entries' language)
   if (babelState.switches && lists?.[file]?.length) throw new Unsupported(`\\listof… with babel's language commands`)
   for (const e of lists?.[file] ?? []) {
