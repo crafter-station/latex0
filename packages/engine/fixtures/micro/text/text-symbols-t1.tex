@@ -1,0 +1,14 @@
+% fixture: text/text-symbols-t1
+% tier: T3
+% engine: document
+% covers: text symbols in T1: the EC fonts' own characters in the run (\S \pounds \textbar \textbackslash \{ \} \textless \textgreater \textasciicircum \textasciitilde \_ \textquotedbl, guillemets, \ss \ae \o \i \l \L), TS1's for the others (\textbullet \copyright \textordmasculine \texttrademark), the uppercase \sfcode 999 of "C0–"DF, \ldots and the logos
+% issue: #334
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\begin{document}
+Bullets \textbullet\ and \S 3, \pounds 5, a bar \textbar, \textbackslash, \{x\}, \textless a\textgreater, \textasciicircum{} and \textasciitilde, file\_name, \textquotedbl q\textquotedbl.
+Quotes \guillemotleft oui\guillemotright{} and \guilsinglleft o\guilsinglright, \quotedblbase low\textquotedblleft.
+Stra\ss e, \ae, \AE, \o, \O, na\i ve, \l\ and \L, \copyright\ Corp, 3.\textordmasculine\ Brand\texttrademark.
+The \AE{} A and the \O{} B, \TeX\ and \LaTeX{} and \LaTeXe.
+Lorem ipsum dolor sit amet\ldots{} consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{document}

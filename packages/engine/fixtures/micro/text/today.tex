@@ -1,0 +1,19 @@
+% fixture: text/today
+% tier: T3
+% engine: document
+% covers: \today in a paragraph: the spaces after the control word and its line's end go, a blank line after it still ends the paragraph, \today\ with a control space, and a list after it in the paragraph or after a blank line
+% issue: #334
+\documentclass[12pt]{report}
+\begin{document}
+Written by the team on \today
+and revised on \today\ again.
+The last revision was \today
+
+\begin{itemize}
+\item a list after a blank line
+\end{itemize}
+Text in a paragraph dated \today
+\begin{itemize}
+\item a list in the paragraph
+\end{itemize}
+\end{document}

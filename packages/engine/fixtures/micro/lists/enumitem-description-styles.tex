@@ -1,0 +1,35 @@
+% fixture: lists/enumitem-description-styles
+% tier: T3
+% engine: document
+% covers: enumitem's description styles: nextline (\enit@postlabel: a label wider than \labelwidth ends its line, \clubpenalty\@M), sameline and unboxed (the label unboxed in the paragraph, its \labelsep after \penalty\z@), standard with leftmargin, labelwidth and align=right, font=\itshape, and \setlist[description]
+% issue: #334
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\setlist[description]{font=\normalfont\itshape}
+\begin{document}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\begin{description}[leftmargin=2.5cm, style=nextline]
+\item[Short] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\item[A rather long label] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+A second paragraph, Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore.
+\end{description}
+\begin{description}[style=sameline, leftmargin=3cm]
+\item[Short] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\item[A rather long label] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{description}
+\begin{description}[style=unboxed]
+\item[Unboxed] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{description}
+\begin{description}[leftmargin=2cm, labelwidth=1.5cm, align=right, labelsep=0.5cm]
+\item[Key] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\item[Another key] value
+\end{description}
+\begin{description}[style=nextline, style=standard, leftmargin=2cm]
+\item[Standard again] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna.
+\end{description}
+\begin{description}[leftmargin=*]
+\item[Star] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{description}
+\end{document}

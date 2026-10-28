@@ -1,0 +1,73 @@
+% fixture: lists/enumitem-dimension-keys
+% tier: T3
+% engine: document
+% covers: enumitem's \setlist[itemize]{…} and \setlist[enumerate,2]{…}, leftmargin=* on enumerate labels (\enit@getwidth's widest 0, m, viii), labelsep (kept by nested lists), labelwidth, labelindent, itemindent, labelsep=* and a value after *, align=left, wide and wide=, itemsep, topsep, parsep, partopsep, nolistsep, font=\bfseries and font=\itshape on labels, resume*, \setlist* and the shortlabels option (enumerate's and itemize's)
+% issue: #334
+\documentclass{article}
+\usepackage[shortlabels]{enumitem}
+\setlist[itemize]{leftmargin=*, itemsep=1pt}
+\setlist[enumerate,2]{label=(\roman*), labelsep=1em}
+\setlist*[itemize]{topsep=2pt}
+\begin{document}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\begin{enumerate}[leftmargin=*, labelsep=1em, itemsep=2pt plus 1pt, topsep=3pt]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\begin{enumerate}[leftmargin=*]
+\item nested with the outer labelsep, and the setlist's label and labelsep
+\item again
+\end{enumerate}
+\begin{itemize}
+\item an itemize from the setlist, Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor.
+\end{itemize}
+\begin{enumerate}[wide]
+\item wide in a list: the outer list's paragraph indent, Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do.
+\end{enumerate}
+\end{enumerate}
+\begin{enumerate}[(a), font=\bfseries, align=left, labelwidth=2em, parsep=4pt]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+Second paragraph of the item, Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt.
+\item[x] given label
+\end{enumerate}
+\begin{enumerate}[resume*]
+\item resumed with the keys again
+\end{enumerate}
+\begin{enumerate}[wide, labelindent=0pt, font=\itshape]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+
+Second paragraph, Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore.
+\end{enumerate}
+\begin{enumerate}[wide=1em, nolistsep, partopsep=5pt]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{enumerate}
+\begin{enumerate}[i.]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{enumerate}
+\begin{itemize}[label=--, labelindent=1em, leftmargin=*, itemindent=1em]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{itemize}
+\begin{itemize}[label=$\star$, labelwidth=!, leftmargin=3em]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{itemize}
+\begin{itemize}[+]
+\item a short label in an itemize
+\end{itemize}
+\begin{itemize}[leftmargin=*, leftmargin=3em]
+\item a margin set after leftmargin=*
+\end{itemize}
+\begin{enumerate}[labelsep=*, leftmargin=4em]
+\item labelsep from the label's width
+\end{enumerate}
+\begin{quote}
+In a quote, wide reads the outer paragraph indent, never set at depth one.
+\begin{enumerate}[wide]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{enumerate}
+\end{quote}
+\begin{flushleft}
+In a flushleft the paragraph indent is zero, and so is wide's.
+\begin{itemize}[wide]
+\item Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+\end{itemize}
+\end{flushleft}
+\end{document}

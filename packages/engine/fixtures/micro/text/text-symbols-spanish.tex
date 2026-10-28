@@ -1,0 +1,10 @@
+% fixture: text/text-symbols-spanish
+% tier: T3
+% engine: document
+% covers: text symbols under babel's spanish: OT1's \textasciitilde is \~{}, spanish.ldf's \es@accent (\bbl@allowhyphens after it unless a space follows), and the other symbols as in English
+% issue: #334
+\documentclass[12pt]{article}
+\usepackage[spanish]{babel}
+\begin{document}
+El proceso hasta \textasciitilde grande, el valor medio y la ruta /home/\textasciitilde usuario. Precio: \pounds 5, \S 3, \textbullet\ punto, \copyright\ 2025.
+\end{document}

@@ -259,6 +259,8 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.01) ws[i] += pick(["\\%", " \\& ", " \\#1", " \\$5"])
       if (es && !esAscii && r() < 0.03) ws[i] = pick([`<<${ws[i]}>>`, `"<${ws[i]}">`, `${ws[i]} 50\\%`, `ping"uino ${ws[i]}`, `"U${ws[i]}`, `${pick(ES_TYPED)} ${ws[i]}`])
       if (r() < 0.004) ws[i] += pick([" 90\\textdegree", " 5\\,\\textdegree C", " 21\\textdegree{}", "\\,\\textdegree.", " \\textdegree"])
+      // text symbols (own characters in the run, TS1's, OMS's, OML's) and logos
+      if (r() < 0.006) ws[i] += pick([" \\textbullet{}", "\\S 3", " \\pounds 5", " \\textbar", "\\textbackslash{}", " \\{x\\}", " \\textless a\\textgreater", "\\_x", " Stra\\ss e", " \\ae\\ \\oe\\ \\o", "\\dag", " \\copyright\\ 2025", "\\texttrademark", " 3.\\textordmasculine", "\\ldots", "\\textellipsis{}", " input\\slash output", " \\TeX", " \\LaTeX{}", " \\LaTeXe", " \\textendash", "\\textemdash", " \\textquotedblleft q\\textquotedblright", " \\textexclamdown", " \\P 2", " \\textperiodcentered", " \\textasciitilde", " \\today"])
       if (r() < 0.002) ws[i] += " " + tabular(pick(["", "[t]", "[b]", "[c]"]))
       if (r() < 0.0015) ws[i] += " " + minipage(pick(["", "[t]", "[b]", "[c]"]), true)
       // rules, spaces, leaders and boxes in text
@@ -627,7 +629,11 @@ export function makeDocument(r: () => number): string {
           }
         }
         // enumitem's options
-        const opts = enumitem && env === "itemize" && r() < 0.5 ? `[${pick(["nosep", "noitemsep", "leftmargin=*", "nosep, leftmargin=*", "leftmargin=2em"])}]` : ""
+        const opts = enumitem && (env === "itemize" || env === "enumerate" || env === "description") && r() < 0.5 ? `[${pick({
+          itemize: ["nosep", "noitemsep", "leftmargin=*", "nosep, leftmargin=*", "leftmargin=2em", "label=--", "label=$\\star$, labelsep=1em", "itemsep=1pt, topsep=0pt", "align=left, labelwidth=2em", "wide", "label=\\textbf{+}, leftmargin=*"],
+          enumerate: ["label=(\\alph*)", "label=\\roman*., leftmargin=*", "label=\\textbf{\\arabic*.}, leftmargin=*", "start=3", "resume", "label=\\Alph*), align=left", "nosep, leftmargin=*", "label=(\\arabic*), labelsep=*", "wide=0pt", "font=\\bfseries", "label*=.\\arabic*", "label={[\\Roman*]}, parsep=2pt"],
+          description: ["style=nextline, leftmargin=2cm", "style=sameline, leftmargin=3em", "leftmargin=*", "font=\\itshape", "style=unboxed", "labelwidth=1cm, align=right, leftmargin=2cm", "nosep"],
+        }[env])}]` : ""
         out.push(`\\begin{${env}}${opts}`)
         if (env === "itemize" || env === "enumerate" || env === "description") {
           for (let i = 1 + Math.floor(r() * (env === "enumerate" ? (depth === 1 ? 12 : 5) : 6)); i > 0; i--) {

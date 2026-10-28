@@ -50,6 +50,8 @@ import { getpen, processBlock, runInAlone } from "./body"
 import { CrefSetup, fillCrefWrites, type CrefEntry } from "./cleveref"
 import { documentClass } from "./classes"
 import { beamerDocument } from "./beamer"
+import { unbraced } from "./enumitem"
+import { today } from "./frontmatter"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -109,7 +111,9 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
   const run = runState(pre.k)
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(body) : body)
+  // \today: the date's characters (the spaces after the control word go, and its line's end, unless a blank line follows)
+  const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
   accentHyphens.on = spanishLayout.on = isSpanish(pre.babel)
   portugueseLayout.on = ["portuguese", "portuges", "brazil", "brazilian"].includes(pre.babel?.main ?? "")
   babelUmlauts.mode = !pre.babel ? null : isSpanish(pre.babel) ? "spanish" : "high"
@@ -320,7 +324,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
       toc: tocFile.written((n) => order.get(n)!, page),
       lists: { lof: tocFile.writtenList("lof", (n) => order.get(n)!, page), lot: tocFile.writtenList("lot", (n) => order.get(n)!, page) },
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins
-      labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: w.label, page: w.page, name: w.name, href: w.href }])),
+      labels: new Map(refs.writes.map((w) => ({ ...w, page: page(w.node) })).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { label: unbraced(w.label), page: w.page, name: w.name, href: w.href }])), // (braces around a label: groups, enumitem's)
       bookmarks: bookmarks.written,
       pageLabels: hyper ? pageLabels(pages) : "",
       // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins

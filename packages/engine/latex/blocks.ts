@@ -9,6 +9,7 @@ import { Unsupported } from "./unsupported"
 import { SI_COMMANDS } from "./siunitx"
 import { TEXT_LETTERS, withoutTextCommands } from "./encodings"
 import { COUNTER_COMMANDS } from "./counters"
+import { SYMBOL_COMMANDS } from "./textsymbols"
 
 export type Block =
   | { kind: "par"; text: string; noindent: boolean; /** the floats that start in it (\LXfloat{n}: the n-th) */ floats?: Extract<Block, { kind: "float" }>[]; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
@@ -75,7 +76,8 @@ export function listEnd(body: string, from: number, env: string): { at: number; 
 export function parseList(env: EnvName, inner: string, inPar: boolean, blank: boolean): ListBlock {
   const listy = env === "itemize" || env === "enumerate" || env === "description" || env === "thebibliography"
   // enumitem's \begin{itemize}[options]
-  const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[([^\]]*)\]/) : null
+  // (\@ifnextchar[: a ] in braces does not end it)
+  const opts = env === "itemize" || env === "enumerate" || env === "description" ? inner.match(/^\s*\[((?:[^\]{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\]/) : null
   if (opts) inner = inner.slice(opts[0].length)
   // amsthm: \begin{LXtheorem}{name}[note], \begin{proof}[title]
   let thm: ListBlock["thm"], proofTitle: string | undefined
@@ -197,7 +199,7 @@ const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za
 /** \rule and \hspace with their arguments, and the boxes' length arguments (which may name registers: \textwidth, \width) */
 const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
-const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS)].join("|")}|the[a-zA-Z]+)\\b)[a-zA-Z]+(?!\\s*=)`)
+const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS), ...SYMBOL_COMMANDS].join("|")}|the[a-zA-Z]+)(?![A-Za-z]))[a-zA-Z]+(?!\\s*=)`)
 
 /** how many groups the text leaves open (\{ and \} do not count) */
 function braceDepth(t: string): number {

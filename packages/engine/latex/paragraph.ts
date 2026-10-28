@@ -36,6 +36,7 @@ import { babelGuillemet, portugueseHyphen, portugueseLayout, portugueseShorthand
 import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand } from "./spanish"
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
+import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
 import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
@@ -124,6 +125,8 @@ export interface DocState {
   /** \clubpenalty in vertical mode where the paragraph being read starts, when it is not the paragraph's own (a box
    *  built before \leavevmode, a TikZ picture's, sees it: the \everypar of \@afterheading has not run yet) */
   vmodeClub?: number
+  /** text commands' defaults used so far (textsymbols.ts) */
+  textDefaults?: Set<string>
   /** siunitx is loaded: its options */
   siunitx?: SiOptions
   /** subcaption is loaded (\subref) */
@@ -286,6 +289,8 @@ type Piece =
   | { kind: "guillemet"; right: boolean; quoting: boolean }
   /** portuges.ldf's "" (\hskip\z@skip) and "- (\nobreak-\bbl@allowhyphens) */
   | { kind: "babelskip" } | { kind: "babelhyphen" }
+  /** \TeX, \LaTeX, \LaTeXe (textsymbols.ts) */
+  | { kind: "logo"; name: string }
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string }
   /** babel: \selectlanguage{lang}, \begin{otherlanguage}{lang} and its \end (`other`, `endother`), otherlanguage*'s
@@ -490,6 +495,9 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // a text symbol (\textdegree …); the spaces after a control word go
     const sym = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
     if (sym && sym[1] in TEXT_SYMBOLS) { flushText(); out.push({ kind: "symbol", name: sym[1] }); i += sym[0].length; continue }
+    // the other text symbols as characters of the text (a robust one's \relax first), and the logos
+    const tsym = textSymbolAt(body, i)
+    if (tsym) { if (tsym.flush) flushText(); if (tsym.logo) out.push({ kind: "logo", name: tsym.logo }); else if (tsym.symbol) out.push({ kind: "symbol", name: tsym.symbol }); else text += tsym.text; i = tsym.end; continue }
     // \, in text: \thinspace, \kern.16667em
     if (body.startsWith("\\,", i)) { flushText(); out.push({ kind: "thinspace" }); i += 2; continue }
     const ts = body.slice(i).match(/^\\thinspace(?![A-Za-z])\s*/) // (\let to \, by the kernel, and again by amsmath)
@@ -724,6 +732,23 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
   return out
 }
 
+/** \UseTextSymbol's font: TS1, or OMS (cmsy) and OML (cmmi) as omscmsy.fd and omlcmm.fd give them at the size, in the series */
+function symbolFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs, enc: "TS1" | "OMS" | "OML"): Font {
+  if (enc === "TS1") return selectFont(k, size, { ...a, enc: "TS1" })
+  const at = k.sizes[size].font.at, pt = at / 65536, b = a.ser === "bx" ? "b" : ""
+  const gen = Number.isInteger(pt) && pt >= 5 && pt <= 9
+  const name = enc === "OMS" ? (gen ? `cm${b}sy${pt}` : `cm${b}sy10`) : gen ? `cmmi${b}${pt}` : b || pt < 12 ? `cmmi${b}10` : "cmmi12"
+  return fontAt(name, at)
+}
+/** the font at \sf@size in the attributes: the size command of that size */
+function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
+  const sf = (Object.keys(k.sizes) as SizeCommand[]).find((s) => k.sizes[s].font.at === k.sizes[size].scriptSize)
+  if (sf) return selectFont(k, sf, a)
+  // (\normalfont: math family 0's script font, or with T1 the EC font of that size, as \@makefnmark's)
+  if (a.fam !== "cmr" || a.ser !== "m" || a.shape !== "n") throw new Unsupported(`\\LaTeX at ${size}`)
+  const ref = a.enc === "T1" ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
+  return fontAt(ref.name, ref.at)
+}
 const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[size].font; return loadFont(dataFont(f.name), f.at) }
 
 /**
@@ -950,7 +975,12 @@ const normalSpace = (font: Font, state: HState): Node => state.spaceSkips
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: HState, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
-    if (p.kind === "text") { appendText(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
+    if (p.kind === "text") { appendSymbols(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, { enc: attrs.enc, select: (enc) => symbolFont(k, size, attrs, enc), used: doc.textDefaults ??= new Set() }, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
+    if (p.kind === "logo") {
+      if (p.name === "LaTeXe" && attrs.ser !== "m") throw new Unsupported("\\LaTeXe in bold (\\boldmath)")
+      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), mathEnv(k, size, ctx.amsmath), TEXT, false), { kind: "math", on: false, width: 0 }]
+      list.push(...logoNodes(p.name, font, () => sfFont(k, size, attrs), state, (l) => hpack(l), epsilon)); ctx.ignoreSpaces = false; continue
+    }
     if (p.kind === "currentlabel") {
       if (doc.refs) { doc.refs.label = p.label; doc.refs.href = p.href; if (doc.refs.cleveref) doc.refs.cleveref.current = doc.refs.cleveref.byHref.get(p.href)! }
       if (doc.refs?.hyper) list.push(...anchor(p.href, k.sizes[size].baselineskip.width, "h", list.at(-1))) // hyperref's anchor where it stands

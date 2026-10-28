@@ -1,0 +1,50 @@
+% fixture: lists/enumitem-label-keys
+% tier: T3
+% engine: document
+% covers: enumitem's label= with \arabic* \alph* \Alph* \roman* \Roman* and text around them (\alph*), (\roman*), \textbf{\arabic*.}, \textup{(\roman*)}, {[\arabic*]}; label* nested, ref=, start=, resume (also in a group inside), \ref to such items (no \p@ prefix), and \@listii's \labelwidth from an enclosing list's \labelsep
+% issue: #334
+\documentclass{article}
+\usepackage{enumitem}
+\begin{document}
+Text before the lists.
+\begin{enumerate}[label=\alph*)]
+\item first \label{a1}
+\item second
+\end{enumerate}
+\begin{enumerate}[label=(\roman*), start=3]
+\item third \label{a2}
+\item fourth
+\begin{enumerate}[label*=.\arabic*]
+\item nested
+\item nested again
+\end{enumerate}
+\end{enumerate}
+Between the lists, \ref{a1} and \ref{a2}.
+\begin{enumerate}[label=\textbf{\arabic*.}, ref=\arabic*]
+\item bold \label{a4}
+\item and more
+\end{enumerate}
+\begin{enumerate}[resume, label=\Roman*.]
+\item resumed
+\item resumed again
+\end{enumerate}
+\begin{itemize}
+\item an itemize's group sees the last list
+\begin{enumerate}[resume]
+\item resumed inside
+\end{enumerate}
+\end{itemize}
+\begin{enumerate}[label=\textup{(\Alph*)}]
+\item upright
+\begin{enumerate}[label={[\arabic*]}]
+\item brackets
+\end{enumerate}
+\end{enumerate}
+\begin{enumerate}[labelsep=2em]
+\item a wider labelsep
+\begin{enumerate}
+\item nested: its labelwidth is leftmarginii less that labelsep
+\end{enumerate}
+\end{enumerate}
+See \ref{a4}.
+\end{document}

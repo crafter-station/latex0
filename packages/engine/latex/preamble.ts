@@ -23,6 +23,7 @@ import { hyperDefaults, hyperOptions, type HyperOptions } from "./hyperref"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
 import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type Captions } from "./babel"
 import { markAccentHyphens } from "./spanish"
+import { enumitemOptions, setlist, type Enumitem } from "./enumitem"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -60,7 +61,8 @@ export interface Preamble {
   tikz: { libraries: string[]; sets: string[] } | null
   usesAmsthm: boolean
   amsmath: boolean
-  enumitem: boolean
+  /** enumitem: its options and \setlist's keys */
+  enumitem: Enumitem | null
   /** hyperref, with the dvips driver */
   hyper: boolean
   /** hyperref's options and \hypersetup's */
@@ -152,7 +154,7 @@ export function readPreamble(src: string): Preamble {
   }
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
-  let enumitem = false
+  let enumitem: Enumitem | null = null
   // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
   // keeps them, and only \@mkboth goes back to \@gobbletwo
   let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
@@ -295,6 +297,9 @@ export function readPreamble(src: string): Preamble {
       if (!cleveref) throw new Unsupported(`preamble: ${line}`)
       crefNames.push([crn[1] === "crefname" ? "cref" : "Cref", crn[2], crn[3], crn[4]]); continue
     }
+    const ei = line.match(/^\\usepackage\[([^\]]*)\]\{enumitem\}$/)
+    if (ei) { if (enumitem) throw new Unsupported(`preamble: ${line}`); enumitem = enumitemOptions(ei[1]); continue }
+    if (enumitem && setlist(enumitem, line)) continue
     // \hypersetup{keys} after hyperref, as its options
     const hs = line.match(/^\\hypersetup\s*\{(.*)\}$/)
     if (hs) { if (!hyper) throw new Unsupported(`preamble: ${line}`); hyperOptions(hyperOpts, hs[1]); continue }
@@ -320,7 +325,7 @@ export function readPreamble(src: string): Preamble {
       }
       if (names.includes("nameref")) nameref = true
       if (names.includes("babel")) loadBabel([], !(hyper && (!names.includes("hyperref") || names.indexOf("hyperref") < names.indexOf("babel"))))
-      if (names.includes("enumitem")) enumitem = true
+      if (names.includes("enumitem")) enumitem ??= enumitemOptions("")
       if (names.includes("listings")) usesListings = true
       if (names.includes("xcolor")) usesXcolor = true
       if (names.includes("graphicx")) usesGraphicx = true
