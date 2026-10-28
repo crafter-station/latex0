@@ -762,7 +762,8 @@ export function makeDocument(r: () => number): string {
       // a group that ends its paragraph ({\large … \par}), \centering and friends in one, skips before it
       // (not right after a run-in heading)
       const v = /\\(?:sub)?paragraph\*?\{[^{}]*\}\s*$|^\\thm$/.test(out[out.length - 1] ?? "") ? 1 : r()
-      if (parts.length === 1 && v < 0.06) parts[0] = `{${pick(["\\large", "\\small\\itshape", "\\centering", "\\raggedleft\\bfseries", "\\Large\\raggedright", "\\sffamily"])} ${parts[0]}\\par}`
+      // (not around a \newpage or \clearpage the text put at its own level: the group would hold it)
+      if (parts.length === 1 && v < 0.06 && !/\\(?:newpage|clearpage)(?![A-Za-z])/.test(parts[0])) parts[0] = `{${pick(["\\large", "\\small\\itshape", "\\centering", "\\raggedleft\\bfseries", "\\Large\\raggedright", "\\sffamily"])} ${parts[0]}\\par}`
       else if (parts.length === 1 && v < 0.1) parts[0] = `${pick(["\\bigskip", isLetter ? "\\bigskip" : "\\medskip", "\\smallskip", "\\vspace*{4pt}"])}\n${parts[0]}`
       // page breaks, page styles and marks between paragraphs
       // (and \enlargethispage, \suppressfloats, \raggedbottom and \flushbottom, \onecolumn and \twocolumn)
