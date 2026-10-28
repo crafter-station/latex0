@@ -38,7 +38,7 @@ export type Block =
   /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
   | { kind: "listing"; n: number }
   /** \newpage, \clearpage and \cleardoublepage (in a paragraph: its \par first) */
-  | { kind: "newpage"; cmd: "newpage" | "clearpage" | "cleardoublepage" }
+  | { kind: "newpage"; cmd: "newpage" | "clearpage" | "cleardoublepage"; /** ending a paragraph (its \leavevmode does nothing) */ inPar?: boolean }
   /** \pagebreak[n] and \nopagebreak[n] in vertical mode: \penalty -\@getpen{n}, \penalty \@getpen{n} */
   | { kind: "pagebreak"; no: boolean; n: number }
   /** \thispagestyle{style} and \pagenumbering{style} in vertical mode */
@@ -249,7 +249,7 @@ export function blocksOf(body: string): Block[] {
     text(before)
     if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
     if (m[14] !== undefined) { out.push({ kind: "titlepage", body: m[14] }); at = re.lastIndex; endpe = false; continue }
-    if (m[15]) { out.push({ kind: "newpage", cmd: m[15] as "newpage" }); at = re.lastIndex; endpe = false; continue }
+    if (m[15]) { out.push({ kind: "newpage", cmd: m[15] as "newpage", ...(pageInPar ? { inPar: true } : {}) }); at = re.lastIndex; endpe = false; continue }
     if (m[18]) { out.push({ kind: "pagestyle", cmd: m[18] as "thispagestyle", style: m[19].trim() }); at = re.lastIndex; continue }
     if (/^\\(?:no)?pagebreak/.test(m[0])) {
       const n = m[17] === undefined ? 4 : /^\s*[0-4]\s*$/.test(m[17]) ? Number(m[17]) : NaN

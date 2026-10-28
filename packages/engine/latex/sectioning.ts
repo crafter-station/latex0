@@ -28,26 +28,27 @@ import { isSpanish } from "./babel"
  * \interlinepenalty\@M \Huge\bfseries title\par\nobreak \vskip40pt}, then \@afterheading
  */
 /** \newpage: \if@noskipsec\leavevmode, \if@nobreak \@nobreakfalse \everypar{}, \par, \vfil, \penalty-\@M */
-export function newpage(cx: Ctx) {
+export function newpage(cx: Ctx, inPar = false) {
   const { noskipsecPar, run, v } = cx
-  noskipsecPar("a page break"); run.noskipsec = false // \leavevmode, \global\@noskipsecfalse
+  if (!inPar) noskipsecPar("a page break") // \leavevmode (nothing in a paragraph)
+  run.noskipsec = false // \global\@noskipsecfalse
   if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
   v.nodes.push(filGlue(), penalty(-10000)) // (the \par: the caller's)
 }
 
 /** \clearpage: \newpage, \write\m@ne{}, \vbox{}, \penalty-\@Mi */
-export function clearpage(cx: Ctx) {
+export function clearpage(cx: Ctx, inPar = false) {
   const { run, v } = cx
-  newpage(cx)
+  newpage(cx, inPar)
   v.nodes.push({ kind: "whatsit", text: "\\write-{}" })
   v.box(emptyBox("vlist"), run.k.sizes.normalsize.baselineskip)
   v.nodes.push(penalty(-10001))
 }
 
 /** \cleardoublepage: \clearpage, then, two-sided, \ifodd\c@page\else\hbox{}\newpage\fi (the output decides) */
-export function cleardoublepage(cx: Ctx) {
+export function cleardoublepage(cx: Ctx, inPar = false) {
   const { run, v } = cx
-  clearpage(cx)
+  clearpage(cx, inPar)
   if (!run.k.ints.twoside) return
   const extra: Node[] = []
   appendToVlist(extra, hpack([]), v.prevDepth, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)

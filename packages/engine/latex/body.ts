@@ -59,7 +59,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
   if (b.kind === "newpage") {
     if (run.runIn) runInAlone(cx)
-    if (b.cmd === "newpage") newpage(cx); else if (b.cmd === "clearpage") clearpage(cx); else cleardoublepage(cx)
+    if (b.cmd === "newpage") newpage(cx, b.inPar); else if (b.cmd === "clearpage") clearpage(cx, b.inPar); else cleardoublepage(cx, b.inPar)
     return
   }
   if (b.kind === "pagebreak" || b.kind === "pagestyle") {
