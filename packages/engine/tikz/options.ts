@@ -769,8 +769,7 @@ export class Tikz {
     opt(">", (v) => {
       if (v.length && (same(v, ["["]) || same(v, ["]"]))) throw new Unsupported("pgf: arrow tip means a bracket")
       st().arrowMeans = tipSequence(v, this.db, false)
-      if (!this.setup.means) throw new Unsupported("tikz: >= outside a picture")
-      this.setup.means(v)
+      this.setup.means?.(v) // (pgf's picture: none in the keys' own check)
     })
     // labels (tikz.code.tex 759–905): label=[options]position:text appends to \tikz@after@path a node of its own
     opt("append after command", (v) => { st().afterPath.push(...v) })
@@ -832,8 +831,8 @@ export class Tikz {
     ifKey("relative", (b) => { st().toRelative = b })
     opt("loop", () => { st().toLoop = true }, "") // (364–375: the loop's own to path)
     // tikz.code.tex 1198–1199
-    opt("shorten <", (v) => { if (!this.setup.shorten) throw new Unsupported("tikz: shorten outside a picture"); this.setup.shorten(false, v) })
-    opt("shorten >", (v) => { if (!this.setup.shorten) throw new Unsupported("tikz: shorten outside a picture"); this.setup.shorten(true, v) })
+    opt("shorten <", (v) => { this.setup.shorten?.(false, v) })
+    opt("shorten >", (v) => { this.setup.shorten?.(true, v) })
     // line caps, joins and opacity (107–109, 189, 243, 248): \csname pgfset#1cap\endcsname is \relax for another name
     opt("line cap", (v) => {
       const k = plain(v, "line cap")

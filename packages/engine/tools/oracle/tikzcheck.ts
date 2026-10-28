@@ -200,7 +200,7 @@ const REFUSED = [
   pic("\\draw (0,0) .. (2,0);"), pic("\\draw (0,0) -- (1,0,1);"), pic("\\draw[line cap=square] (0,0) -- (1,0);"),
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
   pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) parabola (1,1);"), pic("\\draw (0,0) sin (1,1);"), pic("\\draw[step=(1,1)] (0,0) grid (1,1);"),
-  pic("\\draw (0,0) edge[loop] ();"),
+  pic("\\node[text depth=1ex] {x};"),
 ]
 
 function rng(seed: number) {
