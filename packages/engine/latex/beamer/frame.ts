@@ -6,11 +6,11 @@
 // (\beamer@autobreakframebox). What the frame holds is read by the handlers in
 // FRAME_CONTENT, one per construct; a construct none reads throws Unsupported.
 
-import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
-import { parseDimen, type GlueSpec } from "../../layout/dimen"
+import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../../layout/classdata"
+import { parseDimen, parseGlue, type GlueSpec } from "../../layout/dimen"
 import { QUAD, X_HEIGHT } from "../../layout/font"
 import { lineBreak } from "../../layout/linebreak"
-import { emptyBox, FILL, filGlue, glue, penalty, type BoxNode, type Node } from "../../layout/nodes"
+import { emptyBox, FILL, filGlue, fillGlue, glue, penalty, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
@@ -134,6 +134,8 @@ export interface FrameCtx { k: ClassOptionData; /** what the source took out, th
   inMinipage?: boolean
   /** \centering is in force (the frame's, or the center environment's): paragraphs centered, \\ is \@centercr */
   align?: "centering"
+  /** a size declared between paragraphs (\Large …), for the paragraphs after it */
+  size?: SizeCommand
   /** an item's labels (\box\@labels \penalty\z@) that \everypar puts in place of the next paragraph's indentation box */
   itemStart?: Node[]
   /** in a figure or a table (\@captype) */
@@ -305,9 +307,12 @@ const upToBlankLine = (text: string): [string, string] => {
  *  A block's \begin ends it too (blocks.ts): its overlay specials smuggled past the last space, which \par takes. */
 const paragraph: FrameHandler = (cx, v, text) => {
   let [par, rest] = upToBlankLine(text)
-  // (\caption's \par ends it)
-  const cap = par.search(/\\caption(?![A-Za-z])/)
-  if (cap > 0) { rest = par.slice(cap) + rest; par = par.slice(0, cap) }
+  // (\caption's \par ends it, and \vfill's and \vspace's in horizontal mode, which put their skips after the paragraph)
+  const cap = par.search(/\\(?:caption|vfill|vspace)(?![A-Za-z])/)
+  if (cap > 0) {
+    if (/^\\vspace/.test(par.slice(cap))) throw new Unsupported("beamer: \\vspace in a paragraph")
+    rest = par.slice(cap) + rest; par = par.slice(0, cap)
+  }
   const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN), center = par.search(/\\begin\{(?:center|figure|table)\}/)
   const s: ParagraphSetting = {}
   if (cx.align && (at >= 0 || block >= 0)) throw new Unsupported("beamer: a list or a block after \\centering")
@@ -329,6 +334,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
   if (cx.endpe && /^\s*\\LX(?:tabular|minipage)\{/.test(par)) throw new Unsupported("beamer: a tabular or minipage right after a list")
   if (cx.endpe) { s.indent = false; cx.endpe = false }
   if (cx.itemStart) { s.indent = false; s.start = cx.itemStart; cx.itemStart = undefined }
+  if (cx.size) s.size = cx.size
   if (!cx.align) { addParagraph(cx, v, overlayText(cx.overlay, par, cx.smuggled), s, cx.k.glue.parskip); return rest }
   // \\ under \centering (\@centercr): \unskip\par, \addvspace{-\parskip}; the next paragraph begins with \everypar's
   // indentation box
@@ -407,6 +413,33 @@ const raggedright: FrameHandler = (cx, _v, text) => {
   return text.replace(/^\\raggedright(?![A-Za-z])/, "")
 }
 
+/** \vfill between paragraphs: \vskip\z@\@plus1fill */
+const vfill: FrameHandler = (_cx, v, text) => {
+  v.nodes.push(fillGlue())
+  return text.replace(/^\\vfill(?![A-Za-z])/, "")
+}
+
+/** \vspace{skip} between paragraphs (latex.ltx's \@vspace in vertical mode): \vskip skip \vskip\z@skip */
+const vspace: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\vspace(?![A-Za-z])\s*/)!
+  if (text[m[0].length] === "*") throw new Unsupported("beamer: \\vspace*")
+  const a = bracedArg(text, m[0].length)
+  if (!a) throw new Unsupported("\\vspace without a braced argument")
+  const font = selectFont(cx.k, cx.size ?? "normalsize", SANS)
+  let g: GlueSpec
+  try { g = parseGlue(a.arg, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`beamer: \\vspace{${a.arg}}`) }
+  v.vskip(g)
+  v.vskip(dimen(0))
+  return text.slice(a.end)
+}
+
+/** \tiny … \Huge between paragraphs: for the paragraphs after it, to the end of the frame */
+const sizeHandler: FrameHandler = (cx, _v, text) => {
+  const m = text.match(/^\\([A-Za-z]+)/)!
+  cx.size = m[1] as SizeCommand
+  return text.slice(m[0].length)
+}
+
 /** \centering between paragraphs: for the paragraphs after it, to the end of the frame */
 const centeringHandler: FrameHandler = (cx, _v, text) => {
   cx.align = "centering"
@@ -437,7 +470,7 @@ function centerEnv(cx: FrameCtx, v: VerticalList, text: string, nobreaks: boolea
   const { k } = cx, g = k.glue, d = k.dimens
   if (g.partopsep.width || g.partopsep.stretch || g.partopsep.shrink) throw new Unsupported("beamer: center with \\partopsep")
   const topsepadd = g.topsep, parsep = g.parskip
-  const align = cx.align
+  const align = cx.align, size = cx.size
   v.addpenalty(-LOW_PENALTY)
   // (\addvspace{-\parskip} adds nothing: beamer's \parskip is zero)
   v.addvspace(addGlue(topsepadd, g.parskip))
@@ -450,7 +483,7 @@ function centerEnv(cx: FrameCtx, v: VerticalList, text: string, nobreaks: boolea
   frameContent(cx, v, text)
   // (\endtrivlist's \leavevmode for an item with no paragraph)
   if (cx.itemStart) throw new Unsupported("beamer: a center with no text")
-  cx.align = align
+  cx.align = align; cx.size = size
   if (nobreaks) v.nodes.push(penalty(10000))
   v.endtrivlist(parsep, g.parskip, topsepadd)
 }
@@ -593,12 +626,12 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, centering: centeringHandler, center, figure: float, table: float, caption, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, vfill, vspace, ...Object.fromEntries(SIZE_COMMANDS.map((n) => [n, sizeHandler])), raggedright, centering: centeringHandler, center, figure: float, table: float, caption, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
   ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
 /** the constructs read under \centering */
-const ALIGNED = ["", "caption", "raggedright", "centering", "center", "frametitle", "framesubtitle", "pause", "only", "alt", "temporal", "uncover", "visible", "invisible", "onslide", "LXsmuggle"]
+const ALIGNED = ["", "caption", "vfill", "vspace", ...SIZE_COMMANDS, "raggedright", "centering", "center", "frametitle", "framesubtitle", "pause", "only", "alt", "temporal", "uncover", "visible", "invisible", "onslide", "LXsmuggle"]
 
 /** The constructs in `text`, each read by its handler into `v` */
 export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
@@ -609,8 +642,10 @@ export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
     if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
     // (what \centering's \leftskip, \rightskip, \parfillskip and \finalhyphendemerits do to other constructs is not modeled)
     if (cx.align && !ALIGNED.includes(name)) throw new Unsupported(`beamer: \\${name} after \\centering`)
+    // (what a size declaration does to other constructs is not modeled)
+    if (cx.size && !["", "vfill", "vspace", "centering", ...SIZE_COMMANDS].includes(name)) throw new Unsupported(`beamer: \\${name} after a size declaration`)
     // (an item's labels go in the next paragraph)
-    if (cx.itemStart && !["", "centering", "caption"].includes(name)) throw new Unsupported(`beamer: \\${name} first in a center`)
+    if (cx.itemStart && !["", "centering", "caption", "vfill", "vspace", ...SIZE_COMMANDS].includes(name)) throw new Unsupported(`beamer: \\${name} first in a center`)
     text = handler(cx, v, text)
   }
 }
