@@ -108,7 +108,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
         // \raggedbottom, \flushbottom (\@textbottom, for the columns made from now on), \suppressfloats[t|b] (\@colnum,
         // \@topnum, \@botnum for the page being built)
         if (m[9] !== undefined) v.nodes.push({ kind: "whatsit", text: "", hook: (m[9] === "suppressfloats" ? (m[10] ? `suppress-${m[10]}` : "suppress") : m[9]) as OutputHook })
-        else if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7])) // (\@bsphack, \@esphack: nothing in vertical mode)
+        // (\@esphack in vertical mode: \nobreak while \if@nobreak or \if@noskipsec)
+        else if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7]), ...(v.nobreak || run.noskipsec ? [penalty(10000)] : []))
         else if (m[4] !== undefined) {
           const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
           const { lang, write } = babelSwitch(what, m[6])
@@ -238,7 +239,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
 export function pageLength(cx: Ctx, src: string): GlueSpec {
   const { run } = cx, widths = widthRegisters(cx, hsizeOf(run.k))
   const internal = (name: string, s: Scanner): Internal | undefined =>
-    name === "baselineskip" ? { level: "glue", value: run.k.glue.baselineskip } : name === "textheight" ? { level: "dimen", value: run.k.dimens.textheight } : widths(name, s)
+    name === "baselineskip" ? { level: "glue", value: run.k.sizes.normalsize.baselineskip } : name === "textheight" ? { level: "dimen", value: run.k.dimens.textheight } : widths(name, s)
   try { return parseGlue(src, { ...cx.bodyUnits, internal }) } catch { throw new Unsupported(`\\enlargethispage{${src}}`) }
 }
 
@@ -279,14 +280,15 @@ function twocolumnAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   }
   // \end{abstract}'s \endgroup: a last paragraph ended after it sees the \clubpenalty from before the environment, and
   // \everypar is the one from before it again
-  const v = cx.v, before = { club: v.club, afterheading: v.afterheadingEverypar }
+  // (and nameref's \@currentlabelname, which \section* set in the group)
+  const v = cx.v, before = { club: v.club, afterheading: v.afterheadingEverypar, name: cx.refs.name }
   const outside = last?.kind === "par" && trailing.length > 0 && !/\n[ \t]*\n/.test(trailing) || last?.kind === "par" && !trailing
   if (outside && last?.kind === "par") {
     if (/\\footnote\b/.test(last.text)) throw new Unsupported("a footnote in a two-column abstract's last paragraph")
     last.inGroup = true
   }
   blocks.forEach((x, i, all) => { if (x === last && outside) v.club = before.club; processBlock(cx, x, i, all) })
-  v.club = before.club; v.afterheadingEverypar = before.afterheading
+  v.club = before.club; v.afterheadingEverypar = before.afterheading; cx.refs.name = before.name
 }
 
 /**

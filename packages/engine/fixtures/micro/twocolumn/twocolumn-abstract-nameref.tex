@@ -1,0 +1,22 @@
+% fixture: twocolumn/twocolumn-abstract-nameref
+% tier: T3
+% engine: document
+% specials: compare
+% covers: nameref's \@currentlabelname after a two-column abstract: its \section* set it in the environment's group, so a \label after \end{abstract} gets the name from before it
+% issue: #348
+\documentclass[twocolumn]{article}
+\usepackage{nameref}
+\begin{document}
+\section{Intro}\label{s:intro}
+Into have out been according ordered that other letters into ordered on would breaking letters may like by words is craft from retrieved letters their have his letters them is which decides his stored breaking equivalents display than arranging her ordered will out than their his at stored will like.
+
+\begin{abstract}
+Orthography out part time his display than when has visual orthography any has equivalents is time ordered the so small not his words that not display were been time not one which evenly would into orthography it which evenly was.
+
+\end{abstract}
+
+A label here.\label{s:after} See \nameref{s:after} and \nameref{s:intro}.
+
+Only with them her at craft has symbols for symbols were digital stored the was them no when digital can for retrieved on into equivalents lines spread equivalents by part easily their can was letters is new there symbols two.
+
+\end{document}
