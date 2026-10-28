@@ -65,6 +65,9 @@ export class Expander {
   private defined: (name: string) => boolean
   /** problems met while running in document mode (\\newcommand of a defined command) */
   readonly warnings: string[] = []
+  /** in a moving argument (a heading's title, a caption): what LaTeX writes to a file there (\\protected@write) keeps a
+   *  robust command as \\protect\\cmd, which the renderer, reading the expansion, cannot know; expanding one is an error */
+  moving = false
 
   constructor(private reader: Tokenizer, opts: number | ExpanderOptions = {}) {
     const o = typeof opts === "number" ? { fuel: opts } : opts
@@ -189,6 +192,7 @@ export class Expander {
 
   /** macro_call (§§ 389–400) */
   private macroCall(t: Tok, m: Macro) {
+    if (this.moving && m.protected) throw new ExpansionError(`the robust command ${printCs(t.cs!, t.active).trim()} in a moving argument`)
     const args: Tok[][] = []
     let pi = 0
     let relax = false

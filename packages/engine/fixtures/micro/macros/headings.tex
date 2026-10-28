@@ -1,0 +1,22 @@
+% fixture: macros/headings
+% tier: T3
+% engine: document
+% covers: the document's (fragile) macros in moving arguments, expanded where LaTeX writes them: section and subsection titles (the .toc, \tableofcontents), a caption (the .lof, \listoffigures); a robust one (an optional argument) in a \section* title, which writes nothing, and in a group right after a title
+% issue: #344
+\documentclass{article}
+\newcommand{\proj}{Atlas}
+\newcommand{\ver}[1]{v#1}
+\newcommand{\opt}[1][x]{(#1)}
+\begin{document}
+\tableofcontents
+\listoffigures
+\section{Project \proj}
+\subsection{Release \ver{2}}
+{\opt[y]} text.
+\begin{figure}[h]
+\centering
+\caption{The map of \proj, \ver{3}}
+\end{figure}
+\section*{Notes \opt[y]}
+More text.
+\end{document}

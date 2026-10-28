@@ -1,0 +1,15 @@
+% fixture: macros/optional-argument
+% tier: T3
+% engine: document
+% covers: \newcommand with an optional argument (\@protected@testopt: \@ifnextchar's assignments end a ligature and a kern run, so of\opt{…} makes no ffi and A\opt[V]{…} no AV kern), the default and a given one, spaces before [ and before the argument skipped, at a paragraph's start and end; \newcommand* with one
+% issue: #344
+\documentclass{article}
+\newcommand{\opt}[2][fi]{#1/#2}
+\newcommand*{\tag}[1][T]{(#1)}
+\begin{document}
+\opt{start} of a paragraph: of\opt{x} and A\opt[V]{y} and \opt [given] {z} then
+words, \tag{} and \tag[x] and\tag more words to fill the line so that it breaks
+somewhere, off\opt[ff]{f} and at the end \opt{last}
+
+Second paragraph \opt[a]{b}.
+\end{document}

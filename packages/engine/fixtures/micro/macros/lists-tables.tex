@@ -1,0 +1,28 @@
+% fixture: macros/lists-tables
+% tier: T3
+% engine: document
+% covers: the document's macros with arguments and optional arguments in itemize and enumerate items, a description label (a fragile macro), a tabular's cells and a footnote; a macro that expands to \item; a definition at an item's start (vertical mode: the space after it starts nothing)
+% issue: #344
+\documentclass{article}
+\newcommand{\key}[2][--]{\textbf{#2}#1}
+\newcommand{\task}{\item}
+\newcommand{\cell}[1]{\emph{#1}}
+\newcommand{\lbl}[1]{#1:}
+\begin{document}
+\begin{itemize}
+\item \key{first} item
+\task \key[:]{second} item\footnote{A \key{note} here.}
+\end{itemize}
+\begin{enumerate}
+\task one \cell{two}
+\item
+\def\inner{z} defined at an item's start, \inner
+\end{enumerate}
+\begin{description}
+\item[\lbl{Term}] its meaning
+\end{description}
+\begin{tabular}{ll}
+\cell{a} & \key{b} \\
+\key[;]{c} & d
+\end{tabular}
+\end{document}

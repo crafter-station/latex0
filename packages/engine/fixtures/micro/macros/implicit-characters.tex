@@ -1,0 +1,12 @@
+% fixture: macros/implicit-characters
+% tier: T3
+% engine: document
+% covers: \let of a control sequence to a letter or other character (\let\foo=a, \let\bar x): typeset as the character, in text (ligatures and kerns with its neighbours) and math, in a macro's body; the spaces after the control word go
+% issue: #344
+\documentclass{article}
+\let\eff=f
+\let\dash -
+\newcommand{\word}{o\eff\eff ice}
+\begin{document}
+An \eff ine \eff\eff ect, a\dash\dash b, \word{} and $\eff(x)\dash y$ here.
+\end{document}

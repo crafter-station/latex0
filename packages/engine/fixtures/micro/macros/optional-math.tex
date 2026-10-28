@@ -1,0 +1,13 @@
+% fixture: macros/optional-math
+% tier: T3
+% engine: document
+% covers: a \newcommand with an optional argument in math (its \relax makes no noad): inline and displayed, default and given, inside a group and a script
+% issue: #344
+\documentclass{article}
+\newcommand{\norm}[2][2]{\|#2\|_{#1}}
+\newcommand{\sq}[1][x]{#1^2}
+\begin{document}
+The norm $\norm{v} \le \norm[\infty]{w}+\sq$ and $a_{\sq[y]} = {\sq}$ hold, and
+\[ \norm{u} + \sq[z] = 1. \]
+Done.
+\end{document}

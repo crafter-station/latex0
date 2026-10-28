@@ -14,7 +14,7 @@
 // reported.
 
 import { ExpansionError, Expander } from "./expander"
-import { LEFT_BRACE, LETTER, MAC_PARAM, RIGHT_BRACE, SPACER, Tokenizer, type Tok } from "./tokens"
+import { LEFT_BRACE, LETTER, MAC_PARAM, OTHER_CHAR, RIGHT_BRACE, SPACER, Tokenizer, type Tok } from "./tokens"
 
 export interface DocumentExpansion {
   /** the source with definitions removed and macro uses expanded */
@@ -30,6 +30,9 @@ export interface DocumentOptions {
   defined?: (name: string) => boolean
   fuel?: number
 }
+
+/** the commands whose arguments LaTeX writes to a file (\\addcontentsline, \\markboth …): how many of them, in braces */
+const MOVING: Record<string, number> = { part: 1, chapter: 1, section: 1, subsection: 1, subsubsection: 1, paragraph: 1, subparagraph: 1, caption: 1, addcontentsline: 3, markboth: 2, markright: 1 }
 
 const VERBATIM = /\\begin\{(verbatim\*?|Verbatim|lstlisting|minted)\}[^]*?\\end\{\1\}|\\verb\*?([^a-zA-Z\s*])[^\n]*?\2/g
 const MAX_OUTPUT = 5_000_000
@@ -60,26 +63,53 @@ export function expandDocument(src: string, opts: DocumentOptions = {}): Documen
     tail = (tail + str).slice(-64)
   }
   const done = () => { emit(text.slice(cursor)); return { text: restore(out.join("")), errors } }
+  // a letter or other character \let to a control sequence (\let\foo=a): as TeX typesets it, the character
+  const implicit = (t: Tok): Tok | null => {
+    if (t.cs === undefined) return null
+    const m = ex.meaning(t)
+    return m.kind === "char" && (m.cat === LETTER || m.cat === OTHER_CHAR) ? { cat: m.cat, c: m.c } : null
+  }
+  // the moving arguments (MOVING) the output goes through: the expander is told when it is in one
+  let depth = 0 // braces open
+  const mv = { args: 0, open: -1, bracket: -1 } // arguments to come; the depth of the one open, in braces or brackets
+  const track = (x: Tok) => {
+    if (x.cs !== undefined && !x.active && Object.hasOwn(MOVING, x.cs)) { mv.args = MOVING[x.cs]; return }
+    if (x.cat === LEFT_BRACE) depth++
+    if (mv.open >= 0 || mv.bracket >= 0) {
+      if (x.cat === RIGHT_BRACE && depth === mv.open) { mv.open = -1; mv.args-- }
+      else if (x.cat === OTHER_CHAR && x.c === 93 && depth === mv.bracket) { mv.bracket = -1; mv.args = 0 } // (the short title is written, not the long one)
+    } else if (mv.args > 0 && x.cat !== SPACER) {
+      if (x.cat === LEFT_BRACE) mv.open = depth
+      else if (x.cat === OTHER_CHAR && x.c === 91) mv.bracket = depth // (a short title)
+      else mv.args = 0 // (\section* writes nothing)
+    }
+    if (x.cat === RIGHT_BRACE) depth--
+    ex.moving = mv.open >= 0 || mv.bracket >= 0
+  }
   for (;;) {
     let t: Tok | null
     try { t = ex.read() } catch (e) { errors.push((e as Error).message); break }
     if (!t) return done()
     const start = t.pos ?? reader.offset
     const define = ex.isDefinition(t)
-    if (!define && !ex.isExpandable(t)) {
+    const char = implicit(t)
+    if (!define && !char && !ex.isExpandable(t)) {
       // copied from the source; braces and \begingroup…\endgroup still scope definitions
       try { if (t.cat === LEFT_BRACE || t.cat === RIGHT_BRACE || t.cs === "begingroup" || t.cs === "endgroup") ex.perform(t) } catch { /* unbalanced: the source decides */ }
+      track(t)
       continue
     }
     const before = text.slice(cursor, start)
     const result: Tok[] = []
     try {
-      if (define) ex.perform(t); else ex.expand(t)
+      if (define) ex.perform(t); else if (char) { track(char); result.push(char) } else ex.expand(t)
       while (ex.pending) {
-        const x = ex.getXToken()
+        let x = ex.getXToken()
         if (!x) break
         if (ex.isDefinition(x)) { ex.perform(x); continue }
+        x = implicit(x) ?? x
         if (x.cat === LEFT_BRACE || x.cat === RIGHT_BRACE) { try { ex.perform(x) } catch { /* unbalanced */ } }
+        track(x)
         result.push(x)
       }
     } catch (e) {
@@ -102,8 +132,11 @@ export function expandDocument(src: string, opts: DocumentOptions = {}): Documen
     }
     emit(before)
     let replacement = serialize(result, text[cursor])
-    // nothing left on a line that had something: {} keeps its line end a space, not a blank line
-    if (!replacement.trim() && /\n[ \t]*$/.test(tail) && /^[ \t]*\n/.test(text.slice(cursor))) replacement = "{}"
+    // nothing left on a line that had something: {} keeps its line end a space, not a blank line; at a line's start, {}
+    // keeps a space that follows (a definition's, the expansion's) from the spaces TeX skips there
+    const lineStart = /(^|\n)[ \t]*$/.test(tail)
+    if (!replacement.trim() && lineStart && /^[ \t]*\n/.test(text.slice(cursor))) replacement = "{}"
+    else if (lineStart && /^[ \t]/.test(replacement || text.slice(cursor))) replacement = "{}" + replacement
     emit(replacement)
     if (size > MAX_OUTPUT) { errors.push("expansion output too large"); return done() }
   }

@@ -126,7 +126,7 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
           let crStar = false, crSkip: string | undefined
           const opt = li > 0 ? line.match(/^\s*(\*)?\s*(?:\[([^\]]*)\])?/) : null
           if (opt?.[0]) { crStar = !!opt[1]; crSkip = opt[2]; line = line.slice(opt[0].length) }
-          const tx = squeeze(line)
+          const tx = vertical(squeeze(line))
           const cr = { ...(crStar ? { crStar } : {}), ...(crSkip !== undefined ? { crSkip } : {}) }
           if (!tx && li > 0 && parts.length) { parts.push({ kind: "text", text: "", start: "cr", ...cr }); return } // a \\ ending the text
           if (!tx) return
@@ -199,7 +199,7 @@ const TEXT_COMMANDS = [
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
   "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
-  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
   "og", "fg", "up", "fup", "ier", "iere", "iers", "ieres", "ieme", "iemes", "no", "No", "nos", "Nos"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
@@ -208,6 +208,10 @@ const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za
 const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|enlargethispage\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS), ...SYMBOL_COMMANDS].join("|")}|the[a-zA-Z]+)(?![A-Za-z]))[a-zA-Z]+(?!\\s*=)`)
+
+/** text that starts in vertical mode: empty groups there (what a definition left, expand/document.ts) and the spaces
+ *  after them start no paragraph */
+const vertical = (t: string) => t.replace(/^(?:\{\}\s*)+/, "")
 
 /** how many groups the text leaves open (\{ and \} do not count) */
 function braceDepth(t: string): number {
@@ -232,7 +236,7 @@ export function blocksOf(body: string): Block[] {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
     const parts = s.split(/\n[ \t]*\n/)
     parts.forEach((p, i) => {
-      const t = squeeze(i < parts.length - 1 ? p + " " : p) // the line end before a blank line is a space
+      const t = vertical(squeeze(i < parts.length - 1 ? p + " " : p)) // the line end before a blank line is a space
       if (t) out.push({ kind: "par", text: t, noindent: i === 0 && endpe, ...(i === 0 && thmEnd ? { afterThm: true } : {}), ...(/\\LXfloat\{/.test(t) ? { floats: inline } : {}) })
       if (t || i < parts.length - 1) endpe = false // (\@doendpe ends with the paragraph after it, or a \par; not with a \pagebreak or a mark)
     })
@@ -366,7 +370,7 @@ export function blocksOf(body: string): Block[] {
       walk(b)
     }
     else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
-    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
+    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
 }

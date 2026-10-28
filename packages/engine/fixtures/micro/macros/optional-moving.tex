@@ -1,0 +1,13 @@
+% fixture: macros/optional-moving
+% tier: T3
+% engine: document
+% covers: a command with an optional argument (robust: \@protected@testopt) in a caption, a moving argument: LaTeX writes \protect\opt to the .lof, which the engine does not keep yet, so not laid out
+% issue: #344
+\documentclass{article}
+\newcommand{\opt}[1][x]{(#1)}
+\begin{document}
+\begin{figure}[h]
+\centering
+\caption{A map \opt[y]}
+\end{figure}
+\end{document}

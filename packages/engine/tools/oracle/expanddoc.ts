@@ -1,6 +1,6 @@
 // Document expansion oracle (#46): random documents that define macros with
 // \newcommand (arguments, optional arguments, starred), \renewcommand,
-// \providecommand, \def (undelimited and delimited parameters), \edef and \let,
+// \providecommand, \def (undelimited and delimited parameters), \edef and \let (of macros and of characters),
 // in and out of groups, and use them in text and math around spaces, line ends
 // and blank lines. TeX typesets each document twice: as written, and as
 // expandDocument (expand/document.ts) rewrites it for the renderer, with the
@@ -99,12 +99,17 @@ function makeCase(r: () => number, id: string): string {
       d = { name: nm, args: 0, optional: false, long: true, safe: safeIn(b) }
       lines.push(`\\providecommand{${nm}}{${b}}`)
       if (defs.length && r() < 0.5) lines.push(`\\providecommand{${pick(defs).name}}{never used}`)
+    } else if (x < 0.97) {
+      const c = pick([..."afilx-.,"]) // a letter or other character: \\nm is that character
+      d = { name: nm, args: 0, optional: false, long: false, safe: true }
+      lines.push(`\\let${nm}${pick(["=", "= ", " "])}${c}`)
     } else {
       d = { name: nm, args: 0, optional: false, long: false, safe: true }
       const ok = defs.filter((e) => !e.optional && e.safe)
       lines.push(`\\edef${nm}{${ok.length ? call(pick(ok), false, true) : "\\relax"} ${word()}}`)
     }
     defs.push(d)
+    if (r() < 0.2) lines[lines.length - 1] += pick([" ", "  "]) + word() // text after the definition on its line
     // uses after each definition: in text around spaces, line ends, punctuation and blank lines; in math
     for (let u = 1 + Math.floor(r() * 3); u > 0; u--) {
       const use = pick(defs)
