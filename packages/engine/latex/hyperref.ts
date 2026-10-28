@@ -380,12 +380,12 @@ const AUTOREF_NAMES: Record<string, string> = {
 /** hyperref's \HyLang@spanish, which babel's \extrasspanish runs when babel was loaded first (LaTeX source) */
 const SPANISH_AUTOREF_NAMES: Record<string, string> = {
   equation: "Ecuaci\\'on", Item: "Elemento", figure: "Figura", table: "Tabla", chapter: "Cap\\'itulo", section: "Secci\\'on",
-  subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing",
+  subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing", appendix: "Ap\\'endice",
 }
 /** hyperref's \HyLang@portuges, for brazil, brazilian and portuguese (not portuges) */
 const PORTUGUESE_AUTOREF_NAMES: Record<string, string> = {
   equation: "Equa\\c c\\~ao", Item: "Item", figure: "Figura", table: "Tabela", chapter: "Cap\\'itulo", section: "Se\\c c\\~ao",
-  subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing",
+  subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing", appendix: "Ap\\^endice",
 }
 /** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
 const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "paragraph", "subparagraph", "FancyVerbLine", "page"]
