@@ -1,0 +1,21 @@
+% fixture: title/titlepage-group-ends-par
+% tier: T3
+% engine: document
+% covers: a paragraph that a size group after its text ends ({\Large … \par} with no \par before it): the group's text in its font, its \par with the group's \baselineskip and \centering in force for all the lines, and the declarations gone after it; a \vspace in the paragraph before the group; the same in the body
+% issue: #350
+\documentclass{article}
+\begin{document}
+\begin{titlepage}
+\raggedright
+Some words before the group that run on for long enough to take two lines of text here
+\vspace{1cm}
+{\LARGE\bfseries A title that ends the paragraph over two lines\par}
+\vspace{2em}
+More words that run on for long enough to take two lines of text here and there and now
+{\itshape \centering italic words that end it, centered at the end\par}
+Text after the group, ragged right again, long enough to take two lines here and there.
+\end{titlepage}
+Body words before a group that ends the paragraph, long enough to take two lines in the text here.
+{\large and larger words that end it over a line or two of the text at its end\par}
+Body text after it.
+\end{document}

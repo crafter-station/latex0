@@ -133,11 +133,16 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     // a paragraph: to a blank line, a \par, \vfill, the end, or \@centercr (\\ under \centering and friends)
     let j = i
     let cr: RegExpMatchArray | null = null
+    let ending: { inner: string; next: number } | null = null // a group whose \par ends the paragraph
     while (j < src.length) {
       const r = src.slice(j)
       if (r[0] === "{") {
-        const k = closingBrace(src, j)
-        if (topPar(src.slice(j + 1, k)) >= 0) throw new Unsupported("a paragraph ending in a group it did not start in")
+        const k = closingBrace(src, j), inner = src.slice(j + 1, k), p = topPar(inner)
+        if (p >= 0) { // ({\Large … \par} after text: the paragraph ends in the group, with its declarations in force)
+          if (!/^(?:\s|\\par(?![A-Za-z]))*$/.test(inner.slice(p))) throw new Unsupported("a paragraph ending in a group it did not start in")
+          ending = { inner: inner.slice(0, p), next: k + 1 }
+          break
+        }
         j = k + 1; continue
       }
       if (r[0] === "$") { const k = src.indexOf("$", j + 1); if (k < 0) throw new Unsupported("an unbalanced $"); j = k + 1; continue }
@@ -145,14 +150,15 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
       if (st.align && (cr = r.match(/^\\\\(\*)?\s*(?:\[([^\]]*)\])?/))) break
       j += r[0] === "\\" ? (r.match(/^\\(?:[A-Za-z]+|[^])/)?.[0].length ?? 1) : 1
     }
-    const text = src.slice(i, j)
+    const before = src.slice(i, j), text = ending ? `${before}{${ending.inner}}` : before
     if (top && topDeclarations(text).length) throw new Unsupported("a declaration for the paragraphs after it")
-    const end = topDeclarations(text).reduce((s, d) => declare(cx, s, d), st)
-    if (end.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
-    paragraph(cx, text, st, end, cr ? 1 : 0, mo)
+    const end = topDeclarations(before).reduce((s, d) => declare(cx, s, d), st)
+    const parEnd = ending ? topDeclarations(ending.inner).reduce((s, d) => declare(cx, s, d), end) : end
+    if (parEnd.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
+    paragraph(cx, text, st, parEnd, cr ? 1 : 0, mo)
     delete mo.first
     st = end
-    i = j
+    i = ending ? ending.next : j
     if (cr) { // \@centercr: \par, \nobreak for \\*, \addvspace{-\parskip}, \vskip skip for [skip]
       if (cr[1]) v.nodes.push(penalty(10000))
       v.addvspace(negate(cx.outerParskip))
