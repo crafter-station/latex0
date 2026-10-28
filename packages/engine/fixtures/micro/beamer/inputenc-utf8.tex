@@ -1,0 +1,14 @@
+% fixture: beamer/inputenc-utf8
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: \usepackage[utf8]{inputenc} (UTF-8 is the kernel's input encoding already: \inputencoding{utf8} changes nothing), accented letters in a frame
+% issue: #361
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Energías renovables}
+La energía solar y eólica crecen rápidamente; la dependencia del agua genera riesgos en épocas de sequía.
+\end{frame}
+\end{document}

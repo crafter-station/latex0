@@ -153,6 +153,8 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk && pk[1].split(",").every((n) => LOADED.includes(n.trim()))) continue
+    // (inputenc's \inputencoding{utf8}: UTF-8 is the kernel's input encoding already, \inputencodingname utf8)
+    if (line === "\\usepackage[utf8]{inputenc}") continue
     // \title, \subtitle, \author, \institute and \date keep their text (\@dblarg: an optional short form);
     // only the title page and the head and foot lines print them
     const t = line.match(/^\\(title|subtitle|author|institute|date)(?:\[([^\]]*)\])?\{(.*)\}$/)
