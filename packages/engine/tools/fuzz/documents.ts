@@ -532,7 +532,8 @@ export function makeDocument(r: () => number, s: () => number = rng(1), m: () =>
   // natbib: its options, and a \bibliographystyle in the preamble or at the end (read back from the .aux)
   natOn = !isLetter && r() < 0.15
   const natStyle = natOn && r() < 0.6 ? pick(["plainnat", "plain", "chicago", "unsrtnat", "abbrv", "ieeetr"]) : null
-  if (natOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage${pick(["", "", "[round]", "[square]", "[numbers]", "[authoryear]"])}{natbib}`)
+  const natOpt = natOn ? pick(["", "", "[round]", "[square]", "[numbers]", "[authoryear]"]) : ""
+  if (natOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, `\\usepackage${natOpt}{natbib}`)
   const natStyleAtEnd = r() < 0.5
   if (natStyle && !natStyleAtEnd) out.push(`\\bibliographystyle{${natStyle}}`)
   // setspace: an option, or a spacing command in the preamble
@@ -853,9 +854,11 @@ export function makeDocument(r: () => number, s: () => number = rng(1), m: () =>
     for (let n = r() < 0.3 ? 1 + Math.floor(r() * 3) : 0; n > 0; n--) out.push(`\\${pick(["cc", "encl"])}{${words(r() < 0.3 ? 30 : 4)}}`, ...(r() < 0.3 ? ["", ...(r() < 0.3 ? [""] : [])] : []))
     out.push("\\end{letter}")
   }
-  // (natbib: no .bbl, or its own thebibliography with \bibitem[short(year)long]{key}, \newblock and \natexlab)
+  // (natbib: no .bbl, or its own thebibliography with \bibitem[short(year)long]{key}, \newblock and \natexlab; a \bibitem
+  // without a label only with the numbers option: natbib's \NAT@force@numbers is an error in author-year mode)
   const natBib = () => {
     const labels = [pick(["Smith(2001)", "Smith et~al.(2001)Smith, Jones, and Lee", ""]), pick(["Smith(2002{\\natexlab{a}})", "Jones and Lee(1999)", "van Dyke(2010)"]), pick(["Smith(2002{\\natexlab{b}})", "Lee(2003)", ""])]
+      .map((l, i) => l || natOpt === "[numbers]" ? l : ["Smith(2001)", "", "Lee(2003)"][i])
     return ["\\begin{thebibliography}{3}", ...labels.flatMap((l, i) => [`\\bibitem${l ? `[${l}]` : ""}{b${i + 1}}`, `${words(3)}.`, `\\newblock ${text(5 + Math.floor(r() * 20))}`, ""]), "\\end{thebibliography}"]
   }
   if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : natBib()))

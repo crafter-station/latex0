@@ -20,6 +20,7 @@ import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionS
 import type { CrefNameDef, CrefOptions } from "./cleveref"
 import type { MathPackages } from "./paragraph"
 import { Unsupported } from "./unsupported"
+import { addGlue } from "./vlist"
 import { printScaled } from "../layout/arith"
 import { hyperDefaults, hyperOptions, type HyperOptions } from "./hyperref"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
@@ -138,9 +139,9 @@ export interface Preamble {
   /** the names the preamble defines (source.ts's \LXname, \LXcaptions): without babel, and by babel's language */
   captionAdds: CaptionAdds
   /** natbib: its citation punctuation on the first run (no .aux yet) and on later ones (the .aux's \bibstyle) */
-  natbib: { first: NatStyle; later: NatStyle } | null
   /** cite.sty: its options */
   cite: CiteOptions | null
+  natbib: { first: NatStyle; later: NatStyle; /** \bibhang, 1em in the font selected as it loads */ hang: number; /** \bibsep, \@listi's \itemsep plus \parsep as it loads */ sep: GlueSpec } | null
   /** algorithm.sty, algpseudocode (and its noend option) */
   algorithm: AlgorithmPackages
   /** babel: its languages, the main one, and whether it was loaded before hyperref (its \AtBeginDocument first) */
@@ -255,6 +256,7 @@ export function readPreamble(src: string): Preamble {
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
   let cite: CiteOptions | null = null
+  let natbibAt: { font: PreambleFont; lengths: number; parskip: boolean } | null = null // the font, the \setlength's and parskip.sty before natbib
   let setspace: SetSpace | null = null
   const algorithm: AlgorithmPackages = { algorithm: false, algpseudocode: false, noend: false }
   const bibstyles: string[] = [] // the .aux's \bibstyle lines, in order
@@ -387,9 +389,9 @@ export function readPreamble(src: string): Preamble {
       geometryOptions.push(geo[1] ?? ""); geometryStretch = setspace?.stretch ?? ""; geometryFont = selected; continue
     }
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
-    if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
     const ct = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{cite\}$/)
     if (ct) { if (cite && ct[1] !== undefined) throw new Unsupported("cite loaded twice with options"); cite ??= citeOptions(ct[1] ?? ""); continue } // (LaTeX: Option clash)
+    if (nb) { natbib = natbibOptions(nb[1] ?? ""); natbibAt = { font: selected, lengths: lengths.length, parskip }; continue }
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
     if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm || usesFloat) algorithm.singleHere = true; continue }
     if (setspace && setspaceCommand(setspace, line, option)) continue
@@ -593,8 +595,10 @@ export function readPreamble(src: string): Preamble {
     const bs = geometryStretch ? { ...k.glue, baselineskip: { ...k.glue.baselineskip, width: times(geometryStretch, k.glue.baselineskip.width) } } : k.glue
     k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }, geo), glue: k.glue }
   }
+  let parskipAtNatbib = k.glue.parskip // (parskip.sty's \@listI: \parsep\parskip, the one in force as natbib runs \@listi)
   if (lengths.length) {
-    for (const [name, value, font] of lengths) {
+    for (const [i, [name, value, font]] of lengths.entries()) {
+      if (i === natbibAt?.lengths) parskipAtNatbib = k.glue.parskip
       const f = selectedFont(font)
       // \baselineskip there is the class's \normalsize's (§ 455: a factor times its width; § 461: the glue itself when it
       // comes first); a \baselinestretch in force by then would depend on which \selectfont ran since: not modeled
@@ -611,6 +615,7 @@ export function readPreamble(src: string): Preamble {
       else if (name === "headheight" || name === "columnsep" || name === "columnseprule") k = { ...k, dimens: { ...k.dimens, [name]: g.width } }
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
+    if (lengths.length === natbibAt?.lengths) parskipAtNatbib = k.glue.parskip
   }
   if (parskip) {
     // \@listI (\normalsize's \@listi, and that of the sizes that keep it) and \@listii, \@listiii: \topsep\z@ \itemsep\z@;
@@ -713,7 +718,7 @@ export function readPreamble(src: string): Preamble {
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
   if (cite && natbib) throw new Unsupported("cite.sty with natbib") // (each defines \cite and \@citex: the last one loaded has them)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, komaTitle, amsTop, amsplain, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && natbibAt && { first: natbib.style, later: natbibStyle(natbib, bibstyles), hang: selectedFont(natbibAt.font).params[QUAD], sep: natbibAt.parskip ? parskipAtNatbib : addGlue(kClass.glue["list1itemsep@normalsize"], kClass.glue["list1parsep@normalsize"]) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, komaTitle, amsTop, amsplain, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

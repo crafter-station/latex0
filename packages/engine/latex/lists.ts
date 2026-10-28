@@ -161,14 +161,14 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
     else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
     else if (b.env === "verse") { const ind = cls === "letter" ? 15 * 65536 : ems("1.5em"); itemsep = dimen(0); itemindent = -ind; listparindent = itemindent; rightmargin = leftmargin; leftmargin += ind }
     else if (b.env === "thebibliography" && natbib && !natbib.numbers) { // natbib's \NAT@bibsetup: \leftmargin\bibhang (1em at its load) \itemindent-\leftmargin
-      leftmargin = romanFont.params[QUAD]; itemindent = -leftmargin
+      leftmargin = cx.pre.natbib!.hang; itemindent = -leftmargin
     } else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
       const w: Node[] = []
       appendText(w, cx.pre.amsplain ? `${b.widest}.` : `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
       labelwidth = hpack(w).width; leftmargin = labelwidth + (cls === "amsart" ? ls : run.k.dimens.labelsep)
     }
     // natbib's \@bibsetup: \itemsep\bibsep (\@listi's \itemsep and \parsep when it loaded) \parsep\z@
-    if (b.env === "thebibliography" && natbib) { itemsep = addGlue(run.k.glue["list1itemsep@normalsize"], run.k.glue["list1parsep@normalsize"]); parsep = dimen(0) }
+    if (b.env === "thebibliography" && natbib) { itemsep = cx.pre.natbib!.sep; parsep = dimen(0) }
   }
   const itemDepth = ctx.itemDepth + (b.env === "itemize" ? 1 : 0), enumDepth = ctx.enumDepth + (b.env === "enumerate" ? 1 : 0)
   const descDepth = (ctx.descDepth ?? 0) + (b.env === "description" ? 1 : 0)
