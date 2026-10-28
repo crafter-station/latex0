@@ -1,0 +1,13 @@
+% fixture: amsmath/boldsymbol
+% tier: T3
+% engine: document
+% covers: amsbsy's \boldsymbol (\mathversion{bold}'s fonts: cmbx, cmmib, cmbsy, the bold alphabets; \math@atom's class from \binrel@; a \mathchoice of \hbox'es), in text, scripts, displays and \small, at 11pt
+% issue: #330
+\documentclass[11pt]{article}
+\usepackage{amsmath,amssymb}
+\begin{document}
+The field $\boldsymbol{E} = -\boldsymbol{\nabla}\phi$ with $\boldsymbol{\alpha}_{\boldsymbol{i}}$, $a \boldsymbol{+} b \boldsymbol{=} c$,
+$\boldsymbol{\mathcal{F}} \subset \boldsymbol{\mathbb{R}}^{\boldsymbol{n}}$ and $\boldsymbol{\Sigma}$.
+\[ \boldsymbol{\nabla}\times\boldsymbol{B} = \mu_0\boldsymbol{J} + \mu_0\varepsilon_0 \frac{\partial \boldsymbol{E}}{\partial t}, \qquad \boldsymbol{\sum_{k} x_k} \]
+{\small In small: $\boldsymbol{v}\cdot\boldsymbol{w}$.}
+\end{document}

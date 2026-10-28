@@ -151,6 +151,8 @@ export interface MathOptions {
   frame?: (box: BoxNode) => BoxNode
   /** (internal) the formula's source, which text arguments are cut from */
   raw?: string
+  /** (internal) in \mathversion{bold} (\boldsymbol's argument) */
+  boldVersion?: boolean
   /** (internal) inside an alignment's cell (its \baselineskip and \lineskip are its own) */
   inAlignment?: boolean
   /** (internal) \arraystretch where it is not 1 (amsmath's cases: 1.2), as § 455 scans it */
@@ -711,6 +713,7 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
       }
       if (t.cs === "mbox" || t.cs === "text" || t.cs in TEXT_FONT_COMMANDS) {
         if (!opts.text) throw new Error(`math: \\${t.cs} without the text font`)
+        if (opts.boldVersion) throw new Error(`math: \\${t.cs} in \\boldsymbol`) // (its formulas would be in \mathversion{bold} too)
         const text = opts.text, src = rawArgument(t.cs), decl = TEXT_FONT_COMMANDS[t.cs]
         const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null })
         if (t.cs === "mbox" || !opts.amsmath) { out.push(box(text(src, 0, null, decl))); continue } // \leavevmode\hbox{#1}; \nfss@text: {\mbox{<decl>#1}}
@@ -783,6 +786,14 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         continue
       }
       if (t.cs === "relax") continue
+      if (opts.amsmath && t.cs === "boldsymbol") { // amsbsy: {\mathversion{bold}\math@atom{#1}{\mathchoice{\hbox{$\m@th\displaystyle#1$}}…}}
+        const arg = argument(), fs = finsmash
+        const choice = palette((st) => [{ noad: ORD, sup: null, sub: null, nucleus: { kind: "hmath", bold: true, list: [{ kind: "style", style: st }, ...parseTokens(arg, data, { ...opts, dollarNext: true, boldVersion: true, finsmash: fs }, -1)] } }])
+        // (\binrel@ measures in the bold fonts: the sign, from the spacing alone, is the same)
+        const b = binrel(arg, { noad: ORD, nucleus: null, sup: null, sub: null })
+        out.push(b.noad === ORD ? groupNoad([choice]) : { noad: b.noad, nucleus: groupField([choice]), sup: null, sub: null })
+        continue
+      }
       if (t.cs === " ") { // \  in math: append_normal_space (§ 1041), the interword glue of the current font
         if (!opts.font) throw new Error("math: \\  without the current font")
         out.push(glue(opts.font.params[2], opts.font.params[3], 0, opts.font.params[4], 0)); continue

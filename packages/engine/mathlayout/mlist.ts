@@ -36,7 +36,7 @@ export type Field =
   | { kind: "big"; delim: Delimiter; height: number } | { kind: "big"; delim: Delimiter; factor: [number, number] }
   /** \hbox{$\m@th<style>{…}$}, as \mathpalette's \mathsm@sh and \mathph@nt set it: `list` from the style node on; then
    *  \smash's \finsm@sh (zero height, depth or both) or \phantom's \finph@nt (an empty box with its height and depth, width) */
-  | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh"; /** \llap, \rlap, \clap: \hbox to\z@ with \hss */ lap?: "l" | "r" | "c" }
+  | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh"; /** \llap, \rlap, \clap: \hbox to\z@ with \hss */ lap?: "l" | "r" | "c"; /** in \mathversion{bold} */ bold?: boolean }
   /** amsmath's \boxed: \fbox{\m@th$\displaystyle#1$}, `frame` the \fbox around \hbox{\kern\fboxsep{…}\kern\fboxsep} */
   | { kind: "boxed"; list: () => MItem[]; frame: (box: BoxNode) => BoxNode }
   /**
@@ -161,6 +161,8 @@ export interface MathEnv {
   /** \arrayrulewidth and \doublerulesep, for an array's | */
   arrayrulewidth?: number
   doublerulesep?: number
+  /** the same in \mathversion{bold} */
+  bold?: () => MathEnv
   /** \strutbox's height and depth */
   strut?: { height: number; depth: number }
   /** called for a character the font lacks (char_warning) */
@@ -533,7 +535,8 @@ class Converter {
 
   /** Field "hmath": the formula in an \hbox, then smashed or a phantom */
   hmath(n: Extract<Field, { kind: "hmath" }>): BoxNode {
-    const math: Node[] = [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list, TEXT, false), { kind: "math", on: false, width: 0 }]
+    if (n.bold && !this.env.bold) throw new Error("math: \\boldsymbol without the bold fonts")
+    const math: Node[] = [{ kind: "math", on: true, width: 0 }, ...new Converter(n.bold ? this.env.bold!() : this.env).convert(n.list, TEXT, false), { kind: "math", on: false, width: 0 }]
     if (n.lap) return hpack([...(n.lap !== "r" ? [ssGlue()] : []), ...math, ...(n.lap !== "l" ? [ssGlue()] : [])], { exactly: 0 })
     const b = hpack(math)
     if (n.smash) { if (n.smash !== "b") b.height = 0; if (n.smash !== "t") b.depth = 0; return b }

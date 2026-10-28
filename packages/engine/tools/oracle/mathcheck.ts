@@ -85,7 +85,7 @@ const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "b
   ..."longrightarrow Longrightarrow longleftarrow Longleftarrow longleftrightarrow Longleftrightarrow mapsto longmapsto hookrightarrow hookleftarrow iff models bowtie".split(" ")]
 const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby", "iint", "iiint", "iiiint", "idotsint", "iint\\limits", "idotsint\\limits"]
 const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "overrightarrow", "overleftarrow", "overbrace", "underbrace", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
-const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]", "overleftrightarrow", "underrightarrow", "underleftarrow", "underleftrightarrow", "xrightarrow", "xleftarrow", "xrightarrow[x+y]", "xleftarrow[\\alpha]", "xrightarrow[]"]
+const AMS_ARG_COMMANDS = ["pod", "mod", "boldsymbol", "boldsymbol", "smash[t]", "smash[b]", "smash[tb]", "overleftrightarrow", "underrightarrow", "underleftarrow", "underleftrightarrow", "xrightarrow", "xleftarrow", "xrightarrow[x+y]", "xleftarrow[\\alpha]", "xrightarrow[]"]
 /** mathtools's \DeclarePairedDelimiter'd commands (the engine reads them as preamble.ts writes them: \LXpaired) */
 const PAIRED = [["pdA", "\\lvert", "\\rvert"], ["pdB", "\\lVert", "\\rVert"], ["pdC", "(", ")"], ["pdD", ".", "\\rangle"]]
 const paired = (f: string) => PAIRED.reduce((x, [n, l, r]) => x.replace(new RegExp(`\\\\${n}(?![A-Za-z])`, "g"), `\\LXpaired{${l}}{${r}}`), f)
@@ -102,7 +102,7 @@ const AMS_ACCENTS = "Hat Check Tilde Acute Grave Dot Ddot Breve Bar Vec".split("
 function generator(r: () => number, pool: number[], busy: number[], symbols: (ams: boolean) => string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   // (mathtools's dcases and rcases only outside alignments: inside one, their \openup goes on its \baselineskip)
-  let aligned = 0
+  let aligned = 0, bold = 0
   const cell = (depth: number): Item[] => { aligned++; try { return list(depth, 2, true) } finally { aligned-- } }
   // (amsmath's \colon, \nobreak\mskip2mu\mathpunct{}…, is no script: a command, with the others)
   const char = (): Nucleus & Script => {
@@ -126,7 +126,7 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
         thickness: cs.startsWith("above") || cs === "genfrac" ? pick(["", "0pt", "0.4pt", "1pt", "2.5pt"].slice(cs === "genfrac" ? 0 : 1)) : undefined,
         style: cs === "genfrac" ? pick(["", "0", "1", "2", "3"]) : cs === "cfrac" ? pick(["", "[l]", "[r]", "[c]"]) : undefined }
     }
-    if (x >= 0.6 && x < 0.63) {
+    if (x >= 0.6 && x < 0.63 && bold === 0) { // (no text in \boldsymbol: its formulas would be bold too)
       const word = () => pick(["if", "and", "for all", "x", "max", "a b", "fi", "--", "$x$", "$y^2$ and", "\\textbf{B}", "AV", "1,2"])
       return { kind: "text", cs: pick([...TEXT_COMMANDS, ...(ams() ? ["text", "text", "text"] : [])]), text: Array.from({ length: 1 + Math.floor(r() * 3) }, word).join(pick([" ", "", " "])) }
     }
@@ -140,7 +140,11 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
       const cs = pick(["overline", "underline", "sqrt"] as const)
       return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: rootIndex(depth + 1) } : {}) }
     }
-    if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS, ...MT_ARG] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
+    if (depth < 3 && x >= 0.37 && x < 0.39) {
+      const cs = pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS, ...MT_ARG] : ARG_COMMANDS)
+      if (cs === "boldsymbol") bold++
+      try { return { kind: "cmd", cs, arg: list(depth + 1, 3, true) } } finally { if (cs === "boldsymbol") bold-- }
+    }
     if (depth < 3 && x >= 0.66 && x < 0.69) { // LaTeX's array (a preamble of c, l, r, | and @-expressions) and amsmath's cases
       const cases = ams() && r() < 0.4
       if (!cases && ams() && r() < 0.3) { // amsmath's \substack and subarray: one column of script-style rows
@@ -222,7 +226,7 @@ function print(items: Item[]): string {
       : n.kind === "text" ? `\\${n.cs}{${n.text}}`
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "big" ? `\\${n.cs}${n.delim}`
-      : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.args ? n.args.map((a) => `{${print(a)}}`).join("") : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
+      : n.kind === "cmd" ? `${n.cs === "boldsymbol" ? "\\relax" : ""}\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.args ? n.args.map((a) => `{${print(a)}}`).join("") : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
       : n.kind === "alphabet" ? `\\${n.cs}{${print(n.items)}}`
       : n.kind === "matrix" && n.env === "substack" ? `\\substack{${n.rows.map((row) => print(row[0])).join("\\\\ ")}${n.cr ? "\\\\ " : ""}}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.preamble !== undefined ? `{${n.preamble}}` : ""}${n.rows.map((row) => row.map(print).join("&")).join(n.env === "array" ? "\\\\\\relax " : "\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env.replace(/\}.*/, "")}}` : ch(n)

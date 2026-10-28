@@ -126,6 +126,13 @@ export function siContext(k: ClassOptionData, size: SizeCommand, font: Font, opt
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
+  const env = mathEnvOf(k, size, amsmath)
+  // \mathversion{bold} (amsbsy's \boldsymbol): the same with the bold version's fonts
+  const b = k.sizes[size].boldMath, pk = mathFonts.packages
+  const used = (i: number) => i < 8 || (i === 11 ? pk.mathrsfs : pk.amsfonts) // (families 8–11 as the packages loaded give them)
+  return { ...env, bold: () => ({ ...env, fonts: [b.text, b.script, b.scriptscript].map((fs) => fs.map((f, i) => (used(i) ? loadFont(dataFont(f.name), f.at) : undefined))) }) }
+}
+function mathEnvOf(k: ClassOptionData, size: SizeCommand, amsmath: boolean): MathEnv {
   const m = amsmath || mathFonts.packages.amsfonts ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
   return {
     // families 0–3, then the math alphabets' (MATH_ALPHABETS), then the packages' (AMS_FONTS)
