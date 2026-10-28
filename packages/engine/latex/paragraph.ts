@@ -613,7 +613,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (lang.name === "spanish" && body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
     if (lang.name === "spanish" && shorthands) { // spanish.ldf's shorthands
       const sh = spanishShorthand(body.slice(i, i + 2))
-      if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
+      // ("< and "> in T1: \guillemotleft{}, its \chardef joining the run before, which the {} ends)
+      if (sh) { if (typeof sh === "string") text += sh; else if (!sh.quoting && germanT1.on) { text += sh.right ? "»" : "«"; flushText() } else { flushText(); out.push(sh) } i += 2; continue }
       // an active character's lookahead (an undelimited argument) skips the spaces after it: ~ x is ~x, < < is <<
       if (body[i] === "~" || !spanishQuoting.off && (body[i] === "<" || body[i] === ">")) {
         let j = i + 1
