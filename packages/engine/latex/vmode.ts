@@ -16,6 +16,7 @@ import { centering, raggedleft, raggedright } from "./kernel"
 import { BODY_DECLARATIONS, closingBrace, fontDeclaration, noteSubstitution, paragraphInput, selectFont, SKIP_AMOUNTS, type FontAttrs } from "./paragraph"
 import { groupStart, NO_ARGUMENT } from "./source"
 import { LEADING_COLOR, leadingColor } from "./colors"
+import { colorPop } from "./xcolor"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
@@ -166,9 +167,12 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, mo: Materi
     // the declarations each had before it; a text font command's \check@icr does not come, \nocorr)
     const segs = gcr ? gcr.chain.map((g, n) => ({ ...g, text: src.slice(g.body, gcr!.chain[n + 1]?.start ?? gcr!.at) })) : []
     for (const g of segs) if (g.cmd && !g.text.trim()) throw new Unsupported("\\\\ first in a text font command's argument")
-    // (a color's pop comes where its group ends, after the \par)
-    if (segs.some((g) => /\\color(?![A-Za-z])/.test(g.text))) throw new Unsupported("\\\\ in a \\color group")
-    const text = ending ? `${before}{${ending.inner}}` : gcr ? before + segs.map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${g.text}`).join("") + segs.map((g) => (g.cmd ? "\\nocorr}" : "}")).join("") : before
+    // (a color's push in this paragraph, or on the vertical list before it, and its pop where its group ends, after the
+    // \par: \textcolor's, or a \color that starts its group)
+    const colorOf = (g: (typeof segs)[number]) => g.color ?? g.text.match(/^\s*\\color(?![A-Za-z])\s*((?:\[[^\]{}]*\])?\s*\{[^{}]*\})/)?.[1] ?? null
+    for (const g of segs) if (/\\color(?![A-Za-z])/.test(g.color === undefined && colorOf(g) ? g.text.replace(/^\s*\\color(?![A-Za-z])/, "") : g.text)) throw new Unsupported("\\\\ in a \\color group")
+    const opening = (g: (typeof segs)[number]) => g.color !== undefined ? `{\\LXtextcolornopop${g.color} ${g.text}` : `${g.cmd ? `\\${g.cmd}` : ""}{${colorOf(g) ? g.text.replace(/^(\s*)\\color(?![A-Za-z])/, "$1\\LXcolornopop") : g.text}`
+    const text = ending ? `${before}{${ending.inner}}` : gcr ? before + segs.map(opening).join("") + segs.map((g) => (g.cmd ? "\\nocorr}" : "}")).join("") : before
     const end = topDeclarations(before).reduce((s, d) => declare(cx, s, d), st)
     const parEnd = [ending?.inner ?? "", ...segs.map((g) => g.text)].reduce((e, t) => topDeclarations(t).reduce((s, d) => declare(cx, s, d), e), end)
     if (parEnd.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
@@ -184,8 +188,11 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, mo: Materi
       if (gcr.skip !== undefined) { const outer = st; st = parEnd; v.vskip(skip(gcr.skip)); st = outer }
       // (groups that end right after it end in vertical mode: the paragraph starts after them)
       let open = segs.length, after = gcr.end
-      while (open > 0 && !src.slice(after, closingBrace(src, segs[open - 1].body - 1)).trim()) after = closingBrace(src, segs[--open].body - 1) + 1
-      src = segs.slice(0, open).map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${topDeclarations(g.text).map((d) => `\\${d} `).join("")}`).join("") + src.slice(after).replace(/^\s+/, "")
+      while (open > 0 && !src.slice(after, closingBrace(src, segs[open - 1].body - 1)).trim()) {
+        after = closingBrace(src, segs[--open].body - 1) + 1
+        if (colorOf(segs[open])) v.nodes.push(colorPop()) // (\reset@color in vertical mode)
+      }
+      src = segs.slice(0, open).map((g) => { const c = colorOf(g); return `${g.cmd ? `\\${g.cmd}` : ""}{${c ? `\\LXcolorpushed${c} ` : ""}${topDeclarations(g.text).map((d) => `\\${d} `).join("")}` }).join("") + src.slice(after).replace(/^\s+/, "")
       i = 0
       reopened = open > 0
     }
@@ -237,15 +244,16 @@ function commandBefore(src: string, from: number, open: number): { name: string;
 
 /** a \\ in groups of a paragraph's text: the groups it is in, outermost first (each one's text font command or a plain
  *  group, where that starts, and where its text starts), and the \\ (where, where it and its * and [skip] end) */
-interface GroupCr { chain: { cmd: string | null; start: number; body: number }[]; at: number; end: number; star: boolean; skip?: string }
+interface GroupCr { chain: { cmd: string | null; start: number; body: number; /** \textcolor's [model]{spec} */ color?: string }[]; at: number; end: number; star: boolean; skip?: string }
 
 /** the \\ in the group that opens at `open` (text from `from` before it), if it is in plain groups and text font
  *  commands' arguments only (not a box's, a footnote's …) */
 function groupCr(src: string, from: number, open: number): GroupCr | null {
   const head = commandBefore(src, from, open)
-  if (head && !(TEXT_FONT_COMMANDS.has(head.name) && !head.args) && !(NO_ARGUMENT.has(head.name) && !head.args) && ARITY[head.name] !== head.args) return null
+  const textcolor = head?.name === "textcolor" && head.args === 1 // (its text's group)
+  if (head && !textcolor && !(TEXT_FONT_COMMANDS.has(head.name) && !head.args) && !(NO_ARGUMENT.has(head.name) && !head.args) && ARITY[head.name] !== head.args) return null
   const cmd = head && TEXT_FONT_COMMANDS.has(head.name) && !head.args ? head.name : null
-  const level = { cmd, start: cmd ? head!.at : open, body: open + 1 }
+  const level = { cmd, start: cmd || textcolor ? head!.at : open, body: open + 1, ...(textcolor ? { color: src.slice(head!.at + "\\textcolor".length, open).trim() } : {}) }
   const close = closingBrace(src, open)
   for (let k = open + 1; k < close; ) {
     if (src[k] === "{") {

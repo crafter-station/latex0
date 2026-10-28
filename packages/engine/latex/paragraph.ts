@@ -390,7 +390,8 @@ type Piece =
    *  (`otherstar`, `endotherstar`); \foreignlanguage{lang}{…} */
   | { kind: "babel"; what: "select" | "other" | "endother" | "otherstar" | "endotherstar"; lang: string } | { kind: "foreign"; lang: string; inner: Piece[] } | { kind: "lstinline"; n: number } | { kind: "verb"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "tikz"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
-  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean; /** a \color after other things in its group, its push not on the vertical list */ declared?: boolean }
+  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean; /** a \color after other things in its group, its push not on the vertical list */ declared?: boolean
+      /** its group goes on past the paragraph's end (a \\ in it): no pop here */ open?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
@@ -777,13 +778,13 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     const ru = body.slice(i).match(/^\\rule(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{([^{}]*)\}/)
     if (ru) { flushText(); out.push({ kind: "rule", raise: ru[1] ?? "0pt", width: ru[2], height: ru[3] }); i += ru[0].length; continue }
     // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
-    const tc = body.slice(i).match(/^\\textcolor(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{/) ?? body.slice(i).match(/^\{\\(?:color|LXcolorpushed)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
+    const tc = body.slice(i).match(/^\\textcolor(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{/) ?? body.slice(i).match(/^\{\\(?:color|LXcolorpushed|LXcolornopop|LXtextcolornopop|LXcolorcarried)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
     if (tc) {
       const open = i + tc[0].length - (tc[0].startsWith("{") ? tc[0].length : 1)
       let depth = 0, j = open
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced color group")
-      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, group), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
+      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, group), ...(/^\{\\LXcolor(?:pushed|carried)/.test(tc[0]) ? { pushed: true } : {}), ...(/^\{\\LX(?:text)?color(?:nopop|carried)/.test(tc[0]) ? { open: true } : {}) }); i = j + 1; continue
     }
     const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
     if (sz) {
@@ -1783,7 +1784,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.noteClub = noteClub
       ctx.color = outer
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
-      list.push({ kind: "whatsit", text: "\\special{color pop}" })
+      if (!p.open) list.push({ kind: "whatsit", text: "\\special{color pop}" })
     }
     else if (p.kind === "smuggle") {
       // \beamer@smuggle in horizontal mode: a \lastskip other than 0.0pt taken off before the nodes, put back after them

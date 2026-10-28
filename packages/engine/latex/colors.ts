@@ -7,8 +7,9 @@ import { SIZE_COMMANDS } from "../layout/classdata"
 import { COLOR_CMD, colorPush } from "./xcolor"
 
 /** a group that starts a paragraph's text and reads \color in vertical mode still: first in it, or after font
- *  declarations and size commands only (none of them starts the paragraph) */
-const LEAD = `^(\\s*\\{(?:\\s*\\\\(?:${[...BODY_DECLARATIONS, ...SIZE_COMMANDS].join("|")})(?![A-Za-z]))*\\s*\\\\)color(?![A-Za-z])`
+ *  declarations and size commands only (none of them starts the paragraph); \LXcolornopop: one a \\ ends the
+ *  paragraph in (vmode.ts) */
+const LEAD = `^(\\s*\\{(?:\\s*\\\\(?:${[...BODY_DECLARATIONS, ...SIZE_COMMANDS].join("|")})(?![A-Za-z]))*\\s*\\\\)(color|LXcolornopop)(?![A-Za-z])`
 export const LEADING_COLOR = new RegExp(LEAD)
 const LEADING_COLOR_ARGS = new RegExp(`${LEAD}\\s*(?:\\[([^\\]{}]*)\\])?\\s*\\{([^{}]*)\\}`)
 
@@ -17,8 +18,8 @@ const LEADING_COLOR_ARGS = new RegExp(`${LEAD}\\s*(?:\\[([^\\]{}]*)\\])?\\s*\\{(
 export function leadingColor(cx: Ctx, text: string): string {
   const { colorSpec, v } = cx
   const m = text.match(LEADING_COLOR_ARGS)!
-  v.nodes.push(colorPush(colorSpec(m[3], m[2])))
-  return text.replace(LEADING_COLOR, "$1LXcolorpushed")
+  v.nodes.push(colorPush(colorSpec(m[4], m[3])))
+  return text.replace(LEADING_COLOR, m[2] === "color" ? "$1LXcolorpushed" : "$1LXcolorcarried") // (a \\ in it ends the paragraph: no pop)
 }
 
 /** a listings style's \color commands, as their \special texts */
