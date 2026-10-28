@@ -16,6 +16,7 @@ import { babelState } from "./babel"
 import type { Ctx } from "./context"
 import { appendText } from "./encodings"
 import { babelGuillemet } from "./portuguese"
+import { germanShorthand } from "./german"
 import { fontAt, selectFont } from "./paragraph"
 import { Unsupported } from "./unsupported"
 
@@ -155,10 +156,18 @@ export function frenchCaptionStart(cx: Ctx, name: string, number: string, roman:
 }
 
 /** text typeset as characters alone (a caption, a list's label, a mark) where french's active ; : ! ? would add their
- *  spaces, or babel-german's " its shorthands: not modeled (`loaded`: the language is loaded, which one is selected where
- *  the text is typeset not known) */
-export function frenchTextGuard(text: string, loaded = false): void {
+ *  spaces, or babel-german's " its shorthands other than the letters ("a, "s …): not modeled (`loaded`: the language is
+ *  loaded, which one is selected where the text is typeset not known). Returns the text with those letters. */
+export function frenchTextGuard(text: string, loaded = false): string {
   const on = (lang: string) => (loaded ? !!babelState.b?.languages.includes(lang) : babelState.lang === lang)
   if (on("french") && /[;:!?]/.test(text)) throw new Unsupported(`french's ; : ! ? in "${text}"`)
-  if ((on("german") || on("ngerman")) && text.includes('"')) throw new Unsupported(`babel-german's " in "${text}"`)
+  if (!on("german") && !on("ngerman")) return text
+  // (loaded: the main language's, when the body selects no other outside a paragraph)
+  const lang = loaded ? babelState.switches ? null : babelState.b!.main : babelState.lang
+  if (lang !== "german" && lang !== "ngerman" && text.includes('"')) throw new Unsupported(`babel-german's " in "${text}"`)
+  return text.replace(/"(.?)/g, (two) => {
+    const sh = /^"[A-Za-z]$/.test(two) ? germanShorthand(two, lang!) : null
+    if (typeof sh !== "string") throw new Unsupported(`babel-german's " in "${text}"`)
+    return sh
+  }).normalize("NFC") // (as UTF-8 input: a paragraph reads it too)
 }

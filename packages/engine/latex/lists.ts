@@ -249,7 +249,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
     if (b.thm!.note !== null) {
       if (/[\\{}$%&#^_~]/.test(b.thm!.note)) throw new Unsupported(`theorem note "${b.thm!.note}"`)
       l.push(spaceGlue(hf, st.spaceFactor)); st.spaceFactor = 1000
-      appendText(l, `(${b.thm!.note})`, note, st, false)
+      appendText(l, `(${frenchTextGuard(b.thm!.note)})`, note, st, false) // (babel-german's letters typeset)
     }
     appendText(l, ".", hf, st, false)
     l.push(glue(5 * 65536, 65536, 0, 65536, 0))
@@ -313,8 +313,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   // what declarations in the environment's text set (center, flushleft, flushright, quote, quotation, verse)
   let envState: DeclState = { size: ctx.size, attrs: bodyAttrs ?? cx.normalAttrs, align: null }, declared = false
   let bibItemStart = 0 // (where the item's material starts)
-  b.items.forEach(({ label: given, parts }, i) => {
-    if (given) frenchTextGuard(given)
+  b.items.forEach(({ label: written, parts }, i) => {
+    const given = written && frenchTextGuard(written) // (babel-german's letters typeset)
     // (babel's otherlanguage over an item's paragraphs: what its end restores is not modeled in a list)
     if (parts.some((p) => p.kind === "text" && languageGroups(p.text).closed)) throw new Unsupported("otherlanguage over an item's paragraphs")
     run.hyperItem = hyper && (b.env === "enumerate" || b.env === "thebibliography" && !natbib) // hyperref's \item: \if@nmbrlist (natbib's has no \usecounter)

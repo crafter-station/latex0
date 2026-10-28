@@ -1,0 +1,25 @@
+% fixture: babel/german-caption-package
+% tier: T3
+% engine: document
+% covers: babel-german's letter shorthands in caption.sty's captions (one line, and a paragraph), OT1 (\"o's accent)
+% issue: #363
+\documentclass{article}
+\usepackage[german]{babel}
+\usepackage{caption}
+\begin{document}
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+a
+\end{tabular}
+\caption{Gr"o"se und "Ubertragung von M"uller}
+\end{table}
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+b
+\end{tabular}
+\caption{Ein langer Text "uber die Gr"o"se der Rechtsschutzversicherungsgesellschaften und die Stra"se nach M"unchen und noch mehr W"orter}
+\end{table}
+Text.
+\end{document}

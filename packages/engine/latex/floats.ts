@@ -58,10 +58,12 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
     return c
   }
   const text = clean(source.text), short = source.short === null ? null : clean(source.short)
-  if (cx.pre.babel?.main !== "french") frenchTextGuard(text) // (french's own \FB@makecaption reads the text as a paragraph does)
+  // (french's own \FB@makecaption reads the text as a paragraph does; babel-german's letters ("a, "s …) pass: the text
+  // is read as a paragraph's, and the list of figures and nameref's name have it as written)
+  if (cx.pre.babel?.main !== "french") frenchTextGuard(text)
   if (cx.pre.usesCaption) {
     if (text === "") throw new Unsupported("an empty caption with caption.sty") // (\caption@xdblarg's [\relax])
-    return captionPackage(cx, env, { text, short, star: source.star }, hsize, out, sub)
+    return captionPackage(cx, env, { text, short, star: source.star }, hsize, out, sub) // (its text read as a paragraph's)
   }
   if (source.star) throw new Unsupported("\\caption* without caption.sty")
   const number = ++counters[env]

@@ -92,8 +92,7 @@ export function pageMarks(pages: Shipped[]): { left: MarkValue | undefined; righ
 export function markText(m: MarkValue | undefined, font: Font): Node[] {
   const out: Node[] = [], state = { spaceFactor: 1000 }
   for (const p of m?.parts ?? []) {
-    if ("text" in p) frenchTextGuard(p.text, true)
-    if ("text" in p) appendText(out, m!.upper ? sourceText(p.text).toUpperCase() : sourceText(p.text), font, state, false)
+    if ("text" in p) { const t = frenchTextGuard(p.text, true); appendText(out, m!.upper ? sourceText(t).toUpperCase() : sourceText(t), font, state, false) } // (babel-german's letters, then \MakeUppercase)
     else if ("ctrl" in p) out.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], 0, font.params[SPACE_SHRINK], 0)) // \
     else out.push(glue(font.params[QUAD])) // \hskip 1em
   }

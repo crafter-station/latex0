@@ -1,0 +1,26 @@
+% fixture: babel/german-captions
+% tier: T3
+% engine: document
+% covers: babel-german's letter shorthands ("o "U "s "S) in a caption \sbox'ed as characters and in one too wide for a line (a paragraph), and the list of tables reading them back
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\begin{document}
+\listoftables
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+a
+\end{tabular}
+\caption{Gr"o"se und "Ubertragung von M"uller, STRA"SE}
+\end{table}
+\begin{table}[h]
+\centering
+\begin{tabular}{l}
+b
+\end{tabular}
+\caption{Ein langer Text "uber die Gr"o"se der Rechtsschutzversicherungsgesellschaften und die Stra"se nach M"unchen und noch mehr W"orter}
+\end{table}
+Text.
+\end{document}

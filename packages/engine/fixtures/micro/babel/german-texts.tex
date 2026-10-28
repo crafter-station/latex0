@@ -1,0 +1,26 @@
+% fixture: babel/german-texts
+% tier: T3
+% engine: document
+% covers: babel-german's letter shorthands in text typeset as characters: a description label, an amsthm theorem's note, and running heads (\MakeUppercase after the shorthand: "s is "S, SS); "- in \texttt (LaTeX's \- with \defaulthyphenchar where \hyphenchar is -1); a paragraph ending in "> and a space (OT1's \bbl@allowhyphens glue stays, the space goes)
+% issue: #363
+\documentclass{article}
+\usepackage[ngerman]{babel}
+\usepackage{amsthm}
+\newtheorem{satz}{Satz}
+\pagestyle{headings}
+\begin{document}
+\section{Gr"o"se und Ma"sstab}
+\begin{description}
+\item[Gr"o"se] eine Beschreibung von M"uller.
+\item[F"ur "Ubertragung] noch eine.
+\end{description}
+\begin{satz}[nach M"uller]
+Ein Satz "uber die Gr"o"se.
+\end{satz}
+\texttt{Rechtsschutz"-versicherungs"-gesellschaften und Rechtsschutz"-versicherungs"-gesellschaften und noch mehr Text}
+und so weiter "<aus">
+und "<ein">
+
+\newpage
+Text auf der zweiten Seite.
+\end{document}

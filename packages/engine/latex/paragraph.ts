@@ -349,8 +349,9 @@ export interface ParagraphOptions {
  */
 export const squeeze = (t: string): string => {
   const s = t.replace(/\s+/g, " ").replace(/^ /, "")
-  // a space after } or ~ is glue \par removes in place of what comes before it, and so is a control space (\␣)
-  return /[}~] $|(^|[^\\])(\\\\)*\\ $/.test(s) ? s : s.replace(/ $/, "")
+  // a space after } or ~ is glue \par removes in place of what comes before it, and so is a control space (\␣) and a
+  // space after babel's two-character shorthands ("> and "= end in \bbl@allowhyphens' \hskip\z@skip)
+  return /[}~] $|"\S $|(^|[^\\])(\\\\)*\\ $/.test(s) ? s : s.replace(/ $/, "")
 }
 
 /** Where the group opened at `open` closes (braces nest, \{ and \} do not count). */

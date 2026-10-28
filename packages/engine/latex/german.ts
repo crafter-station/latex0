@@ -69,7 +69,7 @@ export function germanShorthandNodes(sh: string, enc: string, k: ClassOptionData
   if (atStart) throw new Unsupported(`german's "${sh} starting a paragraph`) // (\ifvmode: no \nobreak)
   out.push(penalty(10000))
   const hyphen = font.hyphenChar ?? 45
-  if (sh === "-") out.push({ kind: "disc", pre: [charNode(font, hyphen)], post: [], replaceCount: 0 })
+  if (sh === "-") out.push({ kind: "disc", pre: [charNode(font, hyphen < 0 ? 45 : hyphen)], post: [], replaceCount: 0 }) // (LaTeX's \-: \defaulthyphenchar for a negative \hyphenchar)
   else if (sh === "=") appendText(out, "-", font, state, paragraph)
   else if (sh === "~") { const l: Node[] = []; appendText(l, "-", font, { spaceFactor: 1000 }, false); out.push(hpack(l)) }
   else if (sh === "\"") out.push({ kind: "disc", pre: [], post: [], replaceCount: 0 })
