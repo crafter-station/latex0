@@ -216,6 +216,7 @@ export function readPreamble(src: string): Preamble {
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
   const lengths: [string, string, PreambleFont][] = [] // \setlength in the preamble (and the font selected by then: its em and ex)
   let usesArray = false
+  let raggedbottom: number | null = null
   let usesFloat = false // float.sty (algorithm.sty loads it)
   let parskip = false
   let usesSiunitx = false
@@ -445,6 +446,8 @@ export function readPreamble(src: string): Preamble {
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     if (fancy && fancyCommand(fancy, line)) continue
     if (titlesec && titleformat(titlesec, line)) continue
+    // \raggedbottom (\@textbottom \vskip\z@\@plus.0001fil) and \flushbottom (\relax)
+    if ((line === "\\raggedbottom" || line === "\\flushbottom") && cls !== "letter") { raggedbottom = line === "\\raggedbottom" ? 1 : 0; continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings|myheadings|fancy)\}$/)
     if (m && m[1] === "myheadings" && cls === "letter") throw new Unsupported("\\pagestyle{myheadings} in a letter")
     // (\ps@myheadings: \sectionmark and friends \@gobble, the heads \ps@headings's, from \markboth and \markright alone)
@@ -492,6 +495,7 @@ export function readPreamble(src: string): Preamble {
   // \begin{document}: \columnwidth\textwidth, in two columns \advance\columnwidth-\columnsep \divide\columnwidth\tw@
   if (k.ints.twocolumn) k = { ...k, dimens: { ...k.dimens, columnwidth: Math.trunc((k.dimens.textwidth - k.dimens.columnsep) / 2) } }
   if (usesArray && !k.array) k = { ...k, array: { extrarowheight: 0 } }
+  if (raggedbottom !== null) k = { ...k, ints: { ...k.ints, raggedbottom } }
   let caption: CaptionSetup | null = null
   if (usesCaption) {
     caption = { keys: captionDefaults(!!k.ints.twoside), lists: {} }

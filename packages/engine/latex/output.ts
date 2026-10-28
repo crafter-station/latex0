@@ -39,7 +39,7 @@ export interface Float {
 
 /** A column as \@makecol leaves it: text with its top and bottom floats, or a column of floats (\@vtryfc, with the
  *  two-column float page's skips when `dbl`); `colht` is \@colht then, the height of its \vbox */
-type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[]; /** \@kludgeins (\enlargethispage) on the page */ kludge?: BoxNode } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number; /** \columnwidth then (the footnote rule's) */ columnwidth: number }
+type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[]; /** \@kludgeins (\enlargethispage) on the page */ kludge?: BoxNode; /** \@textbottom */ raggedbottom: boolean } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number; /** \columnwidth then (the footnote rule's) */ columnwidth: number }
 /** What the output routine ships: a column (one-column mode, or a page of two-column floats), or two columns side by
  *  side with the two-column floats above them (\@outputdblcol, \@combinedblfloats) */
 type ShippedContent = Column | { kind: "dbl"; left: Column; right: Column; dbltop: BoxNode[] }
@@ -55,6 +55,7 @@ export type Shipped = ShippedContent & {
 
 /** Assignments the document makes to the output routine's state. */
 export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman" | "arabic" | "onecolumn" | "twocolumn"
+  | "raggedbottom" | "flushbottom" | "suppress" | "suppress-t" | "suppress-b"
   /** \cleardoublepage's \ifodd\c@page\else\hbox{}\newpage: the material, put in only when the next page is even */
   | { cleardouble: Node[] }
   /** \@topnewpage: \twocolumn's optional argument in its box, for the top of the page (\@dbltoplist) */
@@ -107,6 +108,7 @@ export class LatexOutput {
     this.colroom = k.dimens.textheight
     this.vsizeNow = k.dimens.textheight
     this.twocolumn = twocolumn
+    this.raggedbottom = !!k.ints.raggedbottom
     this.floatplacement() // (\begin{document}'s; its \@dblfloatplacement is redone before any two-column float is placed)
   }
 
@@ -332,7 +334,7 @@ export class LatexOutput {
   /** \@makecol: the column, with the floats it holds (the lists are emptied) */
   private makecol(page: Page): Column {
     const kludge = page.inserts[KLUDGEINS]
-    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht, columnwidth: this.columnwidth, ...(kludge ? { kludge: vpack(kludge.slice()) } : {}) }
+    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht, columnwidth: this.columnwidth, raggedbottom: this.raggedbottom, ...(kludge ? { kludge: vpack(kludge.slice()) } : {}) }
     this.toplist = []; this.botlist = []; this.midlist = []
     return c
   }
@@ -439,7 +441,10 @@ export class LatexOutput {
       return h.clearpage
     }
     if (typeof h === "object") return this.page % 2 === 0 ? h.cleardouble : []
-    if (h === "notop") this.topnum = 0
+    if (h === "notop" || h === "suppress-t") this.topnum = 0
+    else if (h === "suppress-b") this.botnum = 0
+    else if (h === "suppress") this.colnum = 0
+    else if (h === "raggedbottom" || h === "flushbottom") this.raggedbottom = h === "raggedbottom"
     else if (h === "onecolumn" || h === "twocolumn") { // after \onecolumn's or \twocolumn's \clearpage (the first column
       // then: \@firstcolumntrue holds already), \if@twocolumn and \@floatplacement
       this.twocolumn = h === "twocolumn"
@@ -464,6 +469,8 @@ export class LatexOutput {
     this.vsizeNow = this.colht; this.colroom = this.colht
     this.floatplacement()
   }
+  /** \@textbottom: \raggedbottom's \vskip\z@\@plus.0001fil, or \flushbottom's \relax */
+  private raggedbottom: boolean
   private numbering: "roman" | "arabic" = "arabic"
   private special: "plain" | "empty" | null = null
   private page = 1
@@ -552,7 +559,6 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
  * to\textheight); `column` is then the first column that has text.
  */
 export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false): { outputbox: BoxNode; column: Node[] | null }[] {
-  const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
   const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth, { floatsep, textfloatsep, dblfloatsep, dbltextfloatsep } = k.glue
   const makecol = (sh: Column, count: number): { outputbox: BoxNode; column: Node[] | null } => {
     if (sh.kind === "floats") {
@@ -563,6 +569,7 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
       return { outputbox: vpack(list, { exactly: sh.colht }), column: null }
     }
     const pg = sh.page
+    const textbottom: Node[] = sh.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
     let box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, maxDepth)
     const first = box255
     if (pg.outputPenalty === -10001) box255 = vpack([box255, filGlue()]) // \@doclearpage: \vbox{\box\@cclv\vfil}

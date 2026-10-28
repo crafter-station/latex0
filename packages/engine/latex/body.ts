@@ -101,11 +101,14 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
     // (\vspace*: \@vspacer's \hrule\@height\z@ \nobreak first, \prevdepth kept)
     // babel's \selectlanguage and otherlanguage's \begin and \end write to the .aux file there (\nobreak too)
-    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\enlargethispage\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
+    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\enlargethispage\s*\*?\s*\{[^{}]*\}|\\(?:raggedbottom|flushbottom|suppressfloats(?:\s*\[[tb]\])?)(?![A-Za-z])|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
     if (lead) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace, \\hrule or \\selectlanguage right after a run-in heading")
-      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}|\\enlargethispage\s*(\*?)\s*\{([^{}]*)\}/g)) {
-        if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7])) // (\@bsphack, \@esphack: nothing in vertical mode)
+      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}|\\enlargethispage\s*(\*?)\s*\{([^{}]*)\}|\\(raggedbottom|flushbottom|suppressfloats)(?:\s*\[([tb])\])?/g)) {
+        // \raggedbottom, \flushbottom (\@textbottom, for the columns made from now on), \suppressfloats[t|b] (\@colnum,
+        // \@topnum, \@botnum for the page being built)
+        if (m[9] !== undefined) v.nodes.push({ kind: "whatsit", text: "", hook: (m[9] === "suppressfloats" ? (m[10] ? `suppress-${m[10]}` : "suppress") : m[9]) as OutputHook })
+        else if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7])) // (\@bsphack, \@esphack: nothing in vertical mode)
         else if (m[4] !== undefined) {
           const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
           const { lang, write } = babelSwitch(what, m[6])

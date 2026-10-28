@@ -348,7 +348,8 @@ export function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  // (\raggedbottom, \flushbottom and \suppressfloats in vertical mode, before a paragraph: body.ts)
+  const check = (t: string) => { const m = t.replace(/^(?:\s*\\(?:raggedbottom|flushbottom|suppressfloats(?:\s*\[[tb]\])?)(?![A-Za-z]))+/, "").replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
