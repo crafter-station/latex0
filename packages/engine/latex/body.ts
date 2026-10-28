@@ -15,7 +15,7 @@ import { appendText, sourceText } from "./encodings"
 import { loadFont } from "../layout/font"
 import { dataFont } from "./data"
 import { crefWrites, labelWrite } from "./paragraph"
-import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
+import { bibliography, listOf, maketitle, tableOfContents, topnewpageBox } from "./frontmatter"
 import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
 import type { OutputHook } from "./output"
 import { markboth, markright, markValue } from "./marks"
@@ -55,6 +55,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
+  if (b.kind === "columns") { if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.two ? "two" : "one"}column right after a run-in heading`); columns(cx, b); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
   if (b.kind === "newpage") {
@@ -226,6 +227,27 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
   v.afterheadingEverypar = false
   v.endpePar = v.doendpe = v.endpeEverypar = true
+}
+
+/**
+ * \onecolumn and \twocolumn[…] (latex.ltx): \clearpage, then \columnwidth \textwidth (in two columns half of it less
+ * \columnsep), \hsize and \linewidth with it, \if@twocolumn, \@firstcolumntrue, and \@floatplacement, or \@topnewpage with
+ * the optional argument's material in its box
+ */
+function columns(cx: Ctx, b: Extract<Block, { kind: "columns" }>) {
+  const { run, v } = cx
+  if (cx.pre.cls === "letter") throw new Unsupported(`\\${b.two ? "two" : "one"}column in a letter`)
+  v.par()
+  clearpage(cx)
+  const k = run.k
+  run.k = { ...k, ints: { ...k.ints, twocolumn: b.two ? 1 : 0 }, dimens: { ...k.dimens, columnwidth: b.two ? Math.trunc((k.dimens.textwidth - k.dimens.columnsep) / 2) : k.dimens.textwidth } }
+  const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
+  v.nodes.push(hook(b.two ? "twocolumn" : "onecolumn"))
+  if (b.top === undefined) return
+  if (!b.two) throw new Unsupported("\\onecolumn[…]")
+  const top = blocksOf(b.top)
+  if (top.some((x) => x.kind !== "par" && x.kind !== "heading" && x.kind !== "list")) throw new Unsupported("\\twocolumn[…] with more than text, headings and lists")
+  v.nodes.push(hook({ topnewpage: topnewpageBox(cx, () => top.forEach((x, i, all) => processBlock(cx, x, i, all))) }))
 }
 
 /**

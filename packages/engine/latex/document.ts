@@ -154,7 +154,9 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   // (its .out file is \write3, or \write4 after pgf's \newwrite\w@pgf@writea: pgfsys.code.tex 67)
   const bookmarks = new Bookmarks(pre.tikz ? 4 : 3, pre.hyperOpts.bookmarksOpen ? "" : "-")
   /** the main vertical list's last node, as \lastskip and \lastnodetype see it (a hook is no node) */
-  const lastNode = () => v.nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
+  // (cx.v once there is a context: the list being built, the main one or a box's, \@topnewpage's)
+  let started = false
+  const lastNode = () => (started ? cx.v : v).nodes.findLast((x) => !(x.kind === "whatsit" && x.hook))
   // babel's \AtBeginDocument: \selectlanguage of the main language, its \write to the .aux file (before or after
   // hyperref's, as the packages were loaded)
   const babelStart = () => { if (pre.babel) v.nodes.push({ kind: "whatsit", text: babelAux(pre.babel.main) }) }
@@ -211,7 +213,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
     const { list, params, notes } = paragraphInput(counted(text, true), run.k, size, doc, { ...opts, amsmath })
     const { vlist, trace } = lineBreak(list, params)
     decisions.push(...notes, trace)
-    v.paragraph(vlist, parskip, run.k.sizes[opts?.parSize ?? size].baselineskip)
+    cx.v.paragraph(vlist, parskip, run.k.sizes[opts?.parSize ?? size].baselineskip)
   }
   const roman = run.k.sizes.normalsize.font
   // skips in ex are read in the body font (\@startsection evaluates them before the heading's font)
@@ -270,7 +272,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const counted = (text: string, inText = false): string => (countersInText = inText && /\\(?:set|addto|step|refstep)counter\b/.test(text), counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h
     if (refs.cleveref) refs.cleveref.current = counters.crefs.get(h)!
-    if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
+    if (hyper) cx.v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
   }))
   /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
   const esphackNobreaks = (nobreak: boolean): Node[] => [...(nobreak ? [penalty(10000)] : []), ...(nobreak || run.noskipsec ? [penalty(10000)] : [])]
@@ -301,12 +303,13 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   doc.parbox = (...a) => parboxAt(cx, ...a)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
   const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
+  started = true
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
 
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
   if (run.noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
   let built: ReturnType<typeof endDocument>
-  try { built = endDocument(v.nodes, run.k, outerParskip, v.prevDepth) } catch (e) {
+  try { built = endDocument(v.nodes, run.k, outerParskip, v.prevDepth, !!pre.k.ints.twocolumn) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
     throw e
   }
