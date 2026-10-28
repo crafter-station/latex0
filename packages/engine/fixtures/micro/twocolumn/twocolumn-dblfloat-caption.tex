@@ -1,0 +1,25 @@
+% fixture: twocolumn/twocolumn-dblfloat-caption
+% tier: T3
+% engine: document
+% specials: compare
+% covers: caption.sty in figure* and table*: a type's options read in \@xfloat's box before \@xdblfloat (\linewidth the column's), \captionsetup in the float after it (\linewidth the text's)
+% issue: #348
+\documentclass[twocolumn]{article}
+\usepackage{caption}
+\captionsetup[figure]{width=0.6\linewidth}
+\begin{document}
+Some text in the first column before the figures that go to the top of the next page.
+\begin{figure*}
+\vspace{40pt}
+\caption{A caption with its width from the column, so it runs over more than one line here}
+\end{figure*}
+\begin{table*}
+\captionsetup{width=0.5\linewidth}
+\caption{A caption half as wide as the text, long enough to be set as a paragraph of two lines}
+\vspace{30pt}
+\end{table*}
+\newpage
+Text in the second column.
+\newpage
+Text on the next page.
+\end{document}

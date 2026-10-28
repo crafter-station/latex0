@@ -412,7 +412,9 @@ function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figur
   run.floatCaption = { number: null, pending: false, sub: 0, top: null, subAbove: false }
   // caption.sty's \caption@settype: the float's option list (\caption@setoptions{figure}), its lengths as there
   const dim = (v: string) => parseDimen(v, { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT], internal: widthRegisters(cx, hsize) })
-  if (cx.pre.caption) { run.floatCaption.keys = copyKeys(cx.pre.caption.keys); runList(cx.pre.caption, b.env, run.floatCaption.keys, "list", dim, b.env) }
+  // (in \@xfloat's box, before \@xdblfloat sets \hsize and \linewidth to \textwidth: \linewidth is \columnwidth there)
+  const listDim = (v: string) => parseDimen(v, { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT], internal: widthRegisters(cx, run.k.dimens.columnwidth) })
+  if (cx.pre.caption) { run.floatCaption.keys = copyKeys(cx.pre.caption.keys); runList(cx.pre.caption, b.env, run.floatCaption.keys, "list", dbl ? listDim : dim, b.env) }
   // setspace's \@xfloat: \def\baselinestretch{\setspace@singlespace}\normalsize in the float
   const spaced = run.k
   if (single) run.k = singleSpaced(spaced)

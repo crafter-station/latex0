@@ -338,7 +338,7 @@ export function makeDocument(r: () => number): string {
   const cls = r() < 0.08 ? "letter" : pick(["article", "article", "report", "book"])
   isLetter = cls === "letter"
   // class options: the size, sometimes a paper and two-sided printing
-  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 && cls !== "letter" ? (cls === "book" ? "oneside" : "twoside") : "", r() < 0.15 && cls !== "letter" ? "twocolumn" : ""].filter(Boolean)
+  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", ...((x) => (cls === "letter" ? [] : x < 0.2 ? [cls === "book" ? "oneside" : "twoside"] : x < 0.35 ? ["twocolumn"] : []))(r())].filter(Boolean)
   const out = [`\\documentclass${copts.length ? `[${copts.join(",")}]` : ""}{${cls}}`]
   // graphics: EPS files the document writes before \documentclass (filecontents*, prepended at the end, since the
   // preamble's lines are spliced in after out[0]), and graphicx
