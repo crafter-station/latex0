@@ -15,8 +15,12 @@ import { hpack, vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { centering, sloppy } from "../kernel"
+import { pdfObjects } from "../../pgf/pdfforms"
 import type { Ctx } from "../context"
 import { DISPLAY } from "../blocks"
+import { graphicAt, type BoundingBox } from "../graphics"
+import type { Image } from "../images"
+import type { DocumentSource } from "../source"
 import { listParagraphWithDisplays } from "../displays"
 import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
 import { Unsupported } from "../unsupported"
@@ -103,7 +107,7 @@ export function bodyOf(body: string): BodyItem[] {
 
 /** What reading a frame's material needs: the class, the theme, the paragraphs' traces in the order TeX breaks them,
  *  and the frame's title and subtitle as \frametitle and \framesubtitle last set them */
-export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /** the date \today prints, in seconds since 1970 */ epoch: number
+export interface FrameCtx { k: ClassOptionData; /** what the source took out, the graphics files and the driver */ media: FrameMedia; theme: Theme; info: TitleInfo; /** the date \today prints, in seconds since 1970 */ epoch: number
   decisions: ParagraphTrace[]; title?: string; subtitle?: string
   /** a list ended (\@endpetrue) and no \par came since: the next paragraph loses its indentation box */
   endpe?: boolean
@@ -132,6 +136,40 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   /** pgf in the document (the inner themes' pictures and shadings) */
   pgf: BeamerPgf }
 
+/** What source.ts took out of the document's source (\LXgraphic{n} …), the graphics files' sizes and the driver */
+export interface FrameMedia { prepared: DocumentSource; images: Map<string, BoundingBox | Image>; driver: "dvips" | "pdftex"
+  /** pdfTeX: the images the run has \pdfximage'd (pdftex.def's global \csname <file> image<attributes>\endcsname), each one
+   *  object */
+  ximages?: Set<string>
+  /** and whether one of them is an image pdfTeX writes more objects for when a page ships (a PDF's, a PNG's palette
+   *  …), which the engine does not count */
+  ximageObjects?: boolean }
+
+/** What the article's layout of the material source.ts took out reads of its context, for a frame: the source's
+ *  pieces, the images and the driver, the class (\textwidth, the frame's or the column's) */
+function mediaCtx(cx: FrameCtx): Ctx {
+  const { prepared, images, driver } = cx.media
+  const partial = { graphics: prepared.graphics, images, driver, run: { k: cx.k } }
+  return partial as unknown as Ctx
+}
+
+/** \includegraphics number n (graphics.ts); with pdfTeX, a file not read before (by its name, page and box) is
+ *  \pdfximage'd: an object */
+function graphic(cx: FrameCtx, n: number, lineWidth: number, units: { em: number; ex: number }): Node[] {
+  const out = graphicAt(mediaCtx(cx), n, lineWidth, units)
+  const seen = cx.media.ximages
+  if (cx.media.driver !== "pdftex" || !seen) return out
+  const name = (function find(nodes: Node[]): string | undefined {
+    for (const x of nodes) if (x.kind === "hlist" || x.kind === "vlist") { const f = x.image ?? find(x.list); if (f) return f }
+  })(out)!
+  const options = cx.media.prepared.graphics[n].options.match(/\b(?:page|pagebox)\s*=[^,]*/g) ?? []
+  const key = [name, ...options.map((o) => o.replace(/\s/g, ""))].join(":")
+  if (!seen.has(key)) { seen.add(key); pdfObjects(cx.pgf.s) }
+  const image = cx.media.images.get(name)
+  if (image && "kind" in image && (image.kind === "pdf" || image.objects)) cx.media.ximageObjects = true
+  return out
+}
+
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
 
@@ -141,7 +179,9 @@ type FrameHandler = (cx: FrameCtx, v: FrameList, text: string) => string
 /** The text font: beamer's \familydefault is \sfdefault (OT1 cmss) */
 export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
-const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure"]
+const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure",
+  // (and the placeholders of what source.ts took out, which \leavevmode)
+  "LXgraphic"]
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
@@ -203,7 +243,8 @@ function adapted<T>(f: () => T): T {
 function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: string; doc: DocState; opts: ParagraphOptions } {
   plainText(text)
   // (\alert and \structure: \textcolor with the driver's spec)
-  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec } }
+  const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec },
+    graphic: (n, lineWidth, units) => graphic(cx, n, lineWidth, units) }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = alerts(cx, text), prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
@@ -320,7 +361,7 @@ function plainText(text: string) {
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\LXsmuggle\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\LX(?:smuggle|graphic)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 

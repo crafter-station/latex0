@@ -1,0 +1,25 @@
+% fixture: beamer/graphics-madrid-pdf
+% oracle: pdflatex
+% files: plain.png photo.jpg
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: images with Madrid's shadowed blocks (each \pdfximage an object, before the shadows' masks), an image in a block, the same image twice
+% issue: #361
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Images}
+\begin{document}
+\begin{frame}{An image}
+\includegraphics[width=3cm]{plain}
+\begin{block}{A block}
+An image in it: \includegraphics[height=1ex]{photo}
+\end{block}
+\end{frame}
+\begin{frame}{Again}
+\includegraphics[width=2cm]{plain}
+\begin{block}{Another block}
+Text.
+\end{block}
+\end{frame}
+\end{document}

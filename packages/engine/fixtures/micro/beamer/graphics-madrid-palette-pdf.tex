@@ -1,0 +1,25 @@
+% fixture: beamer/graphics-madrid-palette-pdf
+% oracle: pdflatex
+% files: palette.png photo.jpg
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: a PNG with a palette with Madrid's shadows: the palette's object pdfTeX writes when its page ships comes before the next page's masks (not counted: Unsupported)
+% issue: #361
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Images}
+\begin{document}
+\begin{frame}{An image}
+\includegraphics[width=3cm]{palette}
+\begin{block}{A block}
+An image in it: \includegraphics[height=1ex]{photo}
+\end{block}
+\end{frame}
+\begin{frame}{Again}
+\begin{block}{Another block}
+Text.
+\end{block}
+\includegraphics[width=2cm]{palette}
+\end{frame}
+\end{document}
