@@ -10,7 +10,7 @@ import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
 import { parseDimen, type GlueSpec } from "../../layout/dimen"
 import { QUAD, X_HEIGHT } from "../../layout/font"
 import { lineBreak } from "../../layout/linebreak"
-import { emptyBox, FILL, glue, penalty, type BoxNode, type Node } from "../../layout/nodes"
+import { emptyBox, FILL, filGlue, glue, penalty, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
@@ -24,9 +24,9 @@ import type { Booktabs } from "../tabular"
 import type { Image } from "../images"
 import type { DocumentSource } from "../source"
 import { listParagraphWithDisplays } from "../displays"
-import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
+import { hlistInput, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
 import { Unsupported } from "../unsupported"
-import { addGlue, LOW_PENALTY, negate, plain, VerticalList } from "../vlist"
+import { addGlue, dimen, LOW_PENALTY, negate, plain, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
 import { frameColumns } from "./columns"
@@ -35,7 +35,7 @@ import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colo
 import { frameTitle } from "./frametitle"
 import { envEnd, frameList, LIST_BEGIN, listSource, type ListKind } from "./lists"
 import type { TitleInfo } from "./preamble"
-import { outerColors, useColor, type Theme } from "./theme"
+import { fontSize, outerColors, useColor, type Theme } from "./theme"
 import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
 import { tableOfContents, type TocEntry } from "./sections"
 import { titlePage } from "./titlepage"
@@ -135,6 +135,8 @@ export interface FrameCtx { k: ClassOptionData; /** what the source took out, th
   align?: "centering"
   /** an item's labels (\box\@labels \penalty\z@) that \everypar puts in place of the next paragraph's indentation box */
   itemStart?: Node[]
+  /** in a figure or a table (\@captype) */
+  captype?: "figure" | "table"
   /** pgf in the document (the inner themes' pictures and shadings) */
   pgf: BeamerPgf }
 
@@ -281,11 +283,14 @@ const upToBlankLine = (text: string): [string, string] => {
  *  A block's \begin ends it too (blocks.ts): its overlay specials smuggled past the last space, which \par takes. */
 const paragraph: FrameHandler = (cx, v, text) => {
   let [par, rest] = upToBlankLine(text)
-  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN), center = par.search(/\\begin\{center\}/)
+  // (\caption's \par ends it)
+  const cap = par.search(/\\caption(?![A-Za-z])/)
+  if (cap > 0) { rest = par.slice(cap) + rest; par = par.slice(0, cap) }
+  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN), center = par.search(/\\begin\{(?:center|figure|table)\}/)
   const s: ParagraphSetting = {}
   if (cx.align && (at >= 0 || block >= 0)) throw new Unsupported("beamer: a list or a block after \\centering")
   if (cx.align && /\\footnote(?![A-Za-z])/.test(par)) throw new Unsupported("beamer: \\footnote after \\centering")
-  // (\@trivlist in horizontal mode: \unskip\par)
+  // (\@trivlist in horizontal mode: \unskip\par; figure's and table's \par first)
   if (center >= 0 && (at < 0 || center < at) && (block < 0 || center < block)) { rest = par.slice(center) + rest; par = par.slice(0, center).trimEnd() }
   else if (block >= 0 && (at < 0 || block < at)) {
     rest = par.slice(block) + rest
@@ -396,6 +401,14 @@ const centeringHandler: FrameHandler = (cx, _v, text) => {
 const center: FrameHandler = (cx, v, text) => {
   const begin = "\\begin{center}".length, end = envEnd(text, "center", begin)
   if (end < 0) throw new Unsupported("beamer: center not ended")
+  centerEnv(cx, v, text.slice(begin, end), false)
+  const rest = text.slice(end + "\\end{center}".length)
+  cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
+  return rest
+}
+
+/** center's list (`nobreaks`: with \nobreak after its \begin and before its \end, as beamer's figure and table have it) */
+function centerEnv(cx: FrameCtx, v: VerticalList, text: string, nobreaks: boolean) {
   // (\@doendpe's \everypar, with \@item's after it)
   if (cx.endpe) throw new Unsupported("beamer: center right after a list")
   const { k } = cx, g = k.glue, d = k.dimens
@@ -407,18 +420,75 @@ const center: FrameHandler = (cx, v, text) => {
   v.addvspace(addGlue(topsepadd, g.parskip))
   // (\trivlist: \labelwidth, \leftmargin and \itemindent zero)
   const labels = hpack([glue(0), glue(-0), glue(-d.labelsep), hpack([colorPush(outerColors(cx.theme).fg), colorPop()], { exactly: 0 }), glue(d.labelsep)])
+  if (nobreaks) v.nodes.push(penalty(10000))
   cx.align = "centering"
-  const body = text.slice(begin, end).trim()
   // (the first paragraph: \everypar's labels in place of the indentation box)
-  const first = body.match(/^\\(?:begin\{)?([A-Za-z]+)/)?.[1] ?? ""
-  if (!body || FRAME_CONTENT[TEXT_COMMANDS.includes(first) ? "" : first] !== paragraph) throw new Unsupported("beamer: a center that does not begin with text")
   cx.itemStart = [labels, penalty(0)]
-  frameContent(cx, v, body)
+  frameContent(cx, v, text)
+  // (\endtrivlist's \leavevmode for an item with no paragraph)
+  if (cx.itemStart) throw new Unsupported("beamer: a center with no text")
   cx.align = align
+  if (nobreaks) v.nodes.push(penalty(10000))
   v.endtrivlist(parsep, g.parskip, topsepadd)
-  const rest = text.slice(end + "\\end{center}".length)
+}
+
+/** figure and table (beamerbaselocalstructure.sty): not floats, \par\nobreak\begin{center}\nobreak, the material, then
+ *  \par\nobreak\end{center} (and table's \nobreak); \caption numbers them. Their [placement] is read, unused. The text
+ *  after them comes with \@endpetrue (\end{center}'s \@doendpe in their group sets it again). */
+const float: FrameHandler = (cx, v, text) => {
+  const kind = text.match(/^\\begin\{(figure|table)\}/)![1] as "figure" | "table"
+  let i = kind.length + 8
+  const o = text.slice(i).match(/^\s*\[[^\]]*\]/)
+  if (o) i += o[0].length
+  const end = envEnd(text, kind, i)
+  if (end < 0) throw new Unsupported(`beamer: ${kind} not ended`)
+  if (cx.captype) throw new Unsupported(`beamer: a ${kind} in a ${cx.captype}`)
+  v.nodes.push(penalty(10000))
+  cx.captype = kind
+  centerEnv(cx, v, text.slice(i, end), true)
+  cx.captype = undefined
+  if (kind === "table") v.nodes.push(penalty(10000))
+  const rest = text.slice(end + kind.length + 6)
   cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
   return rest
+}
+
+/**
+ * \caption[short]{text} in a figure or table (beamerbaselocalstructure.sty, its short form ignored): \refstepcounter
+ * (hyperref's implicit=false: no anchor), then \@caption's \par\nobreak, \@parboxrestore and \beamer@makecaption:
+ * \nobreak\vskip\abovecaptionskip\nobreak, the caption template (beamerinnerthemedefault.sty's: {the caption name's
+ * color and font, \insertcaptionname, the label separator :\ }\insertcaption) as \usebeamertemplate** has it (in the
+ * caption's font and, after normal text's, color) in \sbox (the color in force pushed), \hb@xt@\hsize{\hfil the box
+ * \hfil} when it is not wider than \hsize, \nobreak\vskip\belowcaptionskip\nobreak; then \par\nobreak
+ */
+const caption: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\caption(?![A-Za-z])\s*/)!
+  if (!cx.captype) throw new Unsupported("beamer: \\caption outside figure or table")
+  let i = m[0].length
+  if (text[i] === "[") { const j = text.indexOf("]", i); if (j < 0) throw new Unsupported("\\caption's short form"); i = j + 1 }
+  const a = bracedArg(text, i)
+  if (!a) throw new Unsupported("\\caption without a braced argument")
+  if (/^\s*\\label(?![A-Za-z])/.test(text.slice(a.end))) throw new Unsupported("beamer: \\label")
+  const { k, theme } = cx
+  // (\c@figure and \c@table, which the default template does not print, are not kept)
+  const normal = outerColors(theme), at = useColor(theme, "caption", normal), nameColors = useColor(theme, "caption name", at)
+  const size = fontSize(theme, k, "caption", "normalsize"), nameSize = fontSize(theme, k, "caption name", size)
+  const doc: DocState = { footnote: 0 }, state = { spaceFactor: 1000 }
+  const name = cx.captype === "figure" ? "Figure" : "Table"
+  plainText(a.arg)
+  const box = hpack([colorPush(normal.fg), colorPush(normal.fg), colorPush(at.fg), colorPush(nameColors.fg), ...hlistInput(`${name}:`, k, nameSize, doc, SANS, state, true), colorPop(),
+    ...hlistInput(`\\ ${a.arg.trim()}`, k, size, doc, SANS, state, true), colorPop(), colorPop(), colorPop()])
+  const hsize = k.dimens.textwidth
+  if (box.width > hsize) throw new Unsupported("beamer: a caption wider than the frame")
+  const skip = dimen(7 * 65536) // \abovecaptionskip and \belowcaptionskip
+  v.nodes.push(penalty(10000), penalty(10000))
+  v.vskip(skip)
+  v.nodes.push(penalty(10000))
+  v.box(hpack([filGlue(), box, filGlue()], { exactly: hsize }), k.sizes.normalsize.baselineskip)
+  v.nodes.push(penalty(10000))
+  v.vskip(skip)
+  v.nodes.push(penalty(10000), penalty(10000))
+  return text.slice(a.end)
 }
 
 /** A braced argument at text[i] (after spaces): its text and where it ends, or null when no { is there */
@@ -500,12 +570,12 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, centering: centeringHandler, center, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, centering: centeringHandler, center, figure: float, table: float, caption, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
   ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
 /** the constructs read under \centering */
-const ALIGNED = ["", "raggedright", "centering", "center", "frametitle", "framesubtitle", "pause", "only", "alt", "temporal", "uncover", "visible", "invisible", "onslide", "LXsmuggle"]
+const ALIGNED = ["", "caption", "raggedright", "centering", "center", "frametitle", "framesubtitle", "pause", "only", "alt", "temporal", "uncover", "visible", "invisible", "onslide", "LXsmuggle"]
 
 /** The constructs in `text`, each read by its handler into `v` */
 export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
@@ -516,6 +586,8 @@ export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
     if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
     // (what \centering's \leftskip, \rightskip, \parfillskip and \finalhyphendemerits do to other constructs is not modeled)
     if (cx.align && !ALIGNED.includes(name)) throw new Unsupported(`beamer: \\${name} after \\centering`)
+    // (an item's labels go in the next paragraph)
+    if (cx.itemStart && !["", "centering", "caption"].includes(name)) throw new Unsupported(`beamer: \\${name} first in a center`)
     text = handler(cx, v, text)
   }
 }
