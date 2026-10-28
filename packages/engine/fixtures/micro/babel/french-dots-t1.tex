@@ -1,0 +1,15 @@
+% fixture: babel/french-dots-t1
+% tier: T3
+% engine: document
+% covers: french's \FBtextellipsis in T1 and its first use there (\@changed@cmd's \global\let ends the run before the first period, so y. has no kern, as English's later ones join the run), after English's first \textellipsis, in a narrow minipage where the missing last kern decides the breaks
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[english,french]{babel}
+\begin{document}
+\foreignlanguage{english}{Words\textellipsis{} and Papy\textellipsis}
+
+\begin{minipage}{4cm}
+Papy\textellipsis{} une phrase\ldots puis encore\ldots et la suite\ldots{} et encore\ldots{} un mot\ldots{} deux mots\ldots{} trois\ldots
+\end{minipage}
+\end{document}

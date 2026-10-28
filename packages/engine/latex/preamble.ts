@@ -663,6 +663,8 @@ export function readPreamble(src: string): Preamble {
   }
   const bb = babel as Preamble["babel"]
   if (bb) k = withBabel(k, bb)
+  // (french's \xspace, after \ier, \fg and \FBtextellipsis, is \relax unless xspace.sty defined it)
+  if (bb?.languages.includes("french") && /\\usepackage\s*(?:\[[^\]]*\])?\{[^}]*\bxspace\b/.test(src)) throw new Unsupported("babel's french with xspace")
   if (isSpanish(bb)) { // (spanish.ldf's accents in the texts the preamble sets, which the document typesets)
     for (const key of ["title", "author", "date"] as const) if (title[key] !== undefined) title[key] = markAccentHyphens(title[key]!)
     for (const d of thmDefs.values()) d.title = markAccentHyphens(d.title)

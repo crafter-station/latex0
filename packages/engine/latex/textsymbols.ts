@@ -13,6 +13,7 @@ import { accentHyphens, appendText, SYMBOLS as LETTERS } from "./encodings"
 import { charNode, glue, kern, penalty, ssGlue, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
+import { babelState } from "./babel"
 
 /**
  * Each symbol: its character in OT1 and T1 (a code, or the characters of a command made of them), else the
@@ -100,9 +101,11 @@ export function appendSymbols(list: Node[], text: string, font: Font, env: Symbo
     const name = NAMES[ch.charCodeAt(0) - 0xe100], s = SYMBOLS[name]
     if (s[enc] !== undefined) { run += ch; continue } // (encodings.ts puts it in the encoding)
     if (name === "textellipsis") { // (the first period joins the run before, but at the first use; \dots and \ldots are robust)
-      const k3 = () => list.push(kern(font.params[SPACE_STRETCH], true))
-      if (env.used && !env.used.has(`${enc}${name}`)) { env.used.add(`${enc}${name}`); flush() }
-      run += "."; flush(); k3(); appendText(list, ".", font, state, paragraph); k3(); appendText(list, ".", font, state, paragraph); k3()
+      // (french's extras \let it to \FBtextellipsis: .\kern\fontdimen3\font.\kern\fontdimen3\font.\xspace, \xspace \relax)
+      const k3 = () => list.push(kern(font.params[SPACE_STRETCH], true)), cmd = babelState.lang === "french" ? "FBtextellipsis" : name
+      if (env.used && !env.used.has(`${enc}${cmd}`)) { env.used.add(`${enc}${cmd}`); flush() }
+      run += "."; flush(); k3(); appendText(list, ".", font, state, paragraph); k3(); appendText(list, ".", font, state, paragraph)
+      if (cmd === name) k3()
       continue
     }
     if (name === "slash") { run += "/"; flush(); list.push(penalty(50)); continue }
