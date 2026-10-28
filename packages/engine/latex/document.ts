@@ -26,7 +26,7 @@ import { listParagraphWithDisplays } from "./displays"
 import { prepareSource, type DocumentSource } from "./source"
 import { Counters } from "./counters"
 import { markLanguage, markText, MarkWriter, pageMarks } from "./marks"
-import { babelAux, babelBegin, babelState, babelFrenchspacing, isSpanish, languageCaptions, selectInGroups } from "./babel"
+import { babelAux, babelBegin, babelState, babelFrenchspacing, babelToday, datedBody, isSpanish, languageCaptions, selectInGroups } from "./babel"
 import { markAccentHyphens, spanishLayout, spanishText } from "./spanish"
 import { germanT1, isGerman } from "./german"
 import { accentHyphens, babelUmlauts, sourceText } from "./encodings"
@@ -117,9 +117,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   mathFonts.packages = pre.mathPackages
   const run = runState(pre.k)
   // \today: the date's characters (the spaces after the control word go, and its line's end, unless a blank line follows)
-  // (in the main language: with babel's language commands, the one selected there is not modeled)
-  if (pre.babel && /\\today(?![A-Za-z])/.test(body) && /\\(?:selectlanguage|foreignlanguage)(?![A-Za-z])|\\begin\s*\{otherlanguage/.test(body)) throw new Unsupported("\\today with babel's language commands")
-  const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
+  // (with babel, in the date of the language selected there)
+  const dated = pre.babel ? datedBody(body, pre.babel, (lang) => babelToday(pre.babel, new Date(epoch * 1000), lang)) : body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, null))
   if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
   const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart", titleEndpe: cls === "amsart" })
   spanishLayout.on = isSpanish(pre.babel)
