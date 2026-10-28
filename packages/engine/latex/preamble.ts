@@ -357,9 +357,9 @@ export function readPreamble(src: string): Preamble {
     const pk = hpo ? [line, "hyperref"] : line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
-      // fonts, amsthm only environments, graphicx only \includegraphics)
+      // fonts, amsthm only environments, graphicx only \includegraphics; xspace's \xspace the expander reads)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", ...FONT_PACKAGES].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", ...FONT_PACKAGES].includes(n))
       for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
         if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
         fonts = fontPackage(n, fonts)

@@ -54,7 +54,7 @@ function makeCase(r: () => number, id: string): string {
     return parts.reduce((acc, x) => acc + (acc && (sep || (/\\[A-Za-z]+$/.test(acc) && /^[A-Za-z]/.test(x))) ? sep || " " : "") + x, "")
   }
   // a use: the macro and its arguments, as text
-  const safeIn = (b: string) => !/\\(textbf|emph|textit)\b|\$/.test(b) && defs.every((e) => e.safe || !b.includes(e.name))
+  const safeIn = (b: string) => !/\\(textbf|emph|textit|xspace)\b|\$/.test(b) && defs.every((e) => e.safe || !b.includes(e.name))
   const arg = (plain = false) => plain ? `{${word()}}` : pick([`{${word()} ${word()}}`, `{${word()}}`, "x", `{\\textit{${word()}}}`, ...(defs.some((d) => d.args === 0 && d.safe && !d.delim) ? [call(pick(defs.filter((d) => d.args === 0 && d.safe && !d.delim)), false)] : [])])
   const call = (d: Def, spaced: boolean, plain = false): string => {
     let s = d.name
@@ -95,7 +95,7 @@ function makeCase(r: () => number, id: string): string {
       lines.push(`\\renewcommand{${old.name}}${old.args ? `[${old.args}]` : ""}${old.optional ? `[${word()}]` : ""}{${b}}`)
       continue
     } else if (x < 0.94) {
-      const b = body(0)
+      const b = body(0) + (r() < 0.4 ? "\\xspace" : "") // (xspace.sty's)
       d = { name: nm, args: 0, optional: false, long: true, safe: safeIn(b) }
       lines.push(`\\providecommand{${nm}}{${b}}`)
       if (defs.length && r() < 0.5) lines.push(`\\providecommand{${pick(defs).name}}{never used}`)
@@ -191,9 +191,9 @@ export function expandDocCheck(n: number, seed: number): number {
   const r = rng(seed)
   const id = (i: number) => i.toString(26).split("").map((d) => String.fromCharCode(97 + parseInt(d, 26))).join("")
   const cases = Array.from({ length: n }, (_, i) => makeCase(r, id(i)))
-  const doc = ["\\documentclass{article}", "\\pagestyle{empty}", "\\textheight=80in", // (a case never runs over its page)
+  const doc = ["\\documentclass{article}", "\\usepackage{xspace}", "\\pagestyle{empty}", "\\textheight=80in", // (a case never runs over its page)
     "\\begin{document}", cases.join("\n\\clearpage\n"), "\\end{document}", ""].join("\n")
-  const { text, errors } = expandDocument(doc)
+  const { text, errors } = expandDocument(doc, { xspace: true })
   if (errors.length) { console.log(`✗ expansion errors: ${errors.slice(0, 3).join("; ")}`); return 1 }
   const traces = [["original", doc], ["expanded", text]].map(([name, src]) => {
     writeFileSync(join(DIR, `${name}.tex`), src)
@@ -211,7 +211,7 @@ export function expandDocCheck(n: number, seed: number): number {
     const d = compareTraces({ ...tex, pages: [tex.pages[p]] }, { ...ours, pages: [ours.pages[p] ?? { counts: [], glyphs: [], rules: [], specials: [] }] })
     if (!d) continue
     failed++
-    if (failed <= 3) console.log(`✗ case ${p + 1}: ${d.field} at glyph ${d.index}\n${cases[p]}\n--- expanded ---\n${expandDocument(["\\begin{document}", cases[p]].join("\n")).text}\n`)
+    if (failed <= 3) console.log(`✗ case ${p + 1}: ${d.field} at glyph ${d.index}\n${cases[p]}\n--- expanded ---\n${expandDocument(["\\begin{document}", cases[p]].join("\n"), { xspace: true }).text}\n`)
   }
   const defs = (doc.match(/\\(newcommand|renewcommand|providecommand|def|edef|let)\b/g) ?? []).length
   console.log(`${n - failed}/${n} documents typeset identically after expansion (seed ${seed}; ${defs} definitions, ${tex.pages.reduce((s, p) => s + p.glyphs.length, 0)} glyphs)`)

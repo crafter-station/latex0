@@ -1,0 +1,18 @@
+% fixture: macros/xspace
+% tier: T3
+% engine: document
+% covers: xspace's \xspace at the end of the document's macros: a space before a letter, a digit, an opening parenthesis, a command (\emph) and at a paragraph's end (where \par takes it); none before its exceptions , . ; : ! ? ) ' - / ~ \  {} and \footnote; a macro after it expanded and looked at again; a character \let to a control sequence (\fullstop) is the character
+% issue: #344
+\documentclass{article}
+\usepackage{xspace}
+\newcommand{\lx}{LX\xspace}
+\newcommand{\pnt}{.}
+\newcommand{\word}{word}
+\let\fullstop=.
+\begin{document}
+Use \lx now, \lx, \lx. \lx; \lx: \lx! \lx? (\lx) \lx' \lx-x \lx/ \lx~x \lx\ x \lx{} x
+\lx\footnote{A note.} and \lx 2 and \lx(a) and \lx\emph{em} and \lx\pnt{} and \lx\word{} and \lx\fullstop{} and is
+the last \lx
+
+Next paragraph.
+\end{document}

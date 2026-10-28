@@ -34,6 +34,13 @@ export type Meaning = Macro | { kind: "prim"; name: string } | { kind: "char"; c
 
 const EXPANDABLE = new Set(["expandafter", "noexpand", "csname", "string", "number", "meaning", "unexpanded", "detokenize",
   "ifx", "if", "ifcat", "ifnum", "iftrue", "iffalse", "else", "fi", "or"])
+/** xspace.sty's exceptions (\@xspace@exceptions@tlp): no space before these characters and commands */
+const XSPACE_CHARS = new Set([...",.'/?;:!-)"].map((c) => c.charCodeAt(0)))
+const XSPACE_COMMANDS = new Set([" ", "/", "bgroup", "egroup", "space", "footnote", "footnotemark"])
+/** LaTeX's commands that \\xspace puts its space before: robust ones (\\protect\\cmd: \\protect is \\relax, no exception), \\hskip
+ *  ones, and \\today (its first expansion is a digit or a letter) */
+const XSPACE_BEFORE = new Set(["emph", "textbf", "textit", "texttt", "textsc", "textsf", "textrm", "textsl", "textup", "textmd", "textnormal",
+  "underline", "cite", "citep", "citet", "eqref", "cref", "Cref", "ldots", "dots", "LaTeX", "TeX", "url", "href", "mbox", "hspace", "newline", "quad", "qquad", "today", "par", "relax"])
 const CONDITIONALS = new Set(["ifx", "if", "ifcat", "ifnum", "iftrue", "iffalse"])
 const PRIMITIVES = [...EXPANDABLE, "def", "gdef", "edef", "xdef", "let", "global", "long", "protected", "relax", "endcsname",
   "begingroup", "endgroup", "par"]
@@ -49,6 +56,8 @@ export interface ExpanderOptions {
   /** commands LaTeX defines (the kernel, the class, the packages): a document's \\renewcommand, \\def or \\let of one
    *  changes LaTeX, not a macro of its own, and is an error here; its \\providecommand of one does nothing */
   defined?: (name: string) => boolean
+  /** xspace.sty loaded: \\xspace */
+  xspace?: boolean
 }
 
 export class ExpansionError extends Error {}
@@ -80,6 +89,7 @@ export class Expander {
     this.defined = o.defined ?? (() => false)
     for (const p of PRIMITIVES) this.meanings.set(p, { kind: "prim", name: p })
     if (this.latex) for (const p of LATEX_DEFINITIONS) this.meanings.set(p, { kind: "prim", name: p })
+    if (this.latex && o.xspace) this.meanings.set("xspace", { kind: "prim", name: "xspace" })
   }
 
   // ---- document mode: a driver reads top-level tokens and decides what to expand ----
@@ -135,7 +145,7 @@ export class Expander {
   private expandable(t: Tok): boolean {
     if (t.cs === undefined || t.dontExpand) return false
     const m = this.meaning(t)
-    return m.kind === "macro" || (m.kind === "prim" && EXPANDABLE.has(m.name))
+    return m.kind === "macro" || (m.kind === "prim" && (EXPANDABLE.has(m.name) || m.name === "xspace"))
   }
 
   /** get_x_token (§ 380): expand until an unexpandable token comes up. A \\noexpand'ed token acts as \\relax here. */
@@ -183,9 +193,34 @@ export class Expander {
       case "detokenize": this.backInput(strToks(showTokens(this.scanGeneralText()))); return
       case "unexpanded": this.backInput(this.scanGeneralText().map((x) => (x.cs !== undefined ? { ...x, dontExpand: true } : x))); return
       case "fi": case "else": case "or": this.condEnd(m.name); return
+      case "xspace": this.xspace(t); return
       default: if (CONDITIONALS.has(m.name)) { this.conditional(m.name); return }
     }
     throw new ExpansionError(`unhandled expandable ${m.name}`)
+  }
+
+  /**
+   * xspace.sty's \\xspace (\\@xspace): a space token unless the next token is one of its exceptions (then \\relax, a command
+   * that makes nothing in its place); a macro is expanded and looked at again. A command the expander does not know might be a macro of LaTeX's
+   * that expands to an exception: not read, but for those of XSPACE_BEFORE (a math shift and \\par are no exceptions).
+   */
+  private xspace(t: Tok) {
+    if (this.moving) throw new ExpansionError(`the robust command ${printCs(t.cs!).trim()} in a moving argument`)
+    for (;;) {
+      const x = this.getNext()
+      if (!x) return
+      const m = x.cs !== undefined && !x.dontExpand ? this.meaning(x) : null
+      // (another \xspace: it expands to \protect\xspace, and \protect is \relax, no exception: the space, then that one)
+      if (m?.kind === "prim" && m.name === "xspace") { this.backInput([x]); this.backInput([{ cs: "relax" }]); this.backInput([{ cat: SPACER, c: 32 }]); return }
+      if (m && (m.kind === "macro" || (m.kind === "prim" && EXPANDABLE.has(m.name)))) { this.expand(x); continue }
+      this.backInput([x])
+      const exception = x.cs === undefined ? (x.cat === OTHER_CHAR && XSPACE_CHARS.has(x.c)) || x.cat === LEFT_BRACE || x.cat === RIGHT_BRACE || x.cat === SPACER
+        : m?.kind === "char" ? m.cat === OTHER_CHAR && XSPACE_CHARS.has(m.c) : x.active ? x.cs === "~" : XSPACE_COMMANDS.has(x.cs)
+      if (exception) { this.backInput([{ cs: "relax" }]); return } // (still a command there: \emph's \maybe@ic sees no . or ,)
+      if (x.cs !== undefined && m?.kind !== "char" && (x.active || !XSPACE_BEFORE.has(x.cs))) throw new ExpansionError(`\\xspace before ${printCs(x.cs, x.active).trim()}`)
+      this.backInput([{ cat: SPACER, c: 32 }])
+      return
+    }
   }
 
   private need(t: Tok | null): Tok {
@@ -542,6 +577,7 @@ export class Expander {
       let x = this.need(this.getNext())
       if (expand) {
         while (this.expandable(x) && !this.isProtected(x)) {
+          if (this.meaning(x).kind === "prim" && (this.meaning(x) as { name: string }).name === "xspace") throw new ExpansionError("\\xspace in an \\edef")
           if (this.meaning(x).kind === "prim" && (this.meaning(x) as { name: string }).name === "unexpanded") {
             for (const u of this.scanGeneralText()) body.push({ tok: u })
             x = this.need(this.getNext())

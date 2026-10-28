@@ -35,10 +35,12 @@ export interface DocumentOptions {
   known?: (name: string) => boolean
   /** commands LaTeX defines (the kernel, the class, the packages): the document cannot redefine them here */
   defined?: (name: string) => boolean
+  /** xspace.sty loaded: \xspace (expander.ts) */
+  xspace?: boolean
   fuel?: number
 }
 
-/** the commands whose arguments LaTeX writes to a file (\\addcontentsline, \\markboth …): how many of them, in braces */
+/** the commands whose arguments LaTeX writes to a file (\addcontentsline, \markboth …): how many of them, in braces */
 const MOVING: Record<string, number> = { part: 1, chapter: 1, section: 1, subsection: 1, subsubsection: 1, paragraph: 1, subparagraph: 1, caption: 1, addcontentsline: 3, markboth: 2, markright: 1 }
 
 /** amsmath's and LaTeX's math environments: math mode in them */
@@ -100,7 +102,7 @@ export function expandDocument(src: string, opts: DocumentOptions = {}): Documen
   const reader = new Tokenizer(text)
   const taken: { last: Tok | null } = { last: null } // the last token taken from the source
   const tracked = { next: () => (taken.last = reader.next()) } as unknown as Tokenizer
-  const ex = new Expander(tracked, { latex: true, known: opts.known, defined: opts.defined, fuel: opts.fuel ?? 1_000_000 })
+  const ex = new Expander(tracked, { latex: true, known: opts.known, defined: opts.defined, xspace: opts.xspace, fuel: opts.fuel ?? 1_000_000 })
 
   const out: string[] = []
   const errors: string[] = []
@@ -236,9 +238,11 @@ export function expandDocument(src: string, opts: DocumentOptions = {}): Documen
       return done()
     }
     cursor = reader.offset
-    // spaces TeX skips after a control word: on this line, and the line end unless a blank line follows
+    // spaces TeX skips after a control word or a space (\xspace's look ahead reads one): on this line, and the line end
+    // unless a blank line follows
     const last = taken.last
-    if (last && last.cs !== undefined && !last.active && (/^[A-Za-z]/.test(last.cs) || last.cs === " ")) {
+    const skipped = !!last && (last.cat === SPACER || last.cs !== undefined && !last.active && (/^[A-Za-z]/.test(last.cs) || last.cs === " "))
+    if (skipped) {
       let j = cursor
       while (text[j] === " " || text[j] === "\t") j++
       if (text[j] === "\n") {
@@ -249,13 +253,14 @@ export function expandDocument(src: string, opts: DocumentOptions = {}): Documen
       cursor = j
     }
     emit(before)
-    let replacement = serialize(result, inMath, text[cursor], math)
+    // (whitespace left after a control word is a blank line's: TeX skipped its first line end)
+    let replacement = serialize(result, inMath, skipped && /\s/.test(text[cursor] ?? "") ? undefined : text[cursor], math)
     // spaces that were tokens apart stay apart: where whitespace meets whitespace (a space of the expansion, of the source
     // around it, a line end), {} keeps the second from being read with the first, or skipped at a line's start; in math,
     // spaces are nothing, but a line left empty would end the paragraph: % takes its end
     const following = text.slice(cursor, cursor + 2)
     if (!mathBefore && (/(^|\s)$/.test(tail) || CONTROL_WORD_END.test(tail)) && /^\s/.test(replacement)) replacement = "{}" + replacement
-    if (!math && /\s$/.test(replacement || tail) && /^\s/.test(following)) replacement += "{}"
+    if (!math && !skipped && /\s$/.test(replacement || tail) && /^\s/.test(following)) replacement += "{}"
     else if (math && !replacement.trim() && /\n[ \t]*$/.test(tail) && /^[ \t]*\n/.test(text.slice(cursor))) replacement = "%"
     else if (!math && !replacement && assigned && /\S$/.test(tail) && /^\S/.test(following)) replacement = "{}"
     emit(replacement)
