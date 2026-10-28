@@ -1,0 +1,20 @@
+% fixture: macros/counters-class
+% tier: T3
+% engine: document
+% covers: \setcounter, \addtocounter and \stepcounter of the class's counters in text and between paragraphs: section (the next \section steps it; \stepcounter resets subsection, \setcounter does not), subsection, figure (the next caption's number), with \thesection, \thesubsection and \arabic{section} in text
+% issue: #344
+\documentclass{article}
+\begin{document}
+\setcounter{section}{3}
+\section{Fourth}
+\subsection{One}
+In \thesection{} and \thesubsection, then \addtocounter{subsection}{2}\thesubsection{} and
+\stepcounter{section}\thesection.\thesubsection, section \arabic{section}.
+\setcounter{figure}{4}
+\begin{figure}[h]
+\centering
+\caption{After four}
+\end{figure}
+\subsection{Next}
+Text.
+\end{document}
