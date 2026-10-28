@@ -1,0 +1,29 @@
+% fixture: macros/the-floats
+% tier: T3
+% engine: document
+% covers: \renewcommand of \thefigure and \thetable (\thesection, \Roman, punctuation) in the captions, the lists of figures and tables, and \ref; \thefigure in a \newcounter's \the<counter>
+% issue: #365
+\documentclass{article}
+\renewcommand{\thefigure}{\thesection.\arabic{figure}}
+\renewcommand{\thetable}{\Roman{table}}
+\newcounter{panel}
+\renewcommand{\thepanel}{\thefigure\alph{panel}}
+\begin{document}
+\listoffigures
+\listoftables
+\section{Data}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A box}\label{f}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{Numbers}\label{t}
+\begin{tabular}{cc}
+1 & 2
+\end{tabular}
+\end{table}
+Figure~\ref{f} and table~\ref{t}.
+\refstepcounter{panel}\label{p}Panel \ref{p}.
+\end{document}

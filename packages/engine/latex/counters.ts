@@ -42,7 +42,19 @@ export class Counters {
   /** the document's counters (\newcounter), with the counter that resets each */
   private readonly user = new Map<string, { value: number; within: string | null }>()
 
-  constructor(private readonly cls: string, declared: [name: string, within: string | null][], private readonly footnote: () => number) {
+  /**
+   * The preamble's \renewcommand of a \the<counter> (source.ts, preamble.ts): its body by counter, evaluated where LaTeX
+   * expands it (format())
+   */
+  private readonly formats: ReadonlyMap<string, string>
+
+  /** \counterwithin (amsmath's \numberwithin) of equation, figure or table: the sectioning counter that resets it (its
+   *  \@addtoreset, which also makes \theH<counter> \theH<within>.\the\value{counter}) */
+  private readonly within: ReadonlyMap<string, string>
+
+  constructor(private readonly cls: string, declared: [name: string, within: string | null][], private readonly footnote: () => number, formats: ReadonlyMap<string, string> = new Map(), within: ReadonlyMap<string, string> = new Map()) {
+    this.formats = formats
+    this.within = within
     for (const [name, within] of declared) this.user.set(name, { value: 0, within })
   }
 
@@ -55,17 +67,55 @@ export class Counters {
 
   /** \theH<counter> (hyperref's \@currentHref after \refstepcounter): report and book number within the chapter */
   href(counter: string, n: number): string {
+    const w = this.within.get(counter)
+    if (w !== undefined) return `${counter}.${this.theH(w)}.${n}`
     return this.cls === "article" || this.cls === "letter" ? `${counter}.${n}` : `${counter}.${this.sectionalString(0, true)}.${n}`
   }
 
-  /** \theequation, \thefigure, \thetable: in report and book, prefixed by the chapter once there is one */
-  the(n: number): string {
+  /** \theequation, \thefigure, \thetable (of the value n): in report and book, prefixed by the chapter once there is one */
+  the(counter: "equation" | "figure" | "table", n: number): string {
+    const f = this.format(counter)
+    if (f !== null) return f
     return this.cls !== "article" && this.sectional[0] > 0 ? `${this.theSectional(0)}.${n}` : String(n)
   }
 
-  /** \thechapter … : article's sections are not within a chapter */
+  /** \thechapter … : article's sections are not within a chapter; \appendix redefines the outermost (\gdef), over the
+   *  preamble's definition; a deeper one is the one outside it, a period, its value */
   theSectional(level: number): string {
-    return this.sectionalString(level, false)
+    const outer = this.cls === "article" ? 1 : 0
+    if (!(this.appendix && level === outer)) { const f = this.format(SECTIONAL[level]); if (f !== null) return f }
+    if (level <= outer) return this.sectionalString(level, false)
+    return `${this.theSectional(level - 1)}.${this.sectional[level]}`
+  }
+
+  /** the counters whose \the<counter> format() is evaluating (one inside its own: TeX would loop) */
+  private readonly evaluating = new Set<string>()
+
+  /**
+   * \the<counter> as the preamble redefined it, or null: its body with \arabic{c} (\roman, \Roman, \alph, \Alph) and
+   * \the<c> expanded; what remains is set as text and written to
+   * the files as it is, so it must be characters only
+   */
+  private format(name: string): string | null {
+    const body = this.formats.get(name)
+    if (body === undefined) return null
+    if (this.evaluating.has(name)) throw new Unsupported(`\\the${name} in its own definition`)
+    this.evaluating.add(name)
+    try {
+      const out = body.replace(/\\(arabic|roman|Roman|alph|Alph)\s*\{\s*([A-Za-z]+)\s*\}|\\the([A-Za-z]+)(?![A-Za-z])\s*/g, (_, style: string | undefined, c: string, t: string) =>
+        style ? representation(style, this.value(c)) : this.theOf(t))
+      if (!/^[A-Za-z0-9.,:;()\-\/]*$/.test(out)) throw new Unsupported(`\\the${name} defined as ${body}`)
+      return out
+    } finally { this.evaluating.delete(name) }
+  }
+
+  /** \the<name> of any counter the engine keeps */
+  private theOf(name: string): string {
+    if (this.user.has(name)) return this.theUser(name)
+    const l = this.sectionalLevel(name)
+    if (l >= 0) return this.theSectional(l)
+    if (name === "equation" || name === "figure" || name === "table") return this.the(name, this[name])
+    throw new Unsupported(`\\the${name}`)
   }
 
   /** \theHchapter …, which \@currentHref of a heading has after its type */
@@ -95,8 +145,8 @@ export class Counters {
     for (let l = level + 1; l < this.sectional.length; l++) this.sectional[l] = 0
     const levels: readonly string[] = SECTIONAL.slice(level)
     for (const u of this.user.values()) if (u.within !== null && (level === 0 || levels.includes(u.within))) u.value = 0
-    // (report and book number these within the chapter)
-    if (level === 0) this.equation = this.figure = this.table = 0
+    // (report and book number these within the chapter; \counterwithin within a level)
+    for (const c of ["equation", "figure", "table"] as const) if (level === 0 || levels.includes(this.within.get(c) ?? "")) this[c] = 0
   }
 
   /** \refstepcounter of a document's counter: \the<counter>, after \the<within> when it has one */
@@ -104,9 +154,14 @@ export class Counters {
     const c = this.user.get(name)
     if (!c) throw new Unsupported(`counter ${name}`)
     c.value++
+    const f = this.format(name)
+    if (f !== null) return f
     const level = c.within === null ? -1 : SECTIONAL.indexOf(c.within as typeof SECTIONAL[number])
     return level >= 0 ? `${this.theSectional(level)}.${c.value}` : String(c.value)
   }
+
+  /** \@currentHref after \refstepcounter of a document's counter: <counter>.\theH<counter> (not \the<counter>) */
+  currentHref(name: string): string { return `${name}.${this.theH(name)}` }
 
   /** \theH<counter> of a document's counter (\@newctr): \theH<within>.\arabic{counter}, or \arabic{counter} */
   private theH(name: string): string {
@@ -131,6 +186,8 @@ export class Counters {
     const l = SECTIONAL.indexOf(name as typeof SECTIONAL[number])
     if (l > 1 || (l === 1 && chapters)) return SECTIONAL[l - 1]
     if (l >= 0) return null
+    // (\cref@resetby looks in \cl@subsubsection, \cl@subsection, \cl@section, \cl@chapter in turn: \counterwithin's first)
+    if (this.within.has(name)) return this.within.get(name)!
     if (["equation", "figure", "table", "footnote"].includes(name)) return chapters ? "chapter" : null
     const u = this.user.get(name)
     if (u) return u.within
@@ -165,7 +222,7 @@ export class Counters {
   private theUser(name: string): string {
     const u = this.user.get(name)
     if (!u) throw new Unsupported(`\\the${name}`)
-    return String(u.value)
+    return this.format(name) ?? String(u.value)
   }
 
   /**
@@ -203,7 +260,7 @@ export class Counters {
       if (this.user.has(tname)) return this.theUser(tname)
       // (the class's: \thesection … with the chapter's or section's before it, \theequation, \thefigure, \thetable)
       if (this.sectionalLevel(tname) >= 0) return this.theSectional(this.sectionalLevel(tname))
-      if (tname === "equation" || tname === "figure" || tname === "table") return this.the(this[tname as "figure"])
+      if (tname === "equation" || tname === "figure" || tname === "table") return this.the(tname, this[tname as "figure"])
       return all
     })
   }

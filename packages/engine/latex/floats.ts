@@ -73,29 +73,29 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   const name = sourceText(env === "figure" ? cx.pre.names.figurename : cx.pre.names.tablename) // (\figurename, \tablename)
   if (cx.pre.babel?.main === "french") { // (french.ldf's \FB@makecaption)
     if (hyper) throw new Unsupported("french.ldf's captions with hyperref")
-    const st = { spaceFactor: 1000 }, start = frenchCaptionStart(cx, name, counters.the(number), romanFont, st), cl = [...start]
+    const st = { spaceFactor: 1000 }, start = frenchCaptionStart(cx, name, counters.the(env, number), romanFont, st), cl = [...start]
     cl.push(...hlistInput(text, run.k, "normalsize", cx.doc, cx.normalAttrs, st))
     const cap = hpack(setgroup(cl))
-    if (cap.width > hsize) out.paragraph([hpack([]), ...start], text)
+    if (cap.width > hsize) out.paragraph([hpack([]), ...frenchCaptionStart(cx, name, counters.the(env, number), romanFont, { spaceFactor: 1000 }, true)], text)
     else out.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }))
     out.push(glue(run.k.dimens.belowcaptionskip))
-    return { number, label: counters.the(number), name: labelName(short ?? text) }
+    return { number, label: counters.the(env, number), name: labelName(short ?? text) }
   }
   appendText(l, name, romanFont, state, false)
   l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
   // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
-  if (hyper) { appendText(l, `${counters.the(number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); appendText(l, sourceText(text), romanFont, state, false) }
-  else appendText(l, `${counters.the(number)}: ${sourceText(text)}`, romanFont, state, false)
+  if (hyper) { appendText(l, `${counters.the(env, number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); appendText(l, sourceText(text), romanFont, state, false) }
+  else appendText(l, `${counters.the(env, number)}: ${sourceText(text)}`, romanFont, state, false)
   const cap = hpack(setgroup(l)) // \sbox
   if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
     const start: Node[] = [hpack([])]
-    appendText(start, name, romanFont, { spaceFactor: 1000 }, false)
+    appendText(start, name, romanFont, { spaceFactor: 1000 })
     start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
-    if (hyper) { appendText(start, `${counters.the(number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width)); out.paragraph(start, text) }
-    else out.paragraph(start, `${counters.the(number)}: ${text}`)
+    if (hyper) { appendText(start, `${counters.the(env, number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width)); out.paragraph(start, text) }
+    else out.paragraph(start, `${counters.the(env, number)}: ${text}`)
   } else out.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }))
   out.push(glue(run.k.dimens.belowcaptionskip))
-  return { number, label: counters.the(number), name: labelName(short ?? text) } // (nameref drops a final period; the short caption)
+  return { number, label: counters.the(env, number), name: labelName(short ?? text) } // (nameref drops a final period; the short caption)
 }
 
 /** \caption, \caption* or \caption[short]{text} */
@@ -109,7 +109,7 @@ export function captionCall(src: string): CaptionCall | null {
 
 /** \addcontentsline{lof}{figure}{\protect\numberline{n}{text}} (or lot): its \write */
 function lofLine(cx: Ctx, env: "figure" | "table", number: number, text: string): Node {
-  return cx.tocFile.listLine(env === "figure" ? "lof" : "lot", cx.counters.the(number), text, cx.pre.hyper ? cx.refs.href : "")
+  return cx.tocFile.listLine(env === "figure" ? "lof" : "lot", cx.counters.the(env, number), text, cx.pre.hyper ? cx.refs.href : "")
 }
 
 /**
@@ -149,11 +149,11 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
     if (keys.list && short !== "") out.push(lofLine(cx, env, number, short))
   }
   // the label (\caption@labelformat{\figurename}{\thefigure}; for a subcaption, \subfigurename: empty)
-  const name = isSub ? "" : keys.names[env] ?? sourceText(env === "figure" ? cx.pre.names.figurename : cx.pre.names.tablename), the = sub ?? counters.the(number)
+  const name = isSub ? "" : keys.names[env] ?? sourceText(env === "figure" ? cx.pre.names.figurename : cx.pre.names.tablename), the = sub ?? counters.the(env, number)
   // hyperref without hypcap: \caption@makeanchor, \hyper@@anchor's H.S H.R before the text
   captionMake(cx, keys, f, { name, the, isSub, star, text, anchor: hyper && !f.hypcap && !star, normalcolor: true }, hsize, out)
   if (star) return null
-  return { number, label: counters.the(number) + (sub ?? ""), name: labelName(short), ...(sub ? { sub } : {}) }
+  return { number, label: counters.the(env, number) + (sub ?? ""), name: labelName(short), ...(sub ? { sub } : {}) }
 }
 
 /** what \caption@@make sets: the label's name and number (\caption@labelformat's arguments), \caption* and the
@@ -196,13 +196,14 @@ function captionMade(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAb
   // (the separator is none after an empty label, \caption@tempa, or before empty text)
   const sep = !label || text === "" ? "none" : keys.labelsep
   const state = { spaceFactor: 1000 }
-  const labelNodes = (): Node[] => {
+  // (`par`: in the caption's paragraph, where a hyphen gets its discretionary; else in a box)
+  const labelNodes = (par = false): Node[] => {
     const l: Node[] = []
     if (!label) return l
-    if (label.name) appendText(l, label.name, lfont, state, false)
+    if (label.name) appendText(l, label.name, lfont, state, par)
     if (label.nbsp) l.push(penalty(10000), glue(lfont.params[SPACE], lfont.params[SPACE_STRETCH], 0, lfont.params[SPACE_SHRINK], 0)) // \nobreakspace
-    else if (label.space) appendText(l, " ", lfont, state, false)
-    appendText(l, label.the, lfont, state, false)
+    else if (label.space) appendText(l, " ", lfont, state, par)
+    appendText(l, label.the, lfont, state, par)
     return l
   }
   // the separator: colon, period and space in the label font, quad and endash in the caption font
@@ -250,7 +251,7 @@ function captionMade(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAb
     start.push(box)
     if (box.width) opts.hangIndent = box.width
   } else {
-    start.push(...labelNodes())
+    start.push(...labelNodes(true))
     if (sep === "newline" && centercr) { // \\ as \@centercr: \par, \addvspace{-\parskip}, and the text a new paragraph
       if (tf.size !== cf.size) throw new Unsupported("labelsep=newline with a text font size") // (the label's lines' \baselineskip)
       // (new_graf's \parskip and LaTeX's restart of the paragraph's: two)

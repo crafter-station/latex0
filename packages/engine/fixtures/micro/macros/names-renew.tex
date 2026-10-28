@@ -1,0 +1,34 @@
+% fixture: macros/names-renew
+% tier: T3
+% engine: document
+% covers: \renewcommand of the caption names without babel (\contentsname, \listfigurename, \figurename, \tablename, \refname, \abstractname): the headings, captions, the lists and the bibliography take them
+% issue: #365
+\documentclass{article}
+\renewcommand{\contentsname}{Table of Contents}
+\renewcommand\listfigurename{Figures}
+\renewcommand{\figurename}{Fig.}
+\renewcommand{\tablename}{Tab.}
+\renewcommand{\refname}{Bibliography}
+\renewcommand{\abstractname}{Summary}
+\begin{document}
+\begin{abstract}
+A short summary.
+\end{abstract}
+\tableofcontents
+\listoffigures
+\section{Data}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A box}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{Numbers}
+\begin{tabular}{c}1\end{tabular}
+\end{table}
+As shown in \cite{k}.
+\begin{thebibliography}{9}
+\bibitem{k} A. Author, A book.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,24 @@
+% fixture: macros/names-babel
+% tier: T3
+% engine: document
+% covers: babel's \captions<lang> at \begin{document} over the preamble's \renewcommand of a name (\figurename, \contentsname stay English), and \addto\captionsenglish{\renewcommand…} (\tablename), which it runs
+% issue: #365
+\documentclass{article}
+\usepackage[english]{babel}
+\renewcommand{\figurename}{Fig.}
+\renewcommand{\contentsname}{Index}
+\addto\captionsenglish{\renewcommand{\tablename}{Tab.}}
+\begin{document}
+\tableofcontents
+\section{A}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{One}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{Two}
+\begin{tabular}{c}A\end{tabular}
+\end{table}
+\end{document}

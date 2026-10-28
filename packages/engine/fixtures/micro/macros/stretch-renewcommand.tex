@@ -1,0 +1,26 @@
+% fixture: macros/stretch-renewcommand
+% tier: T3
+% engine: document
+% covers: \renewcommand{\baselinestretch}{1.5} in the preamble, in the report class: every size's \baselineskip, the chapter heading's too
+% issue: #365
+\documentclass{report}
+\usepackage{amsmath}
+\renewcommand{\baselinestretch}{1.5}
+\begin{document}
+\chapter{Spacing}
+Some text in a paragraph of its own, long enough to run over more than one line of the page so that the
+baseline skip between its lines shows.\footnote{A footnote long enough to take two lines of the page at the bottom, so that its own baseline skip shows too.}
+
+We have
+\begin{equation}
+a = b
+\end{equation}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\\B\end{tabular}
+\caption{A caption long enough to take more than one line of the page, so that it is set as a paragraph with its lines.}
+\end{figure}
+\begin{itemize}
+\item One item that runs over more than one line of the page so that the baseline skip between its lines shows.
+\end{itemize}
+\end{document}

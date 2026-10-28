@@ -1,7 +1,7 @@
 % fixture: macros/renewenvironment-latex
 % tier: T3
 % engine: document
-% covers: \renewenvironment of an environment LaTeX defines (quote) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)
+% covers: \renewenvironment of quote (which no other environment uses): the document's from then on, no list around it
 % issue: #344
 \documentclass{article}
 \renewenvironment{quote}{\itshape}{}

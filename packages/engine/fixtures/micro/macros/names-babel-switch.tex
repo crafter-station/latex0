@@ -1,0 +1,28 @@
+% fixture: macros/names-babel-switch
+% tier: T3
+% engine: document
+% covers: \addto\captions<lang> for two languages (\def and \renewcommand of \figurename): each \selectlanguage runs its language's captions with the additions
+% issue: #365
+\documentclass{article}
+\usepackage[english,spanish]{babel}
+\addto\captionsenglish{\def\figurename{Fig.}}
+\addto\captionsspanish{\renewcommand{\figurename}{Fig}}
+\begin{document}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{Uno}
+\end{figure}
+\selectlanguage{english}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}B\end{tabular}
+\caption{Two}
+\end{figure}
+\selectlanguage{spanish}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}C\end{tabular}
+\caption{Tres}
+\end{figure}
+\end{document}

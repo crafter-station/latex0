@@ -1,0 +1,14 @@
+% fixture: macros/stretch-fancyhdr
+% tier: T3
+% engine: document
+% covers: \linespread with fancyhdr, whose \f@nch@reset sets \baselinestretch to 1 in the head and foot: not laid out yet
+% issue: #365
+\documentclass{article}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[L]{A head\\on two lines}
+\linespread{1.5}
+\begin{document}
+Some text in a paragraph of its own, long enough to run over more than one line of the page so that the
+baseline skip between its lines shows.
+\end{document}

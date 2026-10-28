@@ -1,0 +1,18 @@
+% fixture: macros/let-textsc-algorithm
+% tier: T3
+% engine: document
+% covers: \let\textsc\textsf with algpseudocode, whose \textproc is \textsc: not laid out yet
+% issue: #365
+\documentclass{article}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\let\textsc\textsf
+\begin{document}
+\begin{algorithm}
+\begin{algorithmic}
+\Procedure{Sort}{$A$}
+\State \Call{Swap}{$A$}
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+\end{document}

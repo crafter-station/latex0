@@ -1,0 +1,24 @@
+% fixture: macros/the-equation-section
+% tier: T3
+% engine: document
+% covers: \renewcommand{\theequation}{\thesection.\arabic{equation}} with amsmath and hyperref: the tags, \eqref, and the anchors (\theHequation stays arabic)
+% issue: #365
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\renewcommand{\theequation}{\thesection.\arabic{equation}}
+\begin{document}
+\section{One}
+\begin{equation}
+x = 1 \label{a}
+\end{equation}
+\begin{align}
+y &= 2 \\
+z &= 3
+\end{align}
+\section{Two}
+By \eqref{a} and \eqref{c},
+\begin{equation}
+w = 4 \label{c}
+\end{equation}
+\end{document}

@@ -1,0 +1,21 @@
+% fixture: macros/the-sections-toc
+% tier: T3
+% engine: document
+% covers: \renewcommand of \thesection and \thesubsection (\roman, \alph, \thesection in \thesubsection) in the headings, the table of contents, \ref and the running heads (\MakeUppercase)
+% issue: #365
+\documentclass{article}
+\renewcommand{\thesection}{\roman{section}}
+\renewcommand\thesubsection{\thesection.\alph{subsection}}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\section{Introduction}\label{intro}
+Some text that refers to section~\ref{intro} and to section~\ref{more}, then to subsection~\ref{sub}.
+\subsection{Background}\label{sub}
+More text.
+\subsection{Scope}
+\section{Methods}\label{more}
+In section \thesection{} and subsection \thesubsection{} we report.
+\subsubsection{Details}
+Text.
+\end{document}

@@ -1,0 +1,23 @@
+% fixture: macros/numberwithin-section
+% tier: T3
+% engine: document
+% covers: amsmath's \numberwithin{equation}{section} with hyperref: the equations reset at each section, \theequation \thesection.\arabic{equation}, the anchors \theHsection.n, \eqref
+% issue: #365
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\numberwithin{equation}{section}
+\begin{document}
+\section{One}
+\begin{equation}
+x = 1 \label{a}
+\end{equation}
+\begin{equation}
+y = 2
+\end{equation}
+\section{Two}
+By \eqref{a} and \eqref{b},
+\begin{equation}
+w = 4 \label{b}
+\end{equation}
+\end{document}

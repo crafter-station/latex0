@@ -121,7 +121,7 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
   if (!b.star) { counters.stepSectional(level); number = counters.theSectional(level) }
   if (numbered) {
     const type = ["", "section", "subsection", "subsubsection"][level]
-    refs.label = number; refs.href = `${type}.${number}`
+    refs.label = number; refs.href = `${counters.anchorType(level)}.${counters.theHSectional(level)}` // (\theHsection, not \thesection)
     if (refs.cleveref) refs.cleveref.current = { type, arabic: counters.sectional[level], prefix: counters.crefPrefix(type), label: number }
   }
   // hyperref loaded first: titlesec's \AtBeginDocument lets \ttl@Hy@refstepcounter be hyperref's \refstepcounter,

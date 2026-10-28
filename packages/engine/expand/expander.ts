@@ -610,7 +610,8 @@ export class Expander {
     if (x.cat === OTHER_CHAR && x.c === 61) { x = this.need(this.getNext()); if (x.cat === SPACER) x = this.need(this.getNext()) }
     let m: Meaning = x.cs === undefined ? { kind: "char", cat: x.cat, c: x.c } : x.dontExpand ? { kind: "prim", name: "relax" } : this.meaning(x)
     // a document's \\let to a command defined outside the expander: an alias for it
-    if (this.latex && m.kind === "undefined" && x.cs !== undefined) m = { kind: "macro", params: [], brace: false, body: [{ tok: x }], long: false, protected: false }
+    // (its meaning now: a later definition of that command, \let\emph\textbf, does not change it)
+    if (this.latex && m.kind === "undefined" && x.cs !== undefined) m = { kind: "macro", params: [], brace: false, body: [{ tok: { ...x, dontExpand: true } }], long: false, protected: false }
     this.define(key(target)!, m, global)
   }
 }

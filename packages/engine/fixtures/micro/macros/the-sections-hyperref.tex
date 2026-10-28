@@ -1,0 +1,20 @@
+% fixture: macros/the-sections-hyperref
+% tier: T3
+% engine: document
+% covers: \renewcommand of \thesection and \thesubsection with hyperref: the anchors keep \theHsection, the bookmarks, toc lines and \ref take \thesection; and with titlesec's \titleformat
+% issue: #365
+\documentclass{article}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\renewcommand{\thesection}{\Alph{section}}
+\renewcommand{\thesubsection}{\thesection\arabic{subsection}}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
+\begin{document}
+\tableofcontents
+\section{Introduction}\label{intro}
+See section~\ref{intro} and subsection~\ref{sub}.
+\subsection{Background}\label{sub}
+More text.
+\section{Methods}
+Text.
+\end{document}

@@ -1,0 +1,24 @@
+% fixture: macros/the-report-chapter
+% tier: T3
+% engine: document
+% covers: \renewcommand of report's \thechapter (\Alph): the chapter heading, its sections, equations and figures (\thechapter.\arabic), the list of figures and \ref
+% issue: #365
+\documentclass{report}
+\renewcommand{\thechapter}{\Alph{chapter}}
+\begin{document}
+\listoffigures
+\chapter{Results}\label{res}
+\section{First}
+As chapter~\ref{res} and equation~\ref{eq} show,
+\begin{equation}
+a = b \label{eq}
+\end{equation}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A box}\label{fig}
+\end{figure}
+Figure~\ref{fig} is in section~\ref{sec}.
+\section{Second}\label{sec}
+Text.
+\end{document}

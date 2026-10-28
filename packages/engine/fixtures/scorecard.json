@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1080,
-  "exact": 1066,
+  "fixtures": 1108,
+  "exact": 1096,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 14,
-  "glyphs": 708714
+  "pending": 12,
+  "glyphs": 712252
  },
  "areas": [
   {
@@ -141,8 +141,8 @@
   },
   {
    "area": "macros",
-   "fixtures": 36,
-   "exact": 23
+   "fixtures": 64,
+   "exact": 53
   },
   {
    "area": "math",
@@ -8253,10 +8253,10 @@
    "file": "micro/macros/class-names.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 22,
-   "covers": "\\renewcommand of a command the class defines (report's \\chaptername): not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewcommand of report's \\chaptername: the chapter heading takes it",
    "issue": "#344"
   },
   {
@@ -8315,14 +8315,36 @@
    "issue": "#344"
   },
   {
+   "id": "macros/counterwithin-cleveref",
+   "file": "micro/macros/counterwithin-cleveref.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 71,
+   "covers": "\\counterwithin[\\Roman]{equation}{subsection} with cleveref (its prefix from \\cl@subsection) and hyperref anchors \\theHsubsection.n",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/counterwithin-report",
+   "file": "micro/macros/counterwithin-report.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 333,
+   "covers": "\\counterwithin{figure}{section} and \\counterwithin*{table}{section} (reset only) in report: the figures reset at each section and number \\thesection.\\arabic{figure}, the tables reset and keep \\thetable; the lists of figures and tables; hyperref's anchors and cleveref's prefix (\\cl@section before \\cl@chapter)",
+   "issue": "#365"
+  },
+  {
    "id": "macros/def-latex",
    "file": "micro/macros/def-latex.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 115,
-   "covers": "\\def of a command LaTeX defines (\\baselinestretch) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\def of LaTeX's \\baselinestretch in the preamble: every size's \\baselineskip from \\begin{document}",
    "issue": "#344"
   },
   {
@@ -8458,15 +8480,37 @@
    "issue": "#344"
   },
   {
-   "id": "macros/let-latex",
-   "file": "micro/macros/let-latex.tex",
+   "id": "macros/let-emph-before",
+   "file": "micro/macros/let-emph-before.tex",
    "area": "macros",
    "tier": "T3",
    "reached": null,
    "status": "skip",
+   "glyphs": 19,
+   "covers": "\\let\\emph\\textbf after a fancyhdr field that holds \\emph (kept, and expanded at each shipout with the new meaning): not laid out yet",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/let-latex",
+   "file": "micro/macros/let-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 26,
-   "covers": "\\let of a command LaTeX defines (\\emph) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped); \\let of a new name to it is an alias",
+   "covers": "\\let of a text font command LaTeX defines (\\emph) to another (\\textbf): the document's from then on; \\let of a new name to it before keeps its meaning then (\\oldemph)",
    "issue": "#344"
+  },
+  {
+   "id": "macros/let-textsc-algorithm",
+   "file": "micro/macros/let-textsc-algorithm.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 36,
+   "covers": "\\let\\textsc\\textsf with algpseudocode, whose \\textproc is \\textsc: not laid out yet",
+   "issue": "#365"
   },
   {
    "id": "macros/lists-tables",
@@ -8480,15 +8524,92 @@
    "issue": "#344"
   },
   {
-   "id": "macros/newcounter-the",
-   "file": "micro/macros/newcounter-the.tex",
+   "id": "macros/names-addto-mixed",
+   "file": "micro/macros/names-addto-mixed.tex",
    "area": "macros",
    "tier": "T3",
    "reached": null,
    "status": "skip",
+   "glyphs": 11,
+   "covers": "\\addto\\captions<lang> holding more than names (a \\the<counter> too, which babel's captions define at \\begin{document}): not laid out yet (none of it is dropped)",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-babel-switch",
+   "file": "micro/macros/names-babel-switch.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 30,
+   "covers": "\\addto\\captions<lang> for two languages (\\def and \\renewcommand of \\figurename): each \\selectlanguage runs its language's captions with the additions",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-babel",
+   "file": "micro/macros/names-babel.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 36,
+   "covers": "babel's \\captions<lang> at \\begin{document} over the preamble's \\renewcommand of a name (\\figurename, \\contentsname stay English), and \\addto\\captionsenglish{\\renewcommand…} (\\tablename), which it runs",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-hyphen-caption",
+   "file": "micro/macros/names-hyphen-caption.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "a \\figurename with a hyphen (caption): in the caption's box no discretionary after it, in the paragraph of a caption too wide for a line one",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-hyphen-plain",
+   "file": "micro/macros/names-hyphen-plain.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "a \\figurename with a hyphen (plain): in the caption's box no discretionary after it, in the paragraph of a caption too wide for a line one",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-renew",
+   "file": "micro/macros/names-renew.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "\\renewcommand of the caption names without babel (\\contentsname, \\listfigurename, \\figurename, \\tablename, \\refname, \\abstractname): the headings, captions, the lists and the bibliography take them",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/newcounter-the",
+   "file": "micro/macros/newcounter-the.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 14,
-   "covers": "\\newcounter{q} defines \\theq, which the engine reads (\\ref, \\label): its \\renewcommand is not read yet, so not laid out (it is not dropped)",
+   "covers": "\\newcounter{q} defines \\theq, which the engine reads (\\ref, \\label): its \\renewcommand (\\Alph) is read too",
    "issue": "#344"
+  },
+  {
+   "id": "macros/numberwithin-section",
+   "file": "micro/macros/numberwithin-section.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "amsmath's \\numberwithin{equation}{section} with hyperref: the equations reset at each section, \\theequation \\thesection.\\arabic{equation}, the anchors \\theHsection.n, \\eqref",
+   "issue": "#365"
   },
   {
    "id": "macros/optional-argument",
@@ -8546,14 +8667,36 @@
    "issue": "#344"
   },
   {
-   "id": "macros/renewcommand-latex",
-   "file": "micro/macros/renewcommand-latex.tex",
+   "id": "macros/renew-emph-spanish",
+   "file": "micro/macros/renew-emph-spanish.tex",
    "area": "macros",
    "tier": "T3",
    "reached": null,
    "status": "skip",
+   "glyphs": 11,
+   "covers": "\\renewcommand{\\emph} with babel's spanish, whose \\labelenumii uses \\emph: not laid out yet",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/renew-emph",
+   "file": "micro/macros/renew-emph.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 56,
+   "covers": "\\let\\textit\\textsl and \\renewcommand{\\emph}[1]{…} with \\textit in it: the document's from then on, in text, nested, in a footnote",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/renewcommand-latex",
+   "file": "micro/macros/renewcommand-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 28,
-   "covers": "\\renewcommand of a command LaTeX defines (\\thesection) changes LaTeX, not a macro of the document's: not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewcommand of a command LaTeX defines (\\thesection) changes LaTeX, not a macro of the document's: the counters read it (\\Roman) in the heading and in text",
    "issue": "#344"
   },
   {
@@ -8561,10 +8704,10 @@
    "file": "micro/macros/renewcommand-package.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 20,
-   "covers": "\\renewcommand of a command a loaded package defines (amssymb's \\checkmark): not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewcommand of amssymb's \\checkmark, which no other command uses: the document's from then on",
    "issue": "#344"
   },
   {
@@ -8572,11 +8715,22 @@
    "file": "micro/macros/renewenvironment-latex.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 17,
-   "covers": "\\renewenvironment of an environment LaTeX defines (quote) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewenvironment of quote (which no other environment uses): the document's from then on, no list around it",
    "issue": "#344"
+  },
+  {
+   "id": "macros/renewenvironment-quote",
+   "file": "micro/macros/renewenvironment-quote.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "\\renewenvironment{quote} around another environment (center): its \\@endpe after it, the paragraph that follows not indented",
+   "issue": "#365"
   },
   {
    "id": "macros/robust-moving",
@@ -8590,14 +8744,168 @@
    "issue": "#344"
   },
   {
-   "id": "macros/theorem-the",
-   "file": "micro/macros/theorem-the.tex",
+   "id": "macros/stretch-fancyhdr",
+   "file": "micro/macros/stretch-fancyhdr.tex",
    "area": "macros",
    "tier": "T3",
    "reached": null,
    "status": "skip",
+   "glyphs": 130,
+   "covers": "\\linespread with fancyhdr, whose \\f@nch@reset sets \\baselinestretch to 1 in the head and foot: not laid out yet",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/stretch-linespread",
+   "file": "micro/macros/stretch-linespread.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 407,
+   "covers": "\\linespread{1.3} in the preamble: the \\baselineskip and struts of every size (headings, footnotes and floats, which the kernel does not single-space), the display skips the class's",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/stretch-renewcommand",
+   "file": "micro/macros/stretch-renewcommand.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 418,
+   "covers": "\\renewcommand{\\baselinestretch}{1.5} in the preamble, in the report class: every size's \\baselineskip, the chapter heading's too",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-appendix",
+   "file": "micro/macros/the-appendix.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 44,
+   "covers": "\\appendix's \\gdef of \\thesection over the preamble's \\renewcommand (\\Roman), and a \\thesubsection made of \\thesection and punctuation (-)",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-equation-section",
+   "file": "micro/macros/the-equation-section.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 57,
+   "covers": "\\renewcommand{\\theequation}{\\thesection.\\arabic{equation}} with amsmath and hyperref: the tags, \\eqref, and the anchors (\\theHequation stays arabic)",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-floats",
+   "file": "micro/macros/the-floats.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 173,
+   "covers": "\\renewcommand of \\thefigure and \\thetable (\\thesection, \\Roman, punctuation) in the captions, the lists of figures and tables, and \\ref; \\thefigure in a \\newcounter's \\the<counter>",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-hyphen-french",
+   "file": "micro/macros/the-hyphen-french.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 118,
+   "covers": "a \\the<counter> with a hyphen in french.ldf's caption: in its box no discretionary, in the paragraph of a caption too wide for a line one after the hyphen",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-hyphen-links",
+   "file": "micro/macros/the-hyphen-links.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 121,
+   "covers": "a \\the<counter> with a hyphen (\\thesection-\\arabic{table}): in caption.sty's caption paragraph the hyphen gets its discretionary; in hyperref's \\ref link box (dvips, restricted horizontal mode) it does not",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-own-macro",
+   "file": "micro/macros/the-own-macro.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 34,
+   "covers": "a document's own \\the… macro (\\newcommand{\\thetitle}, no counter) and its \\renewcommand: the document's, expanded, not a counter's representation",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-report-chapter",
+   "file": "micro/macros/the-report-chapter.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 169,
+   "covers": "\\renewcommand of report's \\thechapter (\\Alph): the chapter heading, its sections, equations and figures (\\thechapter.\\arabic), the list of figures and \\ref",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-sections-hyperref",
+   "file": "micro/macros/the-sections-hyperref.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "\\renewcommand of \\thesection and \\thesubsection with hyperref: the anchors keep \\theHsection, the bookmarks, toc lines and \\ref take \\thesection; and with titlesec's \\titleformat",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-sections-toc",
+   "file": "micro/macros/the-sections-toc.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 337,
+   "covers": "\\renewcommand of \\thesection and \\thesubsection (\\roman, \\alph, \\thesection in \\thesubsection) in the headings, the table of contents, \\ref and the running heads (\\MakeUppercase)",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-theorem-counter",
+   "file": "micro/macros/the-theorem-counter.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 104,
+   "covers": "\\renewcommand of a theorem's \\the<counter> within a section and of \\newcounter's (\\thesection, \\alph; \\thestep in \\thepiece), in the theorem heads, \\ref and text",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/the-unsupported",
+   "file": "micro/macros/the-unsupported.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 68,
+   "covers": "a \\the<counter> whose body leaves more than characters (~, a penalty and a space in the heading, written as \\nobreakspace to the .toc): not laid out yet (it is not set as text)",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/theorem-the",
+   "file": "micro/macros/theorem-the.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 35,
-   "covers": "\\newtheorem{thm} defines the counter thm and \\thethm, which the engine reads: its \\renewcommand is not read yet, so not laid out (it is not dropped)",
+   "covers": "\\newtheorem{thm} defines the counter thm and \\thethm, which the engine reads: its \\renewcommand (\\Roman) is read too",
    "issue": "#344"
   },
   {

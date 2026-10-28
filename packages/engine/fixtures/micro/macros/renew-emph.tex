@@ -1,0 +1,11 @@
+% fixture: macros/renew-emph
+% tier: T3
+% engine: document
+% covers: \let\textit\textsl and \renewcommand{\emph}[1]{…} with \textit in it: the document's from then on, in text, nested, in a footnote
+% issue: #365
+\documentclass{article}
+\let\textit\textsl
+\renewcommand{\emph}[1]{\textbf{\textit{#1}}}
+\begin{document}
+Some \emph{strong \emph{nested}} text and \textit{slanted} words.\footnote{An \emph{emphasized} note.}
+\end{document}

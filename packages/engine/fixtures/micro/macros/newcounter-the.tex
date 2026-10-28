@@ -1,7 +1,7 @@
 % fixture: macros/newcounter-the
 % tier: T3
 % engine: document
-% covers: \newcounter{q} defines \theq, which the engine reads (\ref, \label): its \renewcommand is not read yet, so not laid out (it is not dropped)
+% covers: \newcounter{q} defines \theq, which the engine reads (\ref, \label): its \renewcommand (\Alph) is read too
 % issue: #344
 \documentclass{article}
 \newcounter{q}

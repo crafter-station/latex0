@@ -193,7 +193,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   let thmNumber: string | null = null
   if (thmDef?.counter) {
     thmNumber = counters.stepNumbered(thmDef.counter)
-    refs.label = thmNumber; refs.href = `${thmDef.counter}.${thmNumber}`
+    refs.label = thmNumber; refs.href = counters.currentHref(thmDef.counter)
     // (cleveref's \@ynthm gives a theorem sharing a counter \refstepcounter[name]{counter}; LaTeX's first aid rebuilds
     // the label from \@currentcounter unless \iftag@)
     const crefType = run.tagFlag && thmDef.counter !== b.thm!.name && thmDef.crefNamed ? b.thm!.name : thmDef.counter

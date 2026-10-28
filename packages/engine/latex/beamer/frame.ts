@@ -261,7 +261,7 @@ export function addParagraph(cx: FrameCtx, v: VerticalList, text: string, s: Par
  *  counter (\resetcounteronoverlays: each slide of a frame starts it where the frame does), the normal font */
 function displayCtx(cx: FrameCtx, v: VerticalList, doc: DocState): Ctx {
   const eq = cx.equations
-  const counters = { get equation() { return eq.n }, set equation(n: number) { eq.n = n }, the: (n: number) => String(n), href: () => "", crefPrefix: () => "" }
+  const counters = { get equation() { return eq.n }, set equation(n: number) { eq.n = n }, the: (_: string, n: number) => String(n), href: () => "", crefPrefix: () => "" }
   const partial = { pre: { amsmath: true, hyper: false }, run: { k: cx.k, tagFlag: false, hyperItem: false, items: 0 }, v, doc, decisions: cx.decisions,
     counters, refs: { href: "" }, romanFont: selectFont(cx.k, "normalsize", SANS), counted: (t: string) => t }
   return partial as unknown as Ctx

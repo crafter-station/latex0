@@ -186,7 +186,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   babelBegin(pre.babel, (lang) => {
     // (caption.sty's names, set after babel's at \begin{document}, are its own until \captions<lang> sets them again)
     if (pre.caption && Object.keys(pre.caption.keys.names).length) throw new Unsupported("caption.sty's names with babel's language commands")
-    Object.assign(pre.names, languageCaptions(lang, cls === "report" || cls === "book")); extras(lang)
+    Object.assign(pre.names, languageCaptions(lang, cls === "report" || cls === "book", pre.captionAdds)); extras(lang)
   }, body)
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()
@@ -261,7 +261,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   // french's ; : ! ?, neither)
   if (hyper && pre.babel?.languages.some(isGerman)) throw new Unsupported("babel-german with hyperref")
   if (pre.usesListings && pre.babel?.languages.some((l) => isGerman(l) || l === "french")) throw new Unsupported("listings with babel-german or french")
-  const counters = new Counters(cls, newCounters, () => doc.footnote)
+  const counters = new Counters(cls, newCounters, () => doc.footnote, pre.counterFormats, pre.counterWithin)
   // (cleveref's language options among the class's, with babel: its brazilian not modeled; its english and spanish also
   // \crefname in babel's \extras<lang>, over the preamble's)
   if (pre.cleveref && pre.babel?.global.some((o) => o === "brazilian" || isGerman(o))) throw new Unsupported(`cleveref's ${pre.babel.global} option`)
