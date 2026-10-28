@@ -24,7 +24,7 @@ export interface MinipageSource {
   sub?: "figure" | "table"
 }
 /** commands that take no argument: a { after one opens a group */
-export const NO_ARGUMENT = new Set(["item", "par", "noindent", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "enspace", "thinspace", "hrulefill", "dotfill", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
+export const NO_ARGUMENT = new Set(["item", "par", "noindent", "nocorr", "indent", "centering", "raggedright", "raggedleft", "hfill", "hfil", "quad", "qquad", "enspace", "thinspace", "hrulefill", "dotfill", "smallskip", "medskip", "bigskip", "newline", "tiny", "scriptsize", "footnotesize", "small", "normalsize", "large", "Large", "LARGE", "huge", "Huge", "bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "em", "normalfont"])
 
 /** \( and \): LaTeX's robust \relax\ifmmode…\else$\fi, the same formula as $ (outside comments and \\) */
 export function inlineMathParens(src: string): string {

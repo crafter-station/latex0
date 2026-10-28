@@ -1,0 +1,42 @@
+% fixture: caption/captionof-font
+% tier: T3
+% engine: document
+% covers: \captionof in minipages set in another font (\textsf, \textsl, \bfseries, the abstract's \small): \caption@normalsize's \normalfont\normalsize sets the caption and the \baselineskip of the paragraph around its \parbox; the caption's \parbox has \sloppy's \emergencystretch 3em in the normal font (its \@parboxrestore after \caption@normalsize); the text after it is in the minipage's font again; position=top after text (the interline glue before it at \normalsize's \baselineskip), a narrow caption that needs the emergency stretch; a caption wider than its minipage, whose paragraph around the \parbox needs the emergency stretch: 3em in the font before the caption (\caption@parboxrestore's \sloppy comes before \caption@normalsize)
+% issue: #350
+\documentclass{article}
+\usepackage{caption}
+\begin{document}
+\begin{abstract}
+An abstract with a minipage in it \begin{minipage}[t]{.45\linewidth}
+Some words before the caption that take more than one line here.
+\captionof{figure}{A caption in the abstract's minipage, over two lines or more.}
+And words after it, in the small font again.
+\end{minipage} and more words after the minipage.
+\begin{minipage}[t]{.45\linewidth}
+\captionsetup{position=top}
+Words before a caption on top, over two lines here.
+\captionof{figure}{On top after text.}
+\end{minipage}
+\begin{minipage}[t]{1.6cm}
+\captionof{figure}{Typesetting hyphenation algorithmically demanding.}
+\end{minipage}
+\begin{minipage}[t]{3cm}
+\captionsetup{width=5cm}
+\captionof{figure}{Wider than the minipage.}
+\end{minipage}
+\end{abstract}
+
+Sans \textsf{words and \begin{minipage}[t]{3cm}
+Words before, over two lines here.
+\captionof{table}{In sans text, a caption over lines.}
+And after it.
+\end{minipage} more} and slanted \textsl{text \begin{minipage}[b]{4cm}
+\captionof{figure}{In slanted text, first.}
+Text after it in the slanted font over two lines.
+\end{minipage}} end.
+
+{\bfseries Bold \begin{minipage}[t]{3.5cm}
+Bold words before the caption here.
+\captionof{figure}{A caption after bold words, over two lines.}
+\end{minipage} and bold after.\par}
+\end{document}

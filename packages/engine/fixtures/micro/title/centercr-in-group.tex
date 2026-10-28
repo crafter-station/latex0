@@ -1,0 +1,28 @@
+% fixture: title/centercr-in-group
+% tier: T3
+% engine: document
+% covers: \\ as \@centercr in a group of a paragraph's text (\textbf, \emph, \textit in \textbf, a size group, {\large …\par}): \unskip\par in the groups, the paragraph's \baselineskip and alignment the groups', no \check@icr; \addvspace{-\parskip}, \\* and \\[skip] in the group's font; the next paragraph starts in the groups again with their declarations, after \ignorespaces, and after the groups that end right after the \\ (in vertical mode)
+% issue: #350
+\documentclass{article}
+\begin{document}
+\begin{titlepage}
+\centering
+Words before a bold \textbf{title over \\ two lines} and words after it here.
+\par
+Then \emph{an emphasized\quad{} \\* part} and \textbf{bold \textit{italic leaf\\[4pt] more} bold} after.
+\par
+An \emph{emphasized end\\} \textsc{starts} the next one, and \textbf{bold \emph{in it\\ } more} too.
+\par
+Text with a {\large larger group \\[1em] that goes on} and normal text after it, long enough to take two lines.
+
+{\Large\bfseries A big title\\ on two lines\par}
+\end{titlepage}
+\begin{titlepage}
+\raggedright
+Words and {\itshape \small small italic words over\\ the break} with ragged right text after it, long enough for two lines.
+
+Words before a skip
+\vspace{1cm}
+{\Large\bfseries and a big group\\ that ends it\par}
+\end{titlepage}
+\end{document}

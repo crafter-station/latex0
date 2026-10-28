@@ -39,7 +39,7 @@ import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, 
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
 import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
-import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
+import { crefOutput, crefRangeOutput, crefWrite, writtenLabel, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatEntry, type NatItem, type NatStyle } from "./natbib"
 import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
@@ -258,9 +258,12 @@ export function crefWrites(refs: Refs, key: string, inPara: boolean, cref = refs
   return c ? [crefWrite(c.writes, key, cref, c.at(), inPara)] : []
 }
 
+/** A reference's text as \ref and friends typeset it: characters, or with groups and text font commands in it, as text */
+export const labelPieces = (label: string): Piece[] => (/[\\{}]/.test(label) ? pieces(label, false, { groups: true }) : [{ kind: "text", src: label }])
+
 /** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
 export function labelWrite(refs: Refs, key: string, label = refs.label, href = refs.href, name = refs.name): Node {
-  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${label}}{\\thepage }{${name}}{${href}}{}}}` }
+  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${writtenLabel(label)}}{\\thepage }{${name}}{${href}}{}}}` }
   refs.writes.push({ node, key, label, href, name })
   return node
 }
@@ -511,6 +514,21 @@ function applyFontCommand(cmd: FontCommand, a: FontAttrs, cur: Font, base: FontA
  * \sw@slant (latex.ltx): the italic correction of the character before, with a skip at the end of
  * the list taken off first (\unskip … \hskip) and a penalty too (\fix@penalty)
  */
+/** \check@nocorr@ #1#2\nocorr#3\@nil on a text font command's argument with \nocorr appended: a \nocorr as its first
+ *  token (#1, spaces skipped) drops the italic correction before it; one after that at its top level (#3 not empty) the
+ *  one after it, and with a \nocorr first, a second one is needed for that */
+function nocorrs(src: string): { left: boolean; right: boolean } {
+  const tokens: string[] = []
+  for (let i = 0; i < src.length; ) {
+    if (/\s/.test(src[i]) && !tokens.length) { i++; continue }
+    if (src[i] === "{") { const j = closingBrace(src, i); tokens.push(src.slice(i, j + 1)); i = j + 1; continue }
+    const m = src.slice(i).match(/^\\(?:[A-Za-z]+|[^])/)
+    tokens.push(m ? m[0] : src[i]); i += m ? m[0].length : 1
+  }
+  const left = tokens[0] === "\\nocorr"
+  return { left, right: tokens.slice(1).includes("\\nocorr") }
+}
+
 /** \/ (append_italic_correction, § 1113): an explicit kern of the last character's italic correction, if the list ends with one */
 function italicCorrection(list: Node[]) {
   const tail = list[list.length - 1]
@@ -618,6 +636,9 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // \noindent in horizontal mode does nothing (§ 1093)
     const ni = body.slice(i).match(/^\\noindent(?![A-Za-z])\s*/)
     if (ni) { i += ni[0].length; continue }
+    // \nocorr: \relax (a \textbf argument's marker, \check@nocorr@ below)
+    const nc = body.slice(i).match(/^\\nocorr(?![A-Za-z])\s*/)
+    if (nc) { i += nc[0].length; continue }
     const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
     const el = body.slice(i).match(/^\\enlargethispage(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
@@ -888,6 +909,17 @@ export function otherFontName(k: ClassOptionData, a: FontAttrs, enc: "OMS" | "OM
 function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
   const sf = (Object.keys(k.sizes) as SizeCommand[]).find((s) => k.sizes[s].font.at === k.sizes[size].scriptSize)
   if (sf) return selectFont(k, sf, a)
+  // (another size option's size command of that size: the .fd files' font there, which no class changes; a font
+  // package's family's at that size)
+  for (const option of ["10pt", "11pt", "12pt"]) {
+    const other = classData("article", option), s = (Object.keys(other.sizes) as SizeCommand[]).find((x) => other.sizes[x].font.at === k.sizes[size].scriptSize)
+    if (!s) continue
+    const family = k.families && { cmr: k.families.rm, cmss: k.families.sf, cmtt: k.families.tt }[a.fam]
+    if (!family || family === a.fam) return selectFont(other, s, a)
+    if (family === "phv") throw new Unsupported(`\\LaTeX at ${size} in phv`) // (its scale)
+    const fonts = Object.fromEntries(["n", a.shape].map((sh) => [`${a.enc}/${a.fam}/${a.ser}/${sh}`, familyFont(family, `${a.enc}/${a.ser}/${sh}`, other.sizes[s].size)]))
+    return selectFont({ ...other, sizes: { ...other.sizes, [s]: { ...other.sizes[s], fonts } } }, s, a)
+  }
   // (\normalfont: math family 0's script font, or with T1 the EC font of that size, as \@makefnmark's)
   if (a.fam !== "cmr" || a.ser !== "m" || a.shape !== "n") throw new Unsupported(`\\LaTeX at ${size}`)
   const ref = a.enc === "T1" ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
@@ -1156,14 +1188,20 @@ const normalSpace = (font: Font, state: HState): Node => state.spaceSkips
   ? paramGlue("spaceskip", glueOf(state.spaceSkips.space))
   : glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL)
 
+/** A reference's text into a horizontal list: its characters, or its pieces (labelPieces) */
+function appendLabel(list: Node[], label: string, font: Font, size: SizeCommand, state: HState, ctx: PieceContext, attrs: FontAttrs) {
+  if (/[\\{}]/.test(label)) appendPieces(list, labelPieces(label), font, size, state, ctx, attrs)
+  else appendText(list, label, font, state, !ctx.restricted)
+}
+
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: HState, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
   for (const p of ps) {
     if (p.kind === "text") { appendSymbols(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, { enc: attrs.enc, select: (enc) => symbolFont(k, size, attrs, enc), used: doc.textDefaults ??= new Set() }, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
     if (p.kind === "logo") {
-      if (p.name === "LaTeXe" && attrs.ser !== "m") throw new Unsupported("\\LaTeXe in bold (\\boldmath)")
-      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), mathEnv(k, size, ctx.amsmath), TEXT, false), { kind: "math", on: false, width: 0 }]
+      // (\LaTeXe: \boldmath in a series b…)
+      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), ((env) => (attrs.ser.startsWith("b") ? env.bold!() : env))(mathEnv(k, size, ctx.amsmath)), TEXT, false), { kind: "math", on: false, width: 0 }]
       list.push(...logoNodes(p.name, font, () => sfFont(k, size, attrs), state, (l) => hpack(l), epsilon)); ctx.ignoreSpaces = false; continue
     }
     if (p.kind === "currentlabel") {
@@ -1400,7 +1438,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         for (const x of xs) {
           if (x.t === "text") {
             // (a run of characters goes on into the next text, but not over a name's case change)
-            x.s.split("\u0000").forEach((t, i) => { const prev = ps.at(-1); if (i === 0 && prev?.kind === "text") prev.src += t; else ps.push({ kind: "text", src: t }) })
+            // (a label with groups and text font commands: its pieces)
+            x.s.split("\u0000").forEach((t, i) => { const prev = ps.at(-1); if (/[\\{}]/.test(t)) ps.push(...labelPieces(t)); else if (i === 0 && prev?.kind === "text") prev.src += t; else ps.push({ kind: "text", src: t }) })
           }
           else if (x.t === "tie") ps.push({ kind: "tie" })
           else if (x.t === "qq") ps.push({ kind: "qq" })
@@ -1449,7 +1488,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         // \autoref* \@gobbletwo's the link's first two arguments
         // (hyperref's names in babel's main language: autorefLanguage)
         const name = autorefName(known.href, autorefLanguage(doc.babel))
-        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: sourceText(isSpanish(doc.babel) ? markAccentHyphens(name) : name) } as Piece, { kind: "tie" } as Piece]), { kind: "text", src: known.label }], font, size, state, inner, attrs)
+        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: sourceText(isSpanish(doc.babel) ? markAccentHyphens(name) : name) } as Piece, { kind: "tie" } as Piece]), ...labelPieces(known.label)], font, size, state, inner, attrs)
       } else {
         // \T@nameref: the label's third field (its tokens as the .aux file is read) in \@setref; with hyperref
         // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref
@@ -1471,7 +1510,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (p.kind === "ref" && p.sub && doc.refs?.hyper) {
         // with hyperref, \hyperref[key]{\ref*{sub@key}}: \ref*'s text and \null, in a link to key's anchor when key is defined
         let text: Node[] = []
-        if (known) { appendText(text, known.label, font, state, !ctx.restricted); text.push(hpack([])) }
+        if (known) { appendLabel(text, known.label, font, size, state, ctx, attrs); text.push(hpack([])) }
         else { appendText(text, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false); text = [hpack(text)] }
         const target = doc.refs.prev?.get(p.key.slice("sub@".length))
         list.push(...(target ? refLink(text, target.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined) : text))
@@ -1481,11 +1520,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
         const text: Node[] = []
-        appendText(text, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted)
+        appendLabel(text, p.kind === "ref" ? known.label : known.page, font, size, state, ctx, attrs)
         list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
         continue
       }
-      if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted); list.push(hpack([])) }
+      if (known) { appendLabel(list, p.kind === "ref" ? known.label : known.page, font, size, state, ctx, attrs); list.push(hpack([])) }
       else {
         const qq: Node[] = []
         appendText(qq, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
@@ -1605,11 +1644,15 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const a = applyFontCommand(p.cmd, attrs, font, ctx.base, k, size, doc)
       const inner = selectFont(k, size, a)
       noteSubstitution(k, size, a, doc) // \wrong@fontshape
-      const corr = p.src !== "" && p.src !== " "
-      if (corr && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
+      // (\check@nocorr@: \nocorr first drops the one before, a \nocorr after the first token the one after)
+      const corr = p.src !== "" && p.src !== " ", nc = nocorrs(p.src)
+      if (corr && !nc.left && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
+      const noteClub = ctx.noteClub // (as a group's that starts the paragraph, size and group below)
+      if (p === ctx.lead && ctx.leadGroupNoteClub !== undefined) ctx.noteClub = ctx.leadGroupNoteClub
       appendPieces(list, p.inner, inner, size, state, ctx, a)
+      ctx.noteClub = noteClub
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
-      if (corr && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
+      if (corr && !nc.right && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff

@@ -1,0 +1,41 @@
+% fixture: caption/margins-twoside
+% tier: T3
+% engine: document
+% covers: caption.sty's unequal margins in a twoside document (\caption@ifoddpage): swapped on an even page; the \caption@newlabel \write (and \caption@@label's \providecommand, once) before the caption's paragraph; the first run's parity is \c@page's where the caption is read, the second run's the page its \write was shipped out on (a float read on page 2 and placed on page 3); captions with equal margins step \caption@thecounter too, and with a width= none of that
+% issue: #350
+\documentclass[twoside]{article}
+\usepackage[margin={5pt,15pt}]{caption}
+\begin{document}
+Text before.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A caption on an odd page.}
+\end{figure}
+\begin{table}[h]
+\captionsetup{margin=10pt}
+\caption{Equal margins.}
+\centering
+\begin{tabular}{c}B\end{tabular}
+\end{table}
+\clearpage
+Text on the second page.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}C\end{tabular}
+\caption{A caption on an even page, long enough to take two lines of the caption's text in the float here.}
+\end{figure}
+\begin{table}[h]
+\captionsetup{width=6cm}
+\caption{A width, no margins: no new label.}
+\centering
+\begin{tabular}{c}E\end{tabular}
+\end{table}
+\vspace*{12cm}
+More text at the foot of the second page, then a float that goes to the top of the third.
+\begin{figure}[t]
+\centering
+\begin{tabular}{c}D\end{tabular}
+\caption{Read on page two, placed on page three, long enough to take two lines of the caption's text.}
+\end{figure}
+\end{document}

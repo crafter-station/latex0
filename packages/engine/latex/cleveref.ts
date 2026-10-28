@@ -310,6 +310,10 @@ function range(setup: CrefSetup, family: Family, a: Ref, b: Ref, pos: Pos, links
  *  vertical list there was then, the page builder having seen all of it but a paragraph's \parskip only `inPara`) */
 export interface CrefWrite { node: Node & { kind: "whatsit" }; key: string; cref: CrefLabel | null; at: number; inPara: boolean; page?: { style: string; arabic: number } }
 
+/** A reference's text as \protected@write writes it: a text font command (\DeclareRobustCommand's) as \protect and the
+ *  command whose name ends with a space (enumitem's label=\textbf{\arabic*.}); one written so already stays */
+export const writtenLabel = (label: string) => label.replace(/(?<!\\protect )\\(textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{/g, (_, c: string) => `\\protect \\${c}  {`)
+
 export function crefWrite(writes: CrefWrite[], key: string, cref: CrefLabel | null, at: number, inPara: boolean): Node {
   const node = { kind: "whatsit" as const, text: "" }
   writes.push({ node, key, cref, at, inPara })
@@ -333,6 +337,6 @@ export function fillCrefWrites(writes: CrefWrite[], pages: { count: number; thep
     const c = w.cref
     const label = c ? `[${c.type}][${c.arabic}][${c.prefix}]${c.label}` : ""
     w.page = { style: roman ? "i" : "1", arabic: page }
-    w.node.text = `\\write1{\\newlabel{${w.key}@cref}{{${label}}{[${w.page.style}][${page}][]\\thepage }{}{}{}}}`
+    w.node.text = `\\write1{\\newlabel{${w.key}@cref}{{${writtenLabel(label)}}{[${w.page.style}][${page}][]\\thepage }{}{}{}}}`
   }
 }

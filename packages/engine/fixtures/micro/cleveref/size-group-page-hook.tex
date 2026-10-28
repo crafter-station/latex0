@@ -1,0 +1,343 @@
+% fixture: cleveref/size-group-page-hook
+% tier: T3
+% engine: document
+% covers: the output routine's \baselineskip hook for a size group's paragraph goes before what the paragraph reads of the main vertical list: cleveref's page counter for a \label in it, at its \parskip (fuzz doc-8-146)
+% issue: #350
+\begin{filecontents*}[overwrite]{wide.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 400 200
+%%EndComments
+\end{filecontents*}
+\begin{filecontents*}[overwrite]{tall.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 10 20 110.5 320.25
+%%EndComments
+\end{filecontents*}
+\documentclass[11pt]{report}
+\usepackage{graphicx}
+\usepackage[british]{babel}
+\usepackage{geometry}
+\usepackage{booktabs}
+\geometry{hscale=0.7,vscale=0.8}
+\pagestyle{empty}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\title{very years some Really? be which}
+\author{same with \and some were \\ so can from}
+\date{affluent now get}
+\newcounter{thm}
+\newcommand{\thm}{\stepcounter{thm}\paragraph{Theorem \thethm.}}
+\usepackage{amsthm}
+\usepackage{cleveref}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem*{claim}{Claim}
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+\newtheorem{note}{Note}
+\begin{document}
+\maketitle
+
+\begin{note}\label{thm:39} office new from work when here old or for two two those no year \textsf{between this \cref{thm:4} much down}
+\end{note}
+\begin{proof} between this many with back \rule{39pt}{1pt} under different three algorithm way into many little two take even state before little back much~\cite{b1} state years state $\frac{1}{2}$ at any $\operatorname*{arg\,max}_x f$ her tolerance there out two that world one as official tolerance never where efficient well like three $\mathbf{v}_\mathrm{max}$ life \textup{off \eqref{eq:3-1} the},
+\end{proof}
+old take how there men through those come $\int\!\!\int f\,dx\,dy$ men too may fluffy composition \emph{much no} where them his life\footnote{state where Paris affluent} down while first even back take should difficult
+
+\begin{table}[htbp]
+
+
+
+\caption{state they like any any because}
+\label{table:38}
+\includegraphics[scale=0.3]{wide.eps}
+\end{table}
+
+\begin{figure}[bp]
+
+
+\vspace{131pt}
+\caption{out then too work their being this each}
+\label{figure:37}
+\begin{tabular}{@{~}r||}
+\toprule\addlinespace
+men \\
+ \\
+\end{tabular}
+\end{figure}
+
+\thispagestyle{empty}
+
+even can $\mathbf{v}_\mathrm{max}$ should being it they people $\lim\limits_{x} f$ those algorithm under the fifteen well efficient it even affluent used London. algorithm same badness come sufficient many these come badness in those different $a_i\leq b_i$ most there\footnote{(indeed) work but only year those life now some} who know between it man Really? from~\cite{b1} paragraphs Plass Yes! \$5 \eqref{eq:2-1}
+\begin{multline}
+\sum_{i\,=\,1}^n x_i \quad\ne\quad \prod_{j} y_j \qquad a\!\;b \\
++ \mathrm{e}^{\mathrm{i}\pi}+\mathnormal{1}=\mathsf{0} \\
++ \sqrt[3]{\frac{1}{1+\sqrt[n]{x}}}=y^{\sqrt[k]{2}}
+\end{multline}
+
+\[ \mathbf{F}=m\mathbf{a} \]
+
+
+no this $\int\!\!\int f\,dx\,dy$ state\footnote{affluent paragraphs own here so more being came then they our on by fifty offline my while another hyphenation} not has one by how by composition or \textsf{many against against your \textit{sufficient than}} up fifty would fluffy should \textbf{different $\left(\frac{a}{b}\right)^2$ in $f(x)=\sum_{i=1}^n a_i x^i$ see} years were \textsc{did $\mathbf{v}_\mathrm{max}$ too time} only office time $\lim\limits_{x} f$ two old fluffy any (indeed) will have in life \cref{eq:l1,eq:l2,eq:l3} right know between Typesetting too work still stuff never any day after who another\,\textdegree. \includegraphics[width=1cm]{wide} out more\% how but after against were get up any have $\frac{1}{2}$ Typesetting those some {\bfseries back} make long $\max_i x_i\le\det A$ both their not \$5 time some three \underline{ a before staff \textit{other}} to people $\mathbf{v}_\mathrm{max}$ \$5 Yes! know difficult down some with state day right\footnote{was through last right too great her two into stuff composition of first his Plass your Knuth also years a efficient work my they at are Really?} \emph{also being} still not sufficient is do London. being into office not new my world between the state affluent into efficient year composition of will the where
+
+{\small\itshape time offline \crefrange{figure:30}{t:2} affluent great Really? time great \hfill back never affluent also made even over difficult than all $x^2+y^2=z^2$ under \includegraphics[height=1em]{wide} here here her first~\ref{s:1} of from as on page~\pageref{nowhere} many hyphenation world\footnote{because good when our as on are just difficult right old our since very same fluffy same difficult offline one any would well state it at after Really? know with Yes! a which some tolerance which Typesetting work used (indeed) have} \emph{Knuth through} so been new \textsl{must}. when after paragraphs Really? our each men fluffy for\qquad just been \(x\) go they under because might when three as by~\ref{figure:30} could made take also fifty time well-known composition has see \underline{this} very such \rule[-0pt]{1em}{1.5ex} Typesetting where fluffy \emph{they like than}. when well know two right they since is should such under \textit{since}, at most one used work who may work Plass $\lim_{n\to\infty} a_n$ more under been since composition same get state so life only may different little through such being same an like this old made may efficient more $\sin x+\log_2 n$ only many\par}
+
+\begin{description}
+\item[(indeed)] after very years to $\frac{1}{2}$ \cref{t:1} for see \textsc{might \rule[-1pt]{1em}{1.5ex} Paris just \cref{thm:4} into \emph{Yes!}} where from never now up to $f(x)\ne 0$ made up \#1~\cite{b1} on % note
+an at \textsf{under their because} fifty Paris \textmd{with $\int\!\!\int f\,dx\,dy$ \label{s:2} just here} \textbf{some same like} London. made this these her while one badness that $x$ Yes! $\sin x+\log_2 n$ never when \textsc{where offline}, before way know same would my
+\end{description}
+
+\section{still another (indeed)}
+
+
+\begin{align*}
+a+b & \leq  & \alpha & + x &  &  \sum_{i=1}^n i \\
+x & \leq a+b & x^2 &  \alpha & \sum_{i=1}^n i &  x \nonumber \\
+\frac{1}{2} & = y_1 & a+b & = a+b & a+b &  y_1 \\
+y_1 &  \frac{1}{2} & x^2 &  \frac{1}{2} & x & \leq 
+\end{align*}
+up \eqref{eq:3-1} never way up \begin{tabular}[b]{|c}
+like like \\
+$\operatorname*{arg\,max}_x f$ \\
+\end{tabular} because baffled \textsc{used are know up} demerits\label{t:2} those great very old Knuth \emph{world}, since out may might office
+
+one go those these \emph{last also \rule{10pt}{3pt} \textsl{after would}} like life with those {\em or} at old Knuth no \(\lim_{n\to\infty} a_n\) \cite{b3} came how tolerance well some on long staff good too $\langle u, v\rangle$ hyphenation who has here fluffy they way $\mathbf{v}_\mathrm{max}$ on page~\pageref{s:1} well office different could algorithm well through for also up great also old and $x^2+y^2=z^2$ my Paris \begin{minipage}[b]{.3\linewidth}
+against may difficult baffled no take come three on this algorithm who Paris those \(\alpha\to\beta\) tolerance against own
+\end{minipage} been composition may world state day time their algorithm old made Paris as own both one composition may efficient on page~\pageref{s:2} were do this Yes! made through \textsf{have Yes!} are used $x\quad y\qquad z$\,\textdegree.\footnote{great also great out people each with Paris has own very work} another might your take year or $x\quad y\qquad z$ state \emph{different staff or an}, now get have
+
+can her staff \textit{even like a}, some office how each\qquad no day his \textsl{so go when} life our years them much badness than against but over those been but while my see because which $a\,b\:c\;d\!e$ could many a an \textsf{well-known affluent} there go get Typesetting each Knuth last between would each from when (indeed) \(\langle u, v\rangle\) on might before efficient such how good from \includegraphics[width=1cm]{wide} there came well those were here over these any \(\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}\) fifty has now $\left(\frac{a}{b}\right)^2$ little in\footnote{at state Typesetting no many only an also before be must} did not to three very to world year efficient out those can\enspace \eqref{eq:3-1} of \crefrange{s:3}{s:2} at offline (\eqref{eq:15-1})
+
+not should great long great some who so old \(a_i\leq b_i\) world \ref{figure:30} between are his people get great life being over under algorithm before these tolerance because such would day \label{t:1} take\label{s:3} a only if at over state \textsc{since} back still other of might great same both 5\,\textdegree C must man his made two been been but being each at much here in off could little it tolerance over has these\\[3pt] at when for three to life and through little\% paragraphs\footnote{Knuth paragraphs man between one baffled most this his work time in from time up then which at like year while might be from are first more and do down different (indeed) more even are} than sufficient little sufficient if out very\,\textdegree. back same while demerits before but staff so like in many \(\sqrt{2}\) can they those fifteen over being may after fluffy must off with out work at get no make time own on page~\pageref{t:1} right\textemdash~\cite{b1} did $a_{i\,j}\neq b^{n\;m}$ as may some against against come offline
+\begin{align}
+\alpha & = \alpha & a+b &  y_1 & \frac{1}{2} & = f(x) \nonumber \\
+x^2 & = f(x) & x & + x^2 & x &  a+b \\
+\sum_{i=1}^n i &  \sum_{i=1}^n i & a+b & = a+b & x &  f(x)
+\end{align}
+a which my do \textendash are people there being have with Typesetting \textsc{own life Paris \emph{here}} than in still made \ref{figure:20} official most still were fluffy still their now against $\sqrt[n]{\frac{a}{b}}^2$ can used because my been fluffy now much here \Crefrange{eq:l1}{eq:l1} since fluffy \ref{s:3} should \textmd{down demerits there \textup{make}} come own before has London. that Plass under no
+\begin{gather*}
+\lim_{x\to 0}\frac{\sin x}{x}=1 \nonumber
+\end{gather*}
+also little staff can other well are against great each \includegraphics[width=1cm]{wide} hyphenation are such now not
+
+{\Large\raggedright will come this tolerance are \&  which against Typesetting way people demerits way official some go might algorithm know well-known the at efficient fluffy between $a_{i\,j}\neq b^{n\;m}$ has our \underline{was state make} affluent into\footnote{demerits another that those while used an back more hyphenation off before because them your affluent three only here could and just some affluent fluffy an between both go one first under} back to state so being for right for another make used Plass but\label{s:1} Paris offline used while life man\par}
+
+Yes! fifty hyphenation such such composition how hyphenation come down
+
+fifteen was $x^2+y^2=z^2$ it staff most year back who since \\ most state another if up great did \(\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}\) time take  %
+  since right for years official other these Typesetting with\footnote{not three were been well those the not also badness Knuth his an over then or in into one from office should them never just also after back Plass can those take these as since badness each her Knuth} her but my~\cite{b1} was $\int\!\!\int f\,dx\,dy$ it between an $\langle u, v\rangle$ then \underline{ these} do could same men~\cite{b1} \textsl{has fifteen different} at \Crefrange{eq:l1}{eq:l4} before any Yes! the great that $\int\!\!\int f\,dx\,dy$ well-known $\operatorname*{arg\,max}_x f$ and these $\operatorname*{arg\,max}_x f$ their since \textup{because} a years off \cite{b2,b1} both did \emph{in}
+
+still they~ years algorithm in also as \textup{too} any (\eqref{eq:15-1}) do to was baffled also new many \hfill\footnote{could with world first fifteen there might never has been with good when London. right out right their even last demerits tolerance must well-known fluffy} get there most Paris both used \underline{ last} hyphenation never like only way a Paris being still\footnote{and badness difficult go} \includegraphics[width=1cm]{tall} many stuff London. through hyphenation \textsf{algorithm in state \textsc{even}} back would her into right algorithm \quad on between this same will all way never each may Really? under here even efficient long stuff on little office London. year \#1 is that her which\footnote{Paris them go take stuff down may paragraphs at most on over her these against no staff make while state sufficient go who them to too into their must little over} any and did little by where way can $\cos^2\theta$ tolerance their from very because who never used such by make now %
+over\footnote{this state up work some both still see over under his those by years first was very go like two not} new \(\langle u, v\rangle\) for some $\lim\limits_{x} f$ which first well be many such\\[4pt] that each little with years come come
+
+now then an be her her when $f(x)=\sum_{i=1}^n a_i x^i$ man office no such composition \cite{b3} out while their \emph{take see}. out come see man because same \makebox[3cm]{they which} much at long so last no Paris will these both even right $\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}$ fifteen has their because while could many before because their should same stuff life a an never and any them might when one\footnote{Paris her affluent do as day now three well-known algorithm them same them some fifteen badness being if for how fifteen Paris my if new to can their tolerance might go from to world my as paragraphs who from} if see baffled must the baffled them $x$ of affluent must through London. from see old between come \(\sqrt[n]{\frac{a}{b}}^2\) it did like fluffy Typesetting never some $\alpha\to\beta$ time great long our London.~ fifteen to made\qquad then has Paris more other last \eqref{eq:10-1} same can \textbf{only \(\cos^2\theta\) for} here on three of $x^2+y^2=z^2$
+
+\subparagraph{little being}
+
+\begin{figure}[!h]
+
+
+
+\caption{up}
+
+
+\end{figure}
+
+\begin{center}
+\begin{tabular}{lcr|}
+\toprule
+might &  & \emph{now} \\
+\multicolumn{1}{c}{$a_i\leq b_i$} & \multicolumn{2}{c}{staff} \\
+\bottomrule
+\end{tabular}
+\end{center}
+there paragraphs when two hyphenation some \emph{fifteen} her them where go \begin{tabular}{@{~}r@{ -- }l}
+\multicolumn{2}{r|}{\textbf{very back against}}
+\end{tabular} work which must $\mathcal{A}\cup\mathit{diff}$ Typesetting can our was one man \makebox[2\width][l]{over} years if one to efficient came great they $\lim_{n\to\infty} a_n$ man different came after affluent from up old after $\sqrt[n]{\frac{a}{b}}^2$ down difficult
+
+\begin{theorem}[an then Knuth]\label{thm:19} get $\sqrt{x^2+y^2}$ work but \Cref{eq:6-1} baffled who\,\textdegree. being (indeed) long Yes! different year can \$5 the is way algorithm many other different 5\,\textdegree C stuff at too Knuth from both at \textmd{last} an may $x^2+y^2=z^2$ old most also $\operatorname{tr} A$ all my well-known with used and \ref{nowhere} came as are \begin{minipage}[b]{0.45\linewidth}
+well-known was official may difficult made life years these just \begin{tabular}{rrl}
+\hline
+\multicolumn{3}{l}{$x^2+y^2=z^2$} \\
+\end{tabular}
+\end{minipage} after must last year any \TeX very been London. way fifty even into
+\begin{align}
+a &= f(x) + g(x) \\
+ &= b
+\end{align}
+hyphenation paragraphs \parbox[b]{3cm}{many were these a too other life still} might them each \emph{men but much his} well-known time fluffy as against back only can for Typesetting year my over may because \emph{up} made two by may so\footnote{can there these see as after which too made so them between work three her fifty than algorithm used is not little there Typesetting fifty Knuth being work go have three know fifty is these still life}
+\end{theorem}
+by\footnote{be such will new both so see} old efficient up world any out % note
+  new offline $\max_i x_i\le\det A$ make Typesetting came take last right input\slash output an after\textellipsis{} make as up this long\footnote{has them his affluent through} would and efficient hyphenation two down no another \includegraphics[scale=0.05]{wide} \textsc{may did your can}. still each some different difficult \begin{tabular}{cl}
+\emph{under now used} & \(a_i\leq b_i\) \\[2pt]
+badness will & state some is \\
+\multicolumn{2}{|l}{\emph{through staff as}} \\[-1pt]
+\midrule
+\(\cos^2\theta\) & $\frac{1}{2}$ \\
+\multicolumn{2}{c}{between through} \\
+\bottomrule
+\end{tabular} your another up both $\sqrt{2}$ was with
+
+did most $x^{\sqrt{\frac{1}{2}}}$ \includegraphics[height=1em]{wide} over than the \(\mathcal{A}\cup\mathit{diff}\) used those affluent any how than 21\textdegree{} official more so such
+\[ a+b+x^2+\alpha+\alpha+a+b+x^2+-+a+b+\alpha+a+b+a+b+\alpha+-+a+b+\alpha+x^2+\alpha+-+-+x^2+-+\alpha+x^2+-+a+b+\alpha+-+x^2+\alpha+a+b \]
+
+
+it made it difficult\footnote{made very up Paris can down only them for too all by than this little after any into paragraphs how offline were hyphenation my when} out which \texttt{baffled more have no} on world \includegraphics[height=1em]{tall} sufficient their good $\mathcal{A}\cup\mathit{diff}$ than go even baffled new new made take did\,\textdegree. each are stuff Plass down Knuth some fifteen those \hrulefill was than own there\footnote{there my as will stuff on well man here here being came never fifty affluent your just should come was after those tolerance can here where to while your last out see into} years them \Cref{t:2} against $\int\!\!\int f\,dx\,dy$ \textsc{know Plass \textsl{official}} Really?\footnote{life off will} how between their work Plass get used through which which still demerits \(\int\!\!\int f\,dx\,dy\) not our Yes! her these long $x^2+y^2=z^2$ difficult men how come~\cite{b1} much there her under or made affluent $\sqrt[n]{\frac{a}{b}}^2$ who do this sufficient Really? algorithm \$5 badness official hyphenation a there do years between only \textup{all or $\lim_{n\to\infty} a_n$ because} algorithm after like composition efficient because the\footnote{more like different than Plass your that came badness} a demerits on our a
+\begin{align}
+\frac{1}{2} & \leq y_1 \\
+ &  
+\end{align}
+
+\begin{align}
+f(x) &  x^2 \\
+x^2 & \leq f(x) \nonumber \\
+y_1 & + f(x)
+\end{align}
+may should with staff at are new with then never see even own fifty and back may after Paris $x\quad y\qquad z$ world on into first most \ref{s:1} must must only old \emph{to tolerance \textsc{under man}} would which well they year just long even be will an last see
+
+good \textsf{might badness time}. years affluent here one all as one \quad well just for can they \underline{most their Yes! $\cos^2\theta$} badness could \textsc{efficient London. even into} of more on efficient Really? they office back your new after are by affluent these Knuth my efficient then great each never out could have demerits \rule[-3pt]{1em}{2pt} will see\% come between only badness even get did many never were is sufficient no with like $\cos^2\theta$ other \textsf{when $\lim\limits_{x} f$ still do it \textsl{before}}. where well-known was those three man while~\eqref{eq:6-1} make day London. now stuff still might there because would Paris algorithm still algorithm but $\mathcal{A}\cup\mathit{diff}$ these should into
+
+\clearpage
+
+did up much would how and back\footnote{staff life official see little with also must composition come for} good three come three people than year $\cos^2\theta$ \label{s:3} make\footnote{office new right her do come still last over three each than three your even to an no how many here from fifty the there was down come badness state fluffy these could Really? down between} and \includegraphics[scale=0.05]{tall} official into
+
+\begin{enumerate}
+\item be first affluent \pounds 5 into was \Cref{eq:6-1} demerits how who right would an these \(\operatorname*{arg\,max}_x f\) know on into must out any $\sqrt[3]{x}$ new the tolerance\qquad this take a off now algorithm\footnote{office one fluffy used used like no been made way under long paragraphs by take tolerance how have make take right just Knuth only from it} too came an not different over but $\sqrt[3]{x}$ being just did to own Plass work world same first \rule[-1pt]{1em}{1.5ex} same there $\langle u, v\rangle$ used never \(x\) this one here $\max_i x_i\le\det A$ difficult
+\begin{verse}
+than while when \\
+
+office just are stuff algorithm paragraphs \(a_{i\,j}\neq b^{n\;m}\) staff because after for \includegraphics[width=1cm]{wide} algorithm make get these on fifteen can could would $a_{i\,j}\neq b^{n\;m}$\footnote{can have this little more baffled may last up London. there staff} they against sufficient other great between long who \textbf{stuff \texttt{those Paris}} my same \underline{ was offline will} his\footnote{they two them here than own old have by in against take when if fluffy up Yes! Paris here many} an do get her get back \(a\,b\:c\;d\!e\) paragraphs been Plass $f(x)=\sum_{i=1}^n a_i x^i$ know back no first badness\qquad \cpageref{s:1} did since right both can by \begin{tabular}[t]{*{2}{r}}
+not into & it \\
+ &  \\
+\textbf{her see} & old life staff \\
+\multicolumn{2}{c}{} \\
+difficult being & years \\
+London than when & and as \\
+\hline
+\end{tabular} into long fluffy only \texttt{time}
+\end{verse}
+\item them old
+\begin{verse}
+make another official algorithm Plass \today will go now same at work %
+here well-known there Typesetting \textsl{still} could good was way that down office
+
+\Large\bfseries also official~\cite{b1} this Plass world such \#1 will $\int\!\!\int f\,dx\,dy$ out demerits \raisebox{2pt}[0pt]{one} under off \\
+\end{verse}
+\end{enumerate}
+
+\begin{figure}[!b]
+
+
+\vspace{167pt}
+\caption{make Really?}
+
+\includegraphics[width=3cm,height=1cm,keepaspectratio]{wide.eps}
+\end{figure}
+
+their for way paragraphs \emph{might}. back well-known from much some algorithm three out not \Cpageref{nowhere,t:2} good office than little all who could as did fifteen paragraphs are such man into my \fbox{men} two another very \cite{b3} should very was fifty up \emph{tolerance \$5} \textup{last \textsf{efficient have}} between\label{figure:20} also such only same \raisebox{-.5ex}{year} like too get both way most where badness~\ref{t:1} the it many are Paris should it would old into some year even people well by
+
+\begin{figure}[!t]
+\centering
+
+\vspace{6pt}
+\caption{very are very}
+\label{figure:11}
+
+\end{figure}
+
+\begin{figure}[p]
+
+
+
+\caption{and first long}
+
+\includegraphics[width=0.8\textwidth]{tall.eps}
+\end{figure}
+
+other official demerits so being only both who Really? input\slash output in state them must affluent Knuth men $f(x)\ne 0$ here stuff own is office stuff down his them with stuff because who how \textit{have} like used so London. by these demerits after $\sin x+\log_2 n$ must an $f(x)\ne 0$ must when fluffy (indeed) \textsf{for because other same} fluffy\footnote{sufficient own these well-known of each life offline even being be time all staff go her old also when being never algorithm life old if Knuth way own now with little right time great stuff efficient way know} different \&  three\footnote{this on own over old it state can last did now way own must came but these very new being would know any staff} other take our long fifteen now two year they staff other some make her work office when \newpage came\footnote{might more by used offline no as right so too both new has these same her through who it out made still some each a even badness} Typesetting know new \textsf{was take stuff badness} offline \cite{b3} by much stuff both \cref{figure:20} some baffled back (indeed) well $x^{\sqrt{\frac{1}{2}}}$ \texttt{only \(\lim\limits_{x} f\) \textup{do can}},
+\begin{align}
+\sum_{i=1}^n i & = a+b & x^2 &  y_1 \\
+f(x) & = f(x) & a+b & =  \\
+\frac{1}{2} & \leq a+b & a+b &  
+\end{align}
+than hyphenation only take would offline paragraphs before there baffled offline too by there are day last much time all go these sufficient did $\alpha\to\beta$ up \emph{like} at out Knuth efficient life \(\alpha\to\beta\) first those more all since make different where much used when men \textit{as still it good \texttt{be after}} \textsc{still used being} being \(\frac{\mathrm{d}y}{\mathrm{d}x}\) way efficient \textmd{over algorithm} composition \textbf{under there} people stuff last which people
+$$\mathrm{e}^{\mathrm{i}\pi}+\mathnormal{1}=\mathsf{0}$$
+\emph{Typesetting a \quad office} as other old affluent fifty $\alpha\to\beta$ where very our \textit{how}, there this tolerance or more \textbf{this make over} each see much has our an~\ref{t:2} been being Yes! $\lim\limits_{x} f$ life would of year affluent both his know (indeed) at used (indeed) office so staff will \raisebox{2pt}[2ex][1pt]{before} then \textmd{because that a}, in so
+
+\begin{center}
+\begin{tabular}{cp{5em}}
+\toprule[1.5pt]
+\emph{some} & used for being these indeed even at used know \\
+\midrule
+into here only & \multicolumn{1}{r|}{} \\[1ex]
+\bottomrule
+\end{tabular}
+\end{center}
+
+\cleardoublepage
+
+their  %
+might London. but much composition \&  while who work off any used are was $\alpha\to\beta$ such those Plass being good very into \(\alpha\to\beta\) could\footnote{right offline state time life also out Paris own made our man most to a for off is or is in fluffy one different right here will could any through will like good the Yes! there difficult too can men after Paris} baffled also never \(\langle u, v\rangle\) of fifty $x$ algorithm an (indeed) made\\[8pt] $x$ \#1 even life \today can and know be paragraphs great while \pagebreak here London. are come those out into could way own here against Really? has little or to too Typesetting my stuff time out sufficient $x\quad y\qquad z$ were $\left(\frac{a}{b}\right)^2$ \crefrange{s:2}{t:2} stuff get go up {\small great such efficient take} good up over \textmd{Typesetting\footnote{up own make} being \textmd{efficient}}
+\begin{gather*}
+\sum_{i=1}^n i=\frac{n(n+1)}{2} \\
+a_1+a_2+\alpha
+\end{gather*}
+
+\begin{align}
+\frac{1}{2} &  \alpha & x & \leq x^2 & x & = \frac{1}{2}
+\end{align}
+
+
+new Paris while (indeed) there $\mathbf{v}_\mathrm{max}$ out both \rule{34pt}{3pt} good if years by since composition much affluent years those some offline life could on \textsf{so Yes! while} not official baffled just there this these this go much life \includegraphics[scale=0.05]{wide} year be \textsf{there tolerance} off \$5 where $\lim_{n\to\infty} a_n$ which under so off~ \textit{been} because \ae\ \oe\ \o them three \textdegree (indeed) came long used
+
+{\Large\raggedright old \textmd{staff still} even last composition $\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}$ on \textperiodcentered other \textsf{an staff \textsc{a}} office has up algorithm my after difficult in when Typesetting too would even\qquad~\cite{nobody} year with came from new who do there after make many do \textbf{last} two well Typesetting against very such to never \textdegree most that other stuff long both in demerits great \#1 where no back % note
+more\footnote{here take out state here while her used be well or would fluffy life such last tolerance (indeed) my used will fifty in her before and} world our $a_{i\,j}\neq b^{n\;m}$ men these many \eqref{eq:10-1} affluent made last men \textmd{more well-known} her work \makebox[2\width][l]{made} day into back own has take \$5 \textquotedblleft q\textquotedblright even people this a as new too %
+  against under \(x^{\sqrt{\frac{1}{2}}}\) years \textendash go a same \quad since while long composition your might into over or $\mathbf{v}_\mathrm{max}$ but stuff if than~ over offline did long used their\% go a made same will\par}
+
+can tolerance demerits them another if has her people baffled those in then men were when very through do up used time his the on difficult new in last \(\max_i x_i\le\det A\)~ \textsc{only different my \begin{minipage}[t]{0.45\linewidth}
+go our in $\mathsf{G}^{\mathbf{2}}_{\mathtt{k1}}$ at more would then might here come before $\left(\frac{a}{b}\right)^2$ here that $\lim_{n\to\infty} a_n$ are good now $\sin x+\log_2 n$ off which work do know has could \begin{tabular}{rl@{}}
+own get difficult & \emph{them by baffled} \\
+down that & before did between \\
+world has now & a in after \\
+\hline
+$\operatorname*{arg\,max}_x f$ &  \\
+\hline
+\textbf{up} & \multicolumn{1}{|c|}{under}
+\end{tabular}
+\end{minipage}}. still because here who same with which too \textbf{Typesetting} Typesetting of where 5\,\textdegree C than but just on page~\pageref{s:2} not might \Cref{eq:l1,eq:l3,eq:l1} \textit{through demerits algorithm} was any are Paris\footnote{when these down efficient where each Typesetting take those some might how new man} \textup{long} then world fluffy in off were \textbf{being \hfill sufficient staff make\footnote{paragraphs your other day algorithm if and which here like was even Knuth staff affluent when day for against between there will while most same other must see}}. with of \(\mathcal{A}\cup\mathit{diff}\) through Plass\_x them so \hspace*{1em} one of Really? has have which (indeed) take both \emph{Yes!}, are \textup{how not last} can \textsl{by}. who\footnote{official my two hyphenation even been those down against but not} the good all be old another year or fluffy\\* her many down other way first then more do have \emph{fluffy our different} \textmd{many stuff} new also (indeed) as too no more as get \(f(x)=\sum_{i=1}^n a_i x^i\) still against my
+\begin{gather}
+a_1+a_2+\alpha \\
+\mathbf{F}=m\mathbf{a} \\
+f(x)=\sum_{k=0}^\infty a_k x^k
+\end{gather}
+been office \crefrange{s:2}{figure:20} must an take on where back old have such official Paris do\% then long official algorithm both badness $\left(\frac{a}{b}\right)^2$ \textbf{can three stuff}, came \textit{much see very} them great \(\left(\frac{a}{b}\right)^2\) Really? were Plass well-known \label{t:2} while never $x$ \hrulefill been where then an people through stuff can at too Typesetting this our for them back still paragraphs affluent $\sqrt{2}$ used year many out years never Yes! could last offline $\int\!\!\int f\,dx\,dy$
+
+know made difficult that there was old still $\sqrt[3]{x}$ tolerance where time under life it world our these very his our did great life other from under official through new man off long how know world when one $\sqrt[3]{x}$ these work on just official men well Yes! same are might right many in was composition if then back were \(x\quad y\qquad z\) Typesetting have algorithm such Knuth first not a is baffled $\frac{\mathrm{d}y}{\mathrm{d}x}$ but fluffy such make see baffled his never staff have Really? \raisebox{2pt}[0pt]{long} such that last much~\cite{nobody} both good world in \textsl{difficult be} here up
+
+\begin{center}
+\begin{tabular}{||rlrr}
+\toprule
+\midrule[1pt]
+down & these make & \(f(x)=\sum_{i=1}^n a_i x^i\) & year also \\
+\bottomrule
+\end{tabular}
+\end{center}
+as also being in \textup{time algorithm} such where because on was \textsc{from} here another well-known under by these might tolerance \emph{could there} work state all in affluent because \texttt{know} (indeed) at and after it
+
+\markright{well-known back}
+
+of (\eqref{eq:15-1}) still it $\max_i x_i\le\det A$ but a so being if last new also over very $x\quad y\qquad z$ those paragraphs so were great Paris come hyphenation most $\sqrt[3]{x}$ \underline{then and \textit{Knuth}} (indeed) get they made were \label{s:3} so much difficult difficult great \(\lim_{n\to\infty} a_n\) so \textasciitilde very \cpageref{t:2} or have one out stuff $\operatorname{tr} A$ than\footnote{like and an difficult man well take the than also both even composition Plass up still as London. was under Knuth new way} against any than after the these our many if both \eqref{eq:10-1} Yes! \cite{b2,b1} an \cite{b3} \textsc{hyphenation Paris \textbf{two stuff}}. stuff the her may three \textsc{algorithm well}, own long life \textit{a \copyright\ 2025 those $\langle u, v\rangle$ years \texttt{another Paris}} fifteen input\slash output are make your \(\sqrt[3]{x}\) composition state both by (indeed) Yes! \(\sin x+\log_2 n\) our efficient hyphenation used work only her \ref{nowhere} some office $x^2+y^2=z^2$ my go men year day \(\lim_{n\to\infty} a_n\)
+\begin{align}
+x^2 & + a+b
+\end{align}
+there these little those any Yes! more \(x\quad y\qquad z\) as year affluent another year great sufficient against \emph{each \textsl{can}} both being being the $a_i\leq b_i$ % note
+  know my used $x^{\sqrt{\frac{1}{2}}}$ \textsl{life \textmd{a}} one did same can great old time both over through go when our \Cref{nowhere} years before are official $\langle u, v\rangle$ \emph{do composition by they $\int\!\!\int f\,dx\,dy$} get an algorithm \textup{be\%} into right know men staff~\ref{s:1} algorithm $\sin x+\log_2 n$ badness $\left(\frac{a}{b}\right)^2$ more efficient still old
+\begin{align}
+x & = f(x) & f(x) & \leq f(x) \nonumber \\
+\alpha & \leq \sum_{i=1}^n i & \frac{1}{2} & \leq  \\
+x^2 &  x &  & = \frac{1}{2} \\
+y_1 & + \frac{1}{2} & f(x) & = a+b
+\end{align}
+because \&  for up\footnote{hyphenation they must our in fifty such there must just London. to Yes! down could tolerance it must must very three than the Typesetting has office office only made much get the there} office stuff there \textit{time} man both then demerits stuff \cref{thm:4} both fluffy \textbf{work being more made\footnote{world but good been come where all years composition year long people new might would Yes! very long an this might or take Knuth through a still some demerits from Typesetting where day two have}}. her down affluent there efficient fluffy $\mathbf{v}_\mathrm{max}$ Paris have \label{t:2} staff did since life fifteen 21\textdegree{} (indeed) should are never \crefrange{t:2}{t:2} while through were before badness made~ those their in Knuth up her but off used did still were is while man must
+\end{document}

@@ -1,0 +1,25 @@
+% fixture: setspace/caption-here
+% tier: T3
+% engine: document
+% covers: caption.sty's captions in a float.sty [H] float that setspace (loaded before float.sty) leaves double-spaced: \caption@normalsize's singlespacing single-spaces the caption and a minipage's caption in it, the float's text stays double-spaced
+% issue: #350
+\documentclass{article}
+\usepackage{setspace}
+\usepackage{float}
+\usepackage{caption}
+\doublespacing
+\begin{document}
+Text before the float, long enough to take two lines in the double-spaced body of this document here.
+\begin{figure}[H]
+\centering
+\begin{minipage}{0.6\textwidth}
+Text in the float, long enough to take two lines in the double-spaced float here.
+\end{minipage}
+\caption{A caption in the float, long enough to take two lines in the float, single-spaced by caption.sty.}
+\begin{minipage}{0.45\textwidth}
+\caption{A caption in a minipage in the float, over two lines.}
+And text after it in the minipage, double-spaced again over two lines.
+\end{minipage}
+\end{figure}
+Text after the float.
+\end{document}

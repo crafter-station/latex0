@@ -14,7 +14,7 @@ import { displaySegments } from "./blocks"
 import type { Ctx } from "./context"
 import { centering, raggedleft, raggedright } from "./kernel"
 import { BODY_DECLARATIONS, closingBrace, fontDeclaration, noteSubstitution, paragraphInput, selectFont, SKIP_AMOUNTS, type FontAttrs } from "./paragraph"
-import { groupStart } from "./source"
+import { groupStart, NO_ARGUMENT } from "./source"
 import { leadingColor } from "./colors"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
@@ -85,6 +85,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
   const units = () => ({ em: font().params[QUAD], ex: font().params[X_HEIGHT] })
   const skip = (x: string): GlueSpec => { try { return parseGlue(x, units()) } catch { throw new Unsupported(`\\vspace{${x}}`) } }
   let i = 0
+  let reopened = false // (the paragraph starts in the groups a \\ in them left open)
   while (i < src.length) {
     const rest = src.slice(i)
     // (a blank line is \par, which does nothing in vertical mode, and so does an empty group: what a definition left)
@@ -119,7 +120,9 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         for (let p = last; p >= 0; p = topPar(inner, p + 4)) end = p
         if (!/^\s*$/.test(inner.slice(end + 4))) throw new Unsupported("a paragraph starting in a group that ends after it")
         const saved = { club: v.club, everypar: v.afterheadingEverypar }
+        reopened = false // (its paragraphs start in it, as here)
         verticalMaterial(cx, inner, { ...st }, false, mo)
+        outputBaselineskip(cx, st) // (the page builder goes on after the group)
         v.club = saved.club; v.afterheadingEverypar = saved.everypar
         i = j + 1; continue
       }
@@ -133,11 +136,19 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     // a paragraph: to a blank line, a \par, \vfill, the end, or \@centercr (\\ under \centering and friends)
     let j = i
     let cr: RegExpMatchArray | null = null
+    let ending: { inner: string; next: number } | null = null // a group whose \par ends the paragraph
+    let gcr: GroupCr | null = null // a \\ in a group, which ends the paragraph there
     while (j < src.length) {
       const r = src.slice(j)
       if (r[0] === "{") {
-        const k = closingBrace(src, j)
-        if (topPar(src.slice(j + 1, k)) >= 0) throw new Unsupported("a paragraph ending in a group it did not start in")
+        const k = closingBrace(src, j), inner = src.slice(j + 1, k), p = topPar(inner)
+        const g = st.align ? groupCr(src, i, j) : null
+        if (g && (p < 0 || g.at < j + 1 + p)) { gcr = g; j = g.chain[0].start; break }
+        if (p >= 0) { // ({\Large … \par} after text: the paragraph ends in the group, with its declarations in force)
+          if (!/^(?:\s|\\par(?![A-Za-z]))*$/.test(inner.slice(p))) throw new Unsupported("a paragraph ending in a group it did not start in")
+          ending = { inner: inner.slice(0, p), next: k + 1 }
+          break
+        }
         j = k + 1; continue
       }
       if (r[0] === "$") { const k = src.indexOf("$", j + 1); if (k < 0) throw new Unsupported("an unbalanced $"); j = k + 1; continue }
@@ -145,14 +156,35 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
       if (st.align && (cr = r.match(/^\\\\(\*)?\s*(?:\[([^\]]*)\])?/))) break
       j += r[0] === "\\" ? (r.match(/^\\(?:[A-Za-z]+|[^])/)?.[0].length ?? 1) : 1
     }
-    const text = src.slice(i, j)
+    const before = src.slice(i, j)
+    // (a \\ in groups: the paragraph ends in them, the text up to it in each; the next one starts in them again, with
+    // the declarations each had before it; a text font command's \check@icr does not come, \nocorr)
+    const segs = gcr ? gcr.chain.map((g, n) => ({ ...g, text: src.slice(g.body, gcr!.chain[n + 1]?.start ?? gcr!.at) })) : []
+    for (const g of segs) if (g.cmd && !g.text.trim()) throw new Unsupported("\\\\ first in a text font command's argument")
+    // (a color's pop comes where its group ends, after the \par)
+    if (segs.some((g) => /\\color(?![A-Za-z])/.test(g.text))) throw new Unsupported("\\\\ in a \\color group")
+    const text = ending ? `${before}{${ending.inner}}` : gcr ? before + segs.map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${g.text}`).join("") + segs.map((g) => (g.cmd ? "\\nocorr}" : "}")).join("") : before
     if (top && topDeclarations(text).length) throw new Unsupported("a declaration for the paragraphs after it")
-    const end = topDeclarations(text).reduce((s, d) => declare(cx, s, d), st)
-    if (end.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
-    paragraph(cx, text, st, end, cr ? 1 : 0, mo)
+    const end = topDeclarations(before).reduce((s, d) => declare(cx, s, d), st)
+    const parEnd = [ending?.inner ?? "", ...segs.map((g) => g.text)].reduce((e, t) => topDeclarations(t).reduce((s, d) => declare(cx, s, d), e), end)
+    if (parEnd.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
+    // (one that starts in the groups and ends in the outermost again: another \\ in it)
+    paragraph(cx, text, st, parEnd, cr || gcr ? 1 : 0, mo, reopened ? (gcr?.chain[0].start === 0 ? "open" : "closed") : undefined)
     delete mo.first
+    reopened = false
     st = end
-    i = j
+    i = ending ? ending.next : j
+    if (gcr) { // \@centercr in the groups; the text after it (\ignorespaces) in them again
+      if (gcr.star) v.nodes.push(penalty(10000))
+      v.addvspace(negate(cx.outerParskip))
+      if (gcr.skip !== undefined) { const outer = st; st = parEnd; v.vskip(skip(gcr.skip)); st = outer }
+      // (groups that end right after it end in vertical mode: the paragraph starts after them)
+      let open = segs.length, after = gcr.end
+      while (open > 0 && !src.slice(after, closingBrace(src, segs[open - 1].body - 1)).trim()) after = closingBrace(src, segs[--open].body - 1) + 1
+      src = segs.slice(0, open).map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${topDeclarations(g.text).map((d) => `\\${d} `).join("")}`).join("") + src.slice(after).replace(/^\s+/, "")
+      i = 0
+      reopened = open > 0
+    }
     if (cr) { // \@centercr: \par, \nobreak for \\*, \addvspace{-\parskip}, \vskip skip for [skip]
       if (cr[1]) v.nodes.push(penalty(10000))
       v.addvspace(negate(cx.outerParskip))
@@ -162,29 +194,114 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
   }
 }
 
+/** the text font commands, whose argument is a group of the paragraph's text */
+const TEXT_FONT_COMMANDS = new Set(["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "textnormal", "emph"])
+
+/** commands in paragraph text and their arguments in braces: a { after them all opens a group */
+const ARITY: Record<string, number> = {
+  vspace: 1, hspace: 1, label: 1, ref: 1, pageref: 1, eqref: 1, cite: 1, cref: 1, Cref: 1, autoref: 1, nameref: 1, footnote: 1,
+  underline: 1, mbox: 1, fbox: 1, rule: 2, textcolor: 2, colorbox: 2, LXfloat: 1, LXtabular: 1, LXminipage: 1, LXtikz: 1, LXgraphic: 1,
+  ...Object.fromEntries([...TEXT_FONT_COMMANDS].map((c) => [c, 1])),
+}
+
+/** the command whose arguments (in braces, and options) come right before `open` in the text from `from` (spaces
+ *  between them), with how many arguments in braces; null when text or a character comes right before it */
+function commandBefore(src: string, from: number, open: number): { name: string; args: number; at: number } | null {
+  const items: { kind: "cs" | "group" | "option" | "space" | "other"; name?: string; at: number }[] = []
+  for (let k = from; k < open; ) {
+    const c = src[k]
+    if (c === "{") { items.push({ kind: "group", at: k }); k = closingBrace(src, k) + 1; continue }
+    if (/\s/.test(c)) { items.push({ kind: "space", at: k }); k++; continue }
+    const cs = src.slice(k).match(/^\\([A-Za-z]+\*?|[^])/)
+    if (cs) { items.push({ kind: "cs", name: cs[1].replace(/\*$/, ""), at: k }); k += cs[0].length; continue }
+    const prev = items.filter((x) => x.kind !== "space").at(-1)
+    const e = src.indexOf("]", k)
+    if (c === "[" && prev && prev.kind !== "other" && e >= 0 && e < open) { items.push({ kind: "option", at: k }); k = e + 1; continue }
+    items.push({ kind: "other", at: k }); k++
+  }
+  let args = 0
+  for (let n = items.length - 1; n >= 0; n--) {
+    const x = items[n]
+    if (x.kind === "space") continue
+    if (x.kind === "group") { args++; continue }
+    if (x.kind === "option") continue
+    return x.kind === "cs" ? { name: x.name!, args, at: x.at } : null
+  }
+  return null
+}
+
+/** a \\ in groups of a paragraph's text: the groups it is in, outermost first (each one's text font command or a plain
+ *  group, where that starts, and where its text starts), and the \\ (where, where it and its * and [skip] end) */
+interface GroupCr { chain: { cmd: string | null; start: number; body: number }[]; at: number; end: number; star: boolean; skip?: string }
+
+/** the \\ in the group that opens at `open` (text from `from` before it), if it is in plain groups and text font
+ *  commands' arguments only (not a box's, a footnote's …) */
+function groupCr(src: string, from: number, open: number): GroupCr | null {
+  const head = commandBefore(src, from, open)
+  if (head && !(TEXT_FONT_COMMANDS.has(head.name) && !head.args) && !(NO_ARGUMENT.has(head.name) && !head.args) && ARITY[head.name] !== head.args) return null
+  const cmd = head && TEXT_FONT_COMMANDS.has(head.name) && !head.args ? head.name : null
+  const level = { cmd, start: cmd ? head!.at : open, body: open + 1 }
+  const close = closingBrace(src, open)
+  for (let k = open + 1; k < close; ) {
+    if (src[k] === "{") {
+      const inner = groupCr(src, open + 1, k)
+      if (inner) return { ...inner, chain: [level, ...inner.chain] }
+      k = closingBrace(src, k) + 1; continue
+    }
+    if (src[k] === "$") { const e = src.indexOf("$", k + 1); if (e < 0) throw new Unsupported("an unbalanced $"); k = e + 1; continue }
+    const m = src.slice(k).match(/^\\\\(\*)?\s*(?:\[([^\]]*)\])?/)
+    if (m) return { chain: [level], at: k, end: k + m[0].length, star: !!m[1], ...(m[2] !== undefined ? { skip: m[2] } : {}) }
+    k += src[k] === "\\" ? (src.slice(k).match(/^\\(?:[A-Za-z]+|[^])/)?.[0].length ?? 1) : 1
+  }
+  return null
+}
+
 /** a paragraph read from `st` to its \par in `end` */
-function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip: number, mo: MaterialOptions) {
+/** `inGroup`: it starts in a group (a \\ in it ended the one before), which ends before its \par ("closed") or not */
+function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip: number, mo: MaterialOptions, inGroup?: "open" | "closed") {
   const { amsmath } = cx.pre
   const { counted, decisions, doc, outerParskip, run, v } = cx
   if (displaySegments(text).length > 1) throw new Unsupported("a display in a paragraph here")
   let indent = !/^\\noindent(?![A-Za-z])/.test(text)
   if (!indent && mo.first) throw new Unsupported("\\noindent where \\@item's labels go")
   v.par()
+  // (the page builder sees the \parskip where the paragraph starts, new_graf's build_page, and its lines at its \par: an
+  // output routine fired there sees the \baselineskip in force then; the hook before what the paragraph's text reads
+  // of the main vertical list, where its \parskip goes)
+  outputBaselineskip(cx, st)
   if (v.endpeEverypar) throw new Unsupported("a paragraph after a list here")
-  // \@afterheading's \everypar
-  if (v.afterheadingEverypar && mo.club === undefined) {
+  // \@afterheading's \everypar (in a group: its \clubpenalty and \everypar{} last to the group's end)
+  let club = mo.club ?? v.club, noteClubs: { leadGroupNoteClubPenalty?: number } = {}
+  if (v.afterheadingEverypar && mo.club === undefined && inGroup) {
+    if (v.nobreak) throw new Unsupported("a paragraph starting in a group right after a heading")
+    if (inGroup === "open") club = run.k.ints.clubpenalty
+    noteClubs = { leadGroupNoteClubPenalty: run.k.ints.clubpenalty } // (footnotes in the group)
+  } else if (v.afterheadingEverypar && mo.club === undefined) {
     if (groupStart(text)) throw new Unsupported("a paragraph starting in a group after a heading here")
     if (v.nobreak) { v.nobreak = false; v.club = 10000; if (!v.afterindent) indent = false }
     else { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
+    club = v.club
   }
   // (a {\color …} group that starts it: the push on the vertical list, before the paragraph)
   if (/^\{\\color(?![A-Za-z])/.test(text)) text = leadingColor(cx, text)
   const align = end.align === "centering" ? centering() : end.align === "raggedright" ? raggedright() : end.align === "raggedleft" ? raggedleft() : {}
   const start: Node[] = mo.first ?? (indent ? [emptyBox("hlist", st.align ? 0 : run.k.dimens.parindent)] : [])
-  const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: mo.club ?? v.club, amsmath, ...align, ...(unskip ? { unskip } : {}) })
+  const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: club, ...noteClubs, amsmath, ...align, ...(unskip ? { unskip } : {}) })
   const { vlist, trace } = lineBreak(list, params)
   decisions.push(...notes, trace)
   v.paragraph(vlist, outerParskip, run.k.sizes[end.size].baselineskip)
+  if (end.size !== st.size) { const h = outputBaselineskip(cx, end, false); v.nodes.splice(v.paraStart, 0, ...h); v.paraStart += h.length }
+}
+
+/** a hook for the output routine where the \baselineskip of `st` comes into force (when it is not the one already) */
+function outputBaselineskip(cx: Ctx, st: DeclState, push = true): Node[] {
+  const { run } = cx
+  const bs = run.k.sizes[st.size].baselineskip.width
+  if (bs === (run.outputBaselineskip ?? run.k.sizes.normalsize.baselineskip.width)) return []
+  run.outputBaselineskip = bs
+  const hook: Node = { kind: "whatsit", text: "", hook: { baselineskip: bs } satisfies OutputHook }
+  if (push) cx.v.nodes.push(hook)
+  return [hook]
 }
 
 /**

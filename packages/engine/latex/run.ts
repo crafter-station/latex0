@@ -59,8 +59,16 @@ export interface RunState {
    *  before with and its \@itempenalty (\@beginparpenalty before the first), the build_page runs there; `exact`: false
    *  when that item's last paragraph is not all of it */
   bibSafe: { from: number; to: number; exact: boolean }[]
+  /** caption.sty's \caption@thecounter (every \caption@@make steps it), whether \caption@@label wrote its
+   *  \providecommand, and the captions whose unequal margins asked \caption@ifoddpage: each one's number and its
+   *  \caption@newlabel \write */
+  captions: number
+  captionLabel: boolean
+  oddPages: { n: number; node: Node }[]
+  /** the \baselineskip the output routine sees where the main vertical list is now (OutputHook), when not \normalsize's */
+  outputBaselineskip?: number
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [] }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [], captions: 0, captionLabel: false, oddPages: [] }
 }
