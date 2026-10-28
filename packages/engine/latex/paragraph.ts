@@ -190,6 +190,8 @@ export interface Refs {
   writes: { node: Node; key: string; label: string; href: string; name: string }[]
   /** nameref is loaded (hyperref loads it): \label writes \@currentlabelname, \nameref reads it */
   nameref?: boolean
+  /** a label's name with the name macros in it as they read where \nameref typesets it */
+  nameMacros?: (name: string) => string
   /** hyperref: \ref and \pageref are links to the label's anchor */
   hyper?: boolean
   /** hyperref's \@footnotetext: an anchor in each note */
@@ -1252,8 +1254,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref
         if (refs.hyper && !p.star && !known.name) continue
         // (a macro in it, \contentsname or \thethm, means what it means here, not where the name was taken)
-        if (/\\/.test(withoutTextCommands(known.name.replace(/\$[^$]*\$/g, "")))) throw new Unsupported(`\\nameref to "${known.name}"`)
-        appendPieces(text, pieces(known.name, false), font, size, state, inner, attrs)
+        const name = refs.nameMacros ? refs.nameMacros(known.name) : known.name
+        if (/\\/.test(withoutTextCommands(name.replace(/\$[^$]*\$/g, "")))) throw new Unsupported(`\\nameref to "${name}"`)
+        appendPieces(text, pieces(name, false), font, size, state, inner, attrs)
       }
       // \null (a linked name's box leaves the space factor its text ended with: \Hy@RestoreSpaceFactor)
       if (p.kind === "autoref" || !linked) { text.push(hpack([])); state.spaceFactor = 1000 }

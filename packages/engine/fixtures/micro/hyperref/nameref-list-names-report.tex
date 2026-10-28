@@ -1,0 +1,34 @@
+% fixture: hyperref/nameref-list-names-report
+% tier: T3
+% engine: document
+% covers: \nameref to labels after report's \tableofcontents (\chapter*{\contentsname \@mkboth…}), \listoftables and its bibliography (\bibname), with \pagestyle{myheadings}, whose \@mkboth is \@gobbletwo, and babel's spanish names (\'{I}ndice general, \'{I}ndice de cuadros, Bibliograf\'{\i}a)
+% issue: #347
+\documentclass{report}
+\usepackage[spanish]{babel}
+\usepackage{hyperref}
+\pagestyle{myheadings}
+\begin{document}
+\tableofcontents
+\label{toc}
+\listoftables
+\label{lot}
+\chapter{Cuerpo}
+Vea \nameref{toc} y \nameref{lot}, y la bibliograf\'{\i}a \nameref{bib}.
+
+\begin{minipage}{0.9cm}
+la \nameref*{bib} la \nameref*{toc} y la \nameref*{lot}
+\end{minipage}
+\begin{minipage}{1.1cm}
+la \nameref*{bib} la \nameref*{toc} y la \nameref*{lot}
+\end{minipage}
+\begin{minipage}{1.3cm}
+la \nameref*{bib} la \nameref*{toc} y la \nameref*{lot}
+\end{minipage}
+\begin{minipage}{1.6cm}
+la \nameref*{bib} la \nameref*{toc} y la \nameref*{lot}
+\end{minipage}
+\begin{table}[h]\centering\caption{Una tabla}\end{table}
+\begin{thebibliography}{9}
+\bibitem{a} Un libro.\label{bib}
+\end{thebibliography}
+\end{document}
