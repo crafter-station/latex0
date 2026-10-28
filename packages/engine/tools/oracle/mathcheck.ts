@@ -86,6 +86,11 @@ const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "b
 const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby"]
 const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
 const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
+/** mathtools's \DeclarePairedDelimiter'd commands (the engine reads them as preamble.ts writes them: \LXpaired) */
+const PAIRED = [["pdA", "\\lvert", "\\rvert"], ["pdB", "\\lVert", "\\rVert"], ["pdC", "(", ")"], ["pdD", ".", "\\rangle"]]
+const paired = (f: string) => PAIRED.reduce((x, [n, l, r]) => x.replace(new RegExp(`\\\\${n}(?![A-Za-z])`, "g"), `\\LXpaired{${l}}{${r}}`), f)
+const MT_COLONS = "vcentcolon dblcolon coloneqq Coloneqq coloneq Coloneq eqqcolon Eqqcolon eqcolon Eqcolon colonapprox Colonapprox approxcolon Approxcolon colonsim Colonsim simcolon Simcolon colondash Colondash dashcolon Dashcolon".split(" ")
+const MT_ARG = ["mathllap", "mathrlap", "mathclap", "mathclap[\\scriptstyle]", "mathllap[\\displaystyle]", "pdA", "pdB", "pdC", "pdD", "pdA*", "pdC*", "pdB[\\big]", "pdA[\\Bigg]", "pdC[]"]
 /** text commands in math (amsmath adds \text) */
 const TEXT_COMMANDS = ["mbox", "textrm", "textbf", "textit", "textsf", "texttt", "textsl", "textsc", "textnormal", "textup", "textmd"]
 /** the generalized fraction primitives and LaTeX's \choose, \brack, \brace; amsmath's \genfrac family */
@@ -132,8 +137,8 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
       const cs = pick(["overline", "underline", "sqrt"] as const)
       return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: rootIndex(depth + 1) } : {}) }
     }
-    if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
-    if (x >= 0.39 && x < 0.47) return { kind: "cmd", cs: r() < 0.5 ? "dots" : pick(ams() ? [...COMMANDS, ...AMS_COMMANDS] : COMMANDS) }
+    if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS, ...MT_ARG] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
+    if (x >= 0.39 && x < 0.47) return { kind: "cmd", cs: r() < 0.5 ? "dots" : pick(ams() ? [...COMMANDS, ...AMS_COMMANDS, ...MT_COLONS] : COMMANDS) }
     if (depth < 3 && x >= 0.33 && x < 0.37) return { kind: "alphabet", cs: pick(ams() ? [...ALPHABETS, ...AMS_ALPHABETS] : ALPHABETS), items: list(depth + 1, 3, true) }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
     return char()
@@ -227,11 +232,11 @@ export function mathCheck(n: number, seed: number): number {
     const name = `math-${option}${withAms ? "-ams" : ""}`
     const k = classData("article", option)
     mathFonts.letters = null
-    mathFonts.packages = withAms ? { amsfonts: true, amssymb: true, mathrsfs: true } : {}
+    mathFonts.packages = withAms ? { amsfonts: true, amssymb: true, mathrsfs: true, mathtools: true } : {}
     const env = mathEnv(k, "normalsize", withAms)
     const cases = Array.from({ length: Math.ceil(n / 6) }, () => ({ style: Math.floor(r() * 4) * 2, items: gen() }))
     writeFileSync(join(DIR, `${name}.tex`), [
-      `\\documentclass[${option}]{article}`, ...(withAms ? ["\\usepackage{amsmath,amssymb,mathrsfs}"] : []), "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
+      `\\documentclass[${option}]{article}`, ...(withAms ? ["\\usepackage{amsmath,amssymb,mathrsfs,mathtools}", ...PAIRED.map(([n, l, r]) => `\\DeclarePairedDelimiter\\${n}{${l}}{${r}}`)] : []), "\\showboxdepth=100 \\showboxbreadth=100000", "\\begin{document}",
       ...cases.map((c) => `\\setbox0\\hbox{$\\${STYLES[c.style / 2]} ${print(c.items)}$}\\showbox0`), "\\end{document}", "",
     ].join("\n"))
     const run = spawnSync("latex", ["-interaction=nonstopmode", `${name}.tex`], { cwd: DIR, env: texEnv({ max_print_line: "100000" }), stdio: "ignore", timeout: 300_000 })
@@ -251,7 +256,7 @@ export function mathCheck(n: number, seed: number): number {
     cases.forEach((c, i) => {
       total++
       // (\quad's em: the text font, cmr at the size, as family 0's)
-      const hl = mlistToHlist(parseFormula(`\\${STYLES[c.style / 2]} ${print(c.items)}`, withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]!, text: mathText(k, "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, withAms) }), env, TEXT, false)
+      const hl = mlistToHlist(parseFormula(paired(`\\${STYLES[c.style / 2]} ${print(c.items)}`), withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]!, text: mathText(k, "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, withAms) }), env, TEXT, false)
       const list: Node[] = [{ kind: "math", on: true, width: data.dimens.mathsurround }, ...hl, { kind: "math", on: false, width: data.dimens.mathsurround }]
       const engine = emitBoxes(hpack(list))
       const tex = boxes[i]

@@ -15,7 +15,7 @@ export interface MathData {
   symbols: Record<string, number>
   /** the 27-bit \delimiter code of each delimiter command */
   delimiters: Record<string, number>
-  /** what packages declare (amsmath, amsfonts, amssymb), each loaded alone: symbols and delimiters as above, in the
+  /** what packages declare (amsmath, amsfonts, amssymb, mathtools), each loaded alone: symbols and delimiters as above, in the
    *  engine's families for the symbol fonts they declare (tools/codegen/math.ts PACKAGE_FAMILIES) */
   packages?: Record<string, { symbols: Record<string, number>; delimiters: Record<string, number> }>
 }

@@ -74,7 +74,7 @@ export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1
 export const mathFonts: { letters: number | null; packages: MathPackages } = { letters: null, packages: {} }
 /** The math packages a document loads beyond amsmath: amsfonts (amssymb loads it; its fonts, \mathbb and \mathfrak, and
  *  the extension font at every size as amsmath declares it), amssymb, mathrsfs */
-export interface MathPackages { amsfonts?: boolean; amssymb?: boolean; mathrsfs?: boolean; /** array.sty (its \array) */ array?: boolean }
+export interface MathPackages { amsfonts?: boolean; amssymb?: boolean; mathrsfs?: boolean; mathtools?: boolean; /** array.sty (its \array) */ array?: boolean }
 /** the families of amssymb's symbol fonts AMSa and AMSb (\mathbb), \mathfrak's and mathrsfs's (\mathscr): 8–11, after
  *  LaTeX's four and the four alphabets' (codegen/math.ts PACKAGE_FAMILIES) */
 const AMS_FONTS = ["msa", "msb", "euf", "rsfs"] as const
@@ -90,7 +90,7 @@ export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiC
   // (spanish.ldf's \mathspanish: its operators and decimal comma)
   const operators = spanishText.on ? SPANISH_OPERATORS : undefined
   const p = mathFonts.packages
-  const packages = [...(amsmath ? ["amsmath"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
+  const packages = [...(amsmath ? ["amsmath"] : []), ...(p.mathtools ? ["mathtools"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
   try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...where, ...(p.array ? { arrayPackage: true } : {}), ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
 }
 

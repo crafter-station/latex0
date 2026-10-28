@@ -41,7 +41,7 @@ const DELIMITERS = (
 export const PACKAGE_FAMILIES: Record<string, number> = { AMSa: 8, AMSb: 9 }
 /** packages whose symbols become data: each loaded alone (amssymb loads amsfonts), its \DeclareMathSymbol and
  *  \DeclareMathDelimiter commands and the symbols it \let's to others, read from the .sty */
-const PACKAGES = ["amsmath", "amsfonts", "amssymb"]
+const PACKAGES = ["amsmath", "amsfonts", "amssymb", "mathtools"]
 
 function packageNames(dir: string, pkg: string): string[] {
   const path = execFileSync("kpsewhich", [`${pkg}.sty`], { cwd: dir, env: texEnv(), encoding: "latin1" }).trim()

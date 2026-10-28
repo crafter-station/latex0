@@ -35,7 +35,7 @@ export type Field =
   | { kind: "big"; delim: Delimiter; height: number } | { kind: "big"; delim: Delimiter; factor: [number, number] }
   /** \hbox{$\m@th<style>{…}$}, as \mathpalette's \mathsm@sh and \mathph@nt set it: `list` from the style node on; then
    *  \smash's \finsm@sh (zero height, depth or both) or \phantom's \finph@nt (an empty box with its height and depth, width) */
-  | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh" }
+  | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh"; /** \llap, \rlap, \clap: \hbox to\z@ with \hss */ lap?: "l" | "r" | "c" }
   /** \copy\strutbox: \hbox{\vrule height.7\baselineskip depth.3\baselineskip width\z@} (MathEnv.strut) */
   | { kind: "strut" }
   | null
@@ -379,7 +379,9 @@ class Converter {
 
   /** Field "hmath": the formula in an \hbox, then smashed or a phantom */
   hmath(n: Extract<Field, { kind: "hmath" }>): BoxNode {
-    const b = hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list, TEXT, false), { kind: "math", on: false, width: 0 }])
+    const math: Node[] = [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list, TEXT, false), { kind: "math", on: false, width: 0 }]
+    if (n.lap) return hpack([...(n.lap !== "r" ? [ssGlue()] : []), ...math, ...(n.lap !== "l" ? [ssGlue()] : [])], { exactly: 0 })
+    const b = hpack(math)
     if (n.smash) { if (n.smash !== "b") b.height = 0; if (n.smash !== "t") b.depth = 0; return b }
     if (!n.phantom) return b
     const e = emptyBox("hlist") // \setbox\tw@\null

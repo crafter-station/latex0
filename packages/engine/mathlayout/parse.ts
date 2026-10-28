@@ -55,6 +55,21 @@ const TEXT_FONT_COMMANDS: Record<string, string> = {
   textrm: "rmfamily", textsf: "sffamily", texttt: "ttfamily", textnormal: "normalfont", textbf: "bfseries", textmd: "mdseries",
   textit: "itshape", textsl: "slshape", textsc: "scshape", textup: "upshape",
 }
+/** mathtools's colon relations (\vcentcolon: \mathrel{\mathop\ordinarycolon}, a colon centered on the axis) */
+const VCENTCOLON = "\\mathrel{\\mathop:}", DBLCOLON = `${VCENTCOLON}\\mathrel{\\mkern-.9mu}${VCENTCOLON}`
+const COLONS: Record<string, string> = {
+  vcentcolon: VCENTCOLON, dblcolon: DBLCOLON,
+  coloneqq: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}=`, coloneq: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}=`,
+  Coloneqq: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}=`, Coloneq: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}=`,
+  eqqcolon: `=\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, eqcolon: `=\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`,
+  Eqqcolon: `=\\mathrel{\\mkern-1.2mu}${DBLCOLON}`, Eqcolon: `=\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+  colonapprox: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\approx`, Colonapprox: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\approx`,
+  approxcolon: `\\approx\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Approxcolon: `\\approx\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+  colonsim: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\sim`, Colonsim: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\sim`,
+  simcolon: `\\sim\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Simcolon: `\\sim\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+  colondash: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\mathrel{-}`, Colondash: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\mathrel{-}`,
+  dashcolon: `\\mathrel{-}\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Dashcolon: `\\mathrel{-}\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+}
 /** amsmath's \genfrac's: delimiters, thickness, style */
 const GENFRACS: Record<string, [string, string, string, string]> = {
   dfrac: ["", "", "", "0"], tfrac: ["", "", "", "1"], binom: ["(", ")", "0pt", ""] /* (\z@) */, dbinom: ["(", ")", "0pt", "0"], tbinom: ["(", ")", "0pt", "1"],
@@ -570,6 +585,37 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         if (t.cs === "mbox" || !opts.amsmath) { out.push(box(text(src, 0, null, decl))); continue } // \leavevmode\hbox{#1}; \nfss@text: {\mbox{<decl>#1}}
         // amstext's \text@: {\mathchoice{\textdef@\displaystyle\f@size{#1}}{\textdef@\textstyle\f@size{…}}{…\sf@size…}{…\ssf@size…}}
         out.push(groupNoad([palette((st) => [box(text(src, st < 4 ? 0 : st < 6 ? 1 : 2, st === 0 ? "display" : "text", decl))])]))
+        continue
+      }
+      if (opts.packages?.includes("mathtools") && t.cs in COLONS) { toks.splice(pos, 0, ...tokenize(COLONS[t.cs], data.muskips)); continue }
+      if (opts.packages?.includes("mathtools") && /^math[lrc]lap$/.test(t.cs)) { // \mathpalette\MT_mathclap:Nn: {}\clap{$\m@th#1{#2}$}, or with [style] that style
+        let style: number | null = null
+        if (isCh(toks[pos], "[")) {
+          const end = toks.findIndex((x, i) => i > pos && isCh(x, "]")), o = toks.slice(pos + 1, end)
+          if (o.length !== 1 || !("cs" in o[0]) || !(o[0].cs in STYLES)) throw new Error(`math: \\${t.cs}[${source(o)}]`)
+          style = STYLES[o[0].cs]; pos = end + 1
+        }
+        const arg = argument(), lap = t.cs[4] as "l" | "r" | "c", fs = finsmash
+        const build = (st: number): MItem[] => [{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, { noad: ORD, nucleus: { kind: "hmath", list: inHbox(st, arg, fs), lap }, sup: null, sub: null }]
+        if (style === null) out.push(palette(build)); else out.push(...build(style))
+        continue
+      }
+      if (t.cs === "LXpaired") { // mathtools's \DeclarePairedDelimiter'd command (preamble.ts): its delimiters, then * or [size], and the argument
+        const l = argument(), r = argument()
+        if (isCh(toks[pos], "*")) { // \mathopen{}\mathclose\bgroup\left#2 #1\aftergroup\egroup\right#3
+          pos++
+          const arg = argument()
+          toks.splice(pos, 0, ...tokenize("\\mathopen{}\\mathclose{\\left"), ...l, ...arg, { cs: "right" }, ...r, { ch: "}" })
+          continue
+        }
+        let size: Token[] = []
+        if (isCh(toks[pos], "[")) { const end = toks.findIndex((x, i) => i > pos && isCh(x, "]")); size = toks.slice(pos + 1, end); pos = end + 1 }
+        const arg = argument()
+        if (size.length) { // \mathopen{\bigl#2}#1\mathclose{\bigr#3}
+          if (size.length !== 1 || !("cs" in size[0]) || !/^(big|Big|bigg|Bigg)$/.test(size[0].cs)) throw new Error(`math: a paired delimiter of size ${source(size)}`)
+          const cs = size[0].cs
+          toks.splice(pos, 0, ...tokenize(`\\mathopen{\\${cs}l`), ...l, { ch: "}" }, ...arg, ...tokenize(`\\mathclose{\\${cs}r`), ...r, { ch: "}" })
+        } else toks.splice(pos, 0, ...(isCh(l[0], ".") ? [] : [{ cs: "mathopen" }, ...l]), ...arg, ...(isCh(r[0], ".") ? [] : [{ cs: "mathclose" }, ...r])) // \ifx.#1\else\mathopen#1\fi
         continue
       }
       if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox
