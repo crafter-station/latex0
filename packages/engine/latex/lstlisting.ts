@@ -305,7 +305,8 @@ function listingCaption(cx: Ctx, n: number, text: string, hsize: number, skip: G
   }
   const opts = { amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: v.club }
   let par: Node[] | null = null
-  const right = keys.width ? Math.trunc((hsize - keys.width) / 2) : keys.right
+  // (on an even page, unequal margins swap places: captionMake's \caption@ifoddpage for the caption it makes next)
+  const right = keys.width ? Math.trunc((hsize - keys.width) / 2) : keys.twoside && (cx.captionPages?.get(cx.run.captions + 1) ?? 1) % 2 === 0 ? keys.left : keys.right
   const lines = (start: Node[], text: string, o: ParagraphOptions = {}, size: SizeCommand = "normalsize") => {
     const p = paragraphInput(text, run.k, size, doc, { start, ...opts, ...o })
     const lb = lineBreak(p.list, p.params)
@@ -315,16 +316,17 @@ function listingCaption(cx: Ctx, n: number, text: string, hsize: number, skip: G
   // (skip= and belowskip= in the list set them after the swap)
   const skips = { below: keys.below === null ? skip : glue(keys.below), above: glue(keys.above ?? skip.width) }
   const at = v.nodes.length
+  const held: Node[] = [] // (\caption@ifoddpage's \writes, in the paragraph \caption@beginhook's \hskip started)
   captionMake(cx, keys, { top: true, subAbove: false }, { name: "Listing", the: String(n), isSub: false, star: false, text, anchor: false, normalcolor: false, skips }, hsize, {
     push(x) {
-      if (x.kind !== "glue") { v.nodes.push(x); return }
+      if (x.kind !== "glue") { held.push(x); return }
       // (the paragraph's \hspace for the right margin, then the \nobreak, in it)
       if (par) { v.paragraph(lines([...par, glue(right), penalty(10000)], ""), dimen(0)); par = null }
       else v.nodes.push(penalty(10000))
       v.vskip(x); v.nodes.push(penalty(10000))
     },
     box() { throw new Unsupported("a listing caption box") },
-    paragraph(start) { par = [start[0], glue(0), ...start.slice(1)] }, // (\hskip-\@totalleftmargin after the indent box)
+    paragraph(start) { par = [start[0], glue(0), ...held.splice(0), ...start.slice(1)] }, // (\hskip-\@totalleftmargin after the indent box)
     prevDepth: () => v.prevDepth,
     rule() {},
     lines,

@@ -1,0 +1,19 @@
+% fixture: listings/caption-margins-twoside
+% tier: T3
+% engine: document
+% covers: a listing caption (caption.sty) with unequal margins in a twoside document: on an even page they swap places (\caption@ifoddpage, the page of the \caption@newlabel \write from the run before), the right one the \hspace at the paragraph's end
+% issue: #350
+\documentclass[twoside]{article}
+\usepackage{listings}
+\usepackage[margin={5pt,25pt}]{caption}
+\begin{document}
+Text on the first page.
+\begin{lstlisting}[caption={A listing caption on an odd page, long enough to take two lines of its text here}]
+x = 1
+\end{lstlisting}
+\clearpage
+Text on the second page.
+\begin{lstlisting}[caption={A listing caption on an even page, long enough to take two lines of its text here}]
+y = 2
+\end{lstlisting}
+\end{document}

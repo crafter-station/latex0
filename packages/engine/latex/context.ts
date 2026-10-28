@@ -42,6 +42,8 @@ export interface Ctx {
   urls: UrlSource[]
   /** floats right after a heading that this layout does not place where they stand (see document()) */
   notHere: Set<number>
+  /** caption.sty's \caption@r@<n>: the pages the run before wrote (\caption@newlabel) */
+  captionPages: Map<number, number> | null
   /** the body font's attributes (\normalfont) */
   normalAttrs: FontAttrs
   /** booktabs's dimensions, when the document loads it */

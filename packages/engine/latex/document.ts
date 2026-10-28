@@ -92,7 +92,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry> }
+interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry>; /** caption.sty's \caption@newlabel{n}{page} */ captionPages: Map<number, number> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -304,7 +304,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   if (usesXcolor) doc.xcolorFbox = true
   doc.parbox = (...a) => parboxAt(cx, ...a)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
-  const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, normalAttrs, booktabs }
+  const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, captionPages: prev ? prev.captionPages : null, normalAttrs, booktabs }
   started = true
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
 
@@ -366,10 +366,10 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof") || READS_AUX.test(body) || hyper || pre.natbib) { // (natbib: the .aux's \bibstyle)
-    const pageOf = new Map<Node, string>(), order = new Map<Node, number>()
-    const walk = (n: Node, page: string) => { pageOf.set(n, page); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, page) }
-    shipped.forEach((b, i) => walk(b, pages[i].thepage))
+  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof") || READS_AUX.test(body) || hyper || pre.natbib || run.oddPages.length) { // (natbib: the .aux's \bibstyle)
+    const pageOf = new Map<Node, string>(), order = new Map<Node, number>(), countOf = new Map<Node, number>()
+    const walk = (n: Node, i: number) => { pageOf.set(n, pages[i].thepage); countOf.set(n, pages[i].count); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, i) }
+    shipped.forEach((b, i) => walk(b, i))
     const page = (node: Node) => {
       const p = pageOf.get(node)
       if (p === undefined) throw new Error("a \\write that was not shipped out")
@@ -386,6 +386,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
       // natbib's \bibitem: \c@NAT@ctr from 1 in each thebibliography (numbers or not as the run's \@bibsetup)
       natCites: new Map(pre.natbib ? blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, natBibitem(b.labels[i], i + 1, doc.natbib!.numbers)] as [string, NatEntry]) : [])) : []),
+      // (\caption@thepage: \the\c@page where the \write was shipped out)
+      captionPages: new Map(run.oddPages.map((w) => [w.n, countOf.get(w.node)!])),
       crefs: new Map((refs.cleveref?.writes ?? []).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { cref: w.cref, page: { ...w.page!, label: page(w.node) } }])),
     }
   }

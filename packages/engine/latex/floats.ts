@@ -175,6 +175,7 @@ export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null
 function captionMade(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAbove: boolean }, c: CaptionMake, hsize: number, out: CaptionOut) {
   const { refs, run } = cx
   const { isSub, star, text } = c
+  const n = ++run.captions // (\caption@stepthecounter)
   const color = xcolor.on && c.normalcolor
   if (color) out.push(colorPush()) // (\caption@normalsize's \normalcolor, popped where its group ends)
   // \caption@normalsize (\normalfont\normalsize), then \captionfont; \captionlabelfont and \captiontextfont after it
@@ -216,9 +217,13 @@ function captionMade(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAb
   const strut = (): Node[] => [...(keys.strut ? [{ kind: "rule", width: 0, height: sz.strut.height, depth: null } as const] : []), penalty(10000), glue(0)]
   const end: Node[] = keys.strut ? [penalty(10000), { kind: "rule", width: 0, height: 0, depth: sz.strut.depth }] : []
   // the width (\caption@calcmargin): \hsize less the margins, or the margins half of what the width leaves
-  if (keys.left !== keys.right && keys.twoside) throw new Unsupported("unequal caption margins in a twoside document") // (\caption@ifoddpage)
+  // (\caption@calcmargin: unequal margins swap places on an even page, \caption@ifoddpage: the page the \caption@newlabel
+  // \write of the run before was shipped out on; in the first run \c@page's, which only moves the caption sideways,
+  // its lines the same: not modeled, the second run is the one that counts)
+  const oddPage = keys.left !== keys.right && keys.twoside // (width= sets both margins zero)
+  const odd = (cx.captionPages?.get(n) ?? 1) % 2 === 1
   const width = keys.width ? keys.width : hsize - keys.left - keys.right
-  const left = keys.width ? Math.trunc((hsize - keys.width) / 2) : keys.left
+  const left = keys.width ? Math.trunc((hsize - keys.width) / 2) : odd ? keys.left : keys.right
   // \caption@slc: \sbox\@tempboxa{label separator text} with the single-line format
   let single = false
   if (keys.slc) {
@@ -261,6 +266,14 @@ function captionMade(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAb
   for (const n of lines) {
     if (n.kind === "hlist") pd = appendToVlist(inner, n, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
     else inner.push(n)
+  }
+  // (\caption@ifoddpage's \caption@label, in vertical mode before the paragraph: \caption@@label's \providecommand once)
+  if (oddPage) {
+    if (!run.captionLabel) out.push({ kind: "whatsit", text: "\\write1{\\providecommand*\\caption@newlabel[2]{}}" })
+    run.captionLabel = true
+    const node: Node = { kind: "whatsit", text: `\\write1{\\caption@newlabel{${n}}{\\caption@thepage }}` }
+    out.push(node)
+    run.oddPages.push({ n, node })
   }
   out.paragraph([hpack([]), glue(left + indent), vpack(inner)], "") // (the \hspace after the \parbox goes at the paragraph's end)
   if (skips && top) { out.push(above); out.rule() }
