@@ -162,8 +162,17 @@ function captionPackage(cx: Ctx, env: "figure" | "table", call: CaptionCall, hsi
  *  (\fnum@<type>) has a space between name and number rather than \nobreakspace (float.sty's \fname@<type>{} \the<type>) */
 export interface CaptionMake { name: string; the: string; isSub: boolean; star: boolean; text: string; anchor: boolean; normalcolor: boolean; skips?: { above: Node; below: Node } | null; fnumSpace?: boolean }
 
-/** \caption@@make with `keys`: the skips around the caption (the position fixed in `f`), and the caption's paragraph */
+/** \caption@@make with `keys`: the skips around the caption (the position fixed in `f`), and the caption's paragraph;
+ *  with \caption@normalsize (`normalcolor`), its singlespacing too: setspace's \setstretch{1} in the caption's group,
+ *  so the caption's lines and the paragraph around its \parbox are single-spaced even where the text is not (a
+ *  minipage in the text, a float.sty [H] float) */
 export function captionMake(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAbove: boolean }, c: CaptionMake, hsize: number, out: CaptionOut) {
+  const spaced = cx.run.k
+  if (c.normalcolor) cx.run.k = singleSpaced(spaced)
+  try { captionMade(cx, keys, f, c, hsize, out) } finally { cx.run.k = spaced }
+}
+
+function captionMade(cx: Ctx, keys: CaptionKeys, f: { top: boolean | null; subAbove: boolean }, c: CaptionMake, hsize: number, out: CaptionOut) {
   const { refs, run } = cx
   const { isSub, star, text } = c
   const color = xcolor.on && c.normalcolor

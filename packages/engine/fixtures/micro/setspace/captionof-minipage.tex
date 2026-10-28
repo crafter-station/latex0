@@ -1,0 +1,31 @@
+% fixture: setspace/captionof-minipage
+% tier: T3
+% engine: document
+% covers: caption.sty's \captionof in a minipage in double-spaced text: \caption@normalsize's singlespacing (\setstretch{1} in the caption's group) single-spaces the caption's lines and the paragraph around its \parbox, and the text after it is double-spaced again; with position=top after text, the interline glue before the caption's paragraph is single-spaced too
+% issue: #350
+\documentclass{article}
+\usepackage{setspace}
+\usepackage{caption}
+\doublespacing
+\begin{document}
+Text before the minipages, long enough to take two lines in the double-spaced body of this document here.
+
+\noindent\begin{minipage}{0.45\textwidth}
+Some words before the caption that take more than one line in the minipage.
+\captionof{figure}{Left, with a caption long enough to take two lines or even three of them.}\label{fig:l}
+And text after it in the minipage, double-spaced again over two lines.
+\end{minipage}\hfill
+\begin{minipage}{0.45\textwidth}
+\centering
+\captionof{table}{Short one.}
+Text after a caption on top.
+\end{minipage}
+
+\noindent\begin{minipage}{0.6\textwidth}
+\captionsetup{position=top}
+Words before a caption set on top, so the interline glue comes before it.
+\captionof{figure}{With position=top after text.}
+\end{minipage}
+
+Figure~\ref{fig:l} and more text after the minipages, long enough to take two lines in the body.
+\end{document}

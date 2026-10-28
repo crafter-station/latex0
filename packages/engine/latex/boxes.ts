@@ -95,7 +95,7 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
     stickList()
     if (k.hypcap && hyper) throw new Unsupported("a subcaption with hypcap")
   }
-  const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
+  const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, run.k.sizes[size].baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
   // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
   // LaTeX's restart of the paragraph
   const parskips = () => { if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) }
@@ -124,8 +124,6 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
     const om = part.match(/^\\captionof\s*\{(figure|table)\}([^]*)$/)
     if (om) {
       if (!cx.pre.caption || outerCaptype) throw new Unsupported(cx.pre.caption ? "\\captionof in a float" : "\\captionof without caption.sty")
-      // (\caption@normalsize's singlespacing: the caption and the paragraph around its \parbox single-spaced in the text)
-      if (run.k.singleSizes && run.k.sizes !== run.k.singleSizes) throw new Unsupported("\\captionof with setspace")
       const type = om[1] as "figure" | "table"
       run.captype = type; captionOf = true
       run.floatCaption = f = { number: null, pending: false, sub: 0, top: null, subAbove: false, keys: f.keys }
