@@ -1626,7 +1626,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // (\check@nocorr@: \nocorr first drops the one before, a \nocorr after the first token the one after)
       const corr = p.src !== "" && p.src !== " ", nc = nocorrs(p.src)
       if (corr && !nc.left && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
+      const noteClub = ctx.noteClub // (as a group's that starts the paragraph, size and group below)
+      if (p === ctx.lead && ctx.leadGroupNoteClub !== undefined) ctx.noteClub = ctx.leadGroupNoteClub
       appendPieces(list, p.inner, inner, size, state, ctx, a)
+      ctx.noteClub = noteClub
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
       if (corr && !nc.right && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
     }

@@ -1,0 +1,20 @@
+% fixture: sections/centercr-group-afterheading
+% tier: T3
+% engine: document
+% covers: \\ in a \textbf group of a centered paragraph right after a heading: the next paragraph starts in the group, where \@afterheading's \everypar sets \clubpenalty and clears itself only to the group's end (the \clubpenalty at its \par the outer 10000, or the group's 150 when another \\ in it ends it); and the paragraph after it; footnotes in the group see its \clubpenalty, those after it the outer one
+% issue: #350
+\documentclass{article}
+\begin{document}
+\section{First}
+{\centering Words of a centered paragraph \textbf{in bold \\ and more bold words that run on over two lines of the text} and normal words that run on over two lines of the text here.\par}
+
+Then a paragraph, long enough to take two lines of the text in this document, after the group with more.
+
+\section{Second}
+{\centering Words of a centered paragraph \textbf{in bold \\ and more bold words that run on over two lines of the text in this paragraph that is long enough for that \\ and the last ones} then normal words that run on over two lines of the text here.\par}
+
+Then a paragraph, long enough to take two lines of the text in this document, after the group with more.
+
+\section{Third}
+{\centering Words \textsc{in small capitals \\ and more\footnote{A footnote in the group, long enough to take two lines of the footnote text at the foot of the page here.}} then words\footnote{A footnote after the group, long enough to take two lines of the footnote text at the foot of the page.} after it.\par}
+\end{document}
