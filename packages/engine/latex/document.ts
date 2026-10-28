@@ -72,6 +72,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
   for (const [name, contents] of prepared.files) { const bb = boundingBox(contents); if (bb) images.set(name, bb) }
   // beamer has a pipeline of its own
   if (documentClass(prepared.src).cls === "beamer") return beamerDocument(prepared, driver, epoch, images)
+  if (prepared.verbatims.length) throw new Unsupported("verbatim and \\verb")
   // Whether a float right after a heading goes here decides \if@nobreak for the text after it,
   // which is laid out before the output routine places the float: the document is laid out again,
   // with the float not placed here, until every such guess holds.

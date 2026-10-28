@@ -14,7 +14,8 @@ import { emptyBox, FILL, filGlue, fillGlue, glue, penalty, type BoxNode, type No
 import { hpack, vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { centering, sloppy } from "../kernel"
+import { centering, flushglue, sloppy, zeroskip } from "../kernel"
+import { verbatimLines, verbNodes } from "../verbatim"
 import { pdfObjects } from "../../pgf/pdfforms"
 import type { Ctx } from "../context"
 import { DISPLAY } from "../blocks"
@@ -25,7 +26,7 @@ import type { Booktabs } from "../tabular"
 import type { Image } from "../images"
 import type { DocumentSource } from "../source"
 import { listParagraphWithDisplays } from "../displays"
-import { hlistInput, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "../paragraph"
+import { classParams, hlistInput, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate, plain, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
@@ -43,7 +44,9 @@ import { titlePage } from "./titlepage"
 import type { BeamerPgf } from "./pgf"
 
 /** a frame as written: its options and what it holds */
-export interface FrameSource { kind: "frame"; options: string; body: string }
+export interface FrameSource { kind: "frame"; options: string; body: string
+  /** the \frame command (not the environment, whose lines a fragile frame reads) */
+  command?: true }
 /** \section[short]{title} or \subsection[short]{title} between frames (the short title is the title without one) */
 export interface SectionSource { kind: "section" | "subsection"; short: string; title: string
   /** \section*{title} (\beamer@section[{title}]{}): no .toc line */
@@ -88,7 +91,7 @@ export function bodyOf(body: string): BodyItem[] {
         else if (src[j] === "}" && --depth === 0) break
       }
       if (j >= src.length) throw new Unsupported("\\frame's argument not closed")
-      frames.push({ kind: "frame", options: o, body: src.slice(i + 1, j) })
+      frames.push({ kind: "frame", options: o, body: src.slice(i + 1, j), command: true })
       i = j + 1
     } else if (/^\\(?:sub)?section(?![A-Za-z])/.test(src.slice(i))) {
       const kind = src.startsWith("\\subsection", i) ? "subsection" : "section"
@@ -138,6 +141,8 @@ export interface FrameCtx { k: ClassOptionData; /** what the source took out, th
   size?: SizeCommand
   /** an item's labels (\box\@labels \penalty\z@) that \everypar puts in place of the next paragraph's indentation box */
   itemStart?: Node[]
+  /** the frame is fragile: verbatim material may be in it */
+  fragile?: boolean
   /** in a figure or a table (\@captype) */
   captype?: "figure" | "table"
   /** pgf in the document (the inner themes' pictures and shadings) */
@@ -207,10 +212,12 @@ type FrameHandler = (cx: FrameCtx, v: FrameList, text: string) => string
 
 /** The text font: beamer's \familydefault is \sfdefault (OT1 cmss) */
 export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
+/** \verbatim@font: \normalfont\ttfamily */
+const TT: FontAttrs = { enc: "OT1", fam: "cmtt", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
 const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure",
   // (and the placeholders of what source.ts took out, which \leavevmode)
-  "LXgraphic", "LXtabular", "LXminipage", "LXurl", "LXhref"]
+  "LXgraphic", "LXtabular", "LXminipage", "LXurl", "LXhref", "LXverb"]
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
@@ -275,6 +282,11 @@ function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: s
   const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec },
     graphic: (n, lineWidth, units) => graphic(cx, doc, n, lineWidth, units), tabular: (n, size, attrs, sfcodes, outer) => tabularAt(mediaCtx(cx, doc), n, size, attrs, sfcodes, outer),
     minipage: (n, size, attrs, sfcodes, outer) => minipage(cx, doc, n, size, attrs, sfcodes, outer),
+    verb: (n, size, _attrs, state) => {
+      if (!cx.fragile) throw new Unsupported("beamer: \\verb in a frame that is not fragile")
+      const v = cx.media.prepared.verbatims[n]
+      return verbNodes(v.lines[0], v.star, selectFont(cx.k, size, TT), state)
+    },
     url: (n, size, attrs, penalties, color) => urlAt(mediaCtx(cx, doc), n, size, attrs, penalties, color), href: (n, text, color) => hrefAt(mediaCtx(cx, doc), n, text, color) }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = alerts(cx, text), prev = ""
@@ -313,7 +325,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
     if (/^\\vspace/.test(par.slice(cap))) throw new Unsupported("beamer: \\vspace in a paragraph")
     rest = par.slice(cap) + rest; par = par.slice(0, cap)
   }
-  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN), center = par.search(/\\begin\{(?:center|figure|table)\}/)
+  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN), center = par.search(/\\begin\{(?:center|figure|table)\}|\\LXverbatim\{/)
   const s: ParagraphSetting = {}
   if (cx.align && (at >= 0 || block >= 0)) throw new Unsupported("beamer: a list or a block after \\centering")
   if (cx.align && /\\footnote(?![A-Za-z])/.test(par)) throw new Unsupported("beamer: \\footnote after \\centering")
@@ -402,7 +414,7 @@ function plainText(text: string) {
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\hfill(?![A-Za-z])|\\LX(?:smuggle|graphic|tabular|minipage|url)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\hfill(?![A-Za-z])|\\LX(?:smuggle|graphic|tabular|minipage|url|verb)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 
@@ -411,6 +423,37 @@ const raggedright: FrameHandler = (cx, _v, text) => {
   // (after \centering, \parfillskip and \finalhyphendemerits stay zero)
   if (cx.align) throw new Unsupported("beamer: \\raggedright after \\centering")
   return text.replace(/^\\raggedright(?![A-Za-z])/, "")
+}
+
+/**
+ * A verbatim environment (verbatim.ts) in a fragile frame: \@trivlist's \@topsep and the item's \addpenalty
+ * \@beginparpenalty \addvspace\@topsep (as center's), \vskip\parskip, then each line a paragraph (\parskip zero) in
+ * the \textwidth, \leftskip and \rightskip zero, the first one with the item's labels, each followed by
+ * \penalty\interlinepenalty; then \endtrivlist, and the text after it comes with \@endpetrue
+ */
+const verbatim: FrameHandler = (cx, v, text) => {
+  const m = text.match(/^\\LXverbatim\{(\d+)\}/)!
+  if (!cx.fragile) throw new Unsupported("beamer: verbatim in a frame that is not fragile")
+  // (\@doendpe's \everypar and \par give way to \@item's and \@verbatim's in its group, then to its own \@doendpe's)
+  cx.endpe = false
+  if (cx.align || cx.size) throw new Unsupported("beamer: verbatim after \\centering or a size declaration")
+  const { k } = cx, g = k.glue, d = k.dimens
+  if (g.partopsep.width || g.partopsep.stretch || g.partopsep.shrink) throw new Unsupported("beamer: verbatim with \\partopsep")
+  const src = cx.media.prepared.verbatims[Number(m[1])]
+  v.addpenalty(-LOW_PENALTY)
+  v.addvspace(addGlue(g.topsep, g.parskip))
+  v.vskip(g.parskip)
+  const labels = hpack([glue(0), glue(-0), glue(-d.labelsep), hpack([colorPush(outerColors(cx.theme).fg), colorPop()], { exactly: 0 }), glue(d.labelsep)])
+  verbatimLines(src.lines, src.star, selectFont(k, "normalsize", TT)).forEach((nodes, i) => {
+    const { vlist, trace } = lineBreak([i ? emptyBox("hlist", d.parindent) : labels, ...nodes], { ...classParams(k), leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip"), parFillSkip: flushglue("parfillskip") })
+    cx.decisions.push(trace)
+    v.paragraph(vlist, dimen(0))
+    v.nodes.push(penalty(k.ints.interlinepenalty))
+  })
+  v.endtrivlist(g.parskip, g.parskip, g.topsep)
+  const rest = text.slice(m[0].length)
+  cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
+  return rest
 }
 
 /** \vfill between paragraphs: \vskip\z@\@plus1fill */
@@ -626,7 +669,7 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, vfill, vspace, ...Object.fromEntries(SIZE_COMMANDS.map((n) => [n, sizeHandler])), raggedright, centering: centeringHandler, center, figure: float, table: float, caption, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, LXverbatim: verbatim, vfill, vspace, ...Object.fromEntries(SIZE_COMMANDS.map((n) => [n, sizeHandler])), raggedright, centering: centeringHandler, center, figure: float, table: float, caption, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
   ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
 
@@ -697,8 +740,16 @@ function placement(k: ClassOptionData, centered: boolean): { top: GlueSpec; bott
 export function frameBox(cx: FrameCtx, f: FrameSource, centered: boolean): BoxNode {
   for (const o of f.options.split(",").map((s) => s.trim()).filter(Boolean)) {
     if (o === "c" || o === "t") centered = o === "c"
+    // fragile (\beamer@doexternalframe): the environment's lines, up to \end{frame}, written to the .vrb file (the first
+    // line without a space it begins with, a frame title after \begin{frame} as \frametitle{…}) and read back by
+    // \frame{\begingroup\input{….vrb}\endgroup}: what TeX reads is the same text, now with verbatim material in it
+    else if (/^fragile(?:\s*=\s*(?:true|false))?$/.test(o)) { if (!o.endsWith("false")) cx.fragile = true }
     else throw new Unsupported(`a frame's option ${o}`)
   }
+  if (cx.fragile && f.command) throw new Unsupported("beamer: \\frame[fragile]")
+  // (what \beamer@doexternalframe's \@gobble and first line make of text on \begin{frame}'s line, but a title, is not
+  // modeled)
+  if (cx.fragile && !/^[ \t]*(?:\{|\n|$)/.test(f.body)) throw new Unsupported("beamer: text after \\begin{frame}[fragile] on its line")
   const { top, bottom } = placement(cx.k, centered)
   cx.centered = centered
   // the material first, then the title's box (\setbox\beamer@frametitlebox after the frame's \vbox is read)

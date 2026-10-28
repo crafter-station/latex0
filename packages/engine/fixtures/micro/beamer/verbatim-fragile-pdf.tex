@@ -1,0 +1,34 @@
+% fixture: beamer/verbatim-fragile-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: [fragile] frames (the .vrb file read back), \verb and \verb* in a paragraph (\null, \@noligs' kerns, \nobreakspace, the space factor after), verbatim (the trivlist, a line a paragraph, an empty line, the labels on the first) and verbatim*, spaces before \end{verbatim} (a line, its last space taken off), the text after them with \@endpetrue
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}[fragile]{Code}
+Some text with \verb|x = y{1}| inline and \verb*|a b| starred, then more words so that the line breaks somewhere.
+\begin{verbatim}
+int main() {
+  return 0; // <done>
+}
+
+  indented, `quotes' -- dashes, 100% #$&_^~\
+\end{verbatim}
+Text after the verbatim.
+\end{frame}
+\begin{frame}[fragile]
+\frametitle{Second}
+A \verb!ABC! then a space, and \verb+A'+ after it. End.\verb|)| next.
+\begin{verbatim*}
+a  b
+\end{verbatim*}
+\begin{verbatim}
+x
+  \end{verbatim}
+
+After a blank line.
+\end{frame}
+\end{document}

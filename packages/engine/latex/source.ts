@@ -48,13 +48,17 @@ export function inlineMathParens(src: string): string {
   return out
 }
 
+/** a verbatim environment as typed: its lines (the last one what comes before \end{verbatim} on its line, the others
+ *  without the spaces TeX drops at the end of a line), or \verb's text (\verb* and verbatim*: visible spaces) */
+export interface VerbatimSource { star: boolean; lines: string[]; inline?: true }
+
 /** a URL as typed (verbatim), and whether it is a link (\url and \href with hyperref; not \nolinkurl) */
 export interface UrlSource { address: string; link: boolean }
 
 /** \includegraphics[options]{file} as typed */
 export interface GraphicSource { options: string; file: string }
 
-export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; longtables: LongtableSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[]
+export interface DocumentSource { src: string; listings: Listing[]; /** verbatim environments and \verb, by number (\LXverbatim{n}, \LXverb{n}) */ verbatims: VerbatimSource[]; tabulars: TabularSource[]; longtables: LongtableSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[]
   /** \includegraphics, by number (\LXgraphic{n}) */
   graphics: GraphicSource[]
   /** TikZ's pictures as typed (tikzpicture environments, \tikz), by number (\LXtikz{n}) */
@@ -111,6 +115,33 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXlstinline{${listings.length - 1}}`
   })
   if (/\\lstinline(?![A-Za-z])/.test(uncommented())) throw new Unsupported("an \\lstinline not read")
+  const commentedAt = (text: string, at: number) => /(^|[^\\])%/.test(text.slice(text.lastIndexOf("\n", at) + 1, at))
+  // verbatim environments and \verb, read verbatim: \LXverbatim{n} and \LXverb{n}
+  const verbatims: VerbatimSource[] = []
+  source = source.replace(/^([^%\n]*?)\\begin\{(verbatim\*?)\}([^\n]*)\n([^]*?)\\end\{\2\}/gm, (_, before: string, env: string, rest: string, body: string) => {
+    if (rest) throw new Unsupported(`text after \\begin{${env}} on its line`)
+    const lines = body.split("\n")
+    verbatims.push({ star: env.endsWith("*"), lines: lines.map((l, i) => (i < lines.length - 1 ? l.replace(/ +$/, "") : l)) })
+    return `${before}\\LXverbatim{${verbatims.length - 1}}`
+  })
+  if (/\\(begin|end)\{verbatim\*?\}/.test(uncommented())) throw new Unsupported("a verbatim environment not read")
+  // (\verb's delimiter right after it: \@sverb skips spaces; in an argument TeX has made tokens of it already)
+  {
+    let out = "", at = 0
+    const re = /\\verb(?![A-Za-z])(\*?)([^A-Za-z\s*])/g
+    for (let m = re.exec(source); m; m = re.exec(source)) {
+      if (m.index < at || source[m.index - 1] === "\\" || commentedAt(source, m.index)) continue
+      const from = m.index + m[0].length, end = source.indexOf(m[2], from)
+      if (end < 0 || source.slice(from, end).includes("\n")) throw new Unsupported("\\verb ended by the end of the line")
+      if (inArgument(m.index)) throw new Unsupported("\\verb in an argument")
+      verbatims.push({ star: !!m[1], lines: [source.slice(from, end)], inline: true })
+      out += source.slice(at, m.index) + `\\LXverb{${verbatims.length - 1}}`
+      at = end + 1
+      re.lastIndex = at
+    }
+    source = out + source.slice(at)
+  }
+  if (/\\verb(?![A-Za-z])/.test(uncommented())) throw new Unsupported("a \\verb not read")
   // \includegraphics[options]{file}: \LXgraphic{n}, laid out where it stands
   const graphics: GraphicSource[] = []
   source = source.replace(/\\includegraphics(?![A-Za-z])\s*(?:\[((?:[^\]{}]|\{[^{}]*\})*)\])?\s*\{([^{}\n]*)\}/g, (all: string, options: string | undefined, file: string, offset: number, text: string) => {
@@ -125,7 +156,6 @@ export function prepareSource(source: string): DocumentSource {
   // \url{address} or \url<c>address<c> (and hyperref's \nolinkurl), read verbatim with url.sty's catcodes:
   // \LXurl{n}; \href{address}{text}'s address likewise: \LXhref{n}{text}
   const urls: UrlSource[] = []
-  const commentedAt = (text: string, at: number) => /(^|[^\\])%/.test(text.slice(text.lastIndexOf("\n", at) + 1, at))
   // (in an argument, TeX has made tokens of it already: spaces, %, # and \ are no longer what url.sty reads)
   const verbatim = (address: string, at: number) => { if (inArgument(at) && /[\\{}#%~ ]/.test(address)) throw new Unsupported(`a URL in an argument: ${address}`) }
   source = source.replace(/\\(url|nolinkurl)(?![A-Za-z])\s*(?:\{([^{}\n]*)\}|([^A-Za-z\s{])([^\n]*?)\3)/g, (all: string, cmd: string, braced: string | undefined, _d: string, delimited: string | undefined, offset: number, text: string) => {
@@ -186,7 +216,7 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXminipage{${minipages.length - 1}}`
   })
   if ([...src.matchAll(/\\(?:begin|end)\{(?:minipage|subfigure|subtable)\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
-  return { src, listings, tabulars, longtables, minipages, urls, graphics, tikz, files }
+  return { src, listings, verbatims, tabulars, longtables, minipages, urls, graphics, tikz, files }
 }
 
 /**
