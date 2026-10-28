@@ -1,0 +1,15 @@
+% fixture: text/latex-logo-sizes-times
+% tier: T3
+% engine: document
+% covers: \LaTeX's A at \sf@size where no size command of the class has that size (5, 6 and 7pt): the font package's family's font of the shape in force there (times, T1): roman, bold, italic, slanted, small capitals and typewriter, in 11pt at \small, \footnotesize and \scriptsize
+% issue: #350
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\begin{document}
+{\small \LaTeX, \textbf{\LaTeX}, \textit{\LaTeX}, \textsl{\LaTeX}, \textsc{\LaTeX}, and \texttt{\LaTeX}.\par}
+{\footnotesize \LaTeX, \textbf{\LaTeX}, \textit{\LaTeX}, \textsl{\LaTeX}, \textsc{\LaTeX}, and \texttt{\LaTeX}.\par}
+{\scriptsize \LaTeX, \textbf{\LaTeX}, \textit{\LaTeX}, \textsl{\LaTeX}, \textsc{\LaTeX}, and \texttt{\LaTeX}.\par}
+{\normalsize \LaTeX, \textbf{\LaTeX}, \textit{\LaTeX}, \textsl{\LaTeX}, \textsc{\LaTeX}, and \texttt{\LaTeX}.\par}
+{\tiny \LaTeX, \textbf{\LaTeX}, \textit{\LaTeX} and \texttt{\LaTeX}.\par}
+\end{document}

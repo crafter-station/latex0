@@ -906,10 +906,16 @@ export function otherFontName(k: ClassOptionData, a: FontAttrs, enc: "OMS" | "OM
 function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
   const sf = (Object.keys(k.sizes) as SizeCommand[]).find((s) => k.sizes[s].font.at === k.sizes[size].scriptSize)
   if (sf) return selectFont(k, sf, a)
-  // (another size option's size command of that size: the .fd files' font there, which no class changes)
-  if (!k.families) for (const option of ["10pt", "11pt", "12pt"]) {
+  // (another size option's size command of that size: the .fd files' font there, which no class changes; a font
+  // package's family's at that size)
+  for (const option of ["10pt", "11pt", "12pt"]) {
     const other = classData("article", option), s = (Object.keys(other.sizes) as SizeCommand[]).find((x) => other.sizes[x].font.at === k.sizes[size].scriptSize)
-    if (s) return selectFont(other, s, a)
+    if (!s) continue
+    const family = k.families && { cmr: k.families.rm, cmss: k.families.sf, cmtt: k.families.tt }[a.fam]
+    if (!family || family === a.fam) return selectFont(other, s, a)
+    if (family === "phv") throw new Unsupported(`\\LaTeX at ${size} in phv`) // (its scale)
+    const fonts = Object.fromEntries(["n", a.shape].map((sh) => [`${a.enc}/${a.fam}/${a.ser}/${sh}`, familyFont(family, `${a.enc}/${a.ser}/${sh}`, other.sizes[s].size)]))
+    return selectFont({ ...other, sizes: { ...other.sizes, [s]: { ...other.sizes[s], fonts } } }, s, a)
   }
   // (\normalfont: math family 0's script font, or with T1 the EC font of that size, as \@makefnmark's)
   if (a.fam !== "cmr" || a.ser !== "m" || a.shape !== "n") throw new Unsupported(`\\LaTeX at ${size}`)
