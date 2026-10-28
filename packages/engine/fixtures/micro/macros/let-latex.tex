@@ -1,0 +1,11 @@
+% fixture: macros/let-latex
+% tier: T3
+% engine: document
+% covers: \let of a command LaTeX defines (\emph) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped); \let of a new name to it is an alias
+% issue: #344
+\documentclass{article}
+\let\oldemph\emph
+\let\emph\textbf
+\begin{document}
+Some \emph{strong} and \oldemph{slanted} text.
+\end{document}

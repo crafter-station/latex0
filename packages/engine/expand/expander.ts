@@ -43,6 +43,9 @@ export interface ExpanderOptions {
   latex?: boolean
   /** commands defined outside the expander (a renderer's built-ins), for \\providecommand */
   known?: (name: string) => boolean
+  /** commands LaTeX defines (the kernel, the class, the packages): a document's \\renewcommand, \\def or \\let of one
+   *  changes LaTeX, not a macro of its own, and is an error here; its \\providecommand of one does nothing */
+  defined?: (name: string) => boolean
 }
 
 export class ExpansionError extends Error {}
@@ -59,6 +62,7 @@ export class Expander {
 
   private latex: boolean
   private known: (name: string) => boolean
+  private defined: (name: string) => boolean
   /** problems met while running in document mode (\\newcommand of a defined command) */
   readonly warnings: string[] = []
 
@@ -67,6 +71,7 @@ export class Expander {
     this.fuel = o.fuel ?? 1_000_000
     this.latex = !!o.latex
     this.known = o.known ?? (() => false)
+    this.defined = o.defined ?? (() => false)
     for (const p of PRIMITIVES) this.meanings.set(p, { kind: "prim", name: p })
     if (this.latex) for (const p of LATEX_DEFINITIONS) this.meanings.set(p, { kind: "prim", name: p })
   }
@@ -98,6 +103,10 @@ export class Expander {
     if (level && !level.some((s) => s.key === k)) level.push({ key: k, old: this.meanings.get(k) })
     this.meanings.set(k, m)
   }
+  /** a command LaTeX defines (`defined`: the document can define none of them itself) */
+  private latexOwned(t: Tok): boolean { return this.defined(t.cs!) }
+  private latexError(cmd: string, t: Tok): never { throw new ExpansionError(`\\${cmd} of LaTeX's ${printCs(t.cs!).trim()}`) }
+
   private beginGroup() { this.saveStack.push([]) }
   private endGroup() {
     const level = this.saveStack.pop()
@@ -419,6 +428,7 @@ export class Expander {
 
   private def(kind: string, pre: { global: boolean; long: boolean; protected: boolean }) {
     const target = this.getRToken()
+    if (this.latexOwned(target)) this.latexError(kind, target)
     // § 473: the parameter text
     const params: ParamItem[] = []
     let brace = false, n = 0
@@ -474,8 +484,9 @@ export class Expander {
     if (optional && n === 0) throw new ExpansionError(`\\${kind}: a default value needs an argument`)
     const k = key(target)!
     const defined = this.meanings.has(k) && this.meanings.get(k)!.kind !== "undefined"
+    if (kind === "providecommand" && (defined || this.known(target.cs!) || this.latexOwned(target))) return
+    if (this.latexOwned(target)) this.latexError(kind, target)
     if (kind === "newcommand" && defined) { this.warnings.push(`Command ${printCs(target.cs!).trim()} already defined`); return }
-    if (kind === "providecommand" && (defined || this.known(target.cs!))) return
     const macro: Macro = { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }
     if (!optional) { this.define(k, macro, false); return }
     // \foo is \@protected@testopt\foo\\foo{default}; \\foo takes [#1]
@@ -517,6 +528,7 @@ export class Expander {
 
   private let(global: boolean) { // § 1221
     const target = this.getRToken()
+    if (this.latexOwned(target)) this.latexError("let", target)
     let x = this.need(this.getNext())
     while (x.cat === SPACER) x = this.need(this.getNext())
     if (x.cat === OTHER_CHAR && x.c === 61) { x = this.need(this.getNext()); if (x.cat === SPACER) x = this.need(this.getNext()) }

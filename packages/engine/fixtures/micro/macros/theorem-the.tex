@@ -1,0 +1,14 @@
+% fixture: macros/theorem-the
+% tier: T3
+% engine: document
+% covers: \newtheorem{thm} defines the counter thm and \thethm, which the engine reads: its \renewcommand is not read yet, so not laid out (it is not dropped)
+% issue: #344
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{thm}{Theorem}
+\renewcommand{\thethm}{\Roman{thm}}
+\begin{document}
+\begin{thm}
+Every number is interesting.
+\end{thm}
+\end{document}

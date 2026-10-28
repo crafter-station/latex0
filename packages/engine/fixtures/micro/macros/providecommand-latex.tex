@@ -1,0 +1,14 @@
+% fixture: macros/providecommand-latex
+% tier: T3
+% engine: document
+% covers: \providecommand of a command LaTeX defines (\textordfeminine, \abstractname) does nothing; of one it does not (\tightlist), defines it; the document's own \providecommand after its \newcommand does nothing
+% issue: #344
+\documentclass{article}
+\providecommand{\textordfeminine}{a}
+\providecommand{\abstractname}{Summary}
+\providecommand{\tightlist}{}
+\newcommand{\Name}{Ada}
+\providecommand{\Name}{Grace}
+\begin{document}
+The 1\textordfeminine{} edition: we \tightlist{}report what \Name{} found.
+\end{document}

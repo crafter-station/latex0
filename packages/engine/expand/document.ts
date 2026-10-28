@@ -26,6 +26,8 @@ export interface DocumentExpansion {
 export interface DocumentOptions {
   /** commands the renderer knows, so \providecommand leaves them alone */
   known?: (name: string) => boolean
+  /** commands LaTeX defines (the kernel, the class, the packages): the document cannot redefine them here */
+  defined?: (name: string) => boolean
   fuel?: number
 }
 
@@ -44,7 +46,7 @@ export function expandDocument(src: string, opts: DocumentOptions = {}): Documen
   const reader = new Tokenizer(text)
   const taken: { last: Tok | null } = { last: null } // the last token taken from the source
   const tracked = { next: () => (taken.last = reader.next()) } as unknown as Tokenizer
-  const ex = new Expander(tracked, { latex: true, known: opts.known, fuel: opts.fuel ?? 1_000_000 })
+  const ex = new Expander(tracked, { latex: true, known: opts.known, defined: opts.defined, fuel: opts.fuel ?? 1_000_000 })
 
   const out: string[] = []
   const errors: string[] = []

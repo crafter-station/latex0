@@ -1,0 +1,12 @@
+% fixture: macros/package-names
+% tier: T3
+% engine: document
+% covers: a package's commands are LaTeX's only when it is loaded (not in a comment): \newcommand{\checkmark} without amssymb (amsfonts defines it) is the document's own
+% issue: #344
+\documentclass{article}
+\usepackage{amsmath}
+% \usepackage{amssymb}
+\newcommand{\checkmark}{(ok)}
+\begin{document}
+Done \checkmark{} and checked.
+\end{document}
