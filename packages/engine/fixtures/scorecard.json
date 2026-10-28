@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 978,
-  "exact": 965,
+  "fixtures": 982,
+  "exact": 969,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 13,
-  "glyphs": 618678
+  "glyphs": 632280
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "babel",
-   "fixtures": 55,
-   "exact": 55
+   "fixtures": 57,
+   "exact": 57
   },
   {
    "area": "beamer",
@@ -186,8 +186,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 30,
-   "exact": 30
+   "fixtures": 32,
+   "exact": 32
   },
   {
    "area": "text",
@@ -304,6 +304,17 @@
    "issue": "#30"
   },
   {
+   "id": "templates/corpus-carta-presentacion-es",
+   "file": "macro/templates/corpus-carta-presentacion-es.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 988,
+   "covers": "the starter-corpus Spanish document (corpus/carta-presentacion-es.tex): spanish babel, T1 fontenc, utf8 accents, geometry",
+   "issue": "#354"
+  },
+  {
    "id": "templates/corpus-cover-letter",
    "file": "macro/templates/corpus-cover-letter.tex",
    "area": "templates",
@@ -324,6 +335,17 @@
    "glyphs": 343,
    "covers": "the starter-corpus CV (corpus/cv.tex): 11pt article with geometry margin=0.8in, enumitem, hyperref's \\href, titlesec's \\titleformat with \\titlerule, a centered \\LARGE header, tabular, itemize, \\hfill dates",
    "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-ensayo-filosofia-es",
+   "file": "macro/templates/corpus-ensayo-filosofia-es.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1390,
+   "covers": "the starter-corpus Spanish document (corpus/ensayo-filosofia-es.tex): spanish babel, T1 fontenc, utf8 accents, geometry",
+   "issue": "#354"
   },
   {
    "id": "templates/corpus-homework",
@@ -1371,6 +1393,17 @@
    "issue": "#63"
   },
   {
+   "id": "babel/spanish-bibitem-safe",
+   "file": "micro/babel/spanish-bibitem-safe.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 10478,
+   "covers": "spanish.ldf's shorthands in fancyhdr's fields when the output routine runs at a \\bibitem: babel's \\@bibitem has \\@safe@activestrue while \\item ends the item before and adds \\@itempenalty, and \\es@use@shorthand then \\string's the ~ of \\today; elsewhere ~ is a tie",
+   "issue": "#354"
+  },
+  {
    "id": "babel/spanish-boxes",
    "file": "micro/babel/spanish-boxes.tex",
    "area": "babel",
@@ -1501,6 +1534,17 @@
    "glyphs": 217,
    "covers": "spanish.ldf's \\mathspanish: the decimal comma (. active in math: {,} before a digit, after spaces too; the period elsewhere, \\left.), \\es@operators (\\lim, \\max, \\min, \\inf, \\limsup, \\liminf with \\acute{\\dotlessi} or \\acute{a} in the operator font, display limits; \\sen, \\tg, \\arcsen, \\arccos, \\arctg, \\cotg, \\cosec, \\senh, \\tgh with \\nolimits), math accents (make_math_accent: skew, a larger accent, scripts of a character)",
    "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-otherlanguage-club",
+   "file": "micro/babel/spanish-otherlanguage-club.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 746,
+   "covers": "the first paragraph after a heading starting in otherlanguage* and ending after it: \\@afterheading's \\everypar sets \\clubpenalty\\@M in the language's group, so a minipage and a footnote read there break with it, while the paragraph's own lines take the \\clubpenalty restored at the group's end",
+   "issue": "#354"
   },
   {
    "id": "babel/spanish-quotes",
