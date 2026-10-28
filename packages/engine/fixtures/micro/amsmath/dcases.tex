@@ -1,0 +1,11 @@
+% fixture: amsmath/dcases
+% tier: T3
+% engine: document
+% covers: mathtools's dcases and rcases (\MT_start_cases: \strut@, \quad between columns, display or text style cells, \spread@equation's \openup\jot on \baselineskip, \lineskip and \lineskiplimit), inline and displayed, at 12pt
+% issue: #330
+\documentclass[12pt]{article}
+\usepackage{mathtools}
+\begin{document}
+Inline $\begin{dcases} \frac{1}{2} & x > 0 \\ \sum_k a_k & \text{else} \end{dcases}$ and $\begin{rcases} a & b \\ c & d \end{rcases} = 1$.
+\[ f(n) = \begin{dcases} \frac{n}{2} & \text{if $n$ is even} \\ \frac{3n+1}{2} & \text{if $n$ is odd} \end{dcases} \]
+\end{document}

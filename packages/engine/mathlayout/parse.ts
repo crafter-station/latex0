@@ -12,10 +12,11 @@
 
 import type { MathData } from "./data"
 import { Scanner, type GlueSpec } from "../layout/dimen"
-import { charNode, filGlue, fillGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
+import { xnOverD } from "../layout/arith"
+import { charNode, emptyBox, filGlue, fillGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import type { Font } from "../layout/font"
-import { delimiterOf, groupField, groupNoad, mlistToHlist, TEXT as TEXT_STYLE, type FractionNoad, type MathEnv, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
+import { delimiterOf, groupField, groupNoad, type ArrayColumn, type ArraySegment, mlistToHlist, TEXT as TEXT_STYLE, type FractionNoad, type MathEnv, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
@@ -144,6 +145,10 @@ export interface MathOptions {
   frame?: (box: BoxNode) => BoxNode
   /** (internal) the formula's source, which text arguments are cut from */
   raw?: string
+  /** (internal) inside an alignment's cell (its \baselineskip and \lineskip are its own) */
+  inAlignment?: boolean
+  /** (internal) \arraystretch where it is not 1 (amsmath's cases: 1.2), as § 455 scans it */
+  arraystretch?: [number, number]
   /** (internal) amsmath's \accentclass@ is 0 (\noaccents@), not 7 */
   accentClass0?: boolean
   /** (internal) amsmath's \finsm@sh where the formula starts: t, b or tb */
@@ -160,7 +165,7 @@ export interface MathOptions {
 }
 
 /** a token; braces from the formula's own source keep their offset in it (`at`), for text arguments */
-type Token = { cs: string; value?: number; spec?: GlueSpec } | { ch: string; at?: number }
+type Token = { cs: string; value?: number; spec?: GlueSpec; at?: number } | { ch: string; at?: number }
 
 /** \mkern's mu dimension and \mskip's mu glue (scan_dimen and scan_glue with mu, §§ 448–461), the mu skip registers
  *  coerced (\mkern-\thinmuskip: its width) */
@@ -187,7 +192,7 @@ function tokenize(src: string, muskips?: Record<string, GlueSpec>, offsets = fal
       } else if (m[1] === "mkern" || m[1] === "mskip") {
         const { spec, length } = scanMu(src.slice(i), m[1], muskips)
         out.push({ cs: m[1], spec }); i += length
-      } else out.push({ cs: m[1] })
+      } else out.push(offsets && m[1] === "\\" ? { cs: m[1], at: i } : { cs: m[1] }) // (\\: what follows it right away)
     } else if (/\s/.test(c)) i++ // spaces are ignored in math mode
     else if (c === "%") { while (i < src.length && src[i] !== "\n") i++ }
     else { out.push(offsets && (c === "{" || c === "}") ? { ch: c, at: i } : { ch: c }); i++ }
@@ -276,8 +281,48 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
     const w = width([ORD_EMPTY(), ...parseTokens(base, data, { ...inner, finsmash }, -1), ORD_EMPTY()]) - width(parseTokens(base, data, { ...inner, finsmash }, -1))
     return w === 0 ? groupNoad([noad]) : { noad: w < 0 ? 2 : 3, nucleus: groupField([noad]), sup: null, sub: null }
   }
+  /** LaTeX's \@mkpream for c, l, r and @-expressions (\@arrayclassz, \@arrayclassiv): the columns and what goes
+   *  around each, \hskip\arraycolsep (\@acol) unless an @-expression is there */
+  const arrayPreamble = (spec: Token[]): ArrayColumn[] => {
+    const cols: ArrayColumn[] = []
+    let last = 6, pending: ArraySegment[] = [] // \@lastchclass; what the next column's u-part takes
+    for (let i = 0; i < spec.length; i++) {
+      const t = spec[i]
+      if ("ch" in t && /^[clr]$/.test(t.ch)) {
+        if (last === 0) { cols[cols.length - 1].after.push("colsep"); pending.push("colsep") } // \@acolampacol
+        else if (last === 1) pending.push("colsep") // \@ampacol
+        else if (last === 6) pending.push("colsep") // \@firstampfalse\@acol
+        cols.push({ align: t.ch as "c" | "l" | "r", before: pending, after: [] }); pending = []; last = 0
+      } else if (isCh(t, "|")) { // \@classi
+        const target = cols.length && last !== 6 && last !== 4 ? cols[cols.length - 1].after : pending
+        if (last === 0) target.push("colsep", "rule"); else if (last === 1) target.push("doublerulesep", "rule"); else if (last === 4 || last === 6) (cols.length ? cols[cols.length - 1].after : pending).push("rule")
+        last = 1
+      } else if (isCh(t, "@")) {
+        const a = spec[++i]
+        if (!a) throw new Error("math: an array preamble ending with @")
+        let arg: Token[] = [a]
+        if (isCh(a, "{")) { let d = 0, j = i; for (; j < spec.length; j++) { if (isCh(spec[j], "{")) d++; else if (isCh(spec[j], "}") && --d === 0) break } arg = spec.slice(i + 1, j); i = j }
+        const seg: ArraySegment = { math: () => parseTokens(arg, data, { ...inner, finsmash }, -1) } // $\@nextchar$
+        if (cols.length) cols[cols.length - 1].after.push(seg); else pending.push(seg)
+        last = 4
+      } else throw new Error(`math: an array preamble with ${"ch" in t ? t.ch : `\\${t.cs}`}`)
+    }
+    if (last === 0) cols[cols.length - 1].after.push("colsep")
+    if (!cols.length) throw new Error("math: an empty array preamble")
+    return cols
+  }
+  /** amsmath's smallmatrix (\null\,\vcenter{…}\,) and subarray (\vcenter{…}): cells $\scriptstyle#$, the template's $ after each */
+  const stack = (body: Token[], layout: "smallmatrix" | "subarray-c" | "subarray-l" | "dcases" | "rcases"): MItem[] => {
+    if (opts.em === undefined) throw new Error("math: smallmatrix without the current font")
+    const { rows, crs } = arrayRows(body, false, {}, true)
+    const thickspace = xnOverD(opts.em, 18199, 0o200000) // \thickspace in text: \kern.2777em (round_decimals(2777))
+    const v: Noad = { noad: ORD, vcenter: true, nucleus: { kind: "stack", rows, crs, layout, thickspace, quad: opts.em }, sup: null, sub: null }
+    if (layout !== "smallmatrix") return [v]
+    const thin = (): MItem => ({ kind: "muglue", spec: data.muskips.thinmuskip })
+    return [{ noad: ORD, nucleus: { kind: "box", box: emptyBox("hlist") }, sup: null, sub: null }, thin(), v, thin()]
+  }
   /** an \array cell before an &: \@sharp, then the v-part of the template, $ in LaTeX's */
-  const cellBefore = (ts: Token[]) => parseTokens(ts, data, { ...opts, dollarNext: !opts.arrayPackage, finsmash }, -1)
+  const cellBefore = (ts: Token[], more: Partial<MathOptions> = {}) => parseTokens(ts, data, { ...opts, dollarNext: !opts.arrayPackage, finsmash, ...more }, -1)
   /** amsmath's \dots and its kin as the source they become, by the token after them (the end of the formula: a $ when
    *  dollarNext); null: not one of them */
   const dotsMacro = (cs: string): string | null => {
@@ -331,20 +376,24 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
   }
   /** an \array body: rows split at \\, cells at &, outside braces and inner environments; each cell a formula of its
    *  own, where \fam is -1 (§ 1139) */
-  const arrayRows = (body: Token[]) => {
+  const arrayRows = (body: Token[], skipsSpaces = false, outer: Partial<MathOptions> = {}, dollarAfterCell = !opts.arrayPackage) => {
+    const more = { ...outer, inAlignment: true }
     const rows: MItem[][][] = [], crs: boolean[] = []
     let row: MItem[][] = [], cell: Token[] = [], depth = 0
-    for (const t of body) {
+    for (const [i, t] of body.entries()) {
       if ("ch" in t && t.ch === "{") depth++
       else if ("ch" in t && t.ch === "}") depth--
       else if ("cs" in t && t.cs === "begin") depth++
       else if ("cs" in t && t.cs === "end") depth--
-      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(cellBefore(cell)); cell = []; continue }
-      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell, -1)); rows.push(row); crs.push(true); row = []; cell = []; continue }
+      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(cellBefore(cell, { ...more, ...(dollarAfterCell !== !opts.arrayPackage ? { arrayPackage: !dollarAfterCell } : {}) })); cell = []; continue }
+      // (\@arraycr's \@ifstar and [: LaTeX's \@ifnextchar looks past spaces, which the tokens no longer show)
+      const adjacent = !("cs" in t) || t.at === undefined || opts.raw === undefined || !/\s/.test(opts.raw[t.at] ?? "")
+      if (depth === 0 && "cs" in t && t.cs === "\\" && ((adjacent && isCh(body[i + 1], "*")) || ((adjacent || skipsSpaces) && isCh(body[i + 1], "[")))) throw new Error("math: \\\\* or \\\\[ in an array")
+      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell, -1, more)); rows.push(row); crs.push(true); row = []; cell = []; continue }
       cell.push(t)
     }
     // \crcr: a last row without \\ (an empty one after a final \\ is no row)
-    if (cell.length || row.length) { row.push(sub(cell, -1)); rows.push(row); crs.push(false) }
+    if (cell.length || row.length) { row.push(sub(cell, -1, more)); rows.push(row); crs.push(false) }
     return { rows, crs }
   }
   /** scan_delimiter (§ 1160): a character's \delcode or a \delimiter command */
@@ -466,9 +515,43 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
       }
       if ("cs" in t && t.cs === "begin") { // amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix, Vmatrix
         const { name, body } = environment()
+        const stretch = opts.arraystretch ? { stretch: opts.arraystretch } : {} // (\arraystretch as an outer cases set it)
+        if (name === "array" || (opts.amsmath && name === "cases")) { // LaTeX's \array; amsmath's \env@cases: \left\lbrace\def\arraystretch{1.2}\array{@{}l@{\quad}l@{}}, \right.
+          let rest = body
+          if (name === "array") {
+            if (isCh(rest[0], "[")) throw new Error("math: \\begin{array}[pos]")
+            if (!isCh(rest[0], "{")) throw new Error("math: \\begin{array} without its preamble")
+            let d = 0, end = 0
+            for (; end < rest.length; end++) { if (isCh(rest[end], "{")) d++; else if (isCh(rest[end], "}") && --d === 0) break }
+            rest = rest.slice(end + 1)
+            const cols = arrayPreamble(body.slice(1, end))
+            out.push({ noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(rest, !opts.amsmath), cols, ...stretch }, sup: null, sub: null })
+          } else {
+            const array: Noad = { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(rest, false, { arraystretch: [1, 13107] }), cols: arrayPreamble(tokenize("@{}l@{\\quad}l@{}")), stretch: [1, 13107] }, sup: null, sub: null }
+            out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: delimiterOf(data.delimiters.lbrace & 0xffffff) }, array, { noad: "right", delim: delimiterOf(0) }] }, sup: null, sub: null })
+          }
+          continue
+        }
+        if (opts.packages?.includes("mathtools") && (name === "dcases" || name === "rcases")) { // \newcases: \left#4 … \right#5
+          // (in another alignment its \spread@equation opens up that one's \baselineskip, or not at all)
+          if (opts.inAlignment) throw new Error(`math: ${name} inside an alignment`)
+          const v = stack(body, name)[0]
+          const d = (x: string) => delimiterOf(x === "." ? 0 : data.delimiters[x] & 0xffffff)
+          out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: d(name === "dcases" ? "lbrace" : ".") }, v, { noad: "right", delim: d(name === "dcases" ? "." : "rbrace") }] }, sup: null, sub: null })
+          continue
+        }
+        if (opts.amsmath && (name === "smallmatrix" || name === "subarray")) {
+          let rest = body, layout: "smallmatrix" | "subarray-c" | "subarray-l" = "smallmatrix"
+          if (name === "subarray") {
+            const a = rest[0], b = rest[1], c = rest[2]
+            if (!isCh(a, "{") || !b || !("ch" in b) || (b.ch !== "c" && b.ch !== "l") || !isCh(c, "}")) throw new Error("math: \\begin{subarray} without c or l")
+            layout = b.ch === "c" ? "subarray-c" : "subarray-l"; rest = rest.slice(3)
+          }
+          out.push(...stack(rest, layout)); continue
+        }
         if (!opts.amsmath || !(name in MATRICES)) throw new Error(`math: unsupported environment ${name}`)
         const fence = MATRICES[name]
-        const center: MItem[] = [{ kind: "colsep" }, { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(body) }, sup: null, sub: null }, { kind: "colsep" }]
+        const center: MItem[] = [{ kind: "colsep" }, { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(body), ...stretch }, sup: null, sub: null }, { kind: "colsep" }]
         if (!fence) out.push(...center)
         else {
           const d = (x: string) => (x.length === 1 ? delimiterOf(data.delcodes[x.charCodeAt(0)]) : delimiterOf(data.delimiters[x] & 0xffffff))
@@ -674,6 +757,7 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         continue
       }
       if (t.cs === "relax") continue
+      if (opts.amsmath && t.cs === "substack") { out.push(...stack(argument(), "subarray-c")); continue } // \subarray{c}#1\endsubarray
       if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox
       if (t.cs === "hfill" || t.cs === "hfil") { out.push(t.cs === "hfill" ? fillGlue() : filGlue()); continue }
       if (t.cs === "mkern") { out.push({ kind: "mukern", width: t.spec!.width }); continue }

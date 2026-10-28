@@ -134,7 +134,7 @@ export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false):
     scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
     delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
     arraycolsep: k.dimens.arraycolsep, // \@arstrutbox: \strutbox at \arraystretch 1, with array.sty's \extrarowheight
-    strut: k.sizes[size].strut,
+    strut: k.sizes[size].strut, baselineskip: k.sizes[size].baselineskip, normallineskip: k.glue.normallineskip, normallineskiplimit: k.dimens.normallineskiplimit, jot: k.dimens.jot, arrayrulewidth: k.dimens.arrayrulewidth, doublerulesep: k.dimens.doublerulesep,
     arstrut: k.array ? { height: k.sizes[size].strut.height + k.array.extrarowheight, depth: k.sizes[size].strut.depth } : k.sizes[size].strut,
     ...(k.array ? { arrayPackage: true } : {}),
   }

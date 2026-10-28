@@ -1,0 +1,10 @@
+% fixture: math/array-plain
+% tier: T3
+% engine: document
+% covers: LaTeX's array in math without amsmath: \@mkpream's c, l, r, | and || and @-expressions ($text$ in the template), \hskip\arraycolsep around columns, \@arraycr's ${} at the end of a row, the template's $ after each cell (\dots looks at it only with amsmath)
+% issue: #330
+\documentclass{article}
+\begin{document}
+A table $\begin{array}{|l||r|} a & bb \\ ccc & d \end{array}$ and $\left(\begin{array}{c@{,}c@{\,}r} x & y & z \\ 1 & & 2 \end{array}\right)$ in text.
+\[ \begin{array}{@{}lcr@{}} \alpha & \beta & \gamma \\ \frac{1}{2} & x^2 & \sqrt{y} \end{array} \]
+\end{document}

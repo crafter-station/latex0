@@ -29,7 +29,8 @@ export type Field =
   | { kind: "mlist"; list: MItem[] }
   /** \array{*\c@MaxMatrixCols c} in a \vcenter (amsmath's matrix environments): each cell's formula, and
    *  whether \\ ended each row (its \@arraycr leaves ${} in the last cell) */
-  | { kind: "array"; rows: MItem[][][]; crs: boolean[] }
+  | { kind: "array"; rows: MItem[][][]; crs: boolean[]; /** a preamble of LaTeX's \array (none: *\c@MaxMatrixCols c) */ cols?: ArrayColumn[]
+      /** \arraystretch as a decimal factor (§ 455: integer part and fraction of 2^16) */ stretch?: [number, number] }
   /** \big … \Bigg's box (fontmath.ltx: \hbox{$\left#1\vbox to8.5\p@{}\right.\n@space$}; amsmath's \bBigg@: \left#1\vcenter
    *  to `factor`\big@size{}\right. in an \hbox, \nulldelimiterspace zero), which needs the text size's fonts */
   | { kind: "big"; delim: Delimiter; height: number } | { kind: "big"; delim: Delimiter; factor: [number, number] }
@@ -38,6 +39,12 @@ export type Field =
   | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh"; /** \llap, \rlap, \clap: \hbox to\z@ with \hss */ lap?: "l" | "r" | "c" }
   /** amsmath's \boxed: \fbox{\m@th$\displaystyle#1$}, `frame` the \fbox around \hbox{\kern\fboxsep{…}\kern\fboxsep} */
   | { kind: "boxed"; list: () => MItem[]; frame: (box: BoxNode) => BoxNode }
+  /**
+   * amsmath's smallmatrix (\hfil$\scriptstyle#$\hfil&&\thickspace\hfil$\scriptstyle#$\hfil, \baselineskip 6\ex@, \lineskip and
+   * \lineskiplimit 1.5\ex@) and \subarray (\substack: one column, \hfil for c, \baselineskip σ10+σ12 and \lineskip 3ξ8 of the
+   * script fonts): an \ialign whose \\ (\math@cr) puts \noalign{\vskip0pt} after its row (`crs`); `thickspace` the kern
+   */
+  | { kind: "stack"; rows: MItem[][][]; crs: boolean[]; layout: "smallmatrix" | "subarray-c" | "subarray-l" | "dcases" | "rcases"; thickspace: number; /** \quad: 1em */ quad?: number }
   /** \copy\strutbox: \hbox{\vrule height.7\baselineskip depth.3\baselineskip width\z@} (MathEnv.strut) */
   | { kind: "strut" }
   | null
@@ -50,6 +57,10 @@ export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; 
   accent?: Field
   /** amsfonts' \widehat and \widetilde: the accent above when the argument, in an \hbox in text style, is wider than `width` */
   wide?: { accent: Field; width: number; measure: () => MItem[] } }
+/** A column of LaTeX's \array preamble (\@mkpream): its template, \hfil$\relax#$\hfil (c), $\relax#$\hfil (l) or
+ *  \hfil$\relax#$ (r), with what comes before and after it: \hskip\arraycolsep, or an @-expression's $text$ */
+export interface ArrayColumn { align: "c" | "l" | "r"; before: ArraySegment[]; after: ArraySegment[] }
+export type ArraySegment = "colsep" | "rule" | "doublerulesep" | { math: () => MItem[] }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
 /** \\mskip glue (§ 149 mu_glue): in mu, converted with the math unit of its style (§ 732) */
@@ -124,6 +135,14 @@ export interface MathEnv {
   /** array.sty's \array: \hskip1sp before each cell's formula, and no ${} from its \@arraycr */
   arrayPackage?: boolean
   arstrut?: { height: number; depth: number }
+  /** \baselineskip, \normallineskip, \normallineskiplimit and \jot, for mathtools's dcases */
+  baselineskip?: GlueSpec
+  normallineskip?: GlueSpec
+  normallineskiplimit?: number
+  jot?: number
+  /** \arrayrulewidth and \doublerulesep, for an array's | */
+  arrayrulewidth?: number
+  doublerulesep?: number
   /** \strutbox's height and depth */
   strut?: { height: number; depth: number }
   /** called for a character the font lacks (char_warning) */
@@ -288,6 +307,12 @@ class Converter {
         } else b = n.kind === "big" ? this.big(n) : this.hmath(n)
         q.nucleus = { kind: "box", box: b }; p = [b]
       }
+      else if (n.kind === "stack") {
+        const b = this.stack(n)
+        if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
+        q.nucleus = { kind: "box", box: b }
+        p = [b]
+      }
       else if (n.kind === "array") {
         const b = this.array(n)
         if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
@@ -351,10 +376,33 @@ class Converter {
   array(a: Extract<Field, { kind: "array" }>): BoxNode {
     const colsep = this.env.arraycolsep ?? 0, strut = this.env.arstrut ?? { height: 0, depth: 0 }
     const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }]
+    const empty = (): MItem[] => [{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]
+    if (a.cols) { // LaTeX's \array (no array.sty): its preamble's templates, the \@arstrutbox \arraystretch times \strutbox
+      if (this.env.arrayPackage) throw new Error("math: an array preamble with array.sty")
+      const s = this.env.strut ?? { height: 0, depth: 0 }, [n, f] = a.stretch ?? [1, 0]
+      const st = { height: nxPlusY(n, s.height, xnOverD(s.height, f, 0o200000)), depth: nxPlusY(n, s.depth, xnOverD(s.depth, f, 0o200000)) }
+      const w = this.env.arrayrulewidth ?? 0, half = -xnOverD(w, 0x8000, 0o200000) // (\hskip -.5\arrayrulewidth, § 455)
+      const seg = (x: ArraySegment): Node[] => x === "colsep" ? [glue(colsep)] : x === "doublerulesep" ? [glue(this.env.doublerulesep ?? 0)]
+        : x === "rule" ? [glue(half), { kind: "rule", width: w, height: null, depth: null }, glue(half)] : math(x.math()) // \@arrayrule
+      const cols = a.cols
+      if (a.rows.some((r) => r.length > cols.length)) throw new Error("math: Extra alignment tab has been changed to \\cr")
+      const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
+        ...(ci === 0 ? [{ kind: "rule", width: 0, height: st.height, depth: st.depth } as Node] : []),
+        ...cols[ci].before.flatMap(seg), ...(cols[ci].align !== "l" ? [filGlue()] : []), ...math(cell),
+        ...(a.crs[ri] && ci === row.length - 1 ? math(empty()) : []), // \@arraycr's ${}
+        ...(cols[ci].align !== "r" ? [filGlue()] : []), ...cols[ci].after.flatMap(seg),
+      ]))
+      const boxes = halign(rows, Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0))), { additional: 0 })
+      const v: Node[] = []
+      boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
+      return vpack(v)
+    }
+    // (an \arraystretch: the \strutbox's dimensions times it, with array.sty's \extrarowheight)
+    const arstrut = !a.stretch ? strut : ((s, [n, f]) => ({ height: nxPlusY(n, s.height, xnOverD(s.height, f, 0o200000)) + strut.height - s.height, depth: nxPlusY(n, s.depth, xnOverD(s.depth, f, 0o200000)) }))(this.env.strut ?? strut, a.stretch)
     const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
-      ...(ci === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth } as Node] : []),
+      ...(ci === 0 ? [{ kind: "rule", width: 0, height: arstrut.height, depth: arstrut.depth } as Node] : []),
       glue(colsep), filGlue(), ...(this.env.arrayPackage ? [glue(1)] : []), ...math(cell),
-      ...(a.crs[ri] && ci === row.length - 1 && !this.env.arrayPackage ? math([{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]) : []), // \@arraycr's ${}
+      ...(a.crs[ri] && ci === row.length - 1 && !this.env.arrayPackage ? math(empty()) : []), // \@arraycr's ${}
       filGlue(), glue(colsep),
     ]))
     const cols = 10 // \c@MaxMatrixCols
@@ -362,6 +410,54 @@ class Converter {
     const boxes = halign(rows, Array.from({ length: cols + 1 }, () => paramGlue("tabskip", glue(0))), { additional: 0 })
     const v: Node[] = []
     boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
+    return vpack(v)
+  }
+
+  /** Field "stack": the \ialign's rows, stacked with \baselineskip, \lineskip and \lineskiplimit (append_to_vlist, § 679) */
+  stack(a: Extract<Field, { kind: "stack" }>): BoxNode {
+    const style = a.layout === "dcases" ? DISPLAY : a.layout === "rcases" ? null : SCRIPT
+    const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert([...(style === null ? [] : [{ kind: "style" as const, style }]), ...l], TEXT, false), { kind: "math", on: false, width: 0 }]
+    let bs: number, ls: number, lsl: number, bsSpec: GlueSpec | null = null, lsSpec: GlueSpec | null = null
+    if (a.layout === "dcases" || a.layout === "rcases") { // mathtools's \MT_start_cases: \spread@equation's \openup\jot, cells after \strut@
+      const e = this.env
+      if (!e.baselineskip || !e.normallineskip || e.normallineskiplimit === undefined || e.jot === undefined || !e.strut || a.quad === undefined) throw new Error("math: dcases without the class's skips")
+      bsSpec = { ...e.baselineskip, width: e.baselineskip.width + e.jot }; lsSpec = { ...e.normallineskip, width: e.normallineskip.width + e.jot }
+      bs = bsSpec.width; ls = lsSpec.width; lsl = e.normallineskiplimit + e.jot
+      const strut = e.strut, nl = e.normallineskiplimit, quad = a.quad
+      // \strut@: \hbox{\lower.5\normallineskiplimit\vbox{\kern-\normallineskiplimit\copy\strutbox}}
+      const strutAt = (): Node => { const v = vpack([kern(-nl, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])]); v.shift = xnOverD(nl, 0x8000, 0o200000); return hpack([v]) }
+      const rows = a.rows.map((row) => row.map((cell, ci) => [...(ci ? [glue(quad), strutAt()] : [strutAt()]), ...math(cell), filGlue()]))
+      if (rows.some((r) => r.length > 2)) throw new Error("math: Extra alignment tab has been changed to \\cr")
+      return this.stackRows(rows, 2, bs, bsSpec, ls, lsSpec, lsl, a.crs)
+    }
+    if (a.layout === "smallmatrix") {
+      const ex = amsEx(this.font(0, 0)!.size)
+      bs = nxPlusY(6, ex, 0); ls = nxPlusY(1, ex, xnOverD(ex, 0x8000, 0o200000))
+    } else {
+      const sf = this.font(2, 1), ef = this.font(3, 1)
+      if (!sf || !ef) throw new Error("math: \\substack without the script fonts")
+      bs = sf.params[10] + sf.params[12]; ls = 3 * ef.params[8]
+    }
+    const rows = a.rows.map((row) => row.map((cell, ci) => a.layout === "smallmatrix"
+      ? [...(ci ? [kern(a.thickspace, true)] : []), filGlue(), ...math(cell), filGlue()]
+      : [...(a.layout === "subarray-c" ? [filGlue()] : []), ...math(cell), filGlue()]))
+    const cols = Math.max(1, ...rows.map((r) => r.length))
+    if (a.layout !== "smallmatrix" && cols > 1) throw new Error("math: Extra alignment tab has been changed to \\cr")
+    return this.stackRows(rows, cols, bs, null, ls, null, ls, a.crs)
+  }
+
+  /** an \ialign's rows in a vbox: \baselineskip glue d (bs less the depth above and the height below), or \lineskip when
+   *  d is below \lineskiplimit (append_to_vlist, § 679); \noalign{\vskip\z@} after a row \\ ended */
+  stackRows(rows: Node[][][], cols: number, bs: number, bsSpec: GlueSpec | null, ls: number, lsSpec: GlueSpec | null, lsl: number, crs: boolean[]): BoxNode {
+    const boxes = halign(rows, Array.from({ length: cols + 1 }, () => paramGlue("tabskip", glue(0))), { additional: 0 })
+    const v: Node[] = []
+    let prev: BoxNode | null = null
+    const spec = (g: GlueSpec | null, w: number) => (g ? glue(w, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) : glue(w))
+    boxes.forEach((b, i) => {
+      if (prev) { const d = bs - prev.depth - b.height; v.push(d < lsl ? paramGlue("lineskip", spec(lsSpec, ls)) : paramGlue("baselineskip", spec(bsSpec, d))) }
+      v.push(b); prev = b
+      if (crs[i]) v.push(glue(0)) // \noalign{\vskip\z@}
+    })
     return vpack(v)
   }
 
@@ -449,7 +545,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" || field.kind === "boxed" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "stack" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" || field.kind === "boxed" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }
@@ -730,6 +826,20 @@ class Converter {
   }
 }
 
+
+/** amsgen's \compute@ex@: \ex@ for the text size f (in sp), 1pt at 10pt, a little more below and less above */
+export function amsEx(f: number): number {
+  const pt = 65536
+  let d = -f
+  if (d < -20 * pt) return 98304 // 1.5\p@
+  d = 2 * (d + 10 * pt)
+  const negative = d > 0
+  d = Math.abs(d) - 1000
+  let vfuzz = pt
+  while (d > 0) { vfuzz = xnOverD(vfuzz, 63570, 0o200000); d -= pt } // \vfuzz=.97\vfuzz (§ 455: round_decimals(97))
+  d = pt - vfuzz
+  return pt + (negative ? -d : d)
+}
 
 /** \skewchar as LaTeX's font families set it (\DeclareFontFamily{OML}{cmm}{\skewchar\font'177}, OMS cmsy's '60; omllmm.fd and
  *  omslmsy.fd the same; mathrsfs's ursfs.fd '177), else -1 */

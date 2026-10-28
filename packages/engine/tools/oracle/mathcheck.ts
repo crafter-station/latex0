@@ -49,7 +49,7 @@ type Nucleus =
   /** a math accent and its argument (with amsmath none inside: \macc@nested) */
   /** \big … \Biggr and a delimiter */
   | { kind: "big"; cs: string; delim: string }
-  | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean }
+  | { kind: "matrix"; env: string; rows: Item[][][]; cr: boolean; /** \begin{array}'s */ preamble?: string }
   | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
   | { kind: "accent"; cs: string; arg: Script }
   /** a command, with an argument or not: \dots, \colon, \pmod{…}, \mathbin{…} */
@@ -101,6 +101,9 @@ const AMS_ACCENTS = "Hat Check Tilde Acute Grave Dot Ddot Breve Bar Vec".split("
 
 function generator(r: () => number, pool: number[], busy: number[], symbols: (ams: boolean) => string[], ams: () => boolean) {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  // (mathtools's dcases and rcases only outside alignments: inside one, their \openup goes on its \baselineskip)
+  let aligned = 0
+  const cell = (depth: number): Item[] => { aligned++; try { return list(depth, 2, true) } finally { aligned-- } }
   // (amsmath's \colon, \nobreak\mskip2mu\mathpunct{}…, is no script: a command, with the others)
   const char = (): Nucleus & Script => {
     if (r() < 0.15) { let name = pick(symbols(ams())); if (name === "colon" && ams()) name = "cdotp"; return { kind: "sym", name } }
@@ -130,14 +133,29 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
     if (x >= 0.47 && x < 0.5) return { kind: "big", cs: pick(["big", "Big", "bigg", "Bigg"]) + pick(["", "l", "r", "m"]), delim: pick(FENCES) }
     if (depth < 3 && x < 0.28 && ams()) { // amsmath's matrix environments: rows of cells, sometimes ragged, sometimes a final \\
       const cols = 1 + Math.floor(r() * 3)
-      const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: r() < 0.2 ? 1 + Math.floor(r() * cols) : cols }, () => list(depth + 1, 2, true)))
-      return { kind: "matrix", env: pick(MATRICES), rows, cr: r() < 0.3 }
+      const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: r() < 0.2 ? 1 + Math.floor(r() * cols) : cols }, () => cell(depth + 1)))
+      return { kind: "matrix", env: pick([...MATRICES, "smallmatrix", "smallmatrix"]), rows, cr: r() < 0.3 }
     }
     if (depth < 3 && x >= 0.28 && x < 0.33) {
       const cs = pick(["overline", "underline", "sqrt"] as const)
       return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: rootIndex(depth + 1) } : {}) }
     }
     if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS, ...MT_ARG] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
+    if (depth < 3 && x >= 0.66 && x < 0.69) { // LaTeX's array (a preamble of c, l, r, | and @-expressions) and amsmath's cases
+      const cases = ams() && r() < 0.4
+      if (!cases && ams() && r() < 0.3) { // amsmath's \substack and subarray: one column of script-style rows
+        const env = pick(["substack", "subarray}{c", "subarray}{l"])
+        return { kind: "matrix", env, rows: Array.from({ length: 1 + Math.floor(r() * 3) }, () => [cell(depth + 1)]), cr: r() < 0.3 }
+      }
+      const cols = cases ? 2 : 1 + Math.floor(r() * 3)
+      let preamble = ""
+      for (let c = 0; c <= cols; c++) {
+        if (r() < 0.25) preamble += pick(["|", "||", "@{}", "@{\\quad}", "@{,}", "@{x^2}", "@{\\;}"])
+        if (c < cols) preamble += pick(["c", "l", "r"])
+      }
+      const rows = Array.from({ length: 1 + Math.floor(r() * 3) }, () => Array.from({ length: r() < 0.2 ? 1 + Math.floor(r() * cols) : cols }, () => cell(depth + 1)))
+      return { kind: "matrix", env: cases ? pick(aligned > 0 ? ["cases"] : ["cases", "cases", "dcases", "rcases"]) : "array", rows, cr: r() < 0.3, ...(cases ? {} : { preamble }) }
+    }
     if (depth < 3 && x >= 0.63 && x < 0.66) { // commands with more arguments (the last one is `arg`)
       const [cs, n] = pick([["stackrel", 1], ["mathchoice", 3], ...(ams() ? [["overset", 1], ["underset", 1], ["overunderset", 2], ["boxed", 0]] as [string, number][] : [])] as [string, number][])
       return { kind: "cmd", cs, args: Array.from({ length: n }, () => list(depth + 1, 2, true)), arg: list(depth + 1, 3, true) }
@@ -206,7 +224,8 @@ function print(items: Item[]): string {
       : n.kind === "big" ? `\\${n.cs}${n.delim}`
       : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.args ? n.args.map((a) => `{${print(a)}}`).join("") : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
       : n.kind === "alphabet" ? `\\${n.cs}{${print(n.items)}}`
-      : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
+      : n.kind === "matrix" && n.env === "substack" ? `\\substack{${n.rows.map((row) => print(row[0])).join("\\\\ ")}${n.cr ? "\\\\ " : ""}}`
+      : n.kind === "matrix" ? `\\begin{${n.env}}${n.preamble !== undefined ? `{${n.preamble}}` : ""}${n.rows.map((row) => row.map(print).join("&")).join(n.env === "array" ? "\\\\\\relax " : "\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env.replace(/\}.*/, "")}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""
     const primes = "'".repeat(it.primes)
     out += it.subFirst ? sub + primes + sup : primes + sup + sub
