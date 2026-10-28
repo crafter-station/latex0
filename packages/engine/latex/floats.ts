@@ -296,7 +296,7 @@ export function captionXref(cx: Ctx, minipage = false): Node[] {
 }
 
 export function floatBlock(cx: Ctx, b: Extract<Block, { kind: "float" }>) {
-  if (b.fps === "H") { if (b.blank) cx.v.par(); hereBox(cx, b); return } // (in a paragraph: \float@endH's \vskip ends it)
+  if (b.fps === "H") { if (b.star) throw new Unsupported(`a ${b.env}* [H]`); if (b.blank) cx.v.par(); hereBox(cx, b); return } // (in a paragraph: \float@endH's \vskip ends it)
   if (b.inPar) throw new Unsupported("a float inside a paragraph")
   if (b.blank) cx.v.par() // (after \@doendpe, its \par resets \clubpenalty)
   setevery(cx, b)
@@ -354,9 +354,11 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
   const { amsmath, hyper } = cx.pre
   const { counters, doc, normalAttrs, notHere, refs, romanFont, run, v } = cx
   const decisions = traces // (in a paragraph: with its footnotes', in the order TeX reads them)
-  // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !
+  // the placement specifier as \@xfloat counts it: h, t (2), b (4), p (8), and 16 unless !; figure* and table* in two
+  // columns (\@dbflt) are tp by default (one column: figures and tables, \@float)
+  const dbl = !!b.star && !!run.k.ints.twocolumn
   let fps = 16
-  for (const c of b.fps ?? (b.env === "algorithm" ? "htbp" : "tbp")) { // \fps@figure and \fps@table are tbp, \fps@algorithm htbp
+  for (const c of b.fps ?? (b.env === "algorithm" ? "htbp" : dbl ? "tp" : "tbp")) { // \fps@figure and \fps@table are tbp, \fps@algorithm htbp
     if (c === "h") { if (fps % 2 === 0) fps++ }
     else if (c === "t" || c === "b" || c === "p") { const bit = c === "t" ? 2 : c === "b" ? 4 : 8; if (Math.floor(fps / bit) % 2 === 0) fps += bit }
     else if (c === "!") { if (fps > 15) fps -= 16 }
@@ -369,17 +371,18 @@ export function floatMarker(cx: Ctx, b: Extract<Block, { kind: "float" }>, trace
     try { box = algorithmBox(cx, b.body, decisions, club) } finally { run.k = spaced }
     return floatWhatsit(cx, b, box, fps + 32 * 4) // \ftype@algorithm: float.sty's float@type, 4 after figure and table
   }
-  return floatWhatsit(cx, b, figureBox(cx, { ...b, env: b.env }, decisions, club, true), fps + 32 * (b.env === "figure" ? 1 : 2)) // \ftype@figure 1, \ftype@table 2
+  const box = figureBox(cx, { ...b, env: b.env }, decisions, club, true, dbl)
+  return floatWhatsit(cx, b, box, fps + 32 * (b.env === "figure" ? 1 : 2), dbl) // \ftype@figure 1, \ftype@table 2
 }
 
 /** A figure's or table's box (\@xfloat's \color@vbox\normalcolor\vbox{…} up to \@endfloatbox); `single`: setspace's \@xfloat
- *  single spacing in it */
-function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figure" | "table" }, decisions: ParagraphTrace[], club: number, single: boolean): BoxNode {
+ *  single spacing in it; `dbl`: a figure* or table* in two columns (\@xdblfloat: \hsize and \linewidth are \textwidth) */
+function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figure" | "table" }, decisions: ParagraphTrace[], club: number, single: boolean, dbl = false): BoxNode {
   const { amsmath, hyper } = cx.pre
   const { counters, doc, normalAttrs, refs, romanFont, run } = cx
   const content: Node[] = []
   let pd: number | null = IGNORE_DEPTH, cap: Captioned | null = null
-  const hsize = run.k.dimens.columnwidth
+  const hsize = dbl ? run.k.dimens.textwidth : run.k.dimens.columnwidth
   const fbody = b.body.trim()
   const tokens = [...fbody.matchAll(/\\centering\b|\\caption(?:\*)?\s*(?:\[[^\]]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\captionsetup\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:label|vspace)\s*\{[^}]*\}|\\LXtabular\{\d+\}|\\LX(?:minipage|graphic|tikz)\{\d+\}|\S+/g)]
   const items = tokens.map((t) => t[0])
@@ -390,7 +393,7 @@ function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figur
     // \centering's \finalhyphendemerits=\z@ outlasts \@parboxrestore, which resets only the skips
     const shape = centering ? centeringShape() : centered ? { finalHyphenDemerits: 0 } : {}
     // (\clubpenalty is the one in force: \@parboxrestore leaves it, and \@setminipage's \everypar replaces \@afterheading's)
-    const par = paragraphInput(body, run.k, size, doc, { ...shape, start, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: club, ...opts })
+    const par = paragraphInput(body, run.k, size, doc, { ...shape, start, amsmath, ...sloppy(romanFont.params[QUAD]), clubPenalty: club, ...(dbl ? { hsize } : {}), ...opts })
     const lb = lineBreak(par.list, par.params)
     decisions.push(...par.notes, lb.trace)
     return lb.vlist
@@ -409,7 +412,9 @@ function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figur
   run.floatCaption = { number: null, pending: false, sub: 0, top: null, subAbove: false }
   // caption.sty's \caption@settype: the float's option list (\caption@setoptions{figure}), its lengths as there
   const dim = (v: string) => parseDimen(v, { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT], internal: widthRegisters(cx, hsize) })
-  if (cx.pre.caption) { run.floatCaption.keys = copyKeys(cx.pre.caption.keys); runList(cx.pre.caption, b.env, run.floatCaption.keys, "list", dim, b.env) }
+  // (in \@xfloat's box, before \@xdblfloat sets \hsize and \linewidth to \textwidth: \linewidth is \columnwidth there)
+  const listDim = (v: string) => parseDimen(v, { em: romanFont.params[QUAD], ex: romanFont.params[X_HEIGHT], internal: widthRegisters(cx, run.k.dimens.columnwidth) })
+  if (cx.pre.caption) { run.floatCaption.keys = copyKeys(cx.pre.caption.keys); runList(cx.pre.caption, b.env, run.floatCaption.keys, "list", dbl ? listDim : dim, b.env) }
   // setspace's \@xfloat: \def\baselinestretch{\setspace@singlespace}\normalsize in the float
   const spaced = run.k
   if (single) run.k = singleSpaced(spaced)
@@ -494,10 +499,11 @@ function figureBox(cx: Ctx, b: Extract<Block, { kind: "float" }> & { env: "figur
   return vpack(xcolor.on ? [colorPush(), vpack(content), colorPop()] : [vpack(content)]) // \color@vbox\normalcolor\vbox{…}
 }
 
-/** \end@float's marker for a float's box and \count\@currbox */
-function floatWhatsit(cx: Ctx, b: Extract<Block, { kind: "float" }>, box: BoxNode, count: number): WhatsitNode {
+/** \end@float's marker for a float's box and \count\@currbox (\end@dblfloat's, `dbl`: its box 1sp deep) */
+function floatWhatsit(cx: Ctx, b: Extract<Block, { kind: "float" }>, box: BoxNode, count: number, dbl = false): WhatsitNode {
   const { notHere, run, v } = cx
   if (box.height > run.k.dimens.textheight) box.height = run.k.dimens.textheight // \@largefloatcheck
+  if (dbl) box.depth = 1
   const index = run.floats++
   return { kind: "whatsit", text: "", float: { box, count, nobreak: !b.inPar && v.nobreak, index, here: !notHere.has(index), ...(b.inPar ? { inPar: true } : {}) } satisfies Float }
 }

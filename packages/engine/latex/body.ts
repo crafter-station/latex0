@@ -2,7 +2,7 @@
 // \@noskipsec), headings, lists, floats, listings, letters and the front and back matter.
 
 import type { GlueSpec } from "../layout/dimen"
-import { parseGlue } from "../layout/dimen"
+import { parseGlue, type Internal, type Scanner } from "../layout/dimen"
 import { blocksOf, displaySegments, HEADINGS, type Block, type ListBlock } from "./blocks"
 import { groupStart, tabularStart } from "./source"
 import { COUNTER_COMMANDS } from "./counters"
@@ -14,10 +14,11 @@ import { hpack } from "../layout/pack"
 import { appendText, sourceText } from "./encodings"
 import { loadFont } from "../layout/font"
 import { dataFont } from "./data"
-import { crefWrites, labelWrite } from "./paragraph"
+import { crefWrites, hsizeOf, labelWrite } from "./paragraph"
+import { widthRegisters } from "./boxes"
 import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
-import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
-import type { OutputHook } from "./output"
+import { appendix, chapter, cleardoublepage, clearpage, columnSwitch, heading, matter, newpage, topnewpageBox } from "./sectioning"
+import { enlargeInsert, type OutputHook } from "./output"
 import { markboth, markright, markValue } from "./marks"
 import { leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
@@ -55,6 +56,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "maketitle") { maketitle(cx); return }
+  if (b.kind === "columns") { if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.two ? "two" : "one"}column right after a run-in heading`); columns(cx, b); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
   if (b.kind === "newpage") {
@@ -99,11 +101,16 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // likewise \vspace (\vskip skip \vskip\z@skip) and \hrule (after which no interline glue comes, § 1056)
     // (\vspace*: \@vspacer's \hrule\@height\z@ \nobreak first, \prevdepth kept)
     // babel's \selectlanguage and otherlanguage's \begin and \end write to the .aux file there (\nobreak too)
-    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
+    const lead = b.text.match(/^(?:\s*(?:\\label\{[A-Za-z0-9:._-]+\}|\\vspace\s*\*?\s*\{[^{}]*\}|\\enlargethispage\s*\*?\s*\{[^{}]*\}|\\(?:raggedbottom|flushbottom|suppressfloats(?:\s*\[[tb]\])?)(?![A-Za-z])|\\hrule(?![A-Za-z])|\\selectlanguage\s*\{[A-Za-z]+\}|\\LX(?:end)?otherlanguage(?:star)?\{[A-Za-z]*\}))+\s*/)
     if (lead) {
       if (run.runIn) throw new Unsupported("\\label, \\vspace, \\hrule or \\selectlanguage right after a run-in heading")
-      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}/g)) {
-        if (m[4] !== undefined) {
+      for (const m of lead[0].matchAll(/\\label\{([^}]*)\}|\\vspace\s*(\*?)\s*\{([^{}]*)\}|\\hrule|\\(selectlanguage\s*|LXotherlanguage|LXendotherlanguage)(star)?\{([A-Za-z]*)\}|\\enlargethispage\s*(\*?)\s*\{([^{}]*)\}|\\(raggedbottom|flushbottom|suppressfloats)(?:\s*\[([tb])\])?/g)) {
+        // \raggedbottom, \flushbottom (\@textbottom, for the columns made from now on), \suppressfloats[t|b] (\@colnum,
+        // \@topnum, \@botnum for the page being built)
+        if (m[9] !== undefined) v.nodes.push({ kind: "whatsit", text: "", hook: (m[9] === "suppressfloats" ? (m[10] ? `suppress-${m[10]}` : "suppress") : m[9]) as OutputHook })
+        // (\@esphack in vertical mode: \nobreak while \if@nobreak or \if@noskipsec)
+        else if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7]), ...(v.nobreak || run.noskipsec ? [penalty(10000)] : []))
+        else if (m[4] !== undefined) {
           const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
           const { lang, write } = babelSwitch(what, m[6])
           // (otherlanguage's group: what its end restores)
@@ -191,7 +198,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // otherlanguage's end restores what was in force where it began)
     const langs = languageGroups(text), lg = langs.closed > 0 || langs.foreign
     const restore = langs.closed ? babelState.groups[babelState.groups.length - langs.closed] : null
-    const grouped = !!cg || tabularStart(text) || lg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
+    const grouped = !!cg || !!b.inGroup || tabularStart(text) || lg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
     // (footnotes read in such a color group, and a leading tabular's p{width} entries, see its \clubpenalty, which the
     // group's end takes back)
     let leadNoteClub: number | undefined
@@ -208,6 +215,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     for (let i = 0; i < langs.opened; i++) babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
     return
   }
+  if (b.env === "abstract" && run.k.ints.twocolumn && !cx.pre.titlepage) { twocolumnAbstract(cx, b, blocks[bi + 1]); return }
   if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }
   if (b.blank) v.par() // a blank line before the list
   const before = { club: v.club, afterheading: v.afterheadingEverypar }
@@ -227,6 +235,62 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   v.endpePar = v.doendpe = v.endpeEverypar = true
 }
 
+/** a length for \enlargethispage: in the body font, with \baselineskip, \textheight and the widths */
+export function pageLength(cx: Ctx, src: string): GlueSpec {
+  const { run } = cx, widths = widthRegisters(cx, hsizeOf(run.k))
+  const internal = (name: string, s: Scanner): Internal | undefined =>
+    name === "baselineskip" ? { level: "glue", value: run.k.sizes.normalsize.baselineskip } : name === "textheight" ? { level: "dimen", value: run.k.dimens.textheight } : widths(name, s)
+  try { return parseGlue(src, { ...cx.bodyUnits, internal }) } catch { throw new Unsupported(`\\enlargethispage{${src}}`) }
+}
+
+/**
+ * \onecolumn and \twocolumn[…] (latex.ltx): \clearpage, then \columnwidth \textwidth (in two columns half of it less
+ * \columnsep), \hsize and \linewidth with it, \if@twocolumn, \@firstcolumntrue, and \@floatplacement, or \@topnewpage with
+ * the optional argument's material in its box
+ */
+function columns(cx: Ctx, b: Extract<Block, { kind: "columns" }>) {
+  const { v } = cx
+  if (cx.pre.cls === "letter") throw new Unsupported(`\\${b.two ? "two" : "one"}column in a letter`)
+  v.par()
+  columnSwitch(cx, b.two)
+  if (b.top === undefined) return
+  if (!b.two) throw new Unsupported("\\onecolumn[…]")
+  const top = blocksOf(b.top)
+  if (top.some((x) => x.kind !== "par" && x.kind !== "heading" && x.kind !== "list")) throw new Unsupported("\\twocolumn[…] with more than text, headings and lists")
+  v.nodes.push({ kind: "whatsit", text: "", hook: { topnewpage: topnewpageBox(cx, () => top.forEach((x, i, all) => processBlock(cx, x, i, all))) } satisfies OutputHook })
+}
+
+/**
+ * The abstract in two columns (\if@twocolumn, no title page): \section*{\abstractname} and its text, in a group that
+ * \end{abstract} closes with no \par (and no \@doendpe)
+ */
+function twocolumnAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
+  if (cx.run.runIn || cx.run.noskipsec) throw new Unsupported("an abstract right after a run-in heading")
+  const source = b.source ?? ""
+  const blocks: Block[] = [{ kind: "heading", level: 1, star: true, title: cx.pre.names.abstractname, source: "\\abstractname" }, ...blocksOf(source)]
+  // (text right after \end{abstract} goes on with its last paragraph)
+  if (next?.kind === "par" && next.noindent) throw new Unsupported("text right after a two-column abstract")
+  // the last paragraph's line end before \end{abstract} and the one after it are two spaces: the \par that ends the
+  // paragraph (a blank line, or a heading's) takes only the second
+  const last = blocks.at(-1)
+  const trailing = source.match(/\s*$/)![0] // (a blank line there ends the paragraph inside the environment)
+  if (last?.kind === "par" && trailing && !/\n[ \t]*\n/.test(trailing) && b.after !== "none") {
+    if (b.after === "space" && next?.kind !== "heading") throw new Unsupported("a two-column abstract's last paragraph ended by what follows it")
+    last.text += " {} "
+  }
+  // \end{abstract}'s \endgroup: a last paragraph ended after it sees the \clubpenalty from before the environment, and
+  // \everypar is the one from before it again
+  // (and nameref's \@currentlabelname, which \section* set in the group)
+  const v = cx.v, before = { club: v.club, afterheading: v.afterheadingEverypar, name: cx.refs.name }
+  const outside = last?.kind === "par" && trailing.length > 0 && !/\n[ \t]*\n/.test(trailing) || last?.kind === "par" && !trailing
+  if (outside && last?.kind === "par") {
+    if (/\\footnote\b/.test(last.text)) throw new Unsupported("a footnote in a two-column abstract's last paragraph")
+    last.inGroup = true
+  }
+  blocks.forEach((x, i, all) => { if (x === last && outside) v.club = before.club; processBlock(cx, x, i, all) })
+  v.club = before.club; v.afterheadingEverypar = before.afterheading; cx.refs.name = before.name
+}
+
 /**
  * report's abstract (\if@titlepage): \titlepage (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), \null\vfil,
  * \@beginparpenalty\@lowpenalty, \begin{center}\bfseries\abstractname \@endparpenalty\@M\end{center}, the text (its
@@ -242,7 +306,11 @@ function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   // (an \@afterheading \everypar after \tableofcontents, \if@nobreak cleared: the lists' and \@doendpe's take its place
   // in the environment's group, and the \clubpenalty they leave is \@clubpenalty, which it would set)
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
-  v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
+  // (in two columns \onecolumn instead of \newpage, and \twocolumn at the end)
+  const restonecol = !!run.k.ints.twocolumn
+  if (restonecol) columnSwitch(cx, false)
+  else v.nodes.push(filGlue(), penalty(-10000))
+  v.nodes.push(hook("empty"), hook("page=1"))
   v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
   v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
   const head: Node[] = []
@@ -260,7 +328,8 @@ function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   v.par()
   v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
   v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-  v.nodes.push(filGlue(), penalty(-10000))
+  if (restonecol) columnSwitch(cx, true)
+  else v.nodes.push(filGlue(), penalty(-10000))
   if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
 }
 

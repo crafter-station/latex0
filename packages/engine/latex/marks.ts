@@ -69,11 +69,15 @@ export class MarkWriter {
 }
 
 /** Each page's \leftmark and \rightmark: from the marks at the top level of its material, or the values the pages
- *  before left (\topmarks); a page of floats has none of its own */
+ *  before left (\topmarks); a page of floats has none of its own. Two columns: the first column's, then the second's
+ *  (\__mark_update_dblcol_structures: the page's first marks are the first column's unless it has none, its last the
+ *  second column's) */
 export function pageMarks(pages: Shipped[]): { left: MarkValue | undefined; right: MarkValue | undefined }[] {
   const carried = new Map<number, MarkValue>()
+  const columnMarks = (c: Shipped | Extract<Shipped, { kind: "dbl" }>["left"]): { cls: number; value: MarkValue }[] =>
+    c.kind === "text" ? c.page.nodes.flatMap((n) => (n.kind === "whatsit" && n.mark ? [n.mark as { cls: number; value: MarkValue }] : [])) : []
   return pages.map((pg) => {
-    const marks = pg.kind === "text" ? pg.page.nodes.flatMap((n) => (n.kind === "whatsit" && n.mark ? [n.mark as { cls: number; value: MarkValue }] : [])) : []
+    const marks = pg.kind === "dbl" ? [...columnMarks(pg.left), ...columnMarks(pg.right)] : columnMarks(pg)
     const first = (c: number) => marks.find((m) => m.cls === c)?.value ?? carried.get(c)
     const last = (c: number) => marks.findLast((m) => m.cls === c)?.value ?? carried.get(c)
     const head = { left: last(1), right: first(2) }

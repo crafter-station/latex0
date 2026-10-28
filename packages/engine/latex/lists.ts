@@ -20,7 +20,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { anchor, labelName, linkTarget } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
+import { crefWrites, hsizeOf, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
 import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
 import { isSpanish, languageGroups } from "./babel"
@@ -53,7 +53,7 @@ const ENUM_LABELS = ["\\arabic{enumi}.", "(\\alph{enumii})", "\\roman{enumiii}."
 export function topCtx(cx: Ctx): EnvCtx {
   let scope = outerScopes.get(cx.run)
   if (!scope) outerScopes.set(cx.run, scope = new Map())
-  return { scope, depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: cx.run.k.dimens.textwidth, parskip: cx.outerParskip, parsep: cx.run.k.glue.parsep, itemsep: cx.run.k.glue.itemsep, topsep: cx.run.k.glue.topsep, partopsep: cx.run.k.glue.partopsep, labelwidth: cx.run.k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] }
+  return { scope, depth: 0, itemDepth: 0, enumDepth: 0, totalLeft: 0, lineWidth: hsizeOf(cx.run.k), parskip: cx.outerParskip, parsep: cx.run.k.glue.parsep, itemsep: cx.run.k.glue.itemsep, topsep: cx.run.k.glue.topsep, partopsep: cx.run.k.glue.partopsep, labelwidth: cx.run.k.dimens.labelwidth, size: "normalsize", atRightskip: null, finalHyph: undefined, enums: [] }
 }
 
 /** a paragraph from a ready horizontal list (the display's opening line) */

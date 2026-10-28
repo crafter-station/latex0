@@ -13,14 +13,17 @@ import { SYMBOL_COMMANDS } from "./textsymbols"
 
 export type Block =
   | { kind: "par"; text: string; noindent: boolean; /** the floats that start in it (\LXfloat{n}: the n-th) */ floats?: Extract<Block, { kind: "float" }>[]; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
-      /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean }
+      /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean
+      /** started inside a group that ends before its \par (a two-column abstract's last): \everypar's settings do not last */ inGroup?: boolean }
   | ListBlock
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[]
       /** a blank line (\par) right before it */ blank?: boolean }
   | { kind: "maketitle" }
+  /** \onecolumn, \twocolumn and its optional argument (the material for the top of the page) */
+  | { kind: "columns"; two: boolean; top?: string }
   /** \begin{titlepage}: its body, read in vertical mode (vmode.ts) */
   | { kind: "titlepage"; body: string }
-  | { kind: "float"; env: "figure" | "table" | "algorithm"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
+  | { kind: "float"; env: "figure" | "table" | "algorithm"; /** figure* or table* (\@dblfloat) */ star?: boolean; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
   /** \markboth{left}{right} (left null: \markright{right}) in vertical mode */
   | { kind: "mark"; left: string | null; right: string }
@@ -44,6 +47,9 @@ export type Block =
   /** \thispagestyle{style} and \pagenumbering{style} in vertical mode */
   | { kind: "pagestyle"; cmd: "thispagestyle" | "pagenumbering"; style: string }
 
+/** A float environment's name: figure* and table* are figures and tables of the page's width (\@dblfloat) */
+const floatEnv = (name: string) => ({ env: name.replace("*", "") as "figure" | "table" | "algorithm", ...(name.endsWith("*") ? { star: true } : {}) })
+
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
 export const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography", "LXtheorem", "proof"] as const
 export type EnvName = typeof ENVS[number]
@@ -53,8 +59,8 @@ export interface ListBlock {
   kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** thebibliography's \bibitem keys */ keys?: string[]; /** enumitem's [options] */ options?: string
   /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
   thm?: { name: string; note: string | null }; proofTitle?: string
-  /** abstract: its body as typed */
-  source?: string
+  /** abstract: its body as typed, and what follows \end{abstract}: a space, then a blank line or not, or none */
+  source?: string; after?: "blank" | "space" | "none"
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
@@ -199,7 +205,7 @@ const TEXT_COMMANDS = [
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
 /** \rule and \hspace with their arguments, and the boxes' length arguments (which may name registers: \textwidth, \width) */
-const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
+const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|enlargethispage\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS), ...SYMBOL_COMMANDS].join("|")}|the[a-zA-Z]+)(?![A-Za-z]))[a-zA-Z]+(?!\\s*=)`)
 
@@ -220,7 +226,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure\*?|table\*?|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\(onecolumn|twocolumn)(?![A-Za-z])\s*/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -243,7 +249,7 @@ export function blocksOf(body: string): Block[] {
     // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
     if (m[6] && m[7] !== "H" && inParagraph(before)) { // the paragraph goes on: the float stands in it (its \vadjust), as \LXfloat{n}
       const ph = `\\LXfloat{${inline.length}}`
-      inline.push({ kind: "float", env: m[6] as "figure" | "table" | "algorithm", fps: m[7] ?? null, body: m[8], inPar: true, blank: false })
+      inline.push({ kind: "float", ...floatEnv(m[6]), fps: m[7] ?? null, body: m[8], inPar: true, blank: false })
       body = body.slice(0, m.index) + ph + body.slice(re.lastIndex)
       re.lastIndex = m.index + ph.length
       continue
@@ -261,6 +267,17 @@ export function blocksOf(body: string): Block[] {
     if (m[13] !== undefined) { out.push({ kind: "listing", n: Number(m[13]) }); at = re.lastIndex; endpe = true; continue } // \lst@doendpe
     if (m[9]) { out.push({ kind: "toc" }); at = re.lastIndex; endpe = false; continue }
     if (m[21]) { out.push({ kind: "appendix" }); at = re.lastIndex; endpe = false; continue }
+    if (m[28]) { // \onecolumn, \twocolumn[top material]: \clearpage first (\newpage's \par)
+      let top: string | undefined
+      if (m[28] === "twocolumn" && body[re.lastIndex] === "[") {
+        let depth = 0, j = re.lastIndex + 1
+        for (; j < body.length && !(body[j] === "]" && depth === 0); j++) { if (body[j] === "\\") j++; else if (body[j] === "{") depth++; else if (body[j] === "}") depth-- }
+        if (j >= body.length) throw new Unsupported("\\twocolumn[ without its ]")
+        top = body.slice(re.lastIndex + 1, j)
+        re.lastIndex = j + 1
+      }
+      out.push({ kind: "columns", two: m[28] === "twocolumn", ...(top !== undefined ? { top } : {}) }); at = re.lastIndex; endpe = false; continue
+    }
     if (m[25] !== undefined) {
       if (inParagraph(before.replace(COUNTER_COMMANDS, ""))) throw new Unsupported(`${m[0].trim()} in a paragraph`)
       // (the title as written: spaces in a row one; one at either end would be a glue in the line)
@@ -302,7 +319,7 @@ export function blocksOf(body: string): Block[] {
     }
     if (m[6]) {
       const inPar = inParagraph(before)
-      out.push({ kind: "float", env: m[6] as "figure" | "table" | "algorithm", fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
+      out.push({ kind: "float", ...floatEnv(m[6]), fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
       at = re.lastIndex; endpe = false; continue
     }
     if (m[1]) { // a heading: its argument in braces
@@ -323,6 +340,7 @@ export function blocksOf(body: string): Block[] {
     const prev = out[out.length - 1]
     if (inPar && prev?.kind === "par") prev.unskip = 1
     out.push(parseList(m[3] as EnvName, body.slice(re.lastIndex, end.at), inPar, /\n[ \t]*\n\s*$/.test(before)))
+    if (m[3] === "abstract") { const rest = body.slice(end.next); (out[out.length - 1] as ListBlock).after = /^[ \t]*\n[ \t]*\n/.test(rest) ? "blank" : /^\s/.test(rest) ? "space" : "none" }
     re.lastIndex = end.next
     at = end.next
     endpe = m[3] !== "LXtheorem" && m[3] !== "proof" // (amsthm's ends say \@endpefalse)
@@ -330,7 +348,8 @@ export function blocksOf(body: string): Block[] {
   }
   text(body.slice(at))
   // text, inline math and footnotes only; other commands are not laid out yet
-  const check = (t: string) => { const m = t.replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
+  // (\raggedbottom, \flushbottom and \suppressfloats in vertical mode, before a paragraph: body.ts)
+  const check = (t: string) => { const m = t.replace(/^(?:\s*\\(?:raggedbottom|flushbottom|suppressfloats(?:\s*\[[tb]\])?)(?![A-Za-z]))+/, "").replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
     if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
@@ -346,7 +365,7 @@ export function blocksOf(body: string): Block[] {
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle") continue
+    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
     else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out

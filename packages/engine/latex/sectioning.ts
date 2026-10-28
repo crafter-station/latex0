@@ -6,15 +6,16 @@ import { dataFont } from "./data"
 import { loadFont, QUAD } from "../layout/font"
 import { Scanner, type GlueSpec } from "../layout/dimen"
 import { appendText } from "./encodings"
-import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
-import { hpack } from "../layout/pack"
+import { emptyBox, glue, penalty, type BoxNode, type Node, filGlue } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import { EMPTY_MARK, markboth, markright, markValue, sectionMarks } from "./marks"
 import type { Ctx } from "./context"
 import { raggedright } from "./kernel"
 import { Unsupported } from "./unsupported"
-import { addGlue, dimen, negate } from "./vlist"
-import { type OutputHook } from "./output"
+import { addGlue, dimen, IGNORE_DEPTH, negate, VerticalList } from "./vlist"
+import { colorPop, colorPush, xcolor } from "./xcolor"
+import { clearpageHook, type OutputHook } from "./output"
 import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
 import { titlesecHeading } from "./titlesec"
@@ -36,13 +37,44 @@ export function newpage(cx: Ctx, inPar = false) {
   v.nodes.push(filGlue(), penalty(-10000)) // (the \par: the caller's)
 }
 
-/** \clearpage: \newpage, \write\m@ne{}, \vbox{}, \penalty-\@Mi */
+/** \clearpage: \newpage, \write\m@ne{}, \vbox{}, \penalty-\@Mi (in two columns and vertical mode, an \hbox{} first on an
+ *  empty page after \twocolumn[…]: the output decides) */
 export function clearpage(cx: Ctx, inPar = false) {
   const { run, v } = cx
+  if (run.k.ints.twocolumn && !inPar) v.nodes.push(clearpageHook(v.prevDepth, run.k))
   newpage(cx, inPar)
   v.nodes.push({ kind: "whatsit", text: "\\write-{}" })
   v.box(emptyBox("vlist"), run.k.sizes.normalsize.baselineskip)
   v.nodes.push(penalty(-10001))
+}
+
+/**
+ * \@topnewpage's box for \twocolumn's optional argument: what `build` puts on a list of its own, in \vbox{\hsize\textwidth
+ * \@parboxrestore (\parskip and \parindent zero, \if@nobreak false) \col@number\@ne … \vskip-\dbltextfloatsep}, the
+ * \vbox in \color@vbox\normalcolor
+ */
+export function topnewpageBox(cx: Ctx, build: () => void): BoxNode {
+  const { run } = cx
+  const main = cx.v, parskip = cx.outerParskip, k = run.k
+  const v = cx.v = new VerticalList(k)
+  v.nodes = []; v.prevDepth = IGNORE_DEPTH
+  cx.outerParskip = dimen(0)
+  run.k = { ...k, ints: { ...k.ints, twocolumn: 0 }, dimens: { ...k.dimens, parindent: 0 } }
+  try { build() } finally { cx.v = main; cx.outerParskip = parskip; run.k = k }
+  v.vskip(negate(k.glue.dbltextfloatsep))
+  return vpack(xcolor.on ? [colorPush(), vpack(v.nodes), colorPop()] : [vpack(v.nodes)])
+}
+
+/**
+ * \onecolumn and \twocolumn (latex.ltx): \clearpage, then \columnwidth \textwidth (in two columns half of it less
+ * \columnsep), \hsize and \linewidth with it, and the output routine's \if@twocolumn and \@floatplacement
+ */
+export function columnSwitch(cx: Ctx, two: boolean) {
+  const { run, v } = cx
+  clearpage(cx)
+  const k = run.k
+  run.k = { ...k, ints: { ...k.ints, twocolumn: two ? 1 : 0 }, dimens: { ...k.dimens, columnwidth: two ? Math.trunc((k.dimens.textwidth - k.dimens.columnsep) / 2) : k.dimens.textwidth } }
+  v.nodes.push({ kind: "whatsit", text: "", hook: (two ? "twocolumn" : "onecolumn") satisfies OutputHook })
 }
 
 /** \cleardoublepage: \clearpage, then, two-sided, \ifodd\c@page\else\hbox{}\newpage\fi (the output decides) */
@@ -51,8 +83,11 @@ export function cleardoublepage(cx: Ctx, inPar = false) {
   clearpage(cx, inPar)
   if (!run.k.ints.twoside) return
   const extra: Node[] = []
-  appendToVlist(extra, hpack([]), v.prevDepth, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
-  extra.push(filGlue(), penalty(-10000))
+  // (\if@twocolumn\hbox{}\newpage\fi: the second column too)
+  for (let i = 0; i < (run.k.ints.twocolumn ? 2 : 1); i++) {
+    appendToVlist(extra, hpack([]), i ? 0 : v.prevDepth, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
+    extra.push(filGlue(), penalty(-10000))
+  }
   v.nodes.push({ kind: "whatsit", text: "", hook: { cleardouble: extra } satisfies OutputHook })
 }
 
@@ -86,7 +121,7 @@ export function appendix(cx: Ctx) {
 
 export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const { cls, hyper, nameref } = cx.pre
-  const { contentsWrites, counters, doc, headings, lastNode, marks, outerParskip, refs, run, typeset, v } = cx
+  const { contentsWrites, counters, doc, headings, lastNode, marks, refs, run, typeset, v } = cx
   if (cls !== "report" && cls !== "book") throw new Unsupported(`\\chapter in ${cls}`)
   v.par()
   if (cls === "book") cleardoublepage(cx) // openright
@@ -120,23 +155,33 @@ export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
       v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
     }
   }
-  // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
-  const pd = v.prevDepth
-  const top: Node = { kind: "rule", width: null, height: 0, depth: 0 }
-  v.nodes.push(top, penalty(10000), glue(50 * 65536), glue(0))
-  v.prevDepth = pd
-  // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
-  // (in the head's group)
-  const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
-  const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club }) // \parindent\z@ \raggedright
-  if (numbered) {
-    typeset(`${chapapp(cx)} ${counters.theSectional(0)}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
+  // \@makechapterhead, \@makeschapterhead (\@afterheading after it); in two columns in \@topnewpage's box for the
+  // top of the page (no \@afterheading)
+  const head = () => {
+    const { outerParskip, v } = cx
+    // \vspace*{50pt}: \hrule height0pt \nobreak \vskip50pt \vskip\z@skip, keeping \prevdepth
+    const pd = v.prevDepth
+    const top: Node = { kind: "rule", width: null, height: 0, depth: 0 }
+    v.nodes.push(top, penalty(10000), glue(50 * 65536), glue(0))
+    v.prevDepth = pd
+    // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty
+    // (in the head's group)
+    const club = v.afterheadingEverypar ? run.k.ints.clubpenalty : v.club
+    const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club }) // \parindent\z@ \raggedright
+    if (numbered) {
+      typeset(`${chapapp(cx)} ${counters.theSectional(0)}`, { ...ragged(), font: run.k.sizes.huge.bold }, outerParskip, "huge")
+      v.nodes.push(penalty(10000))
+      v.vskip(dimen(20 * 65536))
+    }
+    typeset(b.title, { ...ragged(), font: run.k.sizes.Huge.bold, interLinePenalty: 10000, ...(b.end ? { end: b.end } : {}) }, outerParskip, "Huge")
     v.nodes.push(penalty(10000))
-    v.vskip(dimen(20 * 65536))
+    v.vskip(dimen(40 * 65536))
   }
-  typeset(b.title, { ...ragged(), font: run.k.sizes.Huge.bold, interLinePenalty: 10000, ...(b.end ? { end: b.end } : {}) }, outerParskip, "Huge")
-  v.nodes.push(penalty(10000))
-  v.vskip(dimen(40 * 65536))
+  if (run.k.ints.twocolumn) {
+    v.nodes.push({ kind: "whatsit", text: "", hook: { topnewpage: topnewpageBox(cx, head) } satisfies OutputHook })
+    return // (\@afterindentfalse: read by no \@afterheading before a heading sets it again)
+  }
+  head()
   v.nobreak = true
   v.afterheadingEverypar = true
   v.afterindent = false

@@ -18,7 +18,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, crefWrites, labelWrite, mathEnv, paragraphInput, selectFont, spec, parseFormula, siContext, type ParagraphOptions } from "./paragraph"
+import { squeeze, appendToVlist, crefWrites, hsizeOf, labelWrite, mathEnv, paragraphInput, selectFont, spec, parseFormula, siContext, type ParagraphOptions } from "./paragraph"
 import type { GlueSpec } from "../layout/dimen"
 import type { SizeCommand } from "../layout/classdata"
 
@@ -52,7 +52,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
       // indent box; LaTeX's own \[ first sets \nointerlineskip\makebox[.6\linewidth]{}
       if (next!.kind === "bracket" && !amsmath || next!.kind === "displaymath" && !amsmath) {
         v.prevDepth = IGNORE_DEPTH
-        const lw = run.k.dimens.textwidth
+        const lw = hsizeOf(run.k)
         const mb = hpack([ssGlue(), ssGlue()], { exactly: xnOverD(lw, 39322, 65536) })
         const r = typesetList(cx, [...(start ?? (noindent ? [] : [emptyBox("hlist", run.k.dimens.parindent)])), mb], opts, true)
         justBox = r.just; params = r.params; nlines = r.lines
@@ -121,7 +121,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
       ...(last ? { ...(end ? { end } : {}), ...(unskip ? { unskip } : {}) } : { widowPenalty: run.k.ints.displaywidowpenalty }) }
     if (last && !t && !end) return // (an empty paragraph after the display makes no line)
     if (!first && !last && !t) { // two displays in a row: the second starts with an empty list (§ 1145: no line break)
-      displayMath(cx, next!, displayLine(prevGraf, run.k.dimens.textwidth, 0, 1, opts.parShape ?? []), null, font, skipsOf(opts))
+      displayMath(cx, next!, displayLine(prevGraf, hsizeOf(run.k), 0, 1, opts.parShape ?? []), null, font, skipsOf(opts))
       prevGraf += 3
       return
     }

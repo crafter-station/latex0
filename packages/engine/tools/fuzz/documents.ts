@@ -330,7 +330,7 @@ export function makeDocument(r: () => number): string {
       ws.splice(i, len, `\\${font()}{${inner}}${r() < 0.2 ? pick([",", "."]) : ""}`)
     }
     // page break hints and \newpage at the paragraph's own level (not in a group)
-    if (top && !isLetter && r() < 0.12) ws.splice(Math.floor(r() * ws.length), 0, pick(["\\pagebreak[2]", "\\nopagebreak", "\\pagebreak", "\\newpage", "\\clearpage"]))
+    if (top && !isLetter && r() < 0.12) ws.splice(Math.floor(r() * ws.length), 0, pick(["\\pagebreak[2]", "\\nopagebreak", "\\pagebreak", "\\newpage", "\\clearpage", "\\enlargethispage{\\baselineskip}"]))
     // a comment that ends a line now and then (with or without a space before it)
     return ws.map((w, i) => (i && r() < 0.004 ? `${pick(["%", " %", "% note"])}\n${pick(["", "  "])}${w}` : w)).join(" ")
   }
@@ -338,7 +338,7 @@ export function makeDocument(r: () => number): string {
   const cls = r() < 0.08 ? "letter" : pick(["article", "article", "report", "book"])
   isLetter = cls === "letter"
   // class options: the size, sometimes a paper and two-sided printing
-  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", r() < 0.2 && cls !== "letter" ? (cls === "book" ? "oneside" : "twoside") : ""].filter(Boolean)
+  const copts = [pick(["", "11pt", "12pt"]), r() < 0.25 ? pick(["a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper", "letterpaper"]) : "", ...((x) => (cls === "letter" ? [] : x < 0.2 ? [cls === "book" ? "oneside" : "twoside"] : x < 0.35 ? ["twocolumn"] : []))(r())].filter(Boolean)
   const out = [`\\documentclass${copts.length ? `[${copts.join(",")}]` : ""}{${cls}}`]
   // graphics: EPS files the document writes before \documentclass (filecontents*, prepended at the end, since the
   // preamble's lines are spliced in after out[0]), and graphicx
@@ -613,7 +613,8 @@ export function makeDocument(r: () => number): string {
     const x0 = r(), x = isLetter && x0 < 0.2 ? 0.5 : x0 // (a letter has no floats or headings)
     if (x < 0.1) {
       // a float between paragraphs: a caption, maybe a label, maybe tall (\vspace), anywhere it may go
-      const env = pick(algOn ? ["figure", "table", "algorithm", "algorithm"] : ["figure", "table"])
+      // (figure* and table*: the page's width in two columns)
+      const env = pick(algOn ? ["figure", "table", "algorithm", "algorithm", "figure*"] : ["figure", "table", "figure*", "table*"])
       if (env === "algorithm") {
         const inPar: boolean = afterPar && r() < 0.4
         out.push(...(inPar ? [] : [""]), `\\begin{algorithm}${pick(["", "", "[H]", "[H]", "[h]", "[t]", "[b]", "[p]", "[htbp]", "[!t]", "[tbp]"])}`,
@@ -622,17 +623,18 @@ export function makeDocument(r: () => number): string {
         if (afterPar) out.push(text(3 + Math.floor(r() * 40)))
         continue
       }
+      const base = env.replace("*", "")
       const space = r() < 0.5 ? `\\vspace{${Math.floor(r() * (r() < 0.2 ? 700 : 250))}pt}` : ""
-      const table = tikzOn && r() < 0.3 ? tikzPic(false) : graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${env}:${b}b`)}` :
-        subOn && r() < 0.5 ? Array.from({ length: 1 + Math.floor(r() * 3) }, (_, j) => minipage(pick(["", "", "[t]", "[b]", "[c]"]), false, `${env}:${b}${"abc"[j]}`, `sub${env}`)).join(pick(["\n", "%\n", "\n\\hfill\n", "\n\\quad\n"])) : ""
+      const table = tikzOn && r() < 0.3 ? tikzPic(false) : graphOn && r() < 0.4 ? [graphic(), ...(r() < 0.3 ? [pick(["\\hfill", "\\quad", "~"]), graphic()] : [])].join("\n") : r() < 0.3 ? tabular() : r() < 0.2 ? `${minipage(pick(["", "[t]", "[b]"]), false, `${base}:${b}a`)}${pick(["\\hfill", "\\quad", "~", ""])}\n${minipage(pick(["", "[t]", "[b]"]), false, `${base}:${b}b`)}` :
+        subOn && r() < 0.5 ? Array.from({ length: 1 + Math.floor(r() * 3) }, (_, j) => minipage(pick(["", "", "[t]", "[b]", "[c]"]), false, `${base}:${b}${"abc"[j]}`, `sub${base}`)).join(pick(["\n", "%\n", "\n\\hfill\n", "\n\\quad\n"])) : ""
       // caption.sty: \caption* (no \label after it) and \caption[short], and a \captionsetup in the float
       const variant = capOn && r() < 0.3 ? pick(["*", "[]", `[${words(2)}]`]) : ""
-      const caption = `\\caption${variant}{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 && variant !== "*" ? `\\label{${env}:${b}}` : ""
+      const caption = `\\caption${variant}{${words(1 + Math.floor(r() * 8))}}`, label = r() < 0.5 && variant !== "*" ? `\\label{${base}:${b}}` : ""
       const setup = capOn && r() < 0.25 ? `\\captionsetup{${capKeys("list")}}` : ""
       const below = table && r() < 0.5
       // a float that starts in the paragraph before it (no blank line), and the paragraph going on after it
       const inPar: boolean = afterPar && r() < 0.4
-      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", "", ...(floatOn ? ["[H]", "[H]"] : [])])}`, r() < 0.7 ? "\\centering" : "",
+      out.push(...(inPar ? [] : [""]), `\\begin{${env}}${pick(["[htbp]", "[h]", "[!h]", "[ht]", "[hb]", "[htbp]", "[t]", "[b]", "[p]", "[tb]", "[!t]", "[!b]", "[tp]", "[bp]", "[!htbp]", "", ...(floatOn && !env.endsWith("*") ? ["[H]", "[H]"] : [])])}`, r() < 0.7 ? "\\centering" : "",
         setup, space, ...(below ? [table, caption, label] : [caption, label, table]), `\\end{${env}}${inPar && r() < 0.3 ? "%" : ""}`)
       afterPar = inPar && r() < 0.6
       if (afterPar) out.push(text(3 + Math.floor(r() * 40)))
@@ -753,7 +755,9 @@ export function makeDocument(r: () => number): string {
       if (parts.length === 1 && v < 0.06) parts[0] = `{${pick(["\\large", "\\small\\itshape", "\\centering", "\\raggedleft\\bfseries", "\\Large\\raggedright", "\\sffamily"])} ${parts[0]}\\par}`
       else if (parts.length === 1 && v < 0.1) parts[0] = `${pick(["\\bigskip", isLetter ? "\\bigskip" : "\\medskip", "\\smallskip", "\\vspace*{4pt}"])}\n${parts[0]}`
       // page breaks, page styles and marks between paragraphs
-      else if (v < 0.14 && !isLetter) out.push("", pick(["\\newpage", "\\clearpage", "\\cleardoublepage", "\\pagebreak", "\\pagebreak[1]", "\\nopagebreak[3]", "\\thispagestyle{empty}", "\\thispagestyle{plain}", ...(hyper ? [] : ["\\setcounter{page}{7}"]),
+      // (and \enlargethispage, \suppressfloats, \raggedbottom and \flushbottom, \onecolumn and \twocolumn)
+      else if (v < 0.14 && !isLetter) out.push("", pick(["\\newpage", "\\clearpage", "\\cleardoublepage", "\\pagebreak", "\\pagebreak[1]", "\\nopagebreak[3]", "\\thispagestyle{empty}", "\\thispagestyle{plain}",
+        "\\enlargethispage{\\baselineskip}", "\\enlargethispage*{2\\baselineskip}", "\\suppressfloats", "\\suppressfloats[t]", "\\raggedbottom", "\\flushbottom", "\\onecolumn", "\\twocolumn", ...(hyper ? [] : ["\\setcounter{page}{7}"]),
         `\\markboth{${words(2)}}{${words(2)}}`, `\\markright{${words(2)}}`]))
       out.push("", parts.join("\n"))
       afterPar = true

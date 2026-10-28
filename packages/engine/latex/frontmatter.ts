@@ -15,7 +15,7 @@ import { type ListFile, type TocEntry } from "./toc"
 import type { Ctx } from "./context"
 import { centering as centeringShape } from "./kernel"
 import { tabular } from "./boxes"
-import { chapter, heading } from "./sectioning"
+import { chapter, clearpage, columnSwitch, heading, topnewpageBox } from "./sectioning"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { type OutputHook } from "./output"
@@ -33,8 +33,9 @@ export function maketitle(cx: Ctx) {
   const { amsmath, cls } = cx.pre
   // (\let\footnote\thanks)
   const title = Object.fromEntries(Object.entries(cx.pre.title).map(([k, x]) => [k, x?.replace(/\\footnote(?![A-Za-z])/g, "\\thanks")])) as typeof cx.pre.title
-  const { decisions, doc, epoch, outerParskip, romanFont, run, typeset, v } = cx
-  if (!title.title) throw new Unsupported("\\maketitle without \\title")
+  const { decisions, doc, epoch, romanFont, run } = cx
+  const titleText = title.title
+  if (!titleText) throw new Unsupported("\\maketitle without \\title")
   const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
   // report: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), then
   // \null\vfil\vskip60\p@; article: \newpage, \global\@topnum\z@ (no float at the top of this page), and
@@ -43,71 +44,86 @@ export function maketitle(cx: Ctx) {
   // \thanks (and \footnote): marks in \@fnsymbol, texts at \@thanks (report's titlepage: \small, no \footnoterule: not here)
   if (/\\(?:thanks|footnote)(?![A-Za-z])/.test(`${title.title}${title.author ?? ""}${title.date ?? ""}`) && (titlepage || cx.pre.hyper)) throw new Unsupported(`\\thanks in ${titlepage ? cls : "hyperref"}'s \\maketitle`)
   doc.thanks = []
-  v.par()
-  v.nobreak = false
+  const main = cx.v
+  main.par()
+  main.nobreak = false
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
-  if (titlepage) {
-    v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
-    v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-    v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
-    v.vskip(dimen(60 * 65536))
-  } else {
-    v.nodes.push(filGlue(), penalty(-10000), hook("notop"), filGlue(), penalty(-10000))
-    v.box(hpack([]), run.k.sizes.normalsize.baselineskip) // \null
-    v.vskip(dimen(em("2em", romanFont)))
+  // article in two columns: \twocolumn[\@maketitle], \clearpage and \@topnewpage's box
+  // (report's titlepage environment in two columns: \onecolumn instead of \newpage, and \twocolumn after it)
+  const twocolumn = !titlepage && !!run.k.ints.twocolumn, restonecol = titlepage && !!run.k.ints.twocolumn
+  const atmaketitle = () => {
+    const { outerParskip, v } = cx
+    if (titlepage) {
+      if (restonecol) columnSwitch(cx, false)
+      else v.nodes.push(filGlue(), penalty(-10000))
+      v.nodes.push(hook("empty"), hook("page=1"))
+      v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
+      v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+      v.vskip(dimen(60 * 65536))
+    } else {
+      if (!twocolumn) v.nodes.push(filGlue(), penalty(-10000), hook("notop"))
+      v.nodes.push(filGlue(), penalty(-10000))
+      v.box(hpack([]), run.k.sizes.normalsize.baselineskip) // \null
+      v.vskip(dimen(em("2em", romanFont)))
+    }
+    // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
+    const topsepadd = addGlue(run.k.glue.topsep, run.k.glue.partopsep)
+    v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
+    const labelsep = run.k.dimens.labelsep
+    const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
+    const centering = centeringShape()
+    // (in center, \\ is \@centercr: the title may be paragraphs, each with \LARGE's \baselineskip or the size declared)
+    if (!titleText.trim()) throw new Unsupported("an empty \\title")
+    verticalMaterial(cx, titleText, { size: "LARGE", attrs: cx.normalAttrs, align: "centering" }, false, { first: [labels, penalty(0)], club: run.k.ints.clubpenalty })
+    v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
+    // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
+    const large = loadFont(dataFont(run.k.sizes.large.font.name), run.k.sizes.large.font.at)
+    const author = title.author ?? ""
+    if (/&|\\(?:hline|cline|multicolumn)(?![A-Za-z])/.test(author)) throw new Unsupported(`\\author{${author}}`)
+    const authors = author.split(/\\and(?![A-Za-z])/).map((a) => tabularLines(a))
+    const start: Node[] = [hpack([])] // \parindent is zero in center
+    authors.forEach((rows, i) => {
+      if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
+      start.push(tabular(cx, rows, preamble("c"), "large", "t"))
+    })
+    const authorPar = paragraphInput("", run.k, "large", doc, { ...centering, start, clubPenalty: run.k.ints.clubpenalty, amsmath })
+    const ab = lineBreak(authorPar.list, authorPar.params)
+    decisions.push(ab.trace)
+    v.paragraph(ab.vlist, outerParskip, run.k.sizes.large.baselineskip, dimen(em(titlepage ? ".75em" : ".5em", large)))
+    v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
+    // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
+    // {\large \@date \par}, with \large's)
+    // (article: its \par is \endtrivlist's, after the group, with the normal size's \baselineskip)
+    const date = squeeze((title.date ?? "\\today").replace(/\\today(?![A-Za-z])\s*/g, today(epoch, cx.pre.babel)))
+    // (report: a group in vertical mode that ends its paragraphs, \\ as \@centercr)
+    if (date && titlepage) verticalMaterial(cx, date, { size: "large", attrs: cx.normalAttrs, align: "centering" }, false, { club: run.k.ints.clubpenalty })
+    else if (date) {
+      const dp = paragraphInput(cx.counted(date, true), run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath, groups: true, topDecls: true, centercr: true })
+      const db = lineBreak(dp.list, dp.params)
+      decisions.push(...dp.notes, db.trace)
+      if (topDeclarations(date).some((d) => (ALIGNMENTS as readonly string[]).includes(d))) throw new Unsupported(`\\date{${date}}`)
+      v.paragraph(db.vlist, outerParskip, run.k.sizes.normalsize.baselineskip)
+    }
+    v.endtrivlist(outerParskip, outerParskip, topsepadd)
+    if (titlepage) {
+      // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
+      v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
+      v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
+      if (restonecol) columnSwitch(cx, true)
+      else v.nodes.push(filGlue(), penalty(-10000))
+      if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
+    } else {
+      // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
+      v.vskip(dimen(em("1.5em", romanFont)))
+    }
   }
-  // \begin{center}: \trivlist (\parsep\parskip, \labelwidth\z@, \leftmargin\z@), \centering, \item\relax
-  const topsepadd = addGlue(run.k.glue.topsep, run.k.glue.partopsep)
-  v.addpenalty(-LOW_PENALTY); v.addvspace(addGlue(topsepadd, outerParskip)); v.addvspace(negate(outerParskip))
-  const labelsep = run.k.dimens.labelsep
-  const labels = hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)])
-  const centering = centeringShape()
-  // (in center, \\ is \@centercr: the title may be paragraphs, each with \LARGE's \baselineskip or the size declared)
-  if (!title.title.trim()) throw new Unsupported("an empty \\title")
-  verticalMaterial(cx, title.title, { size: "LARGE", attrs: cx.normalAttrs, align: "centering" }, false, { first: [labels, penalty(0)], club: run.k.ints.clubpenalty })
-  v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
-  // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
-  const large = loadFont(dataFont(run.k.sizes.large.font.name), run.k.sizes.large.font.at)
-  const author = title.author ?? ""
-  if (/&|\\(?:hline|cline|multicolumn)(?![A-Za-z])/.test(author)) throw new Unsupported(`\\author{${author}}`)
-  const authors = author.split(/\\and(?![A-Za-z])/).map((a) => tabularLines(a))
-  const start: Node[] = [hpack([])] // \parindent is zero in center
-  authors.forEach((rows, i) => {
-    if (i) start.push(glue(em("1em", large), xnOverD(65536, 11141, 65536), FIL)) // \hskip 1em \@plus.17fil
-    start.push(tabular(cx, rows, preamble("c"), "large", "t"))
-  })
-  const authorPar = paragraphInput("", run.k, "large", doc, { ...centering, start, clubPenalty: run.k.ints.clubpenalty, amsmath })
-  const ab = lineBreak(authorPar.list, authorPar.params)
-  decisions.push(ab.trace)
-  v.paragraph(ab.vlist, outerParskip, run.k.sizes.large.baselineskip, dimen(em(titlepage ? ".75em" : ".5em", large)))
-  v.vskip(dimen(em(titlepage ? "1.5em" : "1em", romanFont)))
-  // {\large \@date}: its paragraph ends at \end{center}, with the normal size's \baselineskip (report:
-  // {\large \@date \par}, with \large's)
-  // (article: its \par is \endtrivlist's, after the group, with the normal size's \baselineskip)
-  const date = squeeze((title.date ?? "\\today").replace(/\\today(?![A-Za-z])\s*/g, today(epoch, cx.pre.babel)))
-  // (report: a group in vertical mode that ends its paragraphs, \\ as \@centercr)
-  if (date && titlepage) verticalMaterial(cx, date, { size: "large", attrs: cx.normalAttrs, align: "centering" }, false, { club: run.k.ints.clubpenalty })
-  else if (date) {
-    const dp = paragraphInput(cx.counted(date, true), run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath, groups: true, topDecls: true, centercr: true })
-    const db = lineBreak(dp.list, dp.params)
-    decisions.push(...dp.notes, db.trace)
-    if (topDeclarations(date).some((d) => (ALIGNMENTS as readonly string[]).includes(d))) throw new Unsupported(`\\date{${date}}`)
-    v.paragraph(db.vlist, outerParskip, run.k.sizes.normalsize.baselineskip)
-  }
-  v.endtrivlist(outerParskip, outerParskip, topsepadd)
-  if (titlepage) {
-    // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
-    v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
-    v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-    v.nodes.push(filGlue(), penalty(-10000))
-    if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
-  } else {
-    // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
-    v.vskip(dimen(em("1.5em", romanFont)))
-    v.nodes.push(hook("plain"))
+  if (twocolumn) { clearpage(cx); main.nodes.push(hook({ topnewpage: topnewpageBox(cx, atmaketitle) })) }
+  else atmaketitle()
+  if (!titlepage) {
+    main.nodes.push(hook("plain"))
     for (const t of doc.thanks) {
-      const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, v.club, amsmath)
-      v.nodes.push(ins)
+      const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, main.club, amsmath)
+      main.nodes.push(ins)
       decisions.push(trace)
     }
   }
@@ -115,7 +131,17 @@ export function maketitle(cx: Ctx) {
   doc.footnote = 0 // \setcounter{footnote}{0}
 }
 
-export function tableOfContents(cx: Ctx) {
+/** report's and book's \tableofcontents and lists in two columns: \@restonecoltrue\onecolumn, then \twocolumn again */
+function onecolumnFor(cx: Ctx, f: () => void) {
+  const restonecol = cx.pre.cls !== "article" && !!cx.run.k.ints.twocolumn
+  if (restonecol) { cx.v.par(); columnSwitch(cx, false) }
+  f()
+  if (restonecol) columnSwitch(cx, true)
+}
+
+export function tableOfContents(cx: Ctx) { onecolumnFor(cx, () => contents(cx)) }
+
+function contents(cx: Ctx) {
   const { cls } = cx.pre
   const { marks, mkboth, toc, v } = cx
   const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
@@ -144,7 +170,9 @@ export function tableOfContents(cx: Ctx) {
  * \listoffigures and \listoftables: \section*{\listfigurename} (report, book: \chapter*), then \@mkboth, \@starttoc{lof}:
  * each line \l@figure (\@dottedtocline{1}{1.5em}{2.3em}), and report's \addvspace{10\p@} at each chapter
  */
-export function listOf(cx: Ctx, file: ListFile) {
+export function listOf(cx: Ctx, file: ListFile) { onecolumnFor(cx, () => list(cx, file)) }
+
+function list(cx: Ctx, file: ListFile) {
   const { cls } = cx.pre
   const { lists, marks, mkboth, v } = cx
   const [name, macro] = file === "lof" ? [cx.pre.names.listfigurename, "listfigurename"] : [cx.pre.names.listtablename, "listtablename"]

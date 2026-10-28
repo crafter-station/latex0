@@ -126,7 +126,7 @@ export function geometry(k: ClassOptionData, optionLists: string[], env: ScanEnv
       case "paperwidth": paper = "custom"; d.paperwidth = len(val()); return
       case "paperheight": paper = "custom"; d.paperheight = len(val()); return
       case "papersize": { const [a, b] = branch(val()); set("paperwidth", a); set("paperheight", b); return }
-      case "onecolumn": if (bool()) return; break
+      case "onecolumn": case "twocolumn": { const two = bool() === (key === "twocolumn"); if (two === !!k.ints.twocolumn) return; break } // (as the class has it)
       case "verbose": case "dvips": case "driver": case "pass": if (key === "pass" && bool()) break; return
       default:
         if (key in PAPERS) { paper = key; [d.paperwidth, d.paperheight] = PAPERS[key].map(len); return }
