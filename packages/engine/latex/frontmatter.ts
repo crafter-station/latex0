@@ -289,12 +289,13 @@ export function bibliography(cx: Ctx) {
   // (amsart's \@bibtitlestyle: \section*{\refname}, no \@mkboth)
   if (cls === "amsart") { heading(cx, { kind: "heading", level: 1, star: true, title: cx.pre.names.refname, source: "\\refname" }); return }
   const [name, macro] = cls === "article" ? [cx.pre.names.refname, "refname"] : [cx.pre.names.bibname, "bibname"]
-  // (natbib's \bibsection: the \@mkboth inside the heading's title)
-  if (cx.pre.natbib && mkboth) throw new Unsupported("natbib's thebibliography with running heads")
-  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
-  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
   const value = markValue([{ text: name }], true)
-  if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
+  // (natbib's \bibsection: the \@mkboth inside the heading's title, its marks in the title's line, as
+  // \tableofcontents has them)
+  const end = cx.pre.natbib && mkboth ? marks.insert(markboth(value, value), false) : undefined
+  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}`, end })
+  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}`, end })
+  if (mkboth && !end) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
 }
 
 /** \today: "January 1, 2025", or babel's main language's (LaTeX source: ~ is \nobreakspace) */
