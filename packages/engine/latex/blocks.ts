@@ -36,7 +36,7 @@ export type Block =
   | { kind: "lof"; file: "lof" | "lot" }
   | { kind: "matter"; which: "front" | "main" | "back" }
   /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
-  | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number }
+  | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number; /** \encl{…} and \cc{…} after the closing, with the blank lines after each */ after: { cmd: "cc" | "encl"; text: string; pars: number }[] }
   /** \begin{thebibliography}: its heading and \@mkboth, then the list */
   | { kind: "bib"; keys: string[] }
   /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
@@ -297,14 +297,17 @@ export function blocksOf(body: string): Block[] {
     }
     if (m[20]) { out.push({ kind: "lof", file: m[20] === "figures" ? "lof" : "lot" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
-    if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
+    if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last but for \encl{…} and \cc{…}
       const end = body.indexOf("\\end{letter}", re.lastIndex)
       if (end < 0) throw new Unsupported("\\begin{letter} without its \\end")
       const inner = body.slice(re.lastIndex, end)
+      const arg = "\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}(\\s*)"
       const op = inner.match(/^\s*\\opening\s*\{((?:[^{}]|\{[^{}]*\})*)\}/)
-      const cl = inner.match(/\\closing\s*\{((?:[^{}]|\{[^{}]*\})*)\}(\s*)$/)
+      const cl = inner.match(new RegExp(`\\\\closing${arg}((?:\\\\(?:cc|encl)${arg})*)$`))
       if (!op || !cl) throw new Unsupported("a letter without \\opening first and \\closing last")
-      out.push({ kind: "letter", to: m[12], opening: op[1], blocks: blocksOf(inner.slice(op[0].length, cl.index)), closing: cl[1], pars: (cl[2].match(/\n[ \t]*\n/g) ?? []).length })
+      const blanks = (s: string) => Math.max(0, (s.match(/\n/g) ?? []).length - 1) // (each empty line a \par)
+      const after = [...cl[3].matchAll(new RegExp(`\\\\(cc|encl)${arg}`, "g"))].map((x) => ({ cmd: x[1] as "cc" | "encl", text: x[2], pars: blanks(x[3]) }))
+      out.push({ kind: "letter", to: m[12], opening: op[1], blocks: blocksOf(inner.slice(op[0].length, cl.index)), closing: cl[1], pars: blanks(cl[2]), after })
       re.lastIndex = at = end + "\\end{letter}".length
       endpe = false
       continue

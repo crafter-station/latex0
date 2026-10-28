@@ -4,17 +4,18 @@
 import type { GlueSpec } from "../layout/dimen"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, glue, penalty, type Node, filGlue } from "../layout/nodes"
-import { vpack } from "../layout/pack"
+import { hpack, vpack } from "../layout/pack"
+import { QUAD } from "../layout/font"
 import { xnOverD } from "../layout/arith"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
-import { raggedleft as raggedleftShape, raggedright as raggedrightShape } from "./kernel"
+import { raggedleft as raggedleftShape, raggedright as raggedrightShape, sloppy } from "./kernel"
 import { processBlock } from "./body"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH, negate, VerticalList } from "./vlist"
 import { type OutputHook } from "./output"
-import { preamble, type TabLine } from "./tabular"
-import { mathEnv, paragraphInput } from "./paragraph"
+import { preamble, vtop, type TabLine } from "./tabular"
+import { hlistInput, mathEnv, paragraphInput } from "./paragraph"
 import { today } from "./frontmatter"
 import { tabular } from "./boxes"
 
@@ -40,7 +41,7 @@ export function letter(cx: Ctx, b: Extract<Block, { kind: "letter" }>) {
   if (!letterInfo.address) throw new Unsupported("a letter without \\address (\\ps@firstpage)")
   if (run.k.ints.twoside) throw new Unsupported("a two-sided letter")
   const check = (t: string) => { if (/[\\{}$%&#^_~]/.test(t.replace(/\\\\/g, ""))) throw new Unsupported(`a letter's "${t}"`) }
-  ;[letterInfo.address, b.to, letterInfo.signature ?? letterInfo.name ?? "", b.closing].forEach(check)
+  ;[letterInfo.address, b.to, letterInfo.signature ?? letterInfo.name ?? "", b.closing, ...b.after.map((x) => x.text)].forEach(check)
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
   const sz = run.k.sizes.normalsize
   v.par()
@@ -85,7 +86,12 @@ export function letter(cx: Ctx, b: Extract<Block, { kind: "letter" }>) {
   pv.lines(inBox(b.closing, []))
   pv.addvspace(dimen(0))
   pv.vskip(dimen(6 * medskipamount))
-  pv.paragraph(inBox(letterInfo.signature ?? letterInfo.name ?? "", [{ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth }]), dimen(0)) // \strut
+  // the signature's \\ is \@centercr there: \unskip\par and \addvspace{-\parskip} (zero) before each line after the first
+  const sig = (letterInfo.signature ?? letterInfo.name ?? "").split(/\\\\/).map((x) => x.trim())
+  sig.forEach((line, i) => {
+    if (i) pv.addvspace(dimen(0))
+    pv.paragraph(inBox(line, i === sig.length - 1 ? [{ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth }] : []), dimen(0)) // \strut
+  })
   const box = vpack(pv.nodes)
   const delta = box.height + box.depth // \vcenter (make_vcenter, § 736)
   box.height = mathEnv(run.k, "normalsize", amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
@@ -95,5 +101,21 @@ export function letter(cx: Ctx, b: Extract<Block, { kind: "letter" }>) {
   typeset("", { start: [{ kind: "rule", width: 0, height: null, depth: null }, penalty(10000), glue(longindentation), glue(0), ...parbox] }, outerParskip)
   v.nodes.push(penalty(10000))
   for (let i = 0; i < b.pars; i++) v.nodes.push(penalty(10000)) // the \par of a blank line: \@@par\nobreak
+  // \cc and \encl: \par\noindent\parbox[t]{\textwidth}{\@hangfrom{\normalfont\ccname: }\ignorespaces text\strut}\par, the
+  // \parbox's paragraph after \@parboxrestore (\sloppy; \interlinepenalty stays \stopbreaks's \@M) hanging from the name's box
+  for (const x of b.after) {
+    v.nodes.push(penalty(10000))
+    const name = hpack(hlistInput(`${x.cmd}: `, run.k, "normalsize", doc, cx.normalAttrs))
+    const p = paragraphInput(x.text.trim(), run.k, "normalsize", doc, { hsize: run.k.dimens.textwidth, start: [name], hangIndent: name.width, ...sloppy(cx.romanFont.params[QUAD]), amsmath })
+    p.list.push({ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth }) // \strut
+    const lb = lineBreak(p.list, p.params)
+    decisions.push(...p.notes, lb.trace)
+    const pv = new VerticalList(run.k)
+    pv.nodes = []; pv.prevDepth = IGNORE_DEPTH
+    pv.lines(lb.vlist)
+    typeset("", { start: [vtop(pv.nodes)] }, outerParskip)
+    v.nodes.push(penalty(10000))
+    for (let i = 0; i < x.pars; i++) v.nodes.push(penalty(10000))
+  }
   v.nodes.push(penalty(-10000)) // \end{letter}'s \pagebreak
 }

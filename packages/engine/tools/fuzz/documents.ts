@@ -548,7 +548,7 @@ export function makeDocument(r: () => number): string {
   tikzOn = !isLetter && r() < 0.15
   if (tikzOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{tikz}", "\\usetikzlibrary{calc,shapes.geometric}")
   const titled = r() < 0.5 && !isLetter // report: a title page
-  if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
+  if (isLetter) out.push(`\\signature{${words(2)}${r() < 0.3 ? ` \\\\ ${words(3)}` : ""}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
     // (a subtitle after \\ at another size; \thanks in an article's, without hyperref)
@@ -775,7 +775,12 @@ export function makeDocument(r: () => number): string {
   // appendices: \appendix, then a heading or two
   if (!isLetter && !crefOn && !tsOn && r() < 0.15) out.push("", "\\appendix", `\\${cls === "article" ? "section" : "chapter"}{${words(2)}}`, text(10 + Math.floor(r() * 40)), ...(r() < 0.4 ? [`\\section{${words(2)}}`, text(20)] : []))
   // a bibliography: \section*{References} (\chapter*{Bibliography}) and its numbered list
-  if (isLetter) out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []), "\\end{letter}")
+  if (isLetter) {
+    out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []))
+    // \encl and \cc after it, short or wrapping, with blank lines between
+    for (let n = r() < 0.3 ? 1 + Math.floor(r() * 3) : 0; n > 0; n--) out.push(`\\${pick(["cc", "encl"])}{${words(r() < 0.3 ? 30 : 4)}}`, ...(r() < 0.3 ? ["", ...(r() < 0.3 ? [""] : [])] : []))
+    out.push("\\end{letter}")
+  }
   if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : []))
   else if (r() < 0.2 && !isLetter) {
     const n = 1 + Math.floor(r() * (r() < 0.2 ? 12 : 4))
