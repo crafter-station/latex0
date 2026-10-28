@@ -1,0 +1,19 @@
+% fixture: beamer/url-frame
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: \url and \href in frames (hyperref's links: the address in \ttfamily, the link's box; with pdfTeX each link an object), a long \url, \href to a file and to a URI, a link in a block
+% issue: #361
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{Links}
+\begin{document}
+\begin{frame}{Links}
+The project page is \url{https://example.org/project/index.html} and the code lives at \href{https://github.com/example/code}{the repository} for anyone who wants it.
+
+\href{slides.pdf}{The slides} and \url{http://a.b/c?d=e}.
+\begin{block}{More}
+See \url{https://example.org}.
+\end{block}
+\end{frame}
+\end{document}

@@ -20,6 +20,7 @@ import type { Ctx } from "../context"
 import { DISPLAY } from "../blocks"
 import { graphicAt, type BoundingBox } from "../graphics"
 import { minipageAt, tabularAt } from "../boxes"
+import { hrefAt, urlAt } from "../url"
 import type { Booktabs } from "../tabular"
 import type { Image } from "../images"
 import type { DocumentSource } from "../source"
@@ -158,9 +159,10 @@ function mediaCtx(cx: FrameCtx, doc: DocState): Ctx {
   let partial = mediaCtxs.get(cx)
   if (!partial) {
     const { prepared, images, driver, booktabs, multirow } = cx.media
-    partial = { graphics: prepared.graphics, tabulars: prepared.tabulars, minipages: prepared.minipages, images, driver, booktabs, normalAttrs: SANS, counters: {}, refs: {},
+    partial = { graphics: prepared.graphics, tabulars: prepared.tabulars, minipages: prepared.minipages, urls: prepared.urls, images, driver, booktabs, normalAttrs: SANS, counters: {}, refs: {},
       run: { k: cx.k, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false, keys: null } },
-      pre: { amsmath: true, hyper: false, columnTypes: {}, usesMultirow: !!multirow } }
+      // (beamer loads hyperref and url; a minipage's material sets no anchors, hyperref's implicit=false)
+      pre: { amsmath: true, hyper: true, usesUrl: true, columnTypes: {}, usesMultirow: !!multirow } }
     mediaCtxs.set(cx, partial)
   }
   partial.doc = doc
@@ -206,7 +208,7 @@ export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
 const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure",
   // (and the placeholders of what source.ts took out, which \leavevmode)
-  "LXgraphic", "LXtabular", "LXminipage"]
+  "LXgraphic", "LXtabular", "LXminipage", "LXurl", "LXhref"]
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
@@ -270,7 +272,8 @@ function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: s
   // (\alert and \structure: \textcolor with the driver's spec)
   const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec },
     graphic: (n, lineWidth, units) => graphic(cx, doc, n, lineWidth, units), tabular: (n, size, attrs, sfcodes, outer) => tabularAt(mediaCtx(cx, doc), n, size, attrs, sfcodes, outer),
-    minipage: (n, size, attrs, sfcodes, outer) => minipage(cx, doc, n, size, attrs, sfcodes, outer) }
+    minipage: (n, size, attrs, sfcodes, outer) => minipage(cx, doc, n, size, attrs, sfcodes, outer),
+    url: (n, size, attrs, penalties, color) => urlAt(mediaCtx(cx, doc), n, size, attrs, penalties, color), href: (n, text, color) => hrefAt(mediaCtx(cx, doc), n, text, color) }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = alerts(cx, text), prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
@@ -388,11 +391,12 @@ function plainText(text: string) {
   // (math is read by the math parser, which throws on what it does not know; beamer's \mathrm is cmr, which it has no
   // family for)
   if (/\\mathrm(?![A-Za-z])/.test(text)) throw new Unsupported("beamer: \\mathrm")
-  let t = text.replace(new RegExp(DISPLAY.source, "g"), "").replace(/\$[^$]*\$/g, ""), prev = ""
+  // (\href's text: an argument, as a text command's)
+  let t = text.replace(new RegExp(DISPLAY.source, "g"), "").replace(/\$[^$]*\$/g, "").replace(/\\LXhref\{\d+\}/g, "\\textrm"), prev = ""
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\hfill(?![A-Za-z])|\\LX(?:smuggle|graphic|tabular|minipage)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\hfill(?![A-Za-z])|\\LX(?:smuggle|graphic|tabular|minipage|url)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 

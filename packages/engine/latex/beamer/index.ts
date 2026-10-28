@@ -20,7 +20,7 @@ import { emptyBox, filGlue, penalty, type BoxNode, type Node, type WhatsitNode }
 import { hpack } from "../../layout/pack"
 import type { ClassOptionData } from "../../layout/classdata"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { anchor, documentStart, HYPER_LINK_DEFAULTS, hyperDriver, pdfString, type Bookmark } from "../hyperref"
+import { anchor, documentStart, BEAMER_LINKS, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
 import { pdftexColors } from "../pdftex"
 import { MATH_ALPHABETS, mathFonts } from "../paragraph"
@@ -100,7 +100,7 @@ function section(cx: BeamerCtx, s: SectionSource) {
 
 /** `images`: the graphics files' sizes */
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number, images: Map<string, BoundingBox | Image>): LayoutResult {
-  if (prepared.listings.length || prepared.urls.length) throw new Unsupported("beamer: verbatim or url")
+  if (prepared.listings.length) throw new Unsupported("beamer: verbatim")
   const media: FrameMedia = { prepared, images, driver }
   const first = layout(media, null, epoch, null)
   const second = layout(media, first.written, epoch, null)
@@ -224,7 +224,7 @@ function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | 
   const pre = readBeamerPreamble(media.prepared.src)
   // (booktabs's dimensions in the font current as it loads, beamer's sans serif \normalsize)
   media = { ...media, ximages: new Set(), ximageObjects: false, booktabs: pre.tables.booktabs ? booktabsDimens(selectFont(pre.k, "normalsize", SANS), pre.k.dimens.doublerulesep) : null, multirow: pre.tables.multirow }
-  Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, HYPER_LINK_DEFAULTS)
+  Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, BEAMER_LINKS)
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
   mathFonts.packages = { amsfonts: true, amssymb: true, ...(pre.tables.array ? { array: true } : {}) } // (beamer loads amssymb)

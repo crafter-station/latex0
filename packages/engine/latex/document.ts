@@ -196,6 +196,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   }
   // hyperref's \@pdfborder, and with colorlinks each link type's color (xcolor's, or color.sty's named ones)
   hyperDriver.border = colorlinks ? "0 0 0" : pre.hyperOpts.border
+  hyperDriver.highlight = "I"
   hyperDriver.colors = null
   if (colorlinks) {
     const c = pre.hyperOpts.colors, spec = (x: string) => (usesXcolor ? colors.spec(x) : COLOR_STY[x] ?? colorSpec(x))
