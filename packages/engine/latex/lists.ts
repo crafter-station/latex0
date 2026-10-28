@@ -282,6 +282,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   let groupClub = b.env === "thebibliography" ? 4000 : ctx.club ?? (depth <= 1 ? v.club : run.k.ints.clubpenalty)
   // what declarations in the environment's text set (center, flushleft, flushright, quote, quotation, verse)
   let envState: DeclState = { size: ctx.size, attrs: bodyAttrs ?? cx.normalAttrs, align: null }, declared = false
+  let bibItemStart = 0 // (where the item's material starts)
   b.items.forEach(({ label: given, parts }, i) => {
     if (given) frenchTextGuard(given)
     // (babel's otherlanguage over an item's paragraphs: what its end restores is not modeled in a list)
@@ -290,9 +291,16 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
     // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
     let club: number | undefined
+    const penaltyAt = v.nodes.length
     if (i === 0 && v.nobreak) { v.addvspace(addGlue(ctx.parskip, negate(parsep))); v.nobreak = false; club = 10000 }
     else if (i === 0) { v.addpenalty(ctx.beginparpenalty ?? -LOW_PENALTY); v.addvspace(topsepAll); v.addvspace(negate(parsep)) }
     else { v.addpenalty(-LOW_PENALTY); v.addvspace(itemsep) }
+    // babel's \@bibitem: \@safe@activestrue\org@@bibitem…, whose \item ends the item before (\par) and adds the penalty
+    if (b.env === "thebibliography") {
+      const prev = b.items[i - 1]?.parts
+      run.bibSafe.push({ from: i ? bibItemStart : penaltyAt, to: penaltyAt + 1, exact: !prev || (prev.length === 1 && prev[0].kind !== "list" && displaySegments(prev[0].text).length === 1) })
+      bibItemStart = v.nodes.length
+    }
     // \sbox\@tempboxa{\makelabel{label}}
     let content: Node[]
     let post: Node[] | null = null // description's label for \enit@postlabel

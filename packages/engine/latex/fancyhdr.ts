@@ -70,7 +70,9 @@ export function fancyCommand(f: FancyHdr, line: string): boolean {
 }
 
 /** \@thehead and \@thefoot on a page of style fancy, and the paragraphs their fields make (TeX breaks them at shipout) */
-export function fancyPage(cx: Ctx, f: FancyHdr, even: boolean, thepage: string, marks: { left?: MarkValue; right?: MarkValue }): { head: Node[]; foot: Node[]; traces: ParagraphTrace[] } {
+/** `safeActives`: babel's \if@safe@actives when the output routine runs (null: not known); spanish.ldf's shorthands are
+ *  then \string'ed (\es@use@shorthand) */
+export function fancyPage(cx: Ctx, f: FancyHdr, even: boolean, thepage: string, marks: { left?: MarkValue; right?: MarkValue }, safeActives: boolean | null = false): { head: Node[]; foot: Node[]; traces: ParagraphTrace[] } {
   const k = singleSpaced(cx.run.k), sz = k.sizes.normalsize // \f@nch@reset: \def\baselinestretch{1}
   const headwidth = f.headwidth ?? k.dimens.textwidth
   const traces: ParagraphTrace[] = []
@@ -85,12 +87,16 @@ export function fancyPage(cx: Ctx, f: FancyHdr, even: boolean, thepage: string, 
     while (text.endsWith("\\strut")) { text = text.slice(0, -6); struts++ }
     // (after a control word, a space keeps the text that comes in its place apart from it)
     const sep = (before: string) => (/\\[A-Za-z]+$/.test(before) ? " " : "")
+    const spanish = cx.pre.babel?.languages.includes("spanish")
+    if (spanish && safeActives !== false && /[~"<>']/.test(text)) throw new Unsupported("spanish.ldf's shorthands in fancyhdr's fields at a \\bibitem")
     text = expandFancyplain(text)
       .replace(/\\thepage(?![A-Za-z])\s*/g, (_, at: number, s: string) => sep(s.slice(0, at)) + thepage)
       .replace(/\\today(?![A-Za-z])\s*/g, (_, at: number, s: string) => {
         // (in the language selected when the page is shipped out)
         if (babelState.switches) throw new Unsupported("\\today in fancyhdr's fields with babel's language commands")
-        return sep(s.slice(0, at)) + today(cx.epoch, cx.pre.babel)
+        const date = today(cx.epoch, cx.pre.babel)
+        if (cx.pre.babel?.main === "spanish" && safeActives === null) throw new Unsupported("spanish.ldf's \\today in fancyhdr's fields at a \\bibitem here")
+        return sep(s.slice(0, at)) + (cx.pre.babel?.main === "spanish" && safeActives ? date.replaceAll("~", "\\string~") : date)
       })
       .replace(/\\(left|right)mark(?![A-Za-z])\s*/g, (_, lr: string, at: number, s: string) => sep(s.slice(0, at)) + markSource(lr === "left" ? marks.left : marks.right))
     // declarations that start the field (\slshape, \rmfamily …) set its font, which the parbox's group ends

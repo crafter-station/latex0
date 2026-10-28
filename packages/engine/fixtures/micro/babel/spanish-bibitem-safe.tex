@@ -1,0 +1,97 @@
+% fixture: babel/spanish-bibitem-safe
+% tier: T3
+% engine: document
+% covers: spanish.ldf's shorthands in fancyhdr's fields when the output routine runs at a \bibitem: babel's \@bibitem has \@safe@activestrue while \item ends the item before and adds \@itempenalty, and \es@use@shorthand then \string's the ~ of \today; elsewhere ~ is a tie
+% issue: #354
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{Informe -- \today}
+\fancyfoot[C]{\thepage}
+\begin{document}
+El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. 
+
+El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. 
+
+El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. 
+
+El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. 
+
+El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. 
+
+El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. El análisis de los datos muestra que la transformación propuesta mejora el rendimiento del sistema en todos los casos estudiados durante el año. 
+
+\begin{thebibliography}{99}
+\bibitem{b1} A. Autor1, \emph{Un título de libro número 1}, Editorial Horizonte, Madrid, 1991.
+\bibitem{b2} A. Autor2, \emph{Un título de libro número 2}, Editorial Horizonte, Madrid, 1992.
+\bibitem{b3} A. Autor3, \emph{Un título de libro número 3}, Editorial Horizonte, Madrid, 1993. Segunda edición revisada y ampliada con notas.
+\bibitem{b4} A. Autor4, \emph{Un título de libro número 4}, Editorial Horizonte, Madrid, 1994.
+\bibitem{b5} A. Autor5, \emph{Un título de libro número 5}, Editorial Horizonte, Madrid, 1995.
+\bibitem{b6} A. Autor6, \emph{Un título de libro número 6}, Editorial Horizonte, Madrid, 1996. Segunda edición revisada y ampliada con notas.
+\bibitem{b7} A. Autor7, \emph{Un título de libro número 7}, Editorial Horizonte, Madrid, 1997.
+\bibitem{b8} A. Autor8, \emph{Un título de libro número 8}, Editorial Horizonte, Madrid, 1998.
+\bibitem{b9} A. Autor9, \emph{Un título de libro número 9}, Editorial Horizonte, Madrid, 1999. Segunda edición revisada y ampliada con notas.
+\bibitem{b10} A. Autor10, \emph{Un título de libro número 10}, Editorial Horizonte, Madrid, 2000.
+\bibitem{b11} A. Autor11, \emph{Un título de libro número 11}, Editorial Horizonte, Madrid, 2001.
+\bibitem{b12} A. Autor12, \emph{Un título de libro número 12}, Editorial Horizonte, Madrid, 2002. Segunda edición revisada y ampliada con notas.
+\bibitem{b13} A. Autor13, \emph{Un título de libro número 13}, Editorial Horizonte, Madrid, 2003.
+\bibitem{b14} A. Autor14, \emph{Un título de libro número 14}, Editorial Horizonte, Madrid, 2004.
+\bibitem{b15} A. Autor15, \emph{Un título de libro número 15}, Editorial Horizonte, Madrid, 2005. Segunda edición revisada y ampliada con notas.
+\bibitem{b16} A. Autor16, \emph{Un título de libro número 16}, Editorial Horizonte, Madrid, 2006.
+\bibitem{b17} A. Autor17, \emph{Un título de libro número 17}, Editorial Horizonte, Madrid, 2007.
+\bibitem{b18} A. Autor18, \emph{Un título de libro número 18}, Editorial Horizonte, Madrid, 2008. Segunda edición revisada y ampliada con notas.
+\bibitem{b19} A. Autor19, \emph{Un título de libro número 19}, Editorial Horizonte, Madrid, 2009.
+\bibitem{b20} A. Autor20, \emph{Un título de libro número 20}, Editorial Horizonte, Madrid, 2010.
+\bibitem{b21} A. Autor21, \emph{Un título de libro número 21}, Editorial Horizonte, Madrid, 2011. Segunda edición revisada y ampliada con notas.
+\bibitem{b22} A. Autor22, \emph{Un título de libro número 22}, Editorial Horizonte, Madrid, 2012.
+\bibitem{b23} A. Autor23, \emph{Un título de libro número 23}, Editorial Horizonte, Madrid, 2013.
+\bibitem{b24} A. Autor24, \emph{Un título de libro número 24}, Editorial Horizonte, Madrid, 2014. Segunda edición revisada y ampliada con notas.
+\bibitem{b25} A. Autor25, \emph{Un título de libro número 25}, Editorial Horizonte, Madrid, 2015.
+\bibitem{b26} A. Autor26, \emph{Un título de libro número 26}, Editorial Horizonte, Madrid, 2016.
+\bibitem{b27} A. Autor27, \emph{Un título de libro número 27}, Editorial Horizonte, Madrid, 2017. Segunda edición revisada y ampliada con notas.
+\bibitem{b28} A. Autor28, \emph{Un título de libro número 28}, Editorial Horizonte, Madrid, 2018.
+\bibitem{b29} A. Autor29, \emph{Un título de libro número 29}, Editorial Horizonte, Madrid, 2019.
+\bibitem{b30} A. Autor30, \emph{Un título de libro número 30}, Editorial Horizonte, Madrid, 2020. Segunda edición revisada y ampliada con notas.
+\bibitem{b31} A. Autor31, \emph{Un título de libro número 31}, Editorial Horizonte, Madrid, 2021.
+\bibitem{b32} A. Autor32, \emph{Un título de libro número 32}, Editorial Horizonte, Madrid, 2022.
+\bibitem{b33} A. Autor33, \emph{Un título de libro número 33}, Editorial Horizonte, Madrid, 2023. Segunda edición revisada y ampliada con notas.
+\bibitem{b34} A. Autor34, \emph{Un título de libro número 34}, Editorial Horizonte, Madrid, 2024.
+\bibitem{b35} A. Autor35, \emph{Un título de libro número 35}, Editorial Horizonte, Madrid, 2025.
+\bibitem{b36} A. Autor36, \emph{Un título de libro número 36}, Editorial Horizonte, Madrid, 2026. Segunda edición revisada y ampliada con notas.
+\bibitem{b37} A. Autor37, \emph{Un título de libro número 37}, Editorial Horizonte, Madrid, 2027.
+\bibitem{b38} A. Autor38, \emph{Un título de libro número 38}, Editorial Horizonte, Madrid, 2028.
+\bibitem{b39} A. Autor39, \emph{Un título de libro número 39}, Editorial Horizonte, Madrid, 2029. Segunda edición revisada y ampliada con notas.
+\bibitem{b40} A. Autor40, \emph{Un título de libro número 40}, Editorial Horizonte, Madrid, 2030.
+\bibitem{b41} A. Autor41, \emph{Un título de libro número 41}, Editorial Horizonte, Madrid, 2031.
+\bibitem{b42} A. Autor42, \emph{Un título de libro número 42}, Editorial Horizonte, Madrid, 2032. Segunda edición revisada y ampliada con notas.
+\bibitem{b43} A. Autor43, \emph{Un título de libro número 43}, Editorial Horizonte, Madrid, 2033.
+\bibitem{b44} A. Autor44, \emph{Un título de libro número 44}, Editorial Horizonte, Madrid, 2034.
+\bibitem{b45} A. Autor45, \emph{Un título de libro número 45}, Editorial Horizonte, Madrid, 2035. Segunda edición revisada y ampliada con notas.
+\bibitem{b46} A. Autor46, \emph{Un título de libro número 46}, Editorial Horizonte, Madrid, 2036.
+\bibitem{b47} A. Autor47, \emph{Un título de libro número 47}, Editorial Horizonte, Madrid, 2037.
+\bibitem{b48} A. Autor48, \emph{Un título de libro número 48}, Editorial Horizonte, Madrid, 2038. Segunda edición revisada y ampliada con notas.
+\bibitem{b49} A. Autor49, \emph{Un título de libro número 49}, Editorial Horizonte, Madrid, 2039.
+\bibitem{b50} A. Autor50, \emph{Un título de libro número 50}, Editorial Horizonte, Madrid, 2040.
+\bibitem{b51} A. Autor51, \emph{Un título de libro número 51}, Editorial Horizonte, Madrid, 2041. Segunda edición revisada y ampliada con notas.
+\bibitem{b52} A. Autor52, \emph{Un título de libro número 52}, Editorial Horizonte, Madrid, 2042.
+\bibitem{b53} A. Autor53, \emph{Un título de libro número 53}, Editorial Horizonte, Madrid, 2043.
+\bibitem{b54} A. Autor54, \emph{Un título de libro número 54}, Editorial Horizonte, Madrid, 2044. Segunda edición revisada y ampliada con notas.
+\bibitem{b55} A. Autor55, \emph{Un título de libro número 55}, Editorial Horizonte, Madrid, 2045.
+\bibitem{b56} A. Autor56, \emph{Un título de libro número 56}, Editorial Horizonte, Madrid, 2046.
+\bibitem{b57} A. Autor57, \emph{Un título de libro número 57}, Editorial Horizonte, Madrid, 2047. Segunda edición revisada y ampliada con notas.
+\bibitem{b58} A. Autor58, \emph{Un título de libro número 58}, Editorial Horizonte, Madrid, 2048.
+\bibitem{b59} A. Autor59, \emph{Un título de libro número 59}, Editorial Horizonte, Madrid, 2049.
+\bibitem{b60} A. Autor60, \emph{Un título de libro número 60}, Editorial Horizonte, Madrid, 2050. Segunda edición revisada y ampliada con notas.
+\bibitem{b61} A. Autor61, \emph{Un título de libro número 61}, Editorial Horizonte, Madrid, 2051.
+\bibitem{b62} A. Autor62, \emph{Un título de libro número 62}, Editorial Horizonte, Madrid, 2052.
+\bibitem{b63} A. Autor63, \emph{Un título de libro número 63}, Editorial Horizonte, Madrid, 2053. Segunda edición revisada y ampliada con notas.
+\bibitem{b64} A. Autor64, \emph{Un título de libro número 64}, Editorial Horizonte, Madrid, 2054.
+\bibitem{b65} A. Autor65, \emph{Un título de libro número 65}, Editorial Horizonte, Madrid, 2055.
+\bibitem{b66} A. Autor66, \emph{Un título de libro número 66}, Editorial Horizonte, Madrid, 2056. Segunda edición revisada y ampliada con notas.
+\bibitem{b67} A. Autor67, \emph{Un título de libro número 67}, Editorial Horizonte, Madrid, 2057.
+\bibitem{b68} A. Autor68, \emph{Un título de libro número 68}, Editorial Horizonte, Madrid, 2058.
+\bibitem{b69} A. Autor69, \emph{Un título de libro número 69}, Editorial Horizonte, Madrid, 2059. Segunda edición revisada y ampliada con notas.
+\end{thebibliography}
+\end{document}

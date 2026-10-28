@@ -553,6 +553,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     text = ""
   }
   while (i < body.length) {
+    // \string~: the character ~ (other), the font's own
+    if (body.startsWith("\\string~", i)) { text += "~"; i += 8; continue }
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
     if (lang.name === "spanish") { // spanish.ldf's shorthands
       if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }

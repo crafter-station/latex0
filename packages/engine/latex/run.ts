@@ -55,8 +55,12 @@ export interface RunState {
   /** where caption.sty's listing captions are on the main vertical list, listings' \vskip (\nobreak\vskip…\nobreak)
    *  in force: an output routine run there would see it */
   lstCaptions: [number, number][]
+  /** where babel's \@bibitem has \@safe@activestrue in force on the main vertical list: the \par its \item ends the item
+   *  before with and its \@itempenalty (\@beginparpenalty before the first), the build_page runs there; `exact`: false
+   *  when that item's last paragraph is not all of it */
+  bibSafe: { from: number; to: number; exact: boolean }[]
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [] }
+  return { k, mainmatter: true, linkcounter: 0, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [] }
 }
