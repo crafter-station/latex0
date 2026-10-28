@@ -154,14 +154,15 @@ tikz:   \node \draw (tikzpicture is a placeholder today)
 
 | Feature | Status | Notes |
 |---|---|---|
-| `\newcommand` / `\renewcommand` / `\providecommand` with `[n][default]` | ✅ | source-level today; move to token level with `pos` preserved |
-| `\def` with delimited parameters | ❌ | TeXbook ch. 20 |
-| `\newenvironment` / `\renewenvironment` | ❌ | |
-| Counters: `\newcounter[within]`, `\setcounter`, `\stepcounter`, `\addtocounter`, `\refstepcounter`, `\the<ctr>`, `\arabic \alph \Alph \roman \Roman \fnsymbol`, `\value`, reset lists, `\numberwithin` | ❌ | `source2e` ltcounts |
-| Conditionals: `\newif`, `\if<x>…\else…\fi`, `\ifx`, `\ifnum`, `\ifdim`, `\ifthenelse`, `\@ifundefined`, `\@ifnextchar`, `\@ifstar`, `\IfFileExists`, `\@ifpackageloaded` | ❌ | fuel-bounded evaluator |
+| `\newcommand` / `\renewcommand` / `\providecommand` with `[n][default]`, starred | ✅ | token level (expand/); in text, math, headings, captions, lists, tables (#344). Redefining a command LaTeX defines (expand/defined.ts, generated) is Unsupported, `\providecommand` of one does nothing; a robust command (`\DeclareRobustCommand`, an optional argument, `\xspace`) in a moving argument is Unsupported |
+| `\def` with delimited parameters, `\edef`, `\gdef`, `\let` (to macros and to characters) | ✅ | TeXbook ch. 20; expand:check, expand:doc |
+| `\newenvironment` / `\renewenvironment` with `[n][default]` | ✅ | expanded where used; the group kept where it makes a difference (assignments, an `\@doendpe` in force), `\begingroup` in math (#344) |
+| Counters: `\newcounter[within]`, `\setcounter`, `\stepcounter`, `\addtocounter`, `\refstepcounter`, `\the<ctr>`, `\arabic \alph \Alph \roman \Roman \fnsymbol`, `\value`, reset lists, `\numberwithin` | 🟡 | the document's and the class's (to subsubsection, equation, figure, table) in text; `\renewcommand{\the<ctr>}` and `\numberwithin` not yet |
+| Conditionals: `\newif`, `\if<x>…\else…\fi`, `\ifx`, `\ifnum`, `\ifdim`, `\ifthenelse`, `\@ifundefined`, `\@ifnextchar`, `\@ifstar`, `\IfFileExists`, `\@ifpackageloaded` | 🟡 | `\ifx \if \ifcat \ifnum \iftrue \iffalse` in the expander; the rest ❌ |
 | `\makeatletter … \makeatother` kernel internals | ❌ | whitelist: `\@addtoreset`, `\@startsection`, `\@seccntformat`, … |
-| Lengths: `Dimen` in sp with TeX rounding, units pt/bp/mm/cm/in/em/ex/sp, rubber lengths, `\newlength \setlength \addtolength \settowidth \settoheight`, `\fill`, `\stretch` | ❌ | `tex.web` §§ 448–463 |
-| `\let`, `\csname…\endcsname`, `\expandafter`, `\noexpand`, `\global`, `\relax`, `\protect`, `\DeclareRobustCommand` | ❌ | |
+| Lengths: `Dimen` in sp with TeX rounding, units pt/bp/mm/cm/in/em/ex/sp, rubber lengths, `\newlength \setlength \addtolength \settowidth \settoheight`, `\fill`, `\stretch` | 🟡 | `tex.web` §§ 448–463; `\setlength` of `\parindent`, `\parskip` in the preamble; in the body and `\newlength` registers ❌ |
+| `\let`, `\csname…\endcsname`, `\expandafter`, `\noexpand`, `\global`, `\relax`, `\protect`, `\DeclareRobustCommand` | ✅ | expand/expander.ts |
+| `\NewDocumentCommand` (ltcmd), `\xspace` | 🟡 | `\xspace` ✅; ltcmd ❌ |
 | `\input`, `\include`, `\includeonly`, `\graphicspath`, `\bibliography` resolved by the engine | 🟡 | regex bundler today |
 
 ### 4.3 Kernel text & structure
