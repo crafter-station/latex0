@@ -19,12 +19,12 @@ import { pdfObjects } from "../../pgf/pdfforms"
 import type { Ctx } from "../context"
 import { DISPLAY } from "../blocks"
 import { graphicAt, type BoundingBox } from "../graphics"
-import { tabularAt } from "../boxes"
+import { minipageAt, tabularAt } from "../boxes"
 import type { Booktabs } from "../tabular"
 import type { Image } from "../images"
 import type { DocumentSource } from "../source"
 import { listParagraphWithDisplays } from "../displays"
-import { hlistInput, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
+import { hlistInput, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate, plain, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
@@ -154,11 +154,19 @@ export interface FrameMedia { prepared: DocumentSource; images: Map<string, Boun
 /** What the article's layout of the material source.ts took out reads of its context, for a frame: the source's
  *  pieces, the images and the driver, the class (\textwidth, the frame's or the column's) */
 function mediaCtx(cx: FrameCtx, doc: DocState): Ctx {
-  const { prepared, images, driver, booktabs, multirow } = cx.media
-  const partial = { graphics: prepared.graphics, tabulars: prepared.tabulars, images, driver, doc, booktabs, normalAttrs: SANS, run: { k: cx.k },
-    pre: { amsmath: true, columnTypes: {}, usesMultirow: !!multirow } }
+  // (one per frame context: a minipage's width, in its run, is \textwidth for what is laid out in it)
+  let partial = mediaCtxs.get(cx)
+  if (!partial) {
+    const { prepared, images, driver, booktabs, multirow } = cx.media
+    partial = { graphics: prepared.graphics, tabulars: prepared.tabulars, minipages: prepared.minipages, images, driver, booktabs, normalAttrs: SANS, counters: {}, refs: {},
+      run: { k: cx.k, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false, keys: null } },
+      pre: { amsmath: true, hyper: false, columnTypes: {}, usesMultirow: !!multirow } }
+    mediaCtxs.set(cx, partial)
+  }
+  partial.doc = doc
   return partial as unknown as Ctx
 }
+const mediaCtxs = new WeakMap<FrameCtx, { doc?: DocState } & Record<string, unknown>>()
 
 /** \includegraphics number n (graphics.ts); with pdfTeX, a file not read before (by its name, page and box) is
  *  \pdfximage'd: an object */
@@ -177,6 +185,16 @@ function graphic(cx: FrameCtx, doc: DocState, n: number, lineWidth: number, unit
   return out
 }
 
+/** minipage number n (boxes.ts): its paragraphs, \centering and friends, \\ and what source.ts took out (beamer's
+ *  \caption, a minipage's footnotes, lists and blocks are not read there) */
+function minipage(cx: FrameCtx, doc: DocState, n: number, size: SizeCommand, attrs: FontAttrs, sfcodes: Record<number, number> | undefined, outer: TabularOuter): Node[] {
+  const m = cx.media.prepared.minipages[n]
+  if (m.sub) throw new Unsupported(`beamer: a sub${m.sub}`)
+  if (/\\(?:caption|captionof|captionsetup|label)(?![A-Za-z])/.test(m.body)) throw new Unsupported("beamer: a caption or \\label in a minipage")
+  plainText(m.body.replace(/\\(?:centering|raggedright|raggedleft)(?![A-Za-z])|\\\\|\\par(?![A-Za-z])/g, ""))
+  return minipageAt(mediaCtx(cx, doc), n, size, attrs, sfcodes, outer)
+}
+
 /** the frame's \vbox (\beamer@framebox) as it is being built: its list, with \prevdepth */
 type FrameList = VerticalList
 
@@ -188,7 +206,7 @@ export const SANS: FontAttrs = { enc: "OT1", fam: "cmss", ser: "m", shape: "n" }
 /** the commands a frame's paragraph may hold (each with one argument of text) */
 const TEXT_COMMANDS = ["textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf", "texttt", "emph", "alert", "structure",
   // (and the placeholders of what source.ts took out, which \leavevmode)
-  "LXgraphic", "LXtabular"]
+  "LXgraphic", "LXtabular", "LXminipage"]
 
 /** How a paragraph is set where it differs from the frame's: the size, \hsize, \leftskip and \rightskip, \sloppy (the em
  *  of the font where it was set, for its \emergencystretch 3em), and what follows the indentation box and comes before \par */
@@ -251,7 +269,8 @@ function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: s
   plainText(text)
   // (\alert and \structure: \textcolor with the driver's spec)
   const doc: DocState = { footnote: 0, xcolor: true, smuggle: (n) => cx.smuggled[n], color: (spec, model) => { if (model !== "LXdriver") throw new Unsupported("beamer: \\textcolor"); return spec },
-    graphic: (n, lineWidth, units) => graphic(cx, doc, n, lineWidth, units), tabular: (n, size, attrs, sfcodes, outer) => tabularAt(mediaCtx(cx, doc), n, size, attrs, sfcodes, outer) }
+    graphic: (n, lineWidth, units) => graphic(cx, doc, n, lineWidth, units), tabular: (n, size, attrs, sfcodes, outer) => tabularAt(mediaCtx(cx, doc), n, size, attrs, sfcodes, outer),
+    minipage: (n, size, attrs, sfcodes, outer) => minipage(cx, doc, n, size, attrs, sfcodes, outer) }
   // beamerbaseoverlay.sty's \emph: {\itshape #1}, no italic correction
   let t = alerts(cx, text), prev = ""
   while (t !== prev) { prev = t; t = t.replace(/\\emph\s*\{([^{}]*)\}/g, "{\\itshape $1}") }
@@ -304,7 +323,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
     cx.listInParagraph = true
   }
   // (\@doendpe's \everypar would run in the tabular's group)
-  if (cx.endpe && /^\s*\\LXtabular\{/.test(par)) throw new Unsupported("beamer: a tabular right after a list")
+  if (cx.endpe && /^\s*\\LX(?:tabular|minipage)\{/.test(par)) throw new Unsupported("beamer: a tabular or minipage right after a list")
   if (cx.endpe) { s.indent = false; cx.endpe = false }
   if (cx.itemStart) { s.indent = false; s.start = cx.itemStart; cx.itemStart = undefined }
   if (!cx.align) { addParagraph(cx, v, overlayText(cx.overlay, par, cx.smuggled), s, cx.k.glue.parskip); return rest }
@@ -373,7 +392,7 @@ function plainText(text: string) {
   const arg = new RegExp(`\\\\(?:${TEXT_COMMANDS.join("|")})\\s*\\{([^{}]*)\\}`, "g")
   while (t !== prev) { prev = t; t = t.replace(arg, "$1") }
   // (and the empty groups and placeholders overlay commands leave)
-  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\LX(?:smuggle|graphic|tabular)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
+  const bad = t.replace(/\\quad(?![A-Za-z])|\\ |\\,|\\%|\{\}|\\hfill(?![A-Za-z])|\\LX(?:smuggle|graphic|tabular|minipage)\{\d+\}/g, "").match(/\\[A-Za-z]+|\\.|[{}$&#^_]/)
   if (bad) throw new Unsupported(`beamer: ${bad[0]} in a frame`)
 }
 

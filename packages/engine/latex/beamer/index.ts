@@ -100,7 +100,7 @@ function section(cx: BeamerCtx, s: SectionSource) {
 
 /** `images`: the graphics files' sizes */
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number, images: Map<string, BoundingBox | Image>): LayoutResult {
-  if (prepared.listings.length || prepared.minipages.length || prepared.urls.length) throw new Unsupported("beamer: verbatim, minipage or url")
+  if (prepared.listings.length || prepared.urls.length) throw new Unsupported("beamer: verbatim or url")
   const media: FrameMedia = { prepared, images, driver }
   const first = layout(media, null, epoch, null)
   const second = layout(media, first.written, epoch, null)

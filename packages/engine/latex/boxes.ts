@@ -121,7 +121,8 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
   // \finalhyphendemerits zero, from there on
   // (\raggedright and \raggedleft likewise; under them \\ is \@centercr)
   let align: "centering" | "raggedright" | "raggedleft" | null = null
-  const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph })
+  // (\@parboxrestore's \leftskip and \rightskip zero, whatever the class has: beamer's \raggedright)
+  const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph, leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip") })
   const what = parbox ? "a \\parbox" : "a minipage"
   const odd = body.match(/\\(?:footnote|begin|item|vspace|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
   if (odd) throw new Unsupported(`${odd[0]} in ${what}`)
