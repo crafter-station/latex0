@@ -95,7 +95,7 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
     stickList()
     if (k.hypcap && hyper) throw new Unsupported("a subcaption with hypcap")
   }
-  const lines = (vl: Node[]) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, run.k.sizes[size].baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
+  const lines = (vl: Node[], bs = sz.baselineskip) => { for (const x of vl) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, bs, run.k.glue.lineskip, run.k.dimens.lineskiplimit); else list.push(x) } }
   // new_graf in internal vertical mode adds \parskip (zero here) only to a list that is not empty, and so does
   // LaTeX's restart of the paragraph
   const parskips = () => { if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0))) }
@@ -134,14 +134,14 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
     const call = captionCall(part)
     if (call) {
       if (!run.captype) throw new Unsupported("\\caption in a minipage outside a float")
-      if (size !== "normalsize" || attrs.ser !== "m" || attrs.shape !== "n" || attrs.fam !== "cmr") throw new Unsupported("a minipage caption in another font")
       // (float.sty after hyperref: \refstepcounter's anchor would go in the paragraph before it)
       if (hyper && cx.pre.algorithm.afterHyperref && !cx.pre.usesCaption && /\S[^\n]*(?:\n[ \t]*)?$/.test(before) && !/(?:\n[ \t]*\n|\\par)\s*$/.test(before)) throw new Unsupported("a minipage caption right after text, float.sty after hyperref")
       cap = caption(cx, run.captype, call, hsize, {
         push: (x) => list.push(x),
         box: (x) => { pd = appendToVlist(list, x, pd, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit) },
-        // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits)
-        paragraph: (start, text) => { parskips(); lines(capLines(start, text, {})) },
+        // \@parboxrestore undoes \centering's skips (not its \finalhyphendemerits); its \sloppy comes before
+        // \caption@normalsize: 3em in the minipage's font (the \parbox's own, after it: the normal font's)
+        paragraph: (start, text) => { parskips(); lines(capLines(start, text, sloppy(font.params[QUAD])), run.k.sizes.normalsize.baselineskip) },
         prevDepth: () => pd,
         rule: () => { list.push({ kind: "rule", width: null, height: 0, depth: 0 }); pd = IGNORE_DEPTH },
         lines: (start, text, opts, size) => capLines(start, text, opts, size),
