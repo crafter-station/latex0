@@ -8,16 +8,16 @@ import { appendText, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mathGlue } from "../mathlayout/mlist"
-import { hpack, vpack } from "../layout/pack"
+import { hpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
 import { markboth, markValue } from "./marks"
 import { type ListFile, type TocEntry } from "./toc"
 import type { Ctx } from "./context"
 import { centering as centeringShape } from "./kernel"
 import { tabular } from "./boxes"
-import { chapter, clearpage, heading } from "./sectioning"
+import { chapter, clearpage, columnSwitch, heading, topnewpageBox } from "./sectioning"
 import { Unsupported } from "./unsupported"
-import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, VerticalList } from "./vlist"
+import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { type OutputHook } from "./output"
 import { tocLink } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
@@ -49,11 +49,14 @@ export function maketitle(cx: Ctx) {
   main.nobreak = false
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
   // article in two columns: \twocolumn[\@maketitle], \clearpage and \@topnewpage's box
-  const twocolumn = !titlepage && !!run.k.ints.twocolumn
+  // (report's titlepage environment in two columns: \onecolumn instead of \newpage, and \twocolumn after it)
+  const twocolumn = !titlepage && !!run.k.ints.twocolumn, restonecol = titlepage && !!run.k.ints.twocolumn
   const atmaketitle = () => {
     const { outerParskip, v } = cx
     if (titlepage) {
-      v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
+      if (restonecol) columnSwitch(cx, false)
+      else v.nodes.push(filGlue(), penalty(-10000))
+      v.nodes.push(hook("empty"), hook("page=1"))
       v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
       v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
       v.vskip(dimen(60 * 65536))
@@ -106,7 +109,8 @@ export function maketitle(cx: Ctx) {
       // \par\@thanks\vfil\null, \end{titlepage}: \newpage and, one-sided, \setcounter{page}\@ne
       v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
       v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-      v.nodes.push(filGlue(), penalty(-10000))
+      if (restonecol) columnSwitch(cx, true)
+      else v.nodes.push(filGlue(), penalty(-10000))
       if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
     } else {
       // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
@@ -127,24 +131,17 @@ export function maketitle(cx: Ctx) {
   doc.footnote = 0 // \setcounter{footnote}{0}
 }
 
-/**
- * \@topnewpage's box for \twocolumn's optional argument: what `build` puts on a list of its own, in \vbox{\hsize\textwidth
- * \@parboxrestore (\parskip and \parindent zero, \if@nobreak false) \col@number\@ne … \vskip-\dbltextfloatsep}, the
- * \vbox in \color@vbox\normalcolor
- */
-export function topnewpageBox(cx: Ctx, build: () => void): BoxNode {
-  const { run } = cx
-  const main = cx.v, parskip = cx.outerParskip, k = run.k
-  const v = cx.v = new VerticalList(k)
-  v.nodes = []; v.prevDepth = IGNORE_DEPTH
-  cx.outerParskip = dimen(0)
-  run.k = { ...k, ints: { ...k.ints, twocolumn: 0 }, dimens: { ...k.dimens, parindent: 0 } }
-  try { build() } finally { cx.v = main; cx.outerParskip = parskip; run.k = k }
-  v.vskip(negate(k.glue.dbltextfloatsep))
-  return vpack(xcolor.on ? [colorPush(), vpack(v.nodes), colorPop()] : [vpack(v.nodes)])
+/** report's and book's \tableofcontents and lists in two columns: \@restonecoltrue\onecolumn, then \twocolumn again */
+function onecolumnFor(cx: Ctx, f: () => void) {
+  const restonecol = cx.pre.cls !== "article" && !!cx.run.k.ints.twocolumn
+  if (restonecol) { cx.v.par(); columnSwitch(cx, false) }
+  f()
+  if (restonecol) columnSwitch(cx, true)
 }
 
-export function tableOfContents(cx: Ctx) {
+export function tableOfContents(cx: Ctx) { onecolumnFor(cx, () => contents(cx)) }
+
+function contents(cx: Ctx) {
   const { cls } = cx.pre
   const { marks, mkboth, toc, v } = cx
   const source = "\\contentsname \\@mkboth{\\MakeUppercase\\contentsname}{\\MakeUppercase\\contentsname}"
@@ -173,7 +170,9 @@ export function tableOfContents(cx: Ctx) {
  * \listoffigures and \listoftables: \section*{\listfigurename} (report, book: \chapter*), then \@mkboth, \@starttoc{lof}:
  * each line \l@figure (\@dottedtocline{1}{1.5em}{2.3em}), and report's \addvspace{10\p@} at each chapter
  */
-export function listOf(cx: Ctx, file: ListFile) {
+export function listOf(cx: Ctx, file: ListFile) { onecolumnFor(cx, () => list(cx, file)) }
+
+function list(cx: Ctx, file: ListFile) {
   const { cls } = cx.pre
   const { lists, marks, mkboth, v } = cx
   const [name, macro] = file === "lof" ? [cx.pre.names.listfigurename, "listfigurename"] : [cx.pre.names.listtablename, "listtablename"]

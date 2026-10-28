@@ -15,8 +15,8 @@ import { appendText, sourceText } from "./encodings"
 import { loadFont } from "../layout/font"
 import { dataFont } from "./data"
 import { crefWrites, labelWrite } from "./paragraph"
-import { bibliography, listOf, maketitle, tableOfContents, topnewpageBox } from "./frontmatter"
-import { appendix, chapter, cleardoublepage, clearpage, heading, matter, newpage } from "./sectioning"
+import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
+import { appendix, chapter, cleardoublepage, clearpage, columnSwitch, heading, matter, newpage, topnewpageBox } from "./sectioning"
 import type { OutputHook } from "./output"
 import { markboth, markright, markValue } from "./marks"
 import { leadingColor } from "./colors"
@@ -235,19 +235,15 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
  * the optional argument's material in its box
  */
 function columns(cx: Ctx, b: Extract<Block, { kind: "columns" }>) {
-  const { run, v } = cx
+  const { v } = cx
   if (cx.pre.cls === "letter") throw new Unsupported(`\\${b.two ? "two" : "one"}column in a letter`)
   v.par()
-  clearpage(cx)
-  const k = run.k
-  run.k = { ...k, ints: { ...k.ints, twocolumn: b.two ? 1 : 0 }, dimens: { ...k.dimens, columnwidth: b.two ? Math.trunc((k.dimens.textwidth - k.dimens.columnsep) / 2) : k.dimens.textwidth } }
-  const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
-  v.nodes.push(hook(b.two ? "twocolumn" : "onecolumn"))
+  columnSwitch(cx, b.two)
   if (b.top === undefined) return
   if (!b.two) throw new Unsupported("\\onecolumn[…]")
   const top = blocksOf(b.top)
   if (top.some((x) => x.kind !== "par" && x.kind !== "heading" && x.kind !== "list")) throw new Unsupported("\\twocolumn[…] with more than text, headings and lists")
-  v.nodes.push(hook({ topnewpage: topnewpageBox(cx, () => top.forEach((x, i, all) => processBlock(cx, x, i, all))) }))
+  v.nodes.push({ kind: "whatsit", text: "", hook: { topnewpage: topnewpageBox(cx, () => top.forEach((x, i, all) => processBlock(cx, x, i, all))) } satisfies OutputHook })
 }
 
 /**
@@ -295,7 +291,11 @@ function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   // (an \@afterheading \everypar after \tableofcontents, \if@nobreak cleared: the lists' and \@doendpe's take its place
   // in the environment's group, and the \clubpenalty they leave is \@clubpenalty, which it would set)
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
-  v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
+  // (in two columns \onecolumn instead of \newpage, and \twocolumn at the end)
+  const restonecol = !!run.k.ints.twocolumn
+  if (restonecol) columnSwitch(cx, false)
+  else v.nodes.push(filGlue(), penalty(-10000))
+  v.nodes.push(hook("empty"), hook("page=1"))
   v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
   v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
   const head: Node[] = []
@@ -313,7 +313,8 @@ function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   v.par()
   v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
   v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
-  v.nodes.push(filGlue(), penalty(-10000))
+  if (restonecol) columnSwitch(cx, true)
+  else v.nodes.push(filGlue(), penalty(-10000))
   if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
 }
 

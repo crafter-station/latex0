@@ -19,7 +19,7 @@ import { leadingColor } from "./colors"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
-import { clearpage, newpage } from "./sectioning"
+import { clearpage, columnSwitch, newpage } from "./sectioning"
 import { getpen } from "./body"
 
 export const ALIGNMENTS = ["centering", "raggedright", "raggedleft"] as const
@@ -198,9 +198,14 @@ export function titlepage(cx: Ctx, body: string) {
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
   const saved = { club: v.club, everypar: v.afterheadingEverypar } // (the environment's group)
   if (v.nobreak) { v.nobreak = false; v.afterheadingEverypar = false }
-  v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
+  // (in two columns \onecolumn instead of \newpage, and \twocolumn at the end)
+  const restonecol = !!run.k.ints.twocolumn
+  if (restonecol) columnSwitch(cx, false)
+  else v.nodes.push(filGlue(), penalty(-10000))
+  v.nodes.push(hook("empty"), hook("page=1"))
   verticalMaterial(cx, body, { size: "normalsize", attrs: cx.normalAttrs, align: null }, false)
-  v.nodes.push(filGlue(), penalty(-10000))
+  if (restonecol) columnSwitch(cx, true)
+  else v.nodes.push(filGlue(), penalty(-10000))
   if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))
   v.club = saved.club; v.afterheadingEverypar = saved.everypar
 }
