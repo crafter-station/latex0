@@ -181,15 +181,22 @@ export class Bookmarks {
   private checked = false
   private parents = new Map<number, string>()
   readonly written: Bookmark[] = []
-  /** \@@writetorep: a level more than one below the current one is fixed; \Parent<level> is the anchor */
-  add(level: number, anchor: string, title: string): Node | null {
+  private fixed = (level: number) => (this.checked && this.current < level - 1 ? this.current + 1 : level)
+  /** the anchor of the bookmark a new one at the level would have as its parent (\Parent<level-1>) */
+  parentOf(level: number): string | undefined { return this.parents.get(this.fixed(level) - 1) }
+  /**
+   * \@@writetorep: a level more than one below the current one is fixed; \Parent<level> is the anchor; the line has
+   * `written`, the anchor after a \phantomsection the caller made because the parent's was the same
+   */
+  add(level: number, anchor: string, title: string, written = anchor): Node | null {
     const pdf = pdfString(title)
     if (pdf === null) return null
-    if (this.checked && this.current < level - 1) level = this.current + 1
+    level = this.fixed(level)
     this.checked = true
     this.current = level
     this.parents.set(level, anchor)
     const parent = this.parents.get(level - 1) ?? ""
+    anchor = written
     const b = { level, anchor, title: pdf, parent }
     this.written.push(b)
     return { kind: "whatsit", text: `\\write${this.stream}{\\protect \\BOOKMARK [${level}][${this.open}]{${anchor}}{${pdf}}{${parent}}% ${this.written.length}}` }

@@ -76,7 +76,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.kind === "contentsline") { // \addcontentsline{toc}: hyperref's bookmark to \@currentHref, then \addtocontents (\protected@write)
     if (run.runIn || run.noskipsec) throw new Unsupported("\\addcontentsline right after a run-in heading")
     if (b.level === "chapter" && cls === "article") throw new Unsupported("\\addcontentsline{toc}{chapter} in article")
-    v.nodes.push(...cx.contentsWrites(HEADINGS[b.level], null, b.title, cx.refs.href, v.nobreak))
+    v.nodes.push(...cx.contentsWrites(HEADINGS[b.level], null, b.title, cx.refs.href, v.nobreak, true))
     return
   }
   if (b.kind === "mark") { // \markboth and \markright in vertical mode: the \marks, \nobreak while \if@nobreak

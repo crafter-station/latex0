@@ -1,0 +1,25 @@
+% fixture: hyperref/addcontentsline-parent-anchor
+% tier: T3
+% engine: document
+% covers: hyperref's \@@writetorep when a bookmark's anchor is its parent's (an \addcontentsline one level below the section it follows, or after a titlesec \subsubsection* with no anchor of its own): the warning's \phantomsection, a new section*.N anchor in vertical mode that the bookmark and the toc line point to, while \Parent<level> keeps the old one
+% issue: #347
+\documentclass{article}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\begin{document}
+\tableofcontents
+\section{One}
+Some text.
+
+\addcontentsline{toc}{subsection}{An added line}
+More text.
+\subsubsection*{A starred title}
+\addcontentsline{toc}{subsubsection}{Another added line}
+
+Words after it.
+
+\addcontentsline{toc}{subsection}{A third, its parent now the second}
+\section{Two}
+\addcontentsline{toc}{section}{Same level as the section}
+The end.
+\end{document}

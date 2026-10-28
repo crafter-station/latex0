@@ -191,10 +191,19 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const headings = pre.markDefs, mkboth = pagestyle === "headings" || pagestyle === "fancy"
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
    *  \protected@write adds \nobreak while \if@nobreak holds */
-  const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[] => {
+  const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean, vertical = false): Node[] => {
     const out: Node[] = []
     if (hyper && level <= (cls === "article" ? 3 : 2)) {
-      const bm = bookmarks.add(level, anchorName, title)
+      // \@@writetorep: a bookmark whose anchor is its parent's gets a new one, \phantomsection's (\Hy@MakeCurrentHrefAuto,
+      // in vertical mode the anchor itself), which the bookmark and the toc line then point to
+      let written = anchorName
+      if (bookmarks.parentOf(level) === anchorName) {
+        if (!vertical) throw new Unsupported("a bookmark whose anchor is its parent's")
+        written = refs.href = `section*.${++run.linkcounter}`
+        out.push(...anchor(written, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+      }
+      const bm = bookmarks.add(level, anchorName, title, written)
+      anchorName = written
       if (!bm) throw new Unsupported(`a bookmark for "${title}"`)
       out.push(bm)
       if (nobreak) out.push(penalty(10000))
