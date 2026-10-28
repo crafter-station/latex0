@@ -21,7 +21,7 @@ const PACKAGES: Record<string, string> = {
   amsmath: "", amssymb: "", amsfonts: "", amsthm: "", mathtools: "", graphicx: "", hyperref: "", nameref: "", cleveref: "", url: "",
   enumitem: "", listings: "", xcolor: "", booktabs: "", fancyhdr: "", titlesec: "", algorithm: "", algpseudocode: "", multirow: "",
   array: "", siunitx: "", caption: "", subcaption: "", tikz: "", float: "", geometry: "", natbib: "", setspace: "",
-  parskip: "", fontenc: "T1", inputenc: "utf8", lmodern: "", times: "", helvet: "", mathptmx: "", multicol: "", tabularx: "",
+  parskip: "", fontenc: "T1", inputenc: "utf8", lmodern: "", times: "", helvet: "", courier: "", palatino: "", mathptmx: "", multicol: "", tabularx: "",
   longtable: "", dcolumn: "", cite: "", xspace: "", ifthen: "", colortbl: "", verbatim: "", fancyvrb: "", textcomp: "",
   babel: "english,spanish,portuguese,french,ngerman,german", microtype: "", "scrlayer-scrpage": "",
 }

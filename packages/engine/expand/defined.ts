@@ -49,6 +49,8 @@ export const PACKAGES: Record<string, string> = {
   "lmodern": "",
   "times": "",
   "helvet": "ProcessOptionsWithKV setkeys",
+  "courier": "",
+  "palatino": "",
   "mathptmx": "omicron symbold symitalic upDelta upGamma upLambda upOmega upPhi upPi upPsi upSigma upTheta upUpsilon upXi",
   "multicol": "LRmulticolcolumns RLmulticolcolumns columnbreak columnseprulecolor docolaction endmulticols flushcolumns maxbalancingoverflow multicolbaselineskip multicolmindepthstring multicolovershoot multicolpretolerance multicols multicolsep multicoltolerance multicolundershoot newcolumn postmulticols premulticols raggedcolumns setemergencystretch vfilmaxdepth",
   "tabularx": "UseMathForPositioningText arraybackslash extrarowheight extratabsurround firsthline lasthline newcolumntype next showcols tabularx tabularxcolumn tracingtabularx",
