@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1031,
-  "exact": 1018,
+  "fixtures": 1080,
+  "exact": 1066,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 13,
-  "glyphs": 701849
+  "pending": 14,
+  "glyphs": 708714
  },
  "areas": [
   {
@@ -36,8 +36,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 271,
-   "exact": 271
+   "fixtures": 319,
+   "exact": 318
   },
   {
    "area": "bibliography",
@@ -211,8 +211,8 @@
   },
   {
    "area": "templates",
-   "fixtures": 36,
-   "exact": 36
+   "fixtures": 37,
+   "exact": 37
   },
   {
    "area": "text",
@@ -437,6 +437,17 @@
    "glyphs": 214,
    "covers": "the starter-corpus recipe (corpus/recipe.tex): xcolor's \\textcolor, enumitem lists, sections and subsections, \\textdegree",
    "issue": "#272"
+  },
+  {
+   "id": "templates/corpus-slides-default",
+   "file": "macro/templates/corpus-slides-default.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 740,
+   "covers": "the starter-corpus default-theme slides (corpus/slides-default.tex): title page, \\tableofcontents, a display and itemize, block and alertblock with inline math, \\column columns with align*, a centered \\includegraphics of the real plot.png at 0.7\\textwidth, enumerate items with overlay specifications",
+   "issue": "#361"
   },
   {
    "id": "templates/corpus-slides",
@@ -1814,6 +1825,182 @@
    "issue": "#338"
   },
   {
+   "id": "beamer/aspectratio-141-pdf",
+   "file": "micro/beamer/aspectratio-141-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 123,
+   "covers": "beamer under pdflatex: the aspectratio=141 class option with Copenhagen (the split head and foot lines in halves of \\paperwidth)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-141",
+   "file": "micro/beamer/aspectratio-141.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 123,
+   "covers": "beamer: the aspectratio=141 class option with Copenhagen (the split head and foot lines in halves of \\paperwidth)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-149-pdf",
+   "file": "micro/beamer/aspectratio-149-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "beamer under pdflatex: the aspectratio=149 class option with Berkeley (a sidebar: \\textwidth is the paper less the sidebar and the margins)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-149",
+   "file": "micro/beamer/aspectratio-149.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "beamer: the aspectratio=149 class option with Berkeley (a sidebar: \\textwidth is the paper less the sidebar and the margins)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-1610-pdf",
+   "file": "micro/beamer/aspectratio-1610-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 136,
+   "covers": "beamer under pdflatex: the aspectratio=1610 class option with Madrid (the infolines footline's thirds of \\paperwidth, rounded blocks)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-1610",
+   "file": "micro/beamer/aspectratio-1610.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 136,
+   "covers": "beamer: the aspectratio=1610 class option with Madrid (the infolines footline's thirds of \\paperwidth, rounded blocks)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-169-pdf",
+   "file": "micro/beamer/aspectratio-169-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 159,
+   "covers": "beamer under pdflatex: the aspectratio=169 class option (a 16cm by 9cm paper: \\textwidth, \\textheight and the navigation symbols' place follow it)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-169",
+   "file": "micro/beamer/aspectratio-169.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 159,
+   "covers": "beamer: the aspectratio=169 class option (a 16cm by 9cm paper: \\textwidth, \\textheight and the navigation symbols' place follow it)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-2013-pdf",
+   "file": "micro/beamer/aspectratio-2013-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 26,
+   "covers": "beamer under pdflatex: the aspectratio=2013 class option (a 14cm by 9.1cm paper) with the title page",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-2013",
+   "file": "micro/beamer/aspectratio-2013.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 26,
+   "covers": "beamer: the aspectratio=2013 class option (a 14cm by 9.1cm paper) with the title page",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-32-pdf",
+   "file": "micro/beamer/aspectratio-32-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "beamer under pdflatex: the aspectratio=32 class option, frames at the top, with Montpellier (the tree outer theme)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-32",
+   "file": "micro/beamer/aspectratio-32.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "beamer: the aspectratio=32 class option, frames at the top, with Montpellier (the tree outer theme)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-43-pdf",
+   "file": "micro/beamer/aspectratio-43-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 76,
+   "covers": "beamer under pdflatex: the aspectratio=43 class option: the default paper",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-43",
+   "file": "micro/beamer/aspectratio-43.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 76,
+   "covers": "beamer: the aspectratio=43 class option: the default paper",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-54-pdf",
+   "file": "micro/beamer/aspectratio-54-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 142,
+   "covers": "beamer under pdflatex: the aspectratio=54 class option with Berlin (miniframes in the headline)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/aspectratio-54",
+   "file": "micro/beamer/aspectratio-54.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 142,
+   "covers": "beamer: the aspectratio=54 class option with Berlin (miniframes in the headline)",
+   "issue": "#361"
+  },
+  {
    "id": "beamer/block-default-pdf",
    "file": "micro/beamer/block-default-pdf.tex",
    "area": "beamer",
@@ -1922,6 +2109,72 @@
    "glyphs": 155,
    "covers": "beamer: blocks in the whale color theme under a frame title: a theorem right after a paragraph (\\unskip\\unskip\\par before its block), a lemma, a proof with its own name and the qed symbol, \\structure and \\alert in text",
    "issue": "#307"
+  },
+  {
+   "id": "beamer/center-env-pdf",
+   "file": "micro/beamer/center-env-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 215,
+   "covers": "beamer under pdflatex: the center environment in a frame (\\trivlist\\centering\\item\\relax: \\@topsep, the empty label's box, centered lines, \\\\ as \\@centercr), the text after it with \\@endpetrue",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/center-env",
+   "file": "micro/beamer/center-env.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 215,
+   "covers": "beamer: the center environment in a frame (\\trivlist\\centering\\item\\relax: \\@topsep, the empty label's box, centered lines, \\\\ as \\@centercr), the text after it with \\@endpetrue",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/center-madrid-pdf",
+   "file": "micro/beamer/center-madrid-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 52,
+   "covers": "beamer under pdflatex: the center environment with Madrid at 9pt (the normal text's color pushed in the label's \\sbox), right at the frame's start, and a blank line after it",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/center-madrid",
+   "file": "micro/beamer/center-madrid.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 52,
+   "covers": "beamer: the center environment with Madrid at 9pt (the normal text's color pushed in the label's \\sbox), right at the frame's start, and a blank line after it",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/centering-frame-pdf",
+   "file": "micro/beamer/centering-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 242,
+   "covers": "beamer under pdflatex: \\centering in a frame: the paragraphs after it centered (\\parfillskip zero), \\\\ as \\@centercr",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/centering-frame",
+   "file": "micro/beamer/centering-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 242,
+   "covers": "beamer: \\centering in a frame: the paragraphs after it centered (\\parfillskip zero), \\\\ as \\@centercr",
+   "issue": "#361"
   },
   {
    "id": "beamer/colorbox-background-pdf",
@@ -2364,6 +2617,72 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/float-caption-long-pdf",
+   "file": "micro/beamer/float-caption-long-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 260,
+   "covers": "beamer under pdflatex: a beamer caption wider than \\hsize: the template in vertical mode and \\par (its colors pushed there, a ragged right \\sloppy paragraph in the caption's \\small from \\insertcaptionname on: an overfull line's emergency pass), a table caption with Madrid's colors",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/float-caption-long",
+   "file": "micro/beamer/float-caption-long.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 260,
+   "covers": "beamer: a beamer caption wider than \\hsize: the template in vertical mode and \\par (its colors pushed there, a ragged right \\sloppy paragraph in the caption's \\small from \\insertcaptionname on: an overfull line's emergency pass), a table caption with Madrid's colors",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/float-figure-pdf",
+   "file": "micro/beamer/float-figure-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "beamer under pdflatex: beamer's figure environment with [placement] (read, unused), the caption above the image, the Madrid theme's caption colors",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/float-figure",
+   "file": "micro/beamer/float-figure.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "beamer: beamer's figure environment with [placement] (read, unused), the caption above the image, the Madrid theme's caption colors",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/float-table-pdf",
+   "file": "micro/beamer/float-table-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 145,
+   "covers": "beamer under pdflatex: beamer's table environment (not a float: \\par\\nobreak\\begin{center}\\nobreak … \\par\\nobreak\\end{center}\\nobreak) with booktabs and \\caption below (the caption template in \\small: Table:\\ and the text, centered in \\hsize), text after it",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/float-table",
+   "file": "micro/beamer/float-table.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 145,
+   "covers": "beamer: beamer's table environment (not a float: \\par\\nobreak\\begin{center}\\nobreak … \\par\\nobreak\\end{center}\\nobreak) with booktabs and \\caption below (the caption template in \\small: Table:\\ and the text, centered in \\hsize), text after it",
+   "issue": "#361"
+  },
+  {
    "id": "beamer/footnote-frame-pdf",
    "file": "micro/beamer/footnote-frame-pdf.tex",
    "area": "beamer",
@@ -2727,6 +3046,50 @@
    "issue": "#290"
   },
   {
+   "id": "beamer/graphics-frame-pdf",
+   "file": "micro/beamer/graphics-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 103,
+   "covers": "beamer under pdflatex: \\includegraphics in frames (a PNG width=0.7\\textwidth under \\centering, a JPEG height=1em in a line, a PDF scale=0.5 alone, the PNG width=\\textwidth in a column)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/graphics-frame",
+   "file": "micro/beamer/graphics-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 103,
+   "covers": "beamer: \\includegraphics in frames (EPS with dvips: width=0.7\\textwidth under \\centering, height=1em in a line, scale=0.5 alone, width=\\textwidth in a column)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/graphics-madrid-palette-pdf",
+   "file": "micro/beamer/graphics-madrid-palette-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 91,
+   "covers": "beamer under pdflatex: a PNG with a palette with Madrid's shadows: the palette's object pdfTeX writes when its page ships comes before the next page's masks (not counted: Unsupported)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/graphics-madrid-pdf",
+   "file": "micro/beamer/graphics-madrid-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 91,
+   "covers": "beamer under pdflatex: images with Madrid's shadowed blocks (each \\pdfximage an object, before the shadows' masks), an image in a block, the same image twice",
+   "issue": "#361"
+  },
+  {
    "id": "beamer/infolines-17pt-pdf",
    "file": "micro/beamer/infolines-17pt-pdf.tex",
    "area": "beamer",
@@ -2923,6 +3286,28 @@
    "glyphs": 146,
    "covers": "beamer: the rectangles inner theme, navigation symbols on: its itemize and enumerate items to the third level, its table of contents with sections and subsections, the title page and a block",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/inputenc-utf8-pdf",
+   "file": "micro/beamer/inputenc-utf8-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 113,
+   "covers": "beamer: \\usepackage[utf8]{inputenc} (UTF-8 is the kernel's input encoding already: \\inputencoding{utf8} changes nothing), accented letters in a frame",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/inputenc-utf8",
+   "file": "micro/beamer/inputenc-utf8.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 113,
+   "covers": "beamer: \\usepackage[utf8]{inputenc} (UTF-8 is the kernel's input encoding already: \\inputencoding{utf8} changes nothing), accented letters in a frame",
+   "issue": "#361"
   },
   {
    "id": "beamer/itemize-pdf",
@@ -3231,6 +3616,28 @@
    "glyphs": 344,
    "covers": "beamer's Dresden theme (miniframes): mini frames in rows by subsection (frames in no subsection first), several per row, a two-slide frame (its mini frame's link goes to its last slide from the first), a short section title padded to its mini frames' width, a short section title of its own",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/minipage-frame-pdf",
+   "file": "micro/beamer/minipage-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 124,
+   "covers": "beamer under pdflatex: minipages in frames (\\@parboxrestore: justified, \\leftskip and \\rightskip zero, \\sloppy) side by side with \\hfill, [t] with \\centering and \\\\, [b] holding an image width=\\textwidth (the minipage's)",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/minipage-frame",
+   "file": "micro/beamer/minipage-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 124,
+   "covers": "beamer: minipages in frames (\\@parboxrestore: justified, \\leftskip and \\rightskip zero, \\sloppy) side by side with \\hfill, [t] with \\centering and \\\\, [b] holding an image width=\\textwidth (the minipage's)",
+   "issue": "#361"
   },
   {
    "id": "beamer/navsymbols-20pt-pdf",
@@ -4001,6 +4408,72 @@
    "glyphs": 449,
    "covers": "beamer's Hannover theme: a short title and authors that wrap in the sidebar's minipages, section and subsection titles that wrap in the sidebar, a section's short title, subsections of the same number in two sections",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/tabular-array-pdf",
+   "file": "micro/beamer/tabular-array-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer under pdflatex: multirow and array in beamer: >{\\bfseries}l, m{2cm} and \\multirow, \\multicolumn, at 10pt",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/tabular-array",
+   "file": "micro/beamer/tabular-array.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer: multirow and array in beamer: >{\\bfseries}l, m{2cm} and \\multirow, \\multicolumn, at 10pt",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/tabular-booktabs-pdf",
+   "file": "micro/beamer/tabular-booktabs-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 95,
+   "covers": "beamer under pdflatex: booktabs in beamer: \\toprule, \\midrule, \\cmidrule, \\bottomrule (their widths in the sans serif \\normalsize), math in cells, a tabular alone under \\centering",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/tabular-booktabs",
+   "file": "micro/beamer/tabular-booktabs.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 95,
+   "covers": "beamer: booktabs in beamer: \\toprule, \\midrule, \\cmidrule, \\bottomrule (their widths in the sans serif \\normalsize), math in cells, a tabular alone under \\centering",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/tabular-frame-pdf",
+   "file": "micro/beamer/tabular-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 84,
+   "covers": "beamer under pdflatex: tabular in frames (the article's \\halign, cells in the sans serif font): l c r columns with \\hline in a paragraph, a p{3cm} column with vertical rules in a center environment",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/tabular-frame",
+   "file": "micro/beamer/tabular-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 84,
+   "covers": "beamer: tabular in frames (the article's \\halign, cells in the sans serif font): l c r columns with \\hline in a paragraph, a p{3cm} column with vertical rules in a center environment",
+   "issue": "#361"
   },
   {
    "id": "beamer/theme-annarbor-pdf",
@@ -4793,6 +5266,72 @@
    "glyphs": 0,
    "covers": "beamer: two empty frames, each its own page after the \\clearpage of the frame before; the title data in the preamble (no title page); the total frame count read back on the second run",
    "issue": "#283"
+  },
+  {
+   "id": "beamer/url-frame-pdf",
+   "file": "micro/beamer/url-frame-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 186,
+   "covers": "beamer under pdflatex: \\url and \\href in frames (hyperref's links: the address in \\ttfamily, the link's box; with pdfTeX each link an object), a long \\url, \\href to a file and to a URI, a link in a block",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/url-frame",
+   "file": "micro/beamer/url-frame.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 186,
+   "covers": "beamer: \\url and \\href in frames (hyperref's links: the address in \\ttfamily, the link's box; with pdfTeX each link an object), a long \\url, \\href to a file and to a URI, a link in a block",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/verbatim-fragile-pdf",
+   "file": "micro/beamer/verbatim-fragile-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 234,
+   "covers": "beamer under pdflatex: [fragile] frames (the .vrb file read back), \\verb and \\verb* in a paragraph (\\null, \\@noligs' kerns, \\nobreakspace, the space factor after), verbatim (the trivlist, a line a paragraph, an empty line, the labels on the first) and verbatim*, spaces before \\end{verbatim} (a line, its last space taken off), the text after them with \\@endpetrue",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/verbatim-fragile",
+   "file": "micro/beamer/verbatim-fragile.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 234,
+   "covers": "beamer: [fragile] frames (the .vrb file read back), \\verb and \\verb* in a paragraph (\\null, \\@noligs' kerns, \\nobreakspace, the space factor after), verbatim (the trivlist, a line a paragraph, an empty line, the labels on the first) and verbatim*, spaces before \\end{verbatim} (a line, its last space taken off), the text after them with \\@endpetrue",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/vfill-size-pdf",
+   "file": "micro/beamer/vfill-size-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "beamer under pdflatex: \\vfill and \\vspace{1cm} between paragraphs in frames, size declarations (\\Large, \\small) for the paragraphs after them, \\centering\\Large after a list (\\@endpetrue), \\vfill ending a paragraph",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/vfill-size",
+   "file": "micro/beamer/vfill-size.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "beamer: \\vfill and \\vspace{1cm} between paragraphs in frames, size declarations (\\Large, \\small) for the paragraphs after them, \\centering\\Large after a list (\\@endpetrue), \\vfill ending a paragraph",
+   "issue": "#361"
   },
   {
    "id": "bibliography/boxes",

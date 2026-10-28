@@ -1,0 +1,20 @@
+% fixture: beamer/center-madrid-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: the center environment with Madrid at 9pt (the normal text's color pushed in the label's \sbox), right at the frame's start, and a blank line after it
+% issue: #361
+\documentclass[9pt]{beamer}
+\usetheme{Madrid}
+\title{T}
+\begin{document}
+\begin{frame}
+\begin{center}
+Thank you!\\
+Questions?\\
+\end{center}
+
+After a blank line.
+\end{frame}
+\end{document}

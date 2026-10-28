@@ -1,0 +1,25 @@
+% fixture: beamer/float-figure
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: beamer's figure environment with [placement] (read, unused), the caption above the image, the Madrid theme's caption colors
+% issue: #361
+\begin{filecontents*}[overwrite]{fig.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 100 60
+%%EndComments
+\end{filecontents*}
+\documentclass{beamer}
+\usetheme{Madrid}
+\title{T}
+\begin{document}
+\begin{frame}{A figure}
+Before.
+\begin{figure}[h]
+\caption{A small figure}
+\includegraphics[width=4cm]{fig}
+\end{figure}
+
+After a blank line.
+\end{frame}
+\end{document}

@@ -1,0 +1,34 @@
+% fixture: beamer/graphics-frame
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: \includegraphics in frames (EPS with dvips: width=0.7\textwidth under \centering, height=1em in a line, scale=0.5 alone, width=\textwidth in a column)
+% issue: #361
+\begin{filecontents*}[overwrite]{chart.eps}
+%!PS-Adobe-3.0 EPSF-3.0
+%%BoundingBox: 0 0 200 120
+%%EndComments
+\end{filecontents*}
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{A chart}
+\centering
+\includegraphics[width=0.7\textwidth]{chart}
+\end{frame}
+\begin{frame}
+Text with an image \includegraphics[height=1em]{chart.eps} in a line, then more words to fill out the line and break it.
+
+\includegraphics[scale=0.5]{chart}
+\end{frame}
+\begin{frame}{In columns}
+\begin{columns}
+\begin{column}{0.45\textwidth}
+\includegraphics[width=\textwidth]{chart}
+\end{column}
+\begin{column}{0.45\textwidth}
+Some words beside the picture.
+\end{column}
+\end{columns}
+\end{frame}
+\end{document}

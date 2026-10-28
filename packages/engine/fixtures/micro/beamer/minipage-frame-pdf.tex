@@ -1,0 +1,26 @@
+% fixture: beamer/minipage-frame-pdf
+% oracle: pdflatex
+% files: plain.png
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: minipages in frames (\@parboxrestore: justified, \leftskip and \rightskip zero, \sloppy) side by side with \hfill, [t] with \centering and \\, [b] holding an image width=\textwidth (the minipage's)
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Minipages}
+\begin{minipage}{0.45\textwidth}
+A first minipage with enough words to break into several lines of its width, justified.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.45\textwidth}
+\centering
+A second one, centered.\\ With a break.
+\end{minipage}
+
+\begin{minipage}[b]{4cm}
+\includegraphics[width=\textwidth]{plain}
+\end{minipage}
+Text beside it.
+\end{frame}
+\end{document}

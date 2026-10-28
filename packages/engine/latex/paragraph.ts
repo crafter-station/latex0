@@ -194,6 +194,8 @@ export interface DocState {
   /** \lstinline number n (taken out of the source before expansion) at a size in a font; \linewidth where it stands
    *  when \@totalleftmargin and \rightmargin are zero there (outside lists and boxes) */
   lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs, lineWidth: number | undefined) => Node[]
+  /** \verb number n (taken out of the source before expansion) at a size in a font, leaving its space factor */
+  verb?: (n: number, size: SizeCommand, attrs: FontAttrs, state: { spaceFactor: number }) => Node[]
   /** \url number n (taken out of the source before expansion) at a size in a font */
   url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
   /** \includegraphics number n, with \linewidth where it stands */
@@ -363,7 +365,7 @@ type Piece =
   | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string }
   /** babel: \selectlanguage{lang}, \begin{otherlanguage}{lang} and its \end (`other`, `endother`), otherlanguage*'s
    *  (`otherstar`, `endotherstar`); \foreignlanguage{lang}{…} */
-  | { kind: "babel"; what: "select" | "other" | "endother" | "otherstar" | "endotherstar"; lang: string } | { kind: "foreign"; lang: string; inner: Piece[] } | { kind: "lstinline"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "tikz"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
+  | { kind: "babel"; what: "select" | "other" | "endother" | "otherstar" | "endotherstar"; lang: string } | { kind: "foreign"; lang: string; inner: Piece[] } | { kind: "lstinline"; n: number } | { kind: "verb"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "tikz"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
   | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
@@ -778,6 +780,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
+    const verb = body.slice(i).match(/^\\LXverb\{(\d+)\}/) // \verb, taken out before expansion
+    if (verb) { flushText(); out.push({ kind: "verb", n: Number(verb[1]) }); i += verb[0].length; continue }
     const fl = body.slice(i).match(/^\\LXfloat\{(\d+)\}/) // a figure or table, taken out of the paragraph's source
     if (fl) { flushText(); out.push({ kind: "float", n: Number(fl[1]) }); i += fl[0].length; continue }
     const sm = body.slice(i).match(/^\\LXsmuggle\{(\d+)\}/) // beamer's overlay specials
@@ -1057,6 +1061,8 @@ function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>, lang
 }
 
 type Language = NonNullable<ReturnType<typeof languageHyphenation>>
+/** \l@nohyphenation's number in TeX Live's formats (language.dat) */
+const L_NOHYPHENATION = 2
 
 /** where babel selected a language in a paragraph (\language=…): after the node `after` of `list` (null: at its start) */
 interface LanguageMark { list: Node[]; after: Node | null; lang: Language }
@@ -1602,6 +1608,17 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!doc.lstinline) throw new Unsupported("paragraph adapter: \\lstinline outside a document")
       list.push(...doc.lstinline(p.n, size, attrs, ctx.restricted || ctx.params.parShape.length ? undefined : ctx.params.hsize))
       state.spaceFactor = 1000
+    }
+    else if (p.kind === "verb") { // the space factor its last character leaves (\frenchspacing in its group)
+      if (!doc.verb) throw new Unsupported("paragraph adapter: \\verb outside a document")
+      if (babelState.b) throw new Unsupported("\\verb with babel")
+      // \language\l@nohyphenation in its group: fix_language's language nodes before its first character and before the
+      // first one after it, in the class's language (\setlanguage0)
+      const hyphenmins = { lhm: k.ints.lefthyphenmin, rhm: k.ints.righthyphenmin }
+      if (!ctx.restricted) ctx.languages?.push({ list, after: list.at(-1) ?? null, lang: { number: L_NOHYPHENATION, patterns: k.patterns ?? "en-us", ...hyphenmins } })
+      list.push(...doc.verb(p.n, size, attrs, state))
+      if (!ctx.restricted) ctx.languages?.push({ list, after: list.at(-1) ?? null, lang: { number: 0, patterns: k.patterns ?? "en-us", ...hyphenmins } })
+      ctx.ignoreSpaces = false
     }
     else if (p.kind === "href") {
       if (!doc.href) throw new Unsupported("paragraph adapter: \\href outside a document")

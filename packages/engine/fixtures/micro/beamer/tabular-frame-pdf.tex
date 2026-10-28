@@ -1,0 +1,30 @@
+% fixture: beamer/tabular-frame-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: tabular in frames (the article's \halign, cells in the sans serif font): l c r columns with \hline in a paragraph, a p{3cm} column with vertical rules in a center environment
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{A table}
+Before the table.
+\begin{tabular}{lcr}
+\hline
+Left & Center & Right \\
+\hline
+a & b & c \\
+1 & 2 & 3 \\
+\hline
+\end{tabular}
+
+\begin{center}
+\begin{tabular}{|l|p{3cm}|}
+\hline
+Name & A longer description that breaks into lines \\
+\hline
+\end{tabular}
+\end{center}
+\end{frame}
+\end{document}

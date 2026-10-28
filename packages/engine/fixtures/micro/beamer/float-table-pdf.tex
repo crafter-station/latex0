@@ -1,0 +1,27 @@
+% fixture: beamer/float-table-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: beamer's table environment (not a float: \par\nobreak\begin{center}\nobreak … \par\nobreak\end{center}\nobreak) with booktabs and \caption below (the caption template in \small: Table:\ and the text, centered in \hsize), text after it
+% issue: #361
+\documentclass{beamer}
+\usepackage{booktabs}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Battery lifetime}
+\begin{table}
+\centering
+\begin{tabular}{lrr}
+\toprule
+Duty cycle & Current ($\mu$A) & Lifetime (months) \\
+\midrule
+1 sample/min  & 210 & 9 \\
+Adaptive & 24 & 46 \\
+\bottomrule
+\end{tabular}
+\caption{Measured average current and projected lifetime.}
+\end{table}
+Text after the table.
+\end{frame}
+\end{document}

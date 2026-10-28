@@ -1,0 +1,31 @@
+% fixture: beamer/graphics-frame-pdf
+% oracle: pdflatex
+% files: plain.png photo.jpg tree.pdf
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: \includegraphics in frames (a PNG width=0.7\textwidth under \centering, a JPEG height=1em in a line, a PDF scale=0.5 alone, the PNG width=\textwidth in a column)
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{A chart}
+\centering
+\includegraphics[width=0.7\textwidth]{plain}
+\end{frame}
+\begin{frame}
+Text with an image \includegraphics[height=1em]{photo.jpg} in a line, then more words to fill out the line and break it.
+
+\includegraphics[scale=0.5]{tree.pdf}
+\end{frame}
+\begin{frame}{In columns}
+\begin{columns}
+\begin{column}{0.45\textwidth}
+\includegraphics[width=\textwidth]{plain}
+\end{column}
+\begin{column}{0.45\textwidth}
+Some words beside the picture.
+\end{column}
+\end{columns}
+\end{frame}
+\end{document}

@@ -16,9 +16,9 @@ export type LinkType = "link" | "cite" | "url" | "file" | "anchor"
 /** the document's driver: set for each layout (DocumentOptions.driver); `onLink`, where a layout counts pdfTeX's
  *  objects, is told of each \pdfstartlink typeset (it takes an object number then); and hyperref's link options:
  *  \@pdfborder, and with colorlinks each link type's color as the driver's color special (\Hy@colorlink) */
-export const hyperDriver: { pdftex: boolean; onLink: (() => void) | null; border: string; colors: Record<LinkType, string> | null } = { pdftex: false, onLink: null, border: "0 0 1", colors: null }
-/** hyperref's defaults, for a layout whose options are not hyperref's own (beamer's) */
-export const HYPER_LINK_DEFAULTS = { border: "0 0 1", colors: null }
+export const hyperDriver: { pdftex: boolean; onLink: (() => void) | null; border: string; /** \@pdfhighlight's letter */ highlight: string; colors: Record<LinkType, string> | null } = { pdftex: false, onLink: null, border: "0 0 1", highlight: "I", colors: null }
+/** beamer.cls's hyperref options: pdfborder={0 0 0}, pdfhighlight={/N} */
+export const BEAMER_LINKS = { border: "0 0 0", highlight: "N", colors: null }
 
 /** pdfmark.def's Border key (\@pdfborder) as the /ANN pdfmark has it, and hpdftex.def's \Hy@setpdfborder */
 const border = () => `/Border [${hyperDriver.border}]BorderArrayPatch`
@@ -112,20 +112,20 @@ export function sectionAnchorBox(name: string, shift: number, baselineskip: numb
 export function refLink(text: Node[], name: string, color?: string, type: "link" | "cite" = "link"): Node[] {
   // \@linkbordercolor, or \@citebordercolor for \hyper@@link[cite]
   const bc = type === "cite" ? "0 1 0" : "1 0 0"
-  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[${bc}]} action goto name{${name}}`), ...colored(type, text), endLink()] // (find@pdflink)
-  return colored(type, linkBox(text, hyperDriver.colors?.[type] ?? color, `[/Color [${bc}]/H /I${border()}/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`))
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/${hyperDriver.highlight}/C[${bc}]} action goto name{${name}}`), ...colored(type, text), endLink()] // (find@pdflink)
+  return colored(type, linkBox(text, hyperDriver.colors?.[type] ?? color, `[/Color [${bc}]/H /${hyperDriver.highlight}${border()}/Subtype /Link/Dest (${name}) cvn H.B /ANN pdfmark`))
 }
 
 /** \hyper@linkurl (hdvips.def): a link to a URI around the typeset text, as for \ref */
 export function uriLink(text: Node[], uri: string, color?: string): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[0 1 1]} action user{/Subtype/Link/A<</Type/Action/S/URI/URI(${uri})>>}`), ...colored("url", text), endLink()]
-  return colored("url", linkBox(text, hyperDriver.colors?.url ?? color, `[/H /I${border()}/Color [0 1 1]/Action <</Subtype/URI/URI(${uri})>>/Subtype /Link H.B /ANN pdfmark`))
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/${hyperDriver.highlight}/C[0 1 1]} action user{/Subtype/Link/A<</Type/Action/S/URI/URI(${uri})>>}`), ...colored("url", text), endLink()]
+  return colored("url", linkBox(text, hyperDriver.colors?.url ?? color, `[/H /${hyperDriver.highlight}${border()}/Color [0 1 1]/Action <</Subtype/URI/URI(${uri})>>/Subtype /Link H.B /ANN pdfmark`))
 }
 
 /** \hyper@linkfile (pdfmark.def): a link to page 1 of another PDF file, in \@filecolor */
 export function fileLink(text: Node[], file: string, color?: string): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[0 .5 .5]} action user{/Subtype/Link/A<</F(${file})/S/GoToR/D[0/Fit]>>}`), ...colored("file", text), endLink()]
-  return colored("file", linkBox(text, hyperDriver.colors?.file ?? color, `[/Subtype /Link/H /I${border()}/Color [0 .5 .5]/Action <</S/GoToR/F(${file})/D[0/Fit]>> H.B /ANN pdfmark`))
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/${hyperDriver.highlight}/C[0 .5 .5]} action user{/Subtype/Link/A<</F(${file})/S/GoToR/D[0/Fit]>>}`), ...colored("file", text), endLink()]
+  return colored("file", linkBox(text, hyperDriver.colors?.file ?? color, `[/Subtype /Link/H /${hyperDriver.highlight}${border()}/Color [0 .5 .5]/Action <</S/GoToR/F(${file})/D[0/Fit]>> H.B /ANN pdfmark`))
 }
 
 /** The text in an \hbox between H.S and H.R, then the link's pdfmark */
@@ -147,19 +147,19 @@ export function linkBox(text: Node[], color: string | undefined, pdfmark: string
  *  pdfTeX the link nodes where it stands */
 export function natLink(content: Node[], key: string, baselineskip: number): Node[] {
   if (hyperDriver.pdftex) return refLink(content, `cite.${key}`, undefined, "cite")
-  return [hpack(colored("cite", [HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (cite.${key}) cvn/H /I${border()}/Color [0 1 0] H.B /ANN pdfmark`)]))]
+  return [hpack(colored("cite", [HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (cite.${key}) cvn/H /${hyperDriver.highlight}${border()}/Color [0 1 0] H.B /ANN pdfmark`)]))]
 }
 
 /** A toc line's or a footnote mark's link (\hyper@linkstart … \hyper@linkend): an hbox with H.S, \Hy@AllowHyphens,
  *  the entry, H.L, the /ANN pdfmark; with pdfTeX the link nodes around the entry where it stands */
 export function tocLink(content: Node[], name: string, baselineskip: number): Node[] {
-  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/I/C[1 0 0]} action goto name{${name}}`), ...colored("link", content), endLink()]
+  if (hyperDriver.pdftex) return [startLink(`attr{${pdfBorder()}/H/${hyperDriver.highlight}/C[1 0 0]} action goto name{${name}}`), ...colored("link", content), endLink()]
   return [tocBox(content, name, baselineskip)]
 }
 function tocBox(content: Node[], name: string, baselineskip: number): BoxNode {
   // in restricted horizontal mode no empty discretionary follows a hyphen (§ 1039)
   content = content.filter((n) => !(n.kind === "disc" && !n.pre.length && !n.post.length && !n.replaceCount))
-  return hpack(colored("link", [HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (${name}) cvn/H /I${border()}/Color [1 0 0] H.B /ANN pdfmark`)]))
+  return hpack(colored("link", [HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (${name}) cvn/H /${hyperDriver.highlight}${border()}/Color [1 0 0] H.B /ANN pdfmark`)]))
 }
 
 /**

@@ -1,0 +1,21 @@
+% fixture: beamer/tabular-array-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: multirow and array in beamer: >{\bfseries}l, m{2cm} and \multirow, \multicolumn, at 10pt
+% issue: #361
+\documentclass[10pt]{beamer}
+\usepackage{multirow,array}
+\usetheme{Madrid}
+\title{T}
+\begin{document}
+\begin{frame}{Arrays}
+\begin{tabular}{>{\bfseries}l|m{2cm}|c}
+\multicolumn{2}{c|}{Head} & Third \\
+\hline
+\multirow{2}{*}{Two} & a middle cell with words & x \\
+& short & y \\
+\end{tabular}
+\end{frame}
+\end{document}

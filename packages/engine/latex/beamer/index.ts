@@ -20,7 +20,7 @@ import { emptyBox, filGlue, penalty, type BoxNode, type Node, type WhatsitNode }
 import { hpack } from "../../layout/pack"
 import type { ClassOptionData } from "../../layout/classdata"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { anchor, documentStart, HYPER_LINK_DEFAULTS, hyperDriver, pdfString, type Bookmark } from "../hyperref"
+import { anchor, documentStart, BEAMER_LINKS, hyperDriver, pdfString, type Bookmark } from "../hyperref"
 import { endDocument, makeColumns, outputOptions } from "../output"
 import { pdftexColors } from "../pdftex"
 import { MATH_ALPHABETS, mathFonts } from "../paragraph"
@@ -31,12 +31,15 @@ import { VerticalList } from "../vlist"
 import { colorPush, xcolor } from "../xcolor"
 import { footlineTemplate, headlineTemplate, type FootlineAt, type Heads } from "./footline"
 import { newOverlay } from "./overlays"
-import { bodyOf, frameBox, type BodyItem, type FrameSource, type SectionSource } from "./frame"
+import { bodyOf, frameBox, type BodyItem, type FrameMedia, type FrameSource, type SectionSource } from "./frame"
+import type { BoundingBox } from "../graphics"
+import type { Image } from "../images"
 import { Sections, sectionNodes, type TocEntry } from "./sections"
 import { navHeads, type NavHead } from "./headnav"
 import { beamerPage, headOrFoot } from "./page"
 import { sidebarTemplate } from "./sidebar"
 import { pgfDeclareShading } from "../../pgf/shade"
+import { booktabsDimens } from "../tabular"
 import { printScaled } from "../../layout/arith"
 import { selectFont } from "../paragraph"
 import { SANS } from "./frame"
@@ -59,7 +62,7 @@ interface Ships { pages: PdfPageObjects[]; outputLinks: number[] }
 
 /** What laying out the body needs: the preamble, the main vertical list, the paragraphs' traces, and per page the
  *  index in `decisions` after its slide's paragraphs (where its head paragraph goes) and its frame's number */
-interface BeamerCtx { pre: BeamerPreamble; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; pageEnds: number[]; pageFrames: number[]
+interface BeamerCtx { pre: BeamerPreamble; /** what the source took out, the graphics files and the driver */ media: FrameMedia; epoch: number; v: VerticalList; decisions: ParagraphTrace[]; pageEnds: number[]; pageFrames: number[]
   /** per page, the section and subsection heads where it is shipped (the frame's) */
   pageHeads: Heads[]
   /** the last run's .nav entries (none before) */
@@ -95,12 +98,15 @@ function section(cx: BeamerCtx, s: SectionSource) {
   }
 }
 
-export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number): LayoutResult {
-  if (prepared.listings.length || prepared.tabulars.length || prepared.minipages.length || prepared.urls.length || prepared.graphics.length) throw new Unsupported("beamer: verbatim, tabular, minipage, url or graphics")
-  const first = layout(prepared.src, null, epoch, driver, null)
-  const second = layout(prepared.src, first.written, epoch, driver, null)
+/** `images`: the graphics files' sizes */
+export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number, images: Map<string, BoundingBox | Image>): LayoutResult {
+  if (prepared.listings.length || prepared.longtables.length) throw new Unsupported("beamer: listings or longtable")
+  const media: FrameMedia = { prepared, images, driver }
+  const first = layout(media, null, epoch, null)
+  const second = layout(media, first.written, epoch, null)
   if (!second.masks) return second.result
-  return layout(prepared.src, first.written, epoch, driver, second.ships).result
+  if (second.ximageObjects) throw new Unsupported("beamer: pgf's masks with a PDF image or a PNG with a palette, transparency or a color profile (pdfTeX's objects)")
+  return layout(media, first.written, epoch, second.ships).result
 }
 
 /** pdfTeX: the pages before `page` shipped, as the slide on `page` is typeset: each one's head and foot links, then its
@@ -151,7 +157,7 @@ function frame(cx: BeamerCtx, f: FrameSource) {
     const overlay = newOverlay(slide)
     // (\resetcounteronoverlays{equation}: each slide starts the counter where the frame does)
     cx.equations.n = equations; cx.footnotes.n = footnotes
-    const box = frameBox({ k, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [], equations: cx.equations,
+    const box = frameBox({ k, media: cx.media, theme: cx.pre.theme, info: cx.pre.info, epoch: cx.epoch, decisions: cx.decisions, toc: cx.toc, section: cx.sections.section, overlay, smuggled: [], equations: cx.equations,
       footnotes: cx.footnotes, footins: [], pgf: cx.pgf }, f, cx.pre.centered)
     cx.pageEnds.push(cx.decisions.length)
     cx.pageFrames.push(number)
@@ -208,16 +214,20 @@ function frameHeadFoot(cx: BeamerCtx, frame: number, page: number) {
 
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet); `ships`, with pdfTeX, the pages' objects (null:
  *  not known). It returns whether pgf made a mask (whose number shows) and the pages' objects. */
-function layout(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex", ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ships: Ships } {
-  try { return run(src, prev, epoch, driver, ships) } finally { hyperDriver.onLink = null }
+function layout(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ximageObjects: boolean; ships: Ships } {
+  try { return run(media, prev, epoch, ships) } finally { hyperDriver.onLink = null }
 }
 
-function run(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pdftex", ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ships: Ships } {
-  const pre = readBeamerPreamble(src)
-  Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, HYPER_LINK_DEFAULTS)
+function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ximageObjects: boolean; ships: Ships } {
+  const { driver } = media
+  // (pdfTeX's images: the run's own)
+  const pre = readBeamerPreamble(media.prepared.src)
+  // (booktabs's dimensions in the font current as it loads, beamer's sans serif \normalsize)
+  media = { ...media, ximages: new Set(), ximageObjects: false, booktabs: pre.tables.booktabs ? booktabsDimens(selectFont(pre.k, "normalsize", SANS), pre.k.dimens.doublerulesep) : null, multirow: pre.tables.multirow }
+  Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, BEAMER_LINKS)
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
-  mathFonts.packages = { amsfonts: true, amssymb: true } // (beamer loads amssymb)
+  mathFonts.packages = { amsfonts: true, amssymb: true, ...(pre.tables.array ? { array: true } : {}) } // (beamer loads amssymb)
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const pgf = navigationPgf(driver)
   // (what fadings put at the top of a page measures against \normalsize's \strutbox, the frames' size)
@@ -233,7 +243,7 @@ function run(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pd
     pdfOpenActionPage1(pgf.s)
     hyperDriver.onLink = () => pdfObjects(pgf.s)
   }
-  const cx: BeamerCtx = { pre, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
+  const cx: BeamerCtx = { pre, media, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
     lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d), pageTops: [], ships, shipped: 0 }
   // the sidebar canvas's shading (beamerbaseauxtemplates.sty's \beamer@calcvertshading, as the theme loads): from the
   // bottom color at 0cm to the top one at \paperheight, the sidebar's width wide
@@ -297,7 +307,7 @@ function run(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pd
     },
     written: { frames: cx.frames, pages: pages.length, pageFrames: cx.pageFrames, toc: cx.sections.toc, bookmarks: cx.sections.bookmarks.written,
       nav: navLines(v.nodes, cx.sections, pages.length), heads: navHeads(v.nodes) },
-    masks: pgfPdfForms(pgf.s).some((f) => f.kind === "mask"),
+    masks: pgfPdfForms(pgf.s).some((f) => f.kind === "mask"), ximageObjects: !!media.ximageObjects,
     ships: written,
   }
 }

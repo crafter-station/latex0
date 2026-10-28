@@ -5,7 +5,10 @@
 import { pdfInfo, type Pdf } from "./pdf"
 
 /** A PNG or JPEG: its size in pixels, and its resolution in dots per inch (0: none given) */
-export interface Bitmap { kind: "png" | "jpg"; width: number; height: number; xres: number; yres: number }
+export interface Bitmap { kind: "png" | "jpg"; width: number; height: number; xres: number; yres: number
+  /** a PNG pdfTeX writes objects of its own for (writepng.c: a palette, a soft mask for its alpha channel or tRNS, an
+   *  ICC profile) besides the image's */
+  objects?: true }
 
 /** What pdfTeX reads of an image file */
 export type Image = Bitmap | Pdf
@@ -28,7 +31,8 @@ function png(dv: DataView): Bitmap | null {
   const out: Bitmap = { kind: "png", width: 0, height: 0, xres: 0, yres: 0 }
   for (let p = 8; p + 8 <= dv.byteLength;) {
     const len = dv.getUint32(p), type = String.fromCharCode(dv.getUint8(p + 4), dv.getUint8(p + 5), dv.getUint8(p + 6), dv.getUint8(p + 7))
-    if (type === "IHDR") { out.width = dv.getUint32(p + 8); out.height = dv.getUint32(p + 12) }
+    if (type === "IHDR") { out.width = dv.getUint32(p + 8); out.height = dv.getUint32(p + 12); if (dv.getUint8(p + 17) !== 0 && dv.getUint8(p + 17) !== 2) out.objects = true }
+    else if (type === "tRNS" || type === "iCCP") out.objects = true
     else if (type === "pHYs" && dv.getUint8(p + 16) === 1) { out.xres = Math.round(0.0254 * dv.getUint32(p + 8)); out.yres = Math.round(0.0254 * dv.getUint32(p + 12)) }
     else if (type === "IDAT" || type === "IEND") break
     p += 12 + len

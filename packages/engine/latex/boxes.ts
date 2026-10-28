@@ -8,7 +8,7 @@ import { lineBreak } from "../layout/linebreak"
 import { emptyBox, glue, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { vpack, type PackSpec } from "../layout/pack"
 import type { Ctx } from "./context"
-import { centering as centeringShape, raggedleft, raggedright, sloppy } from "./kernel"
+import { centering as centeringShape, raggedleft, raggedright, sloppy, zeroskip } from "./kernel"
 import { caption, captionCall, captionXref, type Captioned } from "./floats"
 import { copyKeys, runList, setCaptionKeys } from "./captionsetup"
 import { Unsupported } from "./unsupported"
@@ -121,7 +121,8 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
   // \finalhyphendemerits zero, from there on
   // (\raggedright and \raggedleft likewise; under them \\ is \@centercr)
   let align: "centering" | "raggedright" | "raggedleft" | null = null
-  const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph })
+  // (\@parboxrestore's \leftskip and \rightskip zero, whatever the class has: beamer's \raggedright)
+  const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph, leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip") })
   const what = parbox ? "a \\parbox" : "a minipage"
   const odd = body.match(/\\(?:footnote|begin|item|vspace|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
   if (odd) throw new Unsupported(`${odd[0]} in ${what}`)
@@ -333,7 +334,8 @@ export function tabularEnv(cx: Ctx, size: SizeCommand, attrs: FontAttrs = cx.nor
         end = [strut]
       }
       const start: Node[] = [emptyBox("hlist", 0), ...(everypar ? [{ kind: "rule", width: 0, height: env.strut.height, depth: null } as Node] : [])]
-      const shape = array?.shape === "centering" ? centeringShape() : array?.shape === "raggedright" ? raggedright() : array?.shape === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph }
+      // (\@arrayparboxrestore's \leftskip and \rightskip zero, whatever the class has: beamer's \raggedright)
+      const shape = array?.shape === "centering" ? centeringShape() : array?.shape === "raggedright" ? raggedright() : array?.shape === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph, leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip") }
       let p: ReturnType<typeof paragraphInput>
       try {
         p = paragraphInput(text, run.k, array?.size ?? size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start, amsmath, groups: true, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, ...shape, unskip: 1, end })

@@ -1,0 +1,24 @@
+% fixture: beamer/tabular-booktabs
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: booktabs in beamer: \toprule, \midrule, \cmidrule, \bottomrule (their widths in the sans serif \normalsize), math in cells, a tabular alone under \centering
+% issue: #361
+\documentclass{beamer}
+\usepackage{booktabs}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Battery lifetime}
+\centering
+\begin{tabular}{lrr}
+\toprule
+Duty cycle & Current ($\mu$A) & Lifetime (months) \\
+\midrule
+1 sample/min  & 210 & 9 \\
+1 sample/10 min & 38 & 31 \\
+\cmidrule(lr){2-3}
+Adaptive & 24 & 46 \\
+\bottomrule
+\end{tabular}
+\end{frame}
+\end{document}

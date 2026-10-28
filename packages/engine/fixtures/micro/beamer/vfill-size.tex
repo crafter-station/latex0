@@ -1,0 +1,32 @@
+% fixture: beamer/vfill-size
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: \vfill and \vspace{1cm} between paragraphs in frames, size declarations (\Large, \small) for the paragraphs after them, \centering\Large after a list (\@endpetrue), \vfill ending a paragraph
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Summary}
+\begin{enumerate}
+\item One.
+\item Two.
+\end{enumerate}
+\vfill
+\centering\Large Thank you!
+\end{frame}
+\begin{frame}
+Top text.
+
+\vspace{1cm}
+
+\small Small text after a skip, long enough to wrap onto a second line in the small size of the frame text.
+\vfill
+\end{frame}
+\begin{frame}
+\begin{center}
+\large Large in the center
+\end{center}
+Normal after it.
+\end{frame}
+\end{document}

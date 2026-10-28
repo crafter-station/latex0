@@ -1,0 +1,20 @@
+% fixture: beamer/float-caption-long-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: a beamer caption wider than \hsize: the template in vertical mode and \par (its colors pushed there, a ragged right \sloppy paragraph in the caption's \small from \insertcaptionname on: an overfull line's emergency pass), a table caption with Madrid's colors
+% issue: #361
+\documentclass[aspectratio=43,12pt]{beamer}
+\usetheme{Madrid}
+\title{T}
+\begin{document}
+\begin{frame}{A long caption}
+\begin{table}
+\begin{tabular}{ll}
+a & b \\
+\end{tabular}
+\caption{A caption long enough that it does not fit on one line of the frame, so that beamer sets it as a paragraph of its own with the caption template, and a number too long for any line: 01234567890123456789012345678901234567890123456789012345678901234567890123456789.}
+\end{table}
+\end{frame}
+\end{document}

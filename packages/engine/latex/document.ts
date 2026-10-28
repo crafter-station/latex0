@@ -16,7 +16,7 @@ import { shipOut, type PageMark } from "../emit/trace"
 import { type SizeCommand } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
-import { parseDimen } from "../layout/dimen"
+import { booktabsDimens } from "./tabular"
 import { lineBreak } from "../layout/linebreak"
 import { penalty, type Node } from "../layout/nodes"
 import type { ParagraphTrace } from "../trace/decisions"
@@ -67,11 +67,12 @@ export interface DocumentOptions {
 
 export function document(source: string, { epoch = Math.floor(Date.now() / 1000), images: given = {}, driver = "pdftex" }: DocumentOptions = {}): LayoutResult {
   const prepared = prepareSource(source)
-  // beamer has a pipeline of its own
-  if (documentClass(prepared.src).cls === "beamer") return beamerDocument(prepared, driver, epoch)
   // the graphics files' bounding boxes: the options', then the files the source writes
   const images = new Map<string, BoundingBox | Image>(Object.entries(given))
   for (const [name, contents] of prepared.files) { const bb = boundingBox(contents); if (bb) images.set(name, bb) }
+  // beamer has a pipeline of its own
+  if (documentClass(prepared.src).cls === "beamer") return beamerDocument(prepared, driver, epoch, images)
+  if (prepared.verbatims.length) throw new Unsupported("verbatim and \\verb")
   // Whether a float right after a heading goes here decides \if@nobreak for the text after it,
   // which is laid out before the output routine places the float: the document is laid out again,
   // with the float not placed here, until every such guess holds.
@@ -196,6 +197,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   }
   // hyperref's \@pdfborder, and with colorlinks each link type's color (xcolor's, or color.sty's named ones)
   hyperDriver.border = colorlinks ? "0 0 0" : pre.hyperOpts.border
+  hyperDriver.highlight = "I"
   hyperDriver.colors = null
   if (colorlinks) {
     const c = pre.hyperOpts.colors, spec = (x: string) => (usesXcolor ? colors.spec(x) : COLOR_STY[x] ?? colorSpec(x))
@@ -249,11 +251,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     return out
   }
   // booktabs's dimensions, set as it loads, in the class's \normalsize roman (.08em, .05em, .03em, .65ex, .4ex, .5em)
-  const booktabs = booktabsFont === null ? null : (() => {
-    const f = fontAt(booktabsFont.name, booktabsFont.at)
-    const d = (x: string) => parseDimen(x, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
-    return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: run.k.dimens.doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
-  })()
+  const booktabs = booktabsFont === null ? null : booktabsDimens(fontAt(booktabsFont.name, booktabsFont.at), run.k.dimens.doublerulesep)
   const normalAttrs: FontAttrs = { enc: t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
 
   // (french.ldf with hyperref, natbib, cleveref, caption.sty, TikZ or in a letter: its names, active punctuation and layout there
