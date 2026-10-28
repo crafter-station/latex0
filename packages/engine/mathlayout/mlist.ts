@@ -13,7 +13,7 @@
 import { xnOverD } from "../layout/arith"
 import type { GlueSpec } from "../layout/dimen"
 import { SPACE, X_HEIGHT, type CharMetrics, type Font } from "../layout/font"
-import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, charNode, filGlue, ssGlue } from "../layout/nodes"
+import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, charNode, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
 
@@ -45,6 +45,21 @@ export type Field =
    * script fonts): an \ialign whose \\ (\math@cr) puts \noalign{\vskip0pt} after its row (`crs`); `thickspace` the kern
    */
   | { kind: "stack"; rows: MItem[][][]; crs: boolean[]; layout: "smallmatrix" | "subarray-c" | "subarray-l" | "dcases" | "rcases"; thickspace: number; /** \quad: 1em */ quad?: number }
+  /**
+   * latex.ltx's \ooalign (\c@ncel, \notin's: a \vtop of \ialign{##\crcr…} rows, \baselineskip 0 and \lineskiplimit -\maxdimen, so
+   * \baselineskip glue overlaps them) and \@vereq (\cong's: a \vbox lowered .5pt whose rows \lineskip -.5pt separates); each row
+   * a formula in an \hbox cell (\m@th)
+   */
+  | { kind: "oalign"; rows: (() => MItem[])[]; layout: "ooalign" | "vereq" }
+  /**
+   * an \ialign{##\crcr…} of formulas in a \vbox or \vtop, with \noalign kerns and no interline glue (\nointerlineskip): the
+   * arrows over and under (\overrightarrow, amsmath's \overarrow@ and \underarrow@) and the braces (\overbrace, \underbrace);
+   * `zero`: the formula with \thickmuskip, \medmuskip and \thinmuskip 0mu (amsmath's \arrowfill@)
+   */
+  | { kind: "vstack"; box: "vbox" | "vtop"; items: ({ formula: () => MItem[]; zero?: boolean } | { kern: number | { of: "ex@" | "sigma5"; factor: [number, number] } })[] }
+  /** amsmath's \ext@arrow: \hbox to the widest of the labels (in \hbox{$\scriptstyle\mkern#3mu{label}\mkern#4mu$}) and the arrow's
+   *  natural width, the arrow (\unhbox of \hbox{<fill>\displaystyle}) set in it */
+  | { kind: "xarrow"; fill: () => MItem[]; labels: (() => MItem[])[] }
   /** \copy\strutbox: \hbox{\vrule height.7\baselineskip depth.3\baselineskip width\z@} (MathEnv.strut) */
   | { kind: "strut" }
   | null
@@ -85,7 +100,10 @@ export interface Delimiter { smallFam: number; smallChar: number; largeFam: numb
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
 export interface FenceNoad { noad: "left" | "right" | "middle"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | NonscriptItem | RootItem | ChoiceItem | Node
+/** \leaders or \cleaders with \hfill in a formula (the arrow fills: \hbox{$…$}; the brace fills: a \vrule as tall as
+ *  \hbox{$\braceld$}) */
+export interface LeadersItem { kind: "mleaders"; leaders: "leaders" | "cleaders"; box: (() => MItem[]) | "braceld" }
+export type MItem = LeadersItem | Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | NonscriptItem | RootItem | ChoiceItem | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
 const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right" || x.noad === "middle")
@@ -261,6 +279,10 @@ class Converter {
           if (this.curSize !== 0 && p && "kind" in p && ["muglue", "mukern", "glue", "kern"].includes(p.kind)) list.splice(i + 1, 1)
         }
         else if ("kind" in q && q.kind === "root") { list.splice(i, 1, ...this.root(q)); i-- } // § 731: the choice for cur_style
+        else if ("kind" in q && q.kind === "mleaders") { // \cleaders\hbox{$…$}\hfill, \leaders\vrule\@height\ht\z@\@depth\z@\hfill (\vrule's default width .4pt)
+          const box: Node = q.box === "braceld" ? { kind: "rule", width: 26214, height: this.font(3, 0)?.chars.get(0x7a)?.height ?? 0, depth: 0 } : this.formulaBox(q.box(), false) // (one noad: no mu skips)
+          list[i] = { ...fillGlue(), leaders: { kind: q.leaders, box: box as BoxNode } }
+        }
         else if ("kind" in q && q.kind === "choice") { list.splice(i, 1, ...q.choose(this.curStyle).map(colsep)); i-- } // § 731
         else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }
         continue
@@ -296,11 +318,35 @@ class Converter {
           if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
         } else p = []
       } else if (!n) p = []
-      else if (n.kind === "big" || n.kind === "hmath" || n.kind === "strut" || n.kind === "boxed") {
+      else if (n.kind === "big" || n.kind === "hmath" || n.kind === "strut" || n.kind === "boxed" || n.kind === "oalign" || n.kind === "vstack" || n.kind === "xarrow") {
         let b: BoxNode
         if (n.kind === "strut") {
           if (!this.env.strut) throw new Error("math: \\strut without the \\strutbox")
           b = hpack([{ kind: "rule", width: 0, height: this.env.strut.height, depth: this.env.strut.depth }])
+        } else if (n.kind === "vstack") {
+          const rows = n.items.flatMap((x) => ("formula" in x ? [[this.formulaBox(x.formula(), !!x.zero).list]] : []))
+          const boxes = halign(rows, [paramGlue("tabskip", glue(0)), paramGlue("tabskip", glue(0))], { additional: 0 })
+          let r = 0
+          // (kerns of .7 and .5\fontdimen5\textfont2, mathtools's braces; 1.3\ex@, amsmath's \underarrow@: § 455)
+          const k = (x: number | { of: "ex@" | "sigma5"; factor: [number, number] }) => {
+            if (typeof x === "number") return x
+            const v = x.of === "ex@" ? amsEx(this.font(0, 0)!.size) : this.mathsy(5, 0)
+            return nxPlusY(x.factor[0], v, xnOverD(v, x.factor[1], 0o200000))
+          }
+          b = vpack(n.items.map((x) => ("kern" in x ? kern(k(x.kern), true) : boxes[r++])))
+          if (n.box === "vtop") { const first = b.list[0], h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0; b.depth = b.height + b.depth - h; b.height = h } // § 1087
+        } else if (n.kind === "xarrow") {
+          const arrow = this.formulaBox(n.fill(), true) // \setbox\z@\hbox{#5\displaystyle}
+          const w = Math.max(arrow.width, ...n.labels.map((l) => this.formulaBox(l(), false).width))
+          b = hpack(arrow.list, { exactly: w })
+        } else if (n.kind === "oalign") {
+          const cells = n.rows.map((r) => [[{ kind: "math", on: true, width: 0 } as Node, ...new Converter(this.env).convert(r(), TEXT, false), { kind: "math", on: false, width: 0 } as Node]])
+          const boxes = halign(cells, [paramGlue("tabskip", glue(0)), paramGlue("tabskip", glue(0))], { additional: 0 })
+          const v: Node[] = []
+          boxes.forEach((r, i) => { if (i) v.push(n.layout === "ooalign" ? paramGlue("baselineskip", glue(-boxes[i - 1].depth - r.height)) : paramGlue("lineskip", glue(-0x8000))); v.push(r) })
+          b = vpack(v)
+          if (n.layout === "vereq") b.shift = 0x8000 // \lower.5\p@
+          else { const h = boxes[0].height; b.depth = b.height + b.depth - h; b.height = h } // \vtop (§ 1087)
         } else if (n.kind === "boxed") {
           const sep = 3 * 65536 // \fboxsep
           b = n.frame(hpack([kern(sep, true), { kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list(), TEXT, false), { kind: "math", on: false, width: 0 }, kern(sep, true)]))
@@ -411,6 +457,13 @@ class Converter {
     const v: Node[] = []
     boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
     return vpack(v)
+  }
+
+  /** $…$ in an \hbox (\m@th), in text style; `zero`: \thickmuskip, \medmuskip and \thinmuskip 0mu */
+  formulaBox(l: MItem[], zero: boolean): BoxNode {
+    const mu = { width: 0, stretch: 0, stretchOrder: 0 as const, shrink: 0, shrinkOrder: 0 as const }
+    const env = zero ? { ...this.env, muskips: { thinmuskip: mu, medmuskip: mu, thickmuskip: mu } } : this.env
+    return hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }])
   }
 
   /** Field "stack": the \ialign's rows, stacked with \baselineskip, \lineskip and \lineskiplimit (append_to_vlist, § 679) */
@@ -545,7 +598,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "stack" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" || field.kind === "boxed" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "stack" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" || field.kind === "boxed" || field.kind === "oalign" || field.kind === "vstack" || field.kind === "xarrow" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }

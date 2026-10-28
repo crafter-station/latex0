@@ -77,6 +77,12 @@ const ORD_EMPTY = (): Noad => ({ noad: ORD, nucleus: { kind: "mlist", list: [] }
 const MULTI_INTEGRALS: Record<string, number> = { iint: 2, iiint: 3, iiiint: 4, idotsint: 0 }
 /** amsmath's \intdots@ between two \intop's */
 const INTDOTS = "\\mathchoice{\\mathinner{\\cdotp\\cdotp\\cdotp}}{{\\cdotp}\\mkern1.5mu{\\cdotp}\\mkern1.5mu{\\cdotp}}{{\\cdotp}\\mkern1mu{\\cdotp}\\mkern1mu{\\cdotp}}{{\\cdotp}\\mkern1mu{\\cdotp}\\mkern1mu{\\cdotp}}"
+/** fontmath.ltx's arrows over: the fill (amsmath's versions take \mathpalette) */
+const OVER_ARROWS: Record<string, ["right" | "left" | "leftright"]> = { overrightarrow: ["right"], overleftarrow: ["left"] }
+/** amsmath's arrows over and under */
+const AMS_ARROWS: Record<string, ["right" | "left" | "leftright"]> = {
+  overleftrightarrow: ["leftright"], underrightarrow: ["right"], underleftarrow: ["left"], underleftrightarrow: ["leftright"],
+}
 /** amsmath's \genfrac's: delimiters, thickness, style */
 const GENFRACS: Record<string, [string, string, string, string]> = {
   dfrac: ["", "", "", "0"], tfrac: ["", "", "", "1"], binom: ["(", ")", "0pt", ""] /* (\z@) */, dbinom: ["(", ")", "0pt", "0"], tbinom: ["(", ")", "0pt", "1"],
@@ -320,6 +326,26 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
     if (layout !== "smallmatrix") return [v]
     const thin = (): MItem => ({ kind: "muglue", spec: data.muskips.thinmuskip })
     return [{ noad: ORD, nucleus: { kind: "box", box: emptyBox("hlist") }, sup: null, sub: null }, thin(), v, thin()]
+  }
+  /** fontmath.ltx's \rightarrowfill and \leftarrowfill: $\m@th\smash-\mkern-7mu\cleaders\hbox{$\mkern-2mu\smash-\mkern-2mu$}\hfill\mkern-7mu\mathord\rightarrow$ */
+  const kernelFill = (fill: "right" | "left" | "leftright"): MItem[] => {
+    if (fill === "leftright") throw new Error("math: \\overleftrightarrow without amsmath")
+    const p = (src: string) => parseTokens(tokenize(src, data.muskips), data, { ...inner, finsmash: "tb" }, -1)
+    const lead: MItem = { kind: "mleaders", leaders: "cleaders", box: () => p("\\mkern-2mu\\smash-\\mkern-2mu") }
+    return fill === "right" ? [...p("\\smash-\\mkern-7mu"), lead, ...p("\\mkern-7mu\\mathord\\rightarrow")] : [...p("\\mathord\\leftarrow\\mkern-7mu"), lead, ...p("\\mkern-7mu\\smash-")]
+  }
+  /** amsmath's \arrowfill@#1#2#3#4: $\m@th(mu skips 0)#4#1\mkern-7mu\cleaders\hbox{$#4\mkern-2mu#2\mkern-2mu$}\hfill\mkern-7mu#3$ */
+  const amsFill = (fill: "right" | "left" | "leftright", style: number, fs: typeof finsmash): MItem[] => {
+    const p = (src: string) => parseTokens(tokenize(src, data.muskips), data, { ...inner, finsmash: fs }, -1) // (\relbar's \mathsm@sh: \finsm@sh as it is)
+    const [l, m, r] = fill === "right" ? ["\\relbar", "\\relbar", "\\rightarrow"] : fill === "left" ? ["\\leftarrow", "\\relbar", "\\relbar"] : ["\\leftarrow", "\\relbar", "\\rightarrow"]
+    const st: MItem = { kind: "style", style }
+    return [st, ...p(`${l}\\mkern-7mu`), { kind: "mleaders", leaders: "cleaders", box: () => [{ kind: "style", style }, ...p(`\\mkern-2mu${m}\\mkern-2mu`)] }, ...p(`\\mkern-7mu${r}`)]
+  }
+  /** fontmath.ltx's \downbracefill and \upbracefill: \braceld\leaders\vrule…\hfill\braceru\bracelu\leaders…\hfill\bracerd */
+  const braceFill = (down: boolean): MItem[] => {
+    const c = (code: number) => mathCharNoad(code), lead = (): MItem => ({ kind: "mleaders", leaders: "leaders", box: "braceld" })
+    const [ld, rd, lu, ru] = [0x037a, 0x037b, 0x037c, 0x037d]
+    return down ? [c(ld), lead(), c(ru), c(lu), lead(), c(rd)] : [c(lu), lead(), c(rd), c(ld), lead(), c(ru)]
   }
   /** an \array cell before an &: \@sharp, then the v-part of the template, $ in LaTeX's */
   const cellBefore = (ts: Token[], more: Partial<MathOptions> = {}) => parseTokens(ts, data, { ...opts, dollarNext: !opts.arrayPackage, finsmash, ...more }, -1)
@@ -757,6 +783,50 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         continue
       }
       if (t.cs === "relax") continue
+      if (t.cs === " ") { // \  in math: append_normal_space (§ 1041), the interword glue of the current font
+        if (!opts.font) throw new Error("math: \\  without the current font")
+        out.push(glue(opts.font.params[2], opts.font.params[3], 0, opts.font.params[4], 0)); continue
+      }
+      if (t.cs in OVER_ARROWS || (opts.amsmath && t.cs in AMS_ARROWS)) { // fontmath.ltx's \overrightarrow, amsmath's \overarrow@ and \underarrow@
+        const fill = (OVER_ARROWS[t.cs] ?? AMS_ARROWS[t.cs])[0], under = t.cs.startsWith("under"), arg = argument(), finsmash0 = finsmash
+        if (!opts.amsmath) { // \vbox{\m@th\ialign{##\crcr\rightarrowfill\crcr\noalign{\kern-\p@\nointerlineskip}$\hfil\displaystyle{#1}\hfil$\crcr}}
+          out.push({ noad: ORD, sup: null, sub: null, nucleus: { kind: "vstack", box: "vbox", items: [{ formula: () => kernelFill(fill) }, { kern: -65536 }, { formula: () => [filGlue(), { kind: "style", style: 0 }, groupNoad(sub(arg, -1)), filGlue()] }] } })
+        } else out.push(palette((st, fs = finsmash0) => { // \mathpalette{\overarrow@\rightarrowfill@}: $\m@th\hfil#2#3\hfil$ and #1#2
+          const body = { formula: () => [filGlue(), { kind: "style" as const, style: st }, ...parseTokens(arg, data, { ...inner, finsmash }, -1), filGlue()] }, arrow = { formula: () => amsFill(fill, st, fs), zero: true }
+          const items = under ? [body, { kern: { of: "ex@" as const, factor: [1, 19661] as [number, number] } }, arrow] : [arrow, body]
+          return [{ noad: ORD, sup: null, sub: null, nucleus: { kind: "vstack", box: under ? "vtop" : "vbox", items } }]
+        }))
+        continue
+      }
+      if (t.cs === "overbrace" || t.cs === "underbrace") { // \mathop{\vbox{…\downbracefill…}}\limits, \mathop{\vtop{…\upbracefill…}}\limits
+        const arg = argument(), over = t.cs === "overbrace", mt = !!opts.packages?.includes("mathtools")
+        const body = { formula: () => [filGlue(), { kind: "style" as const, style: 0 }, groupNoad(sub(arg, -1)), filGlue()] }
+        const fill = { formula: () => braceFill(over) }
+        // (mathtools's: \kern.5 and .7\fontdimen5\textfont2 instead of 3pt)
+        const k = (f: number) => (mt ? { kern: { of: "sigma5" as const, factor: [0, f] as [number, number] } } : { kern: 3 * 65536 })
+        out.push({ noad: OP, limits: "limits", sup: null, sub: null, nucleus: { kind: "vstack", box: over ? "vbox" : "vtop", items: over ? [k(0x8000), fill, k(45875), body] : [body, k(45875), fill, k(0x8000)] } })
+        continue
+      }
+      if (opts.amsmath && (t.cs === "xrightarrow" || t.cs === "xleftarrow")) { // \ext@arrow 0359\rightarrowfill@{#1}{#2}, 3095\leftarrowfill@
+        let below: Token[] = []
+        if (isCh(toks[pos], "[")) { let d = 0, j = pos; for (; j < toks.length; j++) { if (isCh(toks[j], "{")) d++; else if (isCh(toks[j], "}")) d--; else if (d === 0 && isCh(toks[j], "]")) break } below = toks.slice(pos + 1, j); pos = j + 1 }
+        const above = argument(), fs = finsmash
+        const [a, b, c, e] = t.cs === "xrightarrow" ? [0, 3, 5, 9] : [3, 0, 9, 5]
+        const label = (l: Token[]) => (): MItem[] => [{ kind: "style", style: 4 }, { kind: "mukern", width: c * 65536 }, groupNoad(sub(l, -1)), { kind: "mukern", width: e * 65536 }]
+        const script = (l: Token[]) => groupField([...(a ? [{ kind: "mukern" as const, width: a * 65536 }] : []), ...sub(l), ...(b ? [{ kind: "mukern" as const, width: b * 65536 }] : [])])
+        const op: Noad = { noad: OP, limits: "limits", nucleus: { kind: "xarrow", fill: () => amsFill(t.cs === "xrightarrow" ? "right" : "left", 0, fs), labels: [label(below), label(above)] },
+          sup: above.length ? script(above) : null, sub: below.length ? script(below) : null }
+        out.push({ noad: 3, nucleus: groupField([op]), sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "notin" || t.cs === "cong") { // fontmath.ltx: \mathrel{\m@th\mathpalette\c@ncel\in}, \mathrel{\mathpalette\@vereq\sim}
+        const row = (src: string, st: number): (() => MItem[]) => () => [{ kind: "style", style: st }, ...parseTokens(tokenize(src, data.muskips), data, { ...inner, finsmash }, -1)]
+        const box = (st: number): MItem[] => [{ noad: ORD, sup: null, sub: null, nucleus: t.cs === "notin"
+          ? { kind: "oalign", layout: "ooalign", rows: [row("\\hfil\\mkern1mu/\\hfil", st), row("\\in", st)] } // \ooalign{$\hfil#1\mkern1mu/\hfil$\crcr$#1#2$}
+          : { kind: "oalign", layout: "vereq", rows: [row("\\hfil\\sim\\hfil", st), row("\\hfil=\\hfil", st)] } }] // $\m@th#1\hfil##\hfil$
+        out.push({ noad: 3, nucleus: groupField([palette(box)]), sup: null, sub: null })
+        continue
+      }
       if (opts.amsmath && t.cs === "substack") { out.push(...stack(argument(), "subarray-c")); continue } // \subarray{c}#1\endsubarray
       if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox
       if (t.cs === "hfill" || t.cs === "hfil") { out.push(t.cs === "hfill" ? fillGlue() : filGlue()); continue }

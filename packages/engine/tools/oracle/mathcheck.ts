@@ -81,11 +81,11 @@ const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix
 const ALPHABETS = ["mathrm", "mathnormal", "mathcal", "mathbf", "mathit", "mathsf", "mathtt"]
 const AMS_ALPHABETS = ["mathbb", "mathfrak", "mathscr"]
 /** commands without an argument (amsmath's: its \dots and kin, \colon), and with one */
-const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&", "mathstrut", "relbar", "Relbar", "joinrel", "doteq",
+const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&", "mathstrut", "relbar", "Relbar", "joinrel", "doteq", "notin", "cong", " ",
   ..."longrightarrow Longrightarrow longleftarrow Longleftarrow longleftrightarrow Longleftrightarrow mapsto longmapsto hookrightarrow hookleftarrow iff models bowtie".split(" ")]
 const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby", "iint", "iiint", "iiiint", "idotsint", "iint\\limits", "idotsint\\limits"]
-const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
-const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
+const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "overrightarrow", "overleftarrow", "overbrace", "underbrace", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
+const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]", "overleftrightarrow", "underrightarrow", "underleftarrow", "underleftrightarrow", "xrightarrow", "xleftarrow", "xrightarrow[x+y]", "xleftarrow[\\alpha]", "xrightarrow[]"]
 /** mathtools's \DeclarePairedDelimiter'd commands (the engine reads them as preamble.ts writes them: \LXpaired) */
 const PAIRED = [["pdA", "\\lvert", "\\rvert"], ["pdB", "\\lVert", "\\rVert"], ["pdC", "(", ")"], ["pdD", ".", "\\rangle"]]
 const paired = (f: string) => PAIRED.reduce((x, [n, l, r]) => x.replace(new RegExp(`\\\\${n}(?![A-Za-z])`, "g"), `\\LXpaired{${l}}{${r}}`), f)
