@@ -1,0 +1,13 @@
+% fixture: text/latexe-bold-12pt
+% tier: T3
+% engine: document
+% covers: \LaTeXe in bold (12pt): \boldmath in its \mbox (series b…), the \varepsilon from cmmib and the subscript's shift from cmbsy's parameters at text and script size (fontmath.ltx's bold version, the .fd files' sizes); in \textbf, \small, \large and \Huge
+% issue: #350
+\documentclass[12pt]{article}
+\begin{document}
+\section{About}
+Normal \LaTeXe{} and bold \textbf{\LaTeXe} in text, {\small\bfseries small \LaTeXe} and {\large\bfseries large \LaTeXe}.
+
+{\Huge\bfseries \LaTeXe\par}
+{\footnotesize\bfseries\itshape \LaTeXe{} and \scriptsize \LaTeXe\par}
+\end{document}

@@ -1185,8 +1185,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
   for (const p of ps) {
     if (p.kind === "text") { appendSymbols(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, { enc: attrs.enc, select: (enc) => symbolFont(k, size, attrs, enc), used: doc.textDefaults ??= new Set() }, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
     if (p.kind === "logo") {
-      if (p.name === "LaTeXe" && attrs.ser !== "m") throw new Unsupported("\\LaTeXe in bold (\\boldmath)")
-      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), mathEnv(k, size, ctx.amsmath), TEXT, false), { kind: "math", on: false, width: 0 }]
+      // (\LaTeXe: \boldmath in a series b…)
+      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), ((env) => (attrs.ser.startsWith("b") ? env.bold!() : env))(mathEnv(k, size, ctx.amsmath)), TEXT, false), { kind: "math", on: false, width: 0 }]
       list.push(...logoNodes(p.name, font, () => sfFont(k, size, attrs), state, (l) => hpack(l), epsilon)); ctx.ignoreSpaces = false; continue
     }
     if (p.kind === "currentlabel") {
