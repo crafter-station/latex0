@@ -116,11 +116,9 @@ export function appendSymbols(list: Node[], text: string, font: Font, env: Symbo
     // \add@accent{94 or 126}{}: \accent with no letter after it, the space factor 1000
     if (name === "textasciicircum" || name === "textasciitilde") {
       list.push(charNode(font, name === "textasciicircum" ? 94 : 126)); state.spaceFactor = 1000
-      // (spanish.ldf's \~ is \es@accent: \bbl@allowhyphens after it unless a space follows)
-      if (name === "textasciitilde" && accentHyphens.on) {
-        if (at + 1 >= chars.length) throw new Unsupported("spanish.ldf's \\textasciitilde before a command") // (what \futurelet sees)
-        if (chars[at + 1] !== " ") list.push(penalty(10000), glue(0))
-      }
+      // (spanish.ldf's \~ is \es@accent: \bbl@allowhyphens after it unless a space follows; at the end of the text what
+      // \futurelet sees is the command, group or end of the paragraph after it, not a space)
+      if (name === "textasciitilde" && accentHyphens.on && chars[at + 1] !== " ") list.push(penalty(10000), glue(0))
       continue
     }
     if (name === "textunderscore") { list.push(kern(em(".06em"), true), vpack([{ kind: "rule", width: em(".3em"), height: 26214, depth: 0 }])); state.spaceFactor = 1000; continue }
