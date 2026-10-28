@@ -32,6 +32,7 @@ import { endDocument, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
 import { anchor, autorefLanguage, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
+import { germanShorthand, germanShorthandNodes, germanT1, isGerman, type GermanShorthand } from "./german"
 import { frenchMarkSpace, frenchNoteStart, frenchNumero, frenchPunctuation, frenchQuote, frenchUp } from "./french"
 import { babelGuillemet, isPortuguese, portugueseHyphen, portugueseShorthand } from "./portuguese"
 import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand, spanishText } from "./spanish"
@@ -219,6 +220,9 @@ export function labelWrite(refs: Refs, key: string, label = refs.label, href = r
 
 /** What a paragraph's surroundings set: the start of its list (in place of the indent box) and its shape. */
 export interface ParagraphOptions {
+  /** an \everypar takes the indentation off (\@afterheading's, \@doendpe's): no indentation, the paragraph starting at
+   *  its first node (not at a \noindent) */
+  everyparNoindent?: boolean
   /** plain groups and font declarations read (no \everypar runs in them here) */
   groups?: boolean
   start?: Node[]; parShape?: [number, number][]; clubPenalty?: number
@@ -296,6 +300,8 @@ type Piece =
   | { kind: "logo"; name: string }
   /** french.ldf's active ; : ! ?, \og and \fg, \up{text} (and \ier …), \no (\No, \nos, \Nos) */
   | { kind: "frpunct"; ch: string } | { kind: "frquote"; right: boolean } | { kind: "frup"; text: string } | { kind: "frno"; cmd: string }
+  /** babel-german's "- "= "~ "" "| "/ "` "' */
+  | GermanShorthand
   /** ~, \label{key}, \ref{key}, \pageref{key} */
   | { kind: "tie" } | { kind: "ctlspace" } | { kind: "currentlabel"; label: string; href: string }
   /** babel: \selectlanguage{lang}, \begin{otherlanguage}{lang} and its \end (`other`, `endother`), otherlanguage*'s
@@ -512,7 +518,16 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       if (body[i + 1] === "`") throw new Unsupported(`french's ${body[i]}\``) // (the ligature of ?` and !`)
       flushText(); out.push({ kind: "frpunct", ch: body[i] }); i++; continue
     }
-    if (isPortuguese(lang.name) && body[i] === '"') { flushText(); out.push(portugueseShorthand(body.slice(i, i + 2))); i += 2; continue } // (portuges.ldf's)
+    if (isGerman(lang.name) && body[i] === '"') { // (babel-german's shorthands)
+      const sh = germanShorthand(body.slice(i, i + 2), lang.name)
+      if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) }
+      i += 2; continue
+    }
+    if (isPortuguese(lang.name) && body[i] === '"') { // (portuges.ldf's)
+      const sh = portugueseShorthand(body.slice(i, i + 2))
+      if (sh.kind === "guillemet" && germanT1.on) text += sh.right ? "»" : "«"; else { flushText(); out.push(sh) }
+      i += 2; continue
+    }
     if (body[i] === "\\" && body[i + 1] !== undefined && "#%&".includes(body[i + 1])) { text += body[i + 1]; i += 2; continue }
     if (body.startsWith("\\$", i)) { flushText(); out.push({ kind: "symbol", name: "textdollar" }); i += 2; continue }
     // a text symbol (\textdegree …); the spaces after a control word go
@@ -1149,6 +1164,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push(...(spanishLayout.on ? spanishGuillemet(p.right, attrs.enc, k, size, font, state) : babelGuillemet(p.right, attrs.enc, k, size, font, state, !!ctx.amsmath)))
     }
     else if (p.kind === "babelskip") list.push(glue(0))
+    else if (p.kind === "deshort") list.push(...germanShorthandNodes(p.sh, attrs.enc, k, size, font, state, !ctx.restricted, !list.length))
     else if (p.kind === "frpunct") frenchPunctuation(list, p.ch, font, state, attrs.fam === "cmtt", !ctx.restricted)
     else if (p.kind === "frquote") frenchQuote(list, p.right, attrs.enc, k, size, font, state, !!ctx.amsmath)
     else if (p.kind === "frup") list.push(...frenchUp(p.text, attrs.enc, attrs.fam, attrs.ser, attrs.shape, font, state))
@@ -1303,7 +1319,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const refs = doc.refs
       if (!refs) throw new Unsupported(`paragraph adapter: \\${p.kind} outside a document`)
       if (p.kind === "autoref" && !refs.hyper) throw new Unsupported("\\autoref without hyperref")
-      if (p.kind === "autoref" && babelState.b && babelState.lang !== babelState.b.main) throw new Unsupported(`\\autoref in babel's ${babelState.lang}`) // (hyperref's names in \extras<lang>)
+      if (p.kind === "autoref" && babelState.b && (babelState.lang !== babelState.b.main || isGerman(babelState.lang))) throw new Unsupported(`\\autoref in babel's ${babelState.lang}`) // (hyperref's names in \extras<lang>)
       if (p.kind === "nameref" && !refs.nameref) throw new Unsupported("\\nameref without nameref")
       const known = refs.prev?.get(p.key)
       if (!known) { // \nfss@text{\reset@font\bfseries ??}
@@ -1531,7 +1547,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const params = classParams(k)
   const font = opts.attrs ? selectFont(k, size, opts.attrs) : opts.font ? loadFont(dataFont(opts.font.name), opts.font.at) : sizeFont(k, size)
   const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
-  let indent = true
+  let indent = !opts.everyparNoindent, noindentFirst = false
   let mathSurround = mathData().dimens.mathsurround
   body = squeeze(body)
   // leading paragraph assignments, scanned as TeX scans them (§§ 440–463)
@@ -1539,7 +1555,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     const m = body.match(/^\\([a-z]+)\s*/)
     if (!m) break
     const name = m[1]
-    if (name === "noindent") { indent = false; body = body.slice(m[0].length); continue }
+    if (name === "noindent") { indent = false; noindentFirst = true; body = body.slice(m[0].length); continue }
     if (!(name in INT_PARAMS || name in DIMEN_PARAMS || name === "parshape" || name === "mathsurround")) break
     const s = new Scanner(body.slice(m[0].length).replace(/^=\s*/, ""), env) // optional equals (§ 1224)
     if (name in INT_PARAMS) params[INT_PARAMS[name as keyof typeof INT_PARAMS]] = s.scanInt().value
@@ -1553,9 +1569,8 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     body = s.rest().trimStart()
   }
   const ps = pieces(body, true, { groups: !!opts.groups, grouped: !!opts.topDecls, centercr: !!opts.centercr })
-  // (where a \noindent starts the paragraph, its language is the one before: a \noindent the engine puts there for an
-  // \everypar is not one)
-  if (!indent && (ps[0]?.kind === "babel" || ps[0]?.kind === "foreign")) throw new Unsupported("babel's language commands after \\noindent")
+  // (where a \noindent starts the paragraph, its language is the one before)
+  if (noindentFirst && (ps[0]?.kind === "babel" || ps[0]?.kind === "foreign")) throw new Unsupported("babel's language commands after \\noindent")
   const lang0 = languageHyphenation(babelState.lang)
   if (opts.parShape) params.parShape = opts.parShape
   if (opts.hsize !== undefined) params.hsize = opts.hsize

@@ -3,7 +3,8 @@
 // (\date<lang>), its patterns (\language, \l@<lang> of TeX Live's language.dat) and \lefthyphenmin and
 // \righthyphenmin (\<lang>hyphenmins), and its extras (\extras<lang>: \frenchspacing). Each language is
 // what its .ldf says (babel-english's english.ldf, babel-spanish's spanish.ldf with its defaults: what
-// spanish.ts models, babel-portuges's portuges.ldf, babel-french's french3.ldf: french.ts); options and languages not
+// spanish.ts models, babel-portuges's portuges.ldf, babel-french's french3.ldf: french.ts, babel-german's german.ldf and
+// ngerman.ldf: german.ts); options and languages not
 // modeled throw Unsupported. babel's commands select other languages loaded (#338): babelState.
 
 import type { ClassOptionData } from "../layout/classdata"
@@ -85,6 +86,17 @@ const FRENCH_MONTHS = ["janvier", "f\\'evrier", "mars", "avril", "mai", "juin", 
  *  \up{er}\xspace, \xspace \relax; \FBdatespace \space) */
 const frDate = (d: Date) => `${d.getUTCDate()}${d.getUTCDate() === 1 ? "\\up{er}" : ""} ${FRENCH_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
 
+/** babel-german.def's \captionsallgerman */
+const germanCaptions: Captions = {
+  refname: "Literatur", abstractname: "Zusammenfassung", bibname: "Literaturverzeichnis", chaptername: "Kapitel", appendixname: "Anhang",
+  contentsname: "Inhaltsverzeichnis", listfigurename: "Abbildungsverzeichnis", listtablename: "Tabellenverzeichnis", indexname: "Index",
+  figurename: "Abbildung", tablename: "Tabelle", partname: "Teil", enclname: "Anlage(n)", ccname: "Verteiler", headtoname: "An", pagename: "Seite",
+  proofname: "Beweis",
+}
+const GERMAN_MONTHS = ["Januar", "Februar", "M\\\"arz", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"]
+/** babel-german.def's \date@german@de: \number\day.~\month@german\space\number\year */
+const deDate = (d: Date) => `${d.getUTCDate()}.~${GERMAN_MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+
 /** each option's language: english is TeX Live's language 0 (hyphen.tex), british and its dialects ukenglish's */
 const LANGUAGES: Record<string, LanguageDef> = {
   english: { captions: LATEX_CAPTIONS, today: usDate, patterns: "en-us", hyphenmins: [2, 3], number: 0 },
@@ -100,12 +112,14 @@ const LANGUAGES: Record<string, LanguageDef> = {
   portuges: { captions: portugueseCaptions(false), today: ptDate, patterns: "pt", hyphenmins: [2, 3], number: 9 },
   brazil: { captions: portugueseCaptions(true), today: ptDate, patterns: "pt", hyphenmins: [2, 3], number: 9 },
   brazilian: { captions: portugueseCaptions(true), today: ptDate, patterns: "pt", hyphenmins: [2, 3], number: 9 },
+  german: { captions: germanCaptions, today: deDate, patterns: "de-1901", hyphenmins: [2, 2], number: 6, frenchspacing: true },
+  ngerman: { captions: germanCaptions, today: deDate, patterns: "de-1996", hyphenmins: [2, 2], number: 7, frenchspacing: true },
   french: { captions: frenchCaptions, today: frDate, patterns: "fr", hyphenmins: [2, 3], number: 5, frenchspacing: true, lc: { 39: 39 } },
 }
 
 /** the languages babel loaded, the main one (the last), and those the class's options gave (global: hyperref and
  *  cleveref read them too) */
-export interface Babel { languages: string[]; main: string; global: string[] }
+export interface Babel { languages: string[]; main: string; global: string[]; /** english.ldf's \dateenglish (its \bbl@tempb from the dialect loaded before it) */ englishDate?: "UK" | "AU" }
 
 /** \usepackage[options]{babel}: the class's options that are languages, then its own (a language twice is once) */
 export function babelOptions(own: string[], classOptions: string[]): Babel {
@@ -115,7 +129,15 @@ export function babelOptions(own: string[], classOptions: string[]): Babel {
   const main = languages[languages.length - 1]
   // (spanish.ldf's shorthands and its \AtBeginDocument act with another main language too)
   if (languages.includes("spanish") && main !== "spanish") throw new Unsupported(`babel with spanish and the main language ${main}`)
-  return { languages: [...new Set(languages)], main, global: classOptions.filter((o) => Object.hasOwn(LANGUAGES, o)) }
+  const loaded = [...new Set(languages)]
+  // english.ldf sets \bbl@tempb for a dialect (UK, AU, US) and leaves it for the option english, whose \today is the
+  // dialect's loaded before it; portuges.ldf sets it too, to none of them
+  let tempb: string | undefined
+  for (const l of loaded) {
+    if (l === "english") break
+    tempb = ["british", "UKenglish"].includes(l) ? "UK" : ["australian", "newzealand"].includes(l) ? "AU" : ["american", "USenglish", "canadian", "portuguese", "portuges", "brazil", "brazilian"].includes(l) ? "US" : tempb
+  }
+  return { languages: loaded, main, global: classOptions.filter((o) => Object.hasOwn(LANGUAGES, o)), ...(tempb === "UK" || tempb === "AU" ? { englishDate: tempb } : {}) }
 }
 
 /** whether a class option is a language babel reads */
@@ -136,7 +158,10 @@ export const babelFrenchspacing = (lang: string): boolean => !!LANGUAGES[lang].f
 export const isSpanish = (b: Babel | null | undefined): boolean => b?.main === "spanish"
 
 /** \today in the language selected (LaTeX's without babel) */
-export const babelToday = (b: Babel | null, d: Date): string => (b ? LANGUAGES[babelState.b ? babelState.lang : b.main] : LANGUAGES.english).today(d)
+export function babelToday(b: Babel | null, d: Date): string {
+  const lang = b ? babelState.b ? babelState.lang : b.main : "english"
+  return lang === "english" && b?.englishDate ? (b.englishDate === "UK" ? ukDate : auDate)(d) : LANGUAGES[lang].today(d)
+}
 
 /** The class parameters with the main language selected: its patterns and hyphenmins */
 export function withBabel(k: ClassOptionData, b: Babel): ClassOptionData {
@@ -160,13 +185,13 @@ export function babelLanguage(b: Babel | undefined | null, lang: string): string
  * the next run's .toc selects with \babel@toc), and what a switch changes elsewhere (`onSwitch`: the captions, the
  * marks' language)
  */
-export const babelState: { b: Babel | null; lang: string; stack: string[]; written: string; onSwitch: ((lang: string) => void) | null; /** the body has language commands that outlast a paragraph */ switches: boolean } = { b: null, lang: "", stack: [], written: "", onSwitch: null, switches: false }
+export const babelState: { b: Babel | null; lang: string; stack: string[]; written: string; onSwitch: ((lang: string) => void) | null; /** the body has language commands that outlast a paragraph */ switches: boolean; /** what the vertical list had in force where each otherlanguage group still open at the top level began (its end restores it) */ groups: { club: number; afterheading: boolean }[] } = { b: null, lang: "", stack: [], written: "", onSwitch: null, switches: false, groups: [] }
 
 /** \begin{document}: the main language selected (none: babel not loaded); `body`: the document's body, whose
  *  \selectlanguage and otherlanguage outlast a paragraph (\foreignlanguage's group ends in it) */
 export function babelBegin(b: Babel | null, onSwitch: ((lang: string) => void) | null = null, body = ""): void {
   const switches = /\\selectlanguage(?![A-Za-z])|\\begin\s*\{otherlanguage\*?\}/.test(body)
-  Object.assign(babelState, { b, lang: b?.main ?? "", stack: [], written: b?.main ?? "", onSwitch, switches })
+  Object.assign(babelState, { b, lang: b?.main ?? "", stack: [], written: b?.main ?? "", onSwitch, switches, groups: [] })
 }
 
 /**
@@ -180,6 +205,18 @@ export function selectInGroups(src: string, grouped = false): void {
     else if (m[1] === "end" || m[0] === "}") depth--
     else if (m[0] === "\\selectlanguage" && depth > 0) throw new Unsupported("\\selectlanguage in a group or an environment")
   }
+}
+
+/** a paragraph's text and babel's groups: how many otherlanguage or otherlanguage* begun before it end in it
+ *  (`closed`), how many it begins that stay open (`opened`); \foreignlanguage starting it (`foreign`) */
+export function languageGroups(text: string): { closed: number; opened: number; foreign: boolean } {
+  let depth = 0, closed = 0
+  for (const m of text.matchAll(/\\LX(end)?otherlanguage(?:star)?\{/g)) {
+    if (!m[1]) depth++
+    else if (depth === 0) closed++
+    else depth--
+  }
+  return { closed, opened: depth, foreign: /^\s*\\foreignlanguage\s*\{/.test(text) }
 }
 
 export type BabelCommand = "select" | "other" | "endother" | "otherstar" | "endotherstar" | "foreign" | "endforeign"

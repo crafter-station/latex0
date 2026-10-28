@@ -1,0 +1,44 @@
+% fixture: babel/switch-heading
+% tier: T3
+% engine: document
+% covers: babel's groups where a paragraph right after a heading starts: otherlanguage* and otherlanguage that end in the paragraph, \foreignlanguage that starts it (\@afterheading's \clubpenalty\@M set in the group, which its end takes back), otherlanguage* ending after a blank line (it lasts), and otherlanguage over paragraphs, the last ending in its end (the \clubpenalty\@M of the heading's first paragraph back), and otherlanguage* begun in a paragraph
+% issue: #338
+\documentclass{article}
+\usepackage[portuguese,english]{babel}
+\begin{document}
+\section{One}
+\begin{otherlanguage*}{portuguese}
+Um parágrafo em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras da página.
+\end{otherlanguage*}
+
+\section{Two}
+\begin{otherlanguage}{portuguese}
+Um parágrafo em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras da página.
+\end{otherlanguage}
+
+\section{Three}
+\foreignlanguage{portuguese}{Um parágrafo} em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras.
+
+\section{Four}
+\begin{otherlanguage*}{portuguese}
+Um parágrafo em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras da página.
+
+\end{otherlanguage*}
+English text after it, a paragraph of its own with information representations and transformations.
+\section{Five}
+First paragraph after the heading, in english, with information representations and transformations of the data.
+
+\begin{otherlanguage}{portuguese}
+Um parágrafo em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras da página.
+
+Outro parágrafo em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras da página.
+\end{otherlanguage}
+\section{Six}
+First paragraph after the heading, then \begin{otherlanguage*}{portuguese}em português até o fim.
+
+Um parágrafo no meio, com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras.
+
+Outro parágrafo em português com armazenamento e comunicações eletrônicas estabelecidas, que ocupa duas linhas inteiras da página.
+\end{otherlanguage*}
+
+\end{document}

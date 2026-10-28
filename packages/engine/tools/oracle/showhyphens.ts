@@ -2,7 +2,7 @@
 // the engine's Liang implementation word by word, in each language's patterns: English
 // (/usr/share/dict/words in cmr10), British English likewise, Spanish and Portuguese (words made
 // of their syllables, in T1: ecrm1000, whose characters the patterns are in).
-//   bun engine hyphen:check [--words N] [--lang en-us|en-gb|es|pt|fr]
+//   bun engine hyphen:check [--words N] [--lang en-us|en-gb|es|pt|fr|de-1901|de-1996]
 
 import { execFileSync } from "node:child_process"
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
@@ -37,7 +37,7 @@ export function shortDisplay(list: Node[]): string {
 export function engineShowHyphens(h: Hyphenator, word: string, lang: HyphenLanguage = LANGUAGES["en-us"]): string {
   const font = loadFont(dataFont(lang.font), 10 * 65536)
   const list: Node[] = [glue(0)]
-  appendText(list, lang.t1 ? word.replace(/œ/g, "\xf7") : word, font, { spaceFactor: 1000 }) // (the characters in T1: Latin-1's, and œ)
+  appendText(list, lang.t1 ? word.replace(/œ/g, "\xf7").replace(/ß/g, "\xff") : word, font, { spaceFactor: 1000 }) // (the characters in T1: Latin-1's, œ and ß)
   list.push(glue(0))
   hyphenateFollowingWord(list, 0, { hyphenator: h, fontOf: () => font, lHyf: lang.mins[0], rHyf: lang.mins[1], ucHyph: 1, ...(lang.lc ? { lc: lang.lc } : {}) })
   return shortDisplay(list.slice(1, -1))
@@ -51,6 +51,24 @@ const LANGUAGES: Record<string, HyphenLanguage> = {
   es: { tex: "spanish", mins: [2, 2], font: "ecrm1000", t1: true },
   pt: { tex: "portuguese", mins: [2, 3], font: "ecrm1000", t1: true },
   fr: { tex: "french", mins: [2, 3], font: "ecrm1000", t1: true, lc: { 39: 39 } },
+  "de-1901": { tex: "german", mins: [2, 2], font: "ecrm1000", t1: true },
+  "de-1996": { tex: "ngerman", mins: [2, 2], font: "ecrm1000", t1: true },
+}
+
+/** Words of German syllables (compounds of two to five), from a fixed seed */
+function germanWords(n: number): string[] {
+  const onsets = ["", "b", "d", "f", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "w", "z", "sch", "ch", "pf", "st", "sp", "str", "kr", "tr", "gr", "br", "bl", "fl", "fr", "gl", "kl", "schw", "zw"]
+  const nuclei = ["a", "e", "i", "o", "u", "ä", "ö", "ü", "ei", "au", "eu", "ie", "äu", "aa", "ee"]
+  const codas = ["", "", "n", "r", "s", "t", "ch", "ck", "ß", "ng", "nd", "st", "tz", "ft", "ll", "mm", "rn", "lt"]
+  let seed = 91
+  const r = (k: number) => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % k }
+  const words: string[] = []
+  while (words.length < n) {
+    let w = ""
+    for (let s = 2 + r(4); s > 0; s--) w += onsets[r(onsets.length)] + nuclei[r(nuclei.length)] + codas[r(codas.length)]
+    if (!/^(ck|ß|ng|tz|ll|mm)/.test(w)) words.push(w)
+  }
+  return words
 }
 
 /** Words of Spanish (or Portuguese, or French) syllables (onset, nucleus with or without an accent, coda), from a fixed
@@ -114,6 +132,7 @@ export function hyphenCheck(n: number, id = "en-us"): number {
   if (!lang) throw new Error(`hyphen:check: no language ${id}`)
   let words: string[]
   if (id === "es" || id === "pt" || id === "fr") words = syllableWords(n, id === "pt", id === "fr")
+  else if (id.startsWith("de-")) words = germanWords(n)
   else {
     const all = readFileSync("/usr/share/dict/words", "utf8").split("\n").filter((w) => /^[A-Za-z]+$/.test(w))
     const step = Math.max(1, Math.floor(all.length / n))
@@ -126,7 +145,7 @@ export function hyphenCheck(n: number, id = "en-us"): number {
   // displayed exactly as TeX displays it.
   const diffs = words.map((w, i) => ({ w, tex: tex[i], ours: engineShowHyphens(h, w, lang) })).filter((d) => d.tex !== d.ours)
   const hyphenated = tex.filter((t) => t.includes("-")).length
-  console.log(`${words.length} ${id} words${id === "es" ? " of Spanish syllables" : id === "pt" ? " of Portuguese syllables" : id === "fr" ? " of French syllables" : " from /usr/share/dict/words"}, ${hyphenated} hyphenated by TeX`)
+  console.log(`${words.length} ${id} words${id === "es" ? " of Spanish syllables" : id === "pt" ? " of Portuguese syllables" : id === "fr" ? " of French syllables" : id.startsWith("de-") ? " of German syllables" : " from /usr/share/dict/words"}, ${hyphenated} hyphenated by TeX`)
   for (const d of diffs.slice(0, 20)) console.log(`  ✗ ${d.w}: TeX ${d.tex}  engine ${d.ours}`)
   console.log(diffs.length ? `HYPHENATION CHECK FAILED: ${diffs.length} differences` : "HYPHENATION CHECK PASSED: identical to TeX")
   return diffs.length ? 1 : 0

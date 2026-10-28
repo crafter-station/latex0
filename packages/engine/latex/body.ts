@@ -26,7 +26,7 @@ import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
 import { needsVerticalMode, titlepage, verticalMaterial } from "./vmode"
-import { babelAux, babelSwitch } from "./babel"
+import { babelAux, babelState, babelSwitch, languageGroups } from "./babel"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -106,6 +106,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
         if (m[4] !== undefined) {
           const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
           const { lang, write } = babelSwitch(what, m[6])
+          // (otherlanguage's group: what its end restores)
+          if (what === "other" || what === "otherstar") babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
+          else if (what !== "select") babelState.groups.pop()
           if (write) v.nodes.push({ kind: "whatsit", text: babelAux(lang) }, ...(v.nobreak ? [penalty(10000)] : []))
         } else if (m[1] !== undefined) {
           for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
@@ -139,6 +142,10 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // a run-in heading goes in place first: its title sees the counters as the paragraph starts
     const head = run.runIn ? run.runIn() : null
     const text = counted(b.text, true)
+    // (otherlanguage over paragraphs ending in one after a run-in heading or a list: what its end restores is not modeled
+    // there)
+    const lgs = languageGroups(text)
+    if ((head || b.noindent || (b.afterThm && v.doendpe)) && (lgs.closed || lgs.opened)) throw new Unsupported("otherlanguage over paragraphs after a run-in heading or a list")
     if (head) { // \@xsect's \everypar: the indent box gives way to the heading, \clubpenalty\@M
       const start = head
       run.runIn = null
@@ -180,7 +187,11 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // starts it inside the environment's group: \everypar's assignments there do not last
     const segs = displaySegments(text)
     // (so do a {\color …} group and a tabular: the paragraph starts inside it)
-    const grouped = !!cg || tabularStart(text) || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
+    // (and babel's otherlanguage or otherlanguage* that ends in it, or \foreignlanguage that starts it: their groups;
+    // otherlanguage's end restores what was in force where it began)
+    const langs = languageGroups(text), lg = langs.closed > 0 || langs.foreign
+    const restore = langs.closed ? babelState.groups[babelState.groups.length - langs.closed] : null
+    const grouped = !!cg || tabularStart(text) || lg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
     // (footnotes read in such a color group, and a leading tabular's p{width} entries, see its \clubpenalty, which the
     // group's end takes back)
     let leadNoteClub: number | undefined
@@ -191,7 +202,10 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       else if (!grouped) { v.club = run.k.ints.clubpenalty; v.afterheadingEverypar = false }
       else leadNoteClub = run.k.ints.clubpenalty
     }
-    try { paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) ? leadNoteClub : undefined) } finally { delete cx.doc.vmodeClub }
+    if (restore) { v.club = restore.club; v.afterheadingEverypar = restore.afterheading }
+    try { paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) || lg ? leadNoteClub : undefined) } finally { delete cx.doc.vmodeClub }
+    babelState.groups.splice(babelState.groups.length - langs.closed, langs.closed)
+    for (let i = 0; i < langs.opened; i++) babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
     return
   }
   if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }

@@ -23,7 +23,7 @@ import { setgroup } from "./xcolor"
 import { crefWrites, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
 import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
-import { isSpanish } from "./babel"
+import { isSpanish, languageGroups } from "./babel"
 import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
 import { hlistInput } from "./paragraph"
 import { labelText, preset, unbraced, type ListSetup, type ResumeScope } from "./enumitem"
@@ -275,6 +275,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   let envState: DeclState = { size: ctx.size, attrs: bodyAttrs ?? cx.normalAttrs, align: null }, declared = false
   b.items.forEach(({ label: given, parts }, i) => {
     if (given) frenchTextGuard(given)
+    // (babel's otherlanguage over an item's paragraphs: what its end restores is not modeled in a list)
+    if (parts.some((p) => p.kind === "text" && languageGroups(p.text).closed)) throw new Unsupported("otherlanguage over an item's paragraphs")
     run.hyperItem = hyper && (b.env === "enumerate" || b.env === "thebibliography") // hyperref's \item: \if@nmbrlist
     // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
     // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
@@ -443,7 +445,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       }
       // the nested list's group is over: its footnotes see the item's \clubpenalty (\@M right after a
       // heading); \@doendpe's \par sets \@clubpenalty for the lines
-      else if (p.start === "doendpe") { typeset("\\noindent " + p.text, { ...shape, ...un, ...body, ...groups, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty }, parsep, size); itemClub = undefined }
+      else if (p.start === "doendpe") { typeset(p.text, { ...shape, ...un, ...body, ...groups, noteClubPenalty: itemClub ?? run.k.ints.clubpenalty, everyparNoindent: true }, parsep, size); itemClub = undefined }
       else {
         // a paragraph's \everypar resets \clubpenalty; after \\ with no text (a list next) none starts
         if (p.text) itemClub = undefined

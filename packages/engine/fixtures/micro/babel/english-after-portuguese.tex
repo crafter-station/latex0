@@ -1,0 +1,14 @@
+% fixture: babel/english-after-portuguese
+% tier: T3
+% engine: document
+% covers: english.ldf's \dateenglish when portuges.ldf was loaded between australian and english (its \bbl@tempb none of UK or AU: the US date; british, loaded after it, does not count)
+% issue: #338
+\documentclass{article}
+\usepackage[australian,portuguese,english,british]{babel}
+\title{A title}
+\author{An author}
+\begin{document}
+\selectlanguage{english}
+\maketitle
+Some text.
+\end{document}

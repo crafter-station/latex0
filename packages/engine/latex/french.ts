@@ -154,7 +154,10 @@ export function frenchCaptionStart(cx: Ctx, name: string, number: string, roman:
 }
 
 /** text typeset as characters alone (a caption, a list's label, a mark) where french's active ; : ! ? would add their
- *  spaces: not modeled (`loaded`: french is loaded, its language where the text is typeset not known) */
+ *  spaces, or babel-german's " its shorthands: not modeled (`loaded`: the language is loaded, which one is selected where
+ *  the text is typeset not known) */
 export function frenchTextGuard(text: string, loaded = false): void {
-  if ((loaded ? babelState.b?.languages.includes("french") : babelState.lang === "french") && /[;:!?]/.test(text)) throw new Unsupported(`french's ; : ! ? in "${text}"`)
+  const on = (lang: string) => (loaded ? !!babelState.b?.languages.includes(lang) : babelState.lang === lang)
+  if (on("french") && /[;:!?]/.test(text)) throw new Unsupported(`french's ; : ! ? in "${text}"`)
+  if ((on("german") || on("ngerman")) && text.includes('"')) throw new Unsupported(`babel-german's " in "${text}"`)
 }
