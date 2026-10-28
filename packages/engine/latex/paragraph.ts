@@ -906,6 +906,11 @@ export function otherFontName(k: ClassOptionData, a: FontAttrs, enc: "OMS" | "OM
 function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
   const sf = (Object.keys(k.sizes) as SizeCommand[]).find((s) => k.sizes[s].font.at === k.sizes[size].scriptSize)
   if (sf) return selectFont(k, sf, a)
+  // (another size option's size command of that size: the .fd files' font there, which no class changes)
+  if (!k.families) for (const option of ["10pt", "11pt", "12pt"]) {
+    const other = classData("article", option), s = (Object.keys(other.sizes) as SizeCommand[]).find((x) => other.sizes[x].font.at === k.sizes[size].scriptSize)
+    if (s) return selectFont(other, s, a)
+  }
   // (\normalfont: math family 0's script font, or with T1 the EC font of that size, as \@makefnmark's)
   if (a.fam !== "cmr" || a.ser !== "m" || a.shape !== "n") throw new Unsupported(`\\LaTeX at ${size}`)
   const ref = a.enc === "T1" ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
