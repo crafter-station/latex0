@@ -72,10 +72,14 @@ export class Counters {
     return this.sectionalString(level, true)
   }
 
-  /** the sectioning counters to `level`, the outermost (article's section, report's chapter) in \@Alph after \appendix */
+  /**
+   * the sectioning counters to `level`, the outermost (article's section, report's chapter) in \@Alph after \appendix;
+   * in an anchor, hyperref's \hyper@makecurrent makes an \@Alph that is not the kernel's (spanish.ldf's layout) Alph\number
+   */
   private sectionalString(level: number, h: boolean): string {
     const alph = this.appendix && (!h || this.appendix.hyper)
-    return (this.cls === "article" ? this.sectional.slice(1, level + 1) : this.sectional.slice(0, level + 1)).map((n, i) => (i === 0 && alph ? representation("Alph", n) : String(n))).join(".")
+    const outer = (n: number) => (h && spanishLayout.on ? `Alph${n}` : representation("Alph", n))
+    return (this.cls === "article" ? this.sectional.slice(1, level + 1) : this.sectional.slice(0, level + 1)).map((n, i) => (i === 0 && alph ? outer(n) : String(n))).join(".")
   }
 
   /** the type of a heading's anchor: hyperref's \Hy@chapapp after \appendix for the outermost level */

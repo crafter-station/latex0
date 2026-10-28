@@ -1,0 +1,19 @@
+% fixture: hyperref/appendix-anchor-spanish-article
+% tier: T3
+% engine: document
+% covers: an appendix section's anchor with babel's spanish layout in article: hyperref's \hyper@makecurrent sees an \@Alph that is not the kernel's (spanish.ldf's \layoutspanish) and makes it Alph\number (appendix.Alph1), the text keeping A; \ref and \autoref to it
+% issue: #347
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{hyperref}
+\begin{document}
+Vea \ref{ap:b} y \autoref{ap:a}.
+\section{Uno}
+Texto.
+\appendix
+\section{Extra}\label{ap:a}
+Texto.
+\section{Otro}\label{ap:b}
+\subsection{Dentro}
+Fin.
+\end{document}
