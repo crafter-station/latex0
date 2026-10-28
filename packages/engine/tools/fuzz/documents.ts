@@ -490,7 +490,7 @@ export function makeDocument(r: () => number): string {
   // nameref alone (not with titlesec or cleveref yet)
   nrOn = !hyper && !isLetter && r() < 0.12
   if (nrOn) out.push("\\usepackage{nameref}")
-  // titlesec (after hyperref): its defaults, or \titleformat's font, label, sep and \titlerule
+  // titlesec: its defaults, or \titleformat's font, label, sep and \titlerule
   tsOn = cls === "article" && !nrOn && !out.includes("\\pagestyle{headings}") && !out.includes("\\usepackage{fancyhdr}") && r() < 0.2
   if (tsOn) {
     out.push("\\usepackage{titlesec}")
@@ -500,6 +500,11 @@ export function makeDocument(r: () => number): string {
       const label = pick(["", `\\the${name}`, `\\the${name}\\quad`])
       out.push(`\\titleformat{\\${name}}${r() < 0.2 ? "[hang]" : ""}{${format}}{${label}}{${pick(["0em", "0pt", "1em", "6pt", ".5em"])}}{}${r() < 0.5 ? "[\\titlerule]" : ""}`)
     }
+  }
+  // hyperref after titlesec instead (its titlesec patches), with an odd number of formats: no draw
+  if (tsOn && hyper && out.filter((l) => l.startsWith("\\titleformat")).length % 2 === 1) {
+    const hl = out.filter((l) => /\{hyperref\}$|^\\hypersetup/.test(l))
+    out.splice(0, out.length, ...out.filter((l) => !hl.includes(l)), ...hl)
   }
   // natbib: its options, and a \bibliographystyle in the preamble or at the end (read back from the .aux)
   natOn = !isLetter && r() < 0.15

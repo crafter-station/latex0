@@ -82,6 +82,8 @@ export interface Preamble {
   crefNames: CrefNameDef[]
   /** titlesec: each level's format */
   titlesec: TitleFormats | null
+  /** hyperref loaded after titlesec: its patches (\ttl@Hy@refstepcounter, \ttl@Hy@steplink) */
+  titlesecHyperref: boolean
   /** \if@titlepage: report and book, unless notitlepage (\maketitle and the abstract on pages of their own) */
   titlepage: boolean
   /** \usepackage[T1]{fontenc} */
@@ -202,6 +204,7 @@ export function readPreamble(src: string): Preamble {
   let fancy: FancyHdr | null = null
   let fancyGeometry: number | null = null // how many geometry calls came before the first \pagestyle{fancy}
   let hyper = false // hyperref, with the dvips driver
+  let titlesecHyperref = false
   const hyperOpts = hyperDefaults()
   let hyperNotes = true
   let nameref = false // (hyperref loads it)
@@ -380,8 +383,8 @@ export function readPreamble(src: string): Preamble {
       for (const f of ["algorithm", "float"]) if (names.includes(f) && !usesFloat && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf(f))) algorithm.afterHyperref = true
       if (names.includes("algorithm") || names.includes("float")) usesFloat = true
       if (names.includes("hyperref")) {
-        // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
-        if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) throw new Unsupported("hyperref after titlesec")
+        // (hyperref's titlesec patches when titlesec came first: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's)
+        if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) titlesecHyperref = true
         hyper = true
       }
       if (names.includes("nameref")) nameref = true
@@ -560,7 +563,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */
