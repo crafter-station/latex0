@@ -124,15 +124,16 @@ export interface Preamble {
 interface PreambleFont { t1: boolean; fonts: FontSetup }
 
 /** The font packages (#340) and what each sets: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and its math fonts;
- *  PSNFSS's times.sty (all three), helvet.sty (\sfdefault, its scaled= option read by ot1phv.fd and the others as they load)
- *  and courier.sty (\ttdefault) */
-const FONT_PACKAGES = ["lmodern", "times", "helvet", "courier"]
+ *  PSNFSS's times.sty (all three), helvet.sty (\sfdefault, its scaled= option read by ot1phv.fd and the others as they load),
+ *  courier.sty (\ttdefault) and palatino.sty (Palatino, with times.sty's sans and typewriter) */
+const FONT_PACKAGES = ["lmodern", "times", "helvet", "courier", "palatino"]
 function fontPackage(name: string, f: FontSetup, options: string | null = null): FontSetup {
   if (options !== null && name !== "helvet") throw new Unsupported(`preamble: \\usepackage[${options}]{${name}}`)
   switch (name) {
     case "lmodern": return { ...f, rm: "lmr", sf: "lmss", tt: "lmtt", math: "lmodern" }
     case "times": return { ...f, rm: "ptm", sf: "phv", tt: "pcr" }
     case "courier": return { ...f, tt: "pcr" }
+    case "palatino": return { ...f, rm: "ppl", sf: "phv", tt: "pcr" }
     case "helvet": {
       // \define@key{Hel}{scaled}[.95]{\def\Hv@scale{#1}}
       let scale = f.phvScale

@@ -1,5 +1,5 @@
 // Document fuzzer (#30): random whole documents in what the document adapter
-// lays out — classes, sizes, papers, one or two sides, the geometry package, OT1 or T1 fonts, Latin Modern, Times, Helvetica and Courier, page styles, paragraphs with inline math,
+// lays out — classes, sizes, papers, one or two sides, the geometry package, OT1 or T1 fonts, Latin Modern, Times, Helvetica, Courier and Palatino, page styles, paragraphs with inline math,
 // \textbf and the other font commands, and footnotes, \chapter (report) and \section to \subsubsection (starred or not), itemize and enumerate
 // lists (nested, \item[label]), description, quote, quotation, verse, center, flushleft,
 // flushright and abstract, started in or out of a paragraph, with text right after them or after a
@@ -368,10 +368,10 @@ export function makeDocument(r: () => number): string {
   }
   const t1 = r() < 0.3
   if (t1) out.push("\\usepackage[utf8]{inputenc}", "\\usepackage[T1]{fontenc}") // the EC fonts
-  // font packages: lmodern (the Latin Modern families and math fonts), times, helvet (scaled) and courier (not with letter
+  // font packages: lmodern (the Latin Modern families and math fonts), times, helvet (scaled), courier and palatino (not with letter
   // or listings; first in the preamble)
   const fontPkg = !isLetter && r() < 0.2 ? pick(["\\usepackage{lmodern}", "\\usepackage{lmodern}", "\\usepackage{times}", "\\usepackage{helvet}",
-    "\\usepackage[scaled=.92]{helvet}", "\\usepackage{courier}", "\\usepackage{times}\n\\usepackage[scaled]{helvet}"]) : null
+    "\\usepackage[scaled=.92]{helvet}", "\\usepackage{courier}", "\\usepackage{times}\n\\usepackage[scaled]{helvet}", "\\usepackage{palatino}"]) : null
   const ams = r() < 0.35
   amsOn = ams
   if (ams) out.push(pick(["\\usepackage{amsmath}", "\\usepackage{amsmath,amssymb}"]))

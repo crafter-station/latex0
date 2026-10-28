@@ -15,8 +15,8 @@ import { texEnv } from "../tex"
 import { ALPHABETS } from "./classes"
 
 const OUT = "packages/engine/data/nfss"
-/** the families: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and PSNFSS's Times, Helvetica and Courier (times.sty, helvet.sty, courier.sty) */
-export const FAMILIES = ["lmr", "lmss", "lmtt", "ptm", "phv", "pcr"]
+/** the families: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and PSNFSS's Times, Helvetica, Courier and Palatino (times.sty, helvet.sty, courier.sty, palatino.sty) */
+export const FAMILIES = ["lmr", "lmss", "lmtt", "ptm", "phv", "pcr", "ppl"]
 /** the packages that set up math fonts, as a preamble loads them */
 export const MATH_PACKAGES: Record<string, string> = { lmodern: "\\usepackage{lmodern}" }
 /** the encodings, series and shapes the engine selects (FontAttrs) */

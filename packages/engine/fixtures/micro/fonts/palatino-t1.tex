@@ -1,0 +1,18 @@
+% fixture: fonts/palatino-t1
+% tier: T3
+% engine: document
+% covers: palatino.sty with T1 at 11pt: pplr8t and its shapes (ppl's small caps, bold as ssub of b), Helvetica and Courier for sans and typewriter, accents and composites, footnote marks and \textbullet from ppl at \sf@size and the size, math in Computer Modern
+% issue: #340
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{palatino}
+\begin{document}
+\section{Palatino}
+Café, naïve, Ångström and ``quoted'' text with 10--20 --- dashes; hyphenation works: typesetting, composition, paragraphs, demerits.\footnote{A footnote in Palatino.} Math: $x^2+y_i$.
+
+{\itshape italic} {\slshape slanted} {\scshape Small Caps} {\bfseries bold \itshape bold italic} {\sffamily sans \bfseries bold} {\ttfamily typewriter}
+\begin{itemize}
+\item {\small item} {\Large Large}
+\end{itemize}
+\end{document}

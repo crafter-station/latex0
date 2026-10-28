@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 791,
-  "exact": 791,
+  "fixtures": 793,
+  "exact": 793,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 458706
+  "glyphs": 459146
  },
  "areas": [
   {
@@ -81,8 +81,8 @@
   },
   {
    "area": "fonts",
-   "fixtures": 11,
-   "exact": 11
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "footnotes",
@@ -156,8 +156,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 26,
-   "exact": 26
+   "fixtures": 27,
+   "exact": 27
   },
   {
    "area": "sections",
@@ -5627,6 +5627,17 @@
    "issue": "#340"
   },
   {
+   "id": "fonts/palatino-t1",
+   "file": "micro/fonts/palatino-t1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 220,
+   "covers": "palatino.sty with T1 at 11pt: pplr8t and its shapes (ppl's small caps, bold as ssub of b), Helvetica and Courier for sans and typewriter, accents and composites, footnote marks and \\textbullet from ppl at \\sf@size and the size, math in Computer Modern",
+   "issue": "#340"
+  },
+  {
    "id": "fonts/times-ot1",
    "file": "micro/fonts/times-ot1.tex",
    "area": "fonts",
@@ -7483,6 +7494,17 @@
    "status": "pass",
    "glyphs": 161,
    "covers": "under pdflatex (PDF, positions from its box dumps): \\sqrt[n] (\\root n\\of: the index in \\rootbox at scriptscript style, a \\mathchoice of \\r@@t: \\mkern5mu, the index raised .6(height-depth) of the radical box, \\mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)"
+  },
+  {
+   "id": "pdflatex/palatino-t1-pdftex",
+   "file": "micro/pdflatex/palatino-t1-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 220,
+   "covers": "under pdflatex, palatino.sty with T1 at 11pt: pplr8t and its shapes (ppl's small caps, bold as ssub of b), Helvetica and Courier for sans and typewriter, accents and composites, footnote marks and \\textbullet from ppl at \\sf@size and the size, math in Computer Modern",
+   "issue": "#340"
   },
   {
    "id": "pdflatex/text-font-commands",
