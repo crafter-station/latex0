@@ -231,7 +231,7 @@ export function makeDocument(r: () => number): string {
     const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
     const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", "", "A longer text, in a node."])
     const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]",
-      "[align=center]", "[draw,text width=2cm,align=center]", "[ellipse,draw]", "[text width=15mm]", "[node font=\\footnotesize,draw]", "[label=above:$a$]", "[draw,label={[red]right:r}]"])
+      "[align=center]", "[draw,text width=2cm,align=center]", "[ellipse,draw]", "[text width=15mm]", "[node font=\\footnotesize,draw]", "[label=above:$a$]", "[draw,label={[red]right:r}]", "[draw,circle,double]"])
     // (\\ only where lines are set: align= or a text width)
     const node = () => { const o = nodeOptions(); return `node${o} {${/align|text width/.test(o) && r() < 0.5 ? "Two\\\\lines" : nodeText()}}` }
     const names: string[] = []
@@ -242,7 +242,8 @@ export function makeDocument(r: () => number): string {
       ` arc (${pick(["0:90", "30:200", "180:-45"])}:${pick(["1", "5mm", "0.5"])})`, ` grid${pick(["", "[step=0.5]"])} ${coord().replace(/^\+\+?/, "")}`,
       ` -- ($(${num()},${num()})!0.5!(${num()},${num()})$)`, ` -- ($(${num()},${num()})+(1,0)$)`,
       ` -- plot${pick(["", "[mark=*]"])} coordinates {${coord().replace(/^\+\+?/, "")} ${coord().replace(/^\+\+?/, "")}}`, ` -- plot[domain=0:1,samples=4] (\\x,{\\x*\\x})`])
-    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]", "[opacity=0.5]", "[line cap=round,line join=round]", "[x=0.5cm]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]", "[opacity=0.5]", "[line cap=round,line join=round]", "[x=0.5cm]",
+      "[double]", "[double=red,thick]", "[double distance=2pt,->]", "[double equal sign distance]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
     const named = () => {
       const name = `n${names.length}`
       const at = names.length && r() < 0.5 ? `[draw,${pick(["right", "below", "above"])} of=${pick(names)}]` : `${pick(["[draw]", "[draw,circle]", "[fill=yellow!20]", ""])} at ${coord().replace(/^\+\+?/, "")}`

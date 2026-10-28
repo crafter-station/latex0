@@ -45,7 +45,16 @@ export type OptionCall =
   | { op: "strokeopacity" | "fillopacity"; arg: Toks }
 
 /** \tikz@mode's switches, \tikz@mode@<name> */
-export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue"
+export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue" | "doubletrue" | "doublefalse"
+
+/** \tikz@double@setup: the line width and inner line width from \pgflinewidth (sp) when the path is stroked */
+export type DoubleSetup =
+  /** the default: 2\pgflinewidth + 0.6pt, inner 0.6pt */
+  | { kind: "default" }
+  /** double distance=d: d + 2\pgflinewidth, inner d */
+  | { kind: "distance"; d: number }
+  /** double distance between line centers=d: \pgflinewidth + d, inner d - \pgflinewidth */
+  | { kind: "centers"; d: number }
 
 /** a transformation, as TikZ hands it to pgf */
 export type TransformCall =
@@ -86,6 +95,9 @@ export interface TikzState {
   textColor: Toks
   strokeColor: Toks
   fillColor: Toks
+  /** \pgfinnerstrokecolor (set at once by double=color) and \tikz@double@setup */
+  innerStrokeColor: Toks
+  doubleSetup: DoubleSetup
   /** \tikz@dashpattern (its items as typed) and \tikz@dashphase */
   dashPattern: Toks[]
   dashPhase: Toks
@@ -341,6 +353,7 @@ export class Tikz {
       lineWidth: 0x6666, // 0.4pt
       options: [], mode: [], transform: null,
       textColor: [], strokeColor: [], fillColor: [],
+      innerStrokeColor: chars("white"), doubleSetup: { kind: "default" },
       dashPattern: [], dashPhase: chars("0pt"),
       corner: null, arcCorners: false,
       anchor: chars("center"), autoAnchor: false, autoDirection: "left",
@@ -657,6 +670,17 @@ export class Tikz {
         st().mode.push(on)
       }, "")
     }
+    // double draw options (tikz.code.tex 192–233): every double/.try after double
+    opt("double", (v) => {
+      const temp = str(this.expand(v))
+      if (temp === "none") { st().mode.push("doublefalse"); return }
+      if (temp !== "") st().innerStrokeColor = v // \pgfsetinnerstrokecolor{#1}
+      st().mode.push("doubletrue")
+      this.set("every double/.try")
+    }, "")
+    opt("double distance", (v) => { st().doubleSetup = { kind: "distance", d: this.length(v) }; this.set("double") })
+    opt("double distance between line centers", (v) => { st().doubleSetup = { kind: "centers", d: this.length(v) }; this.set("double") })
+    k.pgfkeys("/tikz/double equal sign distance/.style={double distance between line centers=0.45ex}")
     opt("rounded corners", (v) => {
       // \pgfsetcornersarced{\pgfpoint{#1}{#1}}
       const x = this.length(v), y = this.length(v)

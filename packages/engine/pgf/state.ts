@@ -59,6 +59,8 @@ export interface PgfLocal {
   shadings: ShadingMacros
   /** \pgf@xx, \pgf@xy, \pgf@yx, \pgf@yy: the vectors \pgfpointxy multiplies (\pgfsetxvec, \pgfsetyvec) */
   vectors: PgfVectors
+  /** \pgfinnerlinewidth (sp) when above 0pt, with \pgfinnerstrokecolor as the driver's color text (null: 0pt) */
+  inner: { width: number; spec: string; named: boolean } | null
 }
 
 /** the unit vectors, in sp */
@@ -66,7 +68,7 @@ export interface PgfVectors { xx: number; xy: number; yx: number; yy: number }
 /** pgfcorepoints.code.tex 500–501: \pgfsetxvec{\pgfpoint{1cm}{0cm}}, \pgfsetyvec{\pgfpoint{0cm}{1cm}} */
 export const DEFAULT_VECTORS: PgfVectors = { xx: 1864679, xy: 0, yx: 0, yy: 1864679 }
 
-const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null, shadings: {}, vectors: DEFAULT_VECTORS }
+const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null, shadings: {}, vectors: DEFAULT_VECTORS, inner: null }
 
 /** a box's extent, as pgf's four registers (\pgf@picminx …, \pgf@pathminx …) */
 export interface PgfExtent { minX: number; maxX: number; minY: number; maxY: number }

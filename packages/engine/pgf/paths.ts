@@ -12,6 +12,7 @@ import { toNumber } from "./fixed"
 import { pgfProcessRound, roundCornerIfNeeded } from "./round"
 import { pgfPoint, qpoint, type PgfPoint, type PgfPointMacro } from "./points"
 import { emptyExtent, EMPTY_EXTENT, type PgfState, type SoftPathItem } from "./state"
+import { pgfSetStrokeColor } from "./graphicstate"
 import { mul, transformPoint } from "./transformations"
 
 /** 2^30 sp: from here on TeX reading a register (or \the's text) says "Dimension too large" (not modeled) */
@@ -224,6 +225,18 @@ export function pgfUsePath(s: PgfState, d: PgfDriver, keys: string[]) {
     const start = open ? prepareStartOfPath(s, d) : null
     invoke(s, d)
     action?.()
+    const inner = s.local.inner
+    if (inner) { // \pgf@stroke@inner@line: in a scope and a group, the path again in the inner width and color
+      if (open && [...s.local.startTips, ...s.local.endTips].some((t) => /harpoon|Implies/.test(t))) throw new Unsupported("pgf: a double line with harpoon or Implies tips")
+      const saved = s.strokeColor // (\pgf@strokecolor@global)
+      d.beginscope()
+      d.setlinewidth(inner.width)
+      pgfSetStrokeColor(d, inner.spec, inner.named)
+      invoke(s, d)
+      d.stroke()
+      d.endscope()
+      s.strokeColor = saved
+    }
     if (open) {
       addArrow(s, d, start)
       s.endgroup()

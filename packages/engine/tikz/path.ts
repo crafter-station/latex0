@@ -688,7 +688,7 @@ export class TikzPicture {
       if (m === "filltrue" || m === "fillfalse") fill = m === "filltrue"
       else if (m === "drawtrue" || m === "drawfalse") draw = m === "drawtrue"
       else if (m === "cliptrue") clip = true
-      else boundary = true
+      else if (m === "boundarytrue") boundary = true
     }
     // Step 5': the options, in a graphic scope and a group
     const options = st.options.length > 0
@@ -699,9 +699,22 @@ export class TikzPicture {
       this.runOptions()
     }
     if (!clip) { this.begin(); this.begin(); this.begin() } // \pgfidscope, \begingroup
-    // Step 10: \pgfusepath{fill,draw,clip}
     this.syncLineWidth()
+    // Step 9: a double stroke in a group and a graphic scope, \tikz@double@setup there (\pgfsetlinewidth is global)
+    const double = draw && st.mode.reduce((on, m) => (m === "doubletrue" ? true : m === "doublefalse" ? false : on), false)
+    if (double) {
+      this.begin()
+      this.d.beginscope()
+      const lw = this.s.lineWidth, ds = st.doubleSetup
+      const [width, inner] = ds.kind === "default" ? [2 * lw + 39322, 39322] : ds.kind === "distance" ? [ds.d + 2 * lw, ds.d] : [lw + ds.d, ds.d - lw]
+      pgfSetLineWidth(this.s, this.d, pt(width))
+      this.globalLineWidth()
+      if (inner > 0) this.s.setLocal({ inner: { width: inner, spec: this.colorSpec(st.innerStrokeColor), named: isColorName(str(st.innerStrokeColor)) } })
+    }
+    // Step 10: \pgfusepath{fill,draw,clip}
     pgfUsePath(this.s, this.d, [...(fill ? ["fill"] : []), ...(draw ? ["draw"] : []), ...(clip ? ["clip"] : [])])
+    // Step 11
+    if (double) { this.d.endscope(); this.end() }
     // Step 13: \box\tikz@figbox
     if (this.L.figbox) this.s.out.push(hpack(this.L.figbox))
     // Step 14

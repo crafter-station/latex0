@@ -153,8 +153,16 @@ const KINDS: Record<string, Kind> = {
   }),
 }
 
-/** \pgfarrowslinewidthdependent{#1}{#2}{#3} (587–594), without an inner line: #1 + #2\pgflinewidth */
-const lineWidthDependent = (s: PgfState, base: string, factor: string) => dimen(base) + mul(factor, s.lineWidth)
+/** \pgfarrowslinewidthdependent{#1}{#2}{#3} (587–606): #1 + #2\pgflinewidth, or with an inner line (a double line)
+ *  #1 + #2((1 - #3/2)\pgflinewidth - (#3/2)\pgfinnerlinewidth), each step a register */
+function lineWidthDependent(s: PgfState, base: string, factor: string, outer = "0") {
+  const inner = s.local.inner
+  if (!inner) return dimen(base) + mul(factor, s.lineWidth)
+  let xa = s.lineWidth
+  xa += mul(outer, mul("-.5", s.lineWidth))
+  xa += mul(outer, mul("-.5", inner.width))
+  return dimen(base) + mul(factor, xa)
+}
 /** \pgfarrowslengthdependent{#1}{#2}{#3} (609–613): #1 + #2\pgfarrowlength + #3\pgflinewidth */
 const lengthDependent = (s: PgfState, p: Params, base: string, factor: string, lw: string) => dimen(base) + mul(factor, p.length) + mul(lw, s.lineWidth)
 
@@ -178,7 +186,7 @@ const META: Record<string, Kind> = {
     defaults: (s, p, late) => {
       p.length = lineWidthDependent(s, "1.6pt", "2.2")
       late.push(() => { p.width = lengthDependent(s, p, "0.0pt", "2.096774", "0") })
-      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
       p.roundCap = p.roundJoin = true
     },
     key: (p) => metaKey(p, false, `${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`),
@@ -214,9 +222,9 @@ const META: Record<string, Kind> = {
   // Latex (809–900)
   Latex: {
     defaults: (s, p, late) => {
-      p.length = lineWidthDependent(s, "3.0pt", "4.5")
+      p.length = lineWidthDependent(s, "3.0pt", "4.5", ".8")
       late.push(() => { p.width = lengthDependent(s, p, "0.0pt", ".75", "0") })
-      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
     },
     key: (p) => metaKey(p, false, `${p.roundJoin ? "j" : ""}`),
     setup: (s, p, i) => {
@@ -266,10 +274,10 @@ const META: Record<string, Kind> = {
   // Stealth (903–1028)
   Stealth: {
     defaults: (s, p, late) => {
-      p.length = lineWidthDependent(s, "3.0pt", "4.5")
+      p.length = lineWidthDependent(s, "3.0pt", "4.5", ".8")
       late.push(() => { p.width = lengthDependent(s, p, "0.0pt", ".75", "0") })
       late.push(() => { p.inset = lengthDependent(s, p, "0.0pt", "0.325", "0") })
-      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
     },
     key: (p) => metaKey(p, true, `${p.roundJoin ? "j" : ""}`),
     setup: (s, p, i) => {
