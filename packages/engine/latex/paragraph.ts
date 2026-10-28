@@ -180,6 +180,8 @@ export interface DocState {
   /** the size of the last \check@mathfonts (\everymath's): \sf@size is its script size, which amsart's \@makefnmark
    *  takes (amsart's \AtBeginDocument sets \footnotesep from \footnotesize M$^1$) */
   mathSize?: SizeCommand
+  /** letter.cls's \medskipamount (\parskip as it loads), which \medskip in a paragraph takes */
+  medskipamount?: GlueSpec
   /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
   thanks?: { n: number; src: string }[]
   /** \clubpenalty in vertical mode where the paragraph being read starts, when it is not the paragraph's own (a box
@@ -685,8 +687,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (pb) { flushText(); out.push({ kind: "pagebreak", no: !!pb[1], n: pb[2] === undefined ? 4 : Number(pb[2]) }); i += pb[0].length; continue }
     const colb = body.slice(i).match(/^\\columnbreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/)
     if (colb) { flushText(); out.push({ kind: "pagebreak", no: false, n: colb[1] === undefined ? 4 : Number(colb[1]), column: true }); i += colb[0].length; continue }
-    const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
-    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]], amount: bs[1] }); i += bs[0].length; continue }
+    const bs = body.slice(i).match(/^\\(bigskip|medskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
+    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: bs[1] === "medskip" ? "\\medskipamount" : SKIP_AMOUNTS[bs[1]], amount: bs[1] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
     // \textsubscript and \textsuperscript (a macro skips the spaces before its argument)
@@ -1482,6 +1484,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // (amsart's amounts are .7\baselineskip plus .7\baselineskip and its halves, by the size: \@adjustvertspacing)
       if (p.amount && k.cls === "amsart") { if (size !== "normalsize") throw new Unsupported(`\\${p.amount} at \\${size} in amsart`); g = k.glue[`${p.amount}amount`] }
       else if (typeof p.skip !== "string") g = p.skip
+      else if (p.skip === "\\medskipamount") g = doc.medskipamount ?? SKIP_AMOUNTS.medskip
       else try { g = parseGlue(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${p.skip}}`) }
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0

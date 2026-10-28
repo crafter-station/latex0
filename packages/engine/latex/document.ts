@@ -36,7 +36,7 @@ import { readPreamble } from "./preamble"
 import { runState } from "./run"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
-import { IGNORE_DEPTH, VerticalList } from "./vlist"
+import { dimen, IGNORE_DEPTH, VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { COLOR_STY, Colors, colorPush, xcolor } from "./xcolor"
@@ -206,7 +206,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     const c = pre.hyperOpts.colors, spec = (x: string) => (usesXcolor ? colors.spec(x) : COLOR_STY[x] ?? colorSpec(x))
     hyperDriver.colors = { link: spec(c.link), anchor: spec(c.anchor), cite: spec(c.cite), file: spec(c.file), url: spec(c.url) }
   }
-  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}), ...(pre.cite ? { cite: pre.cite } : {}) }
+  const doc: DocState = { footnote: 0, refs, ...(pre.cls === "letter" ? { medskipamount: dimen(pre.medskipamount) } : {}), ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}), ...(pre.cite ? { cite: pre.cite } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
