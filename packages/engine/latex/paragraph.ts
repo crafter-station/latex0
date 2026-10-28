@@ -29,7 +29,7 @@ import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, enlargeInsert, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
-import { anchor, autorefLanguage, autorefName, hyperDriver, refLink, spotAnchor, tocLink } from "./hyperref"
+import { anchor, autorefLanguage, autorefName, hyperDriver, natLink, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
 import { germanShorthand, germanShorthandNodes, germanT1, isGerman, type GermanShorthand } from "./german"
@@ -41,7 +41,7 @@ import { xcolor } from "./xcolor"
 import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
 import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
-import { NAT_COMMANDS, natCite, type NatStyle } from "./natbib"
+import { NAT_COMMANDS, natCite, type NatEntry, type NatItem, type NatStyle } from "./natbib"
 import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
@@ -195,6 +195,8 @@ export interface Refs {
   prev: Map<string, NewLabel> | null
   /** \bibcite values the run before wrote: key → number */
   cites?: Map<string, string>
+  /** natbib's \bibcite values the run before wrote */
+  natCites?: Map<string, NatEntry>
   writes: { node: Node; key: string; label: string; href: string; name: string }[]
   /** nameref is loaded (hyperref loads it): \label writes \@currentlabelname, \nameref reads it */
   nameref?: boolean
@@ -334,6 +336,8 @@ type Piece =
   | { kind: "parbox"; pos: string; height: string | null; inner: string; width: string; src: string }
   /** \hspace{skip} and \hspace*{skip}; \rule[raise]{width}{height} */
   | { kind: "hspace"; star: boolean; skip: string } | { kind: "rule"; raise: string; width: string; height: string }
+  /** \penalty<number> */
+  | { kind: "penaltycmd"; n: number }
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
   | { kind: "group"; inner: Piece[] } | { kind: "decl"; name: string; inner: Piece[] }
   /** {\large …}: a size command in a group */
@@ -341,7 +345,7 @@ type Piece =
   /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
   /** a float that starts in the paragraph (\LXfloat{n}) */
   | { kind: "float"; n: number }
-  | { kind: "natcite"; cmd: string; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean }
+  | { kind: "natcite"; cmd: string; star: boolean; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean; preSrc: string; postSrc: string }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
   /** cleveref's \cref{keys}, \Cref, \cpageref and \Cpageref (`star`: no links), \crefrange{a}{b} and friends; what they
@@ -621,6 +625,12 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // \hspace (\@ifstar skips the spaces before the *); \rule (\@ifnextchar[ skips them before the [)
     const hs = body.slice(i).match(/^\\hspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (hs) { flushText(); out.push({ kind: "hspace", star: !!hs[1], skip: hs[2] }); i += hs[0].length; continue }
+    // \newblock (thebibliography's, not openbib: article.cls and natbib): \hskip .11em\@plus.33em\@minus.07em
+    const nb = body.slice(i).match(/^\\newblock(?![A-Za-z])\s*/)
+    if (nb) { flushText(); out.push({ kind: "hspace", star: false, skip: ".11em plus .33em minus .07em" }); i += nb[0].length; continue }
+    // \penalty and its number (the space after the digits ends it)
+    const pn = body.slice(i).match(/^\\penalty(?![A-Za-z])\s*(-?\d+) ?/)
+    if (pn) { flushText(); out.push({ kind: "penaltycmd", n: Math.max(-10000, Math.min(10000, Number(pn[1]))) }); i += pn[0].length; continue }
     const ru = body.slice(i).match(/^\\rule(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{([^{}]*)\}/)
     if (ru) { flushText(); out.push({ kind: "rule", raise: ru[1] ?? "0pt", width: ru[2], height: ru[3] }); i += ru[0].length; continue }
     // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
@@ -693,7 +703,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (nat && nat[1] in NAT_COMMANDS) {
       // one optional argument is the post-note; two are the pre- and post-notes
       const [pre, post] = nat[4] !== undefined ? [nat[3], nat[4]] : ["", nat[3] ?? ""]
-      flushText(); out.push({ kind: "natcite", cmd: nat[1], keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined }); i += nat[0].length; continue
+      flushText(); out.push({ kind: "natcite", cmd: nat[1], star: nat[2] === "*", keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined, preSrc: pre, postSrc: post }); i += nat[0].length; continue
     }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
@@ -1152,6 +1162,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push(glueOf(g))
       if (p.star) list.push(glue(0))
     }
+    else if (p.kind === "penaltycmd") list.push(penalty(p.n))
     else if (p.kind === "rule") {
       // \@rule: \leavevmode\hbox{\vrule\@width w\@height h+raise\@depth-raise}, the lengths set in the box (its font)
       const env = lengthEnv(ctx, font)
@@ -1241,15 +1252,41 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "natcite" || p.kind === "cite" && doc.natbib) {
       if (!doc.natbib) throw new Unsupported(`\\${p.kind === "natcite" ? p.cmd : "cite"} without natbib`)
-      const n = p.kind === "natcite" ? p : { cmd: "cite", keys: p.keys, pre: [], post: [], optional: false }
+      const n = p.kind === "natcite" ? p : { cmd: "cite", star: false, keys: p.keys, pre: [], post: [], optional: false, preSrc: "", postSrc: "" }
       const bold = selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }) // \reset@font\bfseries
-      for (const item of natCite(doc.natbib, n.cmd, n.keys.length, n.pre.length ? "pre" : "", n.post.length ? "post" : "", n.optional)) {
-        if (item.kind === "text") appendText(list, item.text, font, state, !ctx.restricted)
-        else if (item.kind === "q") appendText(list, "?", bold, state, !ctx.restricted)
-        else if (item.kind === "ctl") list.push(glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
-        else if (item.kind === "note") appendPieces(list, item.which === "pre" ? n.pre : n.post, font, size, state, ctx, attrs)
-        else { const l: Node[] = []; appendText(l, item.text, font, { spaceFactor: 1000 }, false); list.push(hpack(l)); state.spaceFactor = 1000 }
+      const keys = n.keys.map((x) => x.trim())
+      const entries = keys.map((x) => doc.refs?.natCites?.get(x) ?? null)
+      const hyper = !!doc.refs?.hyper
+      // the items in order: source runs (and the notes in them) through the main loop at once, the rest as it comes
+      const put = (items: NatItem[], out: Node[], c: PieceContext) => {
+        let run = ""
+        const flush = () => { if (run) appendPieces(out, pieces(run, false, { groups: true }), font, size, state, c, attrs); run = "" }
+        for (const item of items) {
+          if (item.kind === "src") run += item.src
+          else if (item.kind === "note") run += `{${item.which === "pre" ? n.preSrc : n.postSrc}}`
+          else if (item.kind === "break" || item.kind === "link" && !hyper) { for (const x of item.items) if (x.kind === "src") run += x.src; else { flush(); put([x], out, c) } } // (\hyper@natlinkbreak: the links around it, below)
+          else {
+            flush()
+            if (item.kind === "q") appendText(out, "?", bold, state, !c.restricted)
+            else if (item.kind === "penalty") out.push(penalty(1000)) // (\penalty\@m)
+            else if (item.kind === "unskip") { if (out.at(-1)?.kind === "glue") out.pop() }
+            else if (item.kind === "mbox") { const l: Node[] = []; const saved = state.spaceFactor; state.spaceFactor = 1000; put(item.items, l, { ...c, restricted: true }); state.spaceFactor = saved; out.push(hpack(l)); state.spaceFactor = 1000 }
+            else {
+              // each \hyper@natlinkbreak ends the link and starts another
+              const parts: NatItem[][] = [[]]
+              for (const x of item.items) { if (x.kind === "break") parts.push([x], []); else parts.at(-1)!.push(x) }
+              for (const part of parts) {
+                if (part[0]?.kind === "break") { put(part, out, c); continue }
+                const l: Node[] = []
+                put(part, l, hyperDriver.pdftex ? c : { ...c, restricted: true })
+                out.push(...natLink(l, item.key, k.sizes[size].baselineskip.width))
+              }
+            }
+          }
+        }
+        flush()
       }
+      put(natCite(doc.natbib, n.cmd, n.star, keys, entries, n.preSrc !== "", n.postSrc !== "", n.optional), list, ctx)
     }
     else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after

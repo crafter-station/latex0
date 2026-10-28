@@ -142,6 +142,14 @@ export function linkBox(text: Node[], color: string | undefined, pdfmark: string
   return [start, box, end, sdict(pdfmark)]
 }
 
+/** natbib's \hyper@natlinkstart{key} … \hyper@natlinkend: \hyper@linkstart{cite}{cite.key} (pdfmark.def: an \hbox with
+ *  \Hy@colorlink, H.S and \Hy@AllowHyphens, the text (set in restricted horizontal mode), H.L and the /ANN pdfmark); with
+ *  pdfTeX the link nodes where it stands */
+export function natLink(content: Node[], key: string, baselineskip: number): Node[] {
+  if (hyperDriver.pdftex) return refLink(content, `cite.${key}`, undefined, "cite")
+  return [hpack(colored("cite", [HS(), penalty(10000), glue(0), ...content, HL(baselineskip), sdict(`[/Subtype /Link/Dest (cite.${key}) cvn/H /I${border()}/Color [0 1 0] H.B /ANN pdfmark`)]))]
+}
+
 /** A toc line's or a footnote mark's link (\hyper@linkstart … \hyper@linkend): an hbox with H.S, \Hy@AllowHyphens,
  *  the entry, H.L, the /ANN pdfmark; with pdfTeX the link nodes around the entry where it stands */
 export function tocLink(content: Node[], name: string, baselineskip: number): Node[] {

@@ -1,0 +1,60 @@
+% fixture: natbib/bibitems-authoryear
+% tier: T3
+% engine: document
+% covers: natbib's thebibliography with \bibitem[Author(year)Long]{key} (\bibsection, \bibhang and \bibsep, labels \hfil\hfill, \@clubpenalty in the items, \bibcleanup) and the citations it defines the run after: \citep, \citet, \citealt, \citealp, \citeauthor, \citeyear, \citeyearpar, \cite, \Citet, \citet*, pre- and post-notes, several keys, the same authors twice (\NAT@yrsep, the year's extra label), an undefined key among them
+% issue: #352
+\documentclass{article}
+\usepackage[round]{natbib}
+\begin{document}
+Early time-series work found effects \citep{brown1982}, whereas the case study of \citet{card1994} found none.
+Later work \citep[see][for a review]{neumark2008}; \citet{dube2010} pioneered the design, as argued by
+\citet[p.~950]{dube2010} and \citet*{dube2010}. We cannot reject zero \citep{card1994,dube2010}, nor
+\citep{card1994,card1995a,card1995b}: \citet{card1994,card1995a} and \citep{brown1982,nokey,manning2003}.
+Others: \citealt{manning2003}, \citealp{manning2003}, \citealp[p.~1]{manning2003}; \citeauthor{dube2010}
+wrote it in \citeyear{dube2010} \citeyearpar{dube2010}. \Citet{vanzyl2001} begins a sentence, \cite{manning2003}
+and \cite[p.~4]{manning2003} end it; \citet{card1994,dube2010} and \citet{nokey,brown1982} differ, with \citep[e.g.][]{neumark2008} and \citet[ch.~2]{neumark2008}.
+
+\begin{thebibliography}{8}
+\providecommand{\natexlab}[1]{#1}
+\bibitem[Brown et~al.(1982)Brown, Gilroy, and Kohen]{brown1982}
+Charles Brown, Curtis Gilroy, and Andrew Kohen.
+\newblock The effect of the minimum wage on employment and unemployment.
+\newblock \emph{Journal of Economic Literature}, 20\penalty0 (2):\penalty0 487--528, 1982.
+
+\bibitem[Card and Krueger(1994)]{card1994}
+David Card and Alan~B. Krueger.
+\newblock Minimum wages and employment: A case study of the fast-food industry in New
+  Jersey and Pennsylvania.
+\newblock \emph{American Economic Review}, 84\penalty0 (4):\penalty0 772--793, 1994.
+
+\bibitem[Card and Krueger(1995{\natexlab{a}})]{card1995a}
+David Card and Alan~B. Krueger.
+\newblock \emph{Myth and Measurement}.
+\newblock Princeton University Press, 1995{\natexlab{a}}.
+
+\bibitem[Card and Krueger(1995{\natexlab{b}})]{card1995b}
+David Card and Alan~B. Krueger.
+\newblock Time-series minimum-wage studies: a meta-analysis.
+\newblock \emph{American Economic Review}, 85\penalty0 (2):\penalty0 238--243, 1995{\natexlab{b}}.
+
+\bibitem[Dube et~al.(2010)Dube, Lester, and Reich]{dube2010}
+Arindrajit Dube, T.~William Lester, and Michael Reich.
+\newblock Minimum wage effects across state borders.
+\newblock \emph{Review of Economics and Statistics}, 92\penalty0 (4):\penalty0 945--964, 2010.
+
+\bibitem[Manning(2003)]{manning2003}
+Alan Manning.
+\newblock \emph{Monopsony in Motion}.
+\newblock Princeton University Press, 2003.
+
+\bibitem[Neumark and Wascher(2008)]{neumark2008}
+David Neumark and William Wascher.
+\newblock \emph{Minimum Wages}.
+\newblock MIT Press, 2008.
+
+\bibitem[van Zyl(2001)]{vanzyl2001}
+Pieter van Zyl.
+\newblock A study.
+\newblock Some Press, 2001.
+\end{thebibliography}
+\end{document}

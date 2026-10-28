@@ -304,7 +304,7 @@ export function makeDocument(r: () => number): string {
       if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`,
         ` \\cref{${ckey()},${ckey()}}`, ` \\Cref{${ckey()},${ckey()},${ckey()}}`, " \\cref{eq:l1,eq:l2,eq:l3}", "~\\cref{eq:l2,eq:3-1,eq:l1}", ` \\cpageref{${key()}}`, ` \\Cpageref{${key()},${key()}}`,
         ` \\crefrange{${key()}}{${key()}}`, ` \\Crefrange{eq:l1}{eq:l${1 + Math.floor(r() * 4)}}`, ...(hyper ? [` \\cref*{${ckey()},${ckey()}}`] : [])])
-      if (r() < 0.006) ws[i] += natOn // natbib with no .bbl: every key undefined
+      if (r() < 0.006) ws[i] += natOn // natbib: keys undefined (no .bbl) or from its thebibliography
         ? pick([" \\citep{b1}", "~\\citet{b2,b1}", " \\cite{b3}", " \\citep[p.~4]{b1}", " \\citet[see][ch.~2]{b2}", " \\citealp{b1}", " \\citeauthor{b3}", " \\citeyearpar{b1}", "~\\cite[][p.~9]{nobody}", " (\\citealt{b1,b2})"])
         : pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
       if (tikzOn && r() < 0.004) ws[i] += ` ${tikzPic(true)}`
@@ -782,7 +782,12 @@ export function makeDocument(r: () => number): string {
     for (let n = r() < 0.3 ? 1 + Math.floor(r() * 3) : 0; n > 0; n--) out.push(`\\${pick(["cc", "encl"])}{${words(r() < 0.3 ? 30 : 4)}}`, ...(r() < 0.3 ? ["", ...(r() < 0.3 ? [""] : [])] : []))
     out.push("\\end{letter}")
   }
-  if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : []))
+  // (natbib: no .bbl, or its own thebibliography with \bibitem[short(year)long]{key}, \newblock and \natexlab)
+  const natBib = () => {
+    const labels = [pick(["Smith(2001)", "Smith et~al.(2001)Smith, Jones, and Lee", ""]), pick(["Smith(2002{\\natexlab{a}})", "Jones and Lee(1999)", "van Dyke(2010)"]), pick(["Smith(2002{\\natexlab{b}})", "Lee(2003)", ""])]
+    return ["\\begin{thebibliography}{3}", ...labels.flatMap((l, i) => [`\\bibitem${l ? `[${l}]` : ""}{b${i + 1}}`, `${words(3)}.`, `\\newblock ${text(5 + Math.floor(r() * 20))}`, ""]), "\\end{thebibliography}"]
+  }
+  if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : natBib()))
   else if (r() < 0.2 && !isLetter) {
     const n = 1 + Math.floor(r() * (r() < 0.2 ? 12 : 4))
     out.push("", `\\begin{thebibliography}{${n < 10 ? "9" : "99"}}`)

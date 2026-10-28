@@ -554,8 +554,9 @@ export function readPreamble(src: string): Preamble {
     return before + cmds.replace(/[^\n]/g, "")
   })
   if (/\\bibliography(?:style)?\b/.test(body)) throw new Unsupported("\\bibliography in a paragraph")
+  // natbib's \natexlab (\NAT@set@cites): its argument in author-year, nothing with numbers (the last run's)
+  if (natbib) { const numbers = natbibStyle(natbib, bibstyles).numbers; body = body.replace(/\\natexlab\s*\{([^{}]*)\}/g, numbers ? "" : "$1") }
   if (setspace && /\\(?:singlespacing|onehalfspacing|doublespacing|setstretch|begin\{(?:spacing|singlespace\*?|onehalfspace|doublespace)\})/.test(body)) throw new Unsupported("setspace's spacing in the document")
-  if (natbib && /\\begin\{thebibliography\}/.test(body)) throw new Unsupported("thebibliography with natbib")
   for (const [cmd, name, star] of operators) body = body.replace(new RegExp(`\\\\${cmd}(?![A-Za-z])`, "g"), () => `\\operatorname${star ? "*" : ""}{${name}}`)
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")

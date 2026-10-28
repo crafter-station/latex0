@@ -52,6 +52,7 @@ import { documentClass } from "./classes"
 import { beamerDocument } from "./beamer"
 import { unbraced } from "./enumitem"
 import { today } from "./frontmatter"
+import { natBibitem, type NatEntry } from "./natbib"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -91,7 +92,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry> }
+interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
@@ -135,7 +136,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   // pgf.sty's compatibility arrows (after xcolor, which tikz loads first): objects whose dvips header specials the
   // preamble puts on the main vertical list
   if (pre.tikz && driver !== "pdftex") v.nodes.push(...pgfCompatObjects())
-  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
+  const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites, natCites: prev?.natCites }
   // a name macro in a label's name (\tableofcontents's \contentsname \@mkboth{…}{…}, \listoftables's \listtablename) means
   // what it means where \nameref reads it: the document's caption names (no language switch changes them), \@mkboth
   // the page style's (\@gobbletwo in plain, empty and myheadings; headings and fancy's \markboth would set marks); a
@@ -379,6 +380,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
       pageLabels: hyper ? pageLabels(pages) : "",
       // each thebibliography numbers its \bibitem from 1; the last \bibcite of a key wins
       cites: new Map(blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, String(i + 1)] as [string, string]) : []))),
+      // natbib's \bibitem: \c@NAT@ctr from 1 in each thebibliography (numbers or not as the run's \@bibsetup)
+      natCites: new Map(pre.natbib ? blocks.flatMap((b) => (b.kind === "bib" ? b.keys.map((key, i) => [key, natBibitem(b.labels[i], i + 1, doc.natbib!.numbers)] as [string, NatEntry]) : [])) : []),
       crefs: new Map((refs.cleveref?.writes ?? []).sort((x, y) => order.get(x.node)! - order.get(y.node)!).map((w) => [w.key, { cref: w.cref, page: { ...w.page!, label: page(w.node) } }])),
     }
   }

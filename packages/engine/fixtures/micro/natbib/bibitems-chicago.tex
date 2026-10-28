@@ -1,0 +1,23 @@
+% fixture: natbib/bibitems-chicago
+% tier: T3
+% engine: document
+% covers: natbib with \bibliographystyle{chicago} and thebibliography: its \bibpunct (open, close, \NAT@sep, \NAT@aysep, \NAT@yrsep) in \citep and \citet with several keys, the same authors twice (\NAT@yrsep, then \unskip and \NAT@spacechar)
+% issue: #352
+\documentclass{article}
+\usepackage{natbib}
+\begin{document}
+One \citep{card1994}, two \citep{card1994,dube2010}, the same authors \citep{card1994,card1995} and
+\citet{card1994,card1995}, then \citet{card1994,dube2010} and \citep[e.g.][p.~5]{dube2010,card1995}.
+
+\bibliographystyle{chicago}
+\begin{thebibliography}{3}
+\bibitem[Card and Krueger(1994)]{card1994}
+David Card and Alan~B. Krueger. Minimum wages and employment.
+
+\bibitem[Card and Krueger(1995)]{card1995}
+David Card and Alan~B. Krueger. Myth and Measurement.
+
+\bibitem[Dube et~al.(2010)Dube, Lester, and Reich]{dube2010}
+Arindrajit Dube, T.~William Lester, and Michael Reich. Minimum wage effects across state borders.
+\end{thebibliography}
+\end{document}
