@@ -1,0 +1,16 @@
+% fixture: amsmath/big-arrows
+% tier: T3
+% engine: document
+% covers: amsmath's \big … \Bigg (\vcenter to a multiple of \big@size, from the ( of \textfont0) with l, r and m, e-TeX's \middle, \longrightarrow and the other \joinrel arrows, \implies and \iff, \smash[t|b] (and \relbar after it), \phantom, \mathstrut, in text, \small, scripts and align
+% issue: #330
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+Since $\bigl(a+b\bigr)^2 \geq 0$ and $\Bigl\{x \Bigm| x>0\Bigr\}$ we get $p\implies q$, $p\iff q$ and $f\colon A\longrightarrow B$,
+$x\mapsto x^2$, $\iota\colon U\hookrightarrow X$; also $\biggl\langle u, v\biggr\rangle$ and $\Biggl[\Biggr]$, {\small $\bigl(\frac{1}{2}\bigr)$ and $\Big|_{0}^{1}$}.
+\begin{align*}
+  f'(x) &= 2x e^{-x}\cos x - x^2 e^{-x}\sin x \\
+        &= x e^{-x}\bigl(2\cos x - x\sin x\bigr) \Longrightarrow \left\{ x \;\middle|\; \frac{1}{x} > 0 \right\}
+\end{align*}
+\[ \mathrm{KHC_8H_4O_4} + \mathrm{NaOH} \longrightarrow \mathrm{H_2O}, \quad \smash[t]{\sum_{i}} a \longleftarrow \phantom{xy}\mathstrut b \Longleftrightarrow c \]
+\end{document}

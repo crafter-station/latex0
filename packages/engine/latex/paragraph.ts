@@ -19,7 +19,7 @@ import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
 import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue, FILL } from "../layout/nodes"
 import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../mathlayout/mlist"
-import { parseMath } from "../mathlayout/parse"
+import { parseMath, type MathText } from "../mathlayout/parse"
 import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
@@ -71,18 +71,49 @@ export const MATH_ALPHABETS: Record<string, number> = { mathrm: 0, mathnormal: 1
 /** The document's math fonts where they are not LaTeX's: `letters`, the family of the Latin letters' \mathcode
  *  (beamer's pureletters: \DeclareMathSymbol{a}\mathalpha{pureletters}{"61}…, the \mathit alphabet's fonts), null
  *  for LaTeX's (letters, cmmi). document() sets it for each run. */
-export const mathFonts: { letters: number | null } = { letters: null }
+export const mathFonts: { letters: number | null; packages: MathPackages } = { letters: null, packages: {} }
+/** The math packages a document loads beyond amsmath: amsfonts (amssymb loads it; its fonts, \mathbb and \mathfrak, and
+ *  the extension font at every size as amsmath declares it), amssymb, mathrsfs */
+export interface MathPackages { amsfonts?: boolean; amssymb?: boolean; mathrsfs?: boolean; mathtools?: boolean; /** array.sty (its \array) */ array?: boolean }
+/** the families of amssymb's symbol fonts AMSa and AMSb (\mathbb), \mathfrak's and mathrsfs's (\mathscr): 8–11, after
+ *  LaTeX's four and the four alphabets' (codegen/math.ts PACKAGE_FAMILIES) */
+const AMS_FONTS = ["msa", "msb", "euf", "rsfs"] as const
+const packageAlphabets = (p: MathPackages): Record<string, number> => ({ ...(p.amsfonts ? { mathbb: 9, mathfrak: 10 } : {}), ...(p.mathrsfs ? { mathscr: 11 } : {}) })
 /** \mathalpha (class 7) mathcodes for A–Z and a–z in family `fam` */
 const LETTERS = (fam: number): Record<number, number> => Object.fromEntries([..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"].map((c) => [c.charCodeAt(0), 0x7000 | (fam << 8) | c.charCodeAt(0)]))
 
 /** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's;
  *  `si`: siunitx is loaded, and its view of the text around */
-export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext): MItem[] {
+export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext, where: { display?: boolean; dollarNext?: boolean; font?: Font; text?: MathText; frame?: (box: BoxNode) => BoxNode; env?: MathEnv } = {}): MItem[] {
   const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
   const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
   // (spanish.ldf's \mathspanish: its operators and decimal comma)
   const operators = spanishText.on ? SPANISH_OPERATORS : undefined
-  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: MATH_ALPHABETS, em, commands, operators, ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  const p = mathFonts.packages
+  const packages = [...(amsmath ? ["amsmath"] : []), ...(p.mathtools ? ["mathtools"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
+  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...where, ...(p.array ? { arrayPackage: true } : {}), ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+}
+
+/**
+ * amsmath's \text and LaTeX's \mbox in a formula at `size` in `attrs`: an \hbox of the text at \f@size, \sf@size or
+ * \ssf@size (\textdef@'s \selectfont there: the size command of that size), the inner formulas with \everymath's style
+ */
+export function mathText(k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, amsmath: boolean): MathText {
+  return (src, which, style, declaration) => {
+    const s = k.sizes[size], target = which === 0 ? s.size : which === 1 ? s.scriptSize : s.scriptScriptSize
+    // the size command of that size: the class's, or another size option's (NFSS's fonts and math sizes are the class's own)
+    let kk = k, at = which === 0 ? size : SIZE_COMMANDS.find((c) => k.sizes[c].size === target)
+    for (const o of ["10pt", "11pt", "12pt"]) {
+      if (at) break
+      kk = classData("article", o); at = SIZE_COMMANDS.find((c) => kk.sizes[c].size === target)
+    }
+    if (!at) throw new Unsupported(`\\text at ${target / 65536}pt (no size command)`)
+    const a = declaration ? fontDeclaration(declaration, attrs, kk, at, doc)! : attrs
+    // \everymath{\displaystyle}: a style command at the start of each inner formula
+    let body = src
+    if (style) { let open = false; body = src.replace(/(\\*)\$/g, (m, bs: string) => (bs.length % 2 ? m : (open = !open) ? `${m}\\${style}style ` : m)) }
+    return hpack(hlistInput(body, kk, at, doc, a, { spaceFactor: 1000 }, amsmath))
+  }
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
@@ -95,14 +126,22 @@ export function siContext(k: ClassOptionData, size: SizeCommand, font: Font, opt
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
-  const m = amsmath ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
+  const env = mathEnvOf(k, size, amsmath)
+  // \mathversion{bold} (amsbsy's \boldsymbol): the same with the bold version's fonts
+  const b = k.sizes[size].boldMath, pk = mathFonts.packages
+  const used = (i: number) => i < 8 || (i === 11 ? pk.mathrsfs : pk.amsfonts) // (families 8–11 as the packages loaded give them)
+  return { ...env, bold: () => ({ ...env, fonts: [b.text, b.script, b.scriptscript].map((fs) => fs.map((f, i) => (used(i) ? loadFont(dataFont(f.name), f.at) : undefined))) }) }
+}
+function mathEnvOf(k: ClassOptionData, size: SizeCommand, amsmath: boolean): MathEnv {
+  const m = amsmath || mathFonts.packages.amsfonts ? k.sizes[size].mathAms : k.sizes[size].math, data = mathData()
   return {
-    // families 0–3, then the math alphabets' (MATH_ALPHABETS)
-    fonts: [m.text, m.script, m.scriptscript].map((fs, s) => [...fs, ...ALPHABET_FONTS.map((a) => k.sizes[size].alphabets[a][s])].map((f) => loadFont(dataFont(f.name), f.at))),
+    // families 0–3, then the math alphabets' (MATH_ALPHABETS), then the packages' (AMS_FONTS)
+    fonts: [m.text, m.script, m.scriptscript].map((fs, s) => [...fs, ...ALPHABET_FONTS.map((a) => k.sizes[size].alphabets[a][s]), ...AMS_FONTS.map((a) => (a === "rsfs" ? mathFonts.packages.mathrsfs : mathFonts.packages.amsfonts) ? k.sizes[size].amsFonts[a][s] : undefined)].map((f) => f && loadFont(dataFont(f.name), f.at))),
     muskips: data.muskips as MathEnv["muskips"], binoppenalty: data.ints.binoppenalty, relpenalty: data.ints.relpenalty,
     scriptspace: data.dimens.scriptspace, nulldelimiterspace: data.dimens.nulldelimiterspace,
     delimiterfactor: data.ints.delimiterfactor, delimitershortfall: data.dimens.delimitershortfall,
     arraycolsep: k.dimens.arraycolsep, // \@arstrutbox: \strutbox at \arraystretch 1, with array.sty's \extrarowheight
+    strut: k.sizes[size].strut, baselineskip: k.sizes[size].baselineskip, normallineskip: k.glue.normallineskip, normallineskiplimit: k.dimens.normallineskiplimit, jot: k.dimens.jot, arrayrulewidth: k.dimens.arrayrulewidth, doublerulesep: k.dimens.doublerulesep,
     arstrut: k.array ? { height: k.sizes[size].strut.height + k.array.extrarowheight, depth: k.sizes[size].strut.depth } : k.sizes[size].strut,
     ...(k.array ? { arrayPackage: true } : {}),
   }
@@ -787,7 +826,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
     }
     if (body[i] === "$") {
-      const j = body.indexOf("$", i + 1)
+      let j = body.indexOf("$", i + 1)
+      while (j > 0 && body[j - 1] === "\\" && (body.slice(i + 1, j).match(/\\*$/)![0].length % 2)) j = body.indexOf("$", j + 1) // (\$ in math)
       if (j < 0) throw new Unsupported("paragraph adapter: unbalanced $")
       flushText(); out.push({ kind: "math", src: body.slice(i + 1, j) }); i = j + 1
     } else if (body[i] === "\\" && FONT_COMMANDS.some((c) => body.startsWith(`\\${c}{`, i) || body.startsWith(`\\${c} {`, i))) {
@@ -1015,7 +1055,7 @@ const FBOXSEP = 3 * 65536, FBOXRULE = 26214
  * \@frameb@x{between}: \hbox{\lower(\fboxrule+\fboxsep+depth)\hbox{\vbox{\hrule\@height\fboxrule \hbox{\vrule\@width\fboxrule
  * between \vbox{\vskip\fboxsep\box\@tempboxa\vskip\fboxsep} between \vrule\@width\fboxrule} \hrule\@height\fboxrule}}}
  */
-function framed(box: BoxNode, between: Node[], xc = false): BoxNode {
+export function framed(box: BoxNode, between: Node[], xc = false): BoxNode {
   if (xc) return xcFramed(box, between, FBOXSEP)
   const vrule = (): Node => ({ kind: "rule", width: FBOXRULE, height: null, depth: null }), hrule = (): Node => ({ kind: "rule", width: null, height: FBOXRULE, depth: 0 })
   const inner = vpack([hrule(), hpack([vrule(), ...between, vpack([glue(FBOXSEP), box, glue(FBOXSEP)]), ...between.map((n) => ({ ...n })), vrule()]), hrule()])
@@ -1563,7 +1603,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined, { dollarNext: true, font, text: mathText(k, size, doc, attrs, !!ctx.amsmath), frame: (b) => framed(b, [], doc.xcolorFbox), env: mathEnv(k, size, ctx.amsmath) }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else if (p.kind === "thanks") {
       // \maketitle's \thanks: \footnotemark (\stepcounter, \nobreak, \@makefnmark: \rlap{\@textsuperscript{\normalfont

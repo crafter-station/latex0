@@ -1,0 +1,11 @@
+% fixture: amsmath/dots-matrix-cells
+% tier: T3
+% engine: document
+% covers: amsmath's \dots and \cdots at the end of a matrix cell before &: LaTeX's \array template puts its $ after the cell (\extra@: a thin space)
+% issue: #330
+\documentclass{article}
+\usepackage{amsmath}
+
+\begin{document}
+A matrix $\begin{pmatrix} 1 & \dots & n \\ a\cdots & b & c\dots \end{pmatrix}$ and $\begin{bmatrix} x\dots & y \end{bmatrix}$.
+\end{document}

@@ -1,0 +1,15 @@
+% fixture: amsmath/overset-boxed
+% tier: T3
+% engine: document
+% covers: amsmath's \overset, \underset and \overunderset (\binrel@: the class measured with \thinmuskip 0, \medmuskip -1mu, \thickmuskip 1mu), \stackrel, \doteq, \iint, \iiint, \idotsint (with \limits: \ints@b), \boxed (\fbox in display style), \mathchoice; in text, scripts, displays and align
+% issue: #330
+\documentclass{article}
+\usepackage{amsmath,amssymb}
+\begin{document}
+We have $A \overset{\text{def}}{=} B$, $x \underset{n\to\infty}{\longrightarrow} 0$, $a \overset{*}{+} b$, $\overset{\circ}{x}$,
+$f \stackrel{?}{=} g$, $x\doteq y$, $\iint_D f\,dA$ and $\boxed{x = 2}$, with $e^{a\overset{1}{=}b}$ and $\mathchoice{D}{T}{S}{SS}^{\mathchoice{D}{T}{S}{SS}}$.
+\[ \iint\limits_{D} f \, dx\,dy = \iiint_V g \quad \idotsint \quad \boxed{\int_0^1 x^2\,dx = \frac{1}{3}} \quad a\overunderset{u}{l}{\to} b \]
+\begin{align}
+  x &\overset{(1)}{\le} y \underset{(2)}{<} z, & E &= \boxed{mc^2}
+\end{align}
+\end{document}

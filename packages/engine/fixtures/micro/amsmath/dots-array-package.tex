@@ -1,0 +1,11 @@
+% fixture: amsmath/dots-array-package
+% tier: T3
+% engine: document
+% covers: amsmath's \dots and \cdots at the end of a matrix cell: LaTeX's \array puts the template's $ after it (a thin space), array.sty's \textonly@unskip (none)
+% issue: #330
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{array}
+\begin{document}
+A matrix $\begin{pmatrix} 1 & \dots & n \\ a\cdots & b & c\dots \end{pmatrix}$ and $\begin{bmatrix} x\dots & y \end{bmatrix}$.
+\end{document}

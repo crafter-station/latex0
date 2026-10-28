@@ -4,16 +4,16 @@
 // classes (§ 1151), rule 5's bin demotion (§§ 728–729); make_ord's kerns and
 // ligatures (§§ 749–753); characters with their italic corrections (§ 755);
 // \overline and \underline (§§ 734–735);
-// operators with and without limits (§§ 749–750); generalized fractions with
-// null delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
+// operators with and without limits (§§ 749–750); generalized fractions and
+// their delimiters (§§ 743–748); sub- and superscripts (§§ 756–759, rules
 // 18a–f); and the inter-atom spacing and penalties of the second pass
 // (§§ 760–767); \left and \right with var_delimiter's variants and extensible
-// characters (§§ 706–714, 762). Radicals and accents follow in #79–#80.
+// characters (§§ 706–714, 762); e-TeX's \middle; radicals (§ 737); accents (§§ 738–742); \nonscript (§ 732).
 
 import { xnOverD } from "../layout/arith"
 import type { GlueSpec } from "../layout/dimen"
-import { SPACE, type CharMetrics, type Font } from "../layout/font"
-import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, charNode, filGlue, ssGlue } from "../layout/nodes"
+import { SPACE, X_HEIGHT, type CharMetrics, type Font } from "../layout/font"
+import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, charNode, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { halign } from "../layout/align"
 
@@ -29,7 +29,39 @@ export type Field =
   | { kind: "mlist"; list: MItem[] }
   /** \array{*\c@MaxMatrixCols c} in a \vcenter (amsmath's matrix environments): each cell's formula, and
    *  whether \\ ended each row (its \@arraycr leaves ${} in the last cell) */
-  | { kind: "array"; rows: MItem[][][]; crs: boolean[] }
+  | { kind: "array"; rows: MItem[][][]; crs: boolean[]; /** a preamble of LaTeX's \array (none: *\c@MaxMatrixCols c) */ cols?: ArrayColumn[]
+      /** \arraystretch as a decimal factor (§ 455: integer part and fraction of 2^16) */ stretch?: [number, number] }
+  /** \big … \Bigg's box (fontmath.ltx: \hbox{$\left#1\vbox to8.5\p@{}\right.\n@space$}; amsmath's \bBigg@: \left#1\vcenter
+   *  to `factor`\big@size{}\right. in an \hbox, \nulldelimiterspace zero), which needs the text size's fonts */
+  | { kind: "big"; delim: Delimiter; height: number } | { kind: "big"; delim: Delimiter; factor: [number, number] }
+  /** \hbox{$\m@th<style>{…}$}, as \mathpalette's \mathsm@sh and \mathph@nt set it: `list` from the style node on; then
+   *  \smash's \finsm@sh (zero height, depth or both) or \phantom's \finph@nt (an empty box with its height and depth, width) */
+  | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh"; /** \llap, \rlap, \clap: \hbox to\z@ with \hss */ lap?: "l" | "r" | "c"; /** in \mathversion{bold} */ bold?: boolean }
+  /** amsmath's \boxed: \fbox{\m@th$\displaystyle#1$}, `frame` the \fbox around \hbox{\kern\fboxsep{…}\kern\fboxsep} */
+  | { kind: "boxed"; list: () => MItem[]; frame: (box: BoxNode) => BoxNode }
+  /**
+   * amsmath's smallmatrix (\hfil$\scriptstyle#$\hfil&&\thickspace\hfil$\scriptstyle#$\hfil, \baselineskip 6\ex@, \lineskip and
+   * \lineskiplimit 1.5\ex@) and \subarray (\substack: one column, \hfil for c, \baselineskip σ10+σ12 and \lineskip 3ξ8 of the
+   * script fonts): an \ialign whose \\ (\math@cr) puts \noalign{\vskip0pt} after its row (`crs`); `thickspace` the kern
+   */
+  | { kind: "stack"; rows: MItem[][][]; crs: boolean[]; layout: "smallmatrix" | "subarray-c" | "subarray-l" | "dcases" | "rcases"; thickspace: number; /** \quad: 1em */ quad?: number }
+  /**
+   * latex.ltx's \ooalign (\c@ncel, \notin's: a \vtop of \ialign{##\crcr…} rows, \baselineskip 0 and \lineskiplimit -\maxdimen, so
+   * \baselineskip glue overlaps them) and \@vereq (\cong's: a \vbox lowered .5pt whose rows \lineskip -.5pt separates); each row
+   * a formula in an \hbox cell (\m@th)
+   */
+  | { kind: "oalign"; rows: (() => MItem[])[]; layout: "ooalign" | "vereq" }
+  /**
+   * an \ialign{##\crcr…} of formulas in a \vbox or \vtop, with \noalign kerns and no interline glue (\nointerlineskip): the
+   * arrows over and under (\overrightarrow, amsmath's \overarrow@ and \underarrow@) and the braces (\overbrace, \underbrace);
+   * `zero`: the formula with \thickmuskip, \medmuskip and \thinmuskip 0mu (amsmath's \arrowfill@)
+   */
+  | { kind: "vstack"; box: "vbox" | "vtop"; items: ({ formula: () => MItem[]; zero?: boolean } | { kern: number | { of: "ex@" | "sigma5"; factor: [number, number] } })[] }
+  /** amsmath's \ext@arrow: \hbox to the widest of the labels (in \hbox{$\scriptstyle\mkern#3mu{label}\mkern#4mu$}) and the arrow's
+   *  natural width, the arrow (\unhbox of \hbox{<fill>\displaystyle}) set in it */
+  | { kind: "xarrow"; fill: () => MItem[]; labels: (() => MItem[])[] }
+  /** \copy\strutbox: \hbox{\vrule height.7\baselineskip depth.3\baselineskip width\z@} (MathEnv.strut) */
+  | { kind: "strut" }
   | null
 /** An ord…inner noad (§ 682). `limits` is an op noad's subtype: \\limits, \\nolimits, or undefined for normal;
  *  `vcenter` makes it a vcenter noad (§ 687) and `line` an over or under noad (§ 687), ords for spacing */
@@ -37,7 +69,13 @@ export interface Noad { noad: NoadType; nucleus: Field; sup: Field; sub: Field; 
   /** a radical noad (§ 683, \radical): its left delimiter */
   radical?: Delimiter
   /** an accent noad (§ 687, \mathaccent): its accent character, an ord for spacing */
-  accent?: Field }
+  accent?: Field
+  /** amsfonts' \widehat and \widetilde: the accent above when the argument, in an \hbox in text style, is wider than `width` */
+  wide?: { accent: Field; width: number; measure: () => MItem[] } }
+/** A column of LaTeX's \array preamble (\@mkpream): its template, \hfil$\relax#$\hfil (c), $\relax#$\hfil (l) or
+ *  \hfil$\relax#$ (r), with what comes before and after it: \hskip\arraycolsep, or an @-expression's $text$ */
+export interface ArrayColumn { align: "c" | "l" | "r"; before: ArraySegment[]; after: ArraySegment[] }
+export type ArraySegment = "colsep" | "rule" | "doublerulesep" | { math: () => MItem[] }
 /** \hskip-\arraycolsep (amsmath's \env@matrix and \endmatrix) */
 export interface ColsepSkip { kind: "colsep" }
 /** \\mskip glue (§ 149 mu_glue): in mu, converted with the math unit of its style (§ 732) */
@@ -48,22 +86,27 @@ export interface MuKern { kind: "mukern"; width: number }
  * \\root index\\of radicand (latex.ltx; amsmath's \\plainroot@ with \\uproot and \\leftroot zero): the index in
  * \\rootbox at scriptscript style, then a \\mathchoice of \\r@@t, which the first pass expands in its style
  */
-export interface RootItem { kind: "root"; index: Noad; radicand: Field; amsmath: boolean }
+export interface RootItem { kind: "root"; /** fresh noads each time (the list converted is used up) */ index: () => Noad; radicand: () => Field; amsmath: boolean }
+/** \\nonscript (§ 1171): glue of subtype cond_math_glue, which deletes glue or a kern after it below text size (§ 732) */
+export interface NonscriptItem { kind: "nonscript" }
 /** A choice node (§ 689, \\mathchoice): the first pass puts in its place the list for its style (§ 731) */
 export interface ChoiceItem { kind: "choice"; choose: (style: number) => MItem[] }
 /** A generalized fraction (§ 683) with null delimiters; thickness null is default_code. */
-export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[] }
+export interface FractionNoad { noad: "fraction"; thickness: number | null; num: MItem[]; denom: MItem[]; /** …withdelims */ left?: Delimiter; right?: Delimiter }
 /** A style node (§ 688): \\displaystyle, \\textstyle, \\scriptstyle, \\scriptscriptstyle, possibly cramped. */
 export interface StyleNode { kind: "style"; style: number }
 /** A delimiter field (§ 683): small and large variants; all zero is the null delimiter. */
 export interface Delimiter { smallFam: number; smallChar: number; largeFam: number; largeChar: number }
 /** \\left and \\right (§ 687): the ends of the sub-mlist of the inner noad \\left…\\right makes (§ 1191). */
-export interface FenceNoad { noad: "left" | "right"; delim: Delimiter }
+export interface FenceNoad { noad: "left" | "right" | "middle"; delim: Delimiter }
 /** An mlist: noads, style nodes, and plain nodes (kerns, glue, penalties, rules). */
-export type MItem = Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | RootItem | ChoiceItem | Node
+/** \leaders or \cleaders with \hfill in a formula (the arrow fills: \hbox{$…$}; the brace fills: a \vrule as tall as
+ *  \hbox{$\braceld$}) */
+export interface LeadersItem { kind: "mleaders"; leaders: "leaders" | "cleaders"; box: (() => MItem[]) | "braceld" }
+export type MItem = LeadersItem | Noad | FractionNoad | FenceNoad | StyleNode | ColsepSkip | MuGlue | MuKern | NonscriptItem | RootItem | ChoiceItem | Node
 
 const isNoad = (x: MItem): x is Noad | FractionNoad | FenceNoad => "noad" in x
-const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right")
+const isFence = (x: MItem): x is FenceNoad => "noad" in x && (x.noad === "left" || x.noad === "right" || x.noad === "middle")
 /** A 24-bit \\delcode or a \\delimiter code without its class: small fam, small char, large fam, large char. */
 export const delimiterOf = (d: number): Delimiter => ({ smallFam: (d >> 20) & 15, smallChar: (d >> 12) & 255, largeFam: (d >> 8) & 15, largeChar: d & 255 })
 
@@ -110,6 +153,18 @@ export interface MathEnv {
   /** array.sty's \array: \hskip1sp before each cell's formula, and no ${} from its \@arraycr */
   arrayPackage?: boolean
   arstrut?: { height: number; depth: number }
+  /** \baselineskip, \normallineskip, \normallineskiplimit and \jot, for mathtools's dcases */
+  baselineskip?: GlueSpec
+  normallineskip?: GlueSpec
+  normallineskiplimit?: number
+  jot?: number
+  /** \arrayrulewidth and \doublerulesep, for an array's | */
+  arrayrulewidth?: number
+  doublerulesep?: number
+  /** the same in \mathversion{bold} */
+  bold?: () => MathEnv
+  /** \strutbox's height and depth */
+  strut?: { height: number; depth: number }
   /** called for a character the font lacks (char_warning) */
   missing?: (fam: number, c: number) => void
 }
@@ -220,13 +275,22 @@ class Converter {
         if ("kind" in q && q.kind === "style") this.setStyle(q.style)
         else if ("kind" in q && q.kind === "muglue") { const g = mathGlue(q.spec, this.curMu); list[i] = glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) } // § 732
         else if ("kind" in q && q.kind === "mukern") list[i] = kern(mathGlue({ width: q.width, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }, this.curMu).width, true) // math_kern (§ 717)
+        else if ("kind" in q && q.kind === "nonscript") { // § 732: a glue node that stays, printed \glue(\nonscript)
+          list[i] = paramGlue("nonscript", glue(0))
+          const p = list[i + 1]
+          if (this.curSize !== 0 && p && "kind" in p && ["muglue", "mukern", "glue", "kern"].includes(p.kind)) list.splice(i + 1, 1)
+        }
         else if ("kind" in q && q.kind === "root") { list.splice(i, 1, ...this.root(q)); i-- } // § 731: the choice for cur_style
+        else if ("kind" in q && q.kind === "mleaders") { // \cleaders\hbox{$…$}\hfill, \leaders\vrule\@height\ht\z@\@depth\z@\hfill (\vrule's default width .4pt)
+          const box: Node = q.box === "braceld" ? { kind: "rule", width: 26214, height: this.font(3, 0)?.chars.get(0x7a)?.height ?? 0, depth: 0 } : this.formulaBox(q.box(), false) // (one noad: no mu skips)
+          list[i] = { ...fillGlue(), leaders: { kind: q.leaders, box: box as BoxNode } }
+        }
         else if ("kind" in q && q.kind === "choice") { list.splice(i, 1, ...q.choose(this.curStyle).map(colsep)); i-- } // § 731
         else if ("kind" in q && q.kind === "rule") { if ((q.height ?? 0) > maxH) maxH = q.height ?? 0; if ((q.depth ?? 0) > maxD) maxD = q.depth ?? 0 }
         continue
       }
       if (isFence(q)) { // § 733: done_with_noad
-        if (q.noad === "right") { // a final bin becomes an ord; r_type is then left_noad, in the list's style
+        if (q.noad !== "left") { // a final bin becomes an ord; r_type is then left_noad, in the list's style (e-TeX's \middle: a right noad)
           if (rType === BIN && r) (r as Noad).noad = ORD
           this.setStyle(style)
         }
@@ -256,13 +320,57 @@ class Converter {
           if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
         } else p = []
       } else if (!n) p = []
+      else if (n.kind === "big" || n.kind === "hmath" || n.kind === "strut" || n.kind === "boxed" || n.kind === "oalign" || n.kind === "vstack" || n.kind === "xarrow") {
+        let b: BoxNode
+        if (n.kind === "strut") {
+          if (!this.env.strut) throw new Error("math: \\strut without the \\strutbox")
+          b = hpack([{ kind: "rule", width: 0, height: this.env.strut.height, depth: this.env.strut.depth }])
+        } else if (n.kind === "vstack") {
+          const rows = n.items.flatMap((x) => ("formula" in x ? [[this.formulaBox(x.formula(), !!x.zero).list]] : []))
+          const boxes = halign(rows, [paramGlue("tabskip", glue(0)), paramGlue("tabskip", glue(0))], { additional: 0 })
+          let r = 0
+          // (kerns of .7 and .5\fontdimen5\textfont2, mathtools's braces; 1.3\ex@, amsmath's \underarrow@: § 455)
+          const k = (x: number | { of: "ex@" | "sigma5"; factor: [number, number] }) => {
+            if (typeof x === "number") return x
+            const v = x.of === "ex@" ? amsEx(this.font(0, 0)!.size) : this.mathsy(5, 0)
+            return nxPlusY(x.factor[0], v, xnOverD(v, x.factor[1], 0o200000))
+          }
+          b = vpack(n.items.map((x) => ("kern" in x ? kern(k(x.kern), true) : boxes[r++])))
+          if (n.box === "vtop") { const first = b.list[0], h = first && (first.kind === "hlist" || first.kind === "vlist" || first.kind === "rule") ? first.height ?? 0 : 0; b.depth = b.height + b.depth - h; b.height = h } // § 1087
+        } else if (n.kind === "xarrow") {
+          const arrow = this.formulaBox(n.fill(), true) // \setbox\z@\hbox{#5\displaystyle}
+          const w = Math.max(arrow.width, ...n.labels.map((l) => this.formulaBox(l(), false).width))
+          b = hpack(arrow.list, { exactly: w })
+        } else if (n.kind === "oalign") {
+          const cells = n.rows.map((r) => [[{ kind: "math", on: true, width: 0 } as Node, ...new Converter(this.env).convert(r(), TEXT, false), { kind: "math", on: false, width: 0 } as Node]])
+          const boxes = halign(cells, [paramGlue("tabskip", glue(0)), paramGlue("tabskip", glue(0))], { additional: 0 })
+          const v: Node[] = []
+          boxes.forEach((r, i) => { if (i) v.push(n.layout === "ooalign" ? paramGlue("baselineskip", glue(-boxes[i - 1].depth - r.height)) : paramGlue("lineskip", glue(-0x8000))); v.push(r) })
+          b = vpack(v)
+          if (n.layout === "vereq") b.shift = 0x8000 // \lower.5\p@
+          else { const h = boxes[0].height; b.depth = b.height + b.depth - h; b.height = h } // \vtop (§ 1087)
+        } else if (n.kind === "boxed") {
+          const sep = 3 * 65536 // \fboxsep
+          b = n.frame(hpack([kern(sep, true), { kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list(), TEXT, false), { kind: "math", on: false, width: 0 }, kern(sep, true)]))
+        } else b = n.kind === "big" ? this.big(n) : this.hmath(n)
+        q.nucleus = { kind: "box", box: b }; p = [b]
+      }
+      else if (n.kind === "stack") {
+        const b = this.stack(n)
+        if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
+        q.nucleus = { kind: "box", box: b }
+        p = [b]
+      }
       else if (n.kind === "array") {
         const b = this.array(n)
         if (q.vcenter) { const delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
         q.nucleus = { kind: "box", box: b }
         p = [b]
       }
-      else if (n.kind === "box") p = [n.box]
+      else if (n.kind === "box") {
+        if (q.vcenter) { const b = n.box, delta = b.height + b.depth; b.height = this.axisHeight + half(delta); b.depth = delta - b.height } // make_vcenter (§ 736)
+        p = [n.box]
+      }
       else {
         const save = this.curStyle
         const inner = this.convert(n.list, this.curStyle, false)
@@ -303,7 +411,7 @@ class Converter {
         const nx = list[i + 1]
         if (!(!isNoad(nx) && "kind" in nx && nx.kind === "penalty") && !(isNoad(nx) && nx.noad === REL)) out.push(penalty(pen))
       }
-      prev = isFence(q) && q.noad === "right" ? OPEN : t
+      prev = isFence(q) && q.noad !== "left" ? OPEN : t
     }
     return out
   }
@@ -316,10 +424,33 @@ class Converter {
   array(a: Extract<Field, { kind: "array" }>): BoxNode {
     const colsep = this.env.arraycolsep ?? 0, strut = this.env.arstrut ?? { height: 0, depth: 0 }
     const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }]
+    const empty = (): MItem[] => [{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]
+    if (a.cols) { // LaTeX's \array (no array.sty): its preamble's templates, the \@arstrutbox \arraystretch times \strutbox
+      if (this.env.arrayPackage) throw new Error("math: an array preamble with array.sty")
+      const s = this.env.strut ?? { height: 0, depth: 0 }, [n, f] = a.stretch ?? [1, 0]
+      const st = { height: nxPlusY(n, s.height, xnOverD(s.height, f, 0o200000)), depth: nxPlusY(n, s.depth, xnOverD(s.depth, f, 0o200000)) }
+      const w = this.env.arrayrulewidth ?? 0, half = -xnOverD(w, 0x8000, 0o200000) // (\hskip -.5\arrayrulewidth, § 455)
+      const seg = (x: ArraySegment): Node[] => x === "colsep" ? [glue(colsep)] : x === "doublerulesep" ? [glue(this.env.doublerulesep ?? 0)]
+        : x === "rule" ? [glue(half), { kind: "rule", width: w, height: null, depth: null }, glue(half)] : math(x.math()) // \@arrayrule
+      const cols = a.cols
+      if (a.rows.some((r) => r.length > cols.length)) throw new Error("math: Extra alignment tab has been changed to \\cr")
+      const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
+        ...(ci === 0 ? [{ kind: "rule", width: 0, height: st.height, depth: st.depth } as Node] : []),
+        ...cols[ci].before.flatMap(seg), ...(cols[ci].align !== "l" ? [filGlue()] : []), ...math(cell),
+        ...(a.crs[ri] && ci === row.length - 1 ? math(empty()) : []), // \@arraycr's ${}
+        ...(cols[ci].align !== "r" ? [filGlue()] : []), ...cols[ci].after.flatMap(seg),
+      ]))
+      const boxes = halign(rows, Array.from({ length: cols.length + 1 }, () => paramGlue("tabskip", glue(0))), { additional: 0 })
+      const v: Node[] = []
+      boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
+      return vpack(v)
+    }
+    // (an \arraystretch: the \strutbox's dimensions times it, with array.sty's \extrarowheight)
+    const arstrut = !a.stretch ? strut : ((s, [n, f]) => ({ height: nxPlusY(n, s.height, xnOverD(s.height, f, 0o200000)) + strut.height - s.height, depth: nxPlusY(n, s.depth, xnOverD(s.depth, f, 0o200000)) }))(this.env.strut ?? strut, a.stretch)
     const rows = a.rows.map((row, ri) => row.map((cell, ci) => [
-      ...(ci === 0 ? [{ kind: "rule", width: 0, height: strut.height, depth: strut.depth } as Node] : []),
+      ...(ci === 0 ? [{ kind: "rule", width: 0, height: arstrut.height, depth: arstrut.depth } as Node] : []),
       glue(colsep), filGlue(), ...(this.env.arrayPackage ? [glue(1)] : []), ...math(cell),
-      ...(a.crs[ri] && ci === row.length - 1 && !this.env.arrayPackage ? math([{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }]) : []), // \@arraycr's ${}
+      ...(a.crs[ri] && ci === row.length - 1 && !this.env.arrayPackage ? math(empty()) : []), // \@arraycr's ${}
       filGlue(), glue(colsep),
     ]))
     const cols = 10 // \c@MaxMatrixCols
@@ -328,6 +459,92 @@ class Converter {
     const v: Node[] = []
     boxes.forEach((b, i) => { if (i) v.push(paramGlue("lineskip", glue(0))); v.push(b) })
     return vpack(v)
+  }
+
+  /** $…$ in an \hbox (\m@th), in text style; `zero`: \thickmuskip, \medmuskip and \thinmuskip 0mu */
+  formulaBox(l: MItem[], zero: boolean): BoxNode {
+    const mu = { width: 0, stretch: 0, stretchOrder: 0 as const, shrink: 0, shrinkOrder: 0 as const }
+    const env = zero ? { ...this.env, muskips: { thinmuskip: mu, medmuskip: mu, thickmuskip: mu } } : this.env
+    return hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(env).convert(l, TEXT, false), { kind: "math", on: false, width: 0 }])
+  }
+
+  /** Field "stack": the \ialign's rows, stacked with \baselineskip, \lineskip and \lineskiplimit (append_to_vlist, § 679) */
+  stack(a: Extract<Field, { kind: "stack" }>): BoxNode {
+    const style = a.layout === "dcases" ? DISPLAY : a.layout === "rcases" ? null : SCRIPT
+    const math = (l: MItem[]): Node[] => [{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert([...(style === null ? [] : [{ kind: "style" as const, style }]), ...l], TEXT, false), { kind: "math", on: false, width: 0 }]
+    let bs: number, ls: number, lsl: number, bsSpec: GlueSpec | null = null, lsSpec: GlueSpec | null = null
+    if (a.layout === "dcases" || a.layout === "rcases") { // mathtools's \MT_start_cases: \spread@equation's \openup\jot, cells after \strut@
+      const e = this.env
+      if (!e.baselineskip || !e.normallineskip || e.normallineskiplimit === undefined || e.jot === undefined || !e.strut || a.quad === undefined) throw new Error("math: dcases without the class's skips")
+      bsSpec = { ...e.baselineskip, width: e.baselineskip.width + e.jot }; lsSpec = { ...e.normallineskip, width: e.normallineskip.width + e.jot }
+      bs = bsSpec.width; ls = lsSpec.width; lsl = e.normallineskiplimit + e.jot
+      const strut = e.strut, nl = e.normallineskiplimit, quad = a.quad
+      // \strut@: \hbox{\lower.5\normallineskiplimit\vbox{\kern-\normallineskiplimit\copy\strutbox}}
+      const strutAt = (): Node => { const v = vpack([kern(-nl, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])]); v.shift = xnOverD(nl, 0x8000, 0o200000); return hpack([v]) }
+      const rows = a.rows.map((row) => row.map((cell, ci) => [...(ci ? [glue(quad), strutAt()] : [strutAt()]), ...math(cell), filGlue()]))
+      if (rows.some((r) => r.length > 2)) throw new Error("math: Extra alignment tab has been changed to \\cr")
+      return this.stackRows(rows, 2, bs, bsSpec, ls, lsSpec, lsl, a.crs)
+    }
+    if (a.layout === "smallmatrix") {
+      const ex = amsEx(this.font(0, 0)!.size)
+      bs = nxPlusY(6, ex, 0); ls = nxPlusY(1, ex, xnOverD(ex, 0x8000, 0o200000))
+    } else {
+      const sf = this.font(2, 1), ef = this.font(3, 1)
+      if (!sf || !ef) throw new Error("math: \\substack without the script fonts")
+      bs = sf.params[10] + sf.params[12]; ls = 3 * ef.params[8]
+    }
+    const rows = a.rows.map((row) => row.map((cell, ci) => a.layout === "smallmatrix"
+      ? [...(ci ? [kern(a.thickspace, true)] : []), filGlue(), ...math(cell), filGlue()]
+      : [...(a.layout === "subarray-c" ? [filGlue()] : []), ...math(cell), filGlue()]))
+    const cols = Math.max(1, ...rows.map((r) => r.length))
+    if (a.layout !== "smallmatrix" && cols > 1) throw new Error("math: Extra alignment tab has been changed to \\cr")
+    return this.stackRows(rows, cols, bs, null, ls, null, ls, a.crs)
+  }
+
+  /** an \ialign's rows in a vbox: \baselineskip glue d (bs less the depth above and the height below), or \lineskip when
+   *  d is below \lineskiplimit (append_to_vlist, § 679); \noalign{\vskip\z@} after a row \\ ended */
+  stackRows(rows: Node[][][], cols: number, bs: number, bsSpec: GlueSpec | null, ls: number, lsSpec: GlueSpec | null, lsl: number, crs: boolean[]): BoxNode {
+    const boxes = halign(rows, Array.from({ length: cols + 1 }, () => paramGlue("tabskip", glue(0))), { additional: 0 })
+    const v: Node[] = []
+    let prev: BoxNode | null = null
+    const spec = (g: GlueSpec | null, w: number) => (g ? glue(w, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder) : glue(w))
+    boxes.forEach((b, i) => {
+      if (prev) { const d = bs - prev.depth - b.height; v.push(d < lsl ? paramGlue("lineskip", spec(lsSpec, ls)) : paramGlue("baselineskip", spec(bsSpec, d))) }
+      v.push(b); prev = b
+      if (crs[i]) v.push(glue(0)) // \noalign{\vskip\z@}
+    })
+    return vpack(v)
+  }
+
+  /** \big … \Bigg (Field "big"): a formula in text style, in an \hbox, with \mathsurround and \nulldelimiterspace zero */
+  big(n: Extract<Field, { kind: "big" }>): BoxNode {
+    let inner: Noad
+    if ("height" in n) inner = { noad: ORD, nucleus: { kind: "box", box: vpack([], { exactly: n.height }) }, sup: null, sub: null }
+    else {
+      // amsmath's \big@size: 1.2\ht\Mathstrutbox@ plus 1.2\dp\Mathstrutbox@, the height and depth of ( in \textfont0 (§ 455's
+      // decimal factor times an internal dimension: nx_plus_y with xn_over_d of the fraction); the \vcenter to that times the factor
+      const paren = this.font(0, 0)?.chars.get(40)
+      if (!paren) throw new Error("math: \\big without ( in \\textfont0")
+      const times = (n: number, f: number, v: number) => nxPlusY(n, v, xnOverD(v, f, 0o200000))
+      const size = times(1, 13107, paren.height) + times(1, 13107, paren.depth)
+      inner = { noad: ORD, vcenter: true, nucleus: { kind: "box", box: vpack([], { exactly: times(n.factor[0], n.factor[1], size) }) }, sup: null, sub: null }
+    }
+    const list: MItem[] = [{ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: n.delim }, inner, { noad: "right", delim: { smallFam: 0, smallChar: 0, largeFam: 0, largeChar: 0 } }] }, sup: null, sub: null }]
+    return hpack([{ kind: "math", on: true, width: 0 }, ...new Converter({ ...this.env, nulldelimiterspace: 0 }).convert(list, TEXT, false), { kind: "math", on: false, width: 0 }])
+  }
+
+  /** Field "hmath": the formula in an \hbox, then smashed or a phantom */
+  hmath(n: Extract<Field, { kind: "hmath" }>): BoxNode {
+    if (n.bold && !this.env.bold) throw new Error("math: \\boldsymbol without the bold fonts")
+    const math: Node[] = [{ kind: "math", on: true, width: 0 }, ...new Converter(n.bold ? this.env.bold!() : this.env).convert(n.list, TEXT, false), { kind: "math", on: false, width: 0 }]
+    if (n.lap) return hpack([...(n.lap !== "r" ? [ssGlue()] : []), ...math, ...(n.lap !== "l" ? [ssGlue()] : [])], { exactly: 0 })
+    const b = hpack(math)
+    if (n.smash) { if (n.smash !== "b") b.height = 0; if (n.smash !== "t") b.depth = 0; return b }
+    if (!n.phantom) return b
+    const e = emptyBox("hlist") // \setbox\tw@\null
+    if (n.phantom !== "h") { e.height = b.height; e.depth = b.depth }
+    if (n.phantom !== "v") e.width = b.width
+    return e
   }
 
   /** make_left_right (§ 762): a delimiter for the list's height and depth around the axis */
@@ -384,7 +601,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" || field.kind === "array" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "stack" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" || field.kind === "boxed" || field.kind === "oalign" || field.kind === "vstack" || field.kind === "xarrow" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }
@@ -445,6 +662,10 @@ class Converter {
    * lowered by min(height(x), its x-height); the scripts of a lone character go into x first
    */
   makeMathAccent(q: Noad) {
+    if (q.wide) { // amsfonts: \@mathmeasure\z@\textstyle{#1}, \ifdim\wd\z@>\tw@ em
+      const w = hpack(new Converter(this.env).convert(q.wide.measure(), TEXT, false)).width
+      if (w > q.wide.width) q.accent = q.wide.accent
+    }
     const { f, m } = this.fetch(q as never, "accent")
     if (!m) return
     const a = q.accent as Extract<Field, { kind: "char" }>
@@ -506,9 +727,9 @@ class Converter {
    * the index, zero kerns, and 1.667\\wd of an empty \\mskip to \\dimen@). A box in math is an ord noad (§ 1076).
    */
   root(q: RootItem): (Noad | MuKern)[] {
-    const mathBox = (l: MItem[], style: number) => hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(structuredClone(l), style, false), { kind: "math", on: false, width: 0 }])
-    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, q.index], TEXT)
-    const box0 = mathBox([{ noad: ORD, radical: delimiterOf(0x270370), nucleus: q.radicand, sup: null, sub: null }], this.curStyle)
+    const mathBox = (l: MItem[], style: number) => hpack([{ kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(l, style, false), { kind: "math", on: false, width: 0 }])
+    const rootbox = mathBox([{ kind: "style", style: SCRIPT_SCRIPT }, q.index()], TEXT)
+    const box0 = mathBox([{ noad: ORD, radical: delimiterOf(0x270370), nucleus: q.radicand(), sup: null, sub: null }], this.curStyle)
     rootbox.shift = -xnOverD(box0.height - box0.depth, 39322, 0o200000) // .6 (round_decimals, § 452) times \\dimen@ (§ 455)
     const zero: MuKern[] = q.amsmath ? [{ kind: "mukern", width: 0 }] : []
     const ord = (box: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box }, sup: null, sub: null })
@@ -582,7 +803,7 @@ class Converter {
     return delta
   }
 
-  /** make_fraction (§§ 743–748) with null delimiters. */
+  /** make_fraction (§§ 743–748) */
   makeFraction(q: FractionNoad): Node[] {
     const t = q.thickness ?? this.ruleThickness
     let x = this.cleanBox({ kind: "mlist", list: q.num }, numStyle(this.curStyle))
@@ -611,9 +832,9 @@ class Converter {
     v.list = t === 0
       ? [x, kern((shiftUp - x.depth) - (z.height - shiftDown)), z]
       : [x, kern((shiftUp - x.depth) - (this.axisHeight + delta)), { kind: "rule", width: null, height: t, depth: 0 }, kern((this.axisHeight - delta) - (z.height - shiftDown)), z]
-    // § 748: var_delimiter of a null delimiter is an empty box of \\nulldelimiterspace, centered on the axis
-    const nullDelimiter = () => { const b = emptyBox("hlist", this.env.nulldelimiterspace); b.shift = half(0) - this.axisHeight; return b }
-    return [hpack([nullDelimiter(), v, nullDelimiter()])]
+    // § 748: the delimiters at least delim1 (display) or delim2 tall (a null delimiter: an empty box of \\nulldelimiterspace)
+    const size = this.mathsy(display ? 20 : 21, this.curSize), none: Delimiter = { smallFam: 0, smallChar: 0, largeFam: 0, largeChar: 0 }
+    return [hpack([this.varDelimiter(q.left ?? none, this.curSize, size), v, this.varDelimiter(q.right ?? none, this.curSize, size)])]
   }
 
   /** make_scripts (§§ 756–759): attach the scripts of q to its hlist p. */
@@ -662,9 +883,23 @@ class Converter {
 }
 
 
+/** amsgen's \compute@ex@: \ex@ for the text size f (in sp), 1pt at 10pt, a little more below and less above */
+export function amsEx(f: number): number {
+  const pt = 65536
+  let d = -f
+  if (d < -20 * pt) return 98304 // 1.5\p@
+  d = 2 * (d + 10 * pt)
+  const negative = d > 0
+  d = Math.abs(d) - 1000
+  let vfuzz = pt
+  while (d > 0) { vfuzz = xnOverD(vfuzz, 63570, 0o200000); d -= pt } // \vfuzz=.97\vfuzz (§ 455: round_decimals(97))
+  d = pt - vfuzz
+  return pt + (negative ? -d : d)
+}
+
 /** \skewchar as LaTeX's font families set it (\DeclareFontFamily{OML}{cmm}{\skewchar\font'177}, OMS cmsy's '60; omllmm.fd and
- *  omslmsy.fd the same), else -1 */
-const skewChar = (name: string) => (/^(cm|lm)mib?\d/.test(name) ? 127 : /^(cm|lm)(b?)sy\d/.test(name) ? 48 : -1)
+ *  omslmsy.fd the same; mathrsfs's ursfs.fd '177), else -1 */
+const skewChar = (name: string) => (/^((cm|lm)mib?|rsfs)\d/.test(name) ? 127 : /^(cm|lm)(b?)sy\d/.test(name) ? 48 : -1)
 
 /** char_box (§ 709): a character in an hbox whose width includes its italic correction */
 function charBox(f: Font, c: number): BoxNode {

@@ -1,0 +1,17 @@
+% fixture: amsmath/cases-arrays
+% tier: T3
+% engine: document
+% covers: amsmath's cases (\array{@{}l@{\quad}l@{}} with \arraystretch 1.2, which a matrix inside it inherits), LaTeX's array in math with c, l, r, | and @-expressions (an augmented matrix), smallmatrix (\baselineskip 6\ex@ at 11pt and \small), \substack in limits; inline, displayed and in align
+% issue: #330
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+The absolute value is $|x| = \begin{cases} x & x \ge 0,\\ -x & \text{otherwise}, \end{cases}$ and the rotation
+$R = \left(\begin{smallmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{smallmatrix}\right)$ acts on $x$.
+\[ f(x) = \begin{cases} \dfrac{1}{x} & \text{if } x > 0 \\ 0 & \text{if } x = 0 \\ \begin{pmatrix} a & b \end{pmatrix} & \text{else} \end{cases}
+   \qquad \left[\begin{array}{cc|c} 1 & 2 & 3 \\ 4 & 5 & 6 \end{array}\right] \qquad \sum_{\substack{0 \le i \le m \\ 0 < j < n}} P(i,j) \]
+\begin{align}
+  \begin{array}{r@{\;=\;}l} x & 1 \\ y + z & 2 \end{array} &\quad & \lim_{\substack{x\to 0\\ x>0}} f(x) &= 1
+\end{align}
+{\small In small: $\begin{smallmatrix} 1 & 0 \\ 0 & 1 \end{smallmatrix}$ and $\begin{cases} a & b \end{cases}$.}
+\end{document}

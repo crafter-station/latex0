@@ -1,0 +1,12 @@
+% fixture: math/dots-plain
+% tier: T3
+% engine: document
+% covers: LaTeX's \dots, \ldots, \cdots, \vdots and \ddots in math (no amsmath: no look-ahead), \pmod and \bmod, \# and \%, in scripts and displays, \vdots and \ddots in the text font of \small and \textbf
+% issue: #330
+\documentclass[12pt]{article}
+\begin{document}
+The sequence $x_1,\dots,x_n$ sums to $x_1+\cdots+x_n$ and $(a,\ldots)$, so $7\equiv 1\pmod 3$ and $7\bmod 3=1$
+with $2^{n\bmod 2}$, $\#A$ and $5\%$; the dots $\vdots$ and $\ddots$ and $a^{\vdots}_{\ddots}$.
+\[ \left( 1, \cdots, 1, \vdots, \ddots \right)^{\dots} \]
+{\small Small: $\vdots\ddots\dots$} and \textbf{bold: $\vdots\,\ddots$}.
+\end{document}

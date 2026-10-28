@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 957,
-  "exact": 944,
+  "fixtures": 978,
+  "exact": 965,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 13,
-  "glyphs": 615940
+  "glyphs": 618678
  },
  "areas": [
   {
@@ -16,8 +16,8 @@
   },
   {
    "area": "amsmath",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 19,
+   "exact": 19
   },
   {
    "area": "amsthm",
@@ -131,8 +131,8 @@
   },
   {
    "area": "math",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 23,
+   "exact": 23
   },
   {
    "area": "minipage",
@@ -722,6 +722,105 @@
    "issue": "#258"
   },
   {
+   "id": "amsmath/accents",
+   "file": "micro/amsmath/accents.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 182,
+   "covers": "math accents (make_math_accent: skew from the \\skewchar kern of cmmi, cmsy and rsfs, the charlist's wider accents, scripts on a character inside the accent) with amsmath's \\mathaccentV (class 7: the alphabet's family; none in \\mathcal, \\mathbb, \\mathfrak: \\noaccents@), \\Hat and kin, amsfonts' \\widehat and \\widetilde (AMSb's past 2em), a lone accent in a group taking its ord's place",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/arrows-braces",
+   "file": "micro/amsmath/arrows-braces.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 154,
+   "covers": "amsmath's \\xrightarrow and \\xleftarrow (\\ext@arrow: \\arrowfill@'s \\cleaders with the mu skips 0, labels above and below), \\overrightarrow, \\overleftrightarrow and \\underrightarrow (\\overarrow@, \\underarrow@ with 1.3\\ex@), \\overbrace and \\underbrace with labels (\\downbracefill's \\leaders\\vrule), \\notin (\\ooalign) and \\cong (\\@vereq); inline, displayed and in align",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/big-arrows",
+   "file": "micro/amsmath/big-arrows.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 175,
+   "covers": "amsmath's \\big … \\Bigg (\\vcenter to a multiple of \\big@size, from the ( of \\textfont0) with l, r and m, e-TeX's \\middle, \\longrightarrow and the other \\joinrel arrows, \\implies and \\iff, \\smash[t|b] (and \\relbar after it), \\phantom, \\mathstrut, in text, \\small, scripts and align",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/boldsymbol",
+   "file": "micro/amsmath/boldsymbol.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 68,
+   "covers": "amsbsy's \\boldsymbol (\\mathversion{bold}'s fonts: cmbx, cmmib, cmbsy, the bold alphabets; \\math@atom's class from \\binrel@; a \\mathchoice of \\hbox'es), in text, scripts, displays and \\small, at 11pt",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/cases-arrays",
+   "file": "micro/amsmath/cases-arrays.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 189,
+   "covers": "amsmath's cases (\\array{@{}l@{\\quad}l@{}} with \\arraystretch 1.2, which a matrix inside it inherits), LaTeX's array in math with c, l, r, | and @-expressions (an augmented matrix), smallmatrix (\\baselineskip 6\\ex@ at 11pt and \\small), \\substack in limits; inline, displayed and in align",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/dcases",
+   "file": "micro/amsmath/dcases.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 72,
+   "covers": "mathtools's dcases and rcases (\\MT_start_cases: \\strut@, \\quad between columns, display or text style cells, \\spread@equation's \\openup\\jot on \\baselineskip, \\lineskip and \\lineskiplimit), inline and displayed, at 12pt",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/dots-array-package",
+   "file": "micro/amsmath/dots-array-package.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "amsmath's \\dots and \\cdots at the end of a matrix cell: LaTeX's \\array puts the template's $ after it (a thin space), array.sty's \\textonly@unskip (none)",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/dots-matrix-cells",
+   "file": "micro/amsmath/dots-matrix-cells.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "amsmath's \\dots and \\cdots at the end of a matrix cell before &: LaTeX's \\array template puts its $ after the cell (\\extra@: a thin space)",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/dots-mod-colon",
+   "file": "micro/amsmath/dots-mod-colon.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 299,
+   "covers": "amsmath's \\dots by the token after it (\\dotsc before a comma, \\dotsb before + and relations, \\dotsi before \\int, \\dotso with a thin space before a closing delimiter or the closing $), \\cdots, \\ldots, \\vdots and \\ddots in the text font; \\colon; \\pmod, \\pod and \\mod in text and displays (\\if@display), \\bmod with \\nonscript in scripts; \\# \\% \\& \\$ in math",
+   "issue": "#330"
+  },
+  {
    "id": "amsmath/eqref-hyperref",
    "file": "micro/amsmath/eqref-hyperref.tex",
    "area": "amsmath",
@@ -753,6 +852,28 @@
    "issue": "#76"
   },
   {
+   "id": "amsmath/genfrac",
+   "file": "micro/amsmath/genfrac.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 180,
+   "covers": "amsmath's \\genfrac and what it defines (\\binom, \\dbinom, \\tbinom, \\dfrac, \\tfrac: delimiters at delim1 or delim2 size, zero thickness, a style), \\cfrac with [l] and [r] (\\strut, \\hfill), \\over and \\choose in a group; in text, scripts, displays and align",
+   "issue": "#330"
+  },
+  {
+   "id": "amsmath/mathtools-basics",
+   "file": "micro/amsmath/mathtools-basics.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 183,
+   "covers": "mathtools: \\DeclarePairedDelimiter (\\abs{x}: \\mathopen…\\mathclose, \\abs*{x}: \\left…\\right, \\abs[\\big]{x}: \\bigl…\\bigr), \\coloneqq and the other colon relations (\\vcentcolon: \\mathrel{\\mathop:}, a \\dotsb before it), \\mathclap, \\mathllap and \\mathrlap in limits; with \\DeclareMathOperator, in text, displays and align",
+   "issue": "#330"
+  },
+  {
    "id": "amsmath/multline",
    "file": "micro/amsmath/multline.tex",
    "area": "amsmath",
@@ -775,6 +896,17 @@
    "issue": "#76"
   },
   {
+   "id": "amsmath/overset-boxed",
+   "file": "micro/amsmath/overset-boxed.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "amsmath's \\overset, \\underset and \\overunderset (\\binrel@: the class measured with \\thinmuskip 0, \\medmuskip -1mu, \\thickmuskip 1mu), \\stackrel, \\doteq, \\iint, \\iiint, \\idotsint (with \\limits: \\ints@b), \\boxed (\\fbox in display style), \\mathchoice; in text, scripts, displays and align",
+   "issue": "#330"
+  },
+  {
    "id": "amsmath/sqrt-index",
    "file": "micro/amsmath/sqrt-index.tex",
    "area": "amsmath",
@@ -783,6 +915,17 @@
    "status": "pass",
    "glyphs": 161,
    "covers": "amsmath's \\sqrt[n] (\\plainroot@ inside \\bgroup…\\egroup, an ord noad; \\r@@t with \\uproot and \\leftroot zero): a superscript after it goes on the group"
+  },
+  {
+   "id": "amsmath/text-in-math",
+   "file": "micro/amsmath/text-in-math.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 184,
+   "covers": "amstext's \\text in math (a \\mathchoice of \\hbox'es at \\f@size, \\sf@size and \\ssf@size, \\everymath with the style for its own formulas), \\textrm, \\textbf and \\textit in math (\\nfss@text: \\text), \\mbox (the current size), in text, scripts, displays, align and \\small, inside \\textit",
+   "issue": "#330"
   },
   {
    "id": "amsthm/after-list",
@@ -7641,6 +7784,17 @@
    "issue": "#82"
   },
   {
+   "id": "math/accents-plain",
+   "file": "micro/math/accents-plain.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 161,
+   "covers": "math accents (make_math_accent: skew from the \\skewchar kern, the charlist's wider accents, scripts on a character inside the accent), LaTeX's \\mathaccent codes (\\vec of the letters family), \\widehat and \\widetilde of cmex, a lone accent in a group taking its ord's place",
+   "issue": "#330"
+  },
+  {
    "id": "math/accents",
    "file": "micro/math/accents.tex",
    "area": "math",
@@ -7660,6 +7814,39 @@
    "status": "pass",
    "glyphs": 149,
    "covers": "math alphabets: \\mathrm, \\mathnormal, \\mathcal (the operators, letters and symbols families), \\mathbf, \\mathit, \\mathsf, \\mathtt (families of their own, fonts at text, script and scriptscript size); only class-7 characters (letters, digits) change; in scripts, displays, groups and other sizes"
+  },
+  {
+   "id": "math/amssymb-blackboard",
+   "file": "micro/math/amssymb-blackboard.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 130,
+   "covers": "amssymb without amsmath: \\mathbb (AMSb), \\mathfrak (euf), mathrsfs's \\mathscr, AMSa and AMSb symbols (\\square, \\blacksquare, \\lesssim, \\nmid, \\varnothing, \\leqq, \\Box), amsfonts' extension font at every size (a \\sum in a superscript), in scripts, displays and \\small",
+   "issue": "#330"
+  },
+  {
+   "id": "math/array-plain",
+   "file": "micro/math/array-plain.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 42,
+   "covers": "LaTeX's array in math without amsmath: \\@mkpream's c, l, r, | and || and @-expressions ($text$ in the template), \\hskip\\arraycolsep around columns, \\@arraycr's ${} at the end of a row, the template's $ after each cell (\\dots looks at it only with amsmath)",
+   "issue": "#330"
+  },
+  {
+   "id": "math/big-arrows-plain",
+   "file": "micro/math/big-arrows-plain.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 150,
+   "covers": "LaTeX's \\big … \\Bigg (\\vbox to 8.5pt …) with l, r and m, e-TeX's \\middle, \\longrightarrow and the other \\joinrel arrows, \\iff, \\smash, \\phantom, \\mathstrut, in text, \\small, scripts and displays",
+   "issue": "#330"
   },
   {
    "id": "math/delimiters",
@@ -7682,6 +7869,28 @@
    "glyphs": 163,
    "covers": "\\displaystyle inside inline math: limits above and below, display-size operators and fractions, tall lines taking \\lineskip, at 11pt",
    "issue": "#76"
+  },
+  {
+   "id": "math/dots-plain",
+   "file": "micro/math/dots-plain.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 164,
+   "covers": "LaTeX's \\dots, \\ldots, \\cdots, \\vdots and \\ddots in math (no amsmath: no look-ahead), \\pmod and \\bmod, \\# and \\%, in scripts and displays, \\vdots and \\ddots in the text font of \\small and \\textbf",
+   "issue": "#330"
+  },
+  {
+   "id": "math/fraction-primitives",
+   "file": "micro/math/fraction-primitives.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 107,
+   "covers": "TeX's generalized fractions without amsmath: \\over, \\atop, \\above with a thickness, \\overwithdelims, \\atopwithdelims, \\abovewithdelims, LaTeX's \\choose, \\brack and \\brace, in text, scripts and displays, \\over in \\left … \\middle … \\right, a script after \\middle (an empty nucleus)",
+   "issue": "#330"
   },
   {
    "id": "math/inline-operators",
@@ -7760,6 +7969,17 @@
    "issue": "#76"
   },
   {
+   "id": "math/overbrace-plain",
+   "file": "micro/math/overbrace-plain.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 73,
+   "covers": "LaTeX's \\overbrace and \\underbrace (\\mathop of a \\vbox or \\vtop: \\kern3pt, \\downbracefill and \\upbracefill with \\leaders\\vrule), \\overrightarrow and \\overleftarrow (\\rightarrowfill's \\cleaders, \\kern-1pt), \\notin and \\cong; in text, scripts and displays",
+   "issue": "#330"
+  },
+  {
    "id": "math/spacing",
    "file": "micro/math/spacing.tex",
    "area": "math",
@@ -7788,6 +8008,17 @@
    "status": "pass",
    "glyphs": 153,
    "covers": "\\sqrt (\\radical\"270370, make_radical § 737): the nucleus cramped, the clearance (text and display styles), the radical sign's variants as the content grows (cmsy, then cmex's larger signs and the extensible one), its extra depth halved into the clearance, the overbar; in scripts and fractions"
+  },
+  {
+   "id": "math/stackrel-plain",
+   "file": "micro/math/stackrel-plain.tex",
+   "area": "math",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "LaTeX's \\stackrel and \\doteq (\\buildrel), \\mathchoice, in text, scripts and displays",
+   "issue": "#330"
   },
   {
    "id": "minipage/aligned",

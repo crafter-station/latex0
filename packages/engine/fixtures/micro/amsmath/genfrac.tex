@@ -1,0 +1,16 @@
+% fixture: amsmath/genfrac
+% tier: T3
+% engine: document
+% covers: amsmath's \genfrac and what it defines (\binom, \dbinom, \tbinom, \dfrac, \tfrac: delimiters at delim1 or delim2 size, zero thickness, a style), \cfrac with [l] and [r] (\strut, \hfill), \over and \choose in a group; in text, scripts, displays and align
+% issue: #330
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\begin{document}
+There are $\binom{n}{k} = \frac{n!}{k!\,(n-k)!}$ ways, and $\tbinom{4}{2}=6$ while $\dbinom{4}{2}$ is display size; the halves
+$\dfrac{1}{2}$ and $\tfrac{1}{2}$, the powers $2^{\binom{n}{2}}$, $x_{\tfrac12}$ and ${n \choose k}$, ${a \over b}$ and $\genfrac{[}{]}{0pt}{}{n}{k}$.
+\[ \binom{2n}{n} \sim \frac{4^n}{\sqrt{\pi n}}, \qquad \genfrac{\langle}{\rangle}{0.4pt}{1}{a}{b}, \qquad
+   x = a_0 + \cfrac{1}{a_1 + \cfrac{1}{a_2 + \cfrac[l]{1}{a_3 + \cfrac[r]{1}{a_4}}}} \]
+\begin{align}
+  \sum_{k=0}^{n} \binom{n}{k} &= 2^n, & \tfrac{a}{b} + \dfrac{c}{d} &= \frac{ad + bc}{bd}
+\end{align}
+\end{document}

@@ -1,0 +1,10 @@
+% fixture: math/stackrel-plain
+% tier: T3
+% engine: document
+% covers: LaTeX's \stackrel and \doteq (\buildrel), \mathchoice, in text, scripts and displays
+% issue: #330
+\documentclass{article}
+\begin{document}
+Text $f \stackrel{?}{=} g$, $x\doteq y$ and $\mathchoice{D}{T}{S}{SS}^{\mathchoice{D}{T}{S}{SS}}$.
+\[ a \stackrel{\mathrm{def}}{=} b \doteq c, \quad x_{\stackrel{a}{b}} \]
+\end{document}

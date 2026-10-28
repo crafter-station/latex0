@@ -1,0 +1,15 @@
+% fixture: amsmath/arrows-braces
+% tier: T3
+% engine: document
+% covers: amsmath's \xrightarrow and \xleftarrow (\ext@arrow: \arrowfill@'s \cleaders with the mu skips 0, labels above and below), \overrightarrow, \overleftrightarrow and \underrightarrow (\overarrow@, \underarrow@ with 1.3\ex@), \overbrace and \underbrace with labels (\downbracefill's \leaders\vrule), \notin (\ooalign) and \cong (\@vereq); inline, displayed and in align
+% issue: #330
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+A map $f\colon A \xrightarrow{\ \phi\ } B$, $C \xleftarrow[\text{inv}]{g} D$, the vector $\overrightarrow{AB}$ and $\overleftrightarrow{PQ}$,
+$x \notin S$, $\triangle ABC \cong \triangle DEF$ and $\underrightarrow{v}$, with $e^{\overrightarrow{u}}$.
+\[ \underbrace{1 + 2 + \cdots + n}_{n \text{ terms}} = \overbrace{\frac{n(n+1)}{2}}^{\text{Gauss}} \qquad A \xrightarrow[\text{below}]{\text{above}} B \]
+\begin{align}
+  0 \xrightarrow{} A &\xrightarrow{\alpha} B, & x &\notin \overbrace{\{1,2\}}^{S}
+\end{align}
+\end{document}

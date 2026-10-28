@@ -217,6 +217,7 @@ function run(src: string, prev: Aux | null, epoch: number, driver: "dvips" | "pd
   Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, HYPER_LINK_DEFAULTS)
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
+  mathFonts.packages = { amsfonts: true, amssymb: true } // (beamer loads amssymb)
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const pgf = navigationPgf(driver)
   // (what fadings put at the top of a page measures against \normalsize's \strutbox, the frames' size)

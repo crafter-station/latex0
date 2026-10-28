@@ -62,7 +62,12 @@ function probe(cls: string, option: string, packages = ""): string {
       `\\immediate\\write16{F:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [0, 1, 2, 3].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}` +
       // the math alphabets' families (allocated on first use) at text, script and scriptscript size
       `\\setbox0\\hbox{$${ALPHABETS.map((a) => `\\${a}{\\xdef\\fam${a}{\\the\\fam}}`).join("")}` +
-      `\\immediate\\write16{A:\\expandafter\\@gobble\\string#1${ALPHABETS.flatMap((a) => ["text", "script", "scriptscript"].map((st) => `:\\fontname\\${st}font\\csname fam${a}\\endcsname`)).join("")}}$}}}`,
+      `\\immediate\\write16{A:\\expandafter\\@gobble\\string#1${ALPHABETS.flatMap((a) => ["text", "script", "scriptscript"].map((st) => `:\\fontname\\${st}font\\csname fam${a}\\endcsname`)).join("")}}` +
+      // with amssymb and mathrsfs: the AMS symbol fonts, \mathfrak's family and mathrsfs's symbol font
+      `\\ifdefined\\symrsfs{\\mathfrak{\\xdef\\famfrak{\\the\\fam}}}\\immediate\\write16{X:\\expandafter\\@gobble\\string#1${["symAMSa", "symAMSb", "famfrak", "symrsfs"].flatMap((a) => ["text", "script", "scriptscript"].map((st) => `:\\fontname\\${st}font\\${a}`)).join("")}}\\fi$}` +
+      // and in \mathversion{bold} (amsbsy's \boldsymbol): families 0–3, the alphabets' and the AMS fonts' at each size
+      `\\ifdefined\\symrsfs{\\mathversion{bold}\\setbox0\\hbox{$${ALPHABETS.map((a) => `\\${a}{\\xdef\\fam${a}{\\the\\fam}}`).join("")}\\mathfrak{\\xdef\\famfrak{\\the\\fam}}` +
+      `\\immediate\\write16{W:\\expandafter\\@gobble\\string#1${["text", "script", "scriptscript"].flatMap((st) => [..."0123", ...ALPHABETS.map((a) => `\\csname fam${a}\\endcsname`), "\\symAMSa", "\\symAMSb", "\\famfrak", "\\symrsfs"].map((f) => `:\\fontname\\${st}font${f}`)).join("")}}$}}\\fi}}`,
     "\\begin{document}", "\\makeatletter", // (beamer's \\begin{document} ends with \\makeatother)
     // with fontenc loaded: the font of every encoding, family, series and shape at every size (what NFSS
     // substitutes when the shape is not declared) and its \\hyphenchar
@@ -108,7 +113,7 @@ function texData(cls: string, option: string): ClassOptionData {
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "probe.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
   const log = readFileSync(join(dir, "probe.log"), "latin1").split("\n")
   // the same probe with amsmath, which scales the math extension font with the size: only its math fonts are kept
-  writeFileSync(join(dir, "ams.tex"), probe(cls, option, "\\usepackage{amsmath}"))
+  writeFileSync(join(dir, "ams.tex"), probe(cls, option, "\\usepackage{amsmath,amssymb,mathrsfs}"))
   execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "ams.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
   const amsLog = readFileSync(join(dir, "ams.log"), "latin1").split("\n")
   // and with \usepackage[T1]{fontenc}: only its text fonts are kept
@@ -137,6 +142,8 @@ function texData(cls: string, option: string): ClassOptionData {
         math: { text: [], script: [], scriptscript: [] },
         mathAms: { text: [], script: [], scriptscript: [] },
         alphabets: { mathbf: [], mathit: [], mathsf: [], mathtt: [] },
+        amsFonts: { msa: [], msb: [], euf: [], rsfs: [] },
+        boldMath: { text: [], script: [], scriptscript: [] },
         strut: { height: 0, depth: 0 },
         companion: { name: "", at: 0 },
         bold: { name: "", at: 0 },
@@ -159,10 +166,13 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, mf] of mathFonts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].math = mf
   for (const [size, a] of alphabets) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].alphabets = a
   for (const line of amsLog) {
-    const m = line.match(/^F:(\w+):(.*)$/)
-    if (!m || !data.sizes[m[1] as keyof ClassOptionData["sizes"]]) continue
-    const refs = m[2].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
-    data.sizes[m[1] as keyof ClassOptionData["sizes"]].mathAms = { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) }
+    const m = line.match(/^([FXW]):(\w+):(.*)$/)
+    if (!m || !data.sizes[m[2] as keyof ClassOptionData["sizes"]]) continue
+    const refs = m[3].split(":").map((f) => { const x = f.match(/^(\w+)(?: at ([\d.]+)pt)?$/)!; return { name: x[1], at: x[2] ? parseScaled(x[2]) : designSize(x[1]) } })
+    const sz = data.sizes[m[2] as keyof ClassOptionData["sizes"]]
+    if (m[1] === "W") sz.boldMath = { text: refs.slice(0, 12), script: refs.slice(12, 24), scriptscript: refs.slice(24, 36) }
+    else if (m[1] === "F") sz.mathAms = { text: refs.slice(0, 4), script: refs.slice(4, 8), scriptscript: refs.slice(8, 12) }
+    else sz.amsFonts = { msa: refs.slice(0, 3), msb: refs.slice(3, 6), euf: refs.slice(6, 9), rsfs: refs.slice(9, 12) }
   }
   const ref = (name: string, at?: string) => ({ name, at: at ? parseScaled(at) : designSize(name) })
   const declared = new Map<string, boolean>()
@@ -177,7 +187,7 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || ALPHABETS.some((a) => data.sizes[s].alphabets[a].length !== 3) || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
+  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || ALPHABETS.some((a) => data.sizes[s].alphabets[a].length !== 3) || Object.values(data.sizes[s].amsFonts).some((f) => f.length !== 3) || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
   // letter has no floats' captions
   const absent = cls === "letter" ? ["abovecaptionskip", "belowcaptionskip"] : []
   const lacking = missing.filter((x) => !absent.includes(x))

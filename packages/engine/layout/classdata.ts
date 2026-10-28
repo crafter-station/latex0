@@ -25,6 +25,11 @@ export interface SizeData {
   mathAms: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
   /** the math alphabets' families (\mathbf, \mathit, \mathsf, \mathtt): text, script and scriptscript fonts */
   alphabets: Record<"mathbf" | "mathit" | "mathsf" | "mathtt", FontRef[]>
+  /** amssymb's symbol fonts AMSa and AMSb (\mathbb's), amsfonts' \mathfrak and mathrsfs's \mathscr: text, script and scriptscript fonts */
+  amsFonts: Record<"msa" | "msb" | "euf" | "rsfs", FontRef[]>
+  /** \mathversion{bold} (amsbsy's \boldsymbol): families 0–3, then \mathbf, \mathit, \mathsf, \mathtt, AMSa, AMSb, \mathfrak and
+   *  \mathscr (the engine's families 0–11), at text, script and scriptscript size */
+  boldMath: { text: FontRef[]; script: FontRef[]; scriptscript: FontRef[] }
   /** the bold extended roman (\bfseries) at this size */
   bold: FontRef
   /** the text companion font (TS1: \textbullet…) at this size */

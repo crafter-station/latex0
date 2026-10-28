@@ -111,6 +111,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const { cls, option, usesXcolor, amsmath, hyper, hyperNotes, t1, booktabsFont, colorDefs, pagestyle, newCounters, body } = pre
   hyperDriver.pdftex = driver === "pdftex"
   mathFonts.letters = null
+  mathFonts.packages = pre.mathPackages
   const run = runState(pre.k)
   // \today: the date's characters (the spaces after the control word go, and its line's end, unless a blank line follows)
   // (in the main language: with babel's language commands, the one selected there is not modeled)

@@ -26,6 +26,7 @@ export function emitBoxes(n: Node): BoxOut {
         return { type: "other", text: `\\${n.leaders.kind} ${spec}`, children: [emitBoxes(n.leaders.box)] }
       }
       const g = { type: "glue" as const, width: n.width, stretch: n.stretch, stretchOrder: n.stretchOrder, shrink: n.shrink, shrinkOrder: n.shrinkOrder }
+      if (n.param === "nonscript") return { type: "other", text: "\\glue(\\nonscript)" } // (§ 189: no spec)
       return n.param ? { ...g, param: n.param } : g
     }
     case "kern": return n.explicit ? { type: "kern", width: n.width, explicit: true } : n.accent ? { type: "kern", width: n.width, accent: true } : { type: "kern", width: n.width }

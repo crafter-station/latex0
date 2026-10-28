@@ -1,0 +1,10 @@
+% fixture: math/overbrace-plain
+% tier: T3
+% engine: document
+% covers: LaTeX's \overbrace and \underbrace (\mathop of a \vbox or \vtop: \kern3pt, \downbracefill and \upbracefill with \leaders\vrule), \overrightarrow and \overleftarrow (\rightarrowfill's \cleaders, \kern-1pt), \notin and \cong; in text, scripts and displays
+% issue: #330
+\documentclass[12pt]{article}
+\begin{document}
+Sums $\overbrace{a+b}^{2}$, $\underbrace{x\,y}_{k}$, vectors $\overrightarrow{v}$, $\overleftarrow{w}_i$, $a\notin B$ and $X\cong Y$.
+\[ \underbrace{\overbrace{a+\cdots+a}^{k}+b}_{n} \qquad \overrightarrow{OP} \]
+\end{document}

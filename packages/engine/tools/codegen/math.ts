@@ -28,13 +28,28 @@ const SYMBOLS = (
   "leftarrow gets rightarrow to uparrow downarrow leftrightarrow Leftarrow Rightarrow Uparrow Downarrow Leftrightarrow " +
   "nearrow searrow swarrow nwarrow leftharpoonup leftharpoondown rightharpoonup rightharpoondown rightleftharpoons " +
   "sum prod coprod intop ointop bigcup bigcap bigsqcup bigvee bigwedge bigodot bigotimes bigoplus biguplus " +
-  "ldotp cdotp colon"
+  "ldotp cdotp colon mathdollar mapstochar lhook rhook"
 ).split(" ")
 // \delimiter commands (fontmath.ltx): what \left takes, a math character elsewhere
 const DELIMITERS = (
   "langle rangle lbrace rbrace lfloor rfloor lceil rceil vert Vert backslash uparrow downarrow updownarrow " +
   "Uparrow Downarrow Updownarrow lgroup rgroup lmoustache rmoustache arrowvert Arrowvert bracevert"
 ).split(" ")
+
+/** the families the engine gives the symbol fonts packages declare (TeX numbers them as they are declared; the
+ *  number never shows): amssymb's AMSa and AMSb */
+export const PACKAGE_FAMILIES: Record<string, number> = { AMSa: 8, AMSb: 9 }
+/** packages whose symbols become data: each loaded alone (amssymb loads amsfonts), its \DeclareMathSymbol and
+ *  \DeclareMathDelimiter commands and the symbols it \let's to others, read from the .sty */
+const PACKAGES = ["amsmath", "amsfonts", "amssymb", "mathtools"]
+
+function packageNames(dir: string, pkg: string): string[] {
+  const path = execFileSync("kpsewhich", [`${pkg}.sty`], { cwd: dir, env: texEnv(), encoding: "latin1" }).trim()
+  const src = readFileSync(path, "latin1").replace(/(^|[^\\])%.*$/gm, "$1")
+  const names = new Set<string>()
+  for (const m of src.matchAll(/\\(?:ams@)?Declare(?:MathSymbol|MathDelimiter)\s*\{?\\([A-Za-z]+)|\\global\\let\\([A-Za-z]+)\\[A-Za-z]/g)) names.add(m[1] ?? m[2])
+  return [...names]
+}
 
 export function codegenMath(check: boolean): number {
   const dir = ".cache/mathdata"
@@ -61,6 +76,28 @@ export function codegenMath(check: boolean): number {
     else if ((m = line.match(/^D:(\w+)=(-?[\d.]+)pt$/))) data.dimens[m[1]] = parseScaled(m[2])
     else if ((m = line.match(/^M:(\w+)=(.*)$/))) data.muskips[m[1]] = new Scanner(m[2], { em: 0, ex: 0 }).scanGlue(true)
     else if ((m = line.match(/^S:(\w+)=\\mathchar"([0-9A-F]+)$/))) data.symbols[m[1]] = parseInt(m[2], 16)
+  }
+  // each package's symbols and delimiters, loaded alone: their \mathchar (\delimiter) with the engine's families
+  data.packages = {}
+  for (const pkg of PACKAGES) {
+    const names = packageNames(dir, pkg)
+    writeFileSync(join(dir, `${pkg}.tex`), [
+      "\\documentclass{article}", `\\usepackage{${pkg}}`, "\\begin{document}",
+      ...Object.keys(PACKAGE_FAMILIES).map((f) => `\\ifdefined\\sym${f}\\immediate\\write16{F:\\the\\sym${f}=${f}}\\fi`),
+      ...names.map((x) => `\\immediate\\write16{S:${x}=\\meaning\\${x}}`),
+      "\\end{document}", "",
+    ].join("\n"))
+    execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", `${pkg}.tex`], { cwd: dir, env: texEnv({ max_print_line: "100000" }) })
+    const fams = new Map<number, number>()
+    const p: NonNullable<MathData["packages"]>[string] = { symbols: {}, delimiters: {} }
+    const fam = (code: number, shift: number) => { const f = (code >> shift) & 15; return f < 4 ? code : (code & ~(15 << shift)) | (fams.get(f)! << shift) }
+    for (const line of readFileSync(join(dir, `${pkg}.log`), "latin1").split("\n")) {
+      let m: RegExpMatchArray | null
+      if ((m = line.match(/^F:(\d+)=(\w+)$/))) fams.set(Number(m[1]), PACKAGE_FAMILIES[m[2]])
+      else if ((m = line.match(/^S:(\w+)=\\mathchar"([0-9A-F]+)$/))) p.symbols[m[1]] = fam(parseInt(m[2], 16), 8)
+      else if ((m = line.match(/^S:(\w+)=(?:\\protected macro:->)?\\delimiter ?"([0-9A-F]+)\s*$/))) { const d = parseInt(m[2], 16); p.delimiters[m[1]] = fam(fam(d, 20), 8) }
+    }
+    data.packages[pkg] = p
   }
   if (data.mathcodes.length !== 128 || data.delcodes.length !== 128 || Object.keys(data.delimiters).length !== DELIMITERS.length || Object.keys(data.muskips).length !== 3) throw new Error("math codegen: TeX did not report every value")
   const body = JSON.stringify(data) + "\n"

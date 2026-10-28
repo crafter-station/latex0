@@ -7,12 +7,16 @@
 // \quad and \qquad (\hskip1em, \hskip2em), \ne and \neq (\not=), \frac
 // ({\begingroup#1\endgroup\over#2}), \int and \oint (\intop\nolimits), and
 // the prime ' (^\bgroup\prime…\egroup, which takes in a superscript that
-// follows: x'^{ab} is x^{\prime ab}).
+// follows: x'^{ab} is x^{\prime ab}); \mathord … \mathinner, \mkern, \mskip and \nonscript; LaTeX's and
+// amsmath's \dots (amsmath's by the token after it), \cdots, \vdots, \ddots, \colon, \bmod, \pmod, \pod, \mod.
 
 import type { MathData } from "./data"
-import type { GlueSpec } from "../layout/dimen"
-import { glue, kern, penalty } from "../layout/nodes"
-import { delimiterOf, groupField, groupNoad, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
+import { Scanner, type GlueSpec } from "../layout/dimen"
+import { xnOverD } from "../layout/arith"
+import { charNode, emptyBox, filGlue, fillGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
+import type { Font } from "../layout/font"
+import { delimiterOf, groupField, groupNoad, type ArrayColumn, type ArraySegment, mlistToHlist, TEXT as TEXT_STYLE, type FractionNoad, type MathEnv, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
@@ -25,26 +29,92 @@ const OPERATORS: Record<string, [string, "o" | "m"]> = {
   max: ["max", "m"], min: ["min", "m"], sup: ["sup", "m"], inf: ["inf", "m"], arg: ["arg", "o"], ker: ["ker", "o"], dim: ["dim", "o"],
   hom: ["hom", "o"], det: ["det", "m"], exp: ["exp", "o"], Pr: ["Pr", "m"], gcd: ["gcd", "m"], deg: ["deg", "o"],
 }
-/** fontmath.ltx's math accents (\mathaccent; amsmath's \mathaccentV is the same for one accent) */
-const MATH_ACCENTS: Record<string, number> = {
-  acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e,
-  dot: 0x705f, mathring: 0x7017, widehat: 0x0362, widetilde: 0x0365,
-}
-/** whether an mlist has an accent noad, at any depth */
-function hasAccent(list: MItem[]): boolean {
-  const inField = (f: Field) => f?.kind === "mlist" && hasAccent(f.list)
-  return list.some((x) => {
-    if (!("noad" in x) || x.noad === "left" || x.noad === "right") return false
-    if (x.noad === "fraction") return hasAccent(x.num) || hasAccent(x.denom)
-    const n = x as Noad
-    return !!n.accent || inField(n.nucleus) || inField(n.sup) || inField(n.sub)
-  })
-}
 /** \tmspace in math (latex.ltx, amsmath): \mskip with a sign and a mu skip register (\> is \:) */
 const MU_SPACES: Record<string, [1 | -1, "thinmuskip" | "medmuskip" | "thickmuskip"]> = {
   ",": [1, "thinmuskip"], thinspace: [1, "thinmuskip"], "!": [-1, "thinmuskip"], negthinspace: [-1, "thinmuskip"],
   ":": [1, "medmuskip"], ">": [1, "medmuskip"], medspace: [1, "medmuskip"], negmedspace: [-1, "medmuskip"],
   ";": [1, "thickmuskip"], thickspace: [1, "thickmuskip"], negthickspace: [-1, "thickmuskip"],
+}
+/** \mathord … \mathinner (§ 1155): a noad of that class, its nucleus scan_math's */
+const MATH_CLASSES: Record<string, Noad["noad"]> = { mathord: ORD, mathop: OP, mathbin: 2, mathrel: 3, mathopen: 4, mathclose: 5, mathpunct: 6, mathinner: INNER }
+/** \chardef'd characters (latex.ltx): \# \% \& */
+const CHARDEFS = ["#", "%", "&"]
+/** amsmath's macros that start \DOTSB (B) or \DOTSI (I), which \dots looks for after it */
+const DOTS_MACROS: Record<string, "B" | "I"> = {
+  ...Object.fromEntries("coprod bigvee bigwedge biguplus bigcap bigcup prod sum bigotimes bigoplus bigodot bigsqcup implies impliedby And longrightarrow Longrightarrow longleftarrow Longleftarrow longleftrightarrow Longleftrightarrow mapsto longmapsto hookrightarrow hookleftarrow iff doteq".split(" ").map((x) => [x, "B"])),
+  ...Object.fromEntries("int oint iint iiint iiiint idotsint".split(" ").map((x) => [x, "I"])),
+}
+/** amsmath's \rightdelim@: what \dots and \cdots put a thin space before */
+const RIGHT_DELIMS = ["rbrack", "}", "rbrace", "rangle", "rceil", "rfloor", "rgroup", "rmoustache", "right", "bigr", "biggr", "Bigr", "Biggr"]
+/** fontmath.ltx's \DeclareMathAccent's: \mathaccent codes (amsmath's \mathaccentV gives each class 7) */
+const ACCENTS: Record<string, number> = {
+  acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e, dot: 0x705f,
+  widetilde: 0x0365, widehat: 0x0362, mathring: 0x7017,
+}
+/** LaTeX's text font commands in math (\nfss@text{<declaration>#1}) */
+const TEXT_FONT_COMMANDS: Record<string, string> = {
+  textrm: "rmfamily", textsf: "sffamily", texttt: "ttfamily", textnormal: "normalfont", textbf: "bfseries", textmd: "mdseries",
+  textit: "itshape", textsl: "slshape", textsc: "scshape", textup: "upshape",
+}
+/** mathtools's colon relations (\vcentcolon: \mathrel{\mathop\ordinarycolon}, a colon centered on the axis) */
+const VCENTCOLON = "\\mathrel{\\mathop:}", DBLCOLON = `${VCENTCOLON}\\mathrel{\\mkern-.9mu}${VCENTCOLON}`
+const COLONS: Record<string, string> = {
+  vcentcolon: VCENTCOLON, dblcolon: DBLCOLON,
+  coloneqq: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}=`, coloneq: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}=`,
+  Coloneqq: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}=`, Coloneq: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}=`,
+  eqqcolon: `=\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, eqcolon: `=\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`,
+  Eqqcolon: `=\\mathrel{\\mkern-1.2mu}${DBLCOLON}`, Eqcolon: `=\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+  colonapprox: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\approx`, Colonapprox: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\approx`,
+  approxcolon: `\\approx\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Approxcolon: `\\approx\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+  colonsim: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\sim`, Colonsim: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\sim`,
+  simcolon: `\\sim\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Simcolon: `\\sim\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+  colondash: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\mathrel{-}`, Colondash: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\mathrel{-}`,
+  dashcolon: `\\mathrel{-}\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Dashcolon: `\\mathrel{-}\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
+}
+/** an empty math group, {} */
+const ORD_EMPTY = (): Noad => ({ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null })
+/** amsmath's \iint … and \idotsint: how many \intop's */
+const MULTI_INTEGRALS: Record<string, number> = { iint: 2, iiint: 3, iiiint: 4, idotsint: 0 }
+/** amsmath's \intdots@ between two \intop's */
+const INTDOTS = "\\mathchoice{\\mathinner{\\cdotp\\cdotp\\cdotp}}{{\\cdotp}\\mkern1.5mu{\\cdotp}\\mkern1.5mu{\\cdotp}}{{\\cdotp}\\mkern1mu{\\cdotp}\\mkern1mu{\\cdotp}}{{\\cdotp}\\mkern1mu{\\cdotp}\\mkern1mu{\\cdotp}}"
+/** fontmath.ltx's arrows over: the fill (amsmath's versions take \mathpalette) */
+const OVER_ARROWS: Record<string, ["right" | "left" | "leftright"]> = { overrightarrow: ["right"], overleftarrow: ["left"] }
+/** amsmath's arrows over and under */
+const AMS_ARROWS: Record<string, ["right" | "left" | "leftright"]> = {
+  overleftrightarrow: ["leftright"], underrightarrow: ["right"], underleftarrow: ["left"], underleftrightarrow: ["leftright"],
+}
+/** amsmath's \genfrac's: delimiters, thickness, style */
+const GENFRACS: Record<string, [string, string, string, string]> = {
+  dfrac: ["", "", "", "0"], tfrac: ["", "", "", "1"], binom: ["(", ")", "0pt", ""] /* (\z@) */, dbinom: ["(", ")", "0pt", "0"], tbinom: ["(", ")", "0pt", "1"],
+}
+/** the generalized fraction primitives (§ 1178) and LaTeX's \choose, \brack and \brace: thickness default, zero or
+ *  scanned; delimiters scanned ("") or given */
+const FRACTION_PRIMITIVES: Record<string, ["over" | "atop" | "above", string | null]> = {
+  over: ["over", null], atop: ["atop", null], above: ["above", null],
+  overwithdelims: ["over", ""], atopwithdelims: ["atop", ""], abovewithdelims: ["above", ""],
+  choose: ["atop", "()"], brack: ["atop", "[]"], brace: ["atop", "\\{\\}"],
+}
+/** amsmath's capitalized accents: the accent (\def\Hat{\hat}) */
+const ACCENT_ALIASES = ["Hat", "Check", "Tilde", "Acute", "Grave", "Dot", "Ddot", "Breve", "Bar", "Vec"]
+/** amssymb's AMSb family (codegen/math.ts PACKAGE_FAMILIES) */
+const AMSB = 9
+/** fontmath.ltx's arrows and relations built of others (\joinrel: \mathrel{\mkern-3mu}), and amsmath's (its \DOTSB is \relax) */
+const ARROWS: Record<string, [string | null, string]> = {
+  implies: [null, "\\;\\Longrightarrow\\;"], impliedby: [null, "\\;\\Longleftarrow\\;"],
+  joinrel: ["\\mathrel{\\mkern-3mu}", "\\mathrel{\\mkern-3mu}"],
+  longrightarrow: ["\\relbar\\joinrel\\rightarrow", "\\relbar\\joinrel\\rightarrow"],
+  Longrightarrow: ["\\Relbar\\joinrel\\Rightarrow", "\\Relbar\\joinrel\\Rightarrow"],
+  longleftarrow: ["\\leftarrow\\joinrel\\relbar", "\\leftarrow\\joinrel\\relbar"],
+  Longleftarrow: ["\\Leftarrow\\joinrel\\Relbar", "\\Leftarrow\\joinrel\\Relbar"],
+  longleftrightarrow: ["\\leftarrow\\joinrel\\rightarrow", "\\leftarrow\\joinrel\\rightarrow"],
+  Longleftrightarrow: ["\\Leftarrow\\joinrel\\Rightarrow", "\\Leftarrow\\joinrel\\Rightarrow"],
+  mapsto: ["\\mapstochar\\rightarrow", "\\mapstochar\\rightarrow"],
+  longmapsto: ["\\mapstochar\\longrightarrow", "\\mapstochar\\longrightarrow"],
+  hookrightarrow: ["\\lhook\\joinrel\\rightarrow", "\\lhook\\joinrel\\rightarrow"],
+  hookleftarrow: ["\\leftarrow\\joinrel\\rhook", "\\leftarrow\\joinrel\\rhook"],
+  iff: ["\\;\\Longleftrightarrow\\;", "\\;\\Longleftrightarrow\\;"],
+  models: ["\\mathrel{|}\\joinrel\\Relbar", "\\mathrel{|}\\joinrel\\Relbar"],
+  bowtie: ["\\mathrel\\triangleright\\joinrel\\mathrel\\triangleleft", "\\mathrel\\triangleright\\joinrel\\mathrel\\triangleleft"],
 }
 /** \quad and \qquad: \hskip in em of the current (text) font */
 const QUADS: Record<string, number> = { quad: 1, qquad: 2 }
@@ -53,6 +123,8 @@ const DELIMITER_MACROS: Record<string, string> = { "{": "lbrace", "}": "rbrace",
 const AMS_DELIMITERS: Record<string, string> = { lvert: "vert", rvert: "vert", lVert: "Vert", rVert: "Vert" }
 /** amsmath's matrix environments: their \left and \right */
 const MATRICES: Record<string, [string, string] | null> = { matrix: null, pmatrix: ["(", ")"], bmatrix: ["[", "]"], Bmatrix: ["lbrace", "rbrace"], vmatrix: ["vert", "vert"], Vmatrix: ["Vert", "Vert"] }
+
+export type MathText = (src: string, size: 0 | 1 | 2, style: "display" | "text" | null, declaration?: string) => BoxNode
 
 /** Options of the document the formula is in. */
 export interface MathOptions {
@@ -64,6 +136,35 @@ export interface MathOptions {
   /** commands a package binding typesets from the source of an optional […] and its braced arguments (siunitx's):
    *  how many braced arguments each takes, and their mlist with \fam in force */
   commands?: { arity: Record<string, number>; build: (cmd: string, opt: string | undefined, args: string[], fam: number) => MItem[] }
+  /** packages whose symbols and delimiters are defined (MathData.packages: amsmath, amsfonts, amssymb), in loading order */
+  packages?: string[]
+  /** the current text font: \hbox{.} in \vdots and \ddots */
+  font?: Font
+  /** amsmath's \if@display: the formula is in a display (\everydisplay sets it), for \pod, \pmod and \mod */
+  display?: boolean
+  /** amsmath's \text and LaTeX's \mbox (and \textrm …) in math: the text in an \hbox at \f@size (0), \sf@size (1) or
+   *  \ssf@size (2), with \everymath setting a style (or not: null), after a font declaration (\rmfamily …) */
+  text?: MathText
+  /** the fonts and parameters the formula is set with (amsmath's \binrel@ measures in them) */
+  env?: MathEnv
+  /** \fbox's frame around a box (\@frameb@x with \fboxsep and \fboxrule), for amsmath's \boxed */
+  frame?: (box: BoxNode) => BoxNode
+  /** (internal) the formula's source, which text arguments are cut from */
+  raw?: string
+  /** (internal) in \mathversion{bold} (\boldsymbol's argument) */
+  boldVersion?: boolean
+  /** (internal) inside an alignment's cell (its \baselineskip and \lineskip are its own) */
+  inAlignment?: boolean
+  /** (internal) \arraystretch where it is not 1 (amsmath's cases: 1.2), as § 455 scans it */
+  arraystretch?: [number, number]
+  /** (internal) amsmath's \accentclass@ is 0 (\noaccents@), not 7 */
+  accentClass0?: boolean
+  /** (internal) amsmath's \finsm@sh where the formula starts: t, b or tb */
+  finsmash?: "t" | "b" | "tb"
+  /** array.sty is loaded: its \array cells end with \textonly@unskip, LaTeX's with a $ (which \dots looks ahead to) */
+  arrayPackage?: boolean
+  /** a $ follows the formula (inline math, $$ displays), which amsmath's \dots and \cdots look ahead to */
+  dollarNext?: boolean
   /** \mathcode's the document changes (beamer's \DeclareMathSymbol for the Latin letters), by character code */
   mathcodes?: Record<number, number>
   /** operators a language redefines (spanish.ldf's \es@operators: \mathop{\operator@font l\acute{\dotlessi}m}): the
@@ -71,9 +172,19 @@ export interface MathOptions {
   operators?: Record<string, { name: string; nolimits: boolean }>
 }
 
-type Token = { cs: string; value?: number } | { ch: string }
+/** a token; braces from the formula's own source keep their offset in it (`at`), for text arguments */
+type Token = { cs: string; value?: number; spec?: GlueSpec; at?: number } | { ch: string; at?: number }
 
-function tokenize(src: string): Token[] {
+/** \mkern's mu dimension and \mskip's mu glue (scan_dimen and scan_glue with mu, §§ 448–461), the mu skip registers
+ *  coerced (\mkern-\thinmuskip: its width) */
+function scanMu(src: string, cs: "mkern" | "mskip", muskips?: Record<string, GlueSpec>): { spec: GlueSpec; length: number } {
+  const s = new Scanner(src, { em: 0, ex: 0, internal: (name) => (muskips && name in muskips ? { level: "glue", value: muskips[name] } : undefined) })
+  const spec = cs === "mkern" ? { width: s.scanDimen(true).value, stretch: 0, stretchOrder: 0 as const, shrink: 0, shrinkOrder: 0 as const } : s.scanGlue(true)
+  if (s.errors.length) throw new Error(`math: \\${cs}: ${s.errors[0]}`)
+  return { spec, length: s.pos }
+}
+
+function tokenize(src: string, muskips?: Record<string, GlueSpec>, offsets = false): Token[] {
   const out: Token[] = []
   for (let i = 0; i < src.length;) {
     const c = src[i]
@@ -86,10 +197,13 @@ function tokenize(src: string): Token[] {
         const n = src.slice(i).match(/^([+-\s]*)(\d+) ?/)
         if (!n) throw new Error("math: \\penalty needs an integer")
         out.push({ cs: m[1], value: ((n[1].match(/-/g) ?? []).length % 2 ? -1 : 1) * Number(n[2]) }); i += n[0].length
-      } else out.push({ cs: m[1] })
+      } else if (m[1] === "mkern" || m[1] === "mskip") {
+        const { spec, length } = scanMu(src.slice(i), m[1], muskips)
+        out.push({ cs: m[1], spec }); i += length
+      } else out.push(offsets && m[1] === "\\" ? { cs: m[1], at: i } : { cs: m[1] }) // (\\: what follows it right away)
     } else if (/\s/.test(c)) i++ // spaces are ignored in math mode
     else if (c === "%") { while (i < src.length && src[i] !== "\n") i++ }
-    else { out.push({ ch: c }); i++ }
+    else { out.push(offsets && (c === "{" || c === "}") ? { ch: c, at: i } : { ch: c }); i++ }
   }
   return out
 }
@@ -107,15 +221,32 @@ const source = (ts: Token[]) => ts.map((t) => ("ch" in t ? t.ch : `\\${t.cs}${/^
 
 /** Parse a formula (the text between $…$) into an mlist. */
 export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
-  return parseTokens(tokenize(src), data, opts, -1)
+  return parseTokens(tokenize(src, data.muskips, true), withPackages(data, opts.packages ?? []), { ...opts, raw: src }, -1)
+}
+
+const merged = new WeakMap<MathData, Map<string, MathData>>()
+/** LaTeX's symbols and delimiters with those the packages declare (DeclareMathSymbol redefines: theirs win) */
+function withPackages(data: MathData, packages: string[]): MathData {
+  if (!packages.length) return data
+  const key = packages.join(",")
+  let m = merged.get(data)
+  if (!m) merged.set(data, (m = new Map()))
+  let d = m.get(key)
+  if (!d) {
+    const ps = packages.map((p) => { const x = data.packages?.[p]; if (!x) throw new Error(`math: no data for ${p}`); return x })
+    d = { ...data, symbols: Object.assign({}, data.symbols, ...ps.map((p) => p.symbols)), delimiters: Object.assign({}, data.delimiters, ...ps.map((p) => p.delimiters)) }
+    m.set(key, d)
+  }
+  return d
 }
 
 /** `fam`: \fam in force (-1: none), which class-7 characters take (§ 1151) */
-function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: number): MItem[] {
+function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: number): MItem[] {
+  const toks = input.slice() // (macros expand in place: a list read twice reads its source)
   const macroOf = (cs: string) => DELIMITER_MACROS[cs] ?? (opts.amsmath ? AMS_DELIMITERS[cs] : undefined) ?? cs
   const mathcode = (ch: string) => opts.mathcodes?.[ch.charCodeAt(0)] ?? data.mathcodes[ch.charCodeAt(0)]
   let pos = 0
-  const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && x.noad !== "fraction"
+  const scriptsAllowed = (x: MItem | undefined): x is Noad => !!x && "noad" in x && typeof x.noad === "number" // (ord … inner, § 1176)
 
   /** An undelimited macro argument: a balanced group without its braces, or one token. */
   const argument = (): Token[] => {
@@ -130,9 +261,133 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     }
     return toks.slice(start, pos++)
   }
-  const sub = (ts: Token[], f = fam) => parseTokens(ts, data, opts, f)
+  // (a list of its own: its end is a } or an \endgroup, not the formula's $)
+  const inner = opts.dollarNext ? { ...opts, dollarNext: false } : opts
+  /** \finsm@sh as amsmath's \smash last \edef'ed it in this group (what \relbar's \mathsm@sh then does) */
+  let finsmash = opts.finsmash ?? "tb"
+  const sub = (ts: Token[], f = fam, more: Partial<MathOptions> = {}) => parseTokens(ts, data, { ...inner, finsmash, ...more }, f)
+  /** a math group in this list: what it defines ends with it */
+  const group = <T>(f: () => T): T => { const saved = finsmash; const x = f(); finsmash = saved; return x }
+  /** \mathpalette: a choice node whose list `build` makes for the style (#1: \displaystyle … \scriptscriptstyle, never cramped) */
+  const palette = (build: (style: number) => MItem[]): MItem => ({ kind: "choice", choose: (st) => build(2 * (st >> 1)) })
+  /** $\m@th#1{#2}$ in an \hbox: a new formula (\fam -1) with the style, then #2 as a math group */
+  const inHbox = (style: number, arg: Token[], fs: typeof finsmash): MItem[] => [{ kind: "style", style }, groupNoad(parseTokens(arg, data, { ...inner, finsmash: fs }, -1))]
+  /** \mathpalette\mathsm@sh: \setbox\z@\hbox{$\m@th#1{#2}$}{}\finsm@sh, the box's height and depth (amsmath's [t], [b]) zero */
+  const smash = (arg: Token[], mode: "t" | "b" | "tb"): MItem => {
+    const fs = finsmash
+    return palette((st) => [{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, { noad: ORD, nucleus: { kind: "hmath", list: inHbox(st, arg, fs), smash: mode }, sup: null, sub: null }])
+  }
+  /**
+   * amsmath's \binrel@{base}\binrel@@{…}: a noad around `noad` of base's class, from base measured as ${}#1{}$ less $#1$
+   * with \thinmuskip 0, \medmuskip -1mu and \thickmuskip 1mu (negative: \mathbin, positive: \mathrel, else \relax{…})
+   */
+  const binrel = (base: Token[], noad: Noad): Noad => {
+    if (!opts.env) throw new Error("math: \\binrel@ without the fonts")
+    const mu = { width: 65536, stretch: 0, stretchOrder: 0 as const, shrink: 0, shrinkOrder: 0 as const }
+    const env = { ...opts.env, muskips: { thinmuskip: { ...mu, width: 0 }, medmuskip: { ...mu, width: -65536 }, thickmuskip: mu } }
+    const width = (l: MItem[]) => hpack(mlistToHlist(l, env, TEXT_STYLE, false)).width
+    const w = width([ORD_EMPTY(), ...parseTokens(base, data, { ...inner, finsmash }, -1), ORD_EMPTY()]) - width(parseTokens(base, data, { ...inner, finsmash }, -1))
+    return w === 0 ? groupNoad([noad]) : { noad: w < 0 ? 2 : 3, nucleus: groupField([noad]), sup: null, sub: null }
+  }
+  /** LaTeX's \@mkpream for c, l, r and @-expressions (\@arrayclassz, \@arrayclassiv): the columns and what goes
+   *  around each, \hskip\arraycolsep (\@acol) unless an @-expression is there */
+  const arrayPreamble = (spec: Token[]): ArrayColumn[] => {
+    const cols: ArrayColumn[] = []
+    let last = 6, pending: ArraySegment[] = [] // \@lastchclass; what the next column's u-part takes
+    for (let i = 0; i < spec.length; i++) {
+      const t = spec[i]
+      if ("ch" in t && /^[clr]$/.test(t.ch)) {
+        if (last === 0) { cols[cols.length - 1].after.push("colsep"); pending.push("colsep") } // \@acolampacol
+        else if (last === 1) pending.push("colsep") // \@ampacol
+        else if (last === 6) pending.push("colsep") // \@firstampfalse\@acol
+        cols.push({ align: t.ch as "c" | "l" | "r", before: pending, after: [] }); pending = []; last = 0
+      } else if (isCh(t, "|")) { // \@classi
+        const target = cols.length && last !== 6 && last !== 4 ? cols[cols.length - 1].after : pending
+        if (last === 0) target.push("colsep", "rule"); else if (last === 1) target.push("doublerulesep", "rule"); else if (last === 4 || last === 6) (cols.length ? cols[cols.length - 1].after : pending).push("rule")
+        last = 1
+      } else if (isCh(t, "@")) {
+        const a = spec[++i]
+        if (!a) throw new Error("math: an array preamble ending with @")
+        let arg: Token[] = [a]
+        if (isCh(a, "{")) { let d = 0, j = i; for (; j < spec.length; j++) { if (isCh(spec[j], "{")) d++; else if (isCh(spec[j], "}") && --d === 0) break } arg = spec.slice(i + 1, j); i = j }
+        const seg: ArraySegment = { math: () => parseTokens(arg, data, { ...inner, finsmash }, -1) } // $\@nextchar$
+        if (cols.length) cols[cols.length - 1].after.push(seg); else pending.push(seg)
+        last = 4
+      } else throw new Error(`math: an array preamble with ${"ch" in t ? t.ch : `\\${t.cs}`}`)
+    }
+    if (last === 0) cols[cols.length - 1].after.push("colsep")
+    if (!cols.length) throw new Error("math: an empty array preamble")
+    return cols
+  }
+  /** amsmath's smallmatrix (\null\,\vcenter{…}\,) and subarray (\vcenter{…}): cells $\scriptstyle#$, the template's $ after each */
+  const stack = (body: Token[], layout: "smallmatrix" | "subarray-c" | "subarray-l" | "dcases" | "rcases"): MItem[] => {
+    if (opts.em === undefined) throw new Error("math: smallmatrix without the current font")
+    const { rows, crs } = arrayRows(body, false, {}, true)
+    const thickspace = xnOverD(opts.em, 18199, 0o200000) // \thickspace in text: \kern.2777em (round_decimals(2777))
+    const v: Noad = { noad: ORD, vcenter: true, nucleus: { kind: "stack", rows, crs, layout, thickspace, quad: opts.em }, sup: null, sub: null }
+    if (layout !== "smallmatrix") return [v]
+    const thin = (): MItem => ({ kind: "muglue", spec: data.muskips.thinmuskip })
+    return [{ noad: ORD, nucleus: { kind: "box", box: emptyBox("hlist") }, sup: null, sub: null }, thin(), v, thin()]
+  }
+  /** fontmath.ltx's \rightarrowfill and \leftarrowfill: $\m@th\smash-\mkern-7mu\cleaders\hbox{$\mkern-2mu\smash-\mkern-2mu$}\hfill\mkern-7mu\mathord\rightarrow$ */
+  const kernelFill = (fill: "right" | "left" | "leftright"): MItem[] => {
+    if (fill === "leftright") throw new Error("math: \\overleftrightarrow without amsmath")
+    const p = (src: string) => parseTokens(tokenize(src, data.muskips), data, { ...inner, finsmash: "tb" }, -1)
+    const lead: MItem = { kind: "mleaders", leaders: "cleaders", box: () => p("\\mkern-2mu\\smash-\\mkern-2mu") }
+    return fill === "right" ? [...p("\\smash-\\mkern-7mu"), lead, ...p("\\mkern-7mu\\mathord\\rightarrow")] : [...p("\\mathord\\leftarrow\\mkern-7mu"), lead, ...p("\\mkern-7mu\\smash-")]
+  }
+  /** amsmath's \arrowfill@#1#2#3#4: $\m@th(mu skips 0)#4#1\mkern-7mu\cleaders\hbox{$#4\mkern-2mu#2\mkern-2mu$}\hfill\mkern-7mu#3$ */
+  const amsFill = (fill: "right" | "left" | "leftright", style: number, fs: typeof finsmash): MItem[] => {
+    const p = (src: string) => parseTokens(tokenize(src, data.muskips), data, { ...inner, finsmash: fs }, -1) // (\relbar's \mathsm@sh: \finsm@sh as it is)
+    const [l, m, r] = fill === "right" ? ["\\relbar", "\\relbar", "\\rightarrow"] : fill === "left" ? ["\\leftarrow", "\\relbar", "\\relbar"] : ["\\leftarrow", "\\relbar", "\\rightarrow"]
+    const st: MItem = { kind: "style", style }
+    return [st, ...p(`${l}\\mkern-7mu`), { kind: "mleaders", leaders: "cleaders", box: () => [{ kind: "style", style }, ...p(`\\mkern-2mu${m}\\mkern-2mu`)] }, ...p(`\\mkern-7mu${r}`)]
+  }
+  /** fontmath.ltx's \downbracefill and \upbracefill: \braceld\leaders\vrule…\hfill\braceru\bracelu\leaders…\hfill\bracerd */
+  const braceFill = (down: boolean): MItem[] => {
+    const c = (code: number) => mathCharNoad(code), lead = (): MItem => ({ kind: "mleaders", leaders: "leaders", box: "braceld" })
+    const [ld, rd, lu, ru] = [0x037a, 0x037b, 0x037c, 0x037d]
+    return down ? [c(ld), lead(), c(ru), c(lu), lead(), c(rd)] : [c(lu), lead(), c(rd), c(ld), lead(), c(ru)]
+  }
+  /** an \array cell before an &: \@sharp, then the v-part of the template, $ in LaTeX's */
+  const cellBefore = (ts: Token[], more: Partial<MathOptions> = {}) => parseTokens(ts, data, { ...opts, dollarNext: !opts.arrayPackage, finsmash, ...more }, -1)
+  /** amsmath's \dots and its kin as the source they become, by the token after them (the end of the formula: a $ when
+   *  dollarNext); null: not one of them */
+  const dotsMacro = (cs: string): string | null => {
+    const MATHELLIPSIS = "\\mathinner{\\ldotp\\ldotp\\ldotp}", CDOTS = "\\mathinner{\\cdotp\\cdotp\\cdotp}"
+    if (!opts.amsmath) return cs === "dots" || cs === "ldots" || cs === "mathellipsis" ? MATHELLIPSIS : cs === "cdots" ? CDOTS : null
+    const next = toks[pos], atEnd = pos >= toks.length
+    // \extra@: a right delimiter, or $, follows
+    const extra = () => atEnd ? !!opts.dollarNext : "ch" in next ? next.ch === ")" || next.ch === "]" : RIGHT_DELIMS.includes(next.cs)
+    // \extrap@: , ; . or what \extra@ takes
+    const extrap = (d: string) => (!atEnd && "ch" in next && ",;.".includes(next.ch)) || extra() ? `${d}\\,` : d
+    switch (cs) {
+      case "ldots": case "mathellipsis": return MATHELLIPSIS
+      case "cdots": case "dotsb": case "dotsm": return extrap(CDOTS)
+      case "dotso": return extrap(MATHELLIPSIS)
+      case "dotsi": return `\\!${CDOTS}`
+      case "dotsc": return (!atEnd && "ch" in next && ";.".includes(next.ch)) || extra() ? `${MATHELLIPSIS}\\,` : MATHELLIPSIS
+      case "dots": { // \mdots@@: by what the next token is
+        if (atEnd) return extra() ? `${MATHELLIPSIS}\\,` : MATHELLIPSIS // (\dotso@)
+        if ("ch" in next) {
+          if (next.ch === ",") return MATHELLIPSIS // \dotsc before a , (neither ; nor . nor what \extra@ takes)
+          if ("+=<>-*:".includes(next.ch)) return CDOTS // \keybin@
+          return MATHELLIPSIS + (next.ch === ")" || next.ch === "]" ? "\\," : "") // \dotso@ with \extra@
+        }
+        if (next.cs === "boldsymbol") throw new Error("math: \\dots before \\boldsymbol")
+        const code = data.symbols[next.cs]
+        // \not, a \mathchar of class 2 or 3 (\getmathch@; \not is one), or a macro starting \DOTSB: \dotsb@; \DOTSI: \dotsi
+        if ((code !== undefined && !(next.cs in DOTS_MACROS) && ((code >> 12) === 2 || (code >> 12) === 3)) || DOTS_MACROS[next.cs] === "B" || (next.cs === "vcentcolon" && opts.packages?.includes("mathtools"))) return CDOTS // (mathtools's \vcentcolon: a macro starting \mathrel)
+        if (DOTS_MACROS[next.cs] === "I") return `\\!${CDOTS}`
+        return MATHELLIPSIS + (RIGHT_DELIMS.includes(next.cs) ? "\\," : "")
+      }
+    }
+    return null
+  }
   /** a math alphabet's argument: a math group with \fam set */
-  const alphabet = (cs: string): Field | undefined => (opts.alphabets && cs in opts.alphabets ? groupField(sub(argument(), opts.alphabets[cs])) : undefined)
+  const alphabet = (cs: string): Field | undefined => (opts.alphabets && cs in opts.alphabets ? groupField(alphabetList(cs)) : undefined)
+  /** an alphabet's argument with its \fam; amsmath: an alphabet of the U, OML or OMS encoding runs \noaccents@ (\M@U …) */
+  const alphabetList = (cs: string) => sub(argument(), opts.alphabets![cs], opts.amsmath && ["mathnormal", "mathcal", "mathbb", "mathfrak", "mathscr"].includes(cs) ? { accentClass0: true } : {})
   /** \begin{name}: the environment's name and its body's tokens, to the matching \end */
   const environment = (): { name: string; body: Token[] } => {
     const nameToks = argument()
@@ -147,21 +402,26 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       }
     }
   }
-  /** an \array body: rows split at \\, cells at &, outside braces and inner environments */
-  const arrayRows = (body: Token[]) => {
+  /** an \array body: rows split at \\, cells at &, outside braces and inner environments; each cell a formula of its
+   *  own, where \fam is -1 (§ 1139) */
+  const arrayRows = (body: Token[], skipsSpaces = false, outer: Partial<MathOptions> = {}, dollarAfterCell = !opts.arrayPackage) => {
+    const more = { ...outer, inAlignment: true }
     const rows: MItem[][][] = [], crs: boolean[] = []
     let row: MItem[][] = [], cell: Token[] = [], depth = 0
-    for (const t of body) {
+    for (const [i, t] of body.entries()) {
       if ("ch" in t && t.ch === "{") depth++
       else if ("ch" in t && t.ch === "}") depth--
       else if ("cs" in t && t.cs === "begin") depth++
       else if ("cs" in t && t.cs === "end") depth--
-      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(sub(cell)); cell = []; continue }
-      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell)); rows.push(row); crs.push(true); row = []; cell = []; continue }
+      if (depth === 0 && "ch" in t && t.ch === "&") { row.push(cellBefore(cell, { ...more, ...(dollarAfterCell !== !opts.arrayPackage ? { arrayPackage: !dollarAfterCell } : {}) })); cell = []; continue }
+      // (\@arraycr's \@ifstar and [: LaTeX's \@ifnextchar looks past spaces, which the tokens no longer show)
+      const adjacent = !("cs" in t) || t.at === undefined || opts.raw === undefined || !/\s/.test(opts.raw[t.at] ?? "")
+      if (depth === 0 && "cs" in t && t.cs === "\\" && ((adjacent && isCh(body[i + 1], "*")) || ((adjacent || skipsSpaces) && isCh(body[i + 1], "[")))) throw new Error("math: \\\\* or \\\\[ in an array")
+      if (depth === 0 && "cs" in t && t.cs === "\\") { row.push(sub(cell, -1, more)); rows.push(row); crs.push(true); row = []; cell = []; continue }
       cell.push(t)
     }
     // \crcr: a last row without \\ (an empty one after a final \\ is no row)
-    if (cell.length || row.length) { row.push(sub(cell)); rows.push(row); crs.push(false) }
+    if (cell.length || row.length) { row.push(sub(cell, -1, more)); rows.push(row); crs.push(false) }
     return { rows, crs }
   }
   /** scan_delimiter (§ 1160): a character's \delcode or a \delimiter command */
@@ -180,12 +440,39 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     const num = argument(), den = argument()
     return groupField([{ noad: "fraction", thickness: null, num: sub(num), denom: sub(den) }])
   }
+  /** a text argument as its source: a braced group of the formula's own (spaces and all), or one token */
+  const rawArgument = (after: string): string => {
+    const t = toks[pos]
+    if (!t) throw new Error(`math: \\${after} without its argument`)
+    if (!isCh(t, "{")) { pos++; return "ch" in t ? t.ch : `\\${t.cs} ` }
+    const start = pos
+    argument()
+    const open = toks[start] as { ch: string; at?: number }, close = toks[pos - 1] as { ch: string; at?: number }
+    if (open.at === undefined || close.at === undefined || opts.raw === undefined) throw new Error(`math: \\${after} of a macro's argument`)
+    return opts.raw.slice(open.at + 1, close.at)
+  }
+  /** scan_dimen (§ 448) on the characters that follow; em from the current font */
+  const dimension = (after: string): number => {
+    let text = ""
+    const starts: number[] = []
+    for (let i = pos; i < toks.length; i++) {
+      const x = toks[i]
+      starts.push(text.length)
+      if ("ch" in x && /^[-+.,0-9A-Za-z]$/.test(x.ch)) text += x.ch
+      else break
+    }
+    const sc = new Scanner(text, { em: opts.em ?? 0, ex: 0 })
+    const v = sc.scanDimen().value
+    if (sc.errors.length || (opts.em === undefined && /em/.test(text.slice(0, sc.pos))) || /ex/.test(text.slice(0, sc.pos))) throw new Error(`math: \\${after} ${text.slice(0, sc.pos)}`)
+    while (pos < toks.length && starts[0] !== undefined && starts.shift()! < sc.pos) pos++
+    return v
+  }
   /** scan_math (§ 1151): the field a script takes. */
   const scanMath = (): Field => {
     const t = toks[pos++]
     if (!t) throw new Error("math: missing script")
     if ("ch" in t) {
-      if (t.ch === "{") { const l = list(true); return groupField(l) }
+      if (t.ch === "{") { const l = group(() => list(true)); return groupField(l) }
       const code = mathcode(t.ch)
       if (code === undefined || code >= 0x8000) throw new Error(`math: unsupported script ${t.ch}`)
       return mathCharField(code, fam)
@@ -194,10 +481,10 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     const a = alphabet(t.cs)
     if (a !== undefined) return a
     const dname = macroOf(t.cs)
-    if (dname in data.delimiters) return mathCharField(data.delimiters[dname] >> 12) // a \delimiter's \mathchar part
+    if (dname in data.delimiters) return mathCharField(data.delimiters[dname] >> 12, fam) // a \delimiter's \mathchar part
     const code = data.symbols[t.cs]
     if (code === undefined) throw new Error(`math: unsupported script \\${t.cs}`)
-    return mathCharField(code)
+    return mathCharField(code, fam)
   }
   /** \@sqrt[#1]{\root #1\of}: the index, delimited by ] outside braces (one braced group loses its braces), and \r@@t's argument */
   const root = (): MItem => {
@@ -210,29 +497,89 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
     let index = toks.slice(start, pos++)
     if (index.length >= 2 && isCh(index[0], "{") && isCh(index.at(-1), "}") && balanced(index.slice(1, -1))) index = index.slice(1, -1)
     if (index.some((t) => "cs" in t && (t.cs === "uproot" || t.cs === "leftroot"))) throw new Error("math: \\uproot and \\leftroot")
-    const item: MItem = { kind: "root", index: groupNoad(sub(index)), radicand: groupField(sub(argument())), amsmath: !!opts.amsmath } // (\rootbox: $\scriptscriptstyle{#1}$)
+    // (each in an \hbox{$…$}, a new formula, where \fam is -1 (§ 1139); \rootbox: $\scriptscriptstyle{#1}$)
+    const radicand = argument()
+    const item: MItem = { kind: "root", index: () => groupNoad(sub(index, -1)), radicand: () => groupField(sub(radicand, -1)), amsmath: !!opts.amsmath }
     // amsmath's \root is \bgroup…\egroup: a math group, an ord noad (§ 1186)
     return opts.amsmath ? { noad: ORD, nucleus: { kind: "mlist", list: [item] }, sup: null, sub: null } : item
   }
   /** sub_sup (§ 1176): attach to the tail noad, or to a new dummy noad. */
-  const subSup = (out: MItem[], which: "sup" | "sub", field: () => Field) => {
-    let tail = out[out.length - 1]
+  const subSup = (out: MItem[], which: "sup" | "sub", field: () => Field, head = 0) => {
+    let tail = out.length > head ? out[out.length - 1] : undefined // (after \over the list starts again)
     if (!scriptsAllowed(tail) || tail[which] !== null) { tail = { noad: ORD, nucleus: null, sup: null, sub: null }; out.push(tail) }
     tail[which] = field()
   }
 
   const list = (inGroup: boolean, inFence = false): MItem[] => {
-    const out: MItem[] = []
+    let out: MItem[] = []
+    // an incompleat noad (§ 1181): \over and its kin make what came before (since the last \middle) the numerator, what
+    // follows the denominator; fin_mlist (§ 1184) completes it
+    let incompleat: (Omit<FractionNoad, "num" | "denom"> & { at: number }) | null = null, segment = 0
+    const done = (): MItem[] => {
+      if (!incompleat) return out
+      const { at, ...f } = incompleat
+      incompleat = null
+      return [...out.slice(0, segment), { ...f, num: out.slice(segment, at), denom: out.slice(at) }]
+    }
     for (;;) {
       const t = toks[pos++]
-      if (!t) { if (inGroup || inFence) throw new Error(inFence ? "math: missing \\right" : "math: missing }"); return out }
-      if ("cs" in t && t.cs === "right") { if (!inFence) throw new Error("math: Extra \\right"); return out }
+      if (!t) { if (inGroup || inFence) throw new Error(inFence ? "math: missing \\right" : "math: missing }"); return done() }
+      if ("cs" in t && t.cs === "right") { if (!inFence) throw new Error("math: Extra \\right"); return done() }
       if ("cs" in t && t.cs === "relax") continue // (no noad)
+      if ("cs" in t && t.cs === "middle") { // e-TeX: it ends the group so far (fin_mlist), a fraction in it too
+        if (!inFence) throw new Error("math: Extra \\middle")
+        out = done()
+        out.push({ noad: "middle", delim: delimiter("middle") }); segment = out.length; continue
+      }
+      if ("cs" in t && t.cs in FRACTION_PRIMITIVES) { // math_fraction (§ 1181)
+        if (incompleat) throw new Error("math: Ambiguous; you need another { and }")
+        const [kind, delims] = FRACTION_PRIMITIVES[t.cs]
+        if (delims) toks.splice(pos, 0, ...tokenize(delims)) // \choose: \atopwithdelims()
+        const left = delims !== null ? delimiter(t.cs) : undefined
+        const right = left ? delimiter(t.cs) : undefined
+        const thickness = kind === "above" ? dimension(t.cs) : kind === "atop" ? 0 : null
+        incompleat = { noad: "fraction", thickness, at: out.length, ...(left ? { left, right } : {}) }
+        continue
+      }
       if ("cs" in t && t.cs === "begin") { // amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix, Vmatrix
         const { name, body } = environment()
+        const stretch = opts.arraystretch ? { stretch: opts.arraystretch } : {} // (\arraystretch as an outer cases set it)
+        if (name === "array" || (opts.amsmath && name === "cases")) { // LaTeX's \array; amsmath's \env@cases: \left\lbrace\def\arraystretch{1.2}\array{@{}l@{\quad}l@{}}, \right.
+          let rest = body
+          if (name === "array") {
+            if (isCh(rest[0], "[")) throw new Error("math: \\begin{array}[pos]")
+            if (!isCh(rest[0], "{")) throw new Error("math: \\begin{array} without its preamble")
+            let d = 0, end = 0
+            for (; end < rest.length; end++) { if (isCh(rest[end], "{")) d++; else if (isCh(rest[end], "}") && --d === 0) break }
+            rest = rest.slice(end + 1)
+            const cols = arrayPreamble(body.slice(1, end))
+            out.push({ noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(rest, !opts.amsmath), cols, ...stretch }, sup: null, sub: null })
+          } else {
+            const array: Noad = { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(rest, false, { arraystretch: [1, 13107] }), cols: arrayPreamble(tokenize("@{}l@{\\quad}l@{}")), stretch: [1, 13107] }, sup: null, sub: null }
+            out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: delimiterOf(data.delimiters.lbrace & 0xffffff) }, array, { noad: "right", delim: delimiterOf(0) }] }, sup: null, sub: null })
+          }
+          continue
+        }
+        if (opts.packages?.includes("mathtools") && (name === "dcases" || name === "rcases")) { // \newcases: \left#4 … \right#5
+          // (in another alignment its \spread@equation opens up that one's \baselineskip, or not at all)
+          if (opts.inAlignment) throw new Error(`math: ${name} inside an alignment`)
+          const v = stack(body, name)[0]
+          const d = (x: string) => delimiterOf(x === "." ? 0 : data.delimiters[x] & 0xffffff)
+          out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: d(name === "dcases" ? "lbrace" : ".") }, v, { noad: "right", delim: d(name === "dcases" ? "." : "rbrace") }] }, sup: null, sub: null })
+          continue
+        }
+        if (opts.amsmath && (name === "smallmatrix" || name === "subarray")) {
+          let rest = body, layout: "smallmatrix" | "subarray-c" | "subarray-l" = "smallmatrix"
+          if (name === "subarray") {
+            const a = rest[0], b = rest[1], c = rest[2]
+            if (!isCh(a, "{") || !b || !("ch" in b) || (b.ch !== "c" && b.ch !== "l") || !isCh(c, "}")) throw new Error("math: \\begin{subarray} without c or l")
+            layout = b.ch === "c" ? "subarray-c" : "subarray-l"; rest = rest.slice(3)
+          }
+          out.push(...stack(rest, layout)); continue
+        }
         if (!opts.amsmath || !(name in MATRICES)) throw new Error(`math: unsupported environment ${name}`)
         const fence = MATRICES[name]
-        const center: MItem[] = [{ kind: "colsep" }, { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(body) }, sup: null, sub: null }, { kind: "colsep" }]
+        const center: MItem[] = [{ kind: "colsep" }, { noad: ORD, vcenter: true, nucleus: { kind: "array", ...arrayRows(body), ...stretch }, sup: null, sub: null }, { kind: "colsep" }]
         if (!fence) out.push(...center)
         else {
           const d = (x: string) => (x.length === 1 ? delimiterOf(data.delcodes[x.charCodeAt(0)]) : delimiterOf(data.delimiters[x] & 0xffffff))
@@ -242,23 +589,23 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       }
       if ("cs" in t && t.cs === "left") { // math_left_right (§ 1191): an inner noad whose sub-mlist the fences end
         const left = delimiter("left")
-        const inner = list(false, true)
+        const inner = group(() => list(false, true)) // (math_left_group)
         const right = delimiter("right")
         out.push({ noad: INNER, nucleus: { kind: "mlist", list: [{ noad: "left", delim: left }, ...inner, { noad: "right", delim: right }] }, sup: null, sub: null })
         continue
       }
       if ("ch" in t) {
         const c = t.ch
-        if (c === "}") { if (!inGroup) throw new Error("math: extra }"); return out }
-        if (c === "{") { out.push(groupNoad(list(true))); continue }
-        if (c === "^" || c === "_") { subSup(out, c === "^" ? "sup" : "sub", scanMath); continue }
+        if (c === "}") { if (!inGroup) throw new Error("math: extra }"); return done() }
+        if (c === "{") { out.push(groupNoad(group(() => list(true)))); continue }
+        if (c === "^" || c === "_") { subSup(out, c === "^" ? "sup" : "sub", scanMath, incompleat?.at); continue }
         if (c === "'") { // latex.ltx \active@math@prime
           let n = 1
           while (isCh(toks[pos], "'")) { n++; pos++ }
           const primes = Array.from({ length: n }, () => mathCharNoad(data.symbols.prime))
           let more: MItem[] = []
           if (isCh(toks[pos], "^")) { pos++; more = sub(argument()) }
-          subSup(out, "sup", () => groupField([...primes, ...more]))
+          subSup(out, "sup", () => groupField([...primes, ...more]), incompleat?.at)
           continue
         }
         const code = mathcode(c)
@@ -294,7 +641,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
             // \acute{\dotlessi}: {\mathchar"7010} in family 0, one ord, whose group gives up its nucleus
             const b = name[j + 2], base = "cs" in b && b.cs === "dotlessi" ? 0x7010 : "ch" in b ? data.mathcodes[b.ch.charCodeAt(0)] : -1
             if (base < 0) throw new Error(`math: an operator name with \\acute{${"cs" in b ? `\\${b.cs}` : b.ch}}`)
-            nucleus.push({ noad: ORD, accent: mathCharField(MATH_ACCENTS.acute, 0), nucleus: mathCharField(base, 0), sup: null, sub: null }); j += 3
+            nucleus.push({ noad: ORD, accent: mathCharField(ACCENTS.acute, 0), nucleus: mathCharField(base, 0), sup: null, sub: null }); j += 3
           } else throw new Error(`math: an operator name with ${"ch" in x ? x.ch : `\\${x.cs}`}`)
         }
         out.push({ noad: OP, nucleus: { kind: "mlist", list: nucleus }, sup: null, sub: null, ...(op.nolimits ? { limits: "nolimits" as const } : {}) })
@@ -319,13 +666,226 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         if (opts.amsmath && kind === "o" && "cs" in (toks[pos] ?? {}) && (toks[pos] as { cs: string }).cs === "limits") pos++
         continue
       }
+      const accent = t.cs in ACCENTS ? t.cs : opts.amsmath && ACCENT_ALIASES.includes(t.cs) ? t.cs.toLowerCase() : null
+      if (accent) {
+        const name = accent, code = ACCENTS[name]
+        if (opts.amsmath && name !== "widehat" && name !== "widetilde") { // \mathaccentV: \mathaccent"\accentclass@ (7) with the family and character
+          const arg = argument()
+          // (an accent in the argument: \macc@nested)
+          if (arg.some((x) => "cs" in x && ((x.cs in ACCENTS && x.cs !== "widehat" && x.cs !== "widetilde") || ACCENT_ALIASES.includes(x.cs)))) throw new Error("math: amsmath's nested accents")
+          out.push({ noad: ORD, accent: mathCharField((opts.accentClass0 ? 0 : 0x7000) | (code & 0xfff), fam), nucleus: groupField(sub(arg)), sup: null, sub: null })
+        } else if (opts.packages?.includes("amsfonts") && (name === "widehat" || name === "widetilde")) { // amsfonts: AMSb's wider accent past 2em
+          const arg = argument()
+          if (opts.em === undefined) throw new Error(`math: \\${name} without the current font`)
+          const large = mathCharField(0x0000 | (AMSB << 8) | (name === "widehat" ? 0x5b : 0x5d))
+          out.push({ noad: ORD, accent: mathCharField(code, fam), wide: { accent: large, width: 2 * opts.em, measure: () => [{ kind: "style", style: 2 }, ...parseTokens(arg, data, { ...opts, dollarNext: true, finsmash }, -1)] }, nucleus: groupField(sub(arg)), sup: null, sub: null })
+        } else out.push({ noad: ORD, accent: mathCharField(code, fam), nucleus: scanMath(), sup: null, sub: null }) // math_ac (§ 1165)
+        continue
+      }
+      if (t.cs in ARROWS && (opts.amsmath || ARROWS[t.cs][0] !== null)) { toks.splice(pos, 0, ...tokenize(ARROWS[t.cs][opts.amsmath ? 1 : 0]!, data.muskips)); continue }
+      if (t.cs === "relbar") { out.push({ noad: 3, nucleus: groupField([smash(tokenize("-"), opts.amsmath ? finsmash : "tb")]), sup: null, sub: null }); continue } // \mathrel{\smash-}, amsmath's \mathrel{\mathpalette\mathsm@sh\std@minus}
+      if (t.cs === "Relbar") { if (opts.amsmath) out.push({ noad: 3, nucleus: mathCharField(mathcode("=")), sup: null, sub: null }); else toks.splice(pos, 0, ...tokenize("\\mathrel{=}")); continue } // amsmath's \mathrel\std@equal
+      if (t.cs === "smash") { // amsmath's \smash[t|b|tb]
+        let mode: "t" | "b" | "tb" = "tb"
+        if (opts.amsmath && isCh(toks[pos], "[")) {
+          const end = toks.findIndex((x, i) => i > pos && isCh(x, "]"))
+          const o = end < 0 ? "" : toks.slice(pos + 1, end).map((x) => ("ch" in x ? x.ch : "?")).join("")
+          if (o !== "t" && o !== "b" && o !== "tb") throw new Error(`math: \\smash[${o}]`)
+          mode = o; pos = end + 1
+        }
+        if (opts.amsmath) finsmash = mode // (\edef\finsm@sh)
+        out.push(smash(argument(), mode)); continue
+      }
+      if (t.cs === "phantom" || t.cs === "hphantom" || t.cs === "vphantom" || t.cs === "mathstrut") { // \mathph@nt, \finph@nt; \mathstrut: \vphantom(
+        const arg = t.cs === "mathstrut" ? [{ ch: "(" }] : argument(), mode = t.cs === "phantom" ? "vh" : t.cs === "hphantom" ? "h" : "v", fs = finsmash
+        out.push(palette((st) => [{ noad: ORD, nucleus: { kind: "hmath", list: inHbox(st, arg, fs), phantom: mode }, sup: null, sub: null }])); continue
+      }
+      const big = t.cs.match(/^(big|Big|bigg|Bigg)([lmr]?)$/)
+      if (big) { // \bigl is \mathopen\big, \bigm \mathrel, \bigr \mathclose; \big a math group around a box: an ord
+        let arg = toks[pos]
+        if (isCh(arg, "{")) { const a = argument(); if (a.length !== 1) throw new Error(`math: \\${t.cs} of more than a delimiter`); arg = a[0]; pos-- ; toks[pos] = arg }
+        const delim = delimiter(t.cs)
+        const i = ["big", "Big", "bigg", "Bigg"].indexOf(big[1]), pt = 65536
+        // fontmath.ltx: \vbox to 8.5, 11.5, 14.5, 17.5pt; amsmath: \@ne, 1.5, \tw@, 2.5 times \big@size
+        const nucleus: Field = opts.amsmath ? { kind: "big", delim, factor: [1 + (i >> 1), i % 2 ? 0x8000 : 0] } : { kind: "big", delim, height: (8.5 + 3 * i) * pt }
+        out.push({ noad: big[2] === "l" ? 4 : big[2] === "r" ? 5 : big[2] === "m" ? 3 : ORD, nucleus, sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "mbox" || t.cs === "text" || t.cs in TEXT_FONT_COMMANDS) {
+        if (!opts.text) throw new Error(`math: \\${t.cs} without the text font`)
+        if (opts.boldVersion) throw new Error(`math: \\${t.cs} in \\boldsymbol`) // (its formulas would be in \mathversion{bold} too)
+        const text = opts.text, src = rawArgument(t.cs), decl = TEXT_FONT_COMMANDS[t.cs]
+        const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null })
+        if (t.cs === "mbox" || !opts.amsmath) { out.push(box(text(src, 0, null, decl))); continue } // \leavevmode\hbox{#1}; \nfss@text: {\mbox{<decl>#1}}
+        // amstext's \text@: {\mathchoice{\textdef@\displaystyle\f@size{#1}}{\textdef@\textstyle\f@size{…}}{…\sf@size…}{…\ssf@size…}}
+        out.push(groupNoad([palette((st) => [box(text(src, st < 4 ? 0 : st < 6 ? 1 : 2, st === 0 ? "display" : "text", decl))])]))
+        continue
+      }
+      if (opts.packages?.includes("mathtools") && t.cs in COLONS) { toks.splice(pos, 0, ...tokenize(COLONS[t.cs], data.muskips)); continue }
+      if (opts.packages?.includes("mathtools") && /^math[lrc]lap$/.test(t.cs)) { // \mathpalette\MT_mathclap:Nn: {}\clap{$\m@th#1{#2}$}, or with [style] that style
+        let style: number | null = null
+        if (isCh(toks[pos], "[")) {
+          const end = toks.findIndex((x, i) => i > pos && isCh(x, "]")), o = toks.slice(pos + 1, end)
+          if (o.length !== 1 || !("cs" in o[0]) || !(o[0].cs in STYLES)) throw new Error(`math: \\${t.cs}[${source(o)}]`)
+          style = STYLES[o[0].cs]; pos = end + 1
+        }
+        const arg = argument(), lap = t.cs[4] as "l" | "r" | "c", fs = finsmash
+        const build = (st: number): MItem[] => [{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, { noad: ORD, nucleus: { kind: "hmath", list: inHbox(st, arg, fs), lap }, sup: null, sub: null }]
+        if (style === null) out.push(palette(build)); else out.push(...build(style))
+        continue
+      }
+      if (t.cs === "LXpaired") { // mathtools's \DeclarePairedDelimiter'd command (preamble.ts): its delimiters, then * or [size], and the argument
+        const l = argument(), r = argument()
+        if (isCh(toks[pos], "*")) { // \mathopen{}\mathclose\bgroup\left#2 #1\aftergroup\egroup\right#3
+          pos++
+          const arg = argument()
+          toks.splice(pos, 0, ...tokenize("\\mathopen{}\\mathclose{\\left"), ...l, ...arg, { cs: "relax" }, { cs: "right" }, ...r, { ch: "}" }) // (\relax: \aftergroup)
+          continue
+        }
+        let size: Token[] = []
+        if (isCh(toks[pos], "[")) { const end = toks.findIndex((x, i) => i > pos && isCh(x, "]")); size = toks.slice(pos + 1, end); pos = end + 1 }
+        const arg = argument()
+        if (size.length) { // \mathopen{\bigl#2}#1\mathclose{\bigr#3}
+          if (size.length !== 1 || !("cs" in size[0]) || !/^(big|Big|bigg|Bigg)$/.test(size[0].cs)) throw new Error(`math: a paired delimiter of size ${source(size)}`)
+          const cs = size[0].cs
+          toks.splice(pos, 0, ...tokenize(`\\mathopen{\\${cs}l`), ...l, { ch: "}" }, ...arg, ...tokenize(`\\mathclose{\\${cs}r`), ...r, { ch: "}" })
+        } else toks.splice(pos, 0, ...(isCh(l[0], ".") ? [] : [{ cs: "mathopen" }, ...l]), ...arg, ...(isCh(r[0], ".") ? [] : [{ cs: "mathclose" }, ...r])) // \ifx.#1\else\mathopen#1\fi
+        continue
+      }
+      if (t.cs === "mathchoice") { // \mathchoice (§ 1172): four lists, one for each style
+        const lists = [argument(), argument(), argument(), argument()], fs = finsmash
+        out.push({ kind: "choice", choose: (st) => parseTokens(lists[st >> 1], data, { ...inner, finsmash: fs }, fam) })
+        continue
+      }
+      if (opts.amsmath && (t.cs === "overset" || t.cs === "underset" || t.cs === "overunderset")) { // \binrel@{#2}\binrel@@{\mathop{\kern\z@#2}\limits^{#1}}
+        const a = argument(), b = t.cs === "overunderset" ? argument() : null, base = argument()
+        const [sup, sb] = t.cs === "overset" ? [a, null] : t.cs === "underset" ? [null, a] : [a, b]
+        out.push(binrel(base, { noad: OP, limits: "limits", nucleus: groupField([kern(0, true), ...sub(base)]), sup: sup && groupField(sub(sup)), sub: sb && groupField(sub(sb)) }))
+        continue
+      }
+      if (t.cs === "stackrel") { // latex.ltx: \mathrel{\mathop{#2}\limits^{#1}}
+        const a = argument(), base = argument()
+        out.push({ noad: 3, nucleus: groupField([{ noad: OP, limits: "limits", nucleus: groupField(sub(base)), sup: groupField(sub(a)), sub: null }]), sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "doteq") { // latex.ltx's \buildrel\textstyle.\over=, amsmath's \mathrel{\mathop{\kern0pt =}\limits^{\textstyle.}}: the same
+        const op: Noad = { noad: OP, limits: "limits", nucleus: groupField([kern(0, true), mathCharNoad(mathcode("="))]), sup: groupField(sub(tokenize("\\textstyle."))), sub: null }
+        out.push({ noad: 3, nucleus: groupField([op]), sup: null, sub: null }); continue
+      }
+      if (opts.amsmath && t.cs in MULTI_INTEGRALS) { // \MultiIntegral{n}: \intop\intkern@ … \intop\ilimits@ (with \limits after it: \ints@b's \mathop group)
+        const n = MULTI_INTEGRALS[t.cs]
+        const ints = "\\intop" + (n === 0 ? INTDOTS : "\\mkern-6mu\\mathchoice{\\mkern-3mu}{}{}{}") + (n > 2 ? "\\intop\\mkern-6mu\\mathchoice{\\mkern-3mu}{}{}{}" : "") + (n > 3 ? "\\intop\\mkern-6mu\\mathchoice{\\mkern-3mu}{}{}{}" : "") + "\\intop"
+        const limits = "cs" in (toks[pos] ?? {}) && ((toks[pos] as { cs: string }).cs === "limits" || (toks[pos] as { cs: string }).cs === "displaylimits")
+        toks.splice(pos, 0, ...tokenize(limits ? `\\mkern-7mu\\mathchoice{\\mkern-2mu}{}{}{}\\mathop{\\mkern7mu\\mathchoice{\\mkern2mu}{}{}{}${ints}}` : `${ints}\\nolimits`, data.muskips))
+        continue
+      }
+      if (opts.amsmath && t.cs === "boxed") { // \fbox{\m@th$\displaystyle#1$}
+        if (!opts.frame) throw new Error("math: \\boxed without \\fbox")
+        const arg = argument(), frame = opts.frame
+        out.push({ noad: ORD, nucleus: { kind: "boxed", list: () => [{ kind: "style", style: 0 }, ...parseTokens(arg, data, { ...opts, dollarNext: true, finsmash }, -1)], frame }, sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "relax") continue
+      if (opts.amsmath && t.cs === "boldsymbol") { // amsbsy: {\mathversion{bold}\math@atom{#1}{\mathchoice{\hbox{$\m@th\displaystyle#1$}}…}}
+        const arg = argument(), fs = finsmash
+        const choice = palette((st) => [{ noad: ORD, sup: null, sub: null, nucleus: { kind: "hmath", bold: true, list: [{ kind: "style", style: st }, ...parseTokens(arg, data, { ...opts, dollarNext: true, boldVersion: true, finsmash: fs }, -1)] } }])
+        // (\binrel@ measures in the bold fonts: the sign, from the spacing alone, is the same)
+        const b = binrel(arg, { noad: ORD, nucleus: null, sup: null, sub: null })
+        out.push(b.noad === ORD ? groupNoad([choice]) : { noad: b.noad, nucleus: groupField([choice]), sup: null, sub: null })
+        continue
+      }
+      if (t.cs === " ") { // \  in math: append_normal_space (§ 1041), the interword glue of the current font
+        if (!opts.font) throw new Error("math: \\  without the current font")
+        out.push(glue(opts.font.params[2], opts.font.params[3], 0, opts.font.params[4], 0)); continue
+      }
+      if (t.cs in OVER_ARROWS || (opts.amsmath && t.cs in AMS_ARROWS)) { // fontmath.ltx's \overrightarrow, amsmath's \overarrow@ and \underarrow@
+        const fill = (OVER_ARROWS[t.cs] ?? AMS_ARROWS[t.cs])[0], under = t.cs.startsWith("under"), arg = argument(), finsmash0 = finsmash
+        if (!opts.amsmath) { // \vbox{\m@th\ialign{##\crcr\rightarrowfill\crcr\noalign{\kern-\p@\nointerlineskip}$\hfil\displaystyle{#1}\hfil$\crcr}}
+          out.push({ noad: ORD, sup: null, sub: null, nucleus: { kind: "vstack", box: "vbox", items: [{ formula: () => kernelFill(fill) }, { kern: -65536 }, { formula: () => [filGlue(), { kind: "style", style: 0 }, groupNoad(sub(arg, -1)), filGlue()] }] } })
+        } else out.push(palette((st, fs = finsmash0) => { // \mathpalette{\overarrow@\rightarrowfill@}: $\m@th\hfil#2#3\hfil$ and #1#2
+          const body = { formula: () => [filGlue(), { kind: "style" as const, style: st }, ...parseTokens(arg, data, { ...inner, finsmash }, -1), filGlue()] }, arrow = { formula: () => amsFill(fill, st, fs), zero: true }
+          const items = under ? [body, { kern: { of: "ex@" as const, factor: [1, 19661] as [number, number] } }, arrow] : [arrow, body]
+          return [{ noad: ORD, sup: null, sub: null, nucleus: { kind: "vstack", box: under ? "vtop" : "vbox", items } }]
+        }))
+        continue
+      }
+      if (t.cs === "overbrace" || t.cs === "underbrace") { // \mathop{\vbox{…\downbracefill…}}\limits, \mathop{\vtop{…\upbracefill…}}\limits
+        const arg = argument(), over = t.cs === "overbrace", mt = !!opts.packages?.includes("mathtools")
+        const body = { formula: () => [filGlue(), { kind: "style" as const, style: 0 }, groupNoad(sub(arg, -1)), filGlue()] }
+        const fill = { formula: () => braceFill(over) }
+        // (mathtools's: \kern.5 and .7\fontdimen5\textfont2 instead of 3pt)
+        const k = (f: number) => (mt ? { kern: { of: "sigma5" as const, factor: [0, f] as [number, number] } } : { kern: 3 * 65536 })
+        out.push({ noad: OP, limits: "limits", sup: null, sub: null, nucleus: { kind: "vstack", box: over ? "vbox" : "vtop", items: over ? [k(0x8000), fill, k(45875), body] : [body, k(45875), fill, k(0x8000)] } })
+        continue
+      }
+      if (opts.amsmath && (t.cs === "xrightarrow" || t.cs === "xleftarrow")) { // \ext@arrow 0359\rightarrowfill@{#1}{#2}, 3095\leftarrowfill@
+        let below: Token[] = []
+        if (isCh(toks[pos], "[")) { let d = 0, j = pos; for (; j < toks.length; j++) { if (isCh(toks[j], "{")) d++; else if (isCh(toks[j], "}")) d--; else if (d === 0 && isCh(toks[j], "]")) break } below = toks.slice(pos + 1, j); pos = j + 1 }
+        const above = argument(), fs = finsmash
+        const [a, b, c, e] = t.cs === "xrightarrow" ? [0, 3, 5, 9] : [3, 0, 9, 5]
+        const label = (l: Token[]) => (): MItem[] => [{ kind: "style", style: 4 }, { kind: "mukern", width: c * 65536 }, groupNoad(sub(l, -1)), { kind: "mukern", width: e * 65536 }]
+        const script = (l: Token[]) => groupField([...(a ? [{ kind: "mukern" as const, width: a * 65536 }] : []), ...sub(l), ...(b ? [{ kind: "mukern" as const, width: b * 65536 }] : [])])
+        const op: Noad = { noad: OP, limits: "limits", nucleus: { kind: "xarrow", fill: () => amsFill(t.cs === "xrightarrow" ? "right" : "left", 0, fs), labels: [label(below), label(above)] },
+          sup: above.length ? script(above) : null, sub: below.length ? script(below) : null }
+        out.push({ noad: 3, nucleus: groupField([op]), sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "notin" || t.cs === "cong") { // fontmath.ltx: \mathrel{\m@th\mathpalette\c@ncel\in}, \mathrel{\mathpalette\@vereq\sim}
+        const row = (src: string, st: number): (() => MItem[]) => () => [{ kind: "style", style: st }, ...parseTokens(tokenize(src, data.muskips), data, { ...inner, finsmash }, -1)]
+        const box = (st: number): MItem[] => [{ noad: ORD, sup: null, sub: null, nucleus: t.cs === "notin"
+          ? { kind: "oalign", layout: "ooalign", rows: [row("\\hfil\\mkern1mu/\\hfil", st), row("\\in", st)] } // \ooalign{$\hfil#1\mkern1mu/\hfil$\crcr$#1#2$}
+          : { kind: "oalign", layout: "vereq", rows: [row("\\hfil\\sim\\hfil", st), row("\\hfil=\\hfil", st)] } }] // $\m@th#1\hfil##\hfil$
+        out.push({ noad: 3, nucleus: groupField([palette(box)]), sup: null, sub: null })
+        continue
+      }
+      if (opts.amsmath && t.cs === "substack") { out.push(...stack(argument(), "subarray-c")); continue } // \subarray{c}#1\endsubarray
+      if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox
+      if (t.cs === "hfill" || t.cs === "hfil") { out.push(t.cs === "hfill" ? fillGlue() : filGlue()); continue }
+      if (t.cs === "mkern") { out.push({ kind: "mukern", width: t.spec!.width }); continue }
+      if (t.cs === "mskip") { out.push({ kind: "muglue", spec: t.spec! }); continue }
+      if (t.cs === "vdots" || t.cs === "ddots") { // fontmath.ltx: dots in \hbox'es of the current font, \p@ apart
+        if (!opts.font) throw new Error(`math: \\${t.cs} without the current font`)
+        const f = opts.font, pt = 65536
+        const dot = (raise = 0): BoxNode => { const b = hpack([charNode(f, 46)]); b.shift = -raise; return b }
+        const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null }) // a box in math: an ord noad (§ 1076)
+        if (t.cs === "vdots") { // \vbox{\baselineskip4\p@ \lineskiplimit\z@ \kern6\p@\hbox{.}\hbox{.}\hbox{.}}
+          const v: Node[] = [kern(6 * pt, true)]
+          for (let i = 0; i < 3; i++) { const b = dot(); if (i) v.push(paramGlue("baselineskip", glue(4 * pt - b.height - (v[v.length - 1] as BoxNode).depth))); v.push(b) } // (§ 679, never below \lineskiplimit 0)
+          out.push(box(vpack(v)))
+        } else { // \mathinner{\mkern1mu\raise7\p@\vbox{\kern7\p@\hbox{.}}\mkern2mu\raise4\p@\hbox{.}\mkern2mu\raise\p@\hbox{.}\mkern1mu}
+          const v = vpack([kern(7 * pt, true), dot()]); v.shift = -7 * pt
+          const mu = (n: number): MItem => ({ kind: "mukern", width: n * 65536 })
+          out.push({ noad: INNER, nucleus: { kind: "mlist", list: [mu(1), box(v), mu(2), box(dot(4 * pt)), mu(2), box(dot(pt)), mu(1)] }, sup: null, sub: null })
+        }
+        continue
+      }
+      if (t.cs === "nonscript") { out.push({ kind: "nonscript" }); continue }
+      if (t.cs in MATH_CLASSES) { // math_comp (§ 1176)
+        if (t.cs === "mathord" && isCh(toks[pos], "{")) { pos++; out.push(groupNoad(group(() => list(true)))); continue }
+        out.push({ noad: MATH_CLASSES[t.cs], nucleus: scanMath(), sup: null, sub: null }); continue
+      }
+      if (CHARDEFS.includes(t.cs)) { out.push(mathCharNoad(mathcode(t.cs), fam)); continue } // \chardef\#=`\# (latex.ltx): set_math_char of its \mathcode
+      if (t.cs === "$") { out.push(mathCharNoad(data.symbols.mathdollar, fam)); continue } // \ifmmode\mathdollar
+      const dots = dotsMacro(t.cs)
+      if (dots !== null) { toks.splice(pos, 0, ...tokenize(dots, data.muskips)); continue }
+      if (t.cs === "bmod" || t.cs === "pmod" || t.cs === "pod" || (opts.amsmath && t.cs === "mod")) { // latex.ltx's and amsmath's
+        if (t.cs === "bmod") { toks.splice(pos, 0, ...tokenize("\\nonscript\\mskip-\\medmuskip\\mkern5mu\\mathbin{\\mathrm{mod}}\\penalty900\\mkern5mu\\nonscript\\mskip-\\medmuskip", data.muskips)); continue }
+        if (t.cs === "pod" && !opts.amsmath) throw new Error("math: unsupported command \\pod")
+        const arg = argument()
+        const sp = opts.display ? 18 : t.cs === "mod" ? 12 : 8
+        const src = !opts.amsmath ? "\\allowbreak\\mkern18mu({\\mathrm{mod}}\\,\\,#)" // \pmod
+          : t.cs === "pmod" ? `\\allowbreak\\mkern${sp}mu({\\mathrm{mod}}\\mkern6mu#)` : t.cs === "pod" ? `\\allowbreak\\mkern${sp}mu(#)` : `\\allowbreak\\mkern${sp}mu{\\mathrm{mod}}\\,\\,#`
+        const [a, b] = src.split("#")
+        toks.splice(pos, 0, ...tokenize(a, data.muskips), ...arg, ...tokenize(b, data.muskips))
+        continue
+      }
       if (t.cs === "ne" || t.cs === "neq") { toks.splice(pos, 0, { cs: "not" }, { ch: "=" }); continue } // fontmath.ltx: \not=
       if (t.cs in MU_SPACES) { const [sign, reg] = MU_SPACES[t.cs]; out.push({ kind: "muglue", spec: scaled(data.muskips[reg], sign) }); continue }
       if (t.cs in QUADS) {
         if (opts.em === undefined) throw new Error(`math: \\${t.cs} without the current font`)
         out.push(glue(QUADS[t.cs] * opts.em)); continue
       }
-      if (opts.amsmath && t.cs === "colon") throw new Error("math: amsmath's \\colon") // \nobreak\mskip2mu\mathpunct{}…
+      if (opts.amsmath && t.cs === "colon") { toks.splice(pos, 0, ...tokenize("\\nobreak\\mskip2mu\\mathpunct{}\\nonscript\\mkern-\\thinmuskip{:}\\mskip6muplus1mu", data.muskips)); continue }
       const cs = OPERATOR_MACROS[t.cs] ?? t.cs
       if (cs in STYLES) out.push({ kind: "style", style: STYLES[cs] })
       else if (cs === "allowbreak" || cs === "nobreak") out.push(penalty(cs === "nobreak" ? 10000 : 0))
@@ -335,21 +895,33 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
         if (!tail || !("noad" in tail) || tail.noad !== OP) throw new Error("math: Limit controls must follow a math operator")
         tail.limits = cs
       } else if (cs === "overline" || cs === "underline") out.push({ noad: ORD, line: cs === "overline" ? "over" : "under", nucleus: scanMath(), sup: null, sub: null }) // math_comp
-      else if (cs in MATH_ACCENTS) { // math_ac (§ 1165)
-        const nucleus = scanMath()
-        // (amsmath's \mathaccentV counts the accents in its argument: with more than one, \macc@nucleus and \skew)
-        if (opts.amsmath && nucleus?.kind === "mlist" && hasAccent(nucleus.list)) throw new Error("math: amsmath's nested accents")
-        out.push({ noad: ORD, accent: mathCharField(MATH_ACCENTS[cs], fam), nucleus, sup: null, sub: null })
-      }
       else if (cs === "frac") out.push({ noad: ORD, nucleus: fraction(), sup: null, sub: null })
+      else if (opts.amsmath && (cs in GENFRACS || cs === "genfrac")) { // \genfrac[4] … \@genfrac: {#1{\begingroup#4\endgroup#2#3\relax#5}}
+        const [l, r, th, st] = cs === "genfrac" ? [argument(), argument(), argument(), argument()] : GENFRACS[cs].map((x) => tokenize(x))
+        if (!l.length !== !r.length) throw new Error("math: \\genfrac with one delimiter")
+        let left: Delimiter | undefined, right: Delimiter | undefined, thickness: number | null = null
+        if (l.length) { toks.splice(pos, 0, ...l, ...r); left = delimiter(cs); right = delimiter(cs) }
+        if (th.length) { toks.splice(pos, 0, ...th, { cs: "relax" }); thickness = dimension(cs); if (!("cs" in toks[pos] && (toks[pos] as { cs: string }).cs === "relax")) throw new Error(`math: \\${cs} thickness`); pos++ } // (\@@above#3\relax)
+        const style = st.map((x) => ("ch" in x ? x.ch : "?")).join("")
+        if (!/^[0-9]?$/.test(style)) throw new Error(`math: \\${cs} style ${style}`) // (\@mathstyle: \ifcase#1)
+        const num = argument(), den = argument()
+        const frac: FractionNoad = { noad: "fraction", thickness, num: sub(num), denom: sub(den), ...(left ? { left, right } : {}) }
+        out.push(groupNoad([...(style ? [{ kind: "style" as const, style: 2 * Math.min(Number(style), 3) }] : []), groupNoad([frac])]))
+      } else if (opts.amsmath && cs === "cfrac") { // \cfrac[#1]#2#3: {\displaystyle\frac{\strut\ifx r#1\hfill\fi#2\ifx l#1\hfill\fi}{#3}}\kern-\nulldelimiterspace
+        let side = "c"
+        if (isCh(toks[pos], "[")) { const end = toks.findIndex((x, i) => i > pos && isCh(x, "]")); side = toks.slice(pos + 1, end).map((x) => ("ch" in x ? x.ch : "?")).join(""); pos = end + 1 }
+        const num = argument(), den = argument()
+        const n = sub([{ cs: "strut" }, ...(side === "r" ? [{ cs: "hfill" }] : []), ...num, ...(side === "l" ? [{ cs: "hfill" }] : [])])
+        out.push(groupNoad([{ kind: "style", style: 0 }, groupNoad([{ noad: "fraction", thickness: null, num: n, denom: sub(den) }])]), kern(-data.dimens.nulldelimiterspace, true))
+      }
       else if (cs === "sqrt") { // \sqrtsign: \radical"270370; \sqrt[n] is \root n\of
         if (isCh(toks[pos], "[")) { out.push(root()); continue }
         out.push({ noad: ORD, radical: delimiterOf(0x270370), nucleus: scanMath(), sup: null, sub: null })
       }
-      else if (opts.alphabets && cs in opts.alphabets) out.push({ noad: ORD, nucleus: alphabet(cs)!, sup: null, sub: null })
-      else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12)) // \delimiter: its \mathchar part
+      else if (opts.alphabets && cs in opts.alphabets) out.push(groupNoad(alphabetList(cs)))
+      else if (macroOf(cs) in data.delimiters) out.push(mathCharNoad(data.delimiters[macroOf(cs)] >> 12, fam)) // \delimiter: its \mathchar part
       else if (cs in data.symbols) {
-        out.push(mathCharNoad(data.symbols[cs]))
+        out.push(mathCharNoad(data.symbols[cs], fam))
         if (cs !== t.cs) (out[out.length - 1] as Noad).limits = "nolimits"
       } else throw new Error(`math: unsupported command \\${t.cs}`)
     }
