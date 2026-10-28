@@ -1,0 +1,29 @@
+% fixture: babel/spanish-otherlanguage-club
+% tier: T3
+% engine: document
+% covers: the first paragraph after a heading starting in otherlanguage* and ending after it: \@afterheading's \everypar sets \clubpenalty\@M in the language's group, so a minipage and a footnote read there break with it, while the paragraph's own lines take the \clubpenalty restored at the group's end
+% issue: #354
+\documentclass[english,spanish]{article}
+\usepackage{babel}
+\begin{document}
+\section{Primera}
+\begin{otherlanguage*}{spanish}
+Texto \begin{otherlanguage}{english}in English\end{otherlanguage} antes de la caja\footnote{Una nota bastante larga que ocupa varias líneas en la página para que su párrafo
+tenga una penalización entre la primera y la segunda línea de la nota al pie.} y luego
+\begin{minipage}{.3\linewidth}
+como manera desde investigación español grande método tiempo español grande nuevo último proceso análisis
+\end{minipage} problema
+\end{otherlanguage*}
+y el párrafo sigue\footnote{Otra nota bastante larga que ocupa varias líneas en la página, leída después del final
+del grupo, con la penalización restaurada entre sus líneas.} con más texto para que tenga varias líneas y su primera penalización entre líneas sea la del
+párrafo, restaurada al final del grupo de la lengua, que no es la del grupo.
+
+\section{Segunda}
+\begin{otherlanguage}{english}
+Text before the box and
+\begin{minipage}{.3\linewidth}
+some text that runs over a few lines in a narrow minipage to have a penalty
+\end{minipage} after it
+\end{otherlanguage}
+and the paragraph goes on in Spanish for a while so that it has more than one line in it at least.
+\end{document}

@@ -29,7 +29,7 @@ import type { SizeCommand } from "../layout/classdata"
  * it with prev_graf+3, no indentation and no \parskip. `club` is \clubpenalty while the
  * paragraph is read and `parClub` the one its final \par sees.
  */
-export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, club: number, parClub: number, start?: Node[], unskip = 0, firstClub = club, leadNoteClub?: number) {
+export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, club: number, parClub: number, start?: Node[], unskip = 0, firstClub = club, leadNoteClub?: number, leadLanguageGroups = 0) {
   const { amsmath, hyper } = cx.pre
   const { counters, decisions, doc, outerParskip, refs, romanFont, run, v } = cx
   const segs = displaySegments(text)
@@ -44,7 +44,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     let params: ReturnType<typeof paragraphInput>["params"] | null = null
     const opts = {
       clubPenalty: last ? parClub : first ? firstClub : club, noteClubPenalty: first ? firstClub : club, prevGraf,
-      ...(first && leadNoteClub !== undefined ? { leadGroupNoteClubPenalty: leadNoteClub } : {}),
+      ...(first && leadNoteClub !== undefined ? { leadGroupNoteClubPenalty: leadNoteClub, ...(leadLanguageGroups ? { leadLanguageGroups } : {}) } : {}),
       ...(last ? (unskip ? { unskip } : {}) : { widowPenalty: run.k.ints.displaywidowpenalty }),
       ...(first ? (start ? { start } : {}) : { start: [] as Node[] }),
     }

@@ -1,0 +1,57 @@
+% fixture: templates/corpus-ensayo-filosofia-es
+% tier: T3
+% engine: document
+% oracle: pdflatex
+% covers: the starter-corpus Spanish document (corpus/ensayo-filosofia-es.tex): spanish babel, T1 fontenc, utf8 accents, geometry
+% issue: #354
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage[margin=3cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+\title{La libertad en Sartre: condena y proyecto}
+\author{Julián Martínez Ortega\\\small Introducción a la Filosofía Contemporánea}
+\date{Octubre de 2026}
+
+\begin{document}
+\maketitle
+
+\section{Introducción}
+Pocas frases han tenido tanta fortuna en la filosofía del siglo \textsc{xx} como la
+afirmación de Jean-Paul Sartre según la cual ``el hombre está condenado a ser
+libre''.\footnote{J.-P. Sartre, \emph{El existencialismo es un humanismo}, 1946.}
+En este ensayo examino el sentido de esa condena y la relación que guarda con la noción
+de proyecto.
+
+\section{La existencia precede a la esencia}
+Para Sartre, a diferencia de un cortapapeles, el ser humano no tiene una naturaleza
+fijada de antemano:
+\begin{quote}
+El hombre empieza por existir, se encuentra, surge en el mundo, y después se define. El
+hombre, tal como lo concibe el existencialista, si no es definible, es porque empieza
+por no ser nada.
+\end{quote}
+De aquí se sigue que no hay excusas: no podemos apelar a una naturaleza humana, a Dios o
+a las circunstancias para justificar nuestras elecciones.
+
+\section{Angustia, abandono y desesperación}
+Sartre describe tres actitudes que acompañan a la libertad:
+\begin{enumerate}
+  \item la \emph{angustia}, porque al elegir para mí elijo una imagen del hombre;
+  \item el \emph{abandono}, porque no hay valores dados de antemano;
+  \item la \emph{desesperación}, porque solo cuento con lo que depende de mi voluntad.
+\end{enumerate}
+
+\section{Objeciones}
+Merleau-Ponty objetó que Sartre ignora el peso de la situación: la libertad siempre está
+encarnada y sedimentada en hábitos.\footnote{M. Merleau-Ponty, \emph{Fenomenología de la
+percepción}, 1945, cap.~III.} Esta crítica obliga a matizar la tesis sin abandonarla.
+
+\section{Conclusión}
+La condena a la libertad no es un castigo sino una descripción de nuestra condición: somos
+el proyecto que elegimos ser, y somos responsables de él.
+
+\end{document}

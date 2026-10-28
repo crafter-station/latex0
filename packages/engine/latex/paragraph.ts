@@ -282,6 +282,9 @@ export interface ParagraphOptions {
   noteClubPenalty?: number
   /** the \clubpenalty footnotes see in the {\color …} group that starts the paragraph (\everypar ran there) */
   leadGroupNoteClubPenalty?: number
+  /** babel's otherlanguage groups the paragraph starts in and ends: until the last one ends, footnotes and boxes see
+   *  leadGroupNoteClubPenalty (what \everypar set in them) */
+  leadLanguageGroups?: number
   /** \centering and friends */
   leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode; finalHyphenDemerits?: number
   /** \unskips before the \par (\@item's two, \endtrivlist's one), each taking a final glue */
@@ -550,6 +553,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     text = ""
   }
   while (i < body.length) {
+    // \string~: the character ~ (other), the font's own
+    if (body.startsWith("\\string~", i)) { text += "~"; i += 8; continue }
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
     if (lang.name === "spanish") { // spanish.ldf's shorthands
       if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
@@ -1045,7 +1050,7 @@ function fixLanguage(list: Node[], from: number, start: Language | null, startsH
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** otherlanguage groups open where the paragraph started, still to end, and those opened in it; the \clubpenalty in force after the first end */ langGroups?: { outer: number; opened: number; outerClub?: number }; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
@@ -1243,6 +1248,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const { lang, write } = select(p.what, p.lang)
       if (write) list.push({ kind: "whatsit", text: babelAux(lang) })
       if (p.what === "other" || p.what === "endother") ctx.ignoreSpaces = true
+      // (the end of a group the paragraph started in: what \everypar set there ends with it)
+      const g = ctx.langGroups
+      if (g && (p.what === "other" || p.what === "otherstar")) g.opened++
+      else if (g && g.opened) g.opened--
+      else if (g && g.outer && (p.what === "endother" || p.what === "endotherstar") && --g.outer === 0) ctx.noteClub = g.outerClub
     }
     else if (p.kind === "decl") {
       const a = fontDeclaration(p.name, attrs, k, size, doc, font)!
@@ -1691,6 +1701,10 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
   const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  if (opts.leadLanguageGroups && opts.leadGroupNoteClubPenalty !== undefined) {
+    pctx.langGroups = { outer: opts.leadLanguageGroups, opened: 0, outerClub: pctx.noteClub }
+    pctx.noteClub = opts.leadGroupNoteClubPenalty
+  }
   const from = list.length
   appendPieces(list, ps, font, size, { spaceFactor: 1000, ...(opts.sfcodes ? { sfcodes: opts.sfcodes } : {}), ...(opts.spaceSkips ? { spaceSkips: opts.spaceSkips } : {}) }, pctx)
   params.hyphenation = hyphenation(k, font, fixLanguage(list, from, lang0, true, pctx.languages!))

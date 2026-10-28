@@ -212,7 +212,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       else leadNoteClub = run.k.ints.clubpenalty
     }
     if (restore) { v.club = restore.club; v.afterheadingEverypar = restore.afterheading }
-    try { paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) || lg ? leadNoteClub : undefined) } finally { delete cx.doc.vmodeClub }
+    // (in the otherlanguage groups it ends, footnotes and boxes see what \everypar set there)
+    try { paragraphWithDisplays(cx, text, noindent, v.club, v.club, undefined, b.unskip, v.club, cg || tabularStart(text) || lg ? leadNoteClub : undefined, langs.closed) } finally { delete cx.doc.vmodeClub }
     babelState.groups.splice(babelState.groups.length - langs.closed, langs.closed)
     for (let i = 0; i < langs.opened; i++) babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
     return
