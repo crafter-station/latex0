@@ -13,7 +13,8 @@ import { SYMBOL_COMMANDS } from "./textsymbols"
 
 export type Block =
   | { kind: "par"; text: string; noindent: boolean; /** the floats that start in it (\LXfloat{n}: the n-th) */ floats?: Extract<Block, { kind: "float" }>[]; /** \unskips before its \par: \@trivlist's one when a list follows in it */ unskip?: number
-      /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean }
+      /** right after an amsthm environment (no blank line): an earlier \@doendpe may still be in force */ afterThm?: boolean
+      /** started inside a group that ends before its \par (a two-column abstract's last): \everypar's settings do not last */ inGroup?: boolean }
   | ListBlock
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[]
       /** a blank line (\par) right before it */ blank?: boolean }
@@ -56,8 +57,8 @@ export interface ListBlock {
   kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** thebibliography's \bibitem keys */ keys?: string[]; /** enumitem's [options] */ options?: string
   /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
   thm?: { name: string; note: string | null }; proofTitle?: string
-  /** abstract: its body as typed */
-  source?: string
+  /** abstract: its body as typed, and what follows \end{abstract}: a space, then a blank line or not, or none */
+  source?: string; after?: "blank" | "space" | "none"
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
@@ -326,6 +327,7 @@ export function blocksOf(body: string): Block[] {
     const prev = out[out.length - 1]
     if (inPar && prev?.kind === "par") prev.unskip = 1
     out.push(parseList(m[3] as EnvName, body.slice(re.lastIndex, end.at), inPar, /\n[ \t]*\n\s*$/.test(before)))
+    if (m[3] === "abstract") { const rest = body.slice(end.next); (out[out.length - 1] as ListBlock).after = /^[ \t]*\n[ \t]*\n/.test(rest) ? "blank" : /^\s/.test(rest) ? "space" : "none" }
     re.lastIndex = end.next
     at = end.next
     endpe = m[3] !== "LXtheorem" && m[3] !== "proof" // (amsthm's ends say \@endpefalse)

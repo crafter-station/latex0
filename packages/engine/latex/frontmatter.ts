@@ -8,16 +8,16 @@ import { appendText, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
 import { emptyBox, FIL, glue, kern, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { mathGlue } from "../mathlayout/mlist"
-import { hpack } from "../layout/pack"
+import { hpack, vpack } from "../layout/pack"
 import { xnOverD } from "../layout/arith"
 import { markboth, markValue } from "./marks"
 import { type ListFile, type TocEntry } from "./toc"
 import type { Ctx } from "./context"
 import { centering as centeringShape } from "./kernel"
 import { tabular } from "./boxes"
-import { chapter, heading } from "./sectioning"
+import { chapter, clearpage, heading } from "./sectioning"
 import { Unsupported } from "./unsupported"
-import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
+import { addGlue, dimen, IGNORE_DEPTH, LOW_PENALTY, negate, VerticalList } from "./vlist"
 import { type OutputHook } from "./output"
 import { tocLink } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
@@ -33,7 +33,7 @@ export function maketitle(cx: Ctx) {
   const { amsmath, cls } = cx.pre
   // (\let\footnote\thanks)
   const title = Object.fromEntries(Object.entries(cx.pre.title).map(([k, x]) => [k, x?.replace(/\\footnote(?![A-Za-z])/g, "\\thanks")])) as typeof cx.pre.title
-  const { decisions, doc, epoch, outerParskip, romanFont, run, typeset, v } = cx
+  const { decisions, doc, epoch, romanFont, run } = cx
   if (!title.title) throw new Unsupported("\\maketitle without \\title")
   const em = (n: string, f: Font) => new Scanner(n, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
   // report: the titlepage environment (\newpage, \thispagestyle{empty}, \setcounter{page}\@ne), then
@@ -43,16 +43,32 @@ export function maketitle(cx: Ctx) {
   // \thanks (and \footnote): marks in \@fnsymbol, texts at \@thanks (report's titlepage: \small, no \footnoterule: not here)
   if (/\\(?:thanks|footnote)(?![A-Za-z])/.test(`${title.title}${title.author ?? ""}${title.date ?? ""}`) && (titlepage || cx.pre.hyper)) throw new Unsupported(`\\thanks in ${titlepage ? cls : "hyperref"}'s \\maketitle`)
   doc.thanks = []
-  v.par()
-  v.nobreak = false
+  const main = cx.v
+  main.par()
+  main.nobreak = false
   const hook = (h: OutputHook): Node => ({ kind: "whatsit", text: "", hook: h })
+  // article in two columns: \twocolumn[\@maketitle], \clearpage and \@topnewpage, which builds \@maketitle in
+  // \vbox{\hsize\textwidth \@parboxrestore \col@number\@ne … \vskip-\dbltextfloatsep} for the top of the page
+  // (\parskip zero; \if@nobreak false)
+  const twocolumn = !titlepage && !!run.k.ints.twocolumn
+  const k = run.k, outerParskip0 = cx.outerParskip
+  if (twocolumn) {
+    clearpage(cx)
+    cx.v = new VerticalList(k)
+    cx.v.nodes = []; cx.v.prevDepth = IGNORE_DEPTH
+    cx.outerParskip = dimen(0)
+    run.k = { ...k, ints: { ...k.ints, twocolumn: 0 } }
+  }
+  try {
+  const { outerParskip, v } = cx
   if (titlepage) {
     v.nodes.push(filGlue(), penalty(-10000), hook("empty"), hook("page=1"))
     v.box(hpack([]), run.k.sizes.normalsize.baselineskip)
     v.vskip({ width: 0, stretch: 65536, stretchOrder: FIL, shrink: 0, shrinkOrder: 0 })
     v.vskip(dimen(60 * 65536))
   } else {
-    v.nodes.push(filGlue(), penalty(-10000), hook("notop"), filGlue(), penalty(-10000))
+    if (!twocolumn) v.nodes.push(filGlue(), penalty(-10000), hook("notop"))
+    v.nodes.push(filGlue(), penalty(-10000))
     v.box(hpack([]), run.k.sizes.normalsize.baselineskip) // \null
     v.vskip(dimen(em("2em", romanFont)))
   }
@@ -104,13 +120,19 @@ export function maketitle(cx: Ctx) {
   } else {
     // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
     v.vskip(dimen(em("1.5em", romanFont)))
-    v.nodes.push(hook("plain"))
+    if (twocolumn) {
+      v.vskip(negate(k.glue.dbltextfloatsep))
+      const box = vpack(xcolor.on ? [colorPush(), vpack(v.nodes), colorPop()] : [vpack(v.nodes)]) // \color@vbox\normalcolor\vbox{…}
+      main.nodes.push(hook({ topnewpage: box }))
+    }
+    main.nodes.push(hook("plain"))
     for (const t of doc.thanks) {
-      const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, v.club, amsmath)
-      v.nodes.push(ins)
+      const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, main.club, amsmath)
+      main.nodes.push(ins)
       decisions.push(trace)
     }
   }
+  } finally { cx.v = main; cx.outerParskip = outerParskip0; run.k = k }
   delete doc.thanks
   doc.footnote = 0 // \setcounter{footnote}{0}
 }

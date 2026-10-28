@@ -191,7 +191,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     // otherlanguage's end restores what was in force where it began)
     const langs = languageGroups(text), lg = langs.closed > 0 || langs.foreign
     const restore = langs.closed ? babelState.groups[babelState.groups.length - langs.closed] : null
-    const grouped = !!cg || tabularStart(text) || lg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
+    const grouped = !!cg || !!b.inGroup || tabularStart(text) || lg || (!(segs[0] as string).trim() && typeof segs[1] !== "string" && (segs[1].kind !== "dollars" && (segs[1].kind !== "bracket" || amsmath)))
     // (footnotes read in such a color group, and a leading tabular's p{width} entries, see its \clubpenalty, which the
     // group's end takes back)
     let leadNoteClub: number | undefined
@@ -208,6 +208,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     for (let i = 0; i < langs.opened; i++) babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
     return
   }
+  if (b.env === "abstract" && run.k.ints.twocolumn && !cx.pre.titlepage) { twocolumnAbstract(cx, b, blocks[bi + 1]); return }
   if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }
   if (b.blank) v.par() // a blank line before the list
   const before = { club: v.club, afterheading: v.afterheadingEverypar }
@@ -225,6 +226,36 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.env === "LXtheorem" || b.env === "proof") { v.club = before.club; v.afterheadingEverypar = before.afterheading; return }
   v.afterheadingEverypar = false
   v.endpePar = v.doendpe = v.endpeEverypar = true
+}
+
+/**
+ * The abstract in two columns (\if@twocolumn, no title page): \section*{\abstractname} and its text, in a group that
+ * \end{abstract} closes with no \par (and no \@doendpe)
+ */
+function twocolumnAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
+  if (cx.run.runIn || cx.run.noskipsec) throw new Unsupported("an abstract right after a run-in heading")
+  const source = b.source ?? ""
+  const blocks: Block[] = [{ kind: "heading", level: 1, star: true, title: cx.pre.names.abstractname, source: "\\abstractname" }, ...blocksOf(source)]
+  // (text right after \end{abstract} goes on with its last paragraph)
+  if (next?.kind === "par" && next.noindent) throw new Unsupported("text right after a two-column abstract")
+  // the last paragraph's line end before \end{abstract} and the one after it are two spaces: the \par that ends the
+  // paragraph (a blank line, or a heading's) takes only the second
+  const last = blocks.at(-1)
+  const trailing = source.match(/\s*$/)![0] // (a blank line there ends the paragraph inside the environment)
+  if (last?.kind === "par" && trailing && !/\n[ \t]*\n/.test(trailing) && b.after !== "none") {
+    if (b.after === "space" && next?.kind !== "heading") throw new Unsupported("a two-column abstract's last paragraph ended by what follows it")
+    last.text += " {} "
+  }
+  // \end{abstract}'s \endgroup: a last paragraph ended after it sees the \clubpenalty from before the environment, and
+  // \everypar is the one from before it again
+  const v = cx.v, before = { club: v.club, afterheading: v.afterheadingEverypar }
+  const outside = last?.kind === "par" && trailing.length > 0 && !/\n[ \t]*\n/.test(trailing) || last?.kind === "par" && !trailing
+  if (outside && last?.kind === "par") {
+    if (/\\footnote\b/.test(last.text)) throw new Unsupported("a footnote in a two-column abstract's last paragraph")
+    last.inGroup = true
+  }
+  blocks.forEach((x, i, all) => { if (x === last && outside) v.club = before.club; processBlock(cx, x, i, all) })
+  v.club = before.club; v.afterheadingEverypar = before.afterheading
 }
 
 /**

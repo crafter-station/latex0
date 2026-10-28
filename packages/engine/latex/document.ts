@@ -306,7 +306,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
   if (run.noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
   let built: ReturnType<typeof endDocument>
-  try { built = endDocument(v.nodes, run.k, outerParskip) } catch (e) {
+  try { built = endDocument(v.nodes, run.k, outerParskip, v.prevDepth) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
     throw e
   }

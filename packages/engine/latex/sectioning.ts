@@ -14,7 +14,7 @@ import type { Ctx } from "./context"
 import { raggedright } from "./kernel"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, negate } from "./vlist"
-import { type OutputHook } from "./output"
+import { clearpageHook, type OutputHook } from "./output"
 import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
 import { titlesecHeading } from "./titlesec"
@@ -36,9 +36,11 @@ export function newpage(cx: Ctx, inPar = false) {
   v.nodes.push(filGlue(), penalty(-10000)) // (the \par: the caller's)
 }
 
-/** \clearpage: \newpage, \write\m@ne{}, \vbox{}, \penalty-\@Mi */
+/** \clearpage: \newpage, \write\m@ne{}, \vbox{}, \penalty-\@Mi (in two columns and vertical mode, an \hbox{} first on an
+ *  empty page after \twocolumn[…]: the output decides) */
 export function clearpage(cx: Ctx, inPar = false) {
   const { run, v } = cx
+  if (run.k.ints.twocolumn && !inPar) v.nodes.push(clearpageHook(v.prevDepth, run.k))
   newpage(cx, inPar)
   v.nodes.push({ kind: "whatsit", text: "\\write-{}" })
   v.box(emptyBox("vlist"), run.k.sizes.normalsize.baselineskip)

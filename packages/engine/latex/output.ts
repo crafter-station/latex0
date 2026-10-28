@@ -12,6 +12,7 @@ import { roundDecimals } from "../layout/dimen"
 import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode, filGlue, ssGlue } from "../layout/nodes"
 import { loadFont } from "../layout/font"
 import { appendText } from "./encodings"
+import { appendToVlist } from "./paragraph"
 import { hpack, vpack } from "../layout/pack"
 import { buildPages, type Page } from "../layout/pagebuilder"
 import { documentPages } from "../trace/decisions"
@@ -54,6 +55,11 @@ export type Shipped = ShippedContent & {
 export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman" | "arabic"
   /** \cleardoublepage's \ifodd\c@page\else\hbox{}\newpage: the material, put in only when the next page is even */
   | { cleardouble: Node[] }
+  /** \@topnewpage: \twocolumn's optional argument in its box, for the top of the page (\@dbltoplist) */
+  | { topnewpage: BoxNode }
+  /** \clearpage's \ifnum\@dbltopnum=\m@ne\ifdim\pagetotal<\topskip\hbox{}: the \hbox{} with its interline glue, or null
+   *  where the material after it would change with it */
+  | { clearpage: Node[] | null }
 
 /** Thrown for what the output routine does that is not modeled yet. */
 export class OutputUnsupported extends Unsupported {}
@@ -411,12 +417,33 @@ export class LatexOutput {
 
   /** An assignment from the document: article's \maketitle sets \@topnum to 0 for its page */
   /** \global\@topnum\z@; \thispagestyle, which \@outputpage applies to the next page it ships; \setcounter{page} */
-  hook(h: OutputHook): Node[] | void {
+  hook(h: OutputHook, empty = false): Node[] | void {
+    if (typeof h === "object" && "topnewpage" in h) { this.topnewpage(h.topnewpage); return }
+    if (typeof h === "object" && "clearpage" in h) {
+      if (this.dbltopnum !== -1 || !empty) return
+      if (!h.clearpage) throw new OutputUnsupported("\\clearpage's \\hbox{} after \\twocolumn[…]")
+      return h.clearpage
+    }
     if (typeof h === "object") return this.page % 2 === 0 ? h.cleardouble : []
     if (h === "notop") this.topnum = 0
     else if (h === "plain" || h === "empty") this.special = h
     else if (h === "roman" || h === "arabic") { this.page = 1; this.numbering = h } // \pagenumbering
     else this.page = Number(h.slice(5))
+  }
+  /**
+   * \@topnewpage, after \twocolumn's \clearpage: the box (at most \textheight) is the page's two-column float
+   * (\count 2), \@colht less it and \dbltextfloatsep, \@dbltopnum -1; \vsize and \@colroom are \@colht, \@floatplacement
+   */
+  private topnewpage(box: BoxNode) {
+    if (box.height > this.k.dimens.textheight) box.height = this.k.dimens.textheight
+    if (this.dbltoplist.length) throw new OutputUnsupported("\\twocolumn[…] with two-column floats for the page (Float(s) lost)")
+    this.colht -= box.height + this.k.glue.dbltextfloatsep.width
+    this.dbltoplist = [{ box, count: 2, nobreak: false, index: -1, here: false }]
+    this.dbltopnum = -1
+    const bs = this.k.sizes.normalsize.baselineskip.width
+    if (this.colht < 2 * bs + xnOverD(bs, 32768, 65536)) throw new OutputUnsupported("\\twocolumn's optional argument too tall")
+    this.vsizeNow = this.colht; this.colroom = this.colht
+    this.floatplacement()
   }
   private numbering: "roman" | "arabic" = "arabic"
   private special: "plain" | "empty" | null = null
@@ -450,12 +477,21 @@ const newpage = (): Node[] => [filGlue(), penalty(-10000)]
 /** The rest of \clearpage after its \newpage: \write\m@ne{}\vbox{}\penalty-\@Mi */
 const clearRest = (): Node[] => [{ kind: "whatsit", text: "\\write-{}" }, emptyBox("vlist"), penalty(-10001)]
 
+/** \clearpage's \hbox{} in two columns (\ifnum\@dbltopnum=\m@ne\ifdim\pagetotal<\topskip): with its interline glue,
+ *  when the \vbox{} after it gets the same glue either way (\prevdepth 0) */
+export function clearpageHook(prevDepth: number | null, k: ClassOptionData): Node {
+  const hbox: Node[] = []
+  appendToVlist(hbox, hpack([]), prevDepth, k.sizes.normalsize.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit)
+  return { kind: "whatsit", text: "", hook: { clearpage: prevDepth === 0 ? hbox : null } satisfies OutputHook }
+}
+
 /** \end{document} after the main vertical list `contrib`: the pages TeX's page builder cuts and LaTeX's output routine ships. */
-export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSpec = k.glue.parskip) {
+export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSpec = k.glue.parskip, prevDepth: number | null = 0) {
   // \clearpage: its \newpage (\vfil\penalty-10000; since LaTeX 2025-06-01 the last line's depth is backed
   // up in the output routine, \@outputbox@reinsertbskip, not here), then \write\m@ne{}\vbox{}\penalty-\@Mi,
   // whose output routine (\@doclearpage) ships a page only for footnotes still held over, and then
   // clears the page again
+  if (k.ints.twocolumn) contrib.push(clearpageHook(prevDepth, k))
   contrib.push(filGlue(), penalty(-10000), ...clearRest())
   const out = new LatexOutput(k, parskip)
   const fs = k.glue.footinsskip
@@ -463,7 +499,7 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
     vsize: () => out.vsize(), maxDepth: k.dimens.maxdepth, topSkip: paramGlue("topskip", plain(k.glue.topskip)),
     inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen } },
     float: (held, marker, boxes) => out.float(held, marker, boxes),
-    hook: (h) => out.hook(h as OutputHook),
+    hook: (h, empty) => out.hook(h as OutputHook, empty),
     output: (page) => out.output(page),
     reached: (i) => { out.reached = i },
   })
