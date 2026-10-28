@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1027,
-  "exact": 1013,
+  "fixtures": 1031,
+  "exact": 1017,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 14,
-  "glyphs": 638157
+  "glyphs": 639145
  },
  "areas": [
   {
@@ -36,8 +36,8 @@
   },
   {
    "area": "beamer",
-   "fixtures": 315,
-   "exact": 314
+   "fixtures": 319,
+   "exact": 318
   },
   {
    "area": "bibliography",
@@ -2524,6 +2524,28 @@
    "glyphs": 85,
    "covers": "beamer: enumerate with the default template (\\insertenumlabel. in the structure color, flush right in \\labelwidth), items of more than one line, hyperref's item anchors",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/float-caption-long-pdf",
+   "file": "micro/beamer/float-caption-long-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 260,
+   "covers": "beamer under pdflatex: a beamer caption wider than \\hsize: the template in vertical mode and \\par (its colors pushed there, a ragged right \\sloppy paragraph in the caption's \\small from \\insertcaptionname on: an overfull line's emergency pass), a table caption with Madrid's colors",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/float-caption-long",
+   "file": "micro/beamer/float-caption-long.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 260,
+   "covers": "beamer: a beamer caption wider than \\hsize: the template in vertical mode and \\par (its colors pushed there, a ragged right \\sloppy paragraph in the caption's \\small from \\insertcaptionname on: an overfull line's emergency pass), a table caption with Madrid's colors",
+   "issue": "#361"
   },
   {
    "id": "beamer/float-figure-pdf",
@@ -5174,6 +5196,28 @@
    "status": "pass",
    "glyphs": 186,
    "covers": "beamer: \\url and \\href in frames (hyperref's links: the address in \\ttfamily, the link's box; with pdfTeX each link an object), a long \\url, \\href to a file and to a URI, a link in a block",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/verbatim-fragile-pdf",
+   "file": "micro/beamer/verbatim-fragile-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 234,
+   "covers": "beamer under pdflatex: [fragile] frames (the .vrb file read back), \\verb and \\verb* in a paragraph (\\null, \\@noligs' kerns, \\nobreakspace, the space factor after), verbatim (the trivlist, a line a paragraph, an empty line, the labels on the first) and verbatim*, spaces before \\end{verbatim} (a line, its last space taken off), the text after them with \\@endpetrue",
+   "issue": "#361"
+  },
+  {
+   "id": "beamer/verbatim-fragile",
+   "file": "micro/beamer/verbatim-fragile.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 234,
+   "covers": "beamer: [fragile] frames (the .vrb file read back), \\verb and \\verb* in a paragraph (\\null, \\@noligs' kerns, \\nobreakspace, the space factor after), verbatim (the trivlist, a line a paragraph, an empty line, the labels on the first) and verbatim*, spaces before \\end{verbatim} (a line, its last space taken off), the text after them with \\@endpetrue",
    "issue": "#361"
   },
   {
