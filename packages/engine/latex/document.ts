@@ -186,7 +186,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   babelBegin(pre.babel, (lang) => {
     // (caption.sty's names, set after babel's at \begin{document}, are its own until \captions<lang> sets them again)
     if (pre.caption && Object.keys(pre.caption.keys.names).length) throw new Unsupported("caption.sty's names with babel's language commands")
-    Object.assign(pre.names, languageCaptions(lang, cls === "report" || cls === "book")); extras(lang)
+    Object.assign(pre.names, languageCaptions(lang, cls === "report" || cls === "book", pre.captionAdds)); extras(lang)
   }, body)
   if (colorDefs.length && !usesXcolor) throw new Unsupported("\\definecolor without xcolor")
   const colors = new Colors()

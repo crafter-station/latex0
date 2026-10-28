@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1094,
-  "exact": 1082,
+  "fixtures": 1100,
+  "exact": 1088,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 12,
-  "glyphs": 710550
+  "glyphs": 711044
  },
  "areas": [
   {
@@ -141,8 +141,8 @@
   },
   {
    "area": "macros",
-   "fixtures": 50,
-   "exact": 39
+   "fixtures": 56,
+   "exact": 45
   },
   {
    "area": "math",
@@ -8253,10 +8253,10 @@
    "file": "micro/macros/class-names.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 22,
-   "covers": "\\renewcommand of a command the class defines (report's \\chaptername): not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewcommand of report's \\chaptername: the chapter heading takes it",
    "issue": "#344"
   },
   {
@@ -8500,6 +8500,72 @@
    "glyphs": 90,
    "covers": "the document's macros with arguments and optional arguments in itemize and enumerate items, a description label (a fragile macro), a tabular's cells and a footnote; a macro that expands to \\item; a definition at an item's start (vertical mode: the space after it starts nothing)",
    "issue": "#344"
+  },
+  {
+   "id": "macros/names-addto-mixed",
+   "file": "micro/macros/names-addto-mixed.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 11,
+   "covers": "\\addto\\captions<lang> holding more than names (a \\the<counter> too, which babel's captions define at \\begin{document}): not laid out yet (none of it is dropped)",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-babel-switch",
+   "file": "micro/macros/names-babel-switch.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 30,
+   "covers": "\\addto\\captions<lang> for two languages (\\def and \\renewcommand of \\figurename): each \\selectlanguage runs its language's captions with the additions",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-babel",
+   "file": "micro/macros/names-babel.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 36,
+   "covers": "babel's \\captions<lang> at \\begin{document} over the preamble's \\renewcommand of a name (\\figurename, \\contentsname stay English), and \\addto\\captionsenglish{\\renewcommand…} (\\tablename), which it runs",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-hyphen-caption",
+   "file": "micro/macros/names-hyphen-caption.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "a \\figurename with a hyphen (caption): in the caption's box no discretionary after it, in the paragraph of a caption too wide for a line one",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-hyphen-plain",
+   "file": "micro/macros/names-hyphen-plain.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 122,
+   "covers": "a \\figurename with a hyphen (plain): in the caption's box no discretionary after it, in the paragraph of a caption too wide for a line one",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/names-renew",
+   "file": "micro/macros/names-renew.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "\\renewcommand of the caption names without babel (\\contentsname, \\listfigurename, \\figurename, \\tablename, \\refname, \\abstractname): the headings, captions, the lists and the bibliography take them",
+   "issue": "#365"
   },
   {
    "id": "macros/newcounter-the",

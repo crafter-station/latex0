@@ -636,6 +636,19 @@ export function makeDocument(r: () => number, s: () => number = rng(1), m: () =>
     if (m() < 0.4) out.push(`${ams && m() < 0.5 ? "\\numberwithin" : mpick(["\\counterwithin", "\\counterwithin*", "\\counterwithin[\\roman]"])}{${mpick(["equation", "figure", "table"])}}{${mpick(["section", "subsection"])}}`)
     for (const [c, fs] of formats) if (m() < 0.4) out.push(`${mpick(["\\renewcommand", "\\renewcommand*", "\\def"])}${m() < 0.5 ? `\\the${c}` : `{\\the${c}}`}{${mpick(fs)}}`.replace(/^\\def\{(\\the[a-z]+)\}/, "\\def$1"))
   }
+  // the caption names (#365): \renewcommand without babel; with babel (whose \captions<lang> at \begin{document} defines
+  // them again) also \addto\captions<lang> (its stream `m` too)
+  if (!isLetter && m() < 0.3) {
+    const mpick = <T>(xs: T[]): T => xs[Math.floor(m() * xs.length)]
+    const names: [string, string[]][] = [["figurename", ["Fig.", "Supp-Figure"]], ["tablename", ["Tab.", "Chart"]], ["contentsname", ["Table of Contents", "Outline"]],
+      ["listfigurename", ["Figures"]], ["listtablename", ["Tables"]], [cls === "article" ? "refname" : "bibname", ["Literature", "Works Cited"]], ...(cls === "book" ? [] : [["abstractname", ["Summary"]] as [string, string[]]]),
+      ...(cls === "article" ? [] : [["chaptername", ["Lecture", "Part"]] as [string, string[]]]), ...(thms.length ? [["proofname", ["Demonstration"]] as [string, string[]]] : [])]
+    const defs = names.filter(() => m() < 0.35).map(([n, vs]) => `${mpick(["\\renewcommand", "\\def"])}${mpick([`\\${n}`, `{\\${n}}`])}{${mpick(vs)}}`.replace(/^\\def\{(\\[a-z]+)\}/, "\\def$1"))
+    if (defs.length) {
+      if (lang && m() < 0.7) out.push(`\\addto\\captions${babelMain}{${defs.join("")}}`)
+      else out.push(...defs)
+    }
+  }
   // parskip.sty (not with titlesec or theorems yet), first in the preamble
   if (!isLetter && !tsOn && !thms.length && r() < 0.12) out.splice(1, 0, "\\usepackage{parskip}")
   out.push("\\begin{document}")

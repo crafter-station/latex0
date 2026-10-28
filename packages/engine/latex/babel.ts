@@ -143,10 +143,18 @@ export function babelOptions(own: string[], classOptions: string[]): Babel {
 /** whether a class option is a language babel reads */
 export const isBabelLanguage = (o: string) => Object.hasOwn(LANGUAGES, o)
 
-/** The main language's captions (none: LaTeX's), a copy of its own (which a language selected later changes) */
-export function captions(b: Babel | null, chapters: boolean): Captions {
+/** the preamble's names (\renewcommand{\figurename}{…}, key "") and \addto\captions<lang>'s, by language, in order */
+export type CaptionAdds = ReadonlyMap<string, readonly [keyof Captions, string][]>
+
+/**
+ * The main language's captions (none: LaTeX's), a copy of its own (which a language selected later changes), with what
+ * the preamble adds: without babel its \renewcommand of a name; with babel, whose \captions<lang> at \begin{document}
+ * (and at each \selectlanguage) defines them all again, what \addto\captions<lang> adds to them
+ */
+export function captions(b: Babel | null, chapters: boolean, adds: CaptionAdds = new Map()): Captions {
   const c = b ? LANGUAGES[b.main].captions : LATEX_CAPTIONS
   const names = typeof c === "function" ? c(chapters) : { ...c }
+  for (const [name, text] of adds.get(b ? b.main : "") ?? []) names[name] = text
   // (spanish.ldf's accents: \bbl@allowhyphens where no space follows)
   return isSpanish(b) ? Object.fromEntries(Object.entries(names).map(([k, v]) => [k, markAccentHyphens(v)])) as unknown as Captions : names
 }
@@ -252,7 +260,7 @@ export function babelSelect(lang: string): void {
 }
 
 /** the language selected's captions (\captions<lang>; `chapters`: the class has \chapter) */
-export const languageCaptions = (lang: string, chapters: boolean): Captions => captions({ languages: [lang], main: lang, global: [] }, chapters)
+export const languageCaptions = (lang: string, chapters: boolean, adds?: CaptionAdds): Captions => captions({ languages: [lang], main: lang, global: [] }, chapters, adds)
 
 /** the \lccode changes of a language's extras */
 export const languageLc = (lang: string): Record<number, number> | undefined => LANGUAGES[lang]?.lc

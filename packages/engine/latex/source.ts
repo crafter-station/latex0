@@ -9,6 +9,7 @@ import { ARTICLE, CLASSES, PACKAGES } from "../expand/defined"
 import { isKnownCommand } from "../parser"
 import { Unsupported } from "./unsupported"
 import { SECTIONAL } from "./counters"
+import { LATEX_CAPTIONS } from "./babel"
 import { spanishText } from "./spanish"
 
 /** an lstlisting environment's [options] and lines */
@@ -181,6 +182,7 @@ export function prepareSource(source: string): DocumentSource {
   source = source.replace(/\\renewcommand\*?\s*(?:\{\\tabularxcolumn\}|\\tabularxcolumn(?![A-Za-z]))\s*\[1\]\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g, (all: string, spec: string, offset: number, text: string) =>
     commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
   source = counterFormats(source)
+  source = captionNames(source)
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
@@ -262,13 +264,16 @@ function latexCommands(source: string): (name: string) => boolean {
   return (name) => ARTICLE_NAMES.has(name) || own.has(name)
 }
 
+/** where \begin{document} is (not in a comment), or -1 */
+const documentStart = (source: string) => { const m = source.match(/^((?:[^%\n\\]|\\.)*)\\begin\{document\}/m); return m ? m.index! + m[1].length : -1 }
+
 /**
  * The preamble's \renewcommand (or \def) of a \the<counter> the engine keeps (the sectioning counters, equation, figure,
  * table, the document's \newcounter and \newtheorem ones): \LXthe{counter}{body}, which preamble.ts reads and the
  * counters evaluate where LaTeX expands it (counters.ts)
  */
 function counterFormats(source: string): string {
-  const begin = source.indexOf("\\begin{document}")
+  const begin = documentStart(source)
   if (begin < 0) return source
   const counters = new Set<string>([...SECTIONAL, "equation", "figure", "table"])
   for (const m of preambleOf(source).matchAll(/\\(?:newcounter|newtheorem)\s*\{([A-Za-z]+)\}/g)) counters.add(m[1])
@@ -276,6 +281,23 @@ function counterFormats(source: string): string {
     const name = a ?? b ?? c!
     return counters.has(name) ? `\\LXthe{${name}}{${body}}` : all // (a % before it still makes it a comment)
   }) + source.slice(begin)
+}
+
+/** a \renewcommand (or \def) of a caption name: its name and body */
+const NAME_DEF = new RegExp(`\\\\(?:renewcommand\\*?\\s*(?:\\{\\\\(${Object.keys(LATEX_CAPTIONS).join("|")})\\}|\\\\(${Object.keys(LATEX_CAPTIONS).join("|")})(?![A-Za-z]))|def\\s*\\\\(${Object.keys(LATEX_CAPTIONS).join("|")})(?![A-Za-z]))\\s*\\{((?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*)\\}`, "g")
+
+/**
+ * The preamble's definitions of the caption names (\figurename, \contentsname …): \LXname{name}{body}; babel's
+ * \addto\captions<lang>{…} holding only such definitions, \LXcaptions{lang}{name}{body} for each (preamble.ts)
+ */
+function captionNames(source: string): string {
+  const begin = documentStart(source)
+  if (begin < 0) return source
+  const name = (m: string[]) => m[1] ?? m[2] ?? m[3]
+  return source.slice(0, begin).replace(/\\addto\s*\\captions([a-z]+)\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g, (all: string, lang: string, defs: string) => {
+    if (defs.replace(NAME_DEF, "").trim()) return all
+    return [...defs.matchAll(NAME_DEF)].map((m) => `\\LXcaptions{${lang}}{${name(m)}}{${m[4]}}`).join("\n")
+  }).replace(NAME_DEF, (...m: string[]) => `\\LXname{${name(m)}}{${m[4]}}`) + source.slice(begin)
 }
 
 /** the end of the group opened at `i` in `s` (\{ and \} escaped), or -1 */

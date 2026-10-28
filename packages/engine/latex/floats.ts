@@ -89,7 +89,7 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   const cap = hpack(setgroup(l)) // \sbox
   if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
     const start: Node[] = [hpack([])]
-    appendText(start, name, romanFont, { spaceFactor: 1000 }, false)
+    appendText(start, name, romanFont, { spaceFactor: 1000 })
     start.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0))
     if (hyper) { appendText(start, `${counters.the(env, number)}: `, romanFont, { spaceFactor: 1000 }); start.push(...spotAnchor(refs.href, "h", start.at(-1), run.k.sizes.normalsize.baselineskip.width)); out.paragraph(start, text) }
     else out.paragraph(start, `${counters.the(env, number)}: ${text}`)

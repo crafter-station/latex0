@@ -22,7 +22,7 @@ import { Unsupported } from "./unsupported"
 import { printScaled } from "../layout/arith"
 import { hyperDefaults, hyperOptions, type HyperOptions } from "./hyperref"
 import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
-import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type Captions } from "./babel"
+import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type CaptionAdds, type Captions } from "./babel"
 import { markAccentHyphens } from "./spanish"
 import { enumitemOptions, setlist, type Enumitem } from "./enumitem"
 
@@ -121,6 +121,8 @@ export interface Preamble {
   counterFormats: Map<string, string>
   /** \counterwithin and \numberwithin: equation, figure, table by the sectioning counter that resets them */
   counterWithin: Map<string, string>
+  /** the names the preamble defines (source.ts's \LXname, \LXcaptions): without babel, and by babel's language */
+  captionAdds: CaptionAdds
   /** natbib: its citation punctuation on the first run (no .aux yet) and on later ones (the .aux's \bibstyle) */
   natbib: { first: NatStyle; later: NatStyle } | null
   /** algorithm.sty, algpseudocode (and its noend option) */
@@ -297,6 +299,7 @@ export function readPreamble(src: string): Preamble {
   const newCounters: [string, string | null][] = []
   const counterFormats = new Map<string, string>()
   const counterWithin = new Map<string, string>()
+  const captionAdds = new Map<string, [keyof Captions, string][]>()
   const operators: [string, string, boolean][] = [] // \DeclareMathOperator(*){\cmd}{name}
   const paired: [string, string, string][] = [] // \DeclarePairedDelimiter{\cmd}{left}{right}
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
@@ -329,6 +332,12 @@ export function readPreamble(src: string): Preamble {
       counterWithin.set(cw[4], cw[5])
       if (!cw[2]) counterFormats.set(cw[4], `\\the${cw[5]}.\\${cw[3] ?? "arabic"}{${cw[4]}}`)
       continue
+    }
+    // a name (\figurename …) the preamble defines, or \addto\captions<lang> adds to babel's
+    const lxn = line.match(/^\\LXname\{([A-Za-z]+)\}\{(.*)\}$/) ?? line.match(/^\\LXcaptions\{([a-z]+)\}\{([A-Za-z]+)\}\{(.*)\}$/)
+    if (lxn) {
+      const [lang, name, text] = lxn.length === 3 ? ["", lxn[1], lxn[2]] : [lxn[1], lxn[2], lxn[3]]
+      captionAdds.set(lang, [...captionAdds.get(lang) ?? [], [name as keyof Captions, text]]); continue
     }
     const lxthe = line.match(/^\\LXthe\{([A-Za-z]+)\}\{(.*)\}$/) // (source.ts: \renewcommand{\the<counter>}{body})
     if (lxthe) { counterFormats.set(lxthe[1], lxthe[2]); continue }
@@ -624,7 +633,7 @@ export function readPreamble(src: string): Preamble {
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

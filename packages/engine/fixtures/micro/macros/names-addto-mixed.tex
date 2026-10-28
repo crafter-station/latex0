@@ -1,0 +1,15 @@
+% fixture: macros/names-addto-mixed
+% tier: T3
+% engine: document
+% covers: \addto\captions<lang> holding more than names (a \the<counter> too, which babel's captions define at \begin{document}): not laid out yet (none of it is dropped)
+% issue: #365
+\documentclass{article}
+\usepackage[english]{babel}
+\addto\captionsenglish{\renewcommand{\figurename}{Fig.}\renewcommand{\thefigure}{\Roman{figure}}}
+\begin{document}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{One}
+\end{figure}
+\end{document}

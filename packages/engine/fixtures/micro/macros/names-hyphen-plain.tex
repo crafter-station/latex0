@@ -1,0 +1,19 @@
+% fixture: macros/names-hyphen-plain
+% tier: T3
+% engine: document
+% covers: a \figurename with a hyphen (plain): in the caption's box no discretionary after it, in the paragraph of a caption too wide for a line one
+% issue: #365
+\documentclass{article}
+\renewcommand{\figurename}{Supp-Figure}
+\begin{document}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A box}
+\end{figure}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}B\end{tabular}
+\caption{Another box, with a caption long enough to take more than one line of the page, so that it is set as a paragraph}
+\end{figure}
+\end{document}
