@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 879,
-  "exact": 879,
+  "fixtures": 902,
+  "exact": 902,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 481200
+  "glyphs": 606997
  },
  "areas": [
   {
@@ -146,8 +146,8 @@
   },
   {
    "area": "pages",
-   "fixtures": 18,
-   "exact": 18
+   "fixtures": 22,
+   "exact": 22
   },
   {
    "area": "parskip",
@@ -203,6 +203,11 @@
    "area": "titlesec",
    "fixtures": 5,
    "exact": 5
+  },
+  {
+   "area": "twocolumn",
+   "fixtures": 19,
+   "exact": 19
   },
   {
    "area": "url",
@@ -7534,6 +7539,17 @@
    "issue": "#115"
   },
   {
+   "id": "pages/bottom-suppressfloats",
+   "file": "micro/pages/bottom-suppressfloats.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9047,
+   "covers": "\\flushbottom in the preamble and \\raggedbottom in the document (\\@textbottom for the columns made after it), \\suppressfloats (\\@colnum zero: no float here or at the top, bottom of this page) and \\suppressfloats[t] and [b]",
+   "issue": "#348"
+  },
+  {
    "id": "pages/chapter-after-float-page",
    "file": "micro/pages/chapter-after-float-page.tex",
    "area": "pages",
@@ -7543,6 +7559,39 @@
    "glyphs": 5856,
    "covers": "a float page from \\chapter's \\clearpage after a full page: the \\write nodes \\vsplit keeps make a page with no box (no \\topskip), and \\thispagestyle{plain} goes to that page, not to the chapter's (\\@specialpage is for the next page shipped); a random document (fuzz:documents seed 4)",
    "issue": "#30"
+  },
+  {
+   "id": "pages/enlargethispage-float",
+   "file": "micro/pages/enlargethispage-float.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7840,
+   "covers": "floats here on pages \\enlargethispage* and \\enlargethispage enlarged: \\@specialoutput adds \\ht\\@kludgeins to \\@pageht only for \\enlargethispage (no width), then \\@reinserts it",
+   "issue": "#348"
+  },
+  {
+   "id": "pages/enlargethispage-spacing",
+   "file": "micro/pages/enlargethispage-spacing.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3963,
+   "covers": "\\enlargethispage{\\baselineskip} under setspace (the \\baselineskip in force, stretched) and right after a heading (\\@esphack's \\nobreak while \\if@nobreak)",
+   "issue": "#348"
+  },
+  {
+   "id": "pages/enlargethispage",
+   "file": "micro/pages/enlargethispage.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7942,
+   "covers": "\\enlargethispage between paragraphs and \\enlargethispage* in one (\\insert\\@kludgeins{\\vskip-len}: the page goal raised; \\@make@specialcolbox: \\vbox to\\@colht{\\vbox to(\\@colht-\\ht\\@kludgeins){…}\\vss}, and the star's squeeze with \\pageshrink), floats on such pages (\\@specialoutput's \\@pageht and \\@reinserts)",
+   "issue": "#348"
   },
   {
    "id": "pages/geometry-landscape",
@@ -9526,6 +9575,215 @@
    "glyphs": 215,
    "covers": "titlesec's headings with hyperref: \\ttl@Hy@refstepcounter's anchor in \\ttl@Hy@saveanchor, \\ttl@Hy@steplink for starred titles; nameref drops a title's final period",
    "issue": "#249"
+  },
+  {
+   "id": "twocolumn/twocolumn-abstract-nameref",
+   "file": "micro/twocolumn/twocolumn-abstract-nameref.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 677,
+   "covers": "nameref's \\@currentlabelname after a two-column abstract: its \\section* set it in the environment's group, so a \\label after \\end{abstract} gets the name from before it",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-abstract",
+   "file": "micro/twocolumn/twocolumn-abstract.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2544,
+   "covers": "the abstract in two columns (\\section*{\\abstractname}, no \\par at \\end{abstract}): its last paragraph ended after the environment's group (the \\clubpenalty from before it, the line ends before and after \\end{abstract} as two spaces), by a blank line or by a heading",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-book",
+   "file": "micro/twocolumn/twocolumn-book.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7608,
+   "covers": "book in two columns: \\cleardoublepage's \\hbox{}\\newpage for both columns of a blank page, chapter heads at the top of the page with the running heads of both columns (\\pagestyle{headings}, twoside), \\listoffigures in one column, a figure* under a chapter head",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-dblfloat-caption",
+   "file": "micro/twocolumn/twocolumn-dblfloat-caption.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 255,
+   "covers": "caption.sty in figure* and table*: a type's options read in \\@xfloat's box before \\@xdblfloat (\\linewidth the column's), \\captionsetup in the float after it (\\linewidth the text's)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-dblfloat-clearpage",
+   "file": "micro/twocolumn/twocolumn-dblfloat-clearpage.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1968,
+   "covers": "\\clearpage in a first column with a figure* waiting (\\@doclearpage: \\vbox{}\\clearpage, and \\clearpage again while floats wait; the figure* on a page of two-column floats, \\@dblfloatplacement's \\@makefcolumn), a table deferred to a column of floats",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-dblfloats-limits",
+   "file": "micro/twocolumn/twocolumn-dblfloats-limits.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9889,
+   "covers": "two-column floats at a page's top within \\dbltopnumber and \\dbltopfraction, a [!t] one past \\@dbltoproom (\\@addtodblcol's \\@textmin), and \\@colht's columns under them (their \\@floatplacement rooms and \\vsize)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-dblfloats-rooms",
+   "file": "micro/twocolumn/twocolumn-dblfloats-rooms.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 8305,
+   "covers": "a column's top room under two-column floats (\\@floatplacement's \\topfraction\\@colht), \\newpage in each column, and \\clearpage at a page's start with two-column floats for its top and one more waiting (\\@doclearpage puts \\@dbltoplist first)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-dblfloats",
+   "file": "micro/twocolumn/twocolumn-dblfloats.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7807,
+   "covers": "figure* and table* in two columns (\\@dbflt: tp, \\textwidth wide, 1sp deep): deferred past the columns (\\@testwrongwidth), at the top of the next page (\\@startdblcolumn, \\@addtodblcol: \\@dbltoproom, \\dbltopnumber, \\@colht less the floats and \\dbltextfloatsep), \\@combinedblfloats with \\dblfloatsep, a page of two-column floats (\\@tryfcolumn with \\dblfloatpagefraction and \\@dblfpsep), an earlier figure* holding back a figure (\\@bitor)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-end-left",
+   "file": "micro/twocolumn/twocolumn-end-left.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3754,
+   "covers": "two columns with \\columnsep and \\columnseprule set in the preamble (\\columnwidth at \\begin{document}), xcolor's \\normalcolor around the rule, the document ending in a first column (\\@doclearpage's \\vbox{}\\clearpage: an empty second column)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-enlarge",
+   "file": "micro/twocolumn/twocolumn-enlarge.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5320,
+   "covers": "\\enlargethispage in a first column and \\enlargethispage* in a second (each column's own \\@kludgeins, \\flushbottom: no \\@textbottom)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-floats",
+   "file": "micro/twocolumn/twocolumn-floats.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7673,
+   "covers": "floats in two columns: here, top and bottom of a column (\\@addtocurcol, \\@addtotoporbot with \\@colht's rooms), deferred to the next column (\\@startcolumn), columns of floats (\\@tryfcolumn as \\@opcol's columns), \\clearpage with floats waiting (\\@doclearpage's \\@makefcolumn in columns)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-headings",
+   "file": "micro/twocolumn/twocolumn-headings.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9250,
+   "covers": "running heads in two columns (\\__mark_update_dblcol_structures: the page's marks are the first column's, then the second's), twoside two-column pages",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-maketitle",
+   "file": "micro/twocolumn/twocolumn-maketitle.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5214,
+   "covers": "\\maketitle in two columns (\\twocolumn[\\@maketitle]: \\clearpage, \\@topnewpage's box of \\textwidth with \\parskip zero and \\vskip-\\dbltextfloatsep, \\@colht less it, \\@dbltopnum -1), \\thanks, the abstract as \\section*{\\abstractname}, a figure* deferred under the title's page",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-onecolumn",
+   "file": "micro/twocolumn/twocolumn-onecolumn.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5114,
+   "covers": "\\onecolumn in a two-column document: its \\clearpage with a figure and a figure* waiting (float pages first), then one column of \\textwidth in the class's two-column layout (\\sloppy, \\flushbottom and its list margins stay), and \\twocolumn back",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-report",
+   "file": "micro/twocolumn/twocolumn-report.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5426,
+   "covers": "report in two columns: \\maketitle's and the abstract's title pages (\\onecolumn, then \\twocolumn), \\tableofcontents in one column, \\chapter's head at the page's top (\\@topnewpage[\\@makechapterhead], no \\@afterheading), \\chapter*, sections and a footnote in the columns",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-switch",
+   "file": "micro/twocolumn/twocolumn-switch.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 7568,
+   "covers": "\\twocolumn and \\onecolumn in the document (\\clearpage, \\columnwidth, \\hsize, \\if@twocolumn, \\@floatplacement), the footnote rule .4\\columnwidth of each column's width, \\twocolumn[…] with a heading and text across the page (\\@topnewpage)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-text",
+   "file": "micro/twocolumn/twocolumn-text.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6613,
+   "covers": "the twocolumn class option: \\columnwidth, \\sloppy and \\flushbottom, two columns a page (\\@outputdblcol: \\@leftcolumn, \\hb@xt@\\textwidth with \\hfil and \\columnseprule between), footnotes in each column",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-title-clearpage",
+   "file": "micro/twocolumn/twocolumn-title-clearpage.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1394,
+   "covers": "\\clearpage right after a two-column \\maketitle (\\@dbltopnum -1 and \\pagetotal below \\topskip: its \\hbox{}, a title page with empty columns), \\parskip in the title's box zero (\\@parboxrestore)",
+   "issue": "#348"
+  },
+  {
+   "id": "twocolumn/twocolumn-title-short",
+   "file": "micro/twocolumn/twocolumn-title-short.tex",
+   "area": "twocolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 626,
+   "covers": "a two-column document that ends on its title page, in the first column (\\clearpage with \\@dbltopnum -1 and text on the page: no \\hbox{}), 12pt on A4 paper",
+   "issue": "#348"
   },
   {
    "id": "url/contexts",
