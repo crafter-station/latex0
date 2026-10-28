@@ -1,0 +1,20 @@
+% fixture: beamer/center-env
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: the center environment in a frame (\trivlist\centering\item\relax: \@topsep, the empty label's box, centered lines, \\ as \@centercr), the text after it with \@endpetrue
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Centered}
+Some text before the center environment, long enough to fill a line or two of this frame's width.
+\begin{center}
+A centered line\\
+and another one after the break, long enough that it has to be broken into two lines of its own by TeX.
+
+A second paragraph in it.
+\end{center}
+Text after it.
+\end{frame}
+\end{document}

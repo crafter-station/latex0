@@ -1,0 +1,22 @@
+% fixture: beamer/centering-frame-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: \centering in a frame: the paragraphs after it centered (\parfillskip zero), \\ as \@centercr
+% issue: #361
+\documentclass{beamer}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+Before the declaration.
+
+\centering
+Lines are some equivalents symbols will according at out stored been easily type ordered not have letters the ordered who but stored no visual moves only only out stored if out are equivalents.
+
+One line \\ and another
+\end{frame}
+\begin{frame}{Not centered}
+The declaration ended with the frame.
+\end{frame}
+\end{document}

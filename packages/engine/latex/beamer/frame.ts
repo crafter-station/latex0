@@ -11,23 +11,23 @@ import { parseDimen, type GlueSpec } from "../../layout/dimen"
 import { QUAD, X_HEIGHT } from "../../layout/font"
 import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, FILL, glue, penalty, type BoxNode, type Node } from "../../layout/nodes"
-import { vpack } from "../../layout/pack"
+import { hpack, vpack } from "../../layout/pack"
 import { times } from "../setspace"
 import type { ParagraphTrace } from "../../trace/decisions"
-import { sloppy } from "../kernel"
+import { centering, sloppy } from "../kernel"
 import type { Ctx } from "../context"
 import { DISPLAY } from "../blocks"
 import { listParagraphWithDisplays } from "../displays"
 import { paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions } from "../paragraph"
 import { Unsupported } from "../unsupported"
-import { negate, plain, VerticalList } from "../vlist"
-import { colorPush } from "../xcolor"
+import { addGlue, LOW_PENALTY, negate, plain, VerticalList } from "../vlist"
+import { colorPop, colorPush } from "../xcolor"
 import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
 import { frameColumns } from "./columns"
 import { footnoteArea, readFootnotes } from "./footnotes"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
 import { frameTitle } from "./frametitle"
-import { frameList, LIST_BEGIN, listSource, type ListKind } from "./lists"
+import { envEnd, frameList, LIST_BEGIN, listSource, type ListKind } from "./lists"
 import type { TitleInfo } from "./preamble"
 import { outerColors, useColor, type Theme } from "./theme"
 import { groupEnd, overlayCommand, overlayText, pause, smuggle, type Overlay } from "./overlays"
@@ -125,6 +125,10 @@ export interface FrameCtx { k: ClassOptionData; theme: Theme; info: TitleInfo; /
   footnotes: { n: number }; footins: Node[]
   /** in a column's minipage (columns.ts), where \footnote is the minipage's */
   inMinipage?: boolean
+  /** \centering is in force (the frame's, or the center environment's): paragraphs centered, \\ is \@centercr */
+  align?: "centering"
+  /** an item's labels (\box\@labels \penalty\z@) that \everypar puts in place of the next paragraph's indentation box */
+  itemStart?: Node[]
   /** pgf in the document (the inner themes' pictures and shadings) */
   pgf: BeamerPgf }
 
@@ -145,7 +149,9 @@ export interface ParagraphSetting { size?: SizeCommand; /** the font's attribute
   /** false: no indentation box (\@doendpe's \everypar takes it off, \@item's puts the labels in its place) */
   indent?: boolean
   /** the text ended in a space that stays (something other than \par follows it) */
-  trailingSpace?: boolean }
+  trailingSpace?: boolean
+  /** \centering: \leftskip and \rightskip \@flushglue, \parfillskip zero, \finalhyphendemerits zero */
+  align?: "centering" }
 
 /** Paragraph text broken into lines in the sans serif text font (ragged right, \textwidth wide, unless `s` says
  *  otherwise); its trace goes to cx.decisions. */
@@ -209,6 +215,7 @@ function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: s
   if (s.leftskip) opts.leftSkip = spec("leftskip", s.leftskip)
   if (s.rightskip) opts.rightSkip = spec("rightskip", s.rightskip)
   if (s.sloppy !== undefined) Object.assign(opts, sloppy(s.sloppy))
+  if (s.align === "centering") Object.assign(opts, centering())
   if (s.start || s.indent === false) opts.start = [...(s.indent === false ? [] : [emptyBox("hlist", cx.k.dimens.parindent)]), ...(s.start ?? [])]
   if (s.end) opts.end = s.end
   return { t, doc, opts }
@@ -228,9 +235,13 @@ const upToBlankLine = (text: string): [string, string] => {
  *  A block's \begin ends it too (blocks.ts): its overlay specials smuggled past the last space, which \par takes. */
 const paragraph: FrameHandler = (cx, v, text) => {
   let [par, rest] = upToBlankLine(text)
-  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN)
+  const at = par.search(LIST_BEGIN), block = par.search(BLOCK_BEGIN), center = par.search(/\\begin\{center\}/)
   const s: ParagraphSetting = {}
-  if (block >= 0 && (at < 0 || block < at)) {
+  if (cx.align && (at >= 0 || block >= 0)) throw new Unsupported("beamer: a list or a block after \\centering")
+  if (cx.align && /\\footnote(?![A-Za-z])/.test(par)) throw new Unsupported("beamer: \\footnote after \\centering")
+  // (\@trivlist in horizontal mode: \unskip\par)
+  if (center >= 0 && (at < 0 || center < at) && (block < 0 || center < block)) { rest = par.slice(center) + rest; par = par.slice(0, center).trimEnd() }
+  else if (block >= 0 && (at < 0 || block < at)) {
     rest = par.slice(block) + rest
     s.end = blockInParagraph(cx, rest)
     par = par.slice(0, block).trimEnd()
@@ -242,8 +253,36 @@ const paragraph: FrameHandler = (cx, v, text) => {
     cx.listInParagraph = true
   }
   if (cx.endpe) { s.indent = false; cx.endpe = false }
-  addParagraph(cx, v, overlayText(cx.overlay, par, cx.smuggled), s, cx.k.glue.parskip)
+  if (cx.itemStart) { s.indent = false; s.start = cx.itemStart; cx.itemStart = undefined }
+  if (!cx.align) { addParagraph(cx, v, overlayText(cx.overlay, par, cx.smuggled), s, cx.k.glue.parskip); return rest }
+  // \\ under \centering (\@centercr): \unskip\par, \addvspace{-\parskip}; the next paragraph begins with \everypar's
+  // indentation box
+  const lines = centercrLines(par)
+  lines.forEach((line, i) => {
+    const last = i === lines.length - 1
+    // (nothing after the last \\: no paragraph)
+    if (last && i && !line.trim()) return
+    addParagraph(cx, v, overlayText(cx.overlay, line, cx.smuggled), { ...(i ? {} : s), align: cx.align }, cx.k.glue.parskip)
+    if (!last) v.addvspace(negate(cx.k.glue.parskip))
+  })
   return rest
+}
+
+/** The text's lines as \\ (outside braces and math) ends them */
+function centercrLines(text: string): string[] {
+  const out: string[] = []
+  let at = 0
+  for (let i = 0; i < text.length; ) {
+    if (text[i] === "{") { const a = bracedArg(text, i); i = a!.end; continue }
+    if (text[i] === "$") { const j = text.indexOf("$", i + 1); if (j < 0) throw new Unsupported("an unbalanced $"); i = j + 1; continue }
+    if (text.startsWith("\\\\", i)) {
+      if (/^\\\\\s*[*[]/.test(text.slice(i))) throw new Unsupported("beamer: \\\\* or \\\\[skip] after \\centering")
+      out.push(text.slice(at, i)); i += 2; at = i; continue
+    }
+    i += text[i] === "\\" ? 2 : 1
+  }
+  out.push(text.slice(at))
+  return out
 }
 
 /** An overlay command in vertical mode (overlays.ts): the specials it begins with go on the frame's list (smuggled past
@@ -286,7 +325,52 @@ function plainText(text: string) {
 }
 
 /** \raggedright between paragraphs: what beamer.cls set already (\rightskip\@flushglue, \leftskip and \parindent zero) */
-const raggedright: FrameHandler = (_cx, _v, text) => text.replace(/^\\raggedright(?![A-Za-z])/, "")
+const raggedright: FrameHandler = (cx, _v, text) => {
+  // (after \centering, \parfillskip and \finalhyphendemerits stay zero)
+  if (cx.align) throw new Unsupported("beamer: \\raggedright after \\centering")
+  return text.replace(/^\\raggedright(?![A-Za-z])/, "")
+}
+
+/** \centering between paragraphs: for the paragraphs after it, to the end of the frame */
+const centeringHandler: FrameHandler = (cx, _v, text) => {
+  cx.align = "centering"
+  return text.replace(/^\\centering(?![A-Za-z])/, "")
+}
+
+/**
+ * center (latex.ltx's \center: \trivlist\centering\item\relax, LaTeX's own \item): \@trivlist's \@topsep (\topsep, with
+ * \partopsep in vertical mode, plus \parskip; \parsep is \parskip), the item's \addpenalty\@beginparpenalty
+ * \addvspace\@topsep \addvspace{-\parskip}, then its paragraphs centered (the first with \box\@labels: the empty
+ * label in \sbox, the color in force pushed, in \hbox to\labelwidth, zero, between \hskip-\labelsep and
+ * \hskip\labelsep; and \penalty\z@, its indentation box taken off); then \endtrivlist and \@endparenv, and the text
+ * after it comes with \@endpetrue
+ */
+const center: FrameHandler = (cx, v, text) => {
+  const begin = "\\begin{center}".length, end = envEnd(text, "center", begin)
+  if (end < 0) throw new Unsupported("beamer: center not ended")
+  // (\@doendpe's \everypar, with \@item's after it)
+  if (cx.endpe) throw new Unsupported("beamer: center right after a list")
+  const { k } = cx, g = k.glue, d = k.dimens
+  if (g.partopsep.width || g.partopsep.stretch || g.partopsep.shrink) throw new Unsupported("beamer: center with \\partopsep")
+  const topsepadd = g.topsep, parsep = g.parskip
+  const align = cx.align
+  v.addpenalty(-LOW_PENALTY)
+  // (\addvspace{-\parskip} adds nothing: beamer's \parskip is zero)
+  v.addvspace(addGlue(topsepadd, g.parskip))
+  // (\trivlist: \labelwidth, \leftmargin and \itemindent zero)
+  const labels = hpack([glue(0), glue(-0), glue(-d.labelsep), hpack([colorPush(outerColors(cx.theme).fg), colorPop()], { exactly: 0 }), glue(d.labelsep)])
+  cx.align = "centering"
+  const body = text.slice(begin, end).trim()
+  // (the first paragraph: \everypar's labels in place of the indentation box)
+  if (!body || FRAME_CONTENT[body.match(/^\\(?:begin\{)?([A-Za-z]+)/)?.[1] ?? ""] !== paragraph) throw new Unsupported("beamer: a center that does not begin with text")
+  cx.itemStart = [labels, penalty(0)]
+  frameContent(cx, v, body)
+  cx.align = align
+  v.endtrivlist(parsep, g.parskip, topsepadd)
+  const rest = text.slice(end + "\\end{center}".length)
+  cx.endpe = !/^[ \t]*\n[ \t]*\n/.test(rest)
+  return rest
+}
 
 /** A braced argument at text[i] (after spaces): its text and where it ends, or null when no { is there */
 export function bracedArg(text: string, i: number): { arg: string; end: number } | null {
@@ -367,16 +451,22 @@ const pauseHandler: FrameHandler = (cx, v, text) => {
 }
 
 /** The constructs a frame holds, by what starts them ("" for text, read as a paragraph). */
-const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
+const FRAME_CONTENT: Record<string, FrameHandler> = { "": paragraph, raggedright, centering: centeringHandler, center, frametitle, framesubtitle: frametitle, beamercolorbox: colorbox, itemize: list, enumerate: list, description: list, titlepage, maketitle: titlepage, tableofcontents: toc, pause: pauseHandler,
   ...Object.fromEntries(BLOCK_NAMES.map((n) => [n, blocks])), columns: (cx, v, text) => frameColumns(cx, v, text),
   only: overlay, alt: overlay, temporal: overlay, uncover: overlay, visible: overlay, invisible: overlay, onslide: overlay, LXsmuggle: smuggled }
+
+/** the constructs read under \centering */
+const ALIGNED = ["", "raggedright", "centering", "center", "frametitle", "framesubtitle", "pause", "only", "alt", "temporal", "uncover", "visible", "invisible", "onslide", "LXsmuggle"]
 
 /** The constructs in `text`, each read by its handler into `v` */
 export function frameContent(cx: FrameCtx, v: FrameList, text: string) {
   for (text = text.trim(); text; text = text.trim()) {
     const m = text.match(/^\\(?:begin\{)?([A-Za-z]+)/)
-    const handler = FRAME_CONTENT[m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""]
+    const name = m && !TEXT_COMMANDS.includes(m[1]) ? m[1] : ""
+    const handler = FRAME_CONTENT[name]
     if (!handler) throw new Unsupported(`beamer: \\${m![1]} in a frame`)
+    // (what \centering's \leftskip, \rightskip, \parfillskip and \finalhyphendemerits do to other constructs is not modeled)
+    if (cx.align && !ALIGNED.includes(name)) throw new Unsupported(`beamer: \\${name} after \\centering`)
     text = handler(cx, v, text)
   }
 }
