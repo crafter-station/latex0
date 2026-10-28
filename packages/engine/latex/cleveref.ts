@@ -311,8 +311,8 @@ function range(setup: CrefSetup, family: Family, a: Ref, b: Ref, pos: Pos, links
 export interface CrefWrite { node: Node & { kind: "whatsit" }; key: string; cref: CrefLabel | null; at: number; inPara: boolean; page?: { style: string; arabic: number } }
 
 /** A reference's text as \protected@write writes it: a text font command (\DeclareRobustCommand's) as \protect and the
- *  command whose name ends with a space (enumitem's label=\textbf{\arabic*.}) */
-export const writtenLabel = (label: string) => label.replace(/\\(textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{/g, (_, c: string) => `\\protect \\${c}  {`)
+ *  command whose name ends with a space (enumitem's label=\textbf{\arabic*.}); one written so already stays */
+export const writtenLabel = (label: string) => label.replace(/(?<!\\protect )\\(textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{/g, (_, c: string) => `\\protect \\${c}  {`)
 
 export function crefWrite(writes: CrefWrite[], key: string, cref: CrefLabel | null, at: number, inPara: boolean): Node {
   const node = { kind: "whatsit" as const, text: "" }
