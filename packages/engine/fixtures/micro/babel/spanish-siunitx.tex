@@ -1,0 +1,18 @@
+% fixture: babel/spanish-siunitx
+% tier: T3
+% engine: document
+% covers: siunitx with spanish.ldf: its decimal markers met by spanish's active . in math (\es@decimal: {,}), in \num, \SI, \SIrange, in a formula and an S column; english selected (the period again)
+% issue: #338
+\documentclass{article}
+\usepackage{siunitx}
+\usepackage[english,spanish]{babel}
+\begin{document}
+Valores: \num{3.5}, \SI{1234.56}{\metre}, $x = \num{0.25}$, \SIrange{1.5}{2.5}{\second} y \num{12345.678}. Fin.
+
+\begin{tabular}{S}
+1.5 \\
+12.25 \\
+\end{tabular}
+
+\foreignlanguage{english}{Values: \num{3.5} and \SI{2.75}{\kilo\gram}.}
+\end{document}

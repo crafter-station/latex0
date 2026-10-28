@@ -12,6 +12,7 @@ import { type Block } from "./blocks"
 import type { Ctx } from "./context"
 import { dataFont } from "./data"
 import { anchor, labelName } from "./hyperref"
+import { isSpanish } from "./babel"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, negate } from "./vlist"
 import { setgroup } from "./xcolor"
@@ -20,8 +21,10 @@ import { setgroup } from "./xcolor"
 export interface TitleFormat {
   /** the format's font: its size command and \bfseries (from the font the heading starts in) */
   size: SizeCommand; bold: boolean
-  /** "default": \@seccntformat (\the<name>\quad); "number": \the<name> alone; "none": empty */
+  /** "default": \@seccntformat (\the<name>\quad), or \the<name>\quad typed (`typed`); "number": \the<name> alone; "none": empty */
   label: "default" | "number" | "none"
+  /** the label typed as \the<name>\quad, not \@seccntformat (which spanish.ldf's layout redefines: a period after it) */
+  typed?: boolean
   /** the space after the label, read in the format's font */
   sep: string
   /** \titlerule as the after code */
@@ -82,7 +85,7 @@ export function titleformat(formats: TitleFormats, line: string): boolean {
   const lb = label.trim()
   const kind = lb === "" ? "none" : lb === `\\the${m[1]}` ? "number" : lb === `\\the${m[1]}\\quad` || lb === `\\@seccntformat{${m[1]}}` ? "default" : null
   if (!kind) throw new Unsupported(`titlesec label ${lb}`)
-  formats[level] = { size, bold, label: kind, sep: sep.trim() || "0pt", rule: code[1]?.trim() === "\\titlerule" }
+  formats[level] = { size, bold, label: kind, sep: sep.trim() || "0pt", rule: code[1]?.trim() === "\\titlerule", ...(lb === `\\the${m[1]}\\quad` ? { typed: true } : {}) }
   return true
 }
 
@@ -137,7 +140,7 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
   let hang = 0
   if (numbered) {
     const label: Node[] = []
-    if (f.label !== "none") appendText(label, number, tf, { spaceFactor: 1000 }, false)
+    if (f.label !== "none") appendText(label, number + (f.label === "default" && !f.typed && isSpanish(cx.pre.babel) ? "." : ""), tf, { spaceFactor: 1000 }, false) // (spanish.ldf's \@seccntformat)
     if (f.label === "default") label.push(glue(tf.params[QUAD]))
     label.push(strut(), glue(parseDimen(f.sep, { em: tf.params[QUAD], ex: tf.params[X_HEIGHT] })))
     const box = hpack(setgroup(label)) // \sbox: \color@setgroup

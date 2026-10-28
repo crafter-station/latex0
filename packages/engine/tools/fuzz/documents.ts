@@ -561,11 +561,11 @@ export function makeDocument(r: () => number): string {
       "\\theoremstyle{definition}", "\\newtheorem{definition}{Definition}", "\\theoremstyle{remark}", ...(hyper ? [] : ["\\newtheorem*{remark}{Remark}"]), "\\newtheorem{note}{Note}")
     thms.push("theorem", "lemma", ...(hyper ? [] : ["claim"]), "definition", ...(hyper ? [] : ["remark"]), "note")
   }
-  // babel, its option or the class's (not with siunitx or titlesec in spanish: not modeled; nor TikZ, whose arrows are a TeX error with its active < and >; nor in letters)
+  // babel, its option or the class's (spanish not with TikZ, whose arrows are a TeX error with its active < and >; nor in letters)
   // (french: not with hyperref, natbib, caption.sty, TikZ or listings, nor cleveref: not modeled there; german not with
   // hyperref or listings)
   const frOk = !hyper && !natOn && !capOn && !tikzOn && !lstOn
-  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(siOn || tsOn || tikzOn ? [] : ["spanish", "spanish", "spanish"]), ...(frOk ? ["french", "french"] : []), ...(hyper || lstOn ? [] : ["ngerman", "german"])]) : null
+  const lang = !isLetter && r() < 0.2 ? pick(["english", "british", "american", "portuguese", "brazil", ...(tikzOn ? [] : ["spanish", "spanish", "spanish"]), ...(frOk ? ["french", "french"] : []), ...(hyper || lstOn ? [] : ["ngerman", "german"])]) : null
   // cleveref, after amsmath and amsthm (before or after the theorems are declared)
   // (after hyperref; its options sometimes, and \crefname: not with cleveref's spanish, which redefines them)
   crefOn = !nrOn && !isLetter && lang !== "french" && r() < 0.2

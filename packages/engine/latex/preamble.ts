@@ -514,8 +514,6 @@ export function readPreamble(src: string): Preamble {
   const bb = babel as Preamble["babel"]
   if (bb) k = withBabel(k, bb)
   if (isSpanish(bb)) { // (spanish.ldf's accents in the texts the preamble sets, which the document typesets)
-    // (siunitx's numbers in math meet the active ., spanish.ldf's decimal comma; titlesec does not use \@seccntformat)
-    if (usesSiunitx || titlesec) throw new Unsupported(`spanish.ldf with ${usesSiunitx ? "siunitx" : "titlesec"}`)
     for (const key of ["title", "author", "date"] as const) if (title[key] !== undefined) title[key] = markAccentHyphens(title[key]!)
     for (const d of thmDefs.values()) d.title = markAccentHyphens(d.title)
     if (fancy) for (const f of Object.keys(fancy.fields)) fancy.fields[f] = markAccentHyphens(fancy.fields[f])

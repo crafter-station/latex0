@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 859,
-  "exact": 859,
+  "fixtures": 879,
+  "exact": 879,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 473424
+  "glyphs": 481200
  },
  "areas": [
   {
@@ -31,8 +31,8 @@
   },
   {
    "area": "babel",
-   "fixtures": 35,
-   "exact": 35
+   "fixtures": 55,
+   "exact": 55
   },
   {
    "area": "beamer",
@@ -976,6 +976,28 @@
    "issue": "#63"
   },
   {
+   "id": "babel/english-after-british",
+   "file": "micro/babel/english-after-british.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 38,
+   "covers": "english.ldf's \\dateenglish after british (its \\bbl@tempb left as UK: 1st~January), in \\maketitle, with british selected too",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/english-after-portuguese",
+   "file": "micro/babel/english-after-portuguese.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 37,
+   "covers": "english.ldf's \\dateenglish when portuges.ldf was loaded between australian and english (its \\bbl@tempb none of UK or AU: the US date; british, loaded after it, does not count)",
+   "issue": "#338"
+  },
+  {
    "id": "babel/english-basic",
    "file": "micro/babel/english-basic.tex",
    "area": "babel",
@@ -1020,6 +1042,94 @@
    "issue": "#63"
   },
   {
+   "id": "babel/french-basic",
+   "file": "micro/babel/french-basic.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 411,
+   "covers": "babel's french (french.ldf through french3.ldf for pdfTeX) as the main language, in T1: its captions (Table des mati\\`eres), \\today (1\\up{er} janvier, \\fup's scaled superscript), the fr patterns (hyphenmins 2 3, the apostrophe a letter), \\frenchspacing, the high punctuation (; ! ? with a thin space, : with a space, after a space or not), \\og and \\fg, \\up, and none of it in \\texttt or math",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/french-lists",
+   "file": "micro/babel/french-lists.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 672,
+   "covers": "french.ldf's lists as the main language: \\listFB's vertical settings (.8ex and .4ex, in the list's font: the abstract's \\small too), itemize's \\itemizeFB (no skips, less \\parsep in a list's item, \\textemdash labels, \\leftmargin from \\labelwidthFB, \\labelsep and \\listindentFB), enumerate and description with \\FB@listHsettings, quote (\\listparindent zero for a list in it), quotation, verse and thebibliography with \\listFB",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/french-notes",
+   "file": "micro/babel/french-notes.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 389,
+   "covers": "french.ldf as the main language: its footnotes (\\FBlegacyfootnote@switch: \\@makefntextFB, the mark on the line, \\dotFFN and \\kernFFN, \\parindentFFN; \\@footnotemarkFB's \\unskip and \\unkern (after \\,) and \\FBfnmarkspace before the mark), the figure and table captions (\\fnum@figure in \\scshape, the text's punctuation, \\CaptionSeparator: a space, \\textendash, a space), \\thanks, \\up's \\MakeLowercase",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/french-ot1",
+   "file": "micro/babel/french-ot1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 168,
+   "covers": "french as the main language in OT1 at 11pt: babel's OT1 guillemets in \\og and \\fg, \\textemdash labels (124), the caption's \\textendash (123), \\up in cmr (cmr7: .65 of 10.95pt), the punctuation in a heading, a tabular cell and a footnote; english selected (\\og and \\fg as quotes, no spacing) and back",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/french-other",
+   "file": "micro/babel/french-other.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 309,
+   "covers": "french selected in an english document at 12pt (no french layout: english lists, footnotes and captions): its punctuation, \\og and \\fg with \\FBguillspace, \\up in bold, italic and \\footnotesize (eccc and size substitution: ecbx0800, ecti0800, ecrm0500), the fr patterns and the apostrophe a letter in a french paragraph, \\frenchspacing only there",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/german-t1",
+   "file": "micro/babel/german-t1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 396,
+   "covers": "babel's german (1901 spelling: the de-1901 patterns of dehypht.tex) in T1 at 11pt, with ngerman and english selected: the T1 umlauts and \\ss as characters, \\glqq and \\grqq (\\quotedblbase, \\textquotedblleft), the guillemets, \"- \"= \"\" in report's chapters, \\chaptername (Kapitel), the language nodes between german and ngerman (languages 6 and 7), english's \" a character",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/ngerman-basic",
+   "file": "micro/babel/ngerman-basic.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 681,
+   "covers": "babel's ngerman (babel-german.def) in OT1: its captions (Inhaltsverzeichnis, Zusammenfassung, Abbildung, Tabelle, Beweis), \\today (1.~Januar), the de-1996 patterns (dehyphn.tex: hyphenmins 2 2), \\frenchspacing, \\umlautlow (\\lower@umlaut's x-height for \\\"a \\\"o \\\"u; \\\"e and \\\"i high, with \\bbl@allowhyphens), the shorthands \"a \"o \"u \"s \"S \"z \"i \"e \"` \"' \"< \"> \"- \"= \"~ \"\" \"| \"/ and ngerman's \"c \"f \"l …, \\ss",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/ngerman-siunitx",
+   "file": "micro/babel/ngerman-siunitx.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "ngerman's \\frenchspacing with siunitx loaded (its amstext's amsgen: \\frenchspacing's 1006 1005 1004 … space factors), \\SI in the text",
+   "issue": "#338"
+  },
+  {
    "id": "babel/portuges-hyperref",
    "file": "micro/babel/portuges-hyperref.tex",
    "area": "babel",
@@ -1053,6 +1163,17 @@
    "issue": "#63"
   },
   {
+   "id": "babel/portuguese-t1",
+   "file": "micro/babel/portuguese-t1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "portuges.ldf's \"< and \"> in T1: \\guillemetleft and \\guillemetright as characters of the run (their kerns with the letters and punctuation next to them)",
+   "issue": "#338"
+  },
+  {
    "id": "babel/spanish-active",
    "file": "micro/babel/spanish-active.tex",
    "area": "babel",
@@ -1062,6 +1183,17 @@
    "glyphs": 50,
    "covers": "spanish.ldf's active characters ~ < > (shorthands): their lookahead, an undelimited argument, skips the spaces after them (~ x is ~x, < < is <<, a < b is a <b), ~} and ~{} as ties",
    "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-alph",
+   "file": "micro/babel/spanish-alph.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "spanish.ldf's \\@alph past n (\\~n, then o to z): enumerate's second level (\\emph{\\alph}: OT1's \\~n with \\es@accent's \\bbl@allowhyphens before the italic correction), \\label's write (\\~n in it), \\alph and \\Alph in the text",
+   "issue": "#338"
   },
   {
    "id": "babel/spanish-amsthm",
@@ -1251,6 +1383,17 @@
    "issue": "#63"
   },
   {
+   "id": "babel/spanish-siunitx",
+   "file": "micro/babel/spanish-siunitx.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 82,
+   "covers": "siunitx with spanish.ldf: its decimal markers met by spanish's active . in math (\\es@decimal: {,}), in \\num, \\SI, \\SIrange, in a formula and an S column; english selected (the period again)",
+   "issue": "#338"
+  },
+  {
    "id": "babel/spanish-t1",
    "file": "micro/babel/spanish-t1.tex",
    "area": "babel",
@@ -1304,6 +1447,83 @@
    "glyphs": 107,
    "covers": "report's titlepage in spanish: accents in a \\title with \\\\, a UTF-8 \\author, spanish \\today",
    "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-titlesec",
+   "file": "micro/babel/spanish-titlesec.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 126,
+   "covers": "titlesec with spanish.ldf: titlesec's headings through \\@seccntformat (spanish's period after the number), a label typed as \\thesubsection\\quad (none), the contents' \\numberline with spanish's dot",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/switch-heading",
+   "file": "micro/babel/switch-heading.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1187,
+   "covers": "babel's groups where a paragraph right after a heading starts: otherlanguage* and otherlanguage that end in the paragraph, \\foreignlanguage that starts it (\\@afterheading's \\clubpenalty\\@M set in the group, which its end takes back), otherlanguage* ending after a blank line (it lasts), and otherlanguage over paragraphs, the last ending in its end (the \\clubpenalty\\@M of the heading's first paragraph back), and otherlanguage* begun in a paragraph",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/switch-hyphenation",
+   "file": "micro/babel/switch-hyphenation.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 621,
+   "covers": "babel's languages in narrow paragraphs: a paragraph that starts in \\foreignlanguage (new_graf's language is the foreign one), a switch in the middle of a word (the language nodes that the line breaker's main loop takes up for the words after it), an accent (OT1's \\accent, no language node) as the first character after a switch, british and english patterns, in footnotes too",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/switch-portuguese",
+   "file": "micro/babel/switch-portuguese.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 679,
+   "covers": "babel's \\selectlanguage, otherlanguage, otherlanguage* and \\foreignlanguage to a language other than the main one (english to portuguese and back): the patterns and hyphenmins of each paragraph, the \\setlanguage whatsits in a paragraph, the captions and \\today of the language, its shorthands (\"-, \"<) only while it is selected, the .aux writes",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/switch-report",
+   "file": "micro/babel/switch-report.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 951,
+   "covers": "babel's language switches in report: \\chaptername and \\contentsname of the language selected, the .toc's \\babel@toc lines (the entries after one in its language: its patterns), otherlanguage* around a heading (no .aux write: the entry stays in the language written last), the language after the contents (its group's end)",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/switch-spanish",
+   "file": "micro/babel/switch-spanish.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 523,
+   "covers": "spanish as the main language and english selected: \\noextrasspanish (no \\frenchspacing, OT1's \\' and \\~ without \\bbl@allowhyphens, babel's high umlaut, the decimal point and the operators of english math, \", <<, ~ and \\% as in english), spanish.ldf's layout kept (the itemize and enumerate labels, the section dot), the abstract and figure names, and back to spanish",
+   "issue": "#338"
+  },
+  {
+   "id": "babel/switch-title",
+   "file": "micro/babel/switch-title.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 308,
+   "covers": "babel's languages selected before \\maketitle (its \\today in that language), otherlanguage around a list and a proof (amsthm's \\proofname), \\foreignlanguage in \\textbf, in \\underline (restricted horizontal mode: no language node) and in a footnote",
+   "issue": "#338"
   },
   {
    "id": "beamer/block-default-pdf",

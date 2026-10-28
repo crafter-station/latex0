@@ -10,7 +10,8 @@ import { charNode, kern, penalty, ssGlue, type Node } from "../layout/nodes"
 import { hpack } from "../layout/pack"
 import { mlistToHlist, TEXT } from "../mathlayout/mlist"
 import { ALLOW_HYPHENS, appendText } from "./encodings"
-import { fontAt, mathEnv, parseFormula } from "./paragraph"
+import { closingBrace, fontAt, mathEnv, parseFormula } from "./paragraph"
+import { SI_COMMANDS } from "./siunitx"
 import { Unsupported } from "./unsupported"
 
 const TEXTBULLET = 136 // \textbullet in TS1
@@ -36,6 +37,14 @@ export function spanishItemLabel(level: number, k: ClassOptionData, size: SizeCo
   return formula(level === 3 ? "\\circ" : "\\diamond", k, size, font, amsmath)
 }
 
+/** \layoutspanish's \@alph (\@Alph): a … n, \~n, o … z (\~N and the capitals); its \~n in OT1 is \es@accent's, with
+ *  \bbl@allowhyphens after it (what \futurelet sees next is \ifcase's \or, not a space); as text, or as `source` */
+export function spanishAlph(n: number, upper = false, source = false): string {
+  if (n < 1 || n > 27) throw new Unsupported(`spanish.ldf's \\alph of ${n}`) // (\@ctrerr)
+  const N = upper ? "N" : "n"
+  return n === 15 ? `${source ? `\\~${N}` : `${N}\u0303`}${ALLOW_HYPHENS}` : String.fromCharCode((upper ? 64 : 96) + n - (n > 15 ? 1 : 0))
+}
+
 /**
  * \es@enumerate{1.}{a)}{1)}{a$'$}'s \labelenumi … iv for item n: 1. \emph{a}) 1) \emph{a}$'$ (\emph's italic
  * correction before the ) or the formula); `italic`: the item's font in italic. \@alph's 15th letter is \~n.
@@ -43,8 +52,7 @@ export function spanishItemLabel(level: number, k: ClassOptionData, size: SizeCo
 export function spanishEnumLabel(level: number, n: number, k: ClassOptionData, size: SizeCommand, font: Font, italic: Font, amsmath: boolean): Node[] {
   const l: Node[] = []
   if (level === 1 || level === 3) { appendText(l, `${n}${level === 1 ? "." : ")"}`, font, { spaceFactor: 1000 }, false); return l }
-  if (n > 14) throw new Unsupported("spanish.ldf's \\alph past n (\\~n)")
-  appendText(l, String.fromCharCode(96 + n), italic, { spaceFactor: 1000 }, false)
+  appendText(l, spanishAlph(n), italic, { spaceFactor: 1000 }, false)
   const last = l[l.length - 1]
   if (last?.kind === "char") l.push(kern(italic.chars.get(last.char)!.italic, true)) // \/
   if (level === 2) appendText(l, ")", font, { spaceFactor: 1000 }, false)
@@ -54,7 +62,7 @@ export function spanishEnumLabel(level: number, n: number, k: ClassOptionData, s
 
 /** \p@enum… \theenum…: what \label writes for item n (1, 1\emph{a}, 1\emph{a}1, 1\emph{a}1\emph{a}; \emph is robust) */
 export function spanishEnumRef(level: number, values: number[]): string {
-  const em = (n: number) => `\\protect \\emph  {${String.fromCharCode(96 + n)}}` // (\emph is robust: its inner command is "\emph ")
+  const em = (n: number) => `\\protect \\emph  {${n === 15 ? "\\~n" : spanishAlph(n)}}` // (\emph is robust: its inner command is "\emph ")
   return [`${values[0]}`, `${values[0]}${em(values[1])}`, `${values[0]}${em(values[1])}${values[2]}`, `${values[0]}${em(values[1])}${values[2]}${em(values[3])}`][level - 1]
 }
 
@@ -116,6 +124,19 @@ export function spanishMath(src: string): string {
   if (/\\(?:bmod|pmod|mod|dotlessi)(?![A-Za-z])/.test(src)) throw new Unsupported("spanish.ldf's \\bmod, \\pmod, \\mod or \\dotlessi")
   let out = ""
   for (let i = 0; i < src.length; ) {
+    // (siunitx's arguments are its input, tokens: siContext gives its decimal marker the comma)
+    const si = src.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])/)
+    if (si && Object.hasOwn(SI_COMMANDS, si[1])) {
+      let j = i + si[0].length
+      for (let n = -1; n < SI_COMMANDS[si[1]]; n++) {
+        const k = src.slice(j).match(/^\s*/)![0].length
+        if (n < 0 && src[j + k] !== "[") continue
+        const close = src[j + k] === "[" ? src.indexOf("]", j + k) : src[j + k] === "{" ? closingBrace(src, j + k) : -1
+        if (close < 0) throw new Unsupported(`\\${si[1]} with spanish.ldf`)
+        j = close + 1
+      }
+      out += src.slice(i, j); i = j; continue
+    }
     if (src[i] === "\\") { const cs = src.slice(i).match(/^\\(?:[A-Za-z]+|.)/)![0]; out += cs; i += cs.length; continue }
     if (src[i] === "." && /^\s*[0-9]/.test(src.slice(i + 1))) { out += "{,}"; i++; continue }
     out += src[i++]

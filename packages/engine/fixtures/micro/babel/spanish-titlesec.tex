@@ -1,0 +1,16 @@
+% fixture: babel/spanish-titlesec
+% tier: T3
+% engine: document
+% covers: titlesec with spanish.ldf: titlesec's headings through \@seccntformat (spanish's period after the number), a label typed as \thesubsection\quad (none), the contents' \numberline with spanish's dot
+% issue: #338
+\documentclass{article}
+\usepackage{titlesec}
+\titleformat{\subsection}{\normalfont\large\bfseries}{\thesubsection\quad}{0pt}{}
+\usepackage[spanish]{babel}
+\begin{document}
+\tableofcontents
+\section{Introducción}
+Texto con acción.
+\subsection{Antecedentes}
+Más texto.
+\end{document}

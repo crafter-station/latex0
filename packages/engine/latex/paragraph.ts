@@ -89,7 +89,9 @@ export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiC
 export function siContext(k: ClassOptionData, size: SizeCommand, font: Font, options: SiOptions): SiContext {
   const micro = () => hpack([charNode(selectFont(k, size, { enc: "TS1", fam: "cmr", ser: "m", shape: "n" }), 0xb5)])
   const text = (src: string) => { const box: Node[] = []; appendText(box, src, font, { spaceFactor: 1000 }, false); return hpack(box) }
-  return { data: mathData(), micro, font, text, options }
+  // (spanish.ldf's active . in math: siunitx's decimal marker, a period, followed by its digits, is \es@decimal, {,})
+  const o = spanishText.on && options.decimalMarker === "." ? { ...options, decimalMarker: "," } : options
+  return { data: mathData(), micro, font, text, options: o }
 }
 
 export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false): MathEnv {
