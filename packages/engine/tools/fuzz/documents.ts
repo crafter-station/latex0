@@ -113,6 +113,9 @@ export function makeDocument(r: () => number): string {
   const key = () => pick(["s:1", "s:2", "s:3", "t:1", "t:2", "figure:30", "figure:20", "nowhere"])
   // equations' keys (eq:none never defined): never a label with no counter, which \cref of several keys compares (\ifnum: TeX's Missing number)
   const ckey = () => pick(["eq:l1", "eq:l2", "eq:l3", "eq:3-1", "eq:6-1", "eq:2-1", "eq:10-1", "eq:none"])
+  // (labels in text between a list of contents and the first heading: the list's heading would be their name, and
+  // its \@mkboth sets marks under headings and fancy; documents go on from the list with a heading)
+  let listNamed = false
   // top: a paragraph at the outer level, where \\ is \newline
   let isLetter = false, lstOn = false, colorOn = false, btOn = false, mrOn = false, arOn = false, siOn = false, capOn = false, capHang = false, subOn = false, urlOn = false, amsOn = false, graphOn = false, tikzOn = false
   // xcolor's expressions: base colors, the document's own, mixes, complements, explicit models
@@ -294,7 +297,7 @@ export function makeDocument(r: () => number): string {
       if (r() < 0.015 && !isLetter) ws[i] += `\\footnote{${words(3 + Math.floor(r() * 40))}}`
       // cross-references (read from the .aux file the first run writes) and labels, ties
       // (spanish.ldf's active ~ before a } that ends a group: an error)
-      if (r() < 0.012) ws[i] += pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, es ? "~\\ " : "~"])
+      if (r() < 0.012) { const x = pick([`~\\ref{${key()}}`, ` \\ref{${key()}}`, ` on page~\\pageref{${key()}}`, ` \\label{${key()}}`, `\\label{${key()}}`, es ? "~\\ " : "~"]); if (!listNamed || !x.includes("\\label")) ws[i] += x }
       // hyperref's \autoref and nameref's \nameref (with hyperref, or nameref alone)
       if ((hyper || nrOn) && r() < 0.01) {
         const k = r() < 0.6 ? key() : `${pick(["figure", "table", "thm"])}:${20 + Math.floor(r() * 40)}`
@@ -614,6 +617,7 @@ export function makeDocument(r: () => number): string {
   } else if (titled) out.push("\\maketitle")
   if (r() < 0.25 && !isLetter) out.push("\\tableofcontents") // laid out from the .toc file the first run writes
   if (r() < 0.15 && !isLetter) out.push(...(r() < 0.5 ? ["\\listoffigures"] : []), "\\listoftables") // from the .lof and .lot files
+  listNamed = out.some((l) => /^\\(?:tableofcontents|listoffigures|listoftables)$/.test(l)) && out.some((l) => l === "\\pagestyle{headings}" || l === "\\pagestyle{fancy}")
   if (isLetter) out.push(`\\begin{letter}{${words(2)} \\\\ ${words(3)}}`, `\\opening{${words(3)},}`)
   if (front && r() < 0.3) out.push(`\\chapter{${words(2)}}`, text(30))
   if (front) out.push("\\mainmatter")
@@ -655,6 +659,7 @@ export function makeDocument(r: () => number): string {
       out.push("", `\\${level}${star ? "*" : ""}{${r() < 0.1 ? words(12) : words(1 + Math.floor(r() * 4))}}${r() < 0.3 && !level.endsWith("paragraph") ? `\\label{${key()}}` : ""}`)
       if (star && !level.endsWith("paragraph") && r() < 0.5) out.push(`\\addcontentsline{toc}{${level}}{${words(1 + Math.floor(r() * 3))}}`)
       afterPar = false
+      listNamed = false
     } else if (x < 0.3) {
       if (!afterPar || r() < 0.6) out.push("")
       // lists nested up to six deep (four of a kind), items with labels of their own, text after a nested list
