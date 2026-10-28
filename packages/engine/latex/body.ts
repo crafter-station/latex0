@@ -59,7 +59,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
   if (b.kind === "newpage") {
     if (run.runIn) runInAlone(cx)
-    if (b.cmd === "newpage") newpage(cx); else if (b.cmd === "clearpage") clearpage(cx); else cleardoublepage(cx)
+    if (b.cmd === "newpage") newpage(cx, b.inPar); else if (b.cmd === "clearpage") clearpage(cx, b.inPar); else cleardoublepage(cx, b.inPar)
     return
   }
   if (b.kind === "pagebreak" || b.kind === "pagestyle") {
@@ -76,7 +76,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.kind === "contentsline") { // \addcontentsline{toc}: hyperref's bookmark to \@currentHref, then \addtocontents (\protected@write)
     if (run.runIn || run.noskipsec) throw new Unsupported("\\addcontentsline right after a run-in heading")
     if (b.level === "chapter" && cls === "article") throw new Unsupported("\\addcontentsline{toc}{chapter} in article")
-    v.nodes.push(...cx.contentsWrites(HEADINGS[b.level], null, b.title, cx.refs.href, v.nobreak))
+    v.nodes.push(...cx.contentsWrites(HEADINGS[b.level], null, b.title, cx.refs.href, v.nobreak, true))
     return
   }
   if (b.kind === "mark") { // \markboth and \markright in vertical mode: the \marks, \nobreak while \if@nobreak

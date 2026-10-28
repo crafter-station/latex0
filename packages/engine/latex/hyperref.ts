@@ -181,15 +181,22 @@ export class Bookmarks {
   private checked = false
   private parents = new Map<number, string>()
   readonly written: Bookmark[] = []
-  /** \@@writetorep: a level more than one below the current one is fixed; \Parent<level> is the anchor */
-  add(level: number, anchor: string, title: string): Node | null {
+  private fixed = (level: number) => (this.checked && this.current < level - 1 ? this.current + 1 : level)
+  /** the anchor of the bookmark a new one at the level would have as its parent (\Parent<level-1>) */
+  parentOf(level: number): string | undefined { return this.parents.get(this.fixed(level) - 1) }
+  /**
+   * \@@writetorep: a level more than one below the current one is fixed; \Parent<level> is the anchor; the line has
+   * `written`, the anchor after a \phantomsection the caller made because the parent's was the same
+   */
+  add(level: number, anchor: string, title: string, written = anchor): Node | null {
     const pdf = pdfString(title)
     if (pdf === null) return null
-    if (this.checked && this.current < level - 1) level = this.current + 1
+    level = this.fixed(level)
     this.checked = true
     this.current = level
     this.parents.set(level, anchor)
     const parent = this.parents.get(level - 1) ?? ""
+    anchor = written
     const b = { level, anchor, title: pdf, parent }
     this.written.push(b)
     return { kind: "whatsit", text: `\\write${this.stream}{\\protect \\BOOKMARK [${level}][${this.open}]{${anchor}}{${pdf}}{${parent}}% ${this.written.length}}` }
@@ -373,12 +380,12 @@ const AUTOREF_NAMES: Record<string, string> = {
 /** hyperref's \HyLang@spanish, which babel's \extrasspanish runs when babel was loaded first (LaTeX source) */
 const SPANISH_AUTOREF_NAMES: Record<string, string> = {
   equation: "Ecuaci\\'on", Item: "Elemento", figure: "Figura", table: "Tabla", chapter: "Cap\\'itulo", section: "Secci\\'on",
-  subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing",
+  subsection: "Subsecci\\'on", subsubsection: "Subsubsecci\\'on", theorem: "Teorema", lstlisting: "Listing", appendix: "Ap\\'endice",
 }
 /** hyperref's \HyLang@portuges, for brazil, brazilian and portuguese (not portuges) */
 const PORTUGUESE_AUTOREF_NAMES: Record<string, string> = {
   equation: "Equa\\c c\\~ao", Item: "Item", figure: "Figura", table: "Tabela", chapter: "Cap\\'itulo", section: "Se\\c c\\~ao",
-  subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing",
+  subsection: "Subse\\c c\\~ao", subsubsection: "Subsubse\\c c\\~ao", theorem: "Teorema", lstlisting: "Listing", appendix: "Ap\\^endice",
 }
 /** hyperref's other autoref names, for anchors not made here yet (\AMS…, \Hfootnote…) */
 const AUTOREF_OTHERS = ["AMS", "footnote", "Hfootnote", "item", "part", "paragraph", "subparagraph", "FancyVerbLine", "page"]

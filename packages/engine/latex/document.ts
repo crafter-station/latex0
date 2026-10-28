@@ -133,6 +133,20 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   // preamble puts on the main vertical list
   if (pre.tikz && driver !== "pdftex") v.nodes.push(...pgfCompatObjects())
   const refs: Refs = { label: "", href: hyper ? "Doc-Start" : "", name: "", prev: prev ? prev.labels : null, writes: [], hyper, hyperNotes, nameref: pre.nameref, cites: prev?.cites }
+  // a name macro in a label's name (\tableofcontents's \contentsname \@mkboth{…}{…}, \listoftables's \listtablename) means
+  // what it means where \nameref reads it: the document's caption names (no language switch changes them), \@mkboth
+  // the page style's (\@gobbletwo in plain, empty and myheadings; headings and fancy's \markboth would set marks); a
+  // document counter's \the<counter> its value there (not known when the paragraph's own text also changes counters)
+  let countersInText = false
+  refs.nameMacros = (name) => {
+    const counter = counters.counted(name, true, () => {})
+    if (counter !== name && countersInText) throw new Unsupported(`\\nameref to "${name}" in a paragraph that changes a counter`)
+    return counter.replace(/\\(contentsname|listfigurename|listtablename|refname|bibname|indexname)(?![A-Za-z])\s*(\\@mkboth\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*\{(?:[^{}]|\{[^{}]*\})*\})?/g, (all, macro: keyof typeof pre.names, mkboth) => {
+      if (/\\(?:selectlanguage|LXotherlanguage)\b/.test(pre.body)) throw new Unsupported(`\\nameref to "${all}" with a language switch`)
+      if (mkboth && !["plain", "empty", "myheadings"].includes(pre.pagestyle)) throw new Unsupported(`\\nameref to "${all}" with \\pagestyle{${pre.pagestyle}}`)
+      return pre.names[macro]
+    })
+  }
   /** \Hy@writebookmark's state */
   // (its .out file is \write3, or \write4 after pgf's \newwrite\w@pgf@writea: pgfsys.code.tex 67)
   const bookmarks = new Bookmarks(pre.tikz ? 4 : 3, pre.hyperOpts.bookmarksOpen ? "" : "-")
@@ -191,10 +205,19 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const headings = pre.markDefs, mkboth = pagestyle === "headings" || pagestyle === "fancy"
   /** hyperref's \addcontentsline: the bookmark line (to the depth of \c@tocdepth), then the toc line; each
    *  \protected@write adds \nobreak while \if@nobreak holds */
-  const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean): Node[] => {
+  const contentsWrites = (level: TocEntry["level"], number: string | null, title: string, anchorName: string, nobreak: boolean, vertical = false): Node[] => {
     const out: Node[] = []
     if (hyper && level <= (cls === "article" ? 3 : 2)) {
-      const bm = bookmarks.add(level, anchorName, title)
+      // \@@writetorep: a bookmark whose anchor is its parent's gets a new one, \phantomsection's (\Hy@MakeCurrentHrefAuto,
+      // in vertical mode the anchor itself), which the bookmark and the toc line then point to
+      let written = anchorName
+      if (bookmarks.parentOf(level) === anchorName) {
+        if (!vertical) throw new Unsupported("a bookmark whose anchor is its parent's")
+        written = refs.href = `section*.${++run.linkcounter}`
+        out.push(...anchor(written, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+      }
+      const bm = bookmarks.add(level, anchorName, title, written)
+      anchorName = written
       if (!bm) throw new Unsupported(`a bookmark for "${title}"`)
       out.push(bm)
       if (nobreak) out.push(penalty(10000))
@@ -220,11 +243,11 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   const crefSpanish = isSpanish(pre.babel) && pre.babel!.global.includes("spanish") ? (n: string) => sourceText(markAccentHyphens(n)) : undefined
   if (pre.cleveref) refs.cleveref = { current: null, byHref: counters.crefs, writes: [], prev: prev ? prev.crefs : null, at: () => v.nodes.length, setup: new CrefSetup(pre.crefOptions, pre.thmDefs, pre.crefNames, crefSpanish) }
   /** counter commands in text: a \refstepcounter outside text sets \@currentlabel and \@currentHref (and hyperref's anchor) */
-  const counted = (text: string, inText = false): string => counters.counted(text, inText, (label, h) => {
+  const counted = (text: string, inText = false): string => (countersInText = inText && /\\(?:set|addto|step|refstep)counter\b/.test(text), counters.counted(text, inText, (label, h) => {
     refs.label = label; refs.href = h
     if (refs.cleveref) refs.cleveref.current = counters.crefs.get(h)!
     if (hyper) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // hyperref's anchor
-  })
+  }))
   /** a \label in vertical mode: \protected@write's \nobreak while \if@nobreak, \@esphack's then or while \if@noskipsec */
   const esphackNobreaks = (nobreak: boolean): Node[] => [...(nobreak ? [penalty(10000)] : []), ...(nobreak || run.noskipsec ? [penalty(10000)] : [])]
   /** \if@noskipsec \leavevmode: an empty paragraph (the indent box) in the \everypar in force */

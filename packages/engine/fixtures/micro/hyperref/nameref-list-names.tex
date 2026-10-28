@@ -1,0 +1,22 @@
+% fixture: hyperref/nameref-list-names
+% tier: T3
+% engine: document
+% covers: \nameref to labels after \tableofcontents, \listoffigures, \listoftables and the bibliography: the name the .aux file keeps is the name macro (\contentsname \@mkboth{…}{…}, \listfigurename, \listtablename, \refname), which means the document's caption name where \nameref reads it, \@mkboth \@gobbletwo under \pagestyle{plain}
+% issue: #347
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\tableofcontents
+\label{toc}
+\listoffigures
+\label{lof}
+\listoftables
+\label{lot}
+\section{Body}
+See \nameref{toc}, \nameref{lof} and \nameref{lot}, then \nameref*{lot} and \Nameref{toc}, and the references \nameref{bib}.
+\begin{figure}[h]\centering\caption{A figure}\end{figure}
+\begin{table}[h]\centering\caption{A table}\end{table}
+\begin{thebibliography}{9}
+\bibitem{a} An item.\label{bib}
+\end{thebibliography}
+\end{document}

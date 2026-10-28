@@ -1,0 +1,17 @@
+% fixture: fonts/lmodern-ot1-symbols
+% tier: T3
+% engine: document
+% covers: OT1's text symbols from OMS and OML with lmodern: omslmr.fd and omllmr.fd substitute lmsy and lmm (lmsy5–10, lmmi5–12 by omslmsy.fd's and omllmm.fd's ranges, bold lmbsy and lmmib), while lmss and lmtt have no OMS or OML family: NFSS's substitution to cmsy and cmm in the m series (\wrong@fontshape)
+% issue: #347
+\documentclass{article}
+\usepackage{lmodern}
+\begin{document}
+A bar \textbar, a backslash \textbackslash, braces \{x\} and \textless tag\textgreater{} in roman, \textit{italic \{\textbackslash\textless\}} and \textsl{slanted \textbar}.
+\textbf{Bold \{\textbar\textbackslash\} \textless b\textgreater} and \textsc{caps \textbar}.
+\textsf{Sans \{\textbar\} \textless s\textgreater{} \textbf{bold \textbackslash\{\}\textless\textgreater}} and \texttt{mono \{\textbackslash\} \textless t\textgreater{} \textbf{bold \textbar\textless}}.
+
+{\tiny tiny \{\textbar\} \textless\textgreater{} \bfseries \{x\}\textless} {\scriptsize script \{\textbar\} \textless\textgreater{} \bfseries \{x\}\textless}
+{\footnotesize foot \{\textbar\} \textless\textgreater{} \bfseries \{x\}\textless} {\small small \{\textbar\} \textless\textgreater{} \bfseries \{x\}\textless}
+{\large large \{\textbar\} \textless\textgreater{} \bfseries \{x\}\textless} {\Large Large \{\textbar\} \textless\textgreater}
+{\huge huge \{\textbar\} \textless\textgreater}
+\end{document}

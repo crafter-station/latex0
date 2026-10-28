@@ -1,0 +1,16 @@
+% fixture: hyperref/autoref-appendix-brazil
+% tier: T3
+% engine: document
+% covers: \autoref to an appendix chapter's anchor (appendix.A) with babel's brazil: hyperref's \HyLang@portuges \appendixautorefname (Ap\^endice)
+% issue: #347
+\documentclass[brazil]{report}
+\usepackage{babel}
+\usepackage{hyperref}
+\begin{document}
+See \autoref{a:one} and \autoref{c:one}, then the words go on long enough to make a second line of the paragraph with \autoref{a:one} again.
+\chapter{One}\label{c:one}
+Text.
+\appendix
+\chapter{Extra}\label{a:one}
+More text.
+\end{document}

@@ -190,6 +190,8 @@ export interface Refs {
   writes: { node: Node; key: string; label: string; href: string; name: string }[]
   /** nameref is loaded (hyperref loads it): \label writes \@currentlabelname, \nameref reads it */
   nameref?: boolean
+  /** a label's name with the name macros in it as they read where \nameref typesets it */
+  nameMacros?: (name: string) => string
   /** hyperref: \ref and \pageref are links to the label's anchor */
   hyper?: boolean
   /** hyperref's \@footnotetext: an anchor in each note */
@@ -744,13 +746,32 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
   return out
 }
 
-/** \UseTextSymbol's font: TS1, or OMS (cmsy) and OML (cmmi) as omscmsy.fd and omlcmm.fd give them at the size, in the series */
+/** \UseTextSymbol's font: TS1, or OMS and OML (otherFont) at the size */
 function symbolFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs, enc: "TS1" | "OMS" | "OML"): Font {
   if (enc === "TS1") return selectFont(k, size, { ...a, enc: "TS1" })
-  const at = k.sizes[size].font.at, pt = at / 65536, b = a.ser === "bx" ? "b" : ""
-  const gen = Number.isInteger(pt) && pt >= 5 && pt <= 9
-  const name = enc === "OMS" ? (gen ? `cm${b}sy${pt}` : `cm${b}sy10`) : gen ? `cmmi${b}${pt}` : b || pt < 12 ? `cmmi${b}10` : "cmmi12"
-  return fontAt(name, at)
+  const at = k.sizes[size].font.at
+  return fontAt(otherFontName(k, a, enc, at / 65536), at)
+}
+
+/**
+ * The OMS or OML font of a family at a size in points: the roman's shapes go to cmsy and cmm (omscmr.fd, omlcmr.fd;
+ * with lmodern omslmr.fd and omllmr.fd's lmsy and lmm), its bold to their b series; the sans and typewriter families
+ * have no OMS or OML shapes, so \wrong@fontshape takes the default family's m series (OMS/cmsy/m/n, OML/cmm/m/it).
+ * The sizes are omscmsy.fd's and omlcmm.fd's (gen* from 5 to 9, then 10, and cmmi12 from 12), omslmsy.fd's and
+ * omllmm.fd's (lmsy5–lmsy10, lmmi5–lmmi10 and lmmi12 from 11; bold lmbsy and lmmib 5, 7 and 10).
+ */
+export function otherFontName(k: ClassOptionData, a: FontAttrs, enc: "OMS" | "OML", pt: number): string {
+  const family = a.fam === "cmr" ? (k.families?.rm ?? "cmr") : "cmr"
+  const bold = a.ser === "bx" && a.fam === "cmr"
+  if (family === "lmr") {
+    if (bold) return `${enc === "OMS" ? "lmbsy" : "lmmib"}${pt < 6 ? 5 : pt < 8 ? 7 : 10}`
+    const step = pt < 5.5 ? 5 : pt < 6.5 ? 6 : pt < 7.5 ? 7 : pt < 8.5 ? 8 : pt < 9.5 ? 9 : enc === "OML" && pt >= 11 ? 12 : 10
+    return `${enc === "OMS" ? "lmsy" : "lmmi"}${step}`
+  }
+  // (PSNFSS's omsptm.fd and friends: ssub to cmsy and cmm, bold by its b series, which \bfseries's bx is not)
+  if (family !== "cmr" && bold) throw new Unsupported(`OMS and OML symbols in bold ${family}`)
+  const b = bold ? "b" : "", gen = Number.isInteger(pt) && pt >= 5 && pt <= 9
+  return enc === "OMS" ? (gen ? `cm${b}sy${pt}` : `cm${b}sy10`) : gen ? `cmmi${b}${pt}` : b || pt < 12 ? `cmmi${b}10` : "cmmi12"
 }
 /** the font at \sf@size in the attributes: the size command of that size */
 function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
@@ -1233,8 +1254,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref
         if (refs.hyper && !p.star && !known.name) continue
         // (a macro in it, \contentsname or \thethm, means what it means here, not where the name was taken)
-        if (/\\/.test(withoutTextCommands(known.name.replace(/\$[^$]*\$/g, "")))) throw new Unsupported(`\\nameref to "${known.name}"`)
-        appendPieces(text, pieces(known.name, false), font, size, state, inner, attrs)
+        const name = refs.nameMacros ? refs.nameMacros(known.name) : known.name
+        if (/\\/.test(withoutTextCommands(name.replace(/\$[^$]*\$/g, "")))) throw new Unsupported(`\\nameref to "${name}"`)
+        appendPieces(text, pieces(name, false), font, size, state, inner, attrs)
       }
       // \null (a linked name's box leaves the space factor its text ended with: \Hy@RestoreSpaceFactor)
       if (p.kind === "autoref" || !linked) { text.push(hpack([])); state.spaceFactor = 1000 }

@@ -1,0 +1,23 @@
+% fixture: listings/run-in-newpage-in-paragraph
+% tier: T3
+% engine: document
+% covers: \clearpage and \newpage inside a paragraph while \@noskipsec stays true after a run-in heading lost to a listing: \newpage's \if@noskipsec\leavevmode does nothing in horizontal mode (no empty paragraph), and its \global\@noskipsecfalse ends the state, so a later \newpage between paragraphs starts none either
+% issue: #347
+\documentclass[11pt]{report}
+\usepackage{listings}
+\begin{document}
+\subparagraph{Lost heading}
+\begin{lstlisting}
+x = 1
+\end{lstlisting}
+Some words \clearpage then the paragraph goes on after the page break, with a few more words.
+
+\paragraph{Lost again}
+\begin{lstlisting}
+y = 2
+\end{lstlisting}
+More words \newpage and the rest of it.
+
+\newpage
+A last paragraph.
+\end{document}
