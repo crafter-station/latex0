@@ -1,7 +1,7 @@
 % fixture: amsmath/mathtools-basics
 % tier: T3
 % engine: document
-% covers: mathtools: \DeclarePairedDelimiter (\abs{x}: \mathopen…\mathclose, \abs*{x}: \left…\right, \abs[\big]{x}: \bigl…\bigr), \coloneqq and the other colon relations (\vcentcolon: \mathrel{\mathop:}), \mathclap, \mathllap and \mathrlap in limits; with \DeclareMathOperator, in text, displays and align
+% covers: mathtools: \DeclarePairedDelimiter (\abs{x}: \mathopen…\mathclose, \abs*{x}: \left…\right, \abs[\big]{x}: \bigl…\bigr), \coloneqq and the other colon relations (\vcentcolon: \mathrel{\mathop:}, a \dotsb before it), \mathclap, \mathllap and \mathrlap in limits; with \DeclareMathOperator, in text, displays and align
 % issue: #330
 \documentclass{article}
 \usepackage{amsmath,amssymb,mathtools}
@@ -10,7 +10,7 @@
 \DeclarePairedDelimiter\norm{\lVert}{\rVert}
 \begin{document}
 Let $f\colon\mathbb{R}\to\mathbb{R}$ with $\abs{f(x)} \le M$, $\norm{v}_2 \coloneqq \sqrt{\sum v_i^2}$ and $\supp f \eqqcolon K$;
-then $\abs*{\frac{a}{b}} = \abs{a}/\abs{b}$ and $\norm[\big]{x+y} \le \norm{x} + \norm{y}$, $x \Coloneqq y$, $a \dblcolon b$.
+then $\abs*{\frac{a}{b}} = \abs{a}/\abs{b}$ and $\norm[\big]{x+y} \le \norm{x} + \norm{y}$, $x \Coloneqq y$, $a \dblcolon b$, $x_1,\dots\vcentcolon y$.
 \begin{align}
   \abs{f(x)-f(x_0)} &\le \abs{f(x)-f_N(x)} + \abs{f_N(x)-f_N(x_0)} \\
   \norm*{\sum_{\mathclap{1\le i\le n}} x_i} &\le \sum_{\mathclap{1\le i\le n}} \norm{x_i}, \quad \mathllap{a}b\mathrlap{c}

@@ -282,7 +282,7 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         if (next.cs === "boldsymbol") throw new Error("math: \\dots before \\boldsymbol")
         const code = data.symbols[next.cs]
         // \not, a \mathchar of class 2 or 3 (\getmathch@; \not is one), or a macro starting \DOTSB: \dotsb@; \DOTSI: \dotsi
-        if ((code !== undefined && !(next.cs in DOTS_MACROS) && ((code >> 12) === 2 || (code >> 12) === 3)) || DOTS_MACROS[next.cs] === "B") return CDOTS
+        if ((code !== undefined && !(next.cs in DOTS_MACROS) && ((code >> 12) === 2 || (code >> 12) === 3)) || DOTS_MACROS[next.cs] === "B" || (next.cs === "vcentcolon" && opts.packages?.includes("mathtools"))) return CDOTS // (mathtools's \vcentcolon: a macro starting \mathrel)
         if (DOTS_MACROS[next.cs] === "I") return `\\!${CDOTS}`
         return MATHELLIPSIS + (RIGHT_DELIMS.includes(next.cs) ? "\\," : "")
       }
