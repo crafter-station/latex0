@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 902,
-  "exact": 902,
+  "fixtures": 938,
+  "exact": 925,
   "expectedFailures": 0,
   "failing": 0,
-  "pending": 0,
-  "glyphs": 606997
+  "pending": 13,
+  "glyphs": 609228
  },
  "areas": [
   {
@@ -123,6 +123,11 @@
    "area": "lists",
    "fixtures": 19,
    "exact": 19
+  },
+  {
+   "area": "macros",
+   "fixtures": 36,
+   "exact": 23
   },
   {
    "area": "math",
@@ -7194,6 +7199,402 @@
    "glyphs": 439,
    "covers": "lists nested four deep (\\@listii … \\@listiv: \\leftmargin, \\labelwidth, \\topsep, \\parsep, \\itemsep, the enclosing \\parskip in \\@topsep), itemize labels (\\textbullet, bold \\textendash, \\textasteriskcentered, \\textperiodcentered), enumerate labels (1. (a) i. A.), an item's text after a nested list (\\@doendpe), mixed itemize and enumerate",
    "issue": "#30"
+  },
+  {
+   "id": "macros/caption-short-robust",
+   "file": "micro/macros/caption-short-robust.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 69,
+   "covers": "a robust command of the document's (\\DeclareRobustCommand) in a caption's short title, a moving argument: LaTeX writes \\protect\\proj to the .lof, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/caption-short",
+   "file": "micro/macros/caption-short.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 75,
+   "covers": "a caption with a short title: the short one is written to the .lof (a moving argument), the long one only typeset, so a robust command of the document's (\\DeclareRobustCommand) may stand in it",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/class-names",
+   "file": "micro/macros/class-names.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 22,
+   "covers": "\\renewcommand of a command the class defines (report's \\chaptername): not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/control-word-spaces",
+   "file": "micro/macros/control-word-spaces.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 67,
+   "covers": "an expansion that ends with a control word, before a space of the source: in text the space stays a space token (\\bfseries{} …); in math, $…$, $$…$$, \\[…\\] and an equation, it is nothing and no {} (a noad) is made; a space token of the expansion before a space of the source; a definition between two spaces",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-class-report",
+   "file": "micro/macros/counters-class-report.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 73,
+   "covers": "the class's counters in report: \\setcounter{chapter} before \\chapter, \\thechapter and \\thesection (within the chapter), \\setcounter{equation} (an equation's number after it, within the chapter) and \\theequation, \\stepcounter{subsection} in text",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-class",
+   "file": "micro/macros/counters-class.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "\\setcounter, \\addtocounter and \\stepcounter of the class's counters in text and between paragraphs: section (the next \\section steps it; \\stepcounter resets subsection, \\setcounter does not), subsection, figure (the next caption's number), with \\thesection, \\thesubsection and \\arabic{section} in text",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-text-hyperref",
+   "file": "micro/macros/counters-text-hyperref.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "the document's counter in text: \\refstepcounter then \\label as a paragraph starts (both in vertical mode: the \\write before the paragraph, the label the counter's), \\setcounter, \\stepcounter, \\addtocounter with \\value (in text and alone between paragraphs), \\arabic \\roman \\Roman \\alph \\Alph, \\theq, \\ref to them (two runs), with hyperref (the anchors)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/counters-text",
+   "file": "micro/macros/counters-text.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "the document's counter in text: \\refstepcounter then \\label as a paragraph starts (both in vertical mode: the \\write before the paragraph, the label the counter's), \\setcounter, \\stepcounter, \\addtocounter with \\value (in text and alone between paragraphs), \\arabic \\roman \\Roman \\alph \\Alph, \\theq, \\ref to them (two runs)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/def-latex",
+   "file": "micro/macros/def-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 115,
+   "covers": "\\def of a command LaTeX defines (\\baselinestretch) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/definitions-in-text",
+   "file": "micro/macros/definitions-in-text.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 140,
+   "covers": "\\def with undelimited and delimited parameters, \\edef, \\gdef in a group, a local \\renewcommand in a group, \\let of the document's macro (a copy, unchanged by a later \\renewcommand), \\providecommand, all used in text with the spaces after control words; a definition at a line's start, with a space after it, in a paragraph and before one; a definition between two letters (a command: no ffi ligature across it)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-after",
+   "file": "micro/macros/environment-after.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 114,
+   "covers": "whether an \\@doendpe is in force where the document's environment begins (no group needed when not): after a tabular in the paragraph (none), after a list's end in math (none there), after a list with a blank line between (none)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-arguments",
+   "file": "micro/macros/environment-arguments.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 133,
+   "covers": "\\newenvironment with an argument, with an optional one (its default and a given one; \\@protected@testopt's \\relax) and starred, used in a paragraph and as paragraphs of their own, the spaces around \\begin and \\end as TeX reads them, no ligature across them; \\renewenvironment of the document's environment",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-command",
+   "file": "micro/macros/environment-command.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 31,
+   "covers": "\\begin{name} of a command the document defined with \\newcommand (\\begin{name} is \\begingroup\\name, and \\endname is undefined: \\relax), a declaration in it kept in the group; \\begin {name} with a space",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-content",
+   "file": "micro/macros/environment-content.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 115,
+   "covers": "what an environment's material may hold and still need no group: a display (\\[…\\]), a counter's \\the…, \\$ (no formula) before one, a URL, a footnote; the environment starts and ends paragraphs (\\par), so a group around them could not be laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-declarations",
+   "file": "micro/macros/environment-declarations.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 136,
+   "covers": "environments whose begin code makes an assignment (\\bfseries, \\itshape): the group is kept, {…}, in a paragraph; one used right after a list keeps it too (\\@doendpe's \\par and \\everypar)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-math",
+   "file": "micro/macros/environment-math.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 41,
+   "covers": "the document's environments in math: one wrapping amsmath's pmatrix (no group: no noad), in a formula and a display",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-solution",
+   "file": "micro/macros/environment-solution.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 162,
+   "covers": "\\newenvironment with begin code \\par\\noindent\\textbf{\\textcolor{…}{…}}\\ and end code \\hfill$\\diamond$\\par\\medskip (no assignment at its level: no group needed), after a question's paragraph and on lines of its own, a paragraph inside, text after it",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/environment-wrappers",
+   "file": "micro/macros/environment-wrappers.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 158,
+   "covers": "environments that wrap other environments: enumerate (its \\items in the body), center, quote with \\small inside it, a theorem (amsthm), one of the document's own inside another; text right after them (\\@doendpe)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/headings",
+   "file": "micro/macros/headings.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 197,
+   "covers": "the document's (fragile) macros in moving arguments, expanded where LaTeX writes them: section and subsection titles (the .toc, \\tableofcontents), a caption (the .lof, \\listoffigures); a robust one (an optional argument) in a \\section* title, which writes nothing, and in a group right after a title",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/implicit-characters",
+   "file": "micro/macros/implicit-characters.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "\\let of a control sequence to a letter or other character (\\let\\foo=a, \\let\\bar x): typeset as the character, in text (ligatures and kerns with its neighbours) and math, in a macro's body; the spaces after the control word go",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/implicit-tab",
+   "file": "micro/macros/implicit-tab.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 3,
+   "covers": "\\let of a control sequence to an alignment tab (\\let\\amp=&) used in a tabular: not read by the engine yet (only letters and other characters are), so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/let-latex",
+   "file": "micro/macros/let-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 26,
+   "covers": "\\let of a command LaTeX defines (\\emph) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped); \\let of a new name to it is an alias",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/lists-tables",
+   "file": "micro/macros/lists-tables.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 90,
+   "covers": "the document's macros with arguments and optional arguments in itemize and enumerate items, a description label (a fragile macro), a tabular's cells and a footnote; a macro that expands to \\item; a definition at an item's start (vertical mode: the space after it starts nothing)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/newcounter-the",
+   "file": "micro/macros/newcounter-the.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 14,
+   "covers": "\\newcounter{q} defines \\theq, which the engine reads (\\ref, \\label): its \\renewcommand is not read yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/optional-argument",
+   "file": "micro/macros/optional-argument.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 154,
+   "covers": "\\newcommand with an optional argument (\\@protected@testopt: \\@ifnextchar's assignments end a ligature and a kern run, so of\\opt{…} makes no ffi and A\\opt[V]{…} no AV kern), the default and a given one, spaces before [ and before the argument skipped, at a paragraph's start and end; \\newcommand* with one",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/optional-math",
+   "file": "micro/macros/optional-math.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 52,
+   "covers": "a \\newcommand with an optional argument in math (its \\relax makes no noad): inline and displayed, default and given, inside a group and a script",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/optional-moving",
+   "file": "micro/macros/optional-moving.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 16,
+   "covers": "a command with an optional argument (robust: \\@protected@testopt) in a caption, a moving argument: LaTeX writes \\protect\\opt to the .lof, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/package-names",
+   "file": "micro/macros/package-names.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 20,
+   "covers": "a package's commands are LaTeX's only when it is loaded (not in a comment): \\newcommand{\\checkmark} without amssymb (amsfonts defines it) is the document's own",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/providecommand-latex",
+   "file": "micro/macros/providecommand-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "\\providecommand of a command LaTeX defines (\\textordfeminine, \\abstractname) does nothing; of one it does not (\\tightlist), defines it; the document's own \\providecommand after its \\newcommand does nothing",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/renewcommand-latex",
+   "file": "micro/macros/renewcommand-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 28,
+   "covers": "\\renewcommand of a command LaTeX defines (\\thesection) changes LaTeX, not a macro of the document's: not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/renewcommand-package",
+   "file": "micro/macros/renewcommand-package.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 20,
+   "covers": "\\renewcommand of a command a loaded package defines (amssymb's \\checkmark): not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/renewenvironment-latex",
+   "file": "micro/macros/renewenvironment-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 17,
+   "covers": "\\renewenvironment of an environment LaTeX defines (quote) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/robust-moving",
+   "file": "micro/macros/robust-moving.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 41,
+   "covers": "a robust command of the document's (\\DeclareRobustCommand) in a section title: LaTeX writes \\protect\\proj to the .toc, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/theorem-the",
+   "file": "micro/macros/theorem-the.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 35,
+   "covers": "\\newtheorem{thm} defines the counter thm and \\thethm, which the engine reads: its \\renewcommand is not read yet, so not laid out (it is not dropped)",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/xspace-moving",
+   "file": "micro/macros/xspace-moving.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 14,
+   "covers": "\\xspace (robust) from the document's macro in a section title, a moving argument: LaTeX writes \\xspace to the .toc, which the engine does not keep yet, so not laid out",
+   "issue": "#344"
+  },
+  {
+   "id": "macros/xspace",
+   "file": "micro/macros/xspace.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 131,
+   "covers": "xspace's \\xspace at the end of the document's macros: a space before a letter, a digit, an opening parenthesis, a command (\\emph) and at a paragraph's end (where \\par takes it); none before its exceptions , . ; : ! ? ) ' - / ~ \\  {} and \\footnote; a macro after it expanded and looked at again; a character \\let to a control sequence (\\fullstop) is the character",
+   "issue": "#344"
   },
   {
    "id": "math/accents-amsmath",

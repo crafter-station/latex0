@@ -1,0 +1,21 @@
+% fixture: macros/environment-content
+% tier: T3
+% engine: document
+% covers: what an environment's material may hold and still need no group: a display (\[…\]), a counter's \the…, \$ (no formula) before one, a URL, a footnote; the environment starts and ends paragraphs (\par), so a group around them could not be laid out
+% issue: #344
+\documentclass{article}
+\usepackage{url}
+\newcounter{q}
+\newenvironment{answer}{\par\noindent\textbf{Answer.}\ }{\par}
+\begin{document}
+\stepcounter{q}Question \theq.
+\begin{answer}
+It is \[ \sum_i x_i^2 \] for all $x$.
+\end{answer}
+\begin{answer}
+See question \theq{} again: it costs \$5 and $\alpha$.
+\end{answer}
+\begin{answer}
+At \url{https://example.org} here.\footnote{A note.}
+\end{answer}
+\end{document}

@@ -1,0 +1,12 @@
+% fixture: macros/implicit-tab
+% tier: T3
+% engine: document
+% covers: \let of a control sequence to an alignment tab (\let\amp=&) used in a tabular: not read by the engine yet (only letters and other characters are), so not laid out
+% issue: #344
+\documentclass{article}
+\let\amp=&
+\begin{document}
+\begin{tabular}{ll}
+a \amp b
+\end{tabular}
+\end{document}

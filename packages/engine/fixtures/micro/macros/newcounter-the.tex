@@ -1,0 +1,11 @@
+% fixture: macros/newcounter-the
+% tier: T3
+% engine: document
+% covers: \newcounter{q} defines \theq, which the engine reads (\ref, \label): its \renewcommand is not read yet, so not laid out (it is not dropped)
+% issue: #344
+\documentclass{article}
+\newcounter{q}
+\renewcommand{\theq}{\Alph{q}}
+\begin{document}
+\refstepcounter{q}\label{one}Question \theq{} is \ref{one}.
+\end{document}

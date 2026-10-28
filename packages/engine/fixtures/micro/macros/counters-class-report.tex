@@ -1,0 +1,16 @@
+% fixture: macros/counters-class-report
+% tier: T3
+% engine: document
+% covers: the class's counters in report: \setcounter{chapter} before \chapter, \thechapter and \thesection (within the chapter), \setcounter{equation} (an equation's number after it, within the chapter) and \theequation, \stepcounter{subsection} in text
+% issue: #344
+\documentclass{report}
+\begin{document}
+\setcounter{chapter}{1}
+\chapter{Second}
+\section{First}
+Chapter \thechapter, section \thesection; \setcounter{equation}{3}after \theequation{} comes
+\begin{equation}
+a = b
+\end{equation}
+and \stepcounter{subsection}\thesubsection.
+\end{document}

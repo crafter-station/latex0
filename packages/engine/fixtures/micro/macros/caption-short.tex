@@ -1,0 +1,14 @@
+% fixture: macros/caption-short
+% tier: T3
+% engine: document
+% covers: a caption with a short title: the short one is written to the .lof (a moving argument), the long one only typeset, so a robust command of the document's (\DeclareRobustCommand) may stand in it
+% issue: #344
+\documentclass{article}
+\DeclareRobustCommand{\proj}{Atlas}
+\begin{document}
+\listoffigures
+\begin{figure}[h]
+\centering
+\caption[The map]{The map of \proj}
+\end{figure}
+\end{document}

@@ -1,0 +1,11 @@
+% fixture: macros/environment-command
+% tier: T3
+% engine: document
+% covers: \begin{name} of a command the document defined with \newcommand (\begin{name} is \begingroup\name, and \endname is undefined: \relax), a declaration in it kept in the group; \begin {name} with a space
+% issue: #344
+\documentclass{article}
+\newcommand{\hl}{\bfseries}
+\newcommand{\tag}[1]{[#1] }
+\begin{document}
+Some \begin{hl}bold\end{hl} text and \begin {tag}{x}tagged\end{tag} words.
+\end{document}

@@ -1,0 +1,12 @@
+% fixture: macros/xspace-moving
+% tier: T3
+% engine: document
+% covers: \xspace (robust) from the document's macro in a section title, a moving argument: LaTeX writes \xspace to the .toc, which the engine does not keep yet, so not laid out
+% issue: #344
+\documentclass{article}
+\usepackage{xspace}
+\newcommand{\lx}{LX\xspace}
+\begin{document}
+\section{About \lx}
+Text.
+\end{document}

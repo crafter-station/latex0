@@ -1,0 +1,19 @@
+% fixture: macros/definitions-in-text
+% tier: T3
+% engine: document
+% covers: \def with undelimited and delimited parameters, \edef, \gdef in a group, a local \renewcommand in a group, \let of the document's macro (a copy, unchanged by a later \renewcommand), \providecommand, all used in text with the spaces after control words; a definition at a line's start, with a space after it, in a paragraph and before one; a definition between two letters (a command: no ffi ligature across it)
+% issue: #344
+\documentclass{article}
+\def\pair#1#2{(#1, #2)}
+\def\upto#1.{[#1]}
+\newcommand{\name}{Ada}
+\let\oldname\name
+\renewcommand{\name}{Grace}
+\edef\both{\name{} and \oldname}
+\begin{document}
+A \pair{x}{y} and \pair ab, \upto some words. then \both{} wrote.
+{\gdef\later{kept}\renewcommand{\name}{local} In a group \name.} Out \name{} and \later.
+\providecommand{\later}{never} Still \later.
+
+\def\new{fresh} A paragraph after a definition, \new, and one in a word: of\def\x{y}fice.
+\end{document}

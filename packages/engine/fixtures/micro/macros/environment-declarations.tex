@@ -1,0 +1,17 @@
+% fixture: macros/environment-declarations
+% tier: T3
+% engine: document
+% covers: environments whose begin code makes an assignment (\bfseries, \itshape): the group is kept, {…}, in a paragraph; one used right after a list keeps it too (\@doendpe's \par and \everypar)
+% issue: #344
+\documentclass{article}
+\newenvironment{strong}{\bfseries}{}
+\newenvironment{slant}{\itshape}{}
+\newenvironment{note}{\textbf{Note:} }{}
+\begin{document}
+Some \begin{strong}bold words\end{strong} and \begin{slant}slanted ones\end{slant} in a
+paragraph that goes on long enough to break over a line or two, so that the spaces show.
+\begin{itemize}
+\item one
+\end{itemize}
+\begin{note}right after the list\end{note} and more.
+\end{document}

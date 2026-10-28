@@ -87,7 +87,8 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
   let i = 0
   while (i < src.length) {
     const rest = src.slice(i)
-    const ws = rest.match(/^(?:\s|\\par(?![A-Za-z]))+/) // (a blank line is \par, which does nothing in vertical mode)
+    // (a blank line is \par, which does nothing in vertical mode, and so does an empty group: what a definition left)
+    const ws = rest.match(/^(?:\s|\\par(?![A-Za-z])|\{\})+/)
     if (ws) { i += ws[0].length; continue }
     // \@vspace: \vskip skip \vskip\z@skip; \@vspacer first \hrule\@height\z@ \nobreak (and keeps \prevdepth)
     const vs = rest.match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)

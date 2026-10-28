@@ -1,6 +1,6 @@
 // Document expansion oracle (#46): random documents that define macros with
 // \newcommand (arguments, optional arguments, starred), \renewcommand,
-// \providecommand, \def (undelimited and delimited parameters), \edef and \let,
+// \providecommand, \def (undelimited and delimited parameters), \edef and \let (of macros and of characters),
 // in and out of groups, and use them in text and math around spaces, line ends
 // and blank lines. TeX typesets each document twice: as written, and as
 // expandDocument (expand/document.ts) rewrites it for the renderer, with the
@@ -54,7 +54,7 @@ function makeCase(r: () => number, id: string): string {
     return parts.reduce((acc, x) => acc + (acc && (sep || (/\\[A-Za-z]+$/.test(acc) && /^[A-Za-z]/.test(x))) ? sep || " " : "") + x, "")
   }
   // a use: the macro and its arguments, as text
-  const safeIn = (b: string) => !/\\(textbf|emph|textit)\b|\$/.test(b) && defs.every((e) => e.safe || !b.includes(e.name))
+  const safeIn = (b: string) => !/\\(textbf|emph|textit|xspace)\b|\$/.test(b) && defs.every((e) => e.safe || !b.includes(e.name))
   const arg = (plain = false) => plain ? `{${word()}}` : pick([`{${word()} ${word()}}`, `{${word()}}`, "x", `{\\textit{${word()}}}`, ...(defs.some((d) => d.args === 0 && d.safe && !d.delim) ? [call(pick(defs.filter((d) => d.args === 0 && d.safe && !d.delim)), false)] : [])])
   const call = (d: Def, spaced: boolean, plain = false): string => {
     let s = d.name
@@ -95,16 +95,21 @@ function makeCase(r: () => number, id: string): string {
       lines.push(`\\renewcommand{${old.name}}${old.args ? `[${old.args}]` : ""}${old.optional ? `[${word()}]` : ""}{${b}}`)
       continue
     } else if (x < 0.94) {
-      const b = body(0)
+      const b = body(0) + (r() < 0.4 ? "\\xspace" : "") // (xspace.sty's)
       d = { name: nm, args: 0, optional: false, long: true, safe: safeIn(b) }
       lines.push(`\\providecommand{${nm}}{${b}}`)
       if (defs.length && r() < 0.5) lines.push(`\\providecommand{${pick(defs).name}}{never used}`)
+    } else if (x < 0.97) {
+      const c = pick([..."afilx-.,"]) // a letter or other character: \\nm is that character
+      d = { name: nm, args: 0, optional: false, long: false, safe: true }
+      lines.push(`\\let${nm}${pick(["=", "= ", " "])}${c}`)
     } else {
       d = { name: nm, args: 0, optional: false, long: false, safe: true }
       const ok = defs.filter((e) => !e.optional && e.safe)
       lines.push(`\\edef${nm}{${ok.length ? call(pick(ok), false, true) : "\\relax"} ${word()}}`)
     }
     defs.push(d)
+    if (r() < 0.2) lines[lines.length - 1] += pick([" ", "  "]) + word() // text after the definition on its line
     // uses after each definition: in text around spaces, line ends, punctuation and blank lines; in math
     for (let u = 1 + Math.floor(r() * 3); u > 0; u--) {
       const use = pick(defs)
@@ -114,7 +119,71 @@ function makeCase(r: () => number, id: string): string {
     // a group: a local redefinition, used inside and then outside
     if (r() < 0.15) { const g = pick(defs.filter((e) => e.args === 0 && !e.delim).concat([d])); if (g.args === 0 && !g.delim) lines.push(`{\\renewcommand{${g.name}}{local ${word()}}${g.name} ${word()}} ${g.name} ${word()}`) }
   }
+  if (r() < 0.6) environments(r, id, lines, defs)
   return lines.join("\n")
+}
+
+/** An environment the generator defined: text (its body text), list (its body \items) or math (used in a formula). */
+interface Env { name: string; kind: "text" | "list" | "math"; args: number; optional: boolean }
+
+/**
+ * \newenvironment and \renewenvironment, with arguments and an optional one, begin and end code from declarations,
+ * \par, lists, centering, boxes and earlier environments; used in paragraphs, on lines of their own, after a list (an
+ * \@doendpe in force), nested, in math
+ */
+function environments(r: () => number, id: string, lines: string[], defs: Def[]) {
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const word = () => pick(WORDS)
+  const envs: Env[] = []
+  const macro = () => { const d = defs.filter((e) => e.args === 0 && !e.delim && !e.optional); return d.length ? pick(d).name + "{}" : word() }
+  const TEXT: [string, string][] = [["", ""], ["\\par\\noindent\\textbf{Note.}\\ ", "\\hfill$\\diamond$\\par\\medskip"], ["\\bfseries ", ""], ["\\itshape", "w\\/"],
+    ["\\begin{center}", "\\end{center}"], ["\\begin{quote}\\small ", "\\end{quote}"], ["{\\bfseries W.} ", "."], ["\\par", "\\par"], ["\\emph{w} ", ""],
+    ["\\noindent", ""], ["\\par\\medskip", "\\par\\medskip"], ["\\begin{flushright}", "\\end{flushright}"], ["\\textbf{(}", "\\textbf{)}"]]
+  const LIST: [string, string][] = [["\\begin{itemize}", "\\end{itemize}"], ["\\begin{enumerate}", "\\end{enumerate}"], ["\\par\\noindent Items:\\begin{itemize}", "\\end{itemize}\\par"], ["\\begin{description}", "\\end{description}"]]
+  const MATH: [string, string][] = [["", ""], ["(", ")"], ["\\left[", "\\right]"], ["\\begin{array}{c}", "\\end{array}"]]
+  const body = (e: Env): string => {
+    if (e.kind === "list") return Array.from({ length: 1 + Math.floor(r() * 2) }, () => (e.name.endsWith("c") ? `\\item[${word()}] ` : "\\item ") + word() + " " + macro()).join("\n")
+    if (e.kind === "math") return pick(["x", "a+b", "x^2", "\\alpha"])
+    const inner = envs.filter((x) => x.kind !== "math" && x !== e)
+    const plain = defs.filter((x) => x.args === 0 && !x.delim && !x.optional)
+    const local = plain.length && r() < 0.25 ? pick(plain).name : null // (a definition in the environment is local to it)
+    return [word(), ...(local ? [`\\renewcommand{${local}}{inside}${local}{}`] : []), macro(), ...(inner.length && r() < 0.3 ? [use(pick(inner), false)] : []), word()]
+      .join(pick([" ", "\n"])) + pick(["", "", "\\quad"]) // (a control word right before \end) + (local ? `\\end{${e.name}} ${local}{} \\begin{${e.name}}${"{a}".repeat(e.optional ? e.args - 1 : e.args)}` : "")
+  }
+  const use = (e: Env, spaced: boolean): string => {
+    let s = `\\begin{${e.name}}`
+    if (e.optional && r() < 0.5) s += `[${word()}]`
+    for (let k = e.optional ? 1 : 0; k < e.args; k++) s += `{${word()}}`
+    const sep = () => (spaced ? pick(["", " ", "\n"]) : "")
+    return s + sep() + body(e) + sep() + `\\end{${e.name}}`
+  }
+  for (let i = 0, n = 1 + Math.floor(r() * 3); i < n; i++) {
+    const kind = pick<Env["kind"]>(["text", "text", "list", "math"])
+    const name = `zz${id}${"env"[i] ?? "x"}${kind[0]}`
+    const args = Math.floor(r() * 3), optional = args > 0 && r() < 0.4
+    let [b, e] = pick(kind === "text" ? TEXT : kind === "list" ? LIST : MATH)
+    if (kind === "list" && name.endsWith("l") && b.includes("description")) [b, e] = LIST[0]
+    if (kind === "text" && envs.some((x) => x.kind === "text") && r() < 0.3) { const o = pick(envs.filter((x) => x.kind === "text")); b += `\\begin{${o.name}}${"{a}".repeat(o.optional ? o.args - 1 : o.args)}`; e = `\\end{${o.name}}` + e }
+    if (args && kind !== "math") b = (r() < 0.5 ? "\\textbf{#1} " : "(#1) ") + b
+    const env: Env = { name, kind, args, optional }
+    lines.push(`\\newenvironment${r() < 0.3 ? "*" : ""}{${name}}${args ? `[${args}]` : ""}${optional ? `[${word()}]` : ""}{${b}}{${e}}`)
+    envs.push(env)
+    for (let u = 1 + Math.floor(r() * 3); u > 0; u--) {
+      const x = pick(envs)
+      if (x.kind === "math") { lines.push(pick([`${word()} $${use(x, false)}+1$ ${word()}`, `${word()}\n\\[ ${use(x, false)} \\]\n${word()}`, `${word()}\n\\[\n${use(x, true)}\n\\]\n${word()}`])); continue }
+      const ctx = r()
+      if (ctx < 0.1) { lines.push(`${word()} \\noindent${use(x, true)}${pick([" ", "", "\n"])}${word()}`); continue } // a control word before \begin, a letter or space after \end
+      if (ctx < 0.3) lines.push(`${word()} ${use(x, true)} ${word()}`) // in a paragraph
+      else if (ctx < 0.55) lines.push("", use(x, true), "", word()) // a paragraph of its own
+      else if (ctx < 0.75) lines.push(`${word()}\n\\begin{itemize}\\item ${word()}\\end{itemize}\n${use(x, true)}\n${word()}`) // after a list
+      else if (ctx < 0.9) lines.push(`${word()}\n${use(x, true)}\n${word()}`) // on its own line
+      else lines.push(`{${use(x, true)}} ${word()}`)
+    }
+    if (r() < 0.2) { // a \renewenvironment, used
+      const x = pick(envs.filter((y) => y.kind === "text"))
+      if (x) { lines.push(`\\renewenvironment{${x.name}}${x.args ? `[${x.args}]` : ""}${x.optional ? `[${word()}]` : ""}{\\emph{${word()}} }{ ${word()}}`, `${word()} ${use(x, true)}.`) }
+    }
+  }
 }
 
 export function expandDocCheck(n: number, seed: number): number {
@@ -122,8 +191,9 @@ export function expandDocCheck(n: number, seed: number): number {
   const r = rng(seed)
   const id = (i: number) => i.toString(26).split("").map((d) => String.fromCharCode(97 + parseInt(d, 26))).join("")
   const cases = Array.from({ length: n }, (_, i) => makeCase(r, id(i)))
-  const doc = ["\\documentclass{article}", "\\pagestyle{empty}", "\\begin{document}", cases.join("\n\\clearpage\n"), "\\end{document}", ""].join("\n")
-  const { text, errors } = expandDocument(doc)
+  const doc = ["\\documentclass{article}", "\\usepackage{xspace}", "\\pagestyle{empty}", "\\textheight=80in", // (a case never runs over its page)
+    "\\begin{document}", cases.join("\n\\clearpage\n"), "\\end{document}", ""].join("\n")
+  const { text, errors } = expandDocument(doc, { xspace: true })
   if (errors.length) { console.log(`✗ expansion errors: ${errors.slice(0, 3).join("; ")}`); return 1 }
   const traces = [["original", doc], ["expanded", text]].map(([name, src]) => {
     writeFileSync(join(DIR, `${name}.tex`), src)
@@ -141,7 +211,7 @@ export function expandDocCheck(n: number, seed: number): number {
     const d = compareTraces({ ...tex, pages: [tex.pages[p]] }, { ...ours, pages: [ours.pages[p] ?? { counts: [], glyphs: [], rules: [], specials: [] }] })
     if (!d) continue
     failed++
-    if (failed <= 3) console.log(`✗ case ${p + 1}: ${d.field} at glyph ${d.index}\n${cases[p]}\n--- expanded ---\n${expandDocument(["\\begin{document}", cases[p]].join("\n")).text}\n`)
+    if (failed <= 3) console.log(`✗ case ${p + 1}: ${d.field} at glyph ${d.index}\n${cases[p]}\n--- expanded ---\n${expandDocument(["\\begin{document}", cases[p]].join("\n"), { xspace: true }).text}\n`)
   }
   const defs = (doc.match(/\\(newcommand|renewcommand|providecommand|def|edef|let)\b/g) ?? []).length
   console.log(`${n - failed}/${n} documents typeset identically after expansion (seed ${seed}; ${defs} definitions, ${tex.pages.reduce((s, p) => s + p.glyphs.length, 0)} glyphs)`)

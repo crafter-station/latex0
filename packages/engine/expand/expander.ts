@@ -9,7 +9,8 @@
 // \else \fi; \relax, {}, \begingroup \endgroup.
 //
 // With `latex: true` it also knows LaTeX's \newcommand, \renewcommand,
-// \providecommand and \DeclareRobustCommand (latex.ltx \@argdef, \@xargdef), and
+// \providecommand, \DeclareRobustCommand (latex.ltx \@argdef, \@xargdef),
+// \newenvironment and \renewenvironment (\@newenv: \name and \endname), and
 // \let to a command it does not know makes an alias, for documents (#46). A
 // macro with an optional argument is two macros, as in LaTeX: \foo looks for
 // [ after \@ifnextchar skips spaces and calls the internal \\foo, so a \let copy
@@ -26,15 +27,24 @@ export interface Macro {
   /** LaTeX's optional first argument: its default, and the internal macro that takes [#1] */
   optional?: Tok[]
   inner?: string
+  /** made by \\newenvironment: \\begin{name} calls it */
+  env?: boolean
 }
 export type Meaning = Macro | { kind: "prim"; name: string } | { kind: "char"; cat: number; c: number } | { kind: "undefined" }
 
 const EXPANDABLE = new Set(["expandafter", "noexpand", "csname", "string", "number", "meaning", "unexpanded", "detokenize",
   "ifx", "if", "ifcat", "ifnum", "iftrue", "iffalse", "else", "fi", "or"])
+/** xspace.sty's exceptions (\@xspace@exceptions@tlp): no space before these characters and commands */
+const XSPACE_CHARS = new Set([...",.'/?;:!-)"].map((c) => c.charCodeAt(0)))
+const XSPACE_COMMANDS = new Set([" ", "/", "bgroup", "egroup", "space", "footnote", "footnotemark"])
+/** LaTeX's commands that \\xspace puts its space before: robust ones (\\protect\\cmd: \\protect is \\relax, no exception), \\hskip
+ *  ones, and \\today (its first expansion is a digit or a letter) */
+const XSPACE_BEFORE = new Set(["emph", "textbf", "textit", "texttt", "textsc", "textsf", "textrm", "textsl", "textup", "textmd", "textnormal",
+  "underline", "cite", "citep", "citet", "eqref", "cref", "Cref", "ldots", "dots", "LaTeX", "TeX", "url", "href", "mbox", "hspace", "newline", "quad", "qquad", "today", "par", "relax"])
 const CONDITIONALS = new Set(["ifx", "if", "ifcat", "ifnum", "iftrue", "iffalse"])
 const PRIMITIVES = [...EXPANDABLE, "def", "gdef", "edef", "xdef", "let", "global", "long", "protected", "relax", "endcsname",
   "begingroup", "endgroup", "par"]
-const LATEX_DEFINITIONS = ["newcommand", "renewcommand", "providecommand", "DeclareRobustCommand"]
+const LATEX_DEFINITIONS = ["newcommand", "renewcommand", "providecommand", "DeclareRobustCommand", "newenvironment", "renewenvironment"]
 const DEFINITIONS = new Set(["def", "gdef", "edef", "xdef", "let", "global", "long", "protected", ...LATEX_DEFINITIONS])
 
 export interface ExpanderOptions {
@@ -43,6 +53,11 @@ export interface ExpanderOptions {
   latex?: boolean
   /** commands defined outside the expander (a renderer's built-ins), for \\providecommand */
   known?: (name: string) => boolean
+  /** commands LaTeX defines (the kernel, the class, the packages): a document's \\renewcommand, \\def or \\let of one
+   *  changes LaTeX, not a macro of its own, and is an error here; its \\providecommand of one does nothing */
+  defined?: (name: string) => boolean
+  /** xspace.sty loaded: \\xspace */
+  xspace?: boolean
 }
 
 export class ExpansionError extends Error {}
@@ -59,16 +74,22 @@ export class Expander {
 
   private latex: boolean
   private known: (name: string) => boolean
+  private defined: (name: string) => boolean
   /** problems met while running in document mode (\\newcommand of a defined command) */
   readonly warnings: string[] = []
+  /** in a moving argument (a heading's title, a caption): what LaTeX writes to a file there (\\protected@write) keeps a
+   *  robust command as \\protect\\cmd, which the renderer, reading the expansion, cannot know; expanding one is an error */
+  moving = false
 
   constructor(private reader: Tokenizer, opts: number | ExpanderOptions = {}) {
     const o = typeof opts === "number" ? { fuel: opts } : opts
     this.fuel = o.fuel ?? 1_000_000
     this.latex = !!o.latex
     this.known = o.known ?? (() => false)
+    this.defined = o.defined ?? (() => false)
     for (const p of PRIMITIVES) this.meanings.set(p, { kind: "prim", name: p })
     if (this.latex) for (const p of LATEX_DEFINITIONS) this.meanings.set(p, { kind: "prim", name: p })
+    if (this.latex && o.xspace) this.meanings.set("xspace", { kind: "prim", name: "xspace" })
   }
 
   // ---- document mode: a driver reads top-level tokens and decides what to expand ----
@@ -98,6 +119,10 @@ export class Expander {
     if (level && !level.some((s) => s.key === k)) level.push({ key: k, old: this.meanings.get(k) })
     this.meanings.set(k, m)
   }
+  /** a command LaTeX defines (`defined`: the document can define none of them itself) */
+  private latexOwned(t: Tok): boolean { return this.defined(t.cs!) }
+  private latexError(cmd: string, t: Tok): never { throw new ExpansionError(`\\${cmd} of LaTeX's ${printCs(t.cs!).trim()}`) }
+
   private beginGroup() { this.saveStack.push([]) }
   private endGroup() {
     const level = this.saveStack.pop()
@@ -120,7 +145,7 @@ export class Expander {
   private expandable(t: Tok): boolean {
     if (t.cs === undefined || t.dontExpand) return false
     const m = this.meaning(t)
-    return m.kind === "macro" || (m.kind === "prim" && EXPANDABLE.has(m.name))
+    return m.kind === "macro" || (m.kind === "prim" && (EXPANDABLE.has(m.name) || m.name === "xspace"))
   }
 
   /** get_x_token (§ 380): expand until an unexpandable token comes up. A \\noexpand'ed token acts as \\relax here. */
@@ -168,9 +193,34 @@ export class Expander {
       case "detokenize": this.backInput(strToks(showTokens(this.scanGeneralText()))); return
       case "unexpanded": this.backInput(this.scanGeneralText().map((x) => (x.cs !== undefined ? { ...x, dontExpand: true } : x))); return
       case "fi": case "else": case "or": this.condEnd(m.name); return
+      case "xspace": this.xspace(t); return
       default: if (CONDITIONALS.has(m.name)) { this.conditional(m.name); return }
     }
     throw new ExpansionError(`unhandled expandable ${m.name}`)
+  }
+
+  /**
+   * xspace.sty's \\xspace (\\@xspace): a space token unless the next token is one of its exceptions (then \\relax, a command
+   * that makes nothing in its place); a macro is expanded and looked at again. A command the expander does not know might be a macro of LaTeX's
+   * that expands to an exception: not read, but for those of XSPACE_BEFORE (a math shift and \\par are no exceptions).
+   */
+  private xspace(t: Tok) {
+    if (this.moving) throw new ExpansionError(`the robust command ${printCs(t.cs!).trim()} in a moving argument`)
+    for (;;) {
+      const x = this.getNext()
+      if (!x) return
+      const m = x.cs !== undefined && !x.dontExpand ? this.meaning(x) : null
+      // (another \xspace: it expands to \protect\xspace, and \protect is \relax, no exception: the space, then that one)
+      if (m?.kind === "prim" && m.name === "xspace") { this.backInput([x]); this.backInput([{ cs: "relax" }]); this.backInput([{ cat: SPACER, c: 32 }]); return }
+      if (m && (m.kind === "macro" || (m.kind === "prim" && EXPANDABLE.has(m.name)))) { this.expand(x); continue }
+      this.backInput([x])
+      const exception = x.cs === undefined ? (x.cat === OTHER_CHAR && XSPACE_CHARS.has(x.c)) || x.cat === LEFT_BRACE || x.cat === RIGHT_BRACE || x.cat === SPACER
+        : m?.kind === "char" ? m.cat === OTHER_CHAR && XSPACE_CHARS.has(m.c) : x.active ? x.cs === "~" : XSPACE_COMMANDS.has(x.cs)
+      if (exception) { this.backInput([{ cs: "relax" }]); return } // (still a command there: \emph's \maybe@ic sees no . or ,)
+      if (x.cs !== undefined && m?.kind !== "char" && (x.active || !XSPACE_BEFORE.has(x.cs))) throw new ExpansionError(`\\xspace before ${printCs(x.cs, x.active).trim()}`)
+      this.backInput([{ cat: SPACER, c: 32 }])
+      return
+    }
   }
 
   private need(t: Tok | null): Tok {
@@ -180,6 +230,7 @@ export class Expander {
 
   /** macro_call (§§ 389–400) */
   private macroCall(t: Tok, m: Macro) {
+    if (this.moving && m.protected) throw new ExpansionError(`the robust command ${printCs(t.cs!, t.active).trim()} in a moving argument`)
     const args: Tok[][] = []
     let pi = 0
     let relax = false
@@ -403,6 +454,7 @@ export class Expander {
       }
       case "def": case "gdef": case "edef": case "xdef": this.def(m.name, pre); return
       case "newcommand": case "renewcommand": case "providecommand": case "DeclareRobustCommand": this.newcommand(m.name); return
+      case "newenvironment": case "renewenvironment": this.newenvironment(m.name); return
       case "let": this.let(pre.global); return
       case "begingroup": this.beginGroup(); return
       case "endgroup": this.endGroup(); return
@@ -419,6 +471,7 @@ export class Expander {
 
   private def(kind: string, pre: { global: boolean; long: boolean; protected: boolean }) {
     const target = this.getRToken()
+    if (this.latexOwned(target)) this.latexError(kind, target)
     // § 473: the parameter text
     const params: ParamItem[] = []
     let brace = false, n = 0
@@ -444,43 +497,76 @@ export class Expander {
 
   /** \\newcommand{\\cs}[n][default]{body} and its relatives (latex.ltx \\@star@or@long, \\@argdef, \\@xargdef). */
   private newcommand(kind: string) {
-    let x = this.need(this.getNext())
-    while (x.cat === SPACER) x = this.need(this.getNext())
+    let x = this.nonSpace()
     const long = !(x.cat === OTHER_CHAR && x.c === 42) // \\newcommand* makes a short macro
-    if (!long) x = this.need(this.getNext())
-    while (x.cat === SPACER) x = this.need(this.getNext())
+    if (!long) x = this.nonSpace()
     let target: Tok = x
     if (x.cat === LEFT_BRACE) {
       const name = this.balanced(x, true).filter((y) => y.cat !== SPACER)
       if (name.length !== 1 || name[0].cs === undefined) throw new ExpansionError(`\\${kind}: missing control sequence`)
       target = name[0]
     } else if (x.cs === undefined) throw new ExpansionError(`\\${kind}: missing control sequence`)
-    const next = () => { let y = this.need(this.getNext()); while (y.cat === SPACER) y = this.need(this.getNext()); return y }
+    const { params, optional, body } = this.signature(target, kind)
+    const k = key(target)!
+    const defined = this.meanings.has(k) && this.meanings.get(k)!.kind !== "undefined"
+    if (kind === "providecommand" && (defined || this.known(target.cs!) || this.latexOwned(target))) return
+    if (this.latexOwned(target)) this.latexError(kind, target)
+    if (kind === "newcommand" && defined) { this.warnings.push(`Command ${printCs(target.cs!).trim()} already defined`); return }
+    this.defineCommand(k, { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }, optional)
+  }
+
+  /**
+   * \\newenvironment{name}[n][default]{begin}{end} and \\renewenvironment (latex.ltx \\@newenv): \\name is a command with
+   * the arguments, as \\newcommand makes one, and \\endname one without (`env` marks \\name for \\begin)
+   */
+  private newenvironment(kind: string) {
+    let x = this.nonSpace()
+    const long = !(x.cat === OTHER_CHAR && x.c === 42)
+    if (!long) x = this.nonSpace()
+    if (x.cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
+    const chars = this.balanced(x, true)
+    if (!chars.length || chars.some((y) => y.cs !== undefined || y.cat === SPACER)) throw new ExpansionError(`\\${kind}: an environment name of characters`)
+    const name = String.fromCharCode(...chars.map((y) => y.c!))
+    const target: Tok = { cs: name }
+    const { params, optional, body } = this.signature(target, kind)
+    if (this.nonSpace().cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
+    const end = this.readBody({ cs: `end${name}` }, 0, false)
+    if (this.latexOwned(target)) this.latexError(kind, target)
+    const m = this.meanings.get(name)
+    if (kind === "newenvironment" && m && m.kind !== "undefined") { this.warnings.push(`Environment ${name} already defined`); return }
+    this.defineCommand(name, { kind: "macro", params, brace: false, body, long, protected: false, env: true }, optional)
+    this.define(`end${name}`, { kind: "macro", params: [], brace: false, body: end, long, protected: false }, false)
+  }
+
+  private nonSpace(): Tok { let y = this.need(this.getNext()); while (y.cat === SPACER) y = this.need(this.getNext()); return y }
+
+  /** [n][default]{body}: the parameters (an optional first one delimited by [ ]), its default and the body */
+  private signature(target: Tok, kind: string): { params: ParamItem[]; optional?: Tok[]; body: BodyItem[] } {
     const bracket = (): Tok[] => this.delimitedArg(target, [{ cat: OTHER_CHAR, c: 93 }], true)
-    let y = next(), n = 0
+    let y = this.nonSpace(), n = 0
     let optional: Tok[] | undefined
     if (y.cat === OTHER_CHAR && y.c === 91) {
       const digits = bracket().filter((z) => z.cat !== SPACER).map((z) => String.fromCharCode(z.c ?? 0)).join("")
       if (!/^[0-9]$/.test(digits)) throw new ExpansionError(`\\${kind}: illegal number of arguments [${digits}]`)
       n = Number(digits)
-      y = next()
-      if (y.cat === OTHER_CHAR && y.c === 91) { optional = bracket(); y = next() }
+      y = this.nonSpace()
+      if (y.cat === OTHER_CHAR && y.c === 91) { optional = bracket(); y = this.nonSpace() }
     }
     if (y.cat !== LEFT_BRACE) throw new ExpansionError(`\\${kind}: missing {`)
     const body = this.readBody(target, n, false)
+    if (optional && n === 0) throw new ExpansionError(`\\${kind}: a default value needs an argument`)
     const params: ParamItem[] = optional
       ? [{ tok: { cat: OTHER_CHAR, c: 91 } }, { param: 1 }, { tok: { cat: OTHER_CHAR, c: 93 } }, ...Array.from({ length: n - 1 }, (_, i) => ({ param: i + 2 }))]
       : Array.from({ length: n }, (_, i) => ({ param: i + 1 }))
-    if (optional && n === 0) throw new ExpansionError(`\\${kind}: a default value needs an argument`)
-    const k = key(target)!
-    const defined = this.meanings.has(k) && this.meanings.get(k)!.kind !== "undefined"
-    if (kind === "newcommand" && defined) { this.warnings.push(`Command ${printCs(target.cs!).trim()} already defined`); return }
-    if (kind === "providecommand" && (defined || this.known(target.cs!))) return
-    const macro: Macro = { kind: "macro", params, brace: false, body, long, protected: kind === "DeclareRobustCommand" }
+    return { params, optional, body }
+  }
+
+  /** a command \\newcommand defines: with an optional argument, \\foo is \\@protected@testopt\\foo\\\\foo{default} and \\\\foo
+   *  takes [#1] */
+  private defineCommand(k: string, macro: Macro, optional: Tok[] | undefined) {
     if (!optional) { this.define(k, macro, false); return }
-    // \foo is \@protected@testopt\foo\\foo{default}; \\foo takes [#1]
-    this.define("\\" + k, macro, false)
-    this.define(k, { kind: "macro", params: [], brace: false, body: [], long: false, protected: true, optional, inner: "\\" + k }, false)
+    this.define("\\" + k, { ...macro, env: undefined }, false)
+    this.define(k, { kind: "macro", params: [], brace: false, body: [], long: false, protected: true, optional, inner: "\\" + k, ...(macro.env ? { env: true } : {}) }, false)
   }
 
   /** A macro body up to the matching right brace (the left brace already read), with #1…#n (§ 477). */
@@ -491,6 +577,7 @@ export class Expander {
       let x = this.need(this.getNext())
       if (expand) {
         while (this.expandable(x) && !this.isProtected(x)) {
+          if (this.meaning(x).kind === "prim" && (this.meaning(x) as { name: string }).name === "xspace") throw new ExpansionError("\\xspace in an \\edef")
           if (this.meaning(x).kind === "prim" && (this.meaning(x) as { name: string }).name === "unexpanded") {
             for (const u of this.scanGeneralText()) body.push({ tok: u })
             x = this.need(this.getNext())
@@ -517,6 +604,7 @@ export class Expander {
 
   private let(global: boolean) { // § 1221
     const target = this.getRToken()
+    if (this.latexOwned(target)) this.latexError("let", target)
     let x = this.need(this.getNext())
     while (x.cat === SPACER) x = this.need(this.getNext())
     if (x.cat === OTHER_CHAR && x.c === 61) { x = this.need(this.getNext()); if (x.cat === SPACER) x = this.need(this.getNext()) }

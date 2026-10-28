@@ -1,0 +1,22 @@
+% fixture: macros/environment-after
+% tier: T3
+% engine: document
+% covers: whether an \@doendpe is in force where the document's environment begins (no group needed when not): after a tabular in the paragraph (none), after a list's end in math (none there), after a list with a blank line between (none)
+% issue: #344
+\documentclass{article}
+\newenvironment{solution}{\par\noindent\textbf{Solution.}\ }{\par}
+\newenvironment{pair}{(}{)}
+\begin{document}
+A table \begin{tabular}{l} x \end{tabular} in the text.
+\begin{solution}
+After the table.
+\end{solution}
+\begin{itemize}
+\item one
+\end{itemize}
+and a formula $\begin{pair} a \end{pair}$ right after the list.
+
+\begin{solution}
+A paragraph after the blank line.
+\end{solution}
+\end{document}

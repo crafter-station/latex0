@@ -1,0 +1,12 @@
+% fixture: macros/robust-moving
+% tier: T3
+% engine: document
+% covers: a robust command of the document's (\DeclareRobustCommand) in a section title: LaTeX writes \protect\proj to the .toc, which the engine does not keep yet, so not laid out
+% issue: #344
+\documentclass{article}
+\DeclareRobustCommand{\proj}{Atlas}
+\begin{document}
+\tableofcontents
+\section{Project \proj}
+Text.
+\end{document}

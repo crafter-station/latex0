@@ -756,6 +756,9 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // an empty group: no node, but no ligature or kern across it
     // (and \ignorespaces stops at it)
     if (body.startsWith("{}", i)) { flushText(); out.push({ kind: "group", inner: [] }); i += 2; continue }
+    // \relax: no node either, and the spaces after it go (a \newcommand's optional argument starts with one)
+    const rx = body.slice(i).match(/^\\relax(?![A-Za-z])\s*/)
+    if (rx) { flushText(); out.push({ kind: "group", inner: [] }); i += rx[0].length; continue }
     if (po.groups && body[i] === "{") { // (no ligature or kern across its ends either)
       const j = closingBrace(body, i)
       flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue

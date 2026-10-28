@@ -11,7 +11,7 @@ import { spanishAlph, spanishLayout } from "./spanish"
 export const SECTIONAL = ["chapter", "section", "subsection", "subsubsection", "paragraph", "subparagraph"] as const
 
 /** The counter commands, as text that leaves no node behind (and `{}`, what each one leaves). */
-export const COUNTER_COMMANDS = /\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{[^{}]*\})?|\{\}/g
+export const COUNTER_COMMANDS = /\\(?:setcounter|addtocounter|stepcounter|refstepcounter)\s*\{[^{}]*\}(?:\s*\{(?:[^{}]|\{[^{}]*\})*\})?|\{\}/g
 
 /** \arabic, \roman, \Roman, \alph, \Alph of a value. */
 export function representation(style: string, n: number): string {
@@ -147,11 +147,19 @@ export class Counters {
     throw new Unsupported(`counter ${name}`)
   }
 
+  /** \setcounter and \addtocounter: the document's counters, the class's sectioning counters to subsubsection, equation,
+   *  figure, table (no other is reset: only \stepcounter resets) */
   private set(name: string, value: number): void {
     const u = this.user.get(name)
-    if (!u) throw new Unsupported(`\\setcounter of LaTeX's ${name}`)
-    u.value = value
+    if (u) { u.value = value; return }
+    const l = this.sectionalLevel(name)
+    if (l >= 0) { this.sectional[l] = value; return }
+    if (name === "equation" || name === "figure" || name === "table") { this[name] = value; return }
+    throw new Unsupported(`\\setcounter of LaTeX's ${name}`)
   }
+
+  /** a sectioning counter, chapter to subsubsection: its level, or -1 (article's chapter is no counter: LaTeX says so) */
+  private sectionalLevel(name: string): number { return SECTIONAL.slice(0, 4).indexOf(name as typeof SECTIONAL[number]) }
 
   /** \the<counter> of a document's counter: \arabic (\newcounter{c}[parent] only resets it; \counterwithin would change \the) */
   private theUser(name: string): string {
@@ -166,7 +174,7 @@ export class Counters {
    * in text (`inText`) it stays where it stands, as \LXcurrentlabel{label}{href}{}.
    */
   counted(text: string, inText: boolean, refstep: (label: string, href: string) => void): string {
-    return text.replace(/\\(setcounter|addtocounter|stepcounter|refstepcounter)\s*\{([^{}]*)\}(?:\s*\{([^{}]*)\})?|\\(arabic|roman|Roman|alph|Alph)\s*\{([^{}]*)\}|\\the([a-zA-Z]+)\b\s*/g, (all, cmd, name, arg, style, cname, tname) => {
+    return text.replace(/\\(setcounter|addtocounter|stepcounter|refstepcounter)\s*\{([^{}]*)\}(?:\s*\{((?:[^{}]|\{[^{}]*\})*)\})?|\\(arabic|roman|Roman|alph|Alph)\s*\{([^{}]*)\}|\\the([a-zA-Z]+)\b\s*/g, (all, cmd, name, arg, style, cname, tname) => {
       if (cmd) {
         const val = (x: string | undefined) => {
           const vm = x?.match(/^\s*\\value\s*\{([^{}]*)\}\s*$/)
@@ -176,6 +184,7 @@ export class Counters {
         }
         if (cmd === "setcounter") this.set(name, val(arg))
         else if (cmd === "addtocounter") this.set(name, this.value(name) + val(arg))
+        else if (cmd === "stepcounter" && this.sectionalLevel(name) > 0) this.stepSectional(this.sectionalLevel(name)) // (\@stpelt: the deeper ones and the document's within reset)
         else {
           if (!this.user.has(name)) throw new Unsupported(`\\${cmd}{${name}}`)
           this.set(name, this.value(name) + 1)
@@ -192,6 +201,9 @@ export class Counters {
       }
       if (style) return representation(style, this.value(cname))
       if (this.user.has(tname)) return this.theUser(tname)
+      // (the class's: \thesection … with the chapter's or section's before it, \theequation, \thefigure, \thetable)
+      if (this.sectionalLevel(tname) >= 0) return this.theSectional(this.sectionalLevel(tname))
+      if (tname === "equation" || tname === "figure" || tname === "table") return this.the(this[tname as "figure"])
       return all
     })
   }

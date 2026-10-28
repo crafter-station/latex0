@@ -1,0 +1,11 @@
+% fixture: macros/def-latex
+% tier: T3
+% engine: document
+% covers: \def of a command LaTeX defines (\baselinestretch) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)
+% issue: #344
+\documentclass{article}
+\def\baselinestretch{1.5}
+\begin{document}
+Some text in a paragraph of its own, long enough to run over more than one line of the page so that the
+baseline skip between its lines shows.
+\end{document}

@@ -1,0 +1,11 @@
+% fixture: macros/renewcommand-package
+% tier: T3
+% engine: document
+% covers: \renewcommand of a command a loaded package defines (amssymb's \checkmark): not read by the engine yet, so not laid out (it is not dropped)
+% issue: #344
+\documentclass{article}
+\usepackage{amssymb}
+\renewcommand{\checkmark}{(ok)}
+\begin{document}
+Done \checkmark{} and checked.
+\end{document}

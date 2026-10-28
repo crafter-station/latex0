@@ -1,0 +1,21 @@
+% fixture: macros/environment-arguments
+% tier: T3
+% engine: document
+% covers: \newenvironment with an argument, with an optional one (its default and a given one; \@protected@testopt's \relax) and starred, used in a paragraph and as paragraphs of their own, the spaces around \begin and \end as TeX reads them, no ligature across them; \renewenvironment of the document's environment
+% issue: #344
+\documentclass{article}
+\newenvironment{piece}[1]{\textbf{#1:} }{ (end)}
+\newenvironment{opt}[2][Note]{\emph{#1, #2.} }{}
+\newenvironment*{plain}{}{.}
+\newenvironment{nothing}{}{}
+\begin{document}
+Before \begin{piece}{One} the first part\end{piece} and after; \begin{opt}{x} default\end{opt}
+and \begin{opt}[Hint]{y}given\end{opt} then \begin{plain} plain \end{plain} done, of\begin{nothing}f\end{nothing}ice.
+
+\begin{piece}{Two}
+A paragraph of its own.
+\end{piece}
+
+\renewenvironment{piece}[1]{\textsc{#1} }{}
+Again \begin{piece}{Three}renewed\end{piece}.
+\end{document}

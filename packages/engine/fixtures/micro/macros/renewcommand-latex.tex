@@ -1,0 +1,11 @@
+% fixture: macros/renewcommand-latex
+% tier: T3
+% engine: document
+% covers: \renewcommand of a command LaTeX defines (\thesection) changes LaTeX, not a macro of the document's: not read by the engine yet, so not laid out (it is not dropped)
+% issue: #344
+\documentclass{article}
+\renewcommand{\thesection}{\Roman{section}}
+\begin{document}
+\section{Results}
+In section \thesection{} we report.
+\end{document}

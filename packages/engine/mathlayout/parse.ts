@@ -227,6 +227,7 @@ function parseTokens(toks: Token[], data: MathData, opts: MathOptions, fam: numb
       const t = toks[pos++]
       if (!t) { if (inGroup || inFence) throw new Error(inFence ? "math: missing \\right" : "math: missing }"); return out }
       if ("cs" in t && t.cs === "right") { if (!inFence) throw new Error("math: Extra \\right"); return out }
+      if ("cs" in t && t.cs === "relax") continue // (no noad)
       if ("cs" in t && t.cs === "begin") { // amsmath's matrix, pmatrix, bmatrix, Bmatrix, vmatrix, Vmatrix
         const { name, body } = environment()
         if (!opts.amsmath || !(name in MATRICES)) throw new Error(`math: unsupported environment ${name}`)

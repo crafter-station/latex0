@@ -1,0 +1,20 @@
+% fixture: macros/counters-text
+% tier: T3
+% engine: document
+% covers: the document's counter in text: \refstepcounter then \label as a paragraph starts (both in vertical mode: the \write before the paragraph, the label the counter's), \setcounter, \stepcounter, \addtocounter with \value (in text and alone between paragraphs), \arabic \roman \Roman \alph \Alph, \theq, \ref to them (two runs)
+% issue: #344
+\documentclass{article}
+\newcounter{q}
+\begin{document}
+\refstepcounter{q}\label{first}Question \theq: see \ref{first} and \ref{second}.
+
+\refstepcounter{q}\label{second}Question \theq{} is the second.
+\setcounter{q}{5}\stepcounter{q}Now \arabic{q}, \roman{q}, \Roman{q}, \alph{q} and \Alph{q};
+\addtocounter{q}{\value{q}}twice is \theq.
+
+\addtocounter{q}{\value{q}}
+
+And again \theq.
+
+\addtocounter{q}{\value{q}}\label{third}The label after it is \ref{third}.
+\end{document}

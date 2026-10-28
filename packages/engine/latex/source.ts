@@ -5,6 +5,7 @@
 // layout replaces with the laid-out material where it stands.
 
 import { expandDocument } from "../expand/document"
+import { ARTICLE, CLASSES, PACKAGES } from "../expand/defined"
 import { isKnownCommand } from "../parser"
 import { Unsupported } from "./unsupported"
 import { spanishText } from "./spanish"
@@ -137,7 +138,7 @@ export function prepareSource(source: string): DocumentSource {
   // fancyhdr's \headrulewidth and \footrulewidth are macros its rules read: \renewcommand'd, \LXfancyrule{name}{width}
   source = source.replace(/\\renewcommand\s*(?:\{\\(headrulewidth|footrulewidth)\}|\\(headrulewidth|footrulewidth)(?![A-Za-z]))\s*\{([^{}]*)\}/g, (all: string, a: string | undefined, b: string | undefined, width: string, offset: number, text: string) =>
     commentedAt(text, offset) ? all : `\\LXfancyrule{${a ?? b}}{${width}}`)
-  const expanded = expandDocument(source, { known: isKnownCommand })
+  const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
@@ -161,6 +162,27 @@ export function prepareSource(source: string): DocumentSource {
   })
   if ([...src.matchAll(/\\(?:begin|end)\{(?:minipage|subfigure|subtable)\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
   return { src, listings, tabulars, minipages, urls, graphics, tikz, files }
+}
+
+const words = (s: string | undefined) => (s ? s.split(" ") : [])
+/** the preamble, without its comments */
+const preambleOf = (source: string) => source.slice(0, Math.max(0, source.indexOf("\\begin{document}"))).replace(/(^|[^\\])%.*$/gm, "$1")
+/** the packages the preamble loads */
+const packagesOf = (source: string) => [...preambleOf(source).matchAll(/\\(?:usepackage|RequirePackage)\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}/g)].flatMap((m) => m[1].split(",").map((p) => p.trim()))
+const ARTICLE_NAMES = new Set(words(ARTICLE))
+
+/**
+ * The commands LaTeX defines for the document, which its own definitions cannot change here (expand/defined.ts):
+ * article's, its class's, its packages' (a class or package not there is not read by the engine: the preamble says
+ * so), and the \the<c> of its counters (\newcounter{c}, \newtheorem{c}), which the engine reads (\ref)
+ */
+function latexCommands(source: string): (name: string) => boolean {
+  const own = new Set<string>()
+  const cls = preambleOf(source).match(/\\documentclass\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}/)?.[1].trim()
+  if (cls && cls !== "article") for (const n of words(CLASSES[cls])) own.add(n)
+  for (const p of packagesOf(source)) for (const n of words(PACKAGES[p])) own.add(n)
+  for (const m of source.matchAll(/\\(?:newcounter|newtheorem)\s*\{([A-Za-z]+)\}/g)) own.add(`the${m[1]}`)
+  return (name) => ARTICLE_NAMES.has(name) || own.has(name)
 }
 
 /** the end of the group opened at `i` in `s` (\{ and \} escaped), or -1 */

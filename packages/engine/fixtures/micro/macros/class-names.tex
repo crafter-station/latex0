@@ -1,0 +1,11 @@
+% fixture: macros/class-names
+% tier: T3
+% engine: document
+% covers: \renewcommand of a command the class defines (report's \chaptername): not read by the engine yet, so not laid out (it is not dropped)
+% issue: #344
+\documentclass{report}
+\renewcommand{\chaptername}{Part}
+\begin{document}
+\chapter{Results}
+Some text.
+\end{document}
