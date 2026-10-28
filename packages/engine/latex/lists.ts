@@ -26,7 +26,7 @@ import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
 import { isSpanish, languageGroups } from "./babel"
 import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
 import { hlistInput } from "./paragraph"
-import { labelText, preset, unbraced, type ListSetup, type ResumeScope } from "./enumitem"
+import { labelText, preset, type ListSetup, type ResumeScope } from "./enumitem"
 import { representation } from "./counters"
 import { frenchItemLabel, frenchListDimens, frenchTextGuard } from "./french"
 
@@ -171,7 +171,6 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     const type = b.env === "enumerate" ? "enum" : "item"
     eit = preset({ env: b.env, e: enumitem, depth, level: b.env === "description" ? descDepth : level, dims, units, parindent: parindentAt, linewidth: ctx.lineWidth, textwidth: run.k.dimens.textwidth, prevLabel: ctx.labels?.[`${type}${level - 1}`] ?? null, widest, scope: ctx.scope ?? new Map(), own: b.options ?? "" })
     ;({ leftmargin, labelwidth, labelsep: ls, itemindent, listparindent, rightmargin, topsep, partopsep, parsep, itemsep } = dims)
-    if (eit.ref !== null && refs.cleveref) throw new Unsupported("cleveref with enumitem's label or ref")
     // (spanish.ldf's \theenum… after an enclosing list's label= or ref=; its \@roman, small capitals, throws in representation)
     if (ctx.thes && b.env === "enumerate" && isSpanish(cx.pre.babel)) throw new Unsupported("spanish.ldf's references in a list inside one with enumitem's label or ref")
   } else if (b.options !== undefined) throw new Unsupported(`\\begin{${b.env}}[${b.options}] without enumitem`)
@@ -324,8 +323,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         // hyperref: \refstepcounter's anchor (Item.n, a counter of its own) on the vertical list before the item
         if (hyper) { refs.href = `Item.${++run.items}`; run.hyperItem = false; v.nodes.push(...anchor(refs.href, run.k.sizes[ctx.size].baselineskip.width, "v", lastNode())) }
         if ((level === 2 || level === 4) && n > 26) throw new Unsupported("\\alph counter past z") // LaTeX: Counter too large
-        // (a \label whose text is more than characters, or has groups inside them: not modeled)
-        if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /[\\{}$]/.test(unbraced(refs.label)) && hasLabel(parts)) throw new Unsupported(`a \\label to "${refs.label}"`)
+        // (a \label whose text has more than characters, groups and text font commands: not modeled)
+        if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /\$|\\(?!(?:textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{)/.test(refs.label) && hasLabel(parts)) throw new Unsupported(`a \\label to "${refs.label}"`)
         if (eit?.label != null || eit?.format) l.push(...formatted(cx.normalAttrs, labelText(eit.label ?? `{${ENUM_LABELS[level - 1]}}`, [...ctx.enums, n])))
         else if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
         else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)

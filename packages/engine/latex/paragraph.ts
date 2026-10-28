@@ -39,7 +39,7 @@ import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, 
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
 import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
-import { crefOutput, crefRangeOutput, crefWrite, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
+import { crefOutput, crefRangeOutput, crefWrite, writtenLabel, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatEntry, type NatItem, type NatStyle } from "./natbib"
 import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
@@ -258,9 +258,12 @@ export function crefWrites(refs: Refs, key: string, inPara: boolean, cref = refs
   return c ? [crefWrite(c.writes, key, cref, c.at(), inPara)] : []
 }
 
+/** A reference's text as \ref and friends typeset it: characters, or with groups and text font commands in it, as text */
+export const labelPieces = (label: string): Piece[] => (/[\\{}]/.test(label) ? pieces(label, false, { groups: true }) : [{ kind: "text", src: label }])
+
 /** \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage}{}{\@currentHref}{}}} */
 export function labelWrite(refs: Refs, key: string, label = refs.label, href = refs.href, name = refs.name): Node {
-  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${label}}{\\thepage }{${name}}{${href}}{}}}` }
+  const node: Node = { kind: "whatsit", text: `\\write1{\\newlabel{${key}}{{${writtenLabel(label)}}{\\thepage }{${name}}{${href}}{}}}` }
   refs.writes.push({ node, key, label, href, name })
   return node
 }
@@ -1185,6 +1188,12 @@ const normalSpace = (font: Font, state: HState): Node => state.spaceSkips
   ? paramGlue("spaceskip", glueOf(state.spaceSkips.space))
   : glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL)
 
+/** A reference's text into a horizontal list: its characters, or its pieces (labelPieces) */
+function appendLabel(list: Node[], label: string, font: Font, size: SizeCommand, state: HState, ctx: PieceContext, attrs: FontAttrs) {
+  if (/[\\{}]/.test(label)) appendPieces(list, labelPieces(label), font, size, state, ctx, attrs)
+  else appendText(list, label, font, state, !ctx.restricted)
+}
+
 /** Text, formulas and footnotes into a horizontal list. */
 function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, state: HState, ctx: PieceContext, attrs: FontAttrs = ctx.base) {
   const { k, mathSurround, doc } = ctx
@@ -1429,7 +1438,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         for (const x of xs) {
           if (x.t === "text") {
             // (a run of characters goes on into the next text, but not over a name's case change)
-            x.s.split("\u0000").forEach((t, i) => { const prev = ps.at(-1); if (i === 0 && prev?.kind === "text") prev.src += t; else ps.push({ kind: "text", src: t }) })
+            // (a label with groups and text font commands: its pieces)
+            x.s.split("\u0000").forEach((t, i) => { const prev = ps.at(-1); if (/[\\{}]/.test(t)) ps.push(...labelPieces(t)); else if (i === 0 && prev?.kind === "text") prev.src += t; else ps.push({ kind: "text", src: t }) })
           }
           else if (x.t === "tie") ps.push({ kind: "tie" })
           else if (x.t === "qq") ps.push({ kind: "qq" })
@@ -1478,7 +1488,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
         // \autoref* \@gobbletwo's the link's first two arguments
         // (hyperref's names in babel's main language: autorefLanguage)
         const name = autorefName(known.href, autorefLanguage(doc.babel))
-        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: sourceText(isSpanish(doc.babel) ? markAccentHyphens(name) : name) } as Piece, { kind: "tie" } as Piece]), { kind: "text", src: known.label }], font, size, state, inner, attrs)
+        appendPieces(text, [...(name === null ? [] : [{ kind: "text", src: sourceText(isSpanish(doc.babel) ? markAccentHyphens(name) : name) } as Piece, { kind: "tie" } as Piece]), ...labelPieces(known.label)], font, size, state, inner, attrs)
       } else {
         // \T@nameref: the label's third field (its tokens as the .aux file is read) in \@setref; with hyperref
         // \hyper@@link{}{anchor}{name}, nothing for an empty name (\Hy@setref@link); \nameref* (or no hyperref) \real@setref
@@ -1500,7 +1510,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (p.kind === "ref" && p.sub && doc.refs?.hyper) {
         // with hyperref, \hyperref[key]{\ref*{sub@key}}: \ref*'s text and \null, in a link to key's anchor when key is defined
         let text: Node[] = []
-        if (known) { appendText(text, known.label, font, state, !ctx.restricted); text.push(hpack([])) }
+        if (known) { appendLabel(text, known.label, font, size, state, ctx, attrs); text.push(hpack([])) }
         else { appendText(text, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false); text = [hpack(text)] }
         const target = doc.refs.prev?.get(p.key.slice("sub@".length))
         list.push(...(target ? refLink(text, target.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined) : text))
@@ -1510,11 +1520,11 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
         const text: Node[] = []
-        appendText(text, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted)
+        appendLabel(text, p.kind === "ref" ? known.label : known.page, font, size, state, ctx, attrs)
         list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
         continue
       }
-      if (known) { appendText(list, p.kind === "ref" ? known.label : known.page, font, state, !ctx.restricted); list.push(hpack([])) }
+      if (known) { appendLabel(list, p.kind === "ref" ? known.label : known.page, font, size, state, ctx, attrs); list.push(hpack([])) }
       else {
         const qq: Node[] = []
         appendText(qq, "??", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)

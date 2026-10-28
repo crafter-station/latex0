@@ -1,0 +1,27 @@
+% fixture: cleveref/enumitem-labels
+% tier: T3
+% engine: document
+% covers: cleveref with enumitem's label= and ref=: \cref@currentlabel's label is \theenum… as enumitem sets it (the ref format, no \p@), in the .aux file's key@cref line and in \cref and \ref; nested lists, label*=, start=, font= and a list after one with its own labels
+% issue: #350
+\documentclass{article}
+\usepackage{enumitem}
+\usepackage{cleveref}
+\begin{document}
+\begin{enumerate}[label=(\alph*)]
+\item One.\label{it:a}
+\item Two.\label{it:b}
+\begin{enumerate}[label*=.\arabic*]
+\item Nested.\label{it:nested}
+\end{enumerate}
+\end{enumerate}
+\begin{enumerate}[label=\roman*., ref=\roman*, start=3]
+\item Three.\label{it:roman}
+\end{enumerate}
+\begin{enumerate}[label=\textbf{\arabic*.}, leftmargin=*]
+\item Bold.\label{it:bold}
+\end{enumerate}
+\begin{enumerate}[font=\bfseries]
+\item Font.\label{it:font}
+\end{enumerate}
+See \cref{it:a}, \cref{it:b,it:nested}, \Cref{it:roman}, \cref{it:bold} and \cref{it:font}; \ref{it:a}, \ref{it:nested} and \ref{it:bold}.
+\end{document}

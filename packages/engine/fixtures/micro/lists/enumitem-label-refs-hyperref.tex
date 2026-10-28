@@ -1,0 +1,24 @@
+% fixture: lists/enumitem-label-refs-hyperref
+% tier: T3
+% engine: document
+% covers: \ref to enumitem items whose label has groups and text font commands ({(b)}.1 from label*=, \textbf{1.}, \textit{i}): the .aux file's \newlabel (\protect \textbf  {1.}) and \ref typesetting the groups and the command (its italic corrections), in hyperref links
+% issue: #350
+\documentclass{article}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\begin{document}
+\begin{enumerate}[label=(\alph*)]
+\item One.\label{it:a}
+\item Two.
+\begin{enumerate}[label*=.\arabic*]
+\item Nested.\label{it:nested}
+\end{enumerate}
+\end{enumerate}
+\begin{enumerate}[label=\textbf{\arabic*.}]
+\item Bold.\label{it:bold}
+\end{enumerate}
+\begin{enumerate}[label=\textit{\roman*}]
+\item It.\label{it:it}
+\end{enumerate}
+See \ref{it:a}, \ref{it:nested}, \ref{it:bold}, \ref{it:it} and \ref{it:it}f, \textit{x \ref{it:bold}}.
+\end{document}
