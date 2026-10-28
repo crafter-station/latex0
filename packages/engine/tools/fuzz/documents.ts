@@ -238,12 +238,12 @@ export function makeDocument(r: () => number): string {
     const target = () => (names.length && r() < 0.4 ? `(${pick(names)})` : coord())
     const op = () => pick([` -- ${target()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${target()}`, ` |- ${coord()}`, ` to ${target()}`,
       ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`,
-      ` .. controls ${coord()} and ${coord()} .. ${target()}`, ` to[${pick(["bend left", "out=90,in=180", "bend right=20"])}] ${target()}`, ` ${coord().replace(/^\+\+?/, "")} edge[->] ${target()}`,
+      ` .. controls ${coord()} and ${coord()} .. ${target()}`, ` to[${pick(["bend left", "out=90,in=180", "bend right=20", "loop above", "loop left", "loop below,looseness=3"])}] ${target()}`, ` ${coord().replace(/^\+\+?/, "")} edge[->] ${target()}`,
       ` arc (${pick(["0:90", "30:200", "180:-45"])}:${pick(["1", "5mm", "0.5"])})`, ` grid${pick(["", "[step=0.5]"])} ${coord().replace(/^\+\+?/, "")}`,
       ` -- ($(${num()},${num()})!0.5!(${num()},${num()})$)`, ` -- ($(${num()},${num()})+(1,0)$)`,
       ` -- plot${pick(["", "[mark=*]"])} coordinates {${coord().replace(/^\+\+?/, "")} ${coord().replace(/^\+\+?/, "")}}`, ` -- plot[domain=0:1,samples=4] (\\x,{\\x*\\x})`])
     const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]", "[opacity=0.5]", "[line cap=round,line join=round]", "[x=0.5cm]",
-      "[double]", "[double=red,thick]", "[double distance=2pt,->]", "[double equal sign distance]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+      "[double]", "[double=red,thick]", "[double distance=2pt,->]", "[double equal sign distance]", "[->,>=latex]", "[shorten >=2pt,shorten <=1pt,->]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
     const named = () => {
       const name = `n${names.length}`
       const at = names.length && r() < 0.5 ? `[draw,${pick(["right", "below", "above"])} of=${pick(names)}]` : `${pick(["[draw]", "[draw,circle]", "[fill=yellow!20]", ""])} at ${coord().replace(/^\+\+?/, "")}`

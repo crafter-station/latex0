@@ -375,11 +375,22 @@ export function pgfArrowsMeta(s: PgfState) {
  * The tip kinds a shorthand or kind name stands for (\pgf@arrow@handle@shorthand@empty: the shorthand's
  * sequence, parsed when it was declared)
  */
-function expand(r: Registry, name: string): string[] {
-  if (r.kinds[name]) return [name]
-  const m = r.means[name]
-  if (m === undefined) throw new Unsupported(`pgf: unknown arrow tip kind ${name}`)
-  return parseSpec(r, m, false)
+/** the tips a sequence draws: each shorthand's sequence as the means in force say (the local ones first) */
+export function resolveTips(s: PgfState, tips: PgfTipSequence, depth = 0): string[] {
+  if (depth > 20) throw new Unsupported("pgf: arrow tip shorthands too deep")
+  const r = registry(s)
+  return tips.flatMap((t) => {
+    if (!t.startsWith("=")) return [t]
+    const name = t.slice(1), m = s.local.means[name] ?? r.means[name]
+    if (m === undefined) throw new Unsupported(`pgf: unknown arrow tip kind ${name}`)
+    return resolveTips(s, parseSpec(r, m, false), depth + 1)
+  })
+}
+
+/** \pgfdeclarearrow{name=<->,means={#1}} (TikZ's >=…): \pgf@ar@means@> the specification, \pgf@ar@start@< > */
+export function pgfDeclareMeansGreater(s: PgfState, spec: string) {
+  parseSpec(registry(s), spec, false) // (\pgfarrows@initial@parser: read now)
+  s.setLocal({ means: { ...s.local.means, ">": spec } })
 }
 
 /**
@@ -408,7 +419,9 @@ function parseSpec(r: Registry, spec: string, start: boolean): string[] {
       if (name !== "." && !known(swap(name))) throw new Unsupported(`pgf: unknown arrow tip kind ${name}`)
     }
     if (options.trim() !== "") throw new Unsupported("pgf: arrow tip options")
-    out.push(name === "." ? ["."] : expand(r, swap(name)))
+    // (a shorthand's own sequence is read when the tip is drawn: \pgf@arrow@handle@shorthand@empty{\pgf@ar@means@name})
+    const n = swap(name)
+    out.push(name === "." ? ["."] : r.kinds[n] ? [n] : [`=${n}`])
   }
   if (start) out.reverse()
   return out.flat()
@@ -440,7 +453,7 @@ function getId(s: PgfState, d: PgfDriver, name: string): { i: Instance; p: Param
   const late: (() => void)[] = []
   kind.defaults(s, p, late)
   for (const f of late) f()
-  const key = `${name}@${tn(s.lineWidth)}@0.0pt@@@@${kind.key(p)}`
+  const key = `${name}@${tn(s.lineWidth)}@${s.local.inner ? tn(s.local.inner.width) : "0.0"}pt@@@@${kind.key(p)}`
   const cached = r.cache.get(key)
   if (cached) return { i: cached, p }
   const i: Instance = { tip: 0, back: 0, line: 0, hull: [], code: "" }
@@ -574,7 +587,7 @@ function lineAt(s: PgfState, distance: number, at: PgfPoint, ref: PgfPoint): Pgf
  */
 export function prepareEndOfPath(s: PgfState, d: PgfDriver): PathEnd | null {
   if (s.softPath.length === 0) return null
-  const tips = s.local.endTips
+  const tips = resolveTips(s, s.local.endTips)
   let worry = tips.length > 0
   let { xa, xb } = shortening(s, d, tips)
   xa += s.local.shortenEnd
@@ -606,7 +619,7 @@ export function prepareEndOfPath(s: PgfState, d: PgfDriver): PathEnd | null {
  */
 export function prepareStartOfPath(s: PgfState, d: PgfDriver): PathEnd | null {
   if (s.softPath.length === 0) return null
-  const tips = s.local.startTips
+  const tips = resolveTips(s, s.local.startTips)
   let worry = tips.length > 0
   let { xa, xb } = shortening(s, d, tips)
   xa += s.local.shortenStart
