@@ -1,0 +1,16 @@
+% fixture: macros/renew-emph-spanish
+% tier: T3
+% engine: document
+% covers: \renewcommand{\emph} with babel's spanish, whose \labelenumii uses \emph: not laid out yet
+% issue: #365
+\documentclass{article}
+\usepackage[spanish]{babel}
+\renewcommand{\emph}[1]{\textsl{#1}}
+\begin{document}
+\begin{enumerate}
+\item Uno
+\begin{enumerate}
+\item Dos
+\end{enumerate}
+\end{enumerate}
+\end{document}

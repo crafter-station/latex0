@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1100,
-  "exact": 1088,
+  "fixtures": 1108,
+  "exact": 1096,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 12,
-  "glyphs": 711044
+  "glyphs": 712252
  },
  "areas": [
   {
@@ -141,8 +141,8 @@
   },
   {
    "area": "macros",
-   "fixtures": 56,
-   "exact": 45
+   "fixtures": 64,
+   "exact": 53
   },
   {
    "area": "math",
@@ -8341,10 +8341,10 @@
    "file": "micro/macros/def-latex.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 115,
-   "covers": "\\def of a command LaTeX defines (\\baselinestretch) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\def of LaTeX's \\baselinestretch in the preamble: every size's \\baselineskip from \\begin{document}",
    "issue": "#344"
   },
   {
@@ -8480,15 +8480,37 @@
    "issue": "#344"
   },
   {
-   "id": "macros/let-latex",
-   "file": "micro/macros/let-latex.tex",
+   "id": "macros/let-emph-before",
+   "file": "micro/macros/let-emph-before.tex",
    "area": "macros",
    "tier": "T3",
    "reached": null,
    "status": "skip",
+   "glyphs": 19,
+   "covers": "\\let\\emph\\textbf after a fancyhdr field that holds \\emph (kept, and expanded at each shipout with the new meaning): not laid out yet",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/let-latex",
+   "file": "micro/macros/let-latex.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 26,
-   "covers": "\\let of a command LaTeX defines (\\emph) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped); \\let of a new name to it is an alias",
+   "covers": "\\let of a text font command LaTeX defines (\\emph) to another (\\textbf): the document's from then on; \\let of a new name to it before keeps its meaning then (\\oldemph)",
    "issue": "#344"
+  },
+  {
+   "id": "macros/let-textsc-algorithm",
+   "file": "micro/macros/let-textsc-algorithm.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 36,
+   "covers": "\\let\\textsc\\textsf with algpseudocode, whose \\textproc is \\textsc: not laid out yet",
+   "issue": "#365"
   },
   {
    "id": "macros/lists-tables",
@@ -8645,6 +8667,28 @@
    "issue": "#344"
   },
   {
+   "id": "macros/renew-emph-spanish",
+   "file": "micro/macros/renew-emph-spanish.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 11,
+   "covers": "\\renewcommand{\\emph} with babel's spanish, whose \\labelenumii uses \\emph: not laid out yet",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/renew-emph",
+   "file": "micro/macros/renew-emph.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 56,
+   "covers": "\\let\\textit\\textsl and \\renewcommand{\\emph}[1]{…} with \\textit in it: the document's from then on, in text, nested, in a footnote",
+   "issue": "#365"
+  },
+  {
    "id": "macros/renewcommand-latex",
    "file": "micro/macros/renewcommand-latex.tex",
    "area": "macros",
@@ -8660,10 +8704,10 @@
    "file": "micro/macros/renewcommand-package.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 20,
-   "covers": "\\renewcommand of a command a loaded package defines (amssymb's \\checkmark): not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewcommand of amssymb's \\checkmark, which no other command uses: the document's from then on",
    "issue": "#344"
   },
   {
@@ -8671,11 +8715,22 @@
    "file": "micro/macros/renewenvironment-latex.tex",
    "area": "macros",
    "tier": "T3",
-   "reached": null,
-   "status": "skip",
+   "reached": "T3",
+   "status": "pass",
    "glyphs": 17,
-   "covers": "\\renewenvironment of an environment LaTeX defines (quote) changes LaTeX: not read by the engine yet, so not laid out (it is not dropped)",
+   "covers": "\\renewenvironment of quote (which no other environment uses): the document's from then on, no list around it",
    "issue": "#344"
+  },
+  {
+   "id": "macros/renewenvironment-quote",
+   "file": "micro/macros/renewenvironment-quote.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "\\renewenvironment{quote} around another environment (center): its \\@endpe after it, the paragraph that follows not indented",
+   "issue": "#365"
   },
   {
    "id": "macros/robust-moving",
@@ -8687,6 +8742,39 @@
    "glyphs": 41,
    "covers": "a robust command of the document's (\\DeclareRobustCommand) in a section title: LaTeX writes \\protect\\proj to the .toc, which the engine does not keep yet, so not laid out",
    "issue": "#344"
+  },
+  {
+   "id": "macros/stretch-fancyhdr",
+   "file": "micro/macros/stretch-fancyhdr.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": null,
+   "status": "skip",
+   "glyphs": 130,
+   "covers": "\\linespread with fancyhdr, whose \\f@nch@reset sets \\baselinestretch to 1 in the head and foot: not laid out yet",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/stretch-linespread",
+   "file": "micro/macros/stretch-linespread.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 407,
+   "covers": "\\linespread{1.3} in the preamble: the \\baselineskip and struts of every size (headings, footnotes and floats, which the kernel does not single-space), the display skips the class's",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/stretch-renewcommand",
+   "file": "micro/macros/stretch-renewcommand.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 418,
+   "covers": "\\renewcommand{\\baselinestretch}{1.5} in the preamble, in the report class: every size's \\baselineskip, the chapter heading's too",
+   "issue": "#365"
   },
   {
    "id": "macros/the-appendix",

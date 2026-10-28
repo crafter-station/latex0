@@ -43,10 +43,11 @@ function spacing(s: SetSpace, cmd: "singlespacing" | "onehalfspacing" | "doubles
 
 /**
  * Every size as \set@fontsize selects it with \baselinestretch `stretch`, and its display skips as \everydisplay
- * leaves them (an empty factor, the kernel's \baselinestretch, changes neither: \baselineskip\baselineskip)
+ * leaves them (an empty factor, the kernel's \baselinestretch, changes neither: \baselineskip\baselineskip; `display`
+ * null: no setspace, no \everydisplay)
  */
-export function stretchedSizes(sizes: Record<SizeCommand, SizeData>, stretch: string, display: string): Record<SizeCommand, SizeData> {
-  const factor = display || stretch
+export function stretchedSizes(sizes: Record<SizeCommand, SizeData>, stretch: string, display: string | null): Record<SizeCommand, SizeData> {
+  const factor = display === null ? "" : display || stretch
   return Object.fromEntries(Object.entries(sizes).map(([name, d]) => {
     const bs = stretch ? times(stretch, d.baselineskip.width) : 0
     return [name, {

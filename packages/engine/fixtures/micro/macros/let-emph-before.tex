@@ -1,0 +1,13 @@
+% fixture: macros/let-emph-before
+% tier: T3
+% engine: document
+% covers: \let\emph\textbf after a fancyhdr field that holds \emph (kept, and expanded at each shipout with the new meaning): not laid out yet
+% issue: #365
+\documentclass{article}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhead[L]{\emph{Draft} copy}
+\let\emph\textbf
+\begin{document}
+Some \emph{text}.
+\end{document}

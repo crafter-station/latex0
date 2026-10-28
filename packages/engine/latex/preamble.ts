@@ -11,7 +11,7 @@ import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
 import { lstDefineStyle, lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
-import { times, setspaceCommand, setspaceOptions, withSetspace, type SetSpace } from "./setspace"
+import { times, setspaceCommand, setspaceOptions, stretchedSizes, withSetspace, type SetSpace } from "./setspace"
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import type { AlgorithmPackages } from "./algorithm"
 import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
@@ -299,6 +299,7 @@ export function readPreamble(src: string): Preamble {
   const newCounters: [string, string | null][] = []
   const counterFormats = new Map<string, string>()
   const counterWithin = new Map<string, string>()
+  let stretch = ""
   const captionAdds = new Map<string, [keyof Captions, string][]>()
   const operators: [string, string, boolean][] = [] // \DeclareMathOperator(*){\cmd}{name}
   const paired: [string, string, string][] = [] // \DeclarePairedDelimiter{\cmd}{left}{right}
@@ -339,6 +340,9 @@ export function readPreamble(src: string): Preamble {
       const [lang, name, text] = lxn.length === 3 ? ["", lxn[1], lxn[2]] : [lxn[1], lxn[2], lxn[3]]
       captionAdds.set(lang, [...captionAdds.get(lang) ?? [], [name as keyof Captions, text]]); continue
     }
+    // the kernel's \baselinestretch (source.ts): every size's \baselineskip and strut from \begin{document}'s \selectfont
+    const lxs = line.match(/^\\LXstretch\{(.*)\}$/)
+    if (lxs) { stretch = lxs[1]; continue }
     const lxthe = line.match(/^\\LXthe\{([A-Za-z]+)\}\{(.*)\}$/) // (source.ts: \renewcommand{\the<counter>}{body})
     if (lxthe) { counterFormats.set(lxthe[1], lxthe[2]); continue }
     // (fontenc selects the font: T1 in the family \rmdefault names then)
@@ -597,6 +601,11 @@ export function readPreamble(src: string): Preamble {
     }
   }
   if (setspace) k = withSetspace(k, setspace)
+  if (stretch) {
+    // (setspace's own \baselinestretch, fancyhdr's \f@nch@reset of it and geometry's lines computed from \baselineskip: not modeled with it)
+    if (setspace || fancy || geometryOptions.some((o) => /\b(?:lines|heightrounded)\b/.test(o))) throw new Unsupported(`\\baselinestretch with ${setspace ? "setspace" : fancy ? "fancyhdr" : "geometry's lines"}`)
+    k = { ...k, sizes: stretchedSizes(k.sizes, stretch, null) } // (the display skips the class's)
+  }
   const bb = babel as Preamble["babel"]
   if (bb) k = withBabel(k, bb)
   if (isSpanish(bb)) { // (spanish.ldf's accents in the texts the preamble sets, which the document typesets)

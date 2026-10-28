@@ -183,6 +183,8 @@ export function prepareSource(source: string): DocumentSource {
     commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
   source = counterFormats(source)
   source = captionNames(source)
+  // the preamble's \baselinestretch (\renewcommand, \def, \linespread): \LXstretch{factor}
+  { const begin = documentStart(source); if (begin >= 0) source = source.slice(0, begin).replace(/\\(?:renewcommand\*?\s*(?:\{\\baselinestretch\}|\\baselinestretch(?![A-Za-z]))|def\s*\\baselinestretch(?![A-Za-z])|linespread(?![A-Za-z]))\s*\{\s*(\d*\.?\d+)\s*\}/g, "\\LXstretch{$1}") + source.slice(begin) }
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
@@ -261,7 +263,38 @@ function latexCommands(source: string): (name: string) => boolean {
   if (cls && cls !== "article") for (const n of words(CLASSES[cls])) own.add(n)
   for (const p of packagesOf(source)) for (const n of words(PACKAGES[p])) own.add(n)
   for (const m of source.matchAll(/\\(?:newcounter|newtheorem)\s*\{([A-Za-z]+)\}/g)) own.add(`the${m[1]}`)
-  return (name) => ARTICLE_NAMES.has(name) || own.has(name)
+  const redefined = redefinable(source)
+  return (name) => (ARTICLE_NAMES.has(name) || own.has(name)) && !redefined.has(name)
+}
+
+/**
+ * Commands of LaTeX's the document may define again (\let\emph\textbf, \renewcommand{\emph}[1]{…},
+ * \renewenvironment{quote}): the text font commands, amssymb's \checkmark and the quote environment, which no command of
+ * LaTeX's uses (amsmath's \eqref uses \textup, siunitx \textrm, article's abstract quotation), nor a package loaded
+ * (spanish.ldf's labels \emph, french.ldf's \textsc, algpseudocode's keywords \textbf and \textproc \textsc, natbib's
+ * \textit, \textbf, \textsc, the kernel's \nameref ?? \textbf), and the document not before its first definition (a
+ * \title, a fancyhdr field it keeps, which TeX expands later)
+ */
+function redefinable(source: string): Set<string> {
+  const text = source.replace(/(^|[^\\])%.*$/gm, "$1")
+  const packages = packagesOf(source), languages = preambleOf(source) // (babel's languages, its options or the class's)
+  const used = new Set<string>([
+    ...(/\bspanish\b/.test(languages) ? ["emph"] : []), ...(/\bfrench\b/.test(languages) ? ["textsc"] : []),
+    ...(packages.some((p) => p === "algpseudocode" || p === "algorithmicx") ? ["textbf", "textsc"] : []),
+    ...(packages.includes("natbib") ? ["textit", "textbf", "textsc"] : []), ...(packages.includes("hyperref") || packages.includes("nameref") ? ["textbf"] : []),
+  ])
+  const out = new Set<string>()
+  for (const name of ["emph", "textbf", "textit", "textsl", "textsc", "texttt", "textsf", "checkmark", "quote"]) {
+    if (used.has(name)) continue
+    const cs = name === "quote" ? "\\\\(?:begin\\s*\\{quote\\}|(?:end)?quote(?![A-Za-z]))" : `\\\\${name}(?![A-Za-z])`
+    const def = text.search(new RegExp(name === "quote" ? "\\\\renewenvironment\\s*\\{quote\\}" : `\\\\(?:let|def|renewcommand\\*?|DeclareRobustCommand\\*?)\\s*\\{?${cs}`))
+    if (def < 0) continue
+    // (a use before it, not \let\x\name: that one keeps the meaning then)
+    if (new RegExp(`(?<!\\\\let\\s*\\\\[A-Za-z]+\\s*=?\\s*)${cs}`).test(text.slice(0, def))) continue
+    out.add(name)
+    if (name === "quote") out.add("endquote")
+  }
+  return out
 }
 
 /** where \begin{document} is (not in a comment), or -1 */

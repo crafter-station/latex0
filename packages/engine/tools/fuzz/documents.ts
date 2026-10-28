@@ -649,6 +649,9 @@ export function makeDocument(r: () => number, s: () => number = rng(1), m: () =>
       else out.push(...defs)
     }
   }
+  // text font commands defined again, and the kernel's \baselinestretch (not with setspace, fancyhdr or geometry's lines)
+  if (!isLetter && m() < 0.15) out.push([`\\let\\emph\\textbf`, "\\renewcommand{\\emph}[1]{\\textsl{#1}}", "\\let\\textsc\\textsf", "\\renewcommand*{\\texttt}[1]{\\textbf{#1}}"][Math.floor(m() * 4)])
+  if (!isLetter && m() < 0.1 && !out.some((l) => /setspace|fancyhdr|geometry/.test(l))) out.push([`\\linespread{1.2}`, "\\renewcommand{\\baselinestretch}{1.5}", "\\def\\baselinestretch{1.1}"][Math.floor(m() * 3)])
   // parskip.sty (not with titlesec or theorems yet), first in the preamble
   if (!isLetter && !tsOn && !thms.length && r() < 0.12) out.splice(1, 0, "\\usepackage{parskip}")
   out.push("\\begin{document}")

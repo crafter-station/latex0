@@ -1,0 +1,26 @@
+% fixture: macros/stretch-linespread
+% tier: T3
+% engine: document
+% covers: \linespread{1.3} in the preamble: the \baselineskip and struts of every size (headings, footnotes and floats, which the kernel does not single-space), the display skips the class's
+% issue: #365
+\documentclass{article}
+\usepackage{amsmath}
+\linespread{1.3}
+\begin{document}
+\section{Spacing}
+Some text in a paragraph of its own, long enough to run over more than one line of the page so that the
+baseline skip between its lines shows.\footnote{A footnote long enough to take two lines of the page at the bottom, so that its own baseline skip shows too.}
+
+We have
+\begin{equation}
+a = b
+\end{equation}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\\B\end{tabular}
+\caption{A caption long enough to take more than one line of the page, so that it is set as a paragraph with its lines.}
+\end{figure}
+\begin{itemize}
+\item One item that runs over more than one line of the page so that the baseline skip between its lines shows.
+\end{itemize}
+\end{document}

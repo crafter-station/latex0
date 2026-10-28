@@ -1,0 +1,20 @@
+% fixture: macros/renewenvironment-quote
+% tier: T3
+% engine: document
+% covers: \renewenvironment{quote} around another environment (center): its \@endpe after it, the paragraph that follows not indented
+% issue: #365
+\documentclass{article}
+\renewenvironment{quote}{\begin{center}\itshape}{\end{center}}
+\begin{document}
+Some text before the quote, long enough to take a line of its own on the page.
+\begin{quote}
+A quoted line.
+\end{quote}
+and text after it, in the same paragraph as the text before.
+
+\begin{quote}
+Another one.
+\end{quote}
+
+A new paragraph.
+\end{document}
