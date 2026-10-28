@@ -19,7 +19,7 @@ import { loadFont } from "../../layout/font"
 import { hpack } from "../../layout/pack"
 import type { Node } from "../../layout/nodes"
 import { mlistToHlist, TEXT } from "../../mathlayout/mlist"
-import { mathEnv, mathFonts, mathText, parseFormula } from "../../latex/paragraph"
+import { framed, mathEnv, mathFonts, mathText, parseFormula } from "../../latex/paragraph"
 import { compareBoxLists, type BoxNode } from "../../trace/schema"
 import { classData } from "../classes"
 import { mathData } from "../../latex/data"
@@ -53,7 +53,7 @@ type Nucleus =
   | { kind: "line"; cs: "overline" | "underline" | "sqrt"; arg: Script; /** \sqrt[index] */ index?: Item[] }
   | { kind: "accent"; cs: string; arg: Script }
   /** a command, with an argument or not: \dots, \colon, \pmod{…}, \mathbin{…} */
-  | { kind: "cmd"; cs: string; arg?: Item[] }
+  | { kind: "cmd"; cs: string; arg?: Item[]; /** more arguments: \overset{…}{…} */ args?: Item[][] }
   /** a math alphabet: \mathbf{…}, \mathbb{…} */
   | { kind: "alphabet"; cs: string; items: Item[] }
 type Script = { kind: "char"; code: number } | { kind: "sym"; name: string } | { kind: "group"; items: Item[] }
@@ -81,9 +81,9 @@ const MATRICES = ["matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix
 const ALPHABETS = ["mathrm", "mathnormal", "mathcal", "mathbf", "mathit", "mathsf", "mathtt"]
 const AMS_ALPHABETS = ["mathbb", "mathfrak", "mathscr"]
 /** commands without an argument (amsmath's: its \dots and kin, \colon), and with one */
-const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&", "mathstrut", "relbar", "Relbar", "joinrel",
+const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "bmod", "$", "#", "%", "&", "mathstrut", "relbar", "Relbar", "joinrel", "doteq",
   ..."longrightarrow Longrightarrow longleftarrow Longleftarrow longleftrightarrow Longleftrightarrow mapsto longmapsto hookrightarrow hookleftarrow iff models bowtie".split(" ")]
-const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby"]
+const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby", "iint", "iiint", "iiiint", "idotsint", "iint\\limits", "idotsint\\limits"]
 const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
 const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
 /** mathtools's \DeclarePairedDelimiter'd commands (the engine reads them as preamble.ts writes them: \LXpaired) */
@@ -138,6 +138,10 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
       return { kind: "line", cs, arg: r() < 0.7 ? { kind: "group", items: list(depth + 1, 3) } : char(), ...(cs === "sqrt" && r() < 0.5 ? { index: rootIndex(depth + 1) } : {}) }
     }
     if (depth < 3 && x >= 0.37 && x < 0.39) return { kind: "cmd", cs: pick(ams() ? [...ARG_COMMANDS, ...AMS_ARG_COMMANDS, ...MT_ARG] : ARG_COMMANDS), arg: list(depth + 1, 3, true) }
+    if (depth < 3 && x >= 0.63 && x < 0.66) { // commands with more arguments (the last one is `arg`)
+      const [cs, n] = pick([["stackrel", 1], ["mathchoice", 3], ...(ams() ? [["overset", 1], ["underset", 1], ["overunderset", 2], ["boxed", 0]] as [string, number][] : [])] as [string, number][])
+      return { kind: "cmd", cs, args: Array.from({ length: n }, () => list(depth + 1, 2, true)), arg: list(depth + 1, 3, true) }
+    }
     if (x >= 0.39 && x < 0.47) return { kind: "cmd", cs: r() < 0.5 ? "dots" : pick(ams() ? [...COMMANDS, ...AMS_COMMANDS, ...MT_COLONS] : COMMANDS) }
     if (depth < 3 && x >= 0.33 && x < 0.37) return { kind: "alphabet", cs: pick(ams() ? [...ALPHABETS, ...AMS_ALPHABETS] : ALPHABETS), items: list(depth + 1, 3, true) }
     if (x < 0.28) return { kind: "op", name: pick(OPERATORS), limits: r() < 0.3 ? "limits" : r() < 0.2 ? "nolimits" : undefined }
@@ -200,7 +204,7 @@ function print(items: Item[]): string {
       : n.kind === "text" ? `\\${n.cs}{${n.text}}`
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "big" ? `\\${n.cs}${n.delim}`
-      : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
+      : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.args ? n.args.map((a) => `{${print(a)}}`).join("") : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
       : n.kind === "alphabet" ? `\\${n.cs}{${print(n.items)}}`
       : n.kind === "matrix" ? `\\begin{${n.env}}${n.rows.map((row) => row.map(print).join("&")).join("\\\\ ")}${n.cr ? "\\\\ " : ""}\\end{${n.env}}` : ch(n)
     const sup = it.sup ? `^${arg(it.sup)}` : "", sub = it.sub ? `_${arg(it.sub)}` : ""
@@ -256,7 +260,7 @@ export function mathCheck(n: number, seed: number): number {
     cases.forEach((c, i) => {
       total++
       // (\quad's em: the text font, cmr at the size, as family 0's)
-      const hl = mlistToHlist(parseFormula(paired(`\\${STYLES[c.style / 2]} ${print(c.items)}`), withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]!, text: mathText(k, "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, withAms) }), env, TEXT, false)
+      const hl = mlistToHlist(parseFormula(paired(`\\${STYLES[c.style / 2]} ${print(c.items)}`), withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]!, text: mathText(k, "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, withAms), frame: (b) => framed(b, []), env }), env, TEXT, false)
       const list: Node[] = [{ kind: "math", on: true, width: data.dimens.mathsurround }, ...hl, { kind: "math", on: false, width: data.dimens.mathsurround }]
       const engine = emitBoxes(hpack(list))
       const tex = boxes[i]

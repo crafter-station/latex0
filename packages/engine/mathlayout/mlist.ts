@@ -36,6 +36,8 @@ export type Field =
   /** \hbox{$\m@th<style>{…}$}, as \mathpalette's \mathsm@sh and \mathph@nt set it: `list` from the style node on; then
    *  \smash's \finsm@sh (zero height, depth or both) or \phantom's \finph@nt (an empty box with its height and depth, width) */
   | { kind: "hmath"; list: MItem[]; smash?: "t" | "b" | "tb"; phantom?: "v" | "h" | "vh"; /** \llap, \rlap, \clap: \hbox to\z@ with \hss */ lap?: "l" | "r" | "c" }
+  /** amsmath's \boxed: \fbox{\m@th$\displaystyle#1$}, `frame` the \fbox around \hbox{\kern\fboxsep{…}\kern\fboxsep} */
+  | { kind: "boxed"; list: () => MItem[]; frame: (box: BoxNode) => BoxNode }
   /** \copy\strutbox: \hbox{\vrule height.7\baselineskip depth.3\baselineskip width\z@} (MathEnv.strut) */
   | { kind: "strut" }
   | null
@@ -275,11 +277,14 @@ class Converter {
           if (!q.sub && delta !== 0) { p.push(kern(delta)); delta = 0 }
         } else p = []
       } else if (!n) p = []
-      else if (n.kind === "big" || n.kind === "hmath" || n.kind === "strut") {
+      else if (n.kind === "big" || n.kind === "hmath" || n.kind === "strut" || n.kind === "boxed") {
         let b: BoxNode
         if (n.kind === "strut") {
           if (!this.env.strut) throw new Error("math: \\strut without the \\strutbox")
           b = hpack([{ kind: "rule", width: 0, height: this.env.strut.height, depth: this.env.strut.depth }])
+        } else if (n.kind === "boxed") {
+          const sep = 3 * 65536 // \fboxsep
+          b = n.frame(hpack([kern(sep, true), { kind: "math", on: true, width: 0 }, ...new Converter(this.env).convert(n.list(), TEXT, false), { kind: "math", on: false, width: 0 }, kern(sep, true)]))
         } else b = n.kind === "big" ? this.big(n) : this.hmath(n)
         q.nucleus = { kind: "box", box: b }; p = [b]
       }
@@ -444,7 +449,7 @@ class Converter {
     else if (!field) q = [emptyBox("hlist")]
     else {
       const save = this.curStyle
-      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
+      const mlist: MItem[] = field.kind === "char" || field.kind === "array" || field.kind === "big" || field.kind === "hmath" || field.kind === "strut" || field.kind === "boxed" ? [{ noad: ORD, nucleus: { ...field }, sup: null, sub: null }] : field.list
       q = this.convert(mlist, s, false)
       this.setStyle(save)
     }

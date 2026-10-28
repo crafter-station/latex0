@@ -15,7 +15,7 @@ import { Scanner, type GlueSpec } from "../layout/dimen"
 import { charNode, filGlue, fillGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import type { Font } from "../layout/font"
-import { delimiterOf, groupField, groupNoad, type FractionNoad, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
+import { delimiterOf, groupField, groupNoad, mlistToHlist, TEXT as TEXT_STYLE, type FractionNoad, type MathEnv, INNER, mathCharField, mathCharNoad, OP, ORD, type Delimiter, type Field, type MItem, type Noad } from "./mlist"
 
 const STYLES: Record<string, number> = { displaystyle: 0, textstyle: 2, scriptstyle: 4, scriptscriptstyle: 6 }
 const OPERATOR_MACROS: Record<string, string> = { int: "intop", oint: "ointop" }
@@ -70,6 +70,12 @@ const COLONS: Record<string, string> = {
   colondash: `${VCENTCOLON}\\mathrel{\\mkern-1.2mu}\\mathrel{-}`, Colondash: `${DBLCOLON}\\mathrel{\\mkern-1.2mu}\\mathrel{-}`,
   dashcolon: `\\mathrel{-}\\mathrel{\\mkern-1.2mu}${VCENTCOLON}`, Dashcolon: `\\mathrel{-}\\mathrel{\\mkern-1.2mu}${DBLCOLON}`,
 }
+/** an empty math group, {} */
+const ORD_EMPTY = (): Noad => ({ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null })
+/** amsmath's \iint … and \idotsint: how many \intop's */
+const MULTI_INTEGRALS: Record<string, number> = { iint: 2, iiint: 3, iiiint: 4, idotsint: 0 }
+/** amsmath's \intdots@ between two \intop's */
+const INTDOTS = "\\mathchoice{\\mathinner{\\cdotp\\cdotp\\cdotp}}{{\\cdotp}\\mkern1.5mu{\\cdotp}\\mkern1.5mu{\\cdotp}}{{\\cdotp}\\mkern1mu{\\cdotp}\\mkern1mu{\\cdotp}}{{\\cdotp}\\mkern1mu{\\cdotp}\\mkern1mu{\\cdotp}}"
 /** amsmath's \genfrac's: delimiters, thickness, style */
 const GENFRACS: Record<string, [string, string, string, string]> = {
   dfrac: ["", "", "", "0"], tfrac: ["", "", "", "1"], binom: ["(", ")", "0pt", ""] /* (\z@) */, dbinom: ["(", ")", "0pt", "0"], tbinom: ["(", ")", "0pt", "1"],
@@ -132,6 +138,10 @@ export interface MathOptions {
   /** amsmath's \text and LaTeX's \mbox (and \textrm …) in math: the text in an \hbox at \f@size (0), \sf@size (1) or
    *  \ssf@size (2), with \everymath setting a style (or not: null), after a font declaration (\rmfamily …) */
   text?: MathText
+  /** the fonts and parameters the formula is set with (amsmath's \binrel@ measures in them) */
+  env?: MathEnv
+  /** \fbox's frame around a box (\@frameb@x with \fboxsep and \fboxrule), for amsmath's \boxed */
+  frame?: (box: BoxNode) => BoxNode
   /** (internal) the formula's source, which text arguments are cut from */
   raw?: string
   /** (internal) amsmath's \accentclass@ is 0 (\noaccents@), not 7 */
@@ -253,6 +263,18 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
   const smash = (arg: Token[], mode: "t" | "b" | "tb"): MItem => {
     const fs = finsmash
     return palette((st) => [{ noad: ORD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, { noad: ORD, nucleus: { kind: "hmath", list: inHbox(st, arg, fs), smash: mode }, sup: null, sub: null }])
+  }
+  /**
+   * amsmath's \binrel@{base}\binrel@@{…}: a noad around `noad` of base's class, from base measured as ${}#1{}$ less $#1$
+   * with \thinmuskip 0, \medmuskip -1mu and \thickmuskip 1mu (negative: \mathbin, positive: \mathrel, else \relax{…})
+   */
+  const binrel = (base: Token[], noad: Noad): Noad => {
+    if (!opts.env) throw new Error("math: \\binrel@ without the fonts")
+    const mu = { width: 65536, stretch: 0, stretchOrder: 0 as const, shrink: 0, shrinkOrder: 0 as const }
+    const env = { ...opts.env, muskips: { thinmuskip: { ...mu, width: 0 }, medmuskip: { ...mu, width: -65536 }, thickmuskip: mu } }
+    const width = (l: MItem[]) => hpack(mlistToHlist(l, env, TEXT_STYLE, false)).width
+    const w = width([ORD_EMPTY(), ...parseTokens(base, data, { ...inner, finsmash }, -1), ORD_EMPTY()]) - width(parseTokens(base, data, { ...inner, finsmash }, -1))
+    return w === 0 ? groupNoad([noad]) : { noad: w < 0 ? 2 : 3, nucleus: groupField([noad]), sup: null, sub: null }
   }
   /** an \array cell before an &: \@sharp, then the v-part of the template, $ in LaTeX's */
   const cellBefore = (ts: Token[]) => parseTokens(ts, data, { ...opts, dollarNext: !opts.arrayPackage, finsmash }, -1)
@@ -605,7 +627,7 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         if (isCh(toks[pos], "*")) { // \mathopen{}\mathclose\bgroup\left#2 #1\aftergroup\egroup\right#3
           pos++
           const arg = argument()
-          toks.splice(pos, 0, ...tokenize("\\mathopen{}\\mathclose{\\left"), ...l, ...arg, { cs: "right" }, ...r, { ch: "}" })
+          toks.splice(pos, 0, ...tokenize("\\mathopen{}\\mathclose{\\left"), ...l, ...arg, { cs: "relax" }, { cs: "right" }, ...r, { ch: "}" }) // (\relax: \aftergroup)
           continue
         }
         let size: Token[] = []
@@ -618,6 +640,40 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         } else toks.splice(pos, 0, ...(isCh(l[0], ".") ? [] : [{ cs: "mathopen" }, ...l]), ...arg, ...(isCh(r[0], ".") ? [] : [{ cs: "mathclose" }, ...r])) // \ifx.#1\else\mathopen#1\fi
         continue
       }
+      if (t.cs === "mathchoice") { // \mathchoice (§ 1172): four lists, one for each style
+        const lists = [argument(), argument(), argument(), argument()], fs = finsmash
+        out.push({ kind: "choice", choose: (st) => parseTokens(lists[st >> 1], data, { ...inner, finsmash: fs }, fam) })
+        continue
+      }
+      if (opts.amsmath && (t.cs === "overset" || t.cs === "underset" || t.cs === "overunderset")) { // \binrel@{#2}\binrel@@{\mathop{\kern\z@#2}\limits^{#1}}
+        const a = argument(), b = t.cs === "overunderset" ? argument() : null, base = argument()
+        const [sup, sb] = t.cs === "overset" ? [a, null] : t.cs === "underset" ? [null, a] : [a, b]
+        out.push(binrel(base, { noad: OP, limits: "limits", nucleus: groupField([kern(0, true), ...sub(base)]), sup: sup && groupField(sub(sup)), sub: sb && groupField(sub(sb)) }))
+        continue
+      }
+      if (t.cs === "stackrel") { // latex.ltx: \mathrel{\mathop{#2}\limits^{#1}}
+        const a = argument(), base = argument()
+        out.push({ noad: 3, nucleus: groupField([{ noad: OP, limits: "limits", nucleus: groupField(sub(base)), sup: groupField(sub(a)), sub: null }]), sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "doteq") { // latex.ltx's \buildrel\textstyle.\over=, amsmath's \mathrel{\mathop{\kern0pt =}\limits^{\textstyle.}}: the same
+        const op: Noad = { noad: OP, limits: "limits", nucleus: groupField([kern(0, true), mathCharNoad(mathcode("="))]), sup: groupField(sub(tokenize("\\textstyle."))), sub: null }
+        out.push({ noad: 3, nucleus: groupField([op]), sup: null, sub: null }); continue
+      }
+      if (opts.amsmath && t.cs in MULTI_INTEGRALS) { // \MultiIntegral{n}: \intop\intkern@ … \intop\ilimits@ (with \limits after it: \ints@b's \mathop group)
+        const n = MULTI_INTEGRALS[t.cs]
+        const ints = "\\intop" + (n === 0 ? INTDOTS : "\\mkern-6mu\\mathchoice{\\mkern-3mu}{}{}{}") + (n > 2 ? "\\intop\\mkern-6mu\\mathchoice{\\mkern-3mu}{}{}{}" : "") + (n > 3 ? "\\intop\\mkern-6mu\\mathchoice{\\mkern-3mu}{}{}{}" : "") + "\\intop"
+        const limits = "cs" in (toks[pos] ?? {}) && ((toks[pos] as { cs: string }).cs === "limits" || (toks[pos] as { cs: string }).cs === "displaylimits")
+        toks.splice(pos, 0, ...tokenize(limits ? `\\mkern-7mu\\mathchoice{\\mkern-2mu}{}{}{}\\mathop{\\mkern7mu\\mathchoice{\\mkern2mu}{}{}{}${ints}}` : `${ints}\\nolimits`, data.muskips))
+        continue
+      }
+      if (opts.amsmath && t.cs === "boxed") { // \fbox{\m@th$\displaystyle#1$}
+        if (!opts.frame) throw new Error("math: \\boxed without \\fbox")
+        const arg = argument(), frame = opts.frame
+        out.push({ noad: ORD, nucleus: { kind: "boxed", list: () => [{ kind: "style", style: 0 }, ...parseTokens(arg, data, { ...opts, dollarNext: true, finsmash }, -1)], frame }, sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "relax") continue
       if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox
       if (t.cs === "hfill" || t.cs === "hfil") { out.push(t.cs === "hfill" ? fillGlue() : filGlue()); continue }
       if (t.cs === "mkern") { out.push({ kind: "mukern", width: t.spec!.width }); continue }
