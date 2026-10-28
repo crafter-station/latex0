@@ -632,6 +632,8 @@ export function makeDocument(r: () => number, s: () => number = rng(1), m: () =>
       ...(thms.length ? [["theorem", ["\\Roman{theorem}", "\\thesection.\\alph{theorem}"]] as [string, string[]]] : []),
       ...(macros ? [["thm", ["\\Alph{thm}", "(\\roman{thm})"]] as [string, string[]]] : []),
     ]
+    // (\counterwithin, amsmath's \numberwithin: the counter reset by a level, and its \the<counter>)
+    if (m() < 0.4) out.push(`${ams && m() < 0.5 ? "\\numberwithin" : mpick(["\\counterwithin", "\\counterwithin*", "\\counterwithin[\\roman]"])}{${mpick(["equation", "figure", "table"])}}{${mpick(["section", "subsection"])}}`)
     for (const [c, fs] of formats) if (m() < 0.4) out.push(`${mpick(["\\renewcommand", "\\renewcommand*", "\\def"])}${m() < 0.5 ? `\\the${c}` : `{\\the${c}}`}{${mpick(fs)}}`.replace(/^\\def\{(\\the[a-z]+)\}/, "\\def$1"))
   }
   // parskip.sty (not with titlesec or theorems yet), first in the preamble

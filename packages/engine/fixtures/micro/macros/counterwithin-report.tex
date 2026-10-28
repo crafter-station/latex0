@@ -1,0 +1,38 @@
+% fixture: macros/counterwithin-report
+% tier: T3
+% engine: document
+% covers: \counterwithin{figure}{section} and \counterwithin*{table}{section} (reset only) in report: the figures reset at each section and number \thesection.\arabic{figure}, the tables reset and keep \thetable; the lists of figures and tables; hyperref's anchors and cleveref's prefix (\cl@section before \cl@chapter)
+% issue: #365
+\documentclass{report}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\counterwithin{figure}{section}
+\counterwithin*{table}{section}
+\begin{document}
+\listoffigures
+\listoftables
+\chapter{Data}
+\section{First}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{A box}\label{f}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{Numbers}
+\begin{tabular}{c}1\end{tabular}
+\end{table}
+\section{Second}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}B\end{tabular}
+\caption{Another box}
+\end{figure}
+\begin{table}[h]
+\centering
+\caption{More numbers}
+\begin{tabular}{c}2\end{tabular}
+\end{table}
+Figure~\ref{f}, \cref{f}.
+\end{document}

@@ -48,8 +48,13 @@ export class Counters {
    */
   private readonly formats: ReadonlyMap<string, string>
 
-  constructor(private readonly cls: string, declared: [name: string, within: string | null][], private readonly footnote: () => number, formats: ReadonlyMap<string, string> = new Map()) {
+  /** \counterwithin (amsmath's \numberwithin) of equation, figure or table: the sectioning counter that resets it (its
+   *  \@addtoreset, which also makes \theH<counter> \theH<within>.\the\value{counter}) */
+  private readonly within: ReadonlyMap<string, string>
+
+  constructor(private readonly cls: string, declared: [name: string, within: string | null][], private readonly footnote: () => number, formats: ReadonlyMap<string, string> = new Map(), within: ReadonlyMap<string, string> = new Map()) {
     this.formats = formats
+    this.within = within
     for (const [name, within] of declared) this.user.set(name, { value: 0, within })
   }
 
@@ -62,6 +67,8 @@ export class Counters {
 
   /** \theH<counter> (hyperref's \@currentHref after \refstepcounter): report and book number within the chapter */
   href(counter: string, n: number): string {
+    const w = this.within.get(counter)
+    if (w !== undefined) return `${counter}.${this.theH(w)}.${n}`
     return this.cls === "article" || this.cls === "letter" ? `${counter}.${n}` : `${counter}.${this.sectionalString(0, true)}.${n}`
   }
 
@@ -138,8 +145,8 @@ export class Counters {
     for (let l = level + 1; l < this.sectional.length; l++) this.sectional[l] = 0
     const levels: readonly string[] = SECTIONAL.slice(level)
     for (const u of this.user.values()) if (u.within !== null && (level === 0 || levels.includes(u.within))) u.value = 0
-    // (report and book number these within the chapter)
-    if (level === 0) this.equation = this.figure = this.table = 0
+    // (report and book number these within the chapter; \counterwithin within a level)
+    for (const c of ["equation", "figure", "table"] as const) if (level === 0 || levels.includes(this.within.get(c) ?? "")) this[c] = 0
   }
 
   /** \refstepcounter of a document's counter: \the<counter>, after \the<within> when it has one */
@@ -179,6 +186,8 @@ export class Counters {
     const l = SECTIONAL.indexOf(name as typeof SECTIONAL[number])
     if (l > 1 || (l === 1 && chapters)) return SECTIONAL[l - 1]
     if (l >= 0) return null
+    // (\cref@resetby looks in \cl@subsubsection, \cl@subsection, \cl@section, \cl@chapter in turn: \counterwithin's first)
+    if (this.within.has(name)) return this.within.get(name)!
     if (["equation", "figure", "table", "footnote"].includes(name)) return chapters ? "chapter" : null
     const u = this.user.get(name)
     if (u) return u.within

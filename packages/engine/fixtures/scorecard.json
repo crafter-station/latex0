@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1091,
-  "exact": 1079,
+  "fixtures": 1094,
+  "exact": 1082,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 12,
-  "glyphs": 710097
+  "glyphs": 710550
  },
  "areas": [
   {
@@ -141,8 +141,8 @@
   },
   {
    "area": "macros",
-   "fixtures": 47,
-   "exact": 36
+   "fixtures": 50,
+   "exact": 39
   },
   {
    "area": "math",
@@ -8315,6 +8315,28 @@
    "issue": "#344"
   },
   {
+   "id": "macros/counterwithin-cleveref",
+   "file": "micro/macros/counterwithin-cleveref.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 71,
+   "covers": "\\counterwithin[\\Roman]{equation}{subsection} with cleveref (its prefix from \\cl@subsection) and hyperref anchors \\theHsubsection.n",
+   "issue": "#365"
+  },
+  {
+   "id": "macros/counterwithin-report",
+   "file": "micro/macros/counterwithin-report.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 333,
+   "covers": "\\counterwithin{figure}{section} and \\counterwithin*{table}{section} (reset only) in report: the figures reset at each section and number \\thesection.\\arabic{figure}, the tables reset and keep \\thetable; the lists of figures and tables; hyperref's anchors and cleveref's prefix (\\cl@section before \\cl@chapter)",
+   "issue": "#365"
+  },
+  {
    "id": "macros/def-latex",
    "file": "micro/macros/def-latex.tex",
    "area": "macros",
@@ -8489,6 +8511,17 @@
    "glyphs": 14,
    "covers": "\\newcounter{q} defines \\theq, which the engine reads (\\ref, \\label): its \\renewcommand (\\Alph) is read too",
    "issue": "#344"
+  },
+  {
+   "id": "macros/numberwithin-section",
+   "file": "micro/macros/numberwithin-section.tex",
+   "area": "macros",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "amsmath's \\numberwithin{equation}{section} with hyperref: the equations reset at each section, \\theequation \\thesection.\\arabic{equation}, the anchors \\theHsection.n, \\eqref",
+   "issue": "#365"
   },
   {
    "id": "macros/optional-argument",

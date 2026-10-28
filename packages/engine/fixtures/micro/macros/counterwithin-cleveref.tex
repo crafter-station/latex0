@@ -1,0 +1,22 @@
+% fixture: macros/counterwithin-cleveref
+% tier: T3
+% engine: document
+% covers: \counterwithin[\Roman]{equation}{subsection} with cleveref (its prefix from \cl@subsection) and hyperref anchors \theHsubsection.n
+% issue: #365
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\counterwithin[\Roman]{equation}{subsection}
+\begin{document}
+\section{One}
+\subsection{A}
+\begin{equation}
+x = 1 \label{a}
+\end{equation}
+\subsection{B}
+\begin{equation}
+y = 2 \label{b}
+\end{equation}
+See \cref{a,b} and \cref{b}.
+\end{document}
