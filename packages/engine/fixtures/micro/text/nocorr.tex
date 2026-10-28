@@ -1,0 +1,12 @@
+% fixture: text/nocorr
+% tier: T3
+% engine: document
+% covers: \nocorr in a text font command's argument (\check@nocorr@): first, no italic correction before the argument; last (after the first token), none after it; both; and in a group, where it does not count
+% issue: #350
+\documentclass{article}
+\begin{document}
+An \textit{italic word\nocorr} then text, \textit{italic word} then text, and \textit{f\nocorr} f.
+
+\textit{Leaning} \textup{\nocorr upright} and \textit{leaning} \textup{upright} and \textit{leaf}\textup{\nocorr up\nocorr} with
+\textit{elf}\textbf{\nocorr} and \textit{ff}\textup{x {y\nocorr}} and \textsl{half\nocorr}\textup{\nocorr f} and \textit{elf}\textup{ \nocorr up} end.
+\end{document}

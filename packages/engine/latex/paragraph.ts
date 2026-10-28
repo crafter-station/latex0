@@ -511,6 +511,21 @@ function applyFontCommand(cmd: FontCommand, a: FontAttrs, cur: Font, base: FontA
  * \sw@slant (latex.ltx): the italic correction of the character before, with a skip at the end of
  * the list taken off first (\unskip … \hskip) and a penalty too (\fix@penalty)
  */
+/** \check@nocorr@ #1#2\nocorr#3\@nil on a text font command's argument with \nocorr appended: a \nocorr as its first
+ *  token (#1, spaces skipped) drops the italic correction before it; one after that at its top level (#3 not empty) the
+ *  one after it, and with a \nocorr first, a second one is needed for that */
+function nocorrs(src: string): { left: boolean; right: boolean } {
+  const tokens: string[] = []
+  for (let i = 0; i < src.length; ) {
+    if (/\s/.test(src[i]) && !tokens.length) { i++; continue }
+    if (src[i] === "{") { const j = closingBrace(src, i); tokens.push(src.slice(i, j + 1)); i = j + 1; continue }
+    const m = src.slice(i).match(/^\\(?:[A-Za-z]+|[^])/)
+    tokens.push(m ? m[0] : src[i]); i += m ? m[0].length : 1
+  }
+  const left = tokens[0] === "\\nocorr"
+  return { left, right: tokens.slice(1).includes("\\nocorr") }
+}
+
 /** \/ (append_italic_correction, § 1113): an explicit kern of the last character's italic correction, if the list ends with one */
 function italicCorrection(list: Node[]) {
   const tail = list[list.length - 1]
@@ -618,6 +633,9 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // \noindent in horizontal mode does nothing (§ 1093)
     const ni = body.slice(i).match(/^\\noindent(?![A-Za-z])\s*/)
     if (ni) { i += ni[0].length; continue }
+    // \nocorr: \relax (a \textbf argument's marker, \check@nocorr@ below)
+    const nc = body.slice(i).match(/^\\nocorr(?![A-Za-z])\s*/)
+    if (nc) { i += nc[0].length; continue }
     const vs = body.slice(i).match(/^\\vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
     if (vs) { flushText(); out.push({ kind: "vspace", star: !!vs[1], skip: vs[2] }); i += vs[0].length; continue }
     const el = body.slice(i).match(/^\\enlargethispage(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\}/)
@@ -1605,11 +1623,12 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const a = applyFontCommand(p.cmd, attrs, font, ctx.base, k, size, doc)
       const inner = selectFont(k, size, a)
       noteSubstitution(k, size, a, doc) // \wrong@fontshape
-      const corr = p.src !== "" && p.src !== " "
-      if (corr && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
+      // (\check@nocorr@: \nocorr first drops the one before, a \nocorr after the first token the one after)
+      const corr = p.src !== "" && p.src !== " ", nc = nocorrs(p.src)
+      if (corr && !nc.left && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
       appendPieces(list, p.inner, inner, size, state, ctx, a)
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
-      if (corr && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
+      if (corr && !nc.right && font.params[SLANT] <= 0 && !(p.next === "," || p.next === ".")) swSlant(list)
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff

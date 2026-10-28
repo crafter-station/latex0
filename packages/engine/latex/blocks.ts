@@ -192,7 +192,7 @@ export function inParagraph(before: string): boolean {
 
 /** The commands a paragraph lays out (paragraph.ts), less \the<counter> and the text symbols */
 const TEXT_COMMANDS = [
-  "newblock", "penalty", "footnote", "noindent", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
+  "newblock", "penalty", "footnote", "noindent", "nocorr", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
   "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "cref", "Cref", "cpageref", "Cpageref", "crefrange", "Crefrange", "cpagerefrange", "Cpagerefrange", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
