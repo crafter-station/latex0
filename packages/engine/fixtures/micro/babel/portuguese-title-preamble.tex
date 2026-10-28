@@ -1,0 +1,15 @@
+% fixture: babel/portuguese-title-preamble
+% tier: T3
+% engine: document
+% covers: babel activates portuges.ldf's " at \begin{document}: in \title read in the preamble "< and "> are the characters " and < or >, while in the body they are guillemets
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[portuguese]{babel}
+\title{"<Ol\'a"> e fim}
+\author{Autor}
+\date{}
+\begin{document}
+\maketitle
+"<Ol\'a"> e fim.
+\end{document}

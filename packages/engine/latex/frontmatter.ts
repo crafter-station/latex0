@@ -24,7 +24,7 @@ import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularLines } from "./tabular"
 import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
 import { ALIGNMENTS, topDeclarations, verticalMaterial } from "./vmode"
-import { babelSelect, babelState, babelToday, isSpanish, type Babel } from "./babel"
+import { babelSelect, babelState, babelToday, isSpanish, preambleText, type Babel } from "./babel"
 
 /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
  *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
@@ -51,7 +51,9 @@ export function maketitle(cx: Ctx) {
   // article in two columns: \twocolumn[\@maketitle], \clearpage and \@topnewpage's box
   // (report's titlepage environment in two columns: \onecolumn instead of \newpage, and \twocolumn after it)
   const twocolumn = !titlepage && !!run.k.ints.twocolumn, restonecol = titlepage && !!run.k.ints.twocolumn
-  const atmaketitle = () => {
+  // (the title, the author, the date and their \thanks are text the preamble read: babel's shorthands are not active in it)
+  const preambleRead = (f: () => void) => { preambleText.on = true; try { f() } finally { preambleText.on = false } }
+  const atmaketitle = () => preambleRead(() => {
     const { outerParskip, v } = cx
     if (titlepage) {
       if (restonecol) columnSwitch(cx, false)
@@ -116,16 +118,16 @@ export function maketitle(cx: Ctx) {
       // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
       v.vskip(dimen(em("1.5em", romanFont)))
     }
-  }
+  })
   if (twocolumn) { clearpage(cx); main.nodes.push(hook({ topnewpage: topnewpageBox(cx, atmaketitle) })) }
   else atmaketitle()
   if (!titlepage) {
     main.nodes.push(hook("plain"))
-    for (const t of doc.thanks) {
+    for (const t of doc.thanks) preambleRead(() => {
       const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, main.club, amsmath)
       main.nodes.push(ins)
       decisions.push(trace)
-    }
+    })
   }
   delete doc.thanks
   doc.footnote = 0 // \setcounter{footnote}{0}

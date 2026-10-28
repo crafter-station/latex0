@@ -32,7 +32,7 @@ import { endDocument, enlargeInsert, firstPage, L3BACKEND_HEADER, makeColumns } 
 import { gscaleBox, gscaleDiv } from "./graphics"
 import { anchor, autorefLanguage, autorefName, hyperDriver, natLink, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
-import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
+import { babelAux, babelState, babelSwitch, preambleText, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
 import { germanShorthand, germanShorthandNodes, germanT1, isGerman, type GermanShorthand } from "./german"
 import { frenchMarkSpace, frenchNoteStart, frenchNumero, frenchPunctuation, frenchQuote, frenchUp } from "./french"
 import { babelGuillemet, isPortuguese, portugueseHyphen, portugueseShorthand } from "./portuguese"
@@ -596,6 +596,7 @@ export const SKIP_AMOUNTS: Record<string, GlueSpec> = {
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const lang = po.lang ?? { name: babelState.lang, stack: [...babelState.stack] }
+  const shorthands = !preambleText.on // (the shorthand characters are active from \begin{document})
   const inner: PieceOptions = { ...po, grouped: true, lang, colorGroup: false }
   /** a brace group's text; and the rest of this text after a declaration */
   const group: PieceOptions = { ...inner, colorGroup: true }, rest: PieceOptions = { ...inner, colorGroup: po.colorGroup }
@@ -609,8 +610,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // \string~: the character ~ (other), the font's own
     if (body.startsWith("\\string~", i)) { text += "~"; i += 8; continue }
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
-    if (lang.name === "spanish") { // spanish.ldf's shorthands
-      if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
+    if (lang.name === "spanish" && body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
+    if (lang.name === "spanish" && shorthands) { // spanish.ldf's shorthands
       const sh = spanishShorthand(body.slice(i, i + 2))
       if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
       // an active character's lookahead (an undelimited argument) skips the spaces after it: ~ x is ~x, < < is <<
@@ -623,16 +624,16 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
         i = j; continue
       }
     }
-    if (lang.name === "french" && ";:!?".includes(body[i])) { // (french.ldf's active punctuation)
+    if (lang.name === "french" && shorthands && ";:!?".includes(body[i])) { // (french.ldf's active punctuation)
       if (body[i + 1] === "`") throw new Unsupported(`french's ${body[i]}\``) // (the ligature of ?` and !`)
       flushText(); out.push({ kind: "frpunct", ch: body[i] }); i++; continue
     }
-    if (isGerman(lang.name) && body[i] === '"') { // (babel-german's shorthands)
+    if (isGerman(lang.name) && shorthands && body[i] === '"') { // (babel-german's shorthands)
       const sh = germanShorthand(body.slice(i, i + 2), lang.name)
       if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) }
       i += 2; continue
     }
-    if (isPortuguese(lang.name) && body[i] === '"') { // (portuges.ldf's)
+    if (isPortuguese(lang.name) && shorthands && body[i] === '"') { // (portuges.ldf's)
       const sh = portugueseShorthand(body.slice(i, i + 2))
       if (sh.kind === "guillemet" && germanT1.on) text += sh.right ? "»" : "«"; else { flushText(); out.push(sh) }
       i += 2; continue

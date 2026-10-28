@@ -1,0 +1,15 @@
+% fixture: babel/spanish-title-preamble
+% tier: T3
+% engine: document
+% covers: babel activates spanish.ldf's shorthands at \begin{document}: in \title read in the preamble << and >> are T1's ligatures, "u is " and u, while in the body they are the shorthands
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\title{<<Hola>> y "u fin}
+\author{Autor}
+\date{}
+\begin{document}
+\maketitle
+<<Hola>> y fin.
+\end{document}

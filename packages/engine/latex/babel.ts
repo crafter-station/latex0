@@ -195,6 +195,10 @@ export function babelLanguage(b: Babel | undefined | null, lang: string): string
  */
 export const babelState: { b: Babel | null; lang: string; stack: string[]; written: string; onSwitch: ((lang: string) => void) | null; /** the body has language commands that outlast a paragraph */ switches: boolean; /** what the vertical list had in force where each otherlanguage group still open at the top level began (its end restores it) */ groups: { club: number; afterheading: boolean }[] } = { b: null, lang: "", stack: [], written: "", onSwitch: null, switches: false, groups: [] }
 
+/** text the preamble read (\title, \author, \date): babel activates the shorthand characters at \begin{document}, so
+ *  in it they are characters of the text (`on` while it is typeset) */
+export const preambleText = { on: false }
+
 /** \begin{document}: the main language selected (none: babel not loaded); `body`: the document's body, whose
  *  \selectlanguage and otherlanguage outlast a paragraph (\foreignlanguage's group ends in it) */
 export function babelBegin(b: Babel | null, onSwitch: ((lang: string) => void) | null = null, body = ""): void {
