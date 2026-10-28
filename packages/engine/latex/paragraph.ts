@@ -19,7 +19,7 @@ import { buildHyphenator } from "../layout/hyphenate"
 import { lineBreak, type LineBreakParams } from "../layout/linebreak"
 import { charNode, emptyBox, NORMAL, glue, kern, paramGlue, penalty, type BoxNode, type GlueNode, type InsNode, type Node, filGlue, fillGlue, ssGlue, FILL } from "../layout/nodes"
 import { mlistToHlist, ORD, TEXT, type MathEnv, type MItem } from "../mathlayout/mlist"
-import { parseMath } from "../mathlayout/parse"
+import { parseMath, type MathText } from "../mathlayout/parse"
 import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
@@ -84,7 +84,7 @@ const LETTERS = (fam: number): Record<number, number> => Object.fromEntries([...
 
 /** A formula (between $…$) as an mlist, with the document's amsmath and LaTeX's math alphabets; `em`: the current font's;
  *  `si`: siunitx is loaded, and its view of the text around */
-export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext, where: { display?: boolean; dollarNext?: boolean; font?: Font } = {}): MItem[] {
+export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiContext, where: { display?: boolean; dollarNext?: boolean; font?: Font; text?: MathText } = {}): MItem[] {
   const commands = si && { arity: SI_COMMANDS, build: (cmd: string, opt: string | undefined, args: string[], fam: number) => siunitxMath(cmd, opt, args, fam, si) }
   const mathcodes = mathFonts.letters === null ? undefined : LETTERS(mathFonts.letters)
   // (spanish.ldf's \mathspanish: its operators and decimal comma)
@@ -92,6 +92,28 @@ export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiC
   const p = mathFonts.packages
   const packages = [...(amsmath ? ["amsmath"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
   try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...where, ...(p.array ? { arrayPackage: true } : {}), ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+}
+
+/**
+ * amsmath's \text and LaTeX's \mbox in a formula at `size` in `attrs`: an \hbox of the text at \f@size, \sf@size or
+ * \ssf@size (\textdef@'s \selectfont there: the size command of that size), the inner formulas with \everymath's style
+ */
+export function mathText(k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, amsmath: boolean): MathText {
+  return (src, which, style, declaration) => {
+    const s = k.sizes[size], target = which === 0 ? s.size : which === 1 ? s.scriptSize : s.scriptScriptSize
+    // the size command of that size: the class's, or another size option's (NFSS's fonts and math sizes are the class's own)
+    let kk = k, at = which === 0 ? size : SIZE_COMMANDS.find((c) => k.sizes[c].size === target)
+    for (const o of ["10pt", "11pt", "12pt"]) {
+      if (at) break
+      kk = classData("article", o); at = SIZE_COMMANDS.find((c) => kk.sizes[c].size === target)
+    }
+    if (!at) throw new Unsupported(`\\text at ${target / 65536}pt (no size command)`)
+    const a = declaration ? fontDeclaration(declaration, attrs, kk, at, doc)! : attrs
+    // \everymath{\displaystyle}: a style command at the start of each inner formula
+    let body = src
+    if (style) { let open = false; body = src.replace(/(\\*)\$/g, (m, bs: string) => (bs.length % 2 ? m : (open = !open) ? `${m}\\${style}style ` : m)) }
+    return hpack(hlistInput(body, kk, at, doc, a, { spaceFactor: 1000 }, amsmath))
+  }
 }
 
 /** siunitx's view of the text at a size in a font: \text{\textmu} (its text font reset to the defaults) and \text{…} */
@@ -1574,7 +1596,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
-      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined, { dollarNext: true, font }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
+      list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined, { dollarNext: true, font, text: mathText(k, size, doc, attrs, !!ctx.amsmath) }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else if (p.kind === "thanks") {
       // \maketitle's \thanks: \footnotemark (\stepcounter, \nobreak, \@makefnmark: \rlap{\@textsuperscript{\normalfont

@@ -1,0 +1,16 @@
+% fixture: amsmath/text-in-math
+% tier: T3
+% engine: document
+% covers: amstext's \text in math (a \mathchoice of \hbox'es at \f@size, \sf@size and \ssf@size, \everymath with the style for its own formulas), \textrm, \textbf and \textit in math (\nfss@text: \text), \mbox (the current size), in text, scripts, displays, align and \small, inside \textit
+% issue: #330
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\begin{document}
+Ampere's law gives $B = \mu_0 I_{\text{enc}}$ where $x_{\text{max}} \le 1$ and $f(x) = 0 \text{ if } x<0$,
+with $\textbf{v}_{\textit{rel}}$, $\mbox{ab}_{\mbox{cd}}$, $\textrm{Var}(X)$, $e^{x^{\text{tiny}}}$ and \textit{also $a_{\text{italic}}$ here}.
+\[ \oint B\cdot dl = \mu_0 I_{\text{enc}} \quad\text{for all closed loops, and $x^2>0$ if } x\neq 0. \]
+\begin{align}
+  f(x) &= x^2 \quad \text{if $x \geq 0$}, & g(x) &= -x \quad \text{otherwise}
+\end{align}
+{\small Small: $\text{a} + b_{\text{b}}$.}
+\end{document}

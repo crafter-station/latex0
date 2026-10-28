@@ -50,6 +50,11 @@ const ACCENTS: Record<string, number> = {
   acute: 0x7013, grave: 0x7012, ddot: 0x707f, tilde: 0x707e, bar: 0x7016, breve: 0x7015, check: 0x7014, hat: 0x705e, vec: 0x017e, dot: 0x705f,
   widetilde: 0x0365, widehat: 0x0362, mathring: 0x7017,
 }
+/** LaTeX's text font commands in math (\nfss@text{<declaration>#1}) */
+const TEXT_FONT_COMMANDS: Record<string, string> = {
+  textrm: "rmfamily", textsf: "sffamily", texttt: "ttfamily", textnormal: "normalfont", textbf: "bfseries", textmd: "mdseries",
+  textit: "itshape", textsl: "slshape", textsc: "scshape", textup: "upshape",
+}
 /** amsmath's \genfrac's: delimiters, thickness, style */
 const GENFRACS: Record<string, [string, string, string, string]> = {
   dfrac: ["", "", "", "0"], tfrac: ["", "", "", "1"], binom: ["(", ")", "0pt", ""] /* (\z@) */, dbinom: ["(", ")", "0pt", "0"], tbinom: ["(", ")", "0pt", "1"],
@@ -91,6 +96,8 @@ const AMS_DELIMITERS: Record<string, string> = { lvert: "vert", rvert: "vert", l
 /** amsmath's matrix environments: their \left and \right */
 const MATRICES: Record<string, [string, string] | null> = { matrix: null, pmatrix: ["(", ")"], bmatrix: ["[", "]"], Bmatrix: ["lbrace", "rbrace"], vmatrix: ["vert", "vert"], Vmatrix: ["Vert", "Vert"] }
 
+export type MathText = (src: string, size: 0 | 1 | 2, style: "display" | "text" | null, declaration?: string) => BoxNode
+
 /** Options of the document the formula is in. */
 export interface MathOptions {
   amsmath?: boolean
@@ -107,6 +114,11 @@ export interface MathOptions {
   font?: Font
   /** amsmath's \if@display: the formula is in a display (\everydisplay sets it), for \pod, \pmod and \mod */
   display?: boolean
+  /** amsmath's \text and LaTeX's \mbox (and \textrm …) in math: the text in an \hbox at \f@size (0), \sf@size (1) or
+   *  \ssf@size (2), with \everymath setting a style (or not: null), after a font declaration (\rmfamily …) */
+  text?: MathText
+  /** (internal) the formula's source, which text arguments are cut from */
+  raw?: string
   /** (internal) amsmath's \accentclass@ is 0 (\noaccents@), not 7 */
   accentClass0?: boolean
   /** (internal) amsmath's \finsm@sh where the formula starts: t, b or tb */
@@ -122,7 +134,8 @@ export interface MathOptions {
   operators?: Record<string, { name: string; nolimits: boolean }>
 }
 
-type Token = { cs: string; value?: number; spec?: GlueSpec } | { ch: string }
+/** a token; braces from the formula's own source keep their offset in it (`at`), for text arguments */
+type Token = { cs: string; value?: number; spec?: GlueSpec } | { ch: string; at?: number }
 
 /** \mkern's mu dimension and \mskip's mu glue (scan_dimen and scan_glue with mu, §§ 448–461), the mu skip registers
  *  coerced (\mkern-\thinmuskip: its width) */
@@ -133,7 +146,7 @@ function scanMu(src: string, cs: "mkern" | "mskip", muskips?: Record<string, Glu
   return { spec, length: s.pos }
 }
 
-function tokenize(src: string, muskips?: Record<string, GlueSpec>): Token[] {
+function tokenize(src: string, muskips?: Record<string, GlueSpec>, offsets = false): Token[] {
   const out: Token[] = []
   for (let i = 0; i < src.length;) {
     const c = src[i]
@@ -152,7 +165,7 @@ function tokenize(src: string, muskips?: Record<string, GlueSpec>): Token[] {
       } else out.push({ cs: m[1] })
     } else if (/\s/.test(c)) i++ // spaces are ignored in math mode
     else if (c === "%") { while (i < src.length && src[i] !== "\n") i++ }
-    else { out.push({ ch: c }); i++ }
+    else { out.push(offsets && (c === "{" || c === "}") ? { ch: c, at: i } : { ch: c }); i++ }
   }
   return out
 }
@@ -170,7 +183,7 @@ const source = (ts: Token[]) => ts.map((t) => ("ch" in t ? t.ch : `\\${t.cs}${/^
 
 /** Parse a formula (the text between $…$) into an mlist. */
 export function parseMath(src: string, data: MathData, opts: MathOptions = {}): MItem[] {
-  return parseTokens(tokenize(src, data.muskips), withPackages(data, opts.packages ?? []), opts, -1)
+  return parseTokens(tokenize(src, data.muskips, true), withPackages(data, opts.packages ?? []), { ...opts, raw: src }, -1)
 }
 
 const merged = new WeakMap<MathData, Map<string, MathData>>()
@@ -312,6 +325,17 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
   const fraction = (): Field => {
     const num = argument(), den = argument()
     return groupField([{ noad: "fraction", thickness: null, num: sub(num), denom: sub(den) }])
+  }
+  /** a text argument as its source: a braced group of the formula's own (spaces and all), or one token */
+  const rawArgument = (after: string): string => {
+    const t = toks[pos]
+    if (!t) throw new Error(`math: \\${after} without its argument`)
+    if (!isCh(t, "{")) { pos++; return "ch" in t ? t.ch : `\\${t.cs} ` }
+    const start = pos
+    argument()
+    const open = toks[start] as { ch: string; at?: number }, close = toks[pos - 1] as { ch: string; at?: number }
+    if (open.at === undefined || close.at === undefined || opts.raw === undefined) throw new Error(`math: \\${after} of a macro's argument`)
+    return opts.raw.slice(open.at + 1, close.at)
   }
   /** scan_dimen (§ 448) on the characters that follow; em from the current font */
   const dimension = (after: string): number => {
@@ -537,6 +561,15 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         // fontmath.ltx: \vbox to 8.5, 11.5, 14.5, 17.5pt; amsmath: \@ne, 1.5, \tw@, 2.5 times \big@size
         const nucleus: Field = opts.amsmath ? { kind: "big", delim, factor: [1 + (i >> 1), i % 2 ? 0x8000 : 0] } : { kind: "big", delim, height: (8.5 + 3 * i) * pt }
         out.push({ noad: big[2] === "l" ? 4 : big[2] === "r" ? 5 : big[2] === "m" ? 3 : ORD, nucleus, sup: null, sub: null })
+        continue
+      }
+      if (t.cs === "mbox" || t.cs === "text" || t.cs in TEXT_FONT_COMMANDS) {
+        if (!opts.text) throw new Error(`math: \\${t.cs} without the text font`)
+        const text = opts.text, src = rawArgument(t.cs), decl = TEXT_FONT_COMMANDS[t.cs]
+        const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null })
+        if (t.cs === "mbox" || !opts.amsmath) { out.push(box(text(src, 0, null, decl))); continue } // \leavevmode\hbox{#1}; \nfss@text: {\mbox{<decl>#1}}
+        // amstext's \text@: {\mathchoice{\textdef@\displaystyle\f@size{#1}}{\textdef@\textstyle\f@size{…}}{…\sf@size…}{…\ssf@size…}}
+        out.push(groupNoad([palette((st) => [box(text(src, st < 4 ? 0 : st < 6 ? 1 : 2, st === 0 ? "display" : "text", decl))])]))
         continue
       }
       if (t.cs === "strut") { out.push({ noad: ORD, nucleus: { kind: "strut" }, sup: null, sub: null }); continue } // \copy\strutbox

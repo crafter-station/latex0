@@ -18,7 +18,8 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, crefWrites, hsizeOf, labelWrite, mathEnv, paragraphInput, selectFont, spec, parseFormula, siContext, type ParagraphOptions } from "./paragraph"
+import { squeeze, appendToVlist, crefWrites, hsizeOf, labelWrite, mathEnv, mathText, paragraphInput, selectFont, spec, parseFormula, siContext, type FontAttrs, type ParagraphOptions } from "./paragraph"
+import type { MathText } from "../mathlayout/parse"
 import type { GlueSpec } from "../layout/dimen"
 import type { SizeCommand } from "../layout/classdata"
 
@@ -88,6 +89,12 @@ const skipsOf = (o: ParagraphOptions): Skips => ({ ...(o.leftSkip ? { leftSkip: 
  *  (to an alignment's cell), so the next one is an Item.n again. Only amsmath's \incr@eqnum goes through hyperref's
  *  \refstepcounter: without it, hyperref's equation steps the counter with the kernel's */
 /** siunitx's view of a display's text (displays are at \\normalsize) */
+/** \text and \mbox in a display: the text font then (the roman of the document's encoding; others are not modeled here) */
+const text = (cx: Ctx, font: Font): MathText => {
+  const a: FontAttrs = { enc: cx.pre.t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
+  if (selectFont(cx.run.k, "normalsize", a).name !== font.name) return () => { throw new Unsupported("\\text in a display in a font not roman") }
+  return mathText(cx.run.k, "normalsize", cx.doc, a, cx.pre.amsmath)
+}
 const si = (cx: Ctx, font: Font) => (cx.doc.siunitx ? siContext(cx.run.k, "normalsize", font, cx.doc.siunitx) : undefined)
 
 function stepHref(cx: Ctx, counter: string, n: number): string {
@@ -160,7 +167,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   if (labels.length > 1) throw new Unsupported("several \\label in an equation")
   const label = labels[0]
   if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, quad, si(cx, font), { display: true, dollarNext: next.kind === "dollars", font }) // (\quad: 1em of the text font then)
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, quad, si(cx, font), { display: true, dollarNext: next.kind === "dollars", font, text: text(cx, font) }) // (\quad: 1em of the text font then)
   if (next.kind === "equation") { counters.equation++; refs.href = stepHref(cx, "equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
   const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the(counters.equation) }
   const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the(counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
@@ -229,7 +236,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
   const env = mathEnv(run.k, "normalsize", true)
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font })
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font) })
   const rows = src.split(/\\\\/).map((r) => {
     const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
     const fields = r.replace(/\\(nonumber|notag)\b/g, "").split("&").map((f, j) => {
@@ -366,7 +373,7 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
   if (/\\(label|tag|intertext|shortintertext|raisetag)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in gather")
   if (/&/.test(src)) throw new Unsupported("& in gather")
   const env = mathEnv(run.k, "normalsize", true)
-  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font })
+  const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font) })
   const sz = run.k.sizes.normalsize, strut = sz.strut
   const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
   // \setboxz@h{$\m@th\displaystyle{##}$}
@@ -451,7 +458,7 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
   if (/\\(label|tag|shoveleft|shoveright|raisetag|begin)\b/.test(src)) throw new Unsupported("\\label, \\tag, \\shoveleft, \\shoveright or an environment in multline")
   const numbered = d.kind === "multline" && !/\\(nonumber|notag)\b/.test(src)
   const env = mathEnv(run.k, "normalsize", true)
-  const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font })
+  const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font) })
   const sz = run.k.sizes.normalsize, strut = sz.strut
   const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
   const z = line.width, gap = 655360 // \multlinegap and \multlinetaggap, 10pt

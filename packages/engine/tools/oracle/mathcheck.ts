@@ -19,7 +19,7 @@ import { loadFont } from "../../layout/font"
 import { hpack } from "../../layout/pack"
 import type { Node } from "../../layout/nodes"
 import { mlistToHlist, TEXT } from "../../mathlayout/mlist"
-import { mathEnv, mathFonts, parseFormula } from "../../latex/paragraph"
+import { mathEnv, mathFonts, mathText, parseFormula } from "../../latex/paragraph"
 import { compareBoxLists, type BoxNode } from "../../trace/schema"
 import { classData } from "../classes"
 import { mathData } from "../../latex/data"
@@ -44,6 +44,8 @@ type Nucleus =
   /** a generalized fraction: {num \over den} and its kin (\above's thickness, …withdelims' delimiters), amsmath's \genfrac
    *  and the commands it defines, \cfrac */
   | { kind: "genfrac"; cs: string; num: Item[]; den: Item[]; delims?: [string, string]; thickness?: string; style?: string }
+  /** text in a formula: \mbox, \textrm …, amsmath's \text */
+  | { kind: "text"; cs: string; text: string }
   /** a math accent and its argument (with amsmath none inside: \macc@nested) */
   /** \big … \Biggr and a delimiter */
   | { kind: "big"; cs: string; delim: string }
@@ -84,6 +86,8 @@ const COMMANDS = ["dots", "ldots", "cdots", "mathellipsis", "vdots", "ddots", "b
 const AMS_COMMANDS = ["dotsb", "dotsc", "dotsm", "dotso", "dotsi", "colon", "implies", "impliedby"]
 const ARG_COMMANDS = ["pmod", "smash", "phantom", "hphantom", "vphantom", "mathord", "mathop", "mathbin", "mathrel", "mathopen", "mathclose", "mathpunct", "mathinner"]
 const AMS_ARG_COMMANDS = ["pod", "mod", "smash[t]", "smash[b]", "smash[tb]"]
+/** text commands in math (amsmath adds \text) */
+const TEXT_COMMANDS = ["mbox", "textrm", "textbf", "textit", "textsf", "texttt", "textsl", "textsc", "textnormal", "textup", "textmd"]
 /** the generalized fraction primitives and LaTeX's \choose, \brack, \brace; amsmath's \genfrac family */
 const PRIMITIVE_FRACTIONS = ["over", "atop", "above", "overwithdelims", "atopwithdelims", "abovewithdelims", "choose", "brack", "brace"]
 const AMS_FRACTIONS = ["genfrac", "dfrac", "tfrac", "binom", "dbinom", "tbinom", "cfrac"]
@@ -113,6 +117,10 @@ function generator(r: () => number, pool: number[], busy: number[], symbols: (am
       return { kind: "genfrac", cs, num: list(depth + 1, 3), den: list(depth + 1, 3), delims,
         thickness: cs.startsWith("above") || cs === "genfrac" ? pick(["", "0pt", "0.4pt", "1pt", "2.5pt"].slice(cs === "genfrac" ? 0 : 1)) : undefined,
         style: cs === "genfrac" ? pick(["", "0", "1", "2", "3"]) : cs === "cfrac" ? pick(["", "[l]", "[r]", "[c]"]) : undefined }
+    }
+    if (x >= 0.6 && x < 0.63) {
+      const word = () => pick(["if", "and", "for all", "x", "max", "a b", "fi", "--", "$x$", "$y^2$ and", "\\textbf{B}", "AV", "1,2"])
+      return { kind: "text", cs: pick([...TEXT_COMMANDS, ...(ams() ? ["text", "text", "text"] : [])]), text: Array.from({ length: 1 + Math.floor(r() * 3) }, word).join(pick([" ", "", " "])) }
     }
     if (x >= 0.47 && x < 0.5) return { kind: "big", cs: pick(["big", "Big", "bigg", "Bigg"]) + pick(["", "l", "r", "m"]), delim: pick(FENCES) }
     if (depth < 3 && x < 0.28 && ams()) { // amsmath's matrix environments: rows of cells, sometimes ragged, sometimes a final \\
@@ -184,6 +192,7 @@ function print(items: Item[]): string {
         : n.cs === "cfrac" ? `\\cfrac${n.style}{${print(n.num)}}{${print(n.den)}}`
         : AMS_FRACTIONS.includes(n.cs) ? `\\${n.cs}{${print(n.num)}}{${print(n.den)}}`
         : `{${print(n.num)}\\${n.cs}${n.delims ? n.delims.join("") : ""}${n.thickness ? ` ${n.thickness}` : ""} ${print(n.den)}}`)
+      : n.kind === "text" ? `\\${n.cs}{${n.text}}`
       : n.kind === "accent" ? `\\${n.cs}${n.arg.kind === "group" ? arg(n.arg) : `{${arg(n.arg)}}`}`
       : n.kind === "big" ? `\\${n.cs}${n.delim}`
       : n.kind === "cmd" ? `\\${n.cs}${/^[a-z]/i.test(n.cs) ? " " : ""}${n.arg ? `{${print(n.arg)}}` : ""}`
@@ -242,7 +251,7 @@ export function mathCheck(n: number, seed: number): number {
     cases.forEach((c, i) => {
       total++
       // (\quad's em: the text font, cmr at the size, as family 0's)
-      const hl = mlistToHlist(parseFormula(`\\${STYLES[c.style / 2]} ${print(c.items)}`, withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]! }), env, TEXT, false)
+      const hl = mlistToHlist(parseFormula(`\\${STYLES[c.style / 2]} ${print(c.items)}`, withAms, env.fonts[0][0]!.params[6], undefined, { dollarNext: true, font: env.fonts[0][0]!, text: mathText(k, "normalsize", { footnote: 0 }, { enc: "OT1", fam: "cmr", ser: "m", shape: "n" }, withAms) }), env, TEXT, false)
       const list: Node[] = [{ kind: "math", on: true, width: data.dimens.mathsurround }, ...hl, { kind: "math", on: false, width: data.dimens.mathsurround }]
       const engine = emitBoxes(hpack(list))
       const tex = boxes[i]
