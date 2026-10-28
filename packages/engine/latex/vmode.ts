@@ -265,6 +265,10 @@ function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip:
   let indent = !/^\\noindent(?![A-Za-z])/.test(text)
   if (!indent && mo.first) throw new Unsupported("\\noindent where \\@item's labels go")
   v.par()
+  // (the page builder sees the \parskip where the paragraph starts, new_graf's build_page, and its lines at its \par: an
+  // output routine fired there sees the \baselineskip in force then; the hook before what the paragraph's text reads
+  // of the main vertical list, where its \parskip goes)
+  outputBaselineskip(cx, st)
   if (v.endpeEverypar) throw new Unsupported("a paragraph after a list here")
   // \@afterheading's \everypar (in a group: its \clubpenalty and \everypar{} last to the group's end)
   let club = mo.club ?? v.club, noteClubs: { leadGroupNoteClubPenalty?: number } = {}
@@ -285,9 +289,6 @@ function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip:
   const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: club, ...noteClubs, amsmath, ...align, ...(unskip ? { unskip } : {}) })
   const { vlist, trace } = lineBreak(list, params)
   decisions.push(...notes, trace)
-  // (the page builder sees the \parskip where the paragraph starts, new_graf's build_page, and its lines at its \par: an
-  // output routine fired there sees the \baselineskip in force then)
-  outputBaselineskip(cx, st)
   v.paragraph(vlist, outerParskip, run.k.sizes[end.size].baselineskip)
   if (end.size !== st.size) { const h = outputBaselineskip(cx, end, false); v.nodes.splice(v.paraStart, 0, ...h); v.paraStart += h.length }
 }
