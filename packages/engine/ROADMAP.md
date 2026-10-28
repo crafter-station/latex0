@@ -196,17 +196,17 @@ cmti10 cmtt10 cmss10`, 5/6/7/8/9/12/17pt variants, `msam10 msbm10`, `eufm10`,
 | Atom classes Ord/Op/Bin/Rel/Open/Close/Punct/Inner, 8×8 spacing table, binary→ordinary conversion | ❌ | rules 5–7, 20 |
 | Styles D/T/S/SS + cramped, automatic changes in fractions/scripts/radicals | 🟡 | rule 17 and friends |
 | Scripts: shifts σ13–σ19, sup+sub alignment, italic correction, primes | 🟡 | rules 18a–f |
-| Fractions: `\frac \dfrac \tfrac \genfrac \over \atop \choose \binom \cfrac`, rule thickness ξ8, shifts σ8–σ12 | 🟡 | rule 15 |
+| Fractions: `\frac \dfrac \tfrac \genfrac \over \atop \above …withdelims \choose \brack \brace \binom \dbinom \tbinom \cfrac`, delimiters at delim1/delim2 (#330) | ✅ | rule 15, § 748 |
 | Radicals: `\sqrt[n]`, extensible radicals from cmex | 🟡 | rule 11 |
-| Delimiters: `\left \right \middle` sizing, `\big…\Bigg`, extensible glyphs, `\left.` | 🟡 | rule 19, §§ 706–718 |
+| Delimiters: `\left \right` and e-TeX's `\middle`, `\big…\Biggl/m/r` (LaTeX's and amsmath's `\big@size`), extensible glyphs, `\left.`; mathtools's `\DeclarePairedDelimiter` (#330) | ✅ | rule 19, §§ 706–718 |
 | Large operators & limits: `\sum \prod \int …`, `\limits \nolimits`, default limits by style, `\operatorname[*]`, `\DeclareMathOperator`, log-like | 🟡 | rule 13 |
-| Accents: skew from TFM, `\widehat \widetilde`, stretchy `\overrightarrow \overleftarrow \overbrace \underbrace` with labels, `\xrightarrow[b]{a}` | 🟡 | rule 12 |
-| Math alphabets: `\mathcal \mathbb \mathfrak \mathscr \mathsf \mathtt \mathit \mathbf \boldsymbol`, `bm`; `\text`/`\textrm` in math | 🟡 | |
-| Environments exact: `equation align alignat flalign gather multline split aligned gathered cases dcases subequations`, `\intertext`, `\tag \tag* \notag`, number placement (`leqno`, `fleqn`), `eqnarray` | 🟡 | amsmath `amsmath.pdf`, `amsldoc` |
-| Spacing & phantoms: `\, \: \; \! \quad \qquad \mspace`, `\phantom \hphantom \vphantom \smash \mathstrut`, `\not`, `cancel` | 🟡 | |
+| Accents: make_math_accent with `\skewchar` (cmmi, cmsy, rsfs), amsmath's `\mathaccentV` (class 7; `\noaccents@` in U/OML/OMS alphabets), amsfonts' `\widehat \widetilde`, `\overrightarrow \overleftarrow \overleftrightarrow \underrightarrow`, `\overbrace \underbrace` (LaTeX's and mathtools's), `\xrightarrow[b]{a} \xleftarrow` (#330); amsmath's nested accents (`\macc@nested`) not yet | 🟡 | rule 12, §§ 738–742 |
+| Math alphabets: `\mathcal \mathbb \mathfrak \mathscr \mathsf \mathtt \mathit \mathbf \boldsymbol` (bold math version); amstext's `\text`, `\mbox`, `\textrm …` in math at `\f@size \sf@size \ssf@size` (#330); `bm` not yet | 🟡 | |
+| Environments exact: `equation align alignat flalign gather multline split aligned gathered subequations`, `\intertext`, `\tag \tag* \notag`, number placement (`leqno`, `fleqn`), `eqnarray`; in formulas: `array` (c l r \| @{}), `cases`, mathtools's `dcases rcases`, `smallmatrix`, `\substack`, `subarray`, the matrices (#330) | 🟡 | amsmath `amsmath.pdf`, `amsldoc` |
+| Spacing & phantoms: `\, \: \; \! \quad \qquad \mkern \mskip \nonscript`, `\ `, `\phantom \hphantom \vphantom \smash[t/b] \mathstrut`, mathtools's `\mathllap \mathrlap \mathclap`, `\not`, `\boxed`, `\mathchoice`, `\overset \underset \stackrel` (#330); `cancel` not yet | 🟡 | |
 | siunitx in text: `\num \si \unit \SI \qty`, ranges, lists, `\ang` at the default options (#267); options, `\sisetup`, the `S` column and math mode not yet | 🟡 | `siunitx.pdf` |
-| Packages: mathtools, physics, amscd, mhchem | ❌ | |
-| Symbols: amssymb, latexsym, stmaryrd/wasysym subsets → ~1000 | 🟡 | |
+| Packages: mathtools (`\DeclarePairedDelimiter`, colon relations, `\mathclap`, `dcases`; #330), physics, amscd, mhchem | 🟡 | |
+| Symbols: amssymb and amsfonts (AMSa, AMSb), arrows built with `\joinrel`, `\notin \cong \doteq`, amsmath's `\dots` rules, `\colon`, `\pmod \bmod \pod \mod`, `\iint …`; latexsym, stmaryrd/wasysym subsets | 🟡 | |
 | Hidden MathML for accessibility | ❌ | later |
 
 ### 4.5 Tables
