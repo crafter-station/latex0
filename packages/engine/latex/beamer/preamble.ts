@@ -50,6 +50,8 @@ export interface BeamerPreamble {
   /** \AtBeginSection[starred]{text} and \AtBeginSubsection[…]{…}: what each \section and \section* (\subsection,
    *  \subsection*) is followed by */
   hooks: Hooks
+  /** the table packages the preamble loads (their tabular bindings: booktabs's rules, multirow, array.sty's columns) */
+  tables: { booktabs: boolean; multirow: boolean; array: boolean }
 }
 
 export interface Hooks { section: string; sectionStar: string; subsection: string; subsectionStar: string }
@@ -113,6 +115,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     pre = pre.slice(0, at) + pre.slice(a.end)
   }
   let navigationSymbols = true
+  const tables = { booktabs: false, multirow: false, array: false }
   /** \beamer@themerounded@shadow */
   let shadow = false
   const info: TitleInfo = { title: "", subtitle: "", author: "", institute: "", date: "\\today", short: { title: "", subtitle: "", author: "", institute: "", date: "\\today" } }
@@ -154,7 +157,10 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     }
     if (line === "\\setbeamertemplate{navigation symbols}{}") { navigationSymbols = false; continue }
     const pk = line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
-    if (pk && pk[1].split(",").every((n) => LOADED.includes(n.trim()))) continue
+    if (pk && pk[1].split(",").every((n) => LOADED.includes(n.trim()) || n.trim() in tables)) {
+      for (const n of pk[1].split(",")) if (n.trim() in tables) tables[n.trim() as keyof typeof tables] = true
+      continue
+    }
     // (inputenc's \inputencoding{utf8}: UTF-8 is the kernel's input encoding already, \inputencodingname utf8)
     if (line === "\\usepackage[utf8]{inputenc}") continue
     // \title, \subtitle, \author, \institute and \date keep their text (\@dblarg: an optional short form);
@@ -169,7 +175,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   // (the data is for these lines in this order: infolines with its own headline, or another order, has none)
   if (theme.data.preamble.join("\n") !== themeLines.join("\n")) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const cls = classFile("beamer").options[option]
-  const k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens } }
+  const k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens }, ...(tables.array ? { array: { extrarowheight: 0 } } : {}) }
   // the aspect ratio's paper (the class data's variant, with the default theme), and what geometry and
   // \beamer@calculateheadfoot make of it with the theme's margins and head and foot lines
   if (aspect !== "43") {
@@ -183,7 +189,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   const title = pdfInfo(info.title + (info.subtitle ? ` - ${info.subtitle}` : ""))
   // (\beamer@stripands, then \and as ", ")
   const author = pdfInfo(info.author.replace(/\s*\\and(?![A-Za-z])\s*/g, ", "))
-  return { option, centered, k, theme, navigationSymbols, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end), hooks }
+  return { option, centered, k, theme, navigationSymbols, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end), hooks, tables }
 }
 
 /** a document information string as hyperref's \pdfstringdef makes it ("" for none) */

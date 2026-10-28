@@ -39,6 +39,7 @@ import { navHeads, type NavHead } from "./headnav"
 import { beamerPage, headOrFoot } from "./page"
 import { sidebarTemplate } from "./sidebar"
 import { pgfDeclareShading } from "../../pgf/shade"
+import { booktabsDimens } from "../tabular"
 import { printScaled } from "../../layout/arith"
 import { selectFont } from "../paragraph"
 import { SANS } from "./frame"
@@ -99,7 +100,7 @@ function section(cx: BeamerCtx, s: SectionSource) {
 
 /** `images`: the graphics files' sizes */
 export function beamerDocument(prepared: DocumentSource, driver: "dvips" | "pdftex", epoch: number, images: Map<string, BoundingBox | Image>): LayoutResult {
-  if (prepared.listings.length || prepared.tabulars.length || prepared.minipages.length || prepared.urls.length) throw new Unsupported("beamer: verbatim, tabular, minipage or url")
+  if (prepared.listings.length || prepared.minipages.length || prepared.urls.length) throw new Unsupported("beamer: verbatim, minipage or url")
   const media: FrameMedia = { prepared, images, driver }
   const first = layout(media, null, epoch, null)
   const second = layout(media, first.written, epoch, null)
@@ -220,12 +221,13 @@ function layout(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships
 function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ximageObjects: boolean; ships: Ships } {
   const { driver } = media
   // (pdfTeX's images: the run's own)
-  media = { ...media, ximages: new Set(), ximageObjects: false }
   const pre = readBeamerPreamble(media.prepared.src)
+  // (booktabs's dimensions in the font current as it loads, beamer's sans serif \normalsize)
+  media = { ...media, ximages: new Set(), ximageObjects: false, booktabs: pre.tables.booktabs ? booktabsDimens(selectFont(pre.k, "normalsize", SANS), pre.k.dimens.doublerulesep) : null, multirow: pre.tables.multirow }
   Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, HYPER_LINK_DEFAULTS)
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
-  mathFonts.packages = { amsfonts: true, amssymb: true } // (beamer loads amssymb)
+  mathFonts.packages = { amsfonts: true, amssymb: true, ...(pre.tables.array ? { array: true } : {}) } // (beamer loads amssymb)
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const pgf = navigationPgf(driver)
   // (what fadings put at the top of a page measures against \normalsize's \strutbox, the frames' size)

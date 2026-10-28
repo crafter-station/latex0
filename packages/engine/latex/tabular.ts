@@ -8,7 +8,8 @@
 import { halignSpans, type AlignCell } from "../layout/align"
 import { emptyBox, glue, kern, paramGlue, penalty, type BoxNode, type Node, filGlue, fillGlue, ssGlue } from "../layout/nodes"
 import { hpack, vpack, type PackSpec } from "../layout/pack"
-import type { GlueSpec } from "../layout/dimen"
+import { parseDimen, type GlueSpec } from "../layout/dimen"
+import { QUAD, X_HEIGHT, type Font } from "../layout/font"
 import { appendToVlist } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
@@ -224,6 +225,16 @@ export function preamble(spec: string, array?: { types: ColumnTypes; si?: boolea
 export type TabCell = { text: string } | { span: number; spec: string; text: string
   /** (longtable's \caption: the entry's material, made already, and what follows the \multicolumn in its cell) */
   nodes?: Node[]; after?: Node[] }
+/** booktabs's dimensions */
+export interface Booktabs { heavyrulewidth: number; lightrulewidth: number; cmidrulewidth: number; belowrulesep: number; belowbottomsep: number; aboverulesep: number; abovetopsep: number; cmidrulesep: number; cmidrulekern: number; defaultaddspace: number }
+
+/** booktabs's dimensions, set as it loads, in the font current then (.08em, .05em, .03em, .65ex, .4ex, .5em), and
+ *  \cmidrulesep \doublerulesep */
+export function booktabsDimens(f: Font, doublerulesep: number): Booktabs {
+  const d = (x: string) => parseDimen(x, { em: f.params[QUAD], ex: f.params[X_HEIGHT] })
+  return { heavyrulewidth: d(".08em"), lightrulewidth: d(".05em"), cmidrulewidth: d(".03em"), belowrulesep: d(".65ex"), belowbottomsep: 0, aboverulesep: d(".4ex"), abovetopsep: 0, cmidrulesep: doublerulesep, cmidrulekern: d(".5em"), defaultaddspace: d(".5em") }
+}
+
 /** a row (and the [skip] of the \\ ending it), an \hline, a \cline{a-b}, or a booktabs rule */
 export type TabLine = { cells: TabCell[]; skip?: string | number; ended?: boolean; /** \\* */ star?: boolean } | { rowcolor: CtColor } | { hline: true } | { cline: [number, number] } | BooktabsLine
 /** booktabs's rules between rows: \toprule, \midrule, \bottomrule[width], \specialrule{width}{above}{below},
@@ -390,7 +401,7 @@ export interface TabularEnv {
   /** siunitx loaded: an S column's entry with the column's options (siunitx.ts) */
   si?: (text: string, options: string, state: { spaceFactor: number }) => Node[]
   /** booktabs's dimensions, when the document loads it (set in the font of its \usepackage) */
-  booktabs?: { heavyrulewidth: number; lightrulewidth: number; cmidrulewidth: number; belowrulesep: number; belowbottomsep: number; aboverulesep: number; abovetopsep: number; cmidrulesep: number; cmidrulekern: number; defaultaddspace: number }
+  booktabs?: Booktabs
 }
 
 /**
