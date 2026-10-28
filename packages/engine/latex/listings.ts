@@ -68,15 +68,29 @@ export interface LstOptions {
   backgroundcolor: string; rulecolor: string; fillcolor: string; rulesepcolor: string
   /** breaklines=, breakatwhitespace=, breakindent=, breakautoindent= */
   breaklines: boolean; breakatwhitespace: boolean; breakindent: string; breakautoindent: boolean
+  /** keepspaces=: each space an other token of its own, never lost space */
+  keepspaces: boolean
+  /** \lstdefinestyle's styles (lstmisc.sty's style aspect: global, the name lower case without spaces), which
+   *  style= sets as \lstset does */
+  styles: Readonly<Record<string, string>>
 }
 
 export const LST_DEFAULTS: LstOptions = {
   language: null, basicstyle: "", identifierstyle: "", commentstyle: "\\itshape", stringstyle: "", keywordstyle: ["\\bfseries"],
   columns: "fixed", lostInserts: true, flexibleKind: "flexible", showstringspaces: true, tabsize: 8, caption: null, label: null,
   numbers: "none", numberstyle: "", numbersep: "10pt", stepnumber: 1, firstnumber: null, numberblanklines: true, numberfirstline: false,
-  breaklines: false, breakatwhitespace: false, breakindent: "20pt", breakautoindent: true,
+  breaklines: false, breakatwhitespace: false, breakindent: "20pt", breakautoindent: true, keepspaces: false, styles: {},
   backgroundcolor: "", rulecolor: "", fillcolor: "", rulesepcolor: "",
   frame: "none", framerule: ".4pt", framesep: "3pt", rulesep: "2pt", framexleftmargin: "0pt", framexrightmargin: "0pt", xleftmargin: "0pt", xrightmargin: "0pt",
+}
+
+/** \lst@NormedDef: a name lower case, without spaces */
+export const lstName = (s: string) => s.replace(/\s+/g, "").toLowerCase()
+
+/** \lstdefinestyle{name}{keys} on top of `base` */
+export function lstDefineStyle(name: string, keys: string, base: LstOptions): LstOptions {
+  if (/[\\{}\[\]]/.test(name)) throw new LstUnsupported(`\\lstdefinestyle{${name}}`)
+  return { ...base, styles: { ...base.styles, [lstName(name)]: keys } }
 }
 
 /** key=value pairs at brace depth 0 */
@@ -102,8 +116,8 @@ function keyvals(s: string): [string, string | null][] {
 const depthOk = (s: string) => { let d = 0; for (const c of s) { if (c === "{") d++; else if (c === "}" && --d < 0) return false } return d === 0 }
 
 /** \lstset{…} or the environment's [options] on top of `base` */
-export function lstOptions(src: string, base: LstOptions): LstOptions {
-  const o: LstOptions = { ...base, keywordstyle: [...base.keywordstyle] }
+export function lstOptions(src: string, base: LstOptions, depth = 0): LstOptions {
+  let o: LstOptions = { ...base, keywordstyle: [...base.keywordstyle] }
   const bool = (v: string | null) => { if (v === null || v === "true") return true; if (v === "false") return false; throw new LstUnsupported(`listings value ${v}`) }
   const style = (v: string | null) => { if (v === null || !/^(\s*\\(bfseries|mdseries|itshape|slshape|upshape|scshape|rmfamily|sffamily|ttfamily|normalfont|tiny|scriptsize|footnotesize|small|normalsize|large|Large|color\s*(\[[^\]{}]*\])?\s*\{[^{}]*\}))*\s*$/.test(v)) throw new LstUnsupported(`listings style ${v}`); return v }
   for (const [key, v] of keyvals(src)) {
@@ -154,6 +168,13 @@ export function lstOptions(src: string, base: LstOptions): LstOptions {
       case "breakautoindent": o.breakautoindent = bool(v); break
       case "breakindent": if (!/^-?(\d+(\.\d*)?|\.\d+)\s*(pt|em|ex|mm|cm|in|bp)$/.test(v ?? "")) throw new LstUnsupported(`breakindent=${v}`); o.breakindent = v!; break
       case "prebreak": case "postbreak": if (v) throw new LstUnsupported(`${key}=${v}`); break
+      case "keepspaces": o.keepspaces = bool(v); break
+      case "style": { // \lst@LAS{style}: the style's \lstset{…} where the key stands
+        const name = lstName(v ?? "")
+        if (!(name in o.styles) || depth > 10) throw new LstUnsupported(`listings style=${v}`)
+        o = lstOptions(o.styles[name], o, depth + 1)
+        break
+      }
       default: throw new LstUnsupported(`listings key ${key}`)
     }
   }
@@ -213,7 +234,7 @@ export function lstScan(p: LstScanParams): LstEvent[] {
   const W = p.width // \lst@width
   // local state (saved by a mode's group)
   interface Local { token: Elem[]; length: number; letter: boolean; lastother: string | null; mode: number; currstyle: string | null; ifmode: boolean; keywords: boolean; keepspaces: boolean; visible: boolean; Lmode: boolean }
-  let L: Local = { token: [], length: 0, letter: false, lastother: "", mode: 0, currstyle: null, ifmode: false, keywords: true, keepspaces: false, visible: false, Lmode: false }
+  let L: Local = { token: [], length: 0, letter: false, lastother: "", mode: 0, currstyle: null, ifmode: false, keywords: true, keepspaces: o.keepspaces, visible: false, Lmode: false }
   const stack: Local[] = []
   // global state
   let lostspace = 0, pos = 0, newlines = 0, whitespace = true, gobbledws = p.carry.gobbledws, ifnewline = false

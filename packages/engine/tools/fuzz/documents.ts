@@ -439,11 +439,14 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.05) keys.push(`breakatwhitespace=${pick(["true", "false"])}`)
     if (r() < 0.05) keys.push(`breakindent=${pick(["10pt", "0pt", "2em"])}`)
     if (r() < 0.05) keys.push(`breakautoindent=${pick(["true", "false"])}`)
+    if (r() < 0.08) keys.push(pick(["keepspaces", "keepspaces=true", "keepspaces=false"]))
     return keys
   }
-  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",").replace(/breaklines=true/, "breaklines=false") : "" // (\lstinline has no breaklines yet)
+  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",") : ""
   lstOn = lst
-  if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
+  // (a third of them through \lstdefinestyle and style=, by the keys' length: no draw)
+  const lstStyled = lstsetKeys.length % 3 === 0 ? [`\\lstdefinestyle{Fuzz Style}{${lstsetKeys}}`, "\\lstset{style=fuzzstyle}"] : [`\\lstset{${lstsetKeys}}`]
+  if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? lstStyled : []))
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")

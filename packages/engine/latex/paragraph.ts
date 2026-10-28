@@ -150,8 +150,9 @@ export interface DocState {
   natbib?: NatStyle
   /** a color expression as its \special text */
   color?: (spec: string, model?: string) => string
-  /** \lstinline number n (taken out of the source before expansion) at a size in a font */
-  lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs) => Node[]
+  /** \lstinline number n (taken out of the source before expansion) at a size in a font; \linewidth where it stands
+   *  when \@totalleftmargin and \rightmargin are zero there (outside lists and boxes) */
+  lstinline?: (n: number, size: SizeCommand, attrs: FontAttrs, lineWidth: number | undefined) => Node[]
   /** \url number n (taken out of the source before expansion) at a size in a font */
   url?: (n: number, size: SizeCommand, attrs: FontAttrs, penalties: boolean, color: string | undefined) => Node[]
   /** \includegraphics number n, with \linewidth where it stands */
@@ -1465,7 +1466,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "lstinline") {
       if (!doc.lstinline) throw new Unsupported("paragraph adapter: \\lstinline outside a document")
-      list.push(...doc.lstinline(p.n, size, attrs))
+      list.push(...doc.lstinline(p.n, size, attrs, ctx.restricted || ctx.params.parShape.length ? undefined : ctx.params.hsize))
       state.spaceFactor = 1000
     }
     else if (p.kind === "href") {

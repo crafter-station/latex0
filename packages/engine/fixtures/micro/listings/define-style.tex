@@ -1,0 +1,40 @@
+% fixture: listings/define-style
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \lstdefinestyle and style= (the style's keys where style= stands, the name lower case without spaces, a style naming another), keepspaces=true (each space its own token, no lost space) in fixed and fullflexible columns and in a style, a listing's own keys after its style
+% issue: #352
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{listings}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{Base Style}{
+  basicstyle=\ttfamily\footnotesize,
+  commentstyle=\color{green},
+  keywordstyle=\color{magenta},
+  numberstyle=\tiny\color{gray},
+  numbers=left,
+  numbersep=5pt,
+  tabsize=2
+}
+\lstdefinestyle{framed}{style=basestyle, backgroundcolor=\color{backcolour}, frame=single, showstringspaces=false, breaklines=true}
+\lstdefinestyle{kept}{keepspaces, columns=fullflexible}
+\lstset{style=framed}
+\begin{document}
+A listing in the style.
+\begin{lstlisting}[language=Python]
+def f(a,  b):   # two  spaces
+	return "a  b" + a
+\end{lstlisting}
+Kept spaces in fixed columns:
+\begin{lstlisting}[keepspaces=true, numbers=none]
+x   =  1;    y = 2
+    indented	tab
+\end{lstlisting}
+And in a style with full flexible columns:
+\begin{lstlisting}[style=kept, frame=none]
+int    main ( void )   {
+	  return  0;
+}
+\end{lstlisting}
+\end{document}

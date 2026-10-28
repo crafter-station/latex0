@@ -10,7 +10,7 @@ import { classData, CM_FONTS, documentClass, withFonts, withT1, type FontSetup }
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
-import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
+import { lstDefineStyle, lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { times, setspaceCommand, setspaceOptions, withSetspace, type SetSpace } from "./setspace"
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import type { AlgorithmPackages } from "./algorithm"
@@ -176,11 +176,22 @@ export function readPreamble(src: string): Preamble {
   const colorDefs: [string, string, string][] = [] // \definecolor
   // \tikzset{…} and \tikzstyle…, which may run over lines: on one
   pre = pre.replace(/\\tikzset\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
-  for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
-    let depth = 0, j = i + 7
-    for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
-    lstBase = lstOptions(pre.slice(i + 8, j), lstBase)
-    pre = pre.slice(0, i) + pre.slice(j + 1)
+  // and \lstdefinestyle{name}{…}, in order
+  for (let m = pre.match(/\\lst(set|definestyle)\s*\{/); m; m = pre.match(/\\lst(set|definestyle)\s*\{/)) {
+    const i = m.index!
+    const group = (k: number) => { // the braced group at k, and the index after it
+      let depth = 0, j = k
+      for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
+      if (j >= pre.length) throw new Unsupported(`preamble: ${m[0]}`)
+      return [pre.slice(k + 1, j), j + 1] as const
+    }
+    const [a, j] = group(i + m[0].length - 1)
+    if (m[1] === "set") { lstBase = lstOptions(a, lstBase); pre = pre.slice(0, i) + pre.slice(j); continue }
+    const k = pre.slice(j).match(/^\s*\{/)
+    if (!k) throw new Unsupported(`preamble: \\lstdefinestyle{${a}} without its keys in braces`)
+    const [keys, e] = group(j + k[0].length - 1)
+    lstBase = lstDefineStyle(a, keys, lstBase)
+    pre = pre.slice(0, i) + pre.slice(e)
   }
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false

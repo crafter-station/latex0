@@ -239,7 +239,7 @@ export function listing(cx: Ctx, b: Extract<Block, { kind: "listing" }>, runInHe
  * \lsthk@TextStyle (no skips, frame or margins, an empty \everypar and \lst@NewLine), \lst@Init and \lst@DeInit
  * with no \par: the token boxes go into the paragraph
  */
-export function lstinlineAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs): Node[] {
+export function lstinlineAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAttrs, lineWidth: number | undefined): Node[] {
   const { lstBase, t1, usesListings } = cx.pre
   const { listings, run } = cx
   if (!usesListings) throw new Unsupported("\\lstinline without \\usepackage{listings}")
@@ -249,10 +249,31 @@ export function lstinlineAt(cx: Ctx, n: number, size: SizeCommand, attrs: FontAt
   const base = styleOf(o.basicstyle), baseFont = selectFont(run.k, base.size, base.a)
   const width = parseDimen(o.columns === "fixed" ? "0.6em" : "0.45em", { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] })
   if (run.lstCarry.gobbledws) throw new Unsupported("\\lstinline after gobbled whitespace")
-  if (o.breaklines) throw new Unsupported("\\lstinline with breaklines")
-  const events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: run.lstCarry })
+  // breaklines: \lst@newlines stays 1, so each token's \lst@TrackNewLines runs \lst@breakNewLine (\@totalleftmargin
+  // zero; \linewidth after resetmargins, the TextStyle hook's) and its \lst@@discretionary's post-break text is
+  // \llap{\lst@framelr\kern\lst@breakcurrindent\kern-\@totalleftmargin}, the frame box with no frame (TextStyle empties its shapes and
+  // backgroundcolor); \hbadness, \pretolerance, \rightskip and \parindent are set in \lstinline's group only
+  let breaks: { indent: number; lineWidth: number; left: number } | undefined, frame: () => BoxNode = () => hpack([])
+  if (o.breaklines) {
+    if (lineWidth === undefined || run.minipageWidth !== null) throw new Unsupported("\\lstinline with breaklines in a list or a box")
+    const units = { em: baseFont.params[QUAD], ex: baseFont.params[X_HEIGHT] }
+    const dim = (key: keyof LstOptions) => { try { return parseDimen(o[key] as string, units) } catch { throw new Unsupported(`${key}=${o[key]}`) } }
+    breaks = { indent: dim("breakindent"), lineWidth, left: 0 }
+    const fill = o.fillcolor ? styleColors(cx, o.fillcolor) : []
+    const fr: LstFrame = {
+      tshape: "", bshape: "", lshape: "", rshape: "", rule: dim("framerule"), sep: dim("framesep"), rulesep: dim("rulesep"), xleft: dim("framexleftmargin"), xright: dim("framexrightmargin"),
+      colors: { rule: styleColors(cx, o.rulecolor), bkg: [], fill, rulesep: o.rulesepcolor ? styleColors(cx, o.rulesepcolor) : fill },
+    }
+    const strut = run.k.sizes[base.size].strut // (\lst@frameInit after basicstyle's size)
+    frame = () => lstFrameBoxV(fr, lineWidth, strut.height, strut.depth)
+  }
+  const events = lstScan({ width, lines: listings[n].lines, options: o, fonts, textStyle: true, carry: run.lstCarry, breaks })
   run.lstLineno = 1 // InitVars, and no end of line
-  const nodes = events.map((e) => { if ("node" in e) return e.node; throw new Unsupported("\\lstinline with a line break") })
+  const nodes = events.map((e): Node => {
+    if ("node" in e) return e.node
+    if ("disc" in e) return { kind: "disc", pre: [], post: [hpack([ssGlue(), frame(), kern(e.indent, true), kern(0, true)], { exactly: 0 })], replaceCount: 0 }
+    throw new Unsupported("\\lstinline with a line break")
+  })
   const basicColors = styleColors(cx, o.basicstyle) // basicstyle in \lst@Init: its pushes before the tokens
   nodes.unshift(...basicColors.map((c) => colorPush(c)))
   if (xcolor.on) nodes.push(colorPush()) // \lst@DeInit's \normalcolor; then the group's end pops them all
