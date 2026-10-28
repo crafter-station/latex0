@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 847,
-  "exact": 847,
+  "fixtures": 859,
+  "exact": 859,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 471231
+  "glyphs": 473424
  },
  "areas": [
   {
@@ -81,8 +81,8 @@
   },
   {
    "area": "fonts",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 14,
+   "exact": 14
   },
   {
    "area": "footnotes",
@@ -101,8 +101,8 @@
   },
   {
    "area": "hyperref",
-   "fixtures": 23,
-   "exact": 23
+   "fixtures": 31,
+   "exact": 31
   },
   {
    "area": "hyphenation",
@@ -116,8 +116,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 38,
-   "exact": 38
+   "fixtures": 39,
+   "exact": 39
   },
   {
    "area": "lists",
@@ -186,8 +186,8 @@
   },
   {
    "area": "text",
-   "fixtures": 36,
-   "exact": 36
+   "fixtures": 37,
+   "exact": 37
   },
   {
    "area": "tikz",
@@ -5594,6 +5594,28 @@
    "issue": "#340"
   },
   {
+   "id": "fonts/lmodern-ot1-symbols-11pt",
+   "file": "micro/fonts/lmodern-ot1-symbols-11pt.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 99,
+   "covers": "OT1's text symbols from OMS and OML with lmodern at 11pt: lmsy10 and lmmi10 at 10.95pt (omllmm.fd's <9.5-11>), lmmi12 from 11pt up (\\large's 12pt), lmmi8 and lmsy8 in \\footnotesize (9pt → lmsy9)",
+   "issue": "#347"
+  },
+  {
+   "id": "fonts/lmodern-ot1-symbols",
+   "file": "micro/fonts/lmodern-ot1-symbols.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 213,
+   "covers": "OT1's text symbols from OMS and OML with lmodern: omslmr.fd and omllmr.fd substitute lmsy and lmm (lmsy5–10, lmmi5–12 by omslmsy.fd's and omllmm.fd's ranges, bold lmbsy and lmmib), while lmss and lmtt have no OMS or OML family: NFSS's substitution to cmsy and cmm in the m series (\\wrong@fontshape)",
+   "issue": "#347"
+  },
+  {
    "id": "fonts/lmodern-ot1",
    "file": "micro/fonts/lmodern-ot1.tex",
    "area": "fonts",
@@ -5777,6 +5799,28 @@
    "issue": "#274"
   },
   {
+   "id": "hyperref/addcontentsline-parent-anchor-pdftex",
+   "file": "micro/hyperref/addcontentsline-parent-anchor-pdftex.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 236,
+   "covers": "hyperref's \\@@writetorep when a bookmark's anchor is its parent's (an \\addcontentsline one level below the section it follows, or after a titlesec \\subsubsection* with no anchor of its own): the warning's \\phantomsection, a new section*.N anchor in vertical mode that the bookmark and the toc line point to, while \\Parent<level> keeps the old one",
+   "issue": "#347"
+  },
+  {
+   "id": "hyperref/addcontentsline-parent-anchor",
+   "file": "micro/hyperref/addcontentsline-parent-anchor.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 236,
+   "covers": "hyperref's \\@@writetorep when a bookmark's anchor is its parent's (an \\addcontentsline one level below the section it follows, or after a titlesec \\subsubsection* with no anchor of its own): the warning's \\phantomsection, a new section*.N anchor in vertical mode that the bookmark and the toc line point to, while \\Parent<level> keeps the old one",
+   "issue": "#347"
+  },
+  {
    "id": "hyperref/anchors-plain",
    "file": "micro/hyperref/anchors-plain.tex",
    "area": "hyperref",
@@ -5797,6 +5841,39 @@
    "glyphs": 85,
    "covers": "hyperref anchors beyond headings: enumerate items (Item.n, a counter of its own, on the vertical list), footnote marks in a link to Hfootnote.n and its \\hyper@@anchor after the strut, amsmath's equation (the anchor in a math group) and align rows (in the tag box, at \\baselineskip plus \\jot), \\refstepcounter in a paragraph, figure and table captions (H.S H.R after \"n: \", the lof and lot lines with the anchor, nameref's caption), \\ref links to all of them",
    "issue": "#30"
+  },
+  {
+   "id": "hyperref/appendix-anchor-spanish-article",
+   "file": "micro/hyperref/appendix-anchor-spanish-article.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 61,
+   "covers": "an appendix section's anchor with babel's spanish layout in article: hyperref's \\hyper@makecurrent sees an \\@Alph that is not the kernel's (spanish.ldf's \\layoutspanish) and makes it Alph\\number (appendix.Alph1), the text keeping A; \\ref and \\autoref to it",
+   "issue": "#347"
+  },
+  {
+   "id": "hyperref/autoref-appendix-brazil",
+   "file": "micro/hyperref/autoref-appendix-brazil.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "\\autoref to an appendix chapter's anchor (appendix.A) with babel's brazil: hyperref's \\HyLang@portuges \\appendixautorefname (Ap\\^endice)",
+   "issue": "#347"
+  },
+  {
+   "id": "hyperref/autoref-appendix-spanish",
+   "file": "micro/hyperref/autoref-appendix-spanish.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "\\autoref to an appendix chapter's anchor (appendix.A) with babel's spanish: hyperref's \\HyLang@spanish \\appendixautorefname (Ap\\'endice)",
+   "issue": "#347"
   },
   {
    "id": "hyperref/autoref-report",
@@ -5951,6 +6028,39 @@
    "glyphs": 70,
    "covers": "nameref without hyperref, with caption.sty and subcaption (nameref's \\@caption patch on caption.sty's: the caption, and a subcaption's for its \\label and sub@ label)",
    "issue": "#280"
+  },
+  {
+   "id": "hyperref/nameref-counter",
+   "file": "micro/hyperref/nameref-counter.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 163,
+   "covers": "\\nameref to a label whose name holds a document counter's \\the<counter> (a \\paragraph{Theorem \\thethm.} from a user macro): the .aux file keeps \\thethm, which prints the counter's value where \\nameref reads it, not where the label was set",
+   "issue": "#347"
+  },
+  {
+   "id": "hyperref/nameref-list-names-report",
+   "file": "micro/hyperref/nameref-list-names-report.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 420,
+   "covers": "\\nameref to labels after report's \\tableofcontents (\\chapter*{\\contentsname \\@mkboth…}), \\listoftables and its bibliography (\\bibname), with \\pagestyle{myheadings}, whose \\@mkboth is \\@gobbletwo, and babel's spanish names (\\'{I}ndice general, \\'{I}ndice de cuadros, Bibliograf\\'{\\i}a)",
+   "issue": "#347"
+  },
+  {
+   "id": "hyperref/nameref-list-names",
+   "file": "micro/hyperref/nameref-list-names.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 277,
+   "covers": "\\nameref to labels after \\tableofcontents, \\listoffigures, \\listoftables and the bibliography: the name the .aux file keeps is the name macro (\\contentsname \\@mkboth{…}{…}, \\listfigurename, \\listtablename, \\refname), which means the document's caption name where \\nameref reads it, \\@mkboth \\@gobbletwo under \\pagestyle{plain}",
+   "issue": "#347"
   },
   {
    "id": "hyperref/nameref-listings",
@@ -6590,6 +6700,17 @@
    "glyphs": 44,
    "covers": "a \\subparagraph run in to a framed listing's top frame with hyperref: the heading's \\hskip\\parindent is read where it goes in place (zero with breaklines), its anchor box's \\kern-\\Hy@SectionHShift is the \\parindent when the heading was read",
    "issue": "#294"
+  },
+  {
+   "id": "listings/run-in-newpage-in-paragraph",
+   "file": "micro/listings/run-in-newpage-in-paragraph.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 116,
+   "covers": "\\clearpage and \\newpage inside a paragraph while \\@noskipsec stays true after a run-in heading lost to a listing: \\newpage's \\if@noskipsec\\leavevmode does nothing in horizontal mode (no empty paragraph), and its \\global\\@noskipsecfalse ends the state, so a later \\newpage between paragraphs starts none either",
+   "issue": "#347"
   },
   {
    "id": "listings/spaces",
@@ -8495,6 +8616,17 @@
    "glyphs": 277,
    "covers": "\\usepackage[T1]{fontenc}: the EC fonts for text, headings and footnotes (ecrm, ecbx), their ligatures and kerns, -- and --- dashes, quotes, hyphenation with the T1 fonts, footnote marks at \\sf@size, the bold \\textendash label",
    "issue": "#30"
+  },
+  {
+   "id": "text/text-symbols-ot1-families",
+   "file": "micro/text/text-symbols-ot1-families.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 74,
+   "covers": "OT1's OMS and OML text symbols in the sans and typewriter families, which have no OMS or OML shapes: \\wrong@fontshape's OMS/cmsy/m/n and OML/cmm/m/it, in the m series even in bold (cmsy, not cmbsy), and in the roman's bold cmbsy and cmmib",
+   "issue": "#347"
   },
   {
    "id": "text/text-symbols-ot1",
