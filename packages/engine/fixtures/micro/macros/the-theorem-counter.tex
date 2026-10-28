@@ -1,0 +1,25 @@
+% fixture: macros/the-theorem-counter
+% tier: T3
+% engine: document
+% covers: \renewcommand of a theorem's \the<counter> within a section and of \newcounter's (\thesection, \alph; \thestep in \thepiece), in the theorem heads, \ref and text
+% issue: #365
+\documentclass{article}
+\usepackage{amsthm}
+\newtheorem{thm}{Theorem}[section]
+\newtheorem{lem}[thm]{Lemma}
+\renewcommand{\thethm}{\thesection.\Alph{thm}}
+\newcounter{step}[section]
+\renewcommand{\thestep}{(\roman{step})}
+\newcounter{piece}[step]
+\renewcommand{\thepiece}{\thestep\alph{piece}}
+\begin{document}
+\section{Start}
+\begin{thm}\label{t}
+Every number is interesting.
+\end{thm}
+\begin{lem}
+And so is this one.
+\end{lem}
+\refstepcounter{step}\label{s}Step \thestep{} of theorem~\ref{t} is \ref{s}.
+\refstepcounter{piece}\label{p}Its part \ref{p}.
+\end{document}

@@ -137,16 +137,17 @@ export function frenchNoteStart(n: number, k: ClassOptionData, footnotesep: numb
 
 /**
  * french.ldf's \FB@makecaption (its main language, \FBCustomiseFigTabCaptions): {\FBfigtabshape \fnum@figure}
- * (\scshape while french is selected) and \CaptionSeparator (\space\textendash\space) before the text
+ * (\scshape while french is selected) and \CaptionSeparator (\space\textendash\space) before the text; `paragraph`: in the
+ * caption's paragraph (a hyphen gets its discretionary), not its box
  */
-export function frenchCaptionStart(cx: Ctx, name: string, number: string, roman: Font, state: { spaceFactor: number }): Node[] {
+export function frenchCaptionStart(cx: Ctx, name: string, number: string, roman: Font, state: { spaceFactor: number }, paragraph = false): Node[] {
   const k = cx.run.k, T1 = !!k.ints.T1
   const f = babelState.lang === "french" ? selectFont(k, "normalsize", { enc: T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sc" }) : roman
   const out: Node[] = []
-  appendText(out, name, f, state, false)
+  appendText(out, name, f, state, paragraph)
   out.push(penalty(10000), glue(f.params[SPACE], f.params[SPACE_STRETCH], 0, f.params[SPACE_SHRINK], 0)) // \nobreakspace
   state.spaceFactor = 1000
-  appendText(out, number, f, state, false)
+  appendText(out, number, f, state, paragraph)
   out.push(spaceGlue(roman, state.spaceFactor))
   appendCodes(out, String.fromCharCode(T1 ? 21 : 123), roman, state, false) // \textendash
   out.push(spaceGlue(roman, state.spaceFactor))

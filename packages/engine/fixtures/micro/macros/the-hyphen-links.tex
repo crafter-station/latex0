@@ -1,0 +1,18 @@
+% fixture: macros/the-hyphen-links
+% tier: T3
+% engine: document
+% covers: a \the<counter> with a hyphen (\thesection-\arabic{table}): in caption.sty's caption paragraph the hyphen gets its discretionary; in hyperref's \ref link box (dvips, restricted horizontal mode) it does not
+% issue: #365
+\documentclass{article}
+\usepackage{caption}
+\usepackage{hyperref}
+\renewcommand{\thetable}{\thesection-\arabic{table}}
+\begin{document}
+\section{Data}
+\begin{table}[h]
+\centering
+\caption{Numbers in a caption long enough to take more than one line of the page, so that it is set as a paragraph}\label{t}
+\begin{tabular}{c}1\end{tabular}
+\end{table}
+Table~\ref{t} has the numbers.
+\end{document}

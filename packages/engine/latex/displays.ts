@@ -189,8 +189,8 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   if (label && !/^[A-Za-z0-9:._-]+$/.test(label[1])) throw new Unsupported(`\\label{${label[1]}}`)
   const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, quad, si(cx, font), { display: true, dollarNext: next.kind === "dollars", font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) }) // (\quad: 1em of the text font then)
   if (next.kind === "equation") { counters.equation++; refs.href = stepHref(cx, "equation", counters.equation) } // \refstepcounter, or amsmath's \incr@eqnum
-  const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the(counters.equation) }
-  const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the(counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
+  const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the("equation", counters.equation) }
+  const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the("equation", counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
   let mlist: MItem[]
   if (!label) mlist = parse(next.src)
   else {
@@ -211,7 +211,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
     if (hyper && hyperDriver.pdftex) mlist.unshift(...mathAnchor(refs.href, run.k.sizes.normalsize.baselineskip.width))
     else if (hyper) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [HS(), HA(run.k.sizes.normalsize.baselineskip.width), dest(refs.href)] }, sup: null, sub: null })
     const l: Node[] = []
-    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
     l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
     appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
     eqno = hpack(newlabel ? [hpack(l), ...newlabel] : [hpack(l)]); eqno.display = true
@@ -228,7 +228,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
     // (with cleveref, the \refstepcounter's first aid group before it: an empty ord)
     if (hyper && cx.refs.cleveref) mlist.unshift({ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null })
     const l: Node[] = []
-    appendText(l, `(${counters.the(counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
+    appendText(l, `(${counters.the("equation", counters.equation)})`, romanFont, { spaceFactor: 1000 }, false)
     eqno = hpack([hpack(setgroup(l))]); eqno.display = true // {\normalfont\normalcolor (n)}
   }
   const sz = run.k.sizes.normalsize
@@ -275,7 +275,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
     counters.equation++
     refs.href = stepHref(cx, "equation", counters.equation)
     const l: Node[] = []
-    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
     const last = l[l.length - 1] as CharNode
     l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
     appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
@@ -407,7 +407,7 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
     counters.equation++
     refs.href = stepHref(cx, "equation", counters.equation)
     const l: Node[] = []
-    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
     l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
     appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
     if (hyper) { const s = strutBox(); return hpack([s, ...anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
@@ -494,7 +494,7 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
     counters.equation++
     refs.href = stepHref(cx, "equation", counters.equation)
     const l: Node[] = []
-    appendText(l, `(${counters.the(counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
     l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
     appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
     tag = hpack(l) // \maketag@@@

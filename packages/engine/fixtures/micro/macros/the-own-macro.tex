@@ -1,0 +1,12 @@
+% fixture: macros/the-own-macro
+% tier: T3
+% engine: document
+% covers: a document's own \the… macro (\newcommand{\thetitle}, no counter) and its \renewcommand: the document's, expanded, not a counter's representation
+% issue: #365
+\documentclass{article}
+\newcommand{\thetitle}{Draft}
+\renewcommand{\thetitle}{Final report}
+\begin{document}
+\section{\thetitle}
+This is the \thetitle.
+\end{document}

@@ -52,7 +52,7 @@ function rng(seed: number) {
   }
 }
 
-export function makeDocument(r: () => number, s: () => number = rng(1)): string {
+export function makeDocument(r: () => number, s: () => number = rng(1), m: () => number = rng(2)): string {
   const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
   // (tables and columns, #342: their choices from a stream of their own, `s`, so that the documents' stream stays main's)
   const spick = <T>(xs: T[]): T => xs[Math.floor(s() * xs.length)]
@@ -617,6 +617,23 @@ export function makeDocument(r: () => number, s: () => number = rng(1)): string 
     es = lang === "spanish"; esAscii = hyper; fr = lang === "french"; de = lang === "german" || lang === "ngerman"
   }
   if (fontPkg) out.splice(1, 0, fontPkg)
+  // \renewcommand of the counters' \the<counter> (#365; their choices from a stream of their own, `m`)
+  if (!isLetter && m() < 0.3) {
+    const mpick = <T>(xs: T[]): T => xs[Math.floor(m() * xs.length)]
+    const chapters = cls !== "article"
+    const outer = chapters ? "\\thechapter." : ""
+    const formats: [string, string[]][] = [
+      ...(chapters ? [["chapter", ["\\Roman{chapter}", "\\Alph{chapter}", "\\arabic{chapter}"]] as [string, string[]]] : []),
+      ["section", chapters ? ["\\thechapter-\\arabic{section}", "\\Roman{section}", `${outer}\\Alph{section}`] : ["\\Roman{section}", "\\Alph{section}", "\\roman{section}", "\\arabic{section}."]],
+      ["subsection", ["\\thesection.\\alph{subsection}", "\\thesection(\\alph{subsection})", "\\arabic{subsection}", "\\thesection\\Roman{subsection}"]],
+      ["equation", ["\\thesection.\\arabic{equation}", "\\roman{equation}", `${outer}\\Alph{equation}`]],
+      ["figure", ["\\thesection.\\arabic{figure}", "\\Roman{figure}"]],
+      ["table", ["\\Alph{table}", "\\thesection-\\arabic{table}"]],
+      ...(thms.length ? [["theorem", ["\\Roman{theorem}", "\\thesection.\\alph{theorem}"]] as [string, string[]]] : []),
+      ...(macros ? [["thm", ["\\Alph{thm}", "(\\roman{thm})"]] as [string, string[]]] : []),
+    ]
+    for (const [c, fs] of formats) if (m() < 0.4) out.push(`${mpick(["\\renewcommand", "\\renewcommand*", "\\def"])}${m() < 0.5 ? `\\the${c}` : `{\\the${c}}`}{${mpick(fs)}}`.replace(/^\\def\{(\\the[a-z]+)\}/, "\\def$1"))
+  }
   // parskip.sty (not with titlesec or theorems yet), first in the preamble
   if (!isLetter && !tsOn && !thms.length && r() < 0.12) out.splice(1, 0, "\\usepackage{parskip}")
   out.push("\\begin{document}")
@@ -844,10 +861,11 @@ export function fuzzDocuments(n: number, seed: number): number {
   const failures: string[] = []
   const reasons = new Map<string, number>()
   const s = rng(seed + 0x9e3779b9) // (the tables' and columns' choices)
+  const m = rng(seed + 0x7f4a7c15) // (the counters' \\the<counter> redefinitions)
   for (let i = 0; i < n; i++) {
     const file = join(dir, `doc-${seed}-${i}.tex`)
     // some under pdflatex (positions from its box dumps; its hyperref and xcolor nodes), unless they use EPS graphics
-    const doc = makeDocument(r, s)
+    const doc = makeDocument(r, s, m)
     writeFileSync(file, `% engine: document\n${!doc.includes("\\includegraphics") && r() < 0.3 ? "% oracle: pdflatex\n" : ""}` + doc)
     const res = runFixture(file)
     // TeX's work files (a log with \tracingassigns runs to tens of megabytes) and its saved reference are

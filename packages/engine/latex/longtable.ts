@@ -90,12 +90,12 @@ export function longtable(cx: Ctx, n: number) {
     if (!star) {
       appendText(l, sourceText(pre.names.tablename), font, st, false)
       l.push(penalty(10000), glue(font.params[SPACE], font.params[SPACE_STRETCH], 0, font.params[SPACE_SHRINK], 0)) // ~
-      appendText(l, `${counters.the(number)}: ${sourceText(body)}`, font, st, false)
+      appendText(l, `${counters.the("table", number)}: ${sourceText(body)}`, font, st, false)
     } else appendText(l, sourceText(body), font, st, false)
     const box = hpack(setgroup(l))
     if (box.width > CAPWIDTH) throw new Unsupported("a longtable caption wider than \\LTcapwidth")
     const pb = vtop([hpack([filGlue(), box, filGlue()], { exactly: CAPWIDTH }), plain(k.sizes.normalsize.baselineskip)])
-    return { span: cols.length, spec: "c", text: "", nodes: [hpack([ssGlue(), pb, ssGlue()], { exactly: 0 })], after: star || !short ? [] : [cx.tocFile.listLine("lot", counters.the(number), short, "", false)] }
+    return { span: cols.length, spec: "c", text: "", nodes: [hpack([ssGlue(), pb, ssGlue()], { exactly: 0 })], after: star || !short ? [] : [cx.tocFile.listLine("lot", counters.the("table", number), short, "", false)] }
   }
   const linesOf = (text: string): TabLine[] => tabularLines(text).map((l) => {
     if (!("cells" in l) || l.cells.length !== 1 || "span" in l.cells[0]) return l

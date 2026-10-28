@@ -1,0 +1,21 @@
+% fixture: macros/the-hyphen-french
+% tier: T3
+% engine: document
+% covers: a \the<counter> with a hyphen in french.ldf's caption: in its box no discretionary, in the paragraph of a caption too wide for a line one after the hyphen
+% issue: #365
+\documentclass{article}
+\usepackage[french]{babel}
+\renewcommand{\thefigure}{\thesection-\arabic{figure}}
+\begin{document}
+\section{Data}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}A\end{tabular}
+\caption{Une figure}
+\end{figure}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}B\end{tabular}
+\caption{Une figure dont la l\'egende est assez longue pour prendre plus d'une ligne de la page, en paragraphe}
+\end{figure}
+\end{document}

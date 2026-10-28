@@ -1,0 +1,17 @@
+% fixture: macros/the-appendix
+% tier: T3
+% engine: document
+% covers: \appendix's \gdef of \thesection over the preamble's \renewcommand (\Roman), and a \thesubsection made of \thesection and punctuation (-)
+% issue: #365
+\documentclass{article}
+\renewcommand{\thesection}{\Roman{section}}
+\renewcommand{\thesubsection}{\thesection-\arabic{subsection}}
+\begin{document}
+\section{Main}
+\subsection{Part}\label{p}
+See \ref{p} and \ref{q}.
+\appendix
+\section{Extra}
+\subsection{More}\label{q}
+Text.
+\end{document}

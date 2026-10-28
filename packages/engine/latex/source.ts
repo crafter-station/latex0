@@ -8,6 +8,7 @@ import { expandDocument } from "../expand/document"
 import { ARTICLE, CLASSES, PACKAGES } from "../expand/defined"
 import { isKnownCommand } from "../parser"
 import { Unsupported } from "./unsupported"
+import { SECTIONAL } from "./counters"
 import { spanishText } from "./spanish"
 
 /** an lstlisting environment's [options] and lines */
@@ -179,6 +180,7 @@ export function prepareSource(source: string): DocumentSource {
   // tabularx's \tabularxcolumn, \renewcommand'd: \LXtabularxcolumn{spec}
   source = source.replace(/\\renewcommand\*?\s*(?:\{\\tabularxcolumn\}|\\tabularxcolumn(?![A-Za-z]))\s*\[1\]\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g, (all: string, spec: string, offset: number, text: string) =>
     commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
+  source = counterFormats(source)
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
@@ -258,6 +260,22 @@ function latexCommands(source: string): (name: string) => boolean {
   for (const p of packagesOf(source)) for (const n of words(PACKAGES[p])) own.add(n)
   for (const m of source.matchAll(/\\(?:newcounter|newtheorem)\s*\{([A-Za-z]+)\}/g)) own.add(`the${m[1]}`)
   return (name) => ARTICLE_NAMES.has(name) || own.has(name)
+}
+
+/**
+ * The preamble's \renewcommand (or \def) of a \the<counter> the engine keeps (the sectioning counters, equation, figure,
+ * table, the document's \newcounter and \newtheorem ones): \LXthe{counter}{body}, which preamble.ts reads and the
+ * counters evaluate where LaTeX expands it (counters.ts)
+ */
+function counterFormats(source: string): string {
+  const begin = source.indexOf("\\begin{document}")
+  if (begin < 0) return source
+  const counters = new Set<string>([...SECTIONAL, "equation", "figure", "table"])
+  for (const m of preambleOf(source).matchAll(/\\(?:newcounter|newtheorem)\s*\{([A-Za-z]+)\}/g)) counters.add(m[1])
+  return source.slice(0, begin).replace(/\\(?:renewcommand\*?\s*(?:\{\\the([A-Za-z]+)\}|\\the([A-Za-z]+)(?![A-Za-z]))|def\s*\\the([A-Za-z]+)(?![A-Za-z]))\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g, (all: string, a: string | undefined, b: string | undefined, c: string | undefined, body: string) => {
+    const name = a ?? b ?? c!
+    return counters.has(name) ? `\\LXthe{${name}}{${body}}` : all // (a % before it still makes it a comment)
+  }) + source.slice(begin)
 }
 
 /** the end of the group opened at `i` in `s` (\{ and \} escaped), or -1 */

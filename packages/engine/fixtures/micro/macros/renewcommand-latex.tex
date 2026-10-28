@@ -1,7 +1,7 @@
 % fixture: macros/renewcommand-latex
 % tier: T3
 % engine: document
-% covers: \renewcommand of a command LaTeX defines (\thesection) changes LaTeX, not a macro of the document's: not read by the engine yet, so not laid out (it is not dropped)
+% covers: \renewcommand of a command LaTeX defines (\thesection) changes LaTeX, not a macro of the document's: the counters read it (\Roman) in the heading and in text
 % issue: #344
 \documentclass{article}
 \renewcommand{\thesection}{\Roman{section}}

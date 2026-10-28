@@ -1533,8 +1533,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       }
       if (known && doc.refs!.hyper) { // hyperref: a link around the text, which keeps its space factor (\Hy@SaveSpaceFactor)
         if (p.kind === "ref" && !known.label) continue // \Hy@setref@link: no link for an empty text
+        // (with dvips the link's text is an \hbox: restricted horizontal mode, no discretionary after a hyphen)
         const text: Node[] = []
-        appendLabel(text, p.kind === "ref" ? known.label : known.page, font, size, state, ctx, attrs)
+        appendLabel(text, p.kind === "ref" ? known.label : known.page, font, size, state, hyperDriver.pdftex ? ctx : { ...ctx, restricted: true }, attrs)
         list.push(...refLink(text, known.href, doc.xcolor ? ctx.color ?? xcolor.normal : undefined))
         continue
       }
