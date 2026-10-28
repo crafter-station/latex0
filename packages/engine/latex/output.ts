@@ -63,6 +63,8 @@ export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman
   /** \clearpage's \ifnum\@dbltopnum=\m@ne\ifdim\pagetotal<\topskip\hbox{}: the \hbox{} with its interline glue, or null
    *  where the material after it would change with it */
   | { clearpage: Node[] | null }
+  /** the \baselineskip in force where the page builder goes on from here (a size group's paragraphs: their \par's) */
+  | { baselineskip: number }
 
 /** Thrown for what the output routine does that is not modeled yet. */
 export class OutputUnsupported extends Unsupported {}
@@ -141,7 +143,7 @@ export class LatexOutput {
    * page with floats; then \@emptycol (\vbox{}\penalty-\@M) ships it with no text, and \vsize stays.
    */
   private endOutput(): Node[] {
-    const bs = this.k.sizes.normalsize.baselineskip.width
+    const bs = this.baselineskip ?? this.k.sizes.normalsize.baselineskip.width // (the one where the page builder fired)
     if (this.colroom < bs + xnOverD(bs, 32768, 65536) && this.colroom < this.k.dimens.textheight) return [emptyBox("vlist"), penalty(-10000)]
     this.vsizeNow = this.colroom
     return []
@@ -440,6 +442,7 @@ export class LatexOutput {
       if (!h.clearpage) throw new OutputUnsupported("\\clearpage's \\hbox{} after \\twocolumn[…]")
       return h.clearpage
     }
+    if (typeof h === "object" && "baselineskip" in h) { this.baselineskip = h.baselineskip; return }
     if (typeof h === "object") return this.page % 2 === 0 ? h.cleardouble : []
     if (h === "notop" || h === "suppress-t") this.topnum = 0
     else if (h === "suppress-b") this.botnum = 0
@@ -472,6 +475,7 @@ export class LatexOutput {
   /** \@textbottom: \raggedbottom's \vskip\z@\@plus.0001fil, or \flushbottom's \relax */
   private raggedbottom: boolean
   private numbering: "roman" | "arabic" = "arabic"
+  private baselineskip: number | null = null
   private special: "plain" | "empty" | null = null
   private page = 1
   /** the page builder's PageParams.reached */

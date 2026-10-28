@@ -122,6 +122,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         const saved = { club: v.club, everypar: v.afterheadingEverypar }
         reopened = false // (its paragraphs start in it, as here)
         verticalMaterial(cx, inner, { ...st }, false, mo)
+        outputBaselineskip(cx, st) // (the page builder goes on after the group)
         v.club = saved.club; v.afterheadingEverypar = saved.everypar
         i = j + 1; continue
       }
@@ -284,7 +285,22 @@ function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip:
   const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: club, ...noteClubs, amsmath, ...align, ...(unskip ? { unskip } : {}) })
   const { vlist, trace } = lineBreak(list, params)
   decisions.push(...notes, trace)
+  // (the page builder sees the \parskip where the paragraph starts, new_graf's build_page, and its lines at its \par: an
+  // output routine fired there sees the \baselineskip in force then)
+  outputBaselineskip(cx, st)
   v.paragraph(vlist, outerParskip, run.k.sizes[end.size].baselineskip)
+  if (end.size !== st.size) { const h = outputBaselineskip(cx, end, false); v.nodes.splice(v.paraStart, 0, ...h); v.paraStart += h.length }
+}
+
+/** a hook for the output routine where the \baselineskip of `st` comes into force (when it is not the one already) */
+function outputBaselineskip(cx: Ctx, st: DeclState, push = true): Node[] {
+  const { run } = cx
+  const bs = run.k.sizes[st.size].baselineskip.width
+  if (bs === (run.outputBaselineskip ?? run.k.sizes.normalsize.baselineskip.width)) return []
+  run.outputBaselineskip = bs
+  const hook: Node = { kind: "whatsit", text: "", hook: { baselineskip: bs } satisfies OutputHook }
+  if (push) cx.v.nodes.push(hook)
+  return [hook]
 }
 
 /**

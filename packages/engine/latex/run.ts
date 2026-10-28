@@ -65,6 +65,8 @@ export interface RunState {
   captions: number
   captionLabel: boolean
   oddPages: { n: number; node: Node }[]
+  /** the \baselineskip the output routine sees where the main vertical list is now (OutputHook), when not \normalsize's */
+  outputBaselineskip?: number
 }
 
 export function runState(k: ClassOptionData): RunState {
