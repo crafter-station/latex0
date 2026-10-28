@@ -1,0 +1,27 @@
+% fixture: fonts/lmodern-preamble-lm
+% tier: T3
+% engine: document
+% covers: lmodern before fontenc: fontenc selects ec-lmr10, so geometry's margins, \parindent and booktabs's rules after it are in em and ex of Latin Modern; caption's skip too
+% issue: #340
+\documentclass{article}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage[hmargin=12em,vmargin=8em]{geometry}
+\usepackage{booktabs}
+\usepackage[skip=3ex]{caption}
+\setlength{\parindent}{5em}
+\begin{document}
+A first paragraph, indented by five em of Latin Modern, long enough to run over two lines of text here.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+One & Two \\
+\midrule
+Three & Four \\
+\bottomrule
+\end{tabular}
+\caption{A table.}
+\end{table}
+\end{document}

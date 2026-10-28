@@ -1,0 +1,16 @@
+% fixture: pdflatex/helvet-scaled-pdftex
+% tier: T3
+% engine: document
+% oracle: pdflatex
+% covers: under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), helvet's scaled=.92 with T1: phvr8t at .92 of each size (the .fd's s*[\Hv@scale], TeX's coefficient times \f@size), its shapes and series, next to Computer Modern's roman; \sffamily headings by \renewcommand of \familydefault not used
+% issue: #340
+\documentclass[10pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage[scaled=.92]{helvet}
+\begin{document}
+\section{Helvetica scaled}
+Roman text with {\sffamily sans serif text that is long enough to break over a line or two in the column, with
+{\itshape oblique}, {\bfseries bold \slshape bold oblique} and {\scshape small caps}} back in roman.
+
+{\sffamily\tiny tiny} {\sffamily\footnotesize foot} {\sffamily\small small} {\sffamily\large large} {\sffamily\LARGE LARGE} {\sffamily\Huge Huge}
+\end{document}

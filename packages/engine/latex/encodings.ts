@@ -172,9 +172,10 @@ export function encodeText(text: string, enc: string, font: Font): TextItem[] {
   return out
 }
 
-/** A font's encoding, from its name: the EC fonts are T1's, the TC fonts TS1's, Computer Modern's text fonts OT1's */
+/** A font's encoding, from its name: the EC fonts are T1's (Latin Modern's ec- ones too, and PSNFSS's 8t, fontinst's
+ *  name for T1: #340), the TC fonts TS1's, the others OT1's (no text is put in a TS1 font by encoding: its symbols are characters) */
 export function encodingOf(font: Font): string {
-  return /^ec/.test(font.name) ? "T1" : /^tc/.test(font.name) ? "TS1" : "OT1"
+  return /^ec|8t$/.test(font.name) ? "T1" : /^tc/.test(font.name) ? "TS1" : "OT1"
 }
 
 /**

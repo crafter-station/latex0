@@ -24,7 +24,7 @@ import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { shipOut } from "../emit/trace"
-import { classData, documentClass } from "./classes"
+import { classData, documentClass, familyFont } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
@@ -379,6 +379,11 @@ function mergeShape(k: ClassOptionData, size: SizeCommand, a: FontAttrs, target:
   if (target === "up") throw new Unsupported(`\\upshape from ${a.shape}: no shape declared`)
   return target
 }
+/** \selectfont of an undeclared shape: \wrong@fontshape lets it be the substitute, declared from then on */
+export function noteSubstitution(k: ClassOptionData, size: SizeCommand, a: FontAttrs, doc: DocState) {
+  const key = `${a.enc}/${a.fam}/${a.ser}/${a.shape}`
+  if (!k.sizes[size].fonts[key]?.declared) (doc.substituted ??= new Set()).add(key)
+}
 /** A font declaration (\bfseries, \itshape, \ttfamily …) on the attributes; null for one that is not modeled */
 export function fontDeclaration(name: string, a: FontAttrs, k: ClassOptionData, size: SizeCommand, doc: DocState, cur?: Font): FontAttrs | null {
   if (name in OLD_FONT_COMMANDS) return fontDeclaration(OLD_FONT_COMMANDS[name], fontDeclaration("normalfont", a, k, size, doc)!, k, size, doc)
@@ -407,10 +412,17 @@ export function fontAt(name: string, at: number, hyphenChar?: number): Font {
   if (hyphenChar !== undefined) f.hyphenChar = hyphenChar
   return f
 }
-/** \selectfont: the font for the attributes at a size, from the class data (NFSS's substitute for an undeclared shape) */
+/**
+ * \selectfont: the font for the attributes at a size, from the class data; for an undeclared shape \wrong@fontshape's
+ * substitute: the series' shape n (the attributes stay: it runs in \define@newfont's group). (The
+ * data's entry for an undeclared shape is what \fontshape's merge gave there, not this.)
+ */
 export function selectFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
-  const r = k.sizes[size].fonts[`${a.enc}/${a.fam}/${a.ser}/${a.shape}`]
+  const fonts = k.sizes[size].fonts, at = (ser: string, shape: string) => fonts[`${a.enc}/${a.fam}/${ser}/${shape}`]
+  let r = at(a.ser, a.shape)
   if (!r) throw new Unsupported(`no font ${a.enc}/${a.fam}/${a.ser}/${a.shape} at ${size}`)
+  if (!r.declared) r = at(a.ser, "n")
+  if (!r.declared) throw new Unsupported(`${a.enc}/${a.fam}/${a.ser}/n undeclared`) // (\wrong@fontshape's next steps: series m, the default family)
   return fontAt(r.name, r.at, r.hyphenchar)
 }
 /** A font command's attributes; \em turns italic in an upright font and upright in a slanted one */
@@ -757,6 +769,7 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  */
 /** \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size */
 function markFont(k: ClassOptionData, size: SizeCommand): Font {
+  if (k.families && k.families.rm !== "cmr") { const r = familyFont(k.families.rm, `${k.ints.T1 ? "T1" : "OT1"}/m/n`, k.sizes[size].scriptSize); return loadFont(dataFont(r.name), r.at) }
   const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
   return loadFont(dataFont(ref.name), ref.at)
 }
@@ -777,8 +790,10 @@ function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath 
   if (!kind) throw new Unsupported(`\\thanks number ${n}`) // (\@ctrerr)
   const sf = k.sizes[size].scriptSize, pt = String(Math.round(sf / 655.36)).padStart(4, "0")
   const font = (name: string) => loadFont(dataFont(name), sf)
-  const [f, code] = kind === "section" && k.ints.T1 ? [font(`ecrm${pt}`), 159]
-    : [font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
+  // (\rmdefault's at \sf@size)
+  const rm = (enc: string) => { const r = familyFont(k.families!.rm, `${enc}/m/n`, sf); return loadFont(dataFont(r.name), r.at) }
+  const [f, code] = kind === "section" && k.ints.T1 ? [k.families && k.families.rm !== "cmr" ? rm("T1") : font(`ecrm${pt}`), 159]
+    : [k.families && k.families.rm !== "cmr" ? rm("TS1") : font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
   const chars = kind.endsWith("2") || kind === "**" ? [code, code] : [code]
   const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: hpack(chars.map((c) => charNode(f, c))) }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return [{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }]
@@ -1058,6 +1073,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "decl") {
       const a = fontDeclaration(p.name, attrs, k, size, doc, font)!
+      noteSubstitution(k, size, a, doc)
       appendPieces(list, p.inner, selectFont(k, size, a), size, state, ctx, a)
     }
     else if (p.kind === "vspace") {
@@ -1365,8 +1381,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // argument does not start with , or . ; one after it if the font around is upright and no , or . follows
       const a = applyFontCommand(p.cmd, attrs, font, ctx.base, k, size, doc)
       const inner = selectFont(k, size, a)
-      const key = `${a.enc}/${a.fam}/${a.ser}/${a.shape}`
-      if (!k.sizes[size].fonts[key].declared) (doc.substituted ??= new Set()).add(key) // \wrong@fontshape
+      noteSubstitution(k, size, a, doc) // \wrong@fontshape
       const corr = p.src !== "" && p.src !== " "
       if (corr && inner.params[SLANT] <= 0 && !",.".includes(p.src[0])) swSlant(list)
       appendPieces(list, p.inner, inner, size, state, ctx, a)

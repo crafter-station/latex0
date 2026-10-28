@@ -37,14 +37,16 @@ const OUT = "packages/engine/data/fonts"
 const sameFont = (a: FixWordFont, b: FixWordFont) => JSON.stringify(encodeFontData(a)) === JSON.stringify(encodeFontData(b)) &&
   a.chars.size === b.chars.size && [...a.chars].every(([c, m]) => JSON.stringify(m) === JSON.stringify(b.chars.get(c)))
 
-/** Every font the committed class data refers to (codegen writes the class data after the fonts: run it twice after a change there). */
+/** Every font the committed class and font package data refer to (codegen writes the class data after the fonts: run it twice after a change there). */
 function classFonts(): string[] {
   const names = new Set<string>()
   const walk = (x: unknown): void => {
     if (Array.isArray(x)) x.forEach(walk)
     else if (x && typeof x === "object") { const o = x as Record<string, unknown>; if (typeof o.name === "string" && typeof o.at === "number") names.add(o.name); else Object.values(o).forEach(walk) }
   }
-  for (const f of readdirSync("packages/engine/data/classes")) if (f.endsWith(".json")) walk(JSON.parse(readFileSync(join("packages/engine/data/classes", f), "utf8")))
+  for (const dir of ["packages/engine/data/classes", "packages/engine/data/nfss"]) {
+    if (existsSync(dir)) for (const f of readdirSync(dir)) if (f.endsWith(".json")) walk(JSON.parse(readFileSync(join(dir, f), "utf8")))
+  }
   return [...names].sort()
 }
 

@@ -13,7 +13,7 @@ import { kern, type Node } from "../layout/nodes"
 import { BIN, mlistToHlist, OPEN, ORD, REL, TEXT, type MItem, type NoadType } from "../mathlayout/mlist"
 import type { Ctx } from "./context"
 import { fileLink, hyperDriver, uriLink } from "./hyperref"
-import { mathEnv, selectFont, type FontAttrs } from "./paragraph"
+import { mathEnv, noteSubstitution, selectFont, type FontAttrs } from "./paragraph"
 import { Unsupported } from "./unsupported"
 
 const BREAKS = ".@\\/!_|;>]),?&'+=#"
@@ -87,8 +87,8 @@ function urlFormula(cx: Ctx, address: string, size: SizeCommand, attrs: FontAttr
     return { noad, nucleus: { kind: "char", fam: 0, char: c.charCodeAt(0) }, sup: null, sub: NOLIG.includes(c) ? { kind: "mlist", list: [kern(0)] } : null } // (\/ in math: a zero kern, § 1111)
   })
   // \UrlFont: \ttfamily, in the series and shape around (\wrong@fontshape for one not declared)
-  const tt: FontAttrs = { ...attrs, fam: "cmtt" }, key = `${tt.enc}/cmtt/${tt.ser}/${tt.shape}`
-  if (!cx.run.k.sizes[size].fonts[key].declared) (cx.doc.substituted ??= new Set()).add(key)
+  const tt: FontAttrs = { ...attrs, fam: "cmtt" }
+  noteSubstitution(cx.run.k, size, tt, cx.doc)
   const font = selectFont(cx.run.k, size, tt)
   const env = mathEnv(cx.run.k, size, cx.pre.amsmath)
   env.fonts = env.fonts.map((fams, s) => (s === 0 ? fams.map((f, fam) => (fam === 0 ? font : f)) : fams)) // \textfont\z@\font

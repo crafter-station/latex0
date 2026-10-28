@@ -1,0 +1,13 @@
+% fixture: text/substituted-shape-url
+% tier: T3
+% engine: document
+% covers: with T1, \url in bold slanted roman: \UrlFont's \ttfamily selects T1/cmtt/bx/sl, undeclared and substituted, so a later \slshape from bx/n takes sl
+% issue: #340
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{url}
+\begin{document}
+Roman \textbf{\textsl{bold slanted \url{a.b/c}}} text.
+
+Roman and {\ttfamily\bfseries bold \slshape slanted} and back.
+\end{document}

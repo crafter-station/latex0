@@ -1,0 +1,24 @@
+% fixture: fonts/times-t1
+% tier: T3
+% engine: document
+% covers: \usepackage[T1]{fontenc} with times in report at 11pt: ptmr8t and friends, accents and T1 composites, quotes and dashes, hyphenation, chapter headings, footnote marks in T1 at \sf@size, the bold \textendash, sans and typewriter (phv, pcr) in T1
+% issue: #340
+\documentclass[11pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\begin{document}
+\chapter{Times in T1}
+Café, naïve, Señor, Ångström, \"{u}ber, \v{c}esky and \c{c}a va; ``quoted'' and \guillemotleft angled\guillemotright{} with 10--20 --- a dash. Hyphenation works with the PostScript fonts as well: typesetting, composition, paragraphs, demerits.\footnote{A footnote in T1, with fluffy waffles.}
+
+{\itshape italic} {\slshape slanted} {\scshape Small Caps} {\bfseries bold \itshape bold italic}
+{\sffamily sans Ärger \itshape italic \bfseries bold} {\ttfamily typewriter «x» \itshape italic \bfseries bold} and {\small more\footnote{In a group.}} text.
+
+\begin{itemize}
+\item one
+  \begin{itemize}
+  \item two
+  \end{itemize}
+\end{itemize}
+{\tiny tiny} {\scriptsize script} {\footnotesize foot} {\large large} {\Huge Huge}
+\end{document}

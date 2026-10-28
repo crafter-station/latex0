@@ -662,8 +662,9 @@ class Converter {
 }
 
 
-/** \skewchar as LaTeX's font families set it (\DeclareFontFamily{OML}{cmm}{\skewchar\font'177}, OMS cmsy's '60), else -1 */
-const skewChar = (name: string) => (/^cmmib?\d/.test(name) ? 127 : /^cm(b?)sy\d/.test(name) ? 48 : -1)
+/** \skewchar as LaTeX's font families set it (\DeclareFontFamily{OML}{cmm}{\skewchar\font'177}, OMS cmsy's '60; omllmm.fd and
+ *  omslmsy.fd the same), else -1 */
+const skewChar = (name: string) => (/^(cm|lm)mib?\d/.test(name) ? 127 : /^(cm|lm)(b?)sy\d/.test(name) ? 48 : -1)
 
 /** char_box (§ 709): a character in an hbox whose width includes its italic correction */
 function charBox(f: Font, c: number): BoxNode {

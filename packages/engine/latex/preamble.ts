@@ -3,10 +3,10 @@
 // \pagestyle), read line by line. A line not modeled throws Unsupported. The
 // body comes back with each theorem environment as \begin{LXtheorem}{name}.
 
-import type { ClassOptionData } from "../layout/classdata"
+import type { ClassOptionData, FontRef } from "../layout/classdata"
 import { parseDimen, parseGlue, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
-import { classData, documentClass, withT1 } from "./classes"
+import { classData, CM_FONTS, documentClass, withFonts, withT1, type FontSetup } from "./classes"
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
@@ -87,7 +87,9 @@ export interface Preamble {
   /** \usepackage[T1]{fontenc} */
   t1: boolean
   /** booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then */
-  booktabsT1: boolean | null
+  booktabsFont: FontRef | null
+  /** titlesec loaded: the em and ex of the font selected then, which its default spacing takes */
+  titlesecUnits: { em: number; ex: number } | null
   thmDefs: Map<string, TheoremDef>
   /** \definecolor{name}{model}{spec} */
   colorDefs: [string, string, string][]
@@ -118,6 +120,34 @@ export interface Preamble {
   parskip: boolean
 }
 
+/** The font in effect in the preamble: T1 or not, in the families of the font packages loaded by then */
+interface PreambleFont { t1: boolean; fonts: FontSetup }
+
+/** The font packages (#340) and what each sets: lmodern.sty's \rmdefault, \sfdefault and \ttdefault, and its math fonts;
+ *  PSNFSS's times.sty (all three), helvet.sty (\sfdefault, its scaled= option read by ot1phv.fd and the others as they load),
+ *  courier.sty (\ttdefault) and palatino.sty (Palatino, with times.sty's sans and typewriter) */
+const FONT_PACKAGES = ["lmodern", "times", "helvet", "courier", "palatino"]
+function fontPackage(name: string, f: FontSetup, options: string | null = null): FontSetup {
+  if (options !== null && name !== "helvet") throw new Unsupported(`preamble: \\usepackage[${options}]{${name}}`)
+  switch (name) {
+    case "lmodern": return { ...f, rm: "lmr", sf: "lmss", tt: "lmtt", math: "lmodern" }
+    case "times": return { ...f, rm: "ptm", sf: "phv", tt: "pcr" }
+    case "courier": return { ...f, tt: "pcr" }
+    case "palatino": return { ...f, rm: "ppl", sf: "phv", tt: "pcr" }
+    case "helvet": {
+      // \define@key{Hel}{scaled}[.95]{\def\Hv@scale{#1}}
+      let scale = f.phvScale
+      for (const o of (options ?? "").split(",").map((x) => x.trim()).filter(Boolean)) {
+        const m = o.match(/^scaled\s*(?:=\s*(\d*\.?\d+))?$/)
+        if (!m) throw new Unsupported(`helvet option ${o}`)
+        scale = m[1] ?? ".95"
+      }
+      return { ...f, sf: "phv", phvScale: scale }
+    }
+  }
+  throw new Unsupported(`preamble: \\usepackage{${name}}`)
+}
+
 export function readPreamble(src: string): Preamble {
   const { cls, option, extras, unknown: classUnknown } = documentClass(src)
   // (languages are global options babel reads)
@@ -140,7 +170,7 @@ export function readPreamble(src: string): Preamble {
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
   let usesListings = false, usesUrl = false, usesMultirow = false, usesXcolor = false, usesAmsthm = false
-  let booktabsT1: boolean | null = null // booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then
+  let booktabsFont: PreambleFont | null = null // booktabs loaded: its em and ex are the font's then
   let thmStyle: ThmStyle = "plain"
   const thmDefs = new Map<string, TheoremDef>()
   const colorDefs: [string, string, string][] = [] // \definecolor
@@ -174,9 +204,17 @@ export function readPreamble(src: string): Preamble {
   const bibstyles: string[] = [] // the .aux's \bibstyle lines, in order
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
+  let fonts: FontSetup = CM_FONTS // the font packages' families and math fonts
+  // the font selected in the preamble, whose em and ex lengths read there take: the class's \normalsize until fontenc
+  // selects again (a font package only changes what the next \selectfont takes)
+  let selected: PreambleFont = { t1: false, fonts: CM_FONTS }
+  const kClass = k
+  const selectedFont = (p: PreambleFont) => { let x = withFonts(kClass, p.fonts); if (p.t1) x = withT1(x, cls); const r = x.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at) }
   const geometryOptions: string[] = []
+  let titlesecFont: PreambleFont = selected // the font selected when titlesec loaded (its spacing, \the at load time)
+  let geometryFont: PreambleFont = { t1: false, fonts: CM_FONTS } // the font selected when geometry read its keys
   let geometryStretch = "" // setspace's \baselinestretch when geometry last computed the layout (heightrounded, lines=)
-  const lengths: [string, string, boolean][] = [] // \setlength in the preamble (and whether T1 was selected by then: its em and ex)
+  const lengths: [string, string, PreambleFont][] = [] // \setlength in the preamble (and the font selected by then: its em and ex)
   let usesArray = false
   let usesFloat = false // float.sty (algorithm.sty loads it)
   let parskip = false
@@ -187,20 +225,20 @@ export function readPreamble(src: string): Preamble {
   let usesCaption = false
   let usesSubcaption = false
   // caption.sty's and subcaption's options and \captionsetup, in order: keys set at once (null: a list) and whether T1
-  // was selected by then (the em and ex of their lengths)
-  const captionOps: { list: string | null; src: string; t1: boolean; /** babel loaded by then (its \\AtBeginDocument first) */ babel: boolean }[] = []
+  // the font selected by then (the em and ex of their lengths)
+  const captionOps: { list: string | null; src: string; font: PreambleFont; /** babel loaded by then (its \\AtBeginDocument first) */ babel: boolean }[] = []
   const loadCaption = (opts: string | null) => {
     if (usesCaption && opts !== null) throw new Unsupported("caption loaded twice with options") // (LaTeX: Option clash)
     usesCaption = true
-    if (opts !== null) captionOps.push({ list: null, src: opts, t1, babel: !!babel })
+    if (opts !== null) captionOps.push({ list: null, src: opts, font: selected, babel: !!babel })
   }
   const loadSubcaption = (opts: string | null) => {
     if (usesSubcaption) { if (opts !== null) throw new Unsupported("subcaption loaded twice with options"); return }
     if (!usesCaption) loadCaption(null)
     usesSubcaption = true
     // \caption@ExecuteOptions{subcaption}{font+=smaller,…}, then its options, each as \captionsetup[sub]
-    captionOps.push({ list: "sub", src: "font+=smaller,labelformat=parens,labelsep=space,skip=6pt,list=0,hypcap=0", t1, babel: !!babel })
-    if (opts !== null) captionOps.push({ list: "sub", src: opts, t1, babel: !!babel })
+    captionOps.push({ list: "sub", src: "font+=smaller,labelformat=parens,labelsep=space,skip=6pt,list=0,hypcap=0", font: selected, babel: !!babel })
+    if (opts !== null) captionOps.push({ list: "sub", src: opts, font: selected, babel: !!babel })
   }
   // \captionsetup and caption's options over more than one line: on one
   pre = pre.replace(/\\usepackage\[[^\]]*\]\{(?:(?:sub)?caption|hyperref)\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
@@ -230,7 +268,7 @@ export function readPreamble(src: string): Preamble {
     const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight|extrarowheight)\}\{([^{}]*)\}$/)
     if (sl) {
       if (sl[1] === "extrarowheight" && !usesArray) throw new Unsupported(`preamble: ${line}`) // (array.sty defines it)
-      lengths.push([sl[1], sl[2], t1]); continue
+      lengths.push([sl[1], sl[2], selected]); continue
     }
     const ncol = line.match(/^\\newcolumntype\{?([A-Za-z])\}?\s*(?:\[(\d)\])?\s*\{(.*)\}$/)
     if (ncol) {
@@ -239,15 +277,20 @@ export function readPreamble(src: string): Preamble {
     }
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
     if (nc) { newCounters.push([nc[1], nc[2] ?? null]); continue }
-    if (line === "\\usepackage[T1]{fontenc}") { t1 = true; continue }
+    // (fontenc selects the font: T1 in the family \rmdefault names then)
+    if (line === "\\usepackage[T1]{fontenc}") { t1 = true; selected = { t1, fonts }; continue }
     // parskip.sty (its current release, no options): \parskip .5\baselineskip plus 2pt, \parindent 0pt as it loads
     if (line === "\\usepackage{parskip}") {
       if (parskip || setspace || cls === "letter") throw new Unsupported(`preamble: ${line}${cls === "letter" ? " with letter" : ""}`)
       parskip = true
-      lengths.push(["parskip", `${printScaled(times(".5", k.glue.baselineskip.width))}pt plus 2pt`, t1], ["parindent", "0pt", t1]); continue
+      lengths.push(["parskip", `${printScaled(times(".5", k.glue.baselineskip.width))}pt plus 2pt`, selected], ["parindent", "0pt", selected]); continue
     }
     const geo = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{geometry\}$/) ?? line.match(/^\\geometry\{(.*)\}$/)
-    if (geo) { geometryOptions.push(geo[1] ?? ""); geometryStretch = setspace?.stretch ?? ""; continue }
+    if (geo) {
+      // (its keys are read as it loads and at each \geometry, in the font selected then)
+      if (geometryOptions.length && (geometryFont.t1 !== selected.t1 || geometryFont.fonts !== selected.fonts)) throw new Unsupported("\\geometry after fontenc changed the font")
+      geometryOptions.push(geo[1] ?? ""); geometryStretch = setspace?.stretch ?? ""; geometryFont = selected; continue
+    }
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
@@ -269,7 +312,7 @@ export function readPreamble(src: string): Preamble {
     const cs = line.match(/^\\captionsetup\s*(?:\[([a-z]+)\])?\s*\{(.*)\}$/)
     if (cs) {
       if (!usesCaption || cs[1] !== undefined && !CAPTION_LISTS.includes(cs[1])) throw new Unsupported(`preamble: ${line}`)
-      captionOps.push({ list: cs[1] ?? null, src: cs[2], t1, babel: !!babel }); continue
+      captionOps.push({ list: cs[1] ?? null, src: cs[2], font: selected, babel: !!babel }); continue
     }
     const sx = line.match(/^\\usepackage\[(.*)\]\{siunitx\}$/) ?? line.match(/^\\sisetup\s*\{(.*)\}$/)
     if (sx) {
@@ -303,6 +346,8 @@ export function readPreamble(src: string): Preamble {
     // \hypersetup{keys} after hyperref, as its options
     const hs = line.match(/^\\hypersetup\s*\{(.*)\}$/)
     if (hs) { if (!hyper) throw new Unsupported(`preamble: ${line}`); hyperOptions(hyperOpts, hs[1]); continue }
+    const hv = line.match(/^\\usepackage\[([^\]]*)\]\{helvet\}$/)
+    if (hv) { if (cls === "letter") throw new Unsupported("helvet with letter"); fonts = fontPackage("helvet", fonts, hv[1]); continue }
     const hpo = line.match(/^\\usepackage\[(.*)\]\{hyperref\}$/)
     if (hpo) {
       if (hyper) throw new Unsupported("hyperref loaded twice with options") // (LaTeX: Option clash)
@@ -313,8 +358,12 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float"].includes(n))
-      if (names.includes("booktabs")) booktabsT1 = t1
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", ...FONT_PACKAGES].includes(n))
+      for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
+        if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
+        fonts = fontPackage(n, fonts)
+      }
+      if (names.includes("booktabs")) booktabsFont = selected
       // (float.sty after hyperref: its \caption replaces hyperref's, and hyperref saw no float.sty to patch)
       for (const f of ["algorithm", "float"]) if (names.includes(f) && !usesFloat && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf(f))) algorithm.afterHyperref = true
       if (names.includes("algorithm") || names.includes("float")) usesFloat = true
@@ -352,7 +401,7 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("amsmath")) amsmath = true
       if (names.includes("titlesec")) {
         if (cls !== "article") throw new Unsupported(`titlesec with ${cls}`)
-        titlesec = titlesecDefaults()
+        titlesec = titlesecDefaults(); titlesecFont = selected
       }
       if (names.includes("fancyhdr")) {
         fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
@@ -406,17 +455,17 @@ export function readPreamble(src: string): Preamble {
     }
     throw new Unsupported(`preamble: ${line}`)
   }
-  const kOT1 = k
+  k = withFonts(k, fonts)
   if (t1) k = withT1(k, cls)
   const geo = { landscape: false }
   if (geometryOptions.length) {
-    const f = loadFont(dataFont(k.sizes.normalsize.font.name), k.sizes.normalsize.font.at)
+    const f = selectedFont(geometryFont)
     const bs = geometryStretch ? { ...k.glue, baselineskip: { ...k.glue.baselineskip, width: times(geometryStretch, k.glue.baselineskip.width) } } : k.glue
     k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }, geo), glue: k.glue }
   }
   if (lengths.length) {
-    for (const [name, value, enc] of lengths) {
-      const font = (enc ? k : kOT1).sizes.normalsize.font, f = loadFont(dataFont(font.name), font.at)
+    for (const [name, value, font] of lengths) {
+      const f = selectedFont(font)
       const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
       let g: GlueSpec
       try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
@@ -446,7 +495,7 @@ export function readPreamble(src: string): Preamble {
     caption = { keys: captionDefaults(!!k.ints.twoside), lists: {} }
     for (const op of captionOps) {
       // a length as \setlength reads it there: in the font then, \textwidth the class's (not geometry's, which sets it later)
-      const font = (op.t1 ? k : kOT1).sizes.normalsize.font, f = loadFont(dataFont(font.name), font.at)
+      const f = selectedFont(op.font)
       const internal = (name: string) => name === "textwidth" && !geometryOptions.length ? { level: "dimen" as const, value: classTextwidth } : undefined
       const dim = (v: string) => parseDimen(v, { em: f.params[QUAD], ex: f.params[X_HEIGHT], internal })
       if (op.list === null) {
@@ -496,7 +545,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, t1, booktabsT1, thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

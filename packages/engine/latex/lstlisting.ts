@@ -33,6 +33,7 @@ import { sloppy } from "./kernel"
 /** listings' fonts from a size and font: a style's (font declarations and size commands), and the other encodings' */
 export function lstFontsAt(cx: Ctx, size0: SizeCommand, attrs0: FontAttrs) {
   const { doc, run } = cx
+  if (run.k.families) throw new Unsupported("listings with font packages") // (its OML and OMS fonts, lstFontsAt's other)
   // a style: font declarations and size commands, from the font where the listing is
   const styleOf = (style: string) => {
     let size: SizeCommand = size0, a: FontAttrs = attrs0

@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 823,
-  "exact": 823,
+  "fixtures": 847,
+  "exact": 847,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 0,
-  "glyphs": 465692
+  "glyphs": 471231
  },
  "areas": [
   {
@@ -80,6 +80,11 @@
    "exact": 15
   },
   {
+   "area": "fonts",
+   "fixtures": 12,
+   "exact": 12
+  },
+  {
    "area": "footnotes",
    "fixtures": 3,
    "exact": 3
@@ -151,8 +156,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 20,
-   "exact": 20
+   "fixtures": 27,
+   "exact": 27
   },
   {
    "area": "sections",
@@ -181,8 +186,8 @@
   },
   {
    "area": "text",
-   "fixtures": 31,
-   "exact": 31
+   "fixtures": 36,
+   "exact": 36
   },
   {
    "area": "tikz",
@@ -5545,6 +5550,138 @@
    "issue": "#30"
   },
   {
+   "id": "fonts/helvet-courier",
+   "file": "micro/fonts/helvet-courier.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 150,
+   "covers": "helvet's scaled (\\Hv@scale .95) and courier in OT1: phvr7t at .95 of each size, pcrr7t with \\hyphenchar -1, their shapes; \\textbullet from the roman (still cmr)",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/helvet-scaled",
+   "file": "micro/fonts/helvet-scaled.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 170,
+   "covers": "helvet's scaled=.92 with T1: phvr8t at .92 of each size (the .fd's s*[\\Hv@scale], TeX's coefficient times \\f@size), its shapes and series, next to Computer Modern's roman; \\sffamily headings by \\renewcommand of \\familydefault not used",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-math-noams",
+   "file": "micro/fonts/lmodern-math-noams.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 61,
+   "covers": "lmodern's math fonts at 10pt without amsmath: lmex10 at every style, sums and integrals in display and text style, fractions, scripts at scriptscript size, \\mathcal and accents with the skew characters",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-math",
+   "file": "micro/fonts/lmodern-math.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "lmodern's math fonts at 12pt with amsmath: lmmi, lmsy and lmex (sfixed at 10pt) at text, script and scriptscript sizes, the skew characters of lmmi and lmsy under accents, \\mathbf, \\mathit, \\mathsf, \\mathtt and \\mathcal from the lm families, big delimiters and radicals from lmex, math in a footnote",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-ot1",
+   "file": "micro/fonts/lmodern-ot1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 504,
+   "covers": "\\usepackage{lmodern} without fontenc: lmr, lmss and lmtt in OT1 (rm-lmr*, rm-lmss*, rm-lmtt*) at every size, every shape and series the .fd files declare and NFSS's substitutes, ligatures and kerns, hyphenation, \\textbullet from ts1-lmr, footnote marks at \\sf@size, \\textdegree and ° from ts1-lmr10, \\textsection",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-preamble-cm",
+   "file": "micro/fonts/lmodern-preamble-cm.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 111,
+   "covers": "lengths read in the preamble take the font selected there, not lmodern's: geometry's margins in em of cmr10 (before fontenc), \\parindent and booktabs's rules and separations and caption's skip in em and ex of ecrm1000 (fontenc selected T1 before lmodern loaded, which selects nothing)",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-preamble-lm",
+   "file": "micro/fonts/lmodern-preamble-lm.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "lmodern before fontenc: fontenc selects ec-lmr10, so geometry's margins, \\parindent and booktabs's rules after it are in em and ex of Latin Modern; caption's skip too",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-t1",
+   "file": "micro/fonts/lmodern-t1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "\\usepackage[T1]{fontenc} with lmodern at 11pt: the ec-lm fonts at every size and shape, accents and composites, quotes and dashes, hyphenation, section headings, footnote marks at \\sf@size in T1, \\thanks marks (\\textsection T1's, the others ts1-lmr's)",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/lmodern-titlesec",
+   "file": "micro/fonts/lmodern-titlesec.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 67,
+   "covers": "titlesec after lmodern: its default spacing (\\the of 3.5ex, 2.3ex … at load time) in ex of cmr10, the font selected then, while the headings and text are Latin Modern's",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/palatino-t1",
+   "file": "micro/fonts/palatino-t1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 220,
+   "covers": "palatino.sty with T1 at 11pt: pplr8t and its shapes (ppl's small caps, bold as ssub of b), Helvetica and Courier for sans and typewriter, accents and composites, footnote marks and \\textbullet from ppl at \\sf@size and the size, math in Computer Modern",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/times-ot1",
+   "file": "micro/fonts/times-ot1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 523,
+   "covers": "\\usepackage{times} without fontenc at 12pt: ptm, phv and pcr in OT1 (ptmr7t …), every shape and series (bx as ssub of b), NFSS's substitutes, ligatures and kerns, hyphenation, \\textbullet and footnote marks from ptm at \\sf@size, math in Computer Modern",
+   "issue": "#340"
+  },
+  {
+   "id": "fonts/times-t1",
+   "file": "micro/fonts/times-t1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 348,
+   "covers": "\\usepackage[T1]{fontenc} with times in report at 11pt: ptmr8t and friends, accents and T1 composites, quotes and dashes, hyphenation, chapter headings, footnote marks in T1 at \\sf@size, the bold \\textendash, sans and typewriter (phv, pcr) in T1",
+   "issue": "#340"
+  },
+  {
    "id": "footnotes/footnote-basic",
    "file": "micro/footnotes/footnote-basic.tex",
    "area": "footnotes",
@@ -7351,6 +7488,17 @@
    "issue": "#332"
   },
   {
+   "id": "pdflatex/helvet-scaled-pdftex",
+   "file": "micro/pdflatex/helvet-scaled-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 170,
+   "covers": "under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), helvet's scaled=.92 with T1: phvr8t at .92 of each size (the .fd's s*[\\Hv@scale], TeX's coefficient times \\f@size), its shapes and series, next to Computer Modern's roman; \\sffamily headings by \\renewcommand of \\familydefault not used",
+   "issue": "#340"
+  },
+  {
    "id": "pdflatex/hyperref-bibliography",
    "file": "micro/pdflatex/hyperref-bibliography.tex",
    "area": "pdflatex",
@@ -7437,6 +7585,39 @@
    "issue": "#296"
   },
   {
+   "id": "pdflatex/lmodern-math-pdftex",
+   "file": "micro/pdflatex/lmodern-math-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 149,
+   "covers": "under pdflatex, lmodern's math fonts at 12pt with amsmath: lmmi, lmsy and lmex (sfixed at 10pt) at text, script and scriptscript sizes, the skew characters of lmmi and lmsy under accents, \\mathbf, \\mathit, \\mathsf, \\mathtt and \\mathcal from the lm families, big delimiters and radicals from lmex, math in a footnote",
+   "issue": "#340"
+  },
+  {
+   "id": "pdflatex/lmodern-ot1-pdftex",
+   "file": "micro/pdflatex/lmodern-ot1-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 490,
+   "covers": "under pdflatex, \\usepackage{lmodern} without fontenc: lmr, lmss and lmtt in OT1 (rm-lmr*, rm-lmss*, rm-lmtt*) at every size, every shape and series the .fd files declare and NFSS's substitutes, ligatures and kerns, hyphenation, \\textbullet from ts1-lmr, footnote marks at \\sf@size",
+   "issue": "#340"
+  },
+  {
+   "id": "pdflatex/lmodern-t1-pdftex",
+   "file": "micro/pdflatex/lmodern-t1-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 465,
+   "covers": "under pdflatex, \\usepackage[T1]{fontenc} with lmodern at 11pt: the ec-lm fonts at every size and shape, accents and composites, quotes and dashes, hyphenation, section headings, footnote marks at \\sf@size in T1, \\thanks marks (\\textsection T1's, the others ts1-lmr's)",
+   "issue": "#340"
+  },
+  {
    "id": "pdflatex/math-sqrt-index",
    "file": "micro/pdflatex/math-sqrt-index.tex",
    "area": "pdflatex",
@@ -7445,6 +7626,17 @@
    "status": "pass",
    "glyphs": 161,
    "covers": "under pdflatex (PDF, positions from its box dumps): \\sqrt[n] (\\root n\\of: the index in \\rootbox at scriptscript style, a \\mathchoice of \\r@@t: \\mkern5mu, the index raised .6(height-depth) of the radical box, \\mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)"
+  },
+  {
+   "id": "pdflatex/palatino-t1-pdftex",
+   "file": "micro/pdflatex/palatino-t1-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 220,
+   "covers": "under pdflatex, palatino.sty with T1 at 11pt: pplr8t and its shapes (ppl's small caps, bold as ssub of b), Helvetica and Courier for sans and typewriter, accents and composites, footnote marks and \\textbullet from ppl at \\sf@size and the size, math in Computer Modern",
+   "issue": "#340"
   },
   {
    "id": "pdflatex/text-font-commands",
@@ -7456,6 +7648,28 @@
    "glyphs": 343,
    "covers": "under pdflatex (PDF, positions from its box dumps): \\textbf \\textit \\emph (nested: upright inside italic) \\textsl \\textsc \\texttt \\textsf \\textmd \\textup \\textrm \\textnormal, the italic corrections of \\check@icl and \\check@icr (\\sw@slant, \\fix@penalty; none before , or .), interword spaces in each font, hyphenation of words in other fonts, a footnote with \\emph",
    "issue": "#30"
+  },
+  {
+   "id": "pdflatex/times-ot1-pdftex",
+   "file": "micro/pdflatex/times-ot1-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 523,
+   "covers": "under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), \\usepackage{times} without fontenc at 12pt: ptm, phv and pcr in OT1 (ptmr7t …), every shape and series (bx as ssub of b), NFSS's substitutes, ligatures and kerns, hyphenation, \\textbullet and footnote marks from ptm at \\sf@size, math in Computer Modern",
+   "issue": "#340"
+  },
+  {
+   "id": "pdflatex/times-t1-pdftex",
+   "file": "micro/pdflatex/times-t1-pdftex.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 348,
+   "covers": "under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), \\usepackage[T1]{fontenc} with times in report at 11pt: ptmr8t and friends, accents and T1 composites, quotes and dashes, hyphenation, chapter headings, footnote marks in T1 at \\sf@size, the bold \\textendash, sans and typewriter (phv, pcr) in T1",
+   "issue": "#340"
   },
   {
    "id": "pdflatex/xcolor-definecolor",
@@ -8066,6 +8280,17 @@
    "issue": "#63"
   },
   {
+   "id": "text/bfseries-undeclared-shapes",
+   "file": "micro/text/bfseries-undeclared-shapes.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 64,
+   "covers": "with T1, an undeclared shape: \\bfseries in typewriter slanted or small caps keeps bx (\\DeclareFontSeriesChangeRule{m}{bx}{bx}{b}: cmtt has no b), and \\selectfont's \\wrong@fontshape loads bx/n (ectt1000) in \\define@newfont's group, so the attributes stay: \\mdseries returns to the small caps, \\itshape to italic (the data's entry for bx/sl, ecit1000, is \\fontshape's merge, not \\wrong@fontshape's)",
+   "issue": "#340"
+  },
+  {
    "id": "text/boxes-in-text",
    "file": "micro/text/boxes-in-text.tex",
    "area": "text",
@@ -8215,6 +8440,50 @@
    "status": "pass",
    "glyphs": 239,
    "covers": "\\sfcode rules after . ? ! : ; , and after uppercase (NASA. rule), ) and ' leaving the factor unchanged"
+  },
+  {
+   "id": "text/substituted-shape-decl",
+   "file": "micro/text/substituted-shape-decl.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "with T1, \\bfseries in a group in a paragraph, in typewriter slanted: bx/sl is undeclared and substituted, so a later \\slshape from bx/n takes sl",
+   "issue": "#340"
+  },
+  {
+   "id": "text/substituted-shape-textcmd",
+   "file": "micro/text/substituted-shape-textcmd.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "with T1, \\textbf in typewriter \\textsl: bx/sl is undeclared, \\wrong@fontshape loads bx/n and lets bx/sl be it, so a later \\slshape from bx/n (rule [sl, it]) takes sl, not the italic",
+   "issue": "#340"
+  },
+  {
+   "id": "text/substituted-shape-url",
+   "file": "micro/text/substituted-shape-url.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 54,
+   "covers": "with T1, \\url in bold slanted roman: \\UrlFont's \\ttfamily selects T1/cmtt/bx/sl, undeclared and substituted, so a later \\slshape from bx/n takes sl",
+   "issue": "#340"
+  },
+  {
+   "id": "text/substituted-shape-vmode",
+   "file": "micro/text/substituted-shape-vmode.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "with T1, \\bfseries in a group around a paragraph (its \\par inside), in typewriter slanted: bx/sl is undeclared and substituted, so a later \\slshape from bx/n takes sl",
+   "issue": "#340"
   },
   {
    "id": "text/t1-fonts",

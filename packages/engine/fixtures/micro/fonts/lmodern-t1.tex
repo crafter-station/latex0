@@ -1,0 +1,23 @@
+% fixture: fonts/lmodern-t1
+% tier: T3
+% engine: document
+% covers: \usepackage[T1]{fontenc} with lmodern at 11pt: the ec-lm fonts at every size and shape, accents and composites, quotes and dashes, hyphenation, section headings, footnote marks at \sf@size in T1, \thanks marks (\textsection T1's, the others ts1-lmr's)
+% issue: #340
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\title{A Title\thanks{One.}}
+\author{A. Author\thanks{Two.} \and B. Author\thanks{Three.} \and C. Author\thanks{Four.}}
+\date{\today\thanks{Five.}\thanks{Six.}\thanks{Seven.}}
+\begin{document}
+\maketitle
+\section{Latin Modern in T1}
+\subsection{Accents}
+Café, naïve, Señor, Ångström, \"{u}ber, \v{c}esky and \c{c}a va; ``quoted'' and \guillemotleft angled\guillemotright{} with 10--20 --- a dash. Hyphenation works with the Latin Modern fonts as well: typesetting, composition, paragraphs, demerits.\footnote{A footnote in T1, with fluffy waffles.}
+
+{\itshape italic} {\slshape slanted} {\scshape Small Caps} {\bfseries bold \itshape bold italic \slshape bold slanted}
+{\sffamily sans \itshape italic \bfseries bold} {\ttfamily typewriter \itshape italic \bfseries bold} and {\small more\footnote{In a group.}} text.
+
+{\tiny tiny} {\scriptsize script} {\footnotesize foot} {\small small} {\large large} {\Large Large} {\LARGE LARGE} {\huge huge} {\Huge Huge}
+\end{document}

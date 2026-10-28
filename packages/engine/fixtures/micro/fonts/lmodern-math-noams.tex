@@ -1,0 +1,11 @@
+% fixture: fonts/lmodern-math-noams
+% tier: T3
+% engine: document
+% covers: lmodern's math fonts at 10pt without amsmath: lmex10 at every style, sums and integrals in display and text style, fractions, scripts at scriptscript size, \mathcal and accents with the skew characters
+% issue: #340
+\documentclass{article}
+\usepackage{lmodern}
+\begin{document}
+Text $\sum_{i=1}^{n} a_i^{2^k}$ and $\int_a^b f$ with $\hat{x}\tilde{\mathcal{B}}$ and $\frac{1}{2}$.
+\[ \sum_{i=1}^{n} \frac{1}{i^2} = \frac{\pi^2}{6} - \int_{n}^{\infty} \frac{dx}{x^2} \qquad \left\langle \frac{a_{x_{y}}}{b} \right\rangle \]
+\end{document}

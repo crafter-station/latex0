@@ -1,0 +1,17 @@
+% fixture: fonts/lmodern-math
+% tier: T3
+% engine: document
+% covers: lmodern's math fonts at 12pt with amsmath: lmmi, lmsy and lmex (sfixed at 10pt) at text, script and scriptscript sizes, the skew characters of lmmi and lmsy under accents, \mathbf, \mathit, \mathsf, \mathtt and \mathcal from the lm families, big delimiters and radicals from lmex, math in a footnote
+% issue: #340
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{lmodern}
+\begin{document}
+Inline $x^2+y_{i,j}^{k^2} = \frac{a}{b}$ and $\hat{a} + \vec{x} + \tilde{\mathcal{A}} + \bar{y}$ with $\mathbf{v}$, $\mathit{diff}$, $\mathsf{S}$, $\mathtt{t}$ and $\sqrt{x^2+1}$.\footnote{In a note: $\sum_{i=1}^n x_i^2 \le \int_0^1 f(t)\,dt$.}
+\begin{equation}
+  \left( \sum_{k=0}^{\infty} \frac{x^k}{k!} \right)^{\!2} = \left[ \prod_{j} \sqrt[3]{\frac{1+\alpha_j}{1-\beta_j}} \right] \cdot \lim_{n\to\infty} \left\{ \mathbf{A}_n \right\}
+\end{equation}
+\begin{align}
+  \nabla \cdot \vec{E} &= \frac{\rho}{\varepsilon_0}, & \oint_{\partial\Omega} \hat{\mathbf{n}} \, dS &\ne 0
+\end{align}
+\end{document}

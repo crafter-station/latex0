@@ -132,8 +132,9 @@ switch (cmd) {
     const { codegenMath } = await import("./codegen/math")
     const { codegenPgf } = await import("./codegen/pgf")
     const { codegenBeamer } = await import("./codegen/beamer")
+    const { codegenNfss } = await import("./codegen/nfss")
     const check = flags.has("--check")
-    process.exit(codegenFonts(check) | codegenHyphenation(check) | codegenClasses(check) | codegenMath(check) | codegenPgf(check) | codegenBeamer(check))
+    process.exit(codegenNfss(check) | codegenFonts(check) | codegenHyphenation(check) | codegenClasses(check) | codegenMath(check) | codegenPgf(check) | codegenBeamer(check))
   }
   case "decisions": {
     if (!args[0]) throw new Error("usage: bun engine decisions <fixture.tex>")

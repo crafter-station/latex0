@@ -1,0 +1,15 @@
+% fixture: fonts/helvet-courier
+% tier: T3
+% engine: document
+% covers: helvet's scaled (\Hv@scale .95) and courier in OT1: phvr7t at .95 of each size, pcrr7t with \hyphenchar -1, their shapes; \textbullet from the roman (still cmr)
+% issue: #340
+\documentclass[11pt]{article}
+\usepackage[scaled]{helvet}
+\usepackage{courier}
+\begin{document}
+Roman, {\sffamily sans serif text with {\itshape oblique} and {\bfseries bold}} and {\ttfamily typewriter text with {\slshape slanted} and {\bfseries bold} words that would not hyphenate even when a line is long enough} back in roman.
+\begin{itemize}
+\item {\sffamily\small item}
+\end{itemize}
+{\ttfamily\footnotesize foot} {\sffamily\Large Large}
+\end{document}

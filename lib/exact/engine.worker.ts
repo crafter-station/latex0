@@ -18,6 +18,8 @@ const read = <T>(path: string): T => {
 const source: DataSource = {
   font: (name) => read(`fonts/${name}.json`),
   documentClass: (cls) => read(`classes/${cls}.json`),
+  fontFamily: (family) => read(`nfss/${family}.json`),
+  mathFonts: (pkg) => read(`nfss/math-${pkg}.json`),
   beamerTheme: (theme) => read(`beamer/${theme}.json`),
   hyphenation: (language) => read(`hyphenation/${language}.json`),
   math: () => read("math/latex.json"),
