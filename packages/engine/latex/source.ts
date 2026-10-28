@@ -13,7 +13,15 @@ import { spanishText } from "./spanish"
 /** an lstlisting environment's [options] and lines */
 export interface Listing { options: string; lines: string[]; inline?: true }
 /** a tabular environment as typed (taken out of the source after expansion: \LXtabular{n}) */
-export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string }
+export interface TabularSource { pos: "t" | "b" | "c"; spec: string; body: string
+  /** tabular*'s width (the \\halign to it), tabularx's */
+  width?: string
+  /** a tabularx */
+  x?: true
+  /** colortbl's \rowcolors{start}{odd}{even} in force (k: which one, its \rownum reset where it stands) */
+  rowcolors?: { k: number; start: number; odd: string; even: string } }
+/** a longtable environment as typed (taken out of the source after expansion: \LXlongtable{n}, a block of its own) */
+export interface LongtableSource { pos: "l" | "c" | "r" | null; spec: string; body: string }
 /** a minipage environment as typed (taken out of the source after expansion: \LXminipage{n}) */
 export interface MinipageSource {
   /** (null: subcaption's subfigure or subtable with no position, b before the float's \caption and t after it) */
@@ -46,7 +54,7 @@ export interface UrlSource { address: string; link: boolean }
 /** \includegraphics[options]{file} as typed */
 export interface GraphicSource { options: string; file: string }
 
-export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[]
+export interface DocumentSource { src: string; listings: Listing[]; tabulars: TabularSource[]; longtables: LongtableSource[]; minipages: MinipageSource[]; /** \url, \nolinkurl and \href addresses */ urls: UrlSource[]
   /** \includegraphics, by number (\LXgraphic{n}) */
   graphics: GraphicSource[]
   /** TikZ's pictures as typed (tikzpicture environments, \tikz), by number (\LXtikz{n}) */
@@ -138,22 +146,39 @@ export function prepareSource(source: string): DocumentSource {
   // fancyhdr's \headrulewidth and \footrulewidth are macros its rules read: \renewcommand'd, \LXfancyrule{name}{width}
   source = source.replace(/\\renewcommand\s*(?:\{\\(headrulewidth|footrulewidth)\}|\\(headrulewidth|footrulewidth)(?![A-Za-z]))\s*\{([^{}]*)\}/g, (all: string, a: string | undefined, b: string | undefined, width: string, offset: number, text: string) =>
     commentedAt(text, offset) ? all : `\\LXfancyrule{${a ?? b}}{${width}}`)
+  // tabularx's \tabularxcolumn, \renewcommand'd: \LXtabularxcolumn{spec}
+  source = source.replace(/\\renewcommand\*?\s*(?:\{\\tabularxcolumn\}|\\tabularxcolumn(?![A-Za-z]))\s*\[1\]\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}/g, (all: string, spec: string, offset: number, text: string) =>
+    commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
   const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
-  const src0 = expanded.text.replace(/\\begin\{tabular\}\s*(?:\[([tbc])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}([^]*?)\\end\{tabular\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
+  // (tabular* first: its {width} before [pos]{cols})
+  const take = (t: string, env: "tabular" | "tabular\\*" | "tabularx") => t.replace(new RegExp(`\\\\begin\\{${env}\\}${env === "tabular" ? "" : "\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}"}\\s*(?:\\[([tbc])\\])?\\s*\\{((?:[^{}]|\\{(?:[^{}]|\\{(?:[^{}]|\\{[^{}]*\\})*\\})*\\})*)\\}([^]*?)\\\\end\\{${env}\\}`, "g"), (all: string, ...m: unknown[]) => {
+    const [width, pos, spec, body, offset, text] = (env === "tabular" ? [undefined, ...m] : m) as [string | undefined, string | undefined, string, string, number, string]
     if (commented(text, offset)) return all
-    if (/\\begin\{tabular\}/.test(body)) throw new Unsupported("a tabular in a tabular")
-    tabulars.push({ pos: (pos ?? "c") as "c", spec, body })
+    if (/\\begin\{tabular[*x]?\}|\\LXtabular\{/.test(body)) throw new Unsupported("a tabular in a tabular")
+    tabulars.push({ pos: (pos ?? "c") as "c", spec, body, ...(width !== undefined ? { width } : {}), ...(env === "tabularx" ? { x: true as const } : {}) })
     return `\\LXtabular{${tabulars.length - 1}}`
   })
-  if ([...src0.matchAll(/\\(?:begin|end)\{tabular\*?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
+  const src0 = take(take(take(expanded.text, "tabularx"), "tabular\\*"), "tabular")
+  if ([...src0.matchAll(/\\(?:begin|end)\{tabular[*x]?\}/g)].some((m) => !commented(src0, m.index!))) throw new Unsupported("a tabular not read")
+  // longtables: \LXlongtable{n}, blocks of their own
+  const longtables: LongtableSource[] = []
+  let src1 = src0.replace(/\\begin\{longtable\}\s*(?:\[([lcr])\])?\s*\{((?:[^{}]|\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\})*)\}([^]*?)\\end\{longtable\}/g, (all: string, pos: string | undefined, spec: string, body: string, offset: number, text: string) => {
+    if (commented(text, offset)) return all
+    longtables.push({ pos: (pos ?? null) as LongtableSource["pos"], spec, body })
+    return `\\LXlongtable{${longtables.length - 1}}`
+  })
+  if ([...src1.matchAll(/\\(?:begin|end)\{longtable\}/g)].some((m) => !commented(src1, m.index!))) throw new Unsupported("a longtable not read")
+  rowcolors(src1, tabulars)
+  src1 = src1.replace(/\\rowcolors\s*\{\s*\d+\s*\}\s*\{[^{}]*\}\s*\{[^{}]*\}[ \t]*(?:\n(?![ \t]*\n)[ \t]*)?/g, "") // (then \ignorespaces)
+  if (/\\rowcolors(?![A-Za-z])/.test(src1.replace(/(^|[^\\])%.*$/gm, "$1"))) throw new Unsupported("\\rowcolors here")
   // minipages: \LXminipage{n}, laid out where they stand
   const minipages: MinipageSource[] = []
   // (and subcaption's subfigure and subtable, minipages too)
-  const src = src0.replace(/\\begin\{(minipage|subfigure|subtable)\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{\1\}/g, (all: string, env: string, pos: string | undefined, height: string | undefined, inner: string | undefined, width: string, body: string, offset: number, text: string) => {
+  const src = src1.replace(/\\begin\{(minipage|subfigure|subtable)\}\s*(?:\[([tbc])\])?\s*(?:\[([^\]]*)\]\s*(?:\[([tbcs])\])?)?\s*\{((?:[^{}]|\{[^{}]*\})*)\}([^]*?)\\end\{\1\}/g, (all: string, env: string, pos: string | undefined, height: string | undefined, inner: string | undefined, width: string, body: string, offset: number, text: string) => {
     if (commented(text, offset)) return all
     if (/\\begin\{(?:minipage|subfigure|subtable)\}/.test(body)) throw new Unsupported(`a minipage in a ${env}`)
     const sub = env === "minipage" ? undefined : env === "subfigure" ? "figure" : "table"
@@ -161,7 +186,27 @@ export function prepareSource(source: string): DocumentSource {
     return `\\LXminipage{${minipages.length - 1}}`
   })
   if ([...src.matchAll(/\\(?:begin|end)\{(?:minipage|subfigure|subtable)\}/g)].some((m) => !commented(src, m.index!))) throw new Unsupported("a minipage not read")
-  return { src, listings, tabulars, minipages, urls, graphics, tikz, files }
+  return { src, listings, tabulars, longtables, minipages, urls, graphics, tikz, files }
+}
+
+/**
+ * colortbl's \rowcolors{start}{odd}{even}: \CT@everycr's \@rowc@lors, local to the group or environment it stands in,
+ * for the tabulars after it there (\rowcolors* and its [commands] are not laid out yet)
+ */
+function rowcolors(src: string, tabulars: TabularSource[]) {
+  let k = 0
+  for (const m of src.matchAll(/\\rowcolors(\*?)\s*(\[[^\]]*\])?\s*\{\s*(\d+)\s*\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g)) {
+    if (/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index!))) continue
+    if (m[1] || m[2]) throw new Unsupported(m[0])
+    const rc = { k: k++, start: Number(m[3]), odd: m[4].trim(), even: m[5].trim() }
+    let depth = 0
+    for (const t of src.slice(m.index! + m[0].length).matchAll(/\\begin\{[^{}]*\}|\\end\{[^{}]*\}|\\LXtabular\{(\d+)\}|\\LXlongtable\{|\\[{}%]|\\.|[{}]|%[^\n]*/g)) {
+      if (t[0] === "{" || t[0].startsWith("\\begin{")) depth++
+      else if (t[0] === "}" || t[0].startsWith("\\end{")) { if (--depth < 0) break }
+      else if (t[1] !== undefined) tabulars[Number(t[1])].rowcolors = rc
+      else if (t[0] === "\\LXlongtable{") throw new Unsupported("\\rowcolors before a longtable")
+    }
+  }
 }
 
 const words = (s: string | undefined) => (s ? s.split(" ") : [])

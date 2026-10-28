@@ -1,0 +1,87 @@
+% fixture: longtable/longtable-booktabs
+% tier: T3
+% engine: document
+% covers: longtable with array.sty and booktabs (the corpus report's account list): a p{4cm} column, \caption then \toprule … \midrule \endfirsthead, \toprule … \midrule \endhead, \bottomrule \endfoot (in longtable, booktabs's rules are \@BLTrule rows after \nobreak), rows over two pages after a paragraph, \midrule and \addlinespace in the body; a head of \addlinespace alone (\unskip takes it: no interline glue before the save row); a \label after the table (\@currentHref: \MakeLinkTarget's target*.1)
+% issue: #342
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\begin{document}
+\section{Account list}
+The accounts below are listed by revenue, highest first.
+
+\begin{longtable}{p{4cm} l r}
+\caption{Top accounts by revenue.}\\
+\toprule
+Account & Region & Revenue (k\$) \\
+\midrule
+\endfirsthead
+\toprule
+Account & Region & Revenue (k\$) \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Acme Corporation, a name long enough to wrap in its column & North America & 512 \\
+\midrule
+Account 1 & Region 1 & 107 \\
+Account 2 & Region 2 & 114 \\
+Account 3 & Region 3 & 121 \\
+Account 4 & Region 4 & 128 \\
+Account 5 & Region 0 & 135 \\
+Account 6 & Region 1 & 142 \\
+Account 7 & Region 2 & 149 \\
+Account 8 & Region 3 & 156 \\
+Account 9 & Region 4 & 163 \\
+Account 10 & Region 0 & 170 \\
+Account 11 & Region 1 & 177 \\
+Account 12 & Region 2 & 184 \\
+Account 13 & Region 3 & 191 \\
+Account 14 & Region 4 & 198 \\
+Account 15 & Region 0 & 205 \\
+Account 16 & Region 1 & 212 \\
+Account 17 & Region 2 & 219 \\
+Account 18 & Region 3 & 226 \\
+Account 19 & Region 4 & 233 \\
+Account 20 & Region 0 & 240 \\
+Account 21 & Region 1 & 247 \\
+Account 22 & Region 2 & 254 \\
+Account 23 & Region 3 & 261 \\
+Account 24 & Region 4 & 268 \\
+Account 25 & Region 0 & 275 \\
+Account 26 & Region 1 & 282 \\
+Account 27 & Region 2 & 289 \\
+Account 28 & Region 3 & 296 \\
+Account 29 & Region 4 & 303 \\
+Account 30 & Region 0 & 310 \\
+Account 31 & Region 1 & 317 \\
+Account 32 & Region 2 & 324 \\
+Account 33 & Region 3 & 331 \\
+Account 34 & Region 4 & 338 \\
+Account 35 & Region 0 & 345 \\
+Account 36 & Region 1 & 352 \\
+Account 37 & Region 2 & 359 \\
+Account 38 & Region 3 & 366 \\
+Account 39 & Region 4 & 373 \\
+Account 40 & Region 0 & 380 \\
+Account 41 & Region 1 & 387 \\
+Account 42 & Region 2 & 394 \\
+Account 43 & Region 3 & 401 \\
+Account 44 & Region 4 & 408 \\
+Account 45 & Region 0 & 415 \\
+Account 46 & Region 1 & 422 \\
+Account 47 & Region 2 & 429 \\
+\addlinespace
+Total & & 9\,999 \\
+\end{longtable}
+
+The list ends here.\label{lt:end}
+
+\begin{longtable}{lr}
+\addlinespace[6pt]
+\endhead
+x & 1 \\
+\end{longtable}
+\end{document}

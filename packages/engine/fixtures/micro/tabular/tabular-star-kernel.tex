@@ -1,0 +1,37 @@
+% fixture: tabular/tabular-star-kernel
+% tier: T3
+% engine: document
+% covers: the kernel's tabular*: \extracolsep{\fill} in @{} first and between columns (the tabskip glue after each column, the last one zero), \extracolsep{2pt} and \extracolsep\fill without braces, text before one, a width narrower than the natural one, \hline, \cline and \multicolumn across stretched tabskips, [t] and [b] positions, in a table float with \centering (\linewidth there: \columnwidth) and in text
+% issue: #342
+\documentclass{article}
+\begin{document}
+\begin{table}[h]
+\centering
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}lcr}
+\hline
+Region & Units & Growth \\
+\hline
+North & 15 & 6.2 \\
+Europe & 120 & 3.9 \\
+\cline{2-3}
+\multicolumn{2}{l}{Total over both} & 10.1 \\
+\hline
+\end{tabular*}
+\caption{Stretched.}
+\end{table}
+
+Text \begin{tabular*}{0.6\linewidth}[t]{l@{\extracolsep{2pt}}cc@{\extracolsep\fill}r}
+a & b & c & d \\
+alpha & beta & gamma & delta
+\end{tabular*} and
+\begin{tabular*}{3cm}[b]{|l|r|}
+\hline
+wide entry here & 12 \\
+\hline
+\end{tabular*} after.
+
+\noindent\begin{tabular*}{\linewidth}{l@{\extracolsep{\fill}}c|c@{:\extracolsep{1pt}}r@{\extracolsep{0pt plus 1fil}}}
+one & two & three & four \\
+\multicolumn{1}{c}{x} & y & z & w
+\end{tabular*}
+\end{document}

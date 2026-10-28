@@ -15,7 +15,8 @@ import type { Preamble } from "./preamble"
 import type { RunState } from "./run"
 import type { BoundingBox } from "./graphics"
 import type { Image } from "./images"
-import type { GraphicSource, Listing, MinipageSource, TabularSource, UrlSource } from "./source"
+import type { GraphicSource, Listing, LongtableSource, MinipageSource, TabularSource, UrlSource } from "./source"
+import type { LtEntry } from "./longtable"
 import type { TabularEnv } from "./tabular"
 import type { ListEntry, ListFile, TocEntry, TocWriter } from "./toc"
 import type { VerticalList } from "./vlist"
@@ -30,6 +31,9 @@ export interface Ctx {
   /** what was taken out of the source (prepareSource): listings, tabulars and minipages by number */
   listings: Listing[]
   tabulars: TabularSource[]
+  longtables: LongtableSource[]
+  /** longtable's save rows (\LT@i, \LT@ii, …): the .aux file's from the run before (null: none yet), and this run's */
+  ltRows: { prev: Map<number, LtEntry[]> | null; written: Map<number, LtEntry[]> }
   minipages: MinipageSource[]
   /** \includegraphics by number, and the bounding boxes of the graphics files the engine knows */
   graphics: GraphicSource[]

@@ -1,0 +1,87 @@
+% fixture: longtable/longtable-chunks
+% tier: T3
+% engine: document
+% covers: longtable with \setcounter{LTchunksize}{3}: chunks of three rows (\prevdepth 0pt after each), a wider row in a later chunk (the save row's widths from the .aux file the first run wrote), \\* and \\[4pt], \hline\hline in the body, [l] and [r] tables, a table starting near the bottom of a page (head, foot and first row do not fit: \vfil\break first), a last foot taller than the foot
+% issue: #342
+\documentclass{article}
+\usepackage{longtable}
+\setcounter{LTchunksize}{3}
+\begin{document}
+\vspace*{18cm}
+A paragraph near the bottom of the page.
+
+\begin{longtable}[l]{|r|l|c|}
+\hline
+N & Word & M \\
+\hline
+\endhead
+\hline
+\endfoot
+1 & w & 1\\
+2 & w & 2\\
+3 & w & 3\\
+4 & w & 4\\*
+5 & wwwwww & 5\\
+6 & w & 6\\[4pt]
+7 & w & 7\\
+\hline\hline
+8 & w & 8\\
+9 & w & 9\\
+10 & w & 10\\
+11 & w & 11\\
+\end{longtable}
+
+\begin{longtable}[r]{lr}
+Head & row \\
+\endhead
+\multicolumn{2}{c}{foot} \\
+\endfoot
+\multicolumn{2}{c}{last foot} \\[6pt]
+\multicolumn{2}{c}{taller} \\
+\endlastfoot
+item 1 & 3 \\
+item 2 & 6 \\
+item 3 & 9 \\
+item 4 & 12 \\
+item 5 & 15 \\
+item 6 & 18 \\
+item 7 & 21 \\
+item 8 & 24 \\
+item 9 & 27 \\
+item 10 & 30 \\
+item 11 & 33 \\
+item 12 & 36 \\
+item 13 & 39 \\
+item 14 & 42 \\
+item 15 & 45 \\
+item 16 & 48 \\
+item 17 & 51 \\
+item 18 & 54 \\
+item 19 & 57 \\
+item 20 & 60 \\
+item 21 & 63 \\
+item 22 & 66 \\
+item 23 & 69 \\
+item 24 & 72 \\
+item 25 & 75 \\
+item 26 & 78 \\
+item 27 & 81 \\
+item 28 & 84 \\
+item 29 & 87 \\
+item 30 & 90 \\
+item 31 & 93 \\
+item 32 & 96 \\
+item 33 & 99 \\
+item 34 & 102 \\
+item 35 & 105 \\
+item 36 & 108 \\
+item 37 & 111 \\
+item 38 & 114 \\
+item 39 & 117 \\
+item 40 & 120 \\
+item 41 & 123 \\
+item 42 & 126 \\
+item 43 & 129 \\
+item 44 & 132 \\
+\end{longtable}
+\end{document}

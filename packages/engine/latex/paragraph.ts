@@ -165,6 +165,8 @@ export function classParams(k: ClassOptionData): LineBreakParams {
 /** Document state that crosses paragraphs: LaTeX's footnote counter, and the font shapes NFSS has
  *  substituted so far (a substitution declares the shape it replaced, which later merges then see) */
 export interface DocState {
+  /** in multicols (\columnbreak) */
+  columns?: boolean
   footnote: number; substituted?: Set<string>; refs?: Refs
   /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
   thanks?: { n: number; src: string }[]
@@ -217,7 +219,9 @@ export interface DocState {
 }
 
 /** where a tabular stands: the traces its p{width} entries' paragraphs join, and the parameters they keep */
-export interface TabularOuter { notes: ParagraphTrace[]; club: number; widow: number; finalHyph: number; /** \linewidth there (a list's \parshape width) */ lineWidth?: number }
+export interface TabularOuter { notes: ParagraphTrace[]; club: number; widow: number; finalHyph: number; /** \linewidth there (a list's \parshape width) */ lineWidth?: number
+  /** xcolor's current color there, when not the document's */
+  color?: string }
 
 /**
  * Cross-references: \@currentlabel (local: lists, equations and floats restore it), \@currentHref
@@ -365,7 +369,7 @@ type Piece =
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
-  | { kind: "pagebreak"; no: boolean; n: number }
+  | { kind: "pagebreak"; no: boolean; n: number; /** multicol's \columnbreak */ column?: boolean }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
   | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
   /** \enlargethispage{len} and \enlargethispage*{len} in a paragraph */
@@ -645,6 +649,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (el) { flushText(); out.push({ kind: "enlarge", star: !!el[1], skip: el[2] }); i += el[0].length; continue }
     const pb = body.slice(i).match(/^\\(no)?pagebreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/) // (\@testopt: the spaces before a [ go)
     if (pb) { flushText(); out.push({ kind: "pagebreak", no: !!pb[1], n: pb[2] === undefined ? 4 : Number(pb[2]) }); i += pb[0].length; continue }
+    const colb = body.slice(i).match(/^\\columnbreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/)
+    if (colb) { flushText(); out.push({ kind: "pagebreak", no: false, n: colb[1] === undefined ? 4 : Number(colb[1]), column: true }); i += colb[0].length; continue }
     const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
     if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
@@ -1326,7 +1332,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!doc.getpen) throw new Unsupported(`\\${p.no ? "no" : ""}pagebreak outside a document`)
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
-      list.push({ kind: "adjust", list: [penalty((p.no ? 1 : -1) * doc.getpen(p.n))] })
+      // (multicol's \columnbreak: \penalty -\@m, -3333, -6666, -9999 or -\@Mv)
+      if (p.column && !doc.columns) throw new Unsupported("\\columnbreak outside multicols")
+      list.push({ kind: "adjust", list: [penalty(p.column ? -[1000, 3333, 6666, 9999, 10005][p.n] : (p.no ? 1 : -1) * doc.getpen(p.n))] })
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
     else if (p.kind === "float") {
@@ -1573,7 +1581,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       if (!doc.tabular) throw new Unsupported("paragraph adapter: a tabular outside a document")
       // (a tabular that starts the paragraph starts it in its group: the \everypar's \clubpenalty there is its own)
       const lead = p === ctx.lead && ctx.leadGroupNoteClub !== undefined
-      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
+      list.push(doc.tabular(p.n, size, attrs, state.sfcodes, { notes: ctx.notes, club: lead ? ctx.leadGroupNoteClub! : ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx), ...(ctx.color ? { color: ctx.color } : {}) }))
       state.spaceFactor = 1000
     }
     else if (p.kind === "minipage") { // \leavevmode, then \@iiiparbox's box (in its group, like a tabular's)

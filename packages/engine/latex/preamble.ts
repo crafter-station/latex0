@@ -47,6 +47,14 @@ export interface Preamble {
   columnTypes: Record<string, { n: number; spec: string }>
   /** multirow loaded: \multirow in tabular entries */
   usesMultirow: boolean
+  /** tabularx loaded: its \tabularxcolumn (#1 the width), p{#1} unless \renewcommand'd */
+  tabularx: { column: string } | null
+  /** multicol loaded */
+  multicol: boolean
+  /** colortbl loaded (xcolor's [table] loads it) */
+  colortbl: boolean
+  /** longtable loaded: \LTchunksize (\setcounter{LTchunksize}{n}) */
+  longtable: { chunksize: number } | null
   /** siunitx loaded: \num, \si, \SI… (it loads array and, at \begin{document}, color) */
   usesSiunitx: boolean
   /** its options: \usepackage[…]{siunitx}, then each \sisetup{…} */
@@ -174,6 +182,10 @@ export function readPreamble(src: string): Preamble {
   let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
+  let tabularx: Preamble["tabularx"] = null
+  let longtable: Preamble["longtable"] = null
+  let multicol = false
+  let colortbl = false
   let usesListings = false, usesUrl = false, usesMultirow = false, usesXcolor = false, usesAmsthm = false
   let booktabsFont: PreambleFont | null = null // booktabs loaded: its em and ex are the font's then
   let thmStyle: ThmStyle = "plain"
@@ -290,9 +302,15 @@ export function readPreamble(src: string): Preamble {
       if (sl[1] === "extrarowheight" && !usesArray) throw new Unsupported(`preamble: ${line}`) // (array.sty defines it)
       lengths.push([sl[1], sl[2], selected]); continue
     }
+    if (line === "\\usepackage[table]{xcolor}") { usesXcolor = colortbl = usesArray = true; continue } // (colortbl after xcolor)
+    const ltc = line.match(/^\\setcounter\{LTchunksize\}\{\s*(\d+)\s*\}$/)
+    if (ltc) { if (!longtable || Number(ltc[1]) < 1) throw new Unsupported(`preamble: ${line}`); longtable.chunksize = Number(ltc[1]); continue }
+    const txc = line.match(/^\\LXtabularxcolumn\{(.*)\}$/) // (source.ts: \renewcommand{\tabularxcolumn}[1]{spec})
+    if (txc) { if (!tabularx) throw new Unsupported(`preamble: ${line}`); tabularx.column = txc[1]; continue }
     const ncol = line.match(/^\\newcolumntype\{?([A-Za-z])\}?\s*(?:\[(\d)\])?\s*\{(.*)\}$/)
     if (ncol) {
-      if (!usesArray || "clrmbpw".includes(ncol[1]) || ncol[1] in columnTypes || !balanced(ncol[3])) throw new Unsupported(`preamble: ${line}`)
+      // (array.sty keeps the first definition of a column type: tabularx's X)
+      if (!usesArray || "clrmbpwW".includes(ncol[1]) || ncol[1] === "X" && tabularx || ncol[1] in columnTypes || !balanced(ncol[3])) throw new Unsupported(`preamble: ${line}`)
       columnTypes[ncol[1]] = { n: Number(ncol[2] ?? 0), spec: ncol[3] }; continue
     }
     const nc = line.match(/^\\newcounter\{([a-zA-Z]+)\}(?:\[([a-zA-Z]+)\])?$/)
@@ -378,7 +396,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics; xspace's \xspace the expander reads)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", ...FONT_PACKAGES].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", ...FONT_PACKAGES].includes(n))
       for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
         if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
         fonts = fontPackage(n, fonts)
@@ -404,6 +422,13 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("url")) usesUrl = true
       if (names.includes("multirow")) usesMultirow = true
       if (names.includes("array")) usesArray = true
+      if (names.includes("longtable")) longtable ??= { chunksize: 200 }
+      if (names.includes("multicol")) multicol = true
+      if (names.includes("colortbl")) { colortbl = true; usesArray = true } // (it loads array and color)
+      if (names.includes("tabularx")) { // (tabularx loads array)
+        if ("X" in columnTypes) throw new Unsupported(`${line} after \\newcolumntype{X}`)
+        tabularx ??= { column: "p{#1}" }; usesArray = true
+      }
       if (names.includes("siunitx")) {
         if (usesSiunitx) throw new Unsupported(`preamble: ${line}`)
         usesSiunitx = true; usesArray = true // (siunitx loads array)
@@ -580,7 +605,9 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
+  if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

@@ -1,0 +1,19 @@
+% fixture: longtable/longtable-start
+% tier: T3
+% engine: document
+% covers: \LT@start's room check with a first row taller than the strut (\vsplit of the first chunk to \ht\@arstrutbox: the row's height and depth count), a p{1cm} column (\LT@startpbox's \everypar strut without array.sty, and the kernel's \@finalstrut for an empty entry), a head and no foot, after \vspace* near the bottom of the page
+% issue: #342
+\documentclass{article}
+\usepackage{longtable}
+\begin{document}
+\vspace*{170mm}
+Text.
+
+\begin{longtable}{lp{1cm}}
+Head & here \\
+\endhead
+a & one two three four five six \\
+b & c \\
+d & \\
+\end{longtable}
+\end{document}

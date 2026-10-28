@@ -1,0 +1,43 @@
+% fixture: colortbl/colortbl-colors-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: colortbl through xcolor's [table] option: its column template in every tabular (the entry in \hbox\z@ aligned with \hskip\stretch{.5}\kern\z@, \hfill or \hfill\kern\z@, \vrule height\ht\z@, \unhbox\z@), \rowcolors{2}{gray!10}{white} in a table float (\rownum counting each \cr, the preamble's too) with \rowcolor over the head row and booktabs rules, \cellcolor in entries (a Gantt chart), >{\columncolor{…}} columns, a \multicolumn in a colored row, p and r columns, \hline and | rules, a plain tabular with no colors
+% issue: #342
+\documentclass{article}
+\usepackage[table]{xcolor}
+\usepackage{booktabs}
+\begin{document}
+\begin{table}[h]
+\centering
+\rowcolors{2}{gray!10}{white}
+\begin{tabular}{l r r r}
+\toprule
+\rowcolor{gray!30}
+\textbf{Region} & \textbf{Revenue} & \textbf{Units} & \textbf{Growth} \\
+\midrule
+North America & 4\,210 & 15\,320 & +6.2\% \\
+Europe        & 3\,180 & 12\,045 & +3.9\% \\
+Asia-Pacific  & 2\,760 & 11\,880 & +11.4\% \\
+\multicolumn{2}{l}{Latin America} & 4\,105  & +8.0\% \\
+\bottomrule
+\end{tabular}
+\caption{Revenue and units by region.}
+\end{table}
+
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+Task & M1 & M2 & M3 & M4 \\
+\hline
+Review & \cellcolor{blue!30} & \cellcolor{blue!30} & & \\
+Data & & \cellcolor{blue!30} & \cellcolor[gray]{0.8}x & \cellcolor{red} y \\
+\hline
+\end{tabular}
+
+\begin{tabular}{>{\columncolor{yellow!20}}l>{\columncolor[rgb]{0.9,0.9,1}\bfseries}p{3cm}c}
+one & a paragraph in a colored p column & 1 \\
+two & short & 2
+\end{tabular} and \begin{tabular}{lc}
+plain & table \\
+\end{tabular}
+\end{document}

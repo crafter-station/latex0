@@ -1,0 +1,50 @@
+% fixture: colortbl/colortbl-rowcolors
+% tier: T3
+% engine: document
+% covers: colortbl's \rowcolors at the top level: \rownum counting on from tabular to tabular (each \cr, \cline's too, and a last row's \crcr with no \\), an empty odd color, start 1; a tabularx in its scope (\rownum counts through tabularx's trial tables too, two rows: an odd count each); a tabularx with no X column (one trial); a second \rowcolors (a \cmidrule's \cr counted) (\rownum from 0 again), an empty even color; a \rowcolor over a longtable's \caption; a longtable before it, with \hline\hline (colortbl's \LT@@hline: two single rules) and \rowcolor
+% issue: #342
+\documentclass{article}
+\usepackage[table]{xcolor}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{booktabs}
+\begin{document}
+\begin{longtable}{lc}
+\rowcolor{green!10}\caption{Colored.}\\
+\hline\hline
+\rowcolor{blue!10}
+Head & row \\
+\hline
+x & y \\
+\end{longtable}
+
+\rowcolors{1}{}{red!20}
+\begin{tabular}{|l|c|}
+\hline
+a & b \\
+\cline{2-2}
+c & d \\
+e & f
+\end{tabular} and \begin{tabular}{lr}
+g & h \\
+i & j \\
+\end{tabular}
+
+\noindent\begin{tabularx}{\linewidth}{lX}
+one & a paragraph long enough to take a line or two in the X column of the table \\
+two & short \\
+\end{tabularx}
+
+\noindent\begin{tabularx}{\linewidth}{lr}
+no X & here \\
+at & all \\
+\end{tabularx}
+
+\rowcolors{2}{green!20}{}
+\begin{tabular}{ll}
+k & l \\
+\cmidrule{1-2}
+m & n \\
+o & p \\
+\end{tabular}
+\end{document}

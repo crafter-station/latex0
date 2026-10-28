@@ -1,0 +1,91 @@
+% fixture: longtable-pdftex/longtable-kernel-pdf
+% tier: T3
+% engine: document
+% oracle: pdflatex
+% covers: longtable without array: a table over three pages, \endfirsthead, \endhead, \endfoot and \endlastfoot, \hline and \hline\hline, a \caption in the first head, the text before and after it
+% issue: #342
+\documentclass{article}
+\usepackage{longtable}
+\begin{document}
+Some text before the table, long enough to fill a line or two of the page so that the table starts below it on
+the first page.
+
+\begin{longtable}{|l|c|r|}
+\caption{A long table.}\\
+\hline
+Name & Mark & Square \\
+\hline\hline
+\endfirsthead
+\hline
+Name & Mark & Square \\
+\hline
+\endhead
+\hline
+\multicolumn{3}{r}{continued} \\
+\endfoot
+\hline
+\endlastfoot
+Row 1 & xx & 1 \\
+Row 2 & xxx & 4 \\
+Row 3 & xxxx & 9 \\
+Row 4 & xxxxx & 16 \\
+Row 5 & xxxxxx & 25 \\
+Row 6 & xxxxxxx & 36 \\
+Row 7 & x & 49 \\
+Row 8 & xx & 64 \\
+Row 9 & xxx & 81 \\
+Row 10 & xxxx & 100 \\
+Row 11 & xxxxx & 121 \\
+Row 12 & xxxxxx & 144 \\
+Row 13 & xxxxxxx & 169 \\
+Row 14 & x & 196 \\
+Row 15 & xx & 225 \\
+Row 16 & xxx & 256 \\
+Row 17 & xxxx & 289 \\
+Row 18 & xxxxx & 324 \\
+Row 19 & xxxxxx & 361 \\
+Row 20 & xxxxxxx & 400 \\
+Row 21 & x & 441 \\
+Row 22 & xx & 484 \\
+Row 23 & xxx & 529 \\
+Row 24 & xxxx & 576 \\
+Row 25 & xxxxx & 625 \\
+Row 26 & xxxxxx & 676 \\
+Row 27 & xxxxxxx & 729 \\
+Row 28 & x & 784 \\
+Row 29 & xx & 841 \\
+Row 30 & xxx & 900 \\
+Row 31 & xxxx & 961 \\
+Row 32 & xxxxx & 1024 \\
+Row 33 & xxxxxx & 1089 \\
+Row 34 & xxxxxxx & 1156 \\
+Row 35 & x & 1225 \\
+Row 36 & xx & 1296 \\
+Row 37 & xxx & 1369 \\
+Row 38 & xxxx & 1444 \\
+Row 39 & xxxxx & 1521 \\
+Row 40 & xxxxxx & 1600 \\
+Row 41 & xxxxxxx & 1681 \\
+Row 42 & x & 1764 \\
+Row 43 & xx & 1849 \\
+Row 44 & xxx & 1936 \\
+Row 45 & xxxx & 2025 \\
+Row 46 & xxxxx & 2116 \\
+Row 47 & xxxxxx & 2209 \\
+Row 48 & xxxxxxx & 2304 \\
+Row 49 & x & 2401 \\
+Row 50 & xx & 2500 \\
+Row 51 & xxx & 2601 \\
+Row 52 & xxxx & 2704 \\
+Row 53 & xxxxx & 2809 \\
+Row 54 & xxxxxx & 2916 \\
+Row 55 & xxxxxxx & 3025 \\
+Row 56 & x & 3136 \\
+Row 57 & xx & 3249 \\
+Row 58 & xxx & 3364 \\
+Row 59 & xxxx & 3481 \\
+Row 60 & xxxxx & 3600 \\
+\end{longtable}
+
+Text after the table.
+\end{document}

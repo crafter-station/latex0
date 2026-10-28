@@ -1,0 +1,55 @@
+% fixture: multicol/multicols-columnbreak
+% tier: T3
+% engine: document
+% covers: multicol's \columnbreak (\penalty-\@Mv: the material so far kept in \colbreak@box, \vsize less \pagetotal, then balanced with the forced break), right after a \section* (the meeting notes' and the recipe's layout), lists and \section* in the columns, \columnseprule and \columnsep set in the preamble with xcolor loaded (the rule's \normalcolor), multicols first on a page (an empty page so far)
+% issue: #342
+\documentclass{article}
+\usepackage{xcolor}
+\usepackage{multicol}
+\setlength{\columnsep}{0.8cm}
+\setlength{\columnseprule}{0.4pt}
+\begin{document}
+\begin{multicols}{2}
+Columns first on the page, with a short paragraph in each one.
+\columnbreak
+
+The second column starts here.
+\end{multicols}
+
+\section*{2. Onboarding redesign}
+\begin{multicols}{2}
+\textbf{Findings from user tests}
+\begin{itemize}
+  \item 6 of 8 users skipped the tour
+  \item Account linking step confusing
+  \item Positive feedback on new empty states
+\end{itemize}
+\columnbreak
+\textbf{Proposed changes}
+\begin{enumerate}
+  \item Replace tour with contextual tips
+  \item Merge linking into settings
+  \item A/B test new welcome screen
+\end{enumerate}
+\end{multicols}
+Text after the columns.
+
+\begin{multicols}{2}
+\section*{Ingredientes}
+\begin{itemize}
+  \item 2 tazas de harina
+  \item 1 cucharadita de sal
+\end{itemize}
+
+\columnbreak
+
+\section*{Utensilios}
+\begin{itemize}
+  \item Un tazón grande
+  \item Papel film
+\end{itemize}
+\end{multicols}
+
+\section*{Preparación}
+Some text.
+\end{document}

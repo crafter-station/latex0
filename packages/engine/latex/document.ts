@@ -7,6 +7,7 @@
 // and collects what the next pass reads. Anything not modeled throws
 // Unsupported, and the document is reported as not laid out yet.
 
+import type { LtEntry } from "./longtable"
 import { dataFont } from "./data"
 import { fancyPage } from "./fancyhdr"
 import { pdftexColors } from "./pdftex"
@@ -92,13 +93,13 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
-interface Aux { toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry>; /** caption.sty's \caption@newlabel{n}{page} */ captionPages: Map<number, number> }
+interface Aux { /** longtable's \LT@i … lines */ longtables: Map<number, LtEntry[]>; toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry>; /** caption.sty's \caption@newlabel{n}{page} */ captionPages: Map<number, number> }
 
 /**
  * The document laid out once, as one LaTeX run: `prev` is what the run before wrote (null: none
  * yet). `written` is what this run writes, when the document reads it (a \tableofcontents, a \ref).
  */
-function layout({ src, listings: listings0, tabulars: tabulars0, minipages: minipages0, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
+function layout({ src, listings: listings0, tabulars: tabulars0, longtables, minipages: minipages0, urls, graphics, tikz }: DocumentSource, notHere: Set<number>, prev: Aux | null, epoch: number, images: Map<string, BoundingBox | Image>, driver: "dvips" | "pdftex"): { result: LayoutResult; written: Aux | null } {
   const toc = prev ? prev.toc : null
   const pre = readPreamble(src)
   // spanish.ldf's accents in what was taken out of the source: tabulars, minipages, listings' options (captions)
@@ -304,7 +305,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   if (usesXcolor) doc.xcolorFbox = true
   doc.parbox = (...a) => parboxAt(cx, ...a)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
-  const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, minipages, urls, graphics, tikz, images, driver, notHere, captionPages: prev ? prev.captionPages : null, normalAttrs, booktabs }
+  const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, longtables, ltRows: { prev: prev ? prev.longtables : null, written: new Map() }, minipages, urls, graphics, tikz, images, driver, notHere, captionPages: prev ? prev.captionPages : null, normalAttrs, booktabs }
   started = true
   blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
 
@@ -366,7 +367,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
   }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof") || READS_AUX.test(body) || hyper || pre.natbib || run.oddPages.length) { // (natbib: the .aux's \bibstyle)
+  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof" || b.kind === "longtable") || READS_AUX.test(body) || hyper || pre.natbib || run.oddPages.length) { // (longtable: its widths) (natbib: the .aux's \bibstyle)
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>(), countOf = new Map<Node, number>()
     const walk = (n: Node, i: number) => { pageOf.set(n, pages[i].thepage); countOf.set(n, pages[i].count); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, i) }
     shipped.forEach((b, i) => walk(b, i))
@@ -376,6 +377,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, minipages: mini
       return p
     }
     written = {
+      longtables: cx.ltRows.written,
       toc: tocFile.written((n) => order.get(n)!, page),
       lists: { lof: tocFile.writtenList("lof", (n) => order.get(n)!, page), lot: tocFile.writtenList("lot", (n) => order.get(n)!, page) },
       // the .aux file has them in the order they were shipped out, and the last \newlabel of a key wins

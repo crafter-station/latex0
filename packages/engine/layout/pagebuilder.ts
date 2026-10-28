@@ -21,8 +21,10 @@ export interface InsertClass { skip: GlueNode; count: number; dimen: number }
 export interface PageParams {
   /** \vsize when a page starts: a number, or what the output routine last left it at */
   vsize: number | (() => number)
-  maxDepth: number
-  topSkip: GlueNode
+  /** \maxdepth when a page starts */
+  maxDepth: number | (() => number)
+  /** \topskip when the first box comes (multicol's {\topskip\z@\null}) */
+  topSkip: GlueNode | (() => GlueNode)
   /** insertion classes by box number (LaTeX's \\footins is 253) */
   inserts?: Record<number, InsertClass>
   /**
@@ -37,9 +39,9 @@ export interface PageParams {
    */
   float?: (page: Node[], marker: WhatsitNode, boxes: Record<number, Node[]>) => Node[]
   /** An assignment the output routine sees, made when the page builder reaches it (a whatsit with a hook);
-   *  what it returns goes on the contribution list in its place (a conditional on the output's state); `empty`: no box
-   *  on the current page yet (\pagetotal is then below \topskip) */
-  hook?: (hook: unknown, empty: boolean) => Node[] | void
+   *  what it returns goes on the contribution list in its place (a conditional on the output's state); `page`: the page
+   *  so far (`noBox`: no box on it yet, \pagetotal then below \topskip) */
+  hook?: (hook: unknown, page: PageState) => Node[] | void
   /** The output routine for each page cut at a break, called after the page is added to the result:
    *  what it returns goes on the contribution list after held-over insertions, before the rest. */
   output?: (page: Page) => Node[] | void
@@ -51,11 +53,24 @@ export interface PageParams {
   reached?: (index: number) => void
 }
 
+/** \pagetotal, \pagegoal and \pageshrink where a hook stands, for macros that read and set them (longtable's) */
+export interface PageState {
+  /** page_contents is empty: \pagegoal reads \maxdimen, and setting it or \pageshrink has no lasting effect */
+  empty: boolean
+  /** no box on the page yet (\pagetotal below \topskip) */
+  noBox: boolean
+  total: number; goal: number; shrink: number
+  setGoal(g: number): void
+  setShrink(s: number): void
+}
+
 export interface Page {
   /** what goes into \box255, in order */
   nodes: Node[]
   /** \pagegoal when the page was cut (best_size) */
   goal: number
+  /** \pagetotal when the output routine fires */
+  total?: number
   /** \outputpenalty: the penalty at the break, or 10000 for any other break (§ 1013) */
   outputPenalty: number
   /** the vertical lists of the insertion boxes this page filled (box n, packaged natural, § 1021) */
@@ -110,7 +125,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
     // § 987
     const freeze = (s: number) => {
       contents = s
-      goal = typeof p.vsize === "number" ? p.vsize : p.vsize(); maxDepth = p.maxDepth; depth = 0; total = 0; shrink = 0; stretch.fill(0); least = AWFUL_BAD
+      goal = typeof p.vsize === "number" ? p.vsize : p.vsize(); maxDepth = typeof p.maxDepth === "number" ? p.maxDepth : p.maxDepth(); depth = 0; total = 0; shrink = 0; stretch.fill(0); least = AWFUL_BAD
       pageTrace = { goal, maxDepth, candidates: [], splits: [] }
       trace.push(pageTrace)
     }
@@ -139,7 +154,11 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
       const n = queue[i]
       const at = indexOf.get(n)
       if (at !== undefined && at > furthest) { furthest = at; p.reached?.(at) }
-      if (n.kind === "whatsit" && n.hook) { queue.splice(i--, 1, ...(p.hook?.(n.hook, contents !== BOX_THERE) ?? [])); continue }
+      if (n.kind === "whatsit" && n.hook) {
+        const state: PageState = { empty: contents === EMPTY, noBox: contents !== BOX_THERE, total, goal: contents === EMPTY ? MAX_DIMEN : goal, shrink, setGoal: (g) => { goal = g }, setShrink: (x) => { shrink = x } }
+        queue.splice(i--, 1, ...(p.hook?.(n.hook, state) ?? []))
+        continue
+      }
       if (n.kind === "whatsit" && n.float) {
         // the -\@Miv and -\@Miii penalties fire the output routine (their pages are not output, and
         // TeX's \tracingpages shows them with those penalties); what it returns comes first, then the
@@ -173,8 +192,8 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
           if (contents < BOX_THERE) {
             // § 1001: \topskip glue before the first box
             if (contents === EMPTY) freeze(BOX_THERE); else contents = BOX_THERE
-            const h = n.height ?? 0
-            const t = paramGlue("topskip", mkGlue(p.topSkip.width > h ? p.topSkip.width - h : 0, p.topSkip.stretch, p.topSkip.stretchOrder, p.topSkip.shrink, p.topSkip.shrinkOrder))
+            const h = n.height ?? 0, ts = typeof p.topSkip === "function" ? p.topSkip() : p.topSkip
+            const t = paramGlue("topskip", mkGlue(ts.width > h ? ts.width - h : 0, ts.stretch, ts.stretchOrder, ts.shrink, ts.shrinkOrder))
             queue.splice(i, 0, t)
             i--
             continue
@@ -295,7 +314,7 @@ export function buildPages(contrib: Node[], p: PageParams): { pages: Page[]; tra
       for (const [k, l] of Object.entries(regs)) if (l.length) boxes[Number(k)] = l.slice()
       for (const r of pageIns) if (r.bestIns) boxes[r.n] ??= []
       const { nodes, held } = takeInserts(queue.slice(0, bestBreak), boxes)
-      const out: Page = { nodes, goal: bestSize, outputPenalty, inserts: boxes, shrink }
+      const out: Page = { nodes, goal: bestSize, total, outputPenalty, inserts: boxes, shrink }
       pages.push(out)
       regs = {} // the output routine empties the insertion boxes
       const material = p.output?.(out) ?? []

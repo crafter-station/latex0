@@ -1,0 +1,38 @@
+% fixture: tabularx/tabularx-cv-es
+% tier: T3
+% engine: document
+% covers: the corpus CV's tabularx tables (cv-es.tex): @{}l X r@{} with \multicolumn{2}{p{0.75\textwidth}} entries and \\[6pt], X r and l X, with spanish babel, geometry and xcolor, \parindent zero
+% issue: #342
+\documentclass[10pt,letterpaper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage[top=1.5cm,bottom=1.5cm,left=2cm,right=2cm]{geometry}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\setlength{\parindent}{0pt}
+\pagestyle{empty}
+\begin{document}
+\begin{tabularx}{\textwidth}{@{}l X r@{}}
+\textbf{Líder técnico} & Fintech Andina S.A.S. & 2023--actual\\
+& \multicolumn{2}{p{0.75\textwidth}}{Diseño de la plataforma de pagos en tiempo real;
+reducción de la latencia del 40\,\%. Coordinación de un equipo de ocho personas.}\\[6pt]
+\textbf{Desarrollador sénior} & Logística Express & 2020--2023\\
+& \multicolumn{2}{p{0.75\textwidth}}{Migración de un monolito a microservicios en Go y
+Kubernetes.}\\[6pt]
+\textbf{Desarrollador} & Agencia Digital Norte & 2018--2020\\
+\end{tabularx}
+
+\textbf{Educación}\par
+\begin{tabularx}{\textwidth}{@{}X r@{}}
+\textbf{Ingeniería de Sistemas}, Universidad EAFIT & 2013--2018\\
+\textbf{Especialización en Analítica}, Universidad de Antioquia & 2021\\
+\end{tabularx}
+
+\textbf{Habilidades}\par
+\begin{tabularx}{\textwidth}{@{}l X@{}}
+Lenguajes: & Go, TypeScript, Python, SQL\\
+Herramientas: & PostgreSQL, Kafka, Docker, Kubernetes, AWS\\
+Idiomas: & Español (nativo), inglés (C1), portugués (B1)\\
+\end{tabularx}
+
+\end{document}

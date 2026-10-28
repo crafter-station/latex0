@@ -5,6 +5,8 @@ import type { GlueSpec } from "../layout/dimen"
 import { parseGlue, type Internal, type Scanner } from "../layout/dimen"
 import { blocksOf, displaySegments, HEADINGS, type Block, type ListBlock } from "./blocks"
 import { groupStart, tabularStart } from "./source"
+import { longtable } from "./longtable"
+import { columnbreak, multicols } from "./multicol"
 import { COUNTER_COMMANDS } from "./counters"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
@@ -92,6 +94,9 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.kind === "bib") { if (run.runIn) runInAlone(cx); bibliography(cx); return }
   if (b.kind === "letter") { if (run.runIn) runInAlone(cx); letter(cx, b); return }
   if (b.kind === "float") { floatBlock(cx, b); return }
+  if (b.kind === "longtable") { longtable(cx, b.n); return }
+  if (b.kind === "multicols") { multicols(cx, b); return }
+  if (b.kind === "columnbreak") { columnbreak(cx, b.n); return }
   // a listing right after a run-in heading: its \everypar (then \lst@doendpe's) replaces the heading's, which never runs
   // (unless a top frame's paragraph runs it first: the heading goes in place there)
   if (b.kind === "listing") { const head = run.runIn; if (head) { run.runIn = null; run.noskipsec = true } listing(cx, b, head); return }
