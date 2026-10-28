@@ -1,0 +1,18 @@
+% fixture: beamer/aspectratio-1610
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: the aspectratio=1610 class option with Madrid (the infolines footline's thirds of \paperwidth, rounded blocks)
+% issue: #361
+\documentclass[aspectratio=1610]{beamer}
+\usetheme{Madrid}
+\title{Wide}
+\author{Someone}
+\begin{document}
+\begin{frame}{A frame}
+Some text before the block, long enough to break into lines on the wider paper of this aspect ratio.
+\begin{block}{A block}
+The block's text.
+\end{block}
+\end{frame}
+\end{document}

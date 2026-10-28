@@ -1,0 +1,14 @@
+% fixture: beamer/aspectratio-2013-pdf
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer under pdflatex: the aspectratio=2013 class option (a 14cm by 9.1cm paper) with the title page
+% issue: #361
+\documentclass[aspectratio=2013]{beamer}
+\title{A title}
+\author{An author}
+\date{1 January 2026}
+\begin{document}
+\frame{\titlepage}
+\end{document}

@@ -1,5 +1,5 @@
 // A beamer document's class options and preamble (beamer.cls 3.77). The class
-// loads geometry (paper 128mm × 96mm, 1cm side margins), xcolor, hyperref,
+// loads geometry (paper 128mm × 96mm, or its aspectratio option's, 1cm side margins), xcolor, hyperref,
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
 // of one of them changes nothing. The themes are the default ones, color themes,
 // the rounded, circles and rectangles inner themes, the infolines, split,
@@ -84,10 +84,12 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   const m = src.match(/\\documentclass\s*(?:\[([^\]]*)\])?\s*\{beamer\}/)
   if (!m) throw new Error("no \\documentclass{beamer}")
   // \ExecuteOptionsBeamer{c}\ProcessOptionsBeamer: each option in turn, the last size and the last of t and c win
-  let option = "11pt", centered = true
+  let option = "11pt", centered = true, aspect = "43"
   for (const o of (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)) {
     if (o in SIZES) option = SIZES[o]
     else if (o === "t" || o === "c") centered = o === "c"
+    // (aspectratio's own papers; another value is pgfmath's ratio of \beamer@paperheight)
+    else if (/^aspectratio\s*=\s*(?:2013|1610|169|149|141|54|43|32)$/.test(o)) aspect = o.replace(/^.*=\s*/, "")
     else throw new Unsupported(`beamer option ${o}`)
   }
   // \begin{document} and \end{document} outside comments
@@ -168,6 +170,14 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   if (theme.data.preamble.join("\n") !== themeLines.join("\n")) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const cls = classFile("beamer").options[option]
   const k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens } }
+  // the aspect ratio's paper (the class data's variant, with the default theme), and what geometry and
+  // \beamer@calculateheadfoot make of it with the theme's margins and head and foot lines
+  if (aspect !== "43") {
+    const d = k.dimens = { ...k.dimens, ...cls.variants![`aspectratio=${aspect}`].dimens }
+    d.textwidth = d.paperwidth - d["Gm@lmargin"] - d["Gm@rmargin"]
+    d.textheight = d.paperheight - d.footheight - d.headheight
+    d.sidebarheight = d.paperheight - d.headheight + d.headdp - d.footheight + 4 * 65536
+  }
   // beamerbasetitle.sty's \beamer@firstminutepatches: pdftitle={\inserttitle\ - \insertsubtitle}; \beamer@author:
   // pdfauthor={\beamer@andstripped}
   const title = pdfInfo(info.title + (info.subtitle ? ` - ${info.subtitle}` : ""))

@@ -206,15 +206,19 @@ function designSize(name: string): number {
 const PAPERS = ["letterpaper", "a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper"]
 const SIDES = ["oneside", "twoside"]
 
-/** The lengths and switches each paper, side and column option changes, against the class's defaults. */
+/** beamer's aspectratio option's values with a paper of their own (beamer.cls: 4:3, the default, is 43) */
+const ASPECT_RATIOS = ["2013", "1610", "169", "149", "141", "54", "32"]
+
+/** The lengths and switches each paper, side and column option changes, against the class's defaults (beamer's: each
+ *  aspect ratio) */
 function variants(cls: string, option: string, base: ClassOptionData): ClassOptionData["variants"] {
   const out: NonNullable<ClassOptionData["variants"]> = {}
-  for (const paper of PAPERS) for (const side of SIDES) for (const column of cls === "letter" ? [""] : ["", ",twocolumn"]) {
-    const v = `${paper},${side}${column}`
-    const dir = join(".cache/classes", `${cls}-${option}-${paper}-${side}${column.replace(",", "-")}`)
+  const all = cls === "beamer" ? ASPECT_RATIOS.map((a) => `aspectratio=${a}`) : PAPERS.flatMap((paper) => SIDES.flatMap((side) => (cls === "letter" ? [""] : ["", ",twocolumn"]).map((column) => `${paper},${side}${column}`)))
+  for (const v of all) {
+    const dir = join(".cache/classes", `${cls}-${option}-${v.replace(/[,=]/g, "-")}`)
     mkdirSync(dir, { recursive: true })
-    const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}",
-      ...DIMENS.map((d) => `\\P D\\${d}`), ...INTS.map((i) => `\\P I\\${i}`),
+    const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}", "\\makeatletter", // (beamer's \\begin{document} ends with \\makeatother)
+      ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...INTS.map((i) => `\\P I\\${i}`),
       // the list margins (two columns change \\leftmargini … \\leftmarginvi and \\labelwidth)
       ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
       `{${["i", "ii", "iii", "iv", "v", "vi"].map((r, n) => `\\@list${r}${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list${n + 1}${p}=\\the\\${p}}`).join("")}`).join("")}}`,
@@ -237,8 +241,8 @@ export function codegenClasses(check: boolean): number {
   const stale: string[] = []
   for (const [cls, options] of Object.entries(CLASSES)) {
     const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : "LaTeX kernel and standard classes as loaded by `latex`", options: {} }
-    // (no paper or side variants for beamer: its paper is its own, 128mm × 96mm by default)
-    for (const o of options) { const d = texData(cls, o); if (cls !== "beamer") d.variants = variants(cls, o, d); data.options[o] = d }
+    // (beamer's paper is its own, 128mm × 96mm by default, or its aspect ratio's)
+    for (const o of options) { const d = texData(cls, o); d.variants = variants(cls, o, d); data.options[o] = d }
     const body = JSON.stringify(data) + "\n"
     const file = join(OUT, `${cls}.json`)
     if (existsSync(file) && readFileSync(file, "utf8") === body) continue
