@@ -265,7 +265,7 @@ export function readPreamble(src: string): Preamble {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
     if (line === "{}") continue // a definition the expander took out
-    const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight|extrarowheight)\}\{([^{}]*)\}$/)
+    const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight|extrarowheight|columnsep|columnseprule)\}\{([^{}]*)\}$/)
     if (sl) {
       if (sl[1] === "extrarowheight" && !usesArray) throw new Unsupported(`preamble: ${line}`) // (array.sty defines it)
       lengths.push([sl[1], sl[2], selected]); continue
@@ -471,7 +471,7 @@ export function readPreamble(src: string): Preamble {
       try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
       if (name === "extrarowheight") k = { ...k, array: { extrarowheight: g.width } }
       else if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
-      else if (name === "headheight") k = { ...k, dimens: { ...k.dimens, headheight: g.width } }
+      else if (name === "headheight" || name === "columnsep" || name === "columnseprule") k = { ...k, dimens: { ...k.dimens, [name]: g.width } }
       else k = { ...k, glue: { ...k.glue, parskip: g } }
     }
   }
@@ -489,6 +489,8 @@ export function readPreamble(src: string): Preamble {
     for (const p of ["partopsep", "list1partopsep", "list2partopsep", "list3partopsep", ...Object.keys(k.sizes).map((x) => `list1partopsep@${x}`)]) if (p in g) g[p] = zero
     k = { ...k, glue: g }
   }
+  // \begin{document}: \columnwidth\textwidth, in two columns \advance\columnwidth-\columnsep \divide\columnwidth\tw@
+  if (k.ints.twocolumn) k = { ...k, dimens: { ...k.dimens, columnwidth: Math.trunc((k.dimens.textwidth - k.dimens.columnsep) / 2) } }
   if (usesArray && !k.array) k = { ...k, array: { extrarowheight: 0 } }
   let caption: CaptionSetup | null = null
   if (usesCaption) {

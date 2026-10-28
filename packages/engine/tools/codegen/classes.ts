@@ -83,6 +83,9 @@ function probe(cls: string, option: string, packages = ""): string {
     // the fractions as TeX scans them (the factor in sp), for other text heights
     ...["topfraction", "bottomfraction", "textfraction", "floatpagefraction"].map((f) => `{\\dimen@\\${f}\\p@\\immediate\\write16{I:${f}=\\number\\dimen@}}`),
     "\\immediate\\write16{G:fptop=\\the\\@fptop}\\immediate\\write16{G:fpsep=\\the\\@fpsep}\\immediate\\write16{G:fpbot=\\the\\@fpbot}",
+    // two-column floats (\\@dblfloatplacement): \\c@dbltopnumber, the fractions as factors, the float page skips
+    ...(cls === "letter" ? [] : ["\\immediate\\write16{I:dbltopnumber=\\the\\c@dbltopnumber}", ...["dbltopfraction", "dblfloatpagefraction"].map((f) => `{\\dimen@\\${f}\\p@\\immediate\\write16{I:${f}=\\number\\dimen@}}`),
+      "\\immediate\\write16{G:dblfptop=\\the\\@dblfptop}\\immediate\\write16{G:dblfpsep=\\the\\@dblfpsep}\\immediate\\write16{G:dblfpbot=\\the\\@dblfpbot}"]),
     // the first list level at each size (\\small and \\footnotesize define their own \\@listi)
     ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.map(([t, p]) => `\\immediate\\write16{${t}:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
     // list levels as \\list sets them, each nested in the one before (\\@listi … \\@listvi)
@@ -187,24 +190,30 @@ function designSize(name: string): number {
   return Math.floor(loadTfm(name).designSize / 16)
 }
 
-/** Class options besides the size that change the page: the paper, and one- or two-sided printing */
+/** Class options besides the size that change the page: the paper, one- or two-sided printing, and two columns
+ *  (article, report and book: \\twocolumn's \\columnwidth, the class's two-column \\textwidth and \\marginparwidth,
+ *  \\sloppy and \\flushbottom) */
 const PAPERS = ["letterpaper", "a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper"]
 const SIDES = ["oneside", "twoside"]
 
-/** The lengths and switches each paper and side option changes, against the class's defaults. */
+/** The lengths and switches each paper, side and column option changes, against the class's defaults. */
 function variants(cls: string, option: string, base: ClassOptionData): ClassOptionData["variants"] {
   const out: NonNullable<ClassOptionData["variants"]> = {}
-  for (const paper of PAPERS) for (const side of SIDES) {
-    const v = `${paper},${side}`
-    const dir = join(".cache/classes", `${cls}-${option}-${paper}-${side}`)
+  for (const paper of PAPERS) for (const side of SIDES) for (const column of cls === "letter" ? [""] : ["", ",twocolumn"]) {
+    const v = `${paper},${side}${column}`
+    const dir = join(".cache/classes", `${cls}-${option}-${paper}-${side}${column.replace(",", "-")}`)
     mkdirSync(dir, { recursive: true })
     const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}",
-      ...DIMENS.map((d) => `\\P D\\${d}`), "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}", "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}", "\\end{document}", ""].join("\n")
+      ...DIMENS.map((d) => `\\P D\\${d}`), ...INTS.map((i) => `\\P I\\${i}`),
+      // the list margins (two columns change \\leftmargini … \\leftmarginvi and \\labelwidth)
+      ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
+      `{${["i", "ii", "iii", "iv", "v", "vi"].map((r, n) => `\\@list${r}${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list${n + 1}${p}=\\the\\${p}}`).join("")}`).join("")}}`,
+      "\\immediate\\write16{I:twoside=\\if@twoside 1\\else 0\\fi}", "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}", "\\end{document}", ""].join("\n")
     writeFileSync(join(dir, "v.tex"), src)
     execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "v.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
     const diff = { dimens: {} as Record<string, number>, ints: {} as Record<string, number> }
     for (const line of readFileSync(join(dir, "v.log"), "latin1").split("\n")) {
-      const m = line.match(/^([DI]):(\w+)=(.*)$/)
+      const m = line.match(/^([DI]):([\w@]+)=(.*)$/)
       if (!m) continue
       if (m[1] === "D") { const x = dimen(m[3]); if (x !== base.dimens[m[2]]) diff.dimens[m[2]] = x }
       else { const x = Number(m[3]); if (x !== base.ints[m[2]]) diff.ints[m[2]] = x }

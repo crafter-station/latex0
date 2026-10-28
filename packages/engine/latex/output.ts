@@ -9,7 +9,7 @@ import type { ClassOptionData } from "../layout/classdata"
 import type { GlueSpec } from "../layout/dimen"
 import { xnOverD } from "../layout/arith"
 import { roundDecimals } from "../layout/dimen"
-import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
+import { emptyBox, FIL, glue, kern, NORMAL, paramGlue, penalty, type BoxNode, type GlueNode, type Node, type WhatsitNode, filGlue, ssGlue } from "../layout/nodes"
 import { loadFont } from "../layout/font"
 import { appendText } from "./encodings"
 import { hpack, vpack } from "../layout/pack"
@@ -34,8 +34,12 @@ export interface Float {
   inPar?: boolean
 }
 
-/** What the output routine ships: a page of text with its top and bottom floats, or a page of floats. */
-type ShippedContent = { kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[] }
+/** A column as \@makecol leaves it: text with its top and bottom floats, or a column of floats (\@vtryfc, with the
+ *  two-column float page's skips when `dbl`); `colht` is \@colht then, the height of its \vbox */
+type Column = ({ kind: "text"; page: Page; top: BoxNode[]; bot: BoxNode[] } | { kind: "floats"; floats: BoxNode[]; dbl?: boolean }) & { colht: number }
+/** What the output routine ships: a column (one-column mode, or a page of two-column floats), or two columns side by
+ *  side with the two-column floats above them (\@outputdblcol, \@combinedblfloats) */
+type ShippedContent = Column | { kind: "dbl"; left: Column; right: Column; dbltop: BoxNode[] }
 /** what the document loads that the output routine sees: xcolor's \normalcolor */
 export const outputOptions = { xcolor: false }
 const colorSpecial = (what: string): Node => ({ kind: "whatsit", text: `\\special{color ${what}}` })
@@ -64,6 +68,12 @@ const bit = (count: number, b: number) => Math.floor(count / b) % 2 === 1
 const currtype = (f: Float) => f.count - (f.count % 32)
 /** \@bitor: a float of the same type is in one of the lists */
 const bitor = (type: number, ...lists: Float[][]) => lists.some((l) => l.some((f) => bit(f.count, type)))
+/** <fraction><dimen>: the fraction's factor (sp) times the dimen, x_n_over_d (§ 455; the fractions are below 1) */
+const fraction = (f: number, h: number) => Math.trunc((h * f) / 65536)
+
+/** What \@tryfcolumn tests a float page against: \@colht, \@fpsep, and \f@depth (\@testwrongwidth: 1sp under
+ *  \@dblfloatplacement, where only two-column floats fit) */
+interface FloatPage { colht: number; fpsep: number; fdepth: number }
 
 export class LatexOutput {
   readonly shipped: Shipped[] = []
@@ -74,22 +84,41 @@ export class LatexOutput {
   private colroom: number
   private topnum = 0; private toproom = 0; private botnum = 0; private botroom = 0; private colnum = 0
   private textfloatsheight = 0
+  /** \@colht: \textheight, less what the two-column floats at the top of the page take */
+  private colht: number
+  /** \if@twocolumn, \if@firstcolumn, and \@leftcolumn: the first column, waiting for the second */
+  private twocolumn: boolean
+  private firstcolumn = true
+  private leftcolumn: Column | null = null
+  /** \@dbltoplist, \@dbltopnum, \@dbltoproom */
+  private dbltoplist: Float[] = []
+  private dbltopnum = 0; private dbltoproom = 0
 
   constructor(private k: ClassOptionData, private parskip: GlueSpec) {
+    this.colht = k.dimens.textheight
     this.colroom = k.dimens.textheight
     this.vsizeNow = k.dimens.textheight
+    this.twocolumn = !!k.ints.twocolumn
     this.floatplacement()
+    if (this.twocolumn) this.dblfloatplacement() // (\begin{document})
   }
 
-  private get colht() { return this.k.dimens.textheight }
-
-  /** \@floatplacement (\@fpmin is the class's \floatpagefraction\@colht) */
+  /** \@floatplacement: the rooms are fractions of \@colht (\@fpmin, local, is computed where it is used) */
   private floatplacement() {
-    const { ints, dimens } = this.k
-    this.topnum = ints.topnumber; this.toproom = dimens.toproom
-    this.botnum = ints.bottomnumber; this.botroom = dimens.botroom
+    const { ints } = this.k
+    this.topnum = ints.topnumber; this.toproom = fraction(ints.topfraction, this.colht)
+    this.botnum = ints.bottomnumber; this.botroom = fraction(ints.bottomfraction, this.colht)
     this.colnum = ints.totalnumber
   }
+
+  /** \@dblfloatplacement's global part (\@textmin and \@fpmin, local, are computed where they are used) */
+  private dblfloatplacement() {
+    this.dbltopnum = this.k.ints.dbltopnumber
+    this.dbltoproom = fraction(this.k.ints.dbltopfraction, this.colht)
+  }
+
+  /** \@flsettextmin: \textfraction\@colht for a float without ! */
+  private textmin(t: number) { return t < 16 ? 0 : fraction(this.k.ints.textfraction, this.colht) }
 
   /** \vsize after an output: \@colroom (a column left with less than 1.5\baselineskip gets \@emptycol) */
   vsize(): number { return this.vsizeNow }
@@ -101,7 +130,7 @@ export class LatexOutput {
    */
   private endOutput(): Node[] {
     const bs = this.k.sizes.normalsize.baselineskip.width
-    if (this.colroom < bs + xnOverD(bs, 32768, 65536) && this.colroom < this.colht) return [emptyBox("vlist"), penalty(-10000)]
+    if (this.colroom < bs + xnOverD(bs, 32768, 65536) && this.colroom < this.k.dimens.textheight) return [emptyBox("vlist"), penalty(-10000)]
     this.vsizeNow = this.colroom
     return []
   }
@@ -153,7 +182,7 @@ export class LatexOutput {
     const k = this.k, t = f.count % 32, type = currtype(f)
     let inserted = false
     if (t !== 8 && t !== 24) {
-      const textmin = (t < 16 ? 0 : k.dimens.textmin) + this.textfloatsheight // \@flsettextmin, \advance\@textmin\@textfloatsheight
+      const textmin = this.textmin(t) + this.textfloatsheight // \@flsettextmin, \advance\@textmin\@textfloatsheight
       let req = Math.max(pageht, textmin) + f.box.height
       const saved = req
       if (this.colroom > req) {
@@ -187,10 +216,29 @@ export class LatexOutput {
     const t = f.count % 32
     let inserted = false
     if (t !== 8 && t !== 24) {
-      const req = f.box.height + (t < 16 ? 0 : this.k.dimens.textmin)
+      const req = f.box.height + this.textmin(t)
       if (this.colroom > req) {
         const colnum = t < 16 && this.colnum === 0 ? 1 : this.colnum
         if (colnum > 0 && !bitor(currtype(f), this.deferlist) && f.box.depth === 0) inserted = this.addtotoporbot(f, req, colnum)
+      }
+    }
+    if (!inserted) this.deferlist.push(f)
+  }
+
+  /** \@addtodblcol: a deferred two-column float at the start of a page, to its top (\@dbltoplist), or deferred again;
+   *  `textmin` is \@dblfloatplacement's \@textmin, \@colht less \@dbltoproom */
+  private addtodblcol(f: Float, textmin: number) {
+    const t = f.count % 32
+    let inserted = false
+    if (bit(f.count, 2)) {
+      const dbltopnum = t < 16 && this.dbltopnum === 0 ? 1 : this.dbltopnum // (\@flsetnum, local)
+      const room = this.dbltoproom > f.box.height || (t < 16 && this.dbltoproom + textmin > f.box.height)
+      if (dbltopnum > 0 && room && !bitor(currtype(f), this.deferlist) && f.box.depth === 1) {
+        const d = f.box.height + (this.dbltoplist.length ? this.k.glue.dblfloatsep.width : this.k.glue.dbltextfloatsep.width)
+        this.dbltoproom -= d; this.colht -= d
+        this.dbltopnum = dbltopnum - 1
+        this.dbltoplist.push(f)
+        inserted = true
       }
     }
     if (!inserted) this.deferlist.push(f)
@@ -234,23 +282,27 @@ export class LatexOutput {
     return d
   }
 
+  /** \@floatplacement's \@fpmin, or \@dblfloatplacement's, and the float page each tests against */
+  private single(): FloatPage { return { colht: this.colht, fpsep: this.k.glue.fpsep.width, fdepth: 0 } }
+  private double(): FloatPage { return { colht: this.colht, fpsep: this.k.glue.dblfpsep.width, fdepth: 1 } }
+
   /**
    * \@tryfcolumn: a page of floats from the deferred list, the first float that can start one and
    * the ones after it that fit, when they fill more than \@fpmin. \@makefcolumn tries with any fill
    * and floats without p.
    */
-  private tryfcolumn(fpmin: number, testfp: boolean): BoxNode[] | null {
-    const list = this.deferlist, colht = this.colht, fpsep = this.k.glue.fpsep.width
+  private tryfcolumn(fpmin: number, testfp: boolean, { colht, fpsep, fdepth }: FloatPage): BoxNode[] | null {
+    const list = this.deferlist
     const failed: Float[] = []
     const noP = (f: Float) => testfp && !bit(f.count, 8)
     for (let i = 0; i < list.length; i++) {
       const f = list[i]
-      if (bitor(currtype(f), failed) || noP(f) || f.box.depth !== 0 || f.box.height > colht) { failed.push(f); continue }
+      if (bitor(currtype(f), failed) || noP(f) || f.box.depth !== fdepth || f.box.height > colht) { failed.push(f); continue }
       const succeed = [f], fail: Float[] = []
       let h = f.box.height
       for (const g of list.slice(i + 1)) {
         const hb = h + g.box.height + fpsep
-        if (bitor(currtype(g), failed, fail) || noP(g) || g.box.depth !== 0 || hb > colht) fail.push(g)
+        if (bitor(currtype(g), failed, fail) || noP(g) || g.box.depth !== fdepth || hb > colht) fail.push(g)
         else { succeed.push(g); h = hb }
       }
       if (h > fpmin) { this.deferlist = [...failed, ...fail]; return succeed.map((s) => s.box) }
@@ -259,26 +311,66 @@ export class LatexOutput {
     return null
   }
 
-  /** \@opcol after a page is shipped: \@textfloatsheight cleared, \@floatplacement */
-  private opcol() { this.textfloatsheight = 0; this.floatplacement() }
+  /** \@makecol: the column, with the floats it holds (the lists are emptied) */
+  private makecol(page: Page): Column {
+    const c: Column = { kind: "text", page, top: this.toplist.map((f) => f.box), bot: this.botlist.map((f) => f.box), colht: this.colht }
+    this.toplist = []; this.botlist = []; this.midlist = []
+    return c
+  }
 
-  /** \@startcolumn, repeated while it makes float pages; then each deferred float tries the new column */
-  private startcolumn() {
+  /** \@opcol: the column out (\@outputdblcol, or \@outputpage), \@textfloatsheight cleared, \@floatplacement */
+  private opcol(c: Column) {
+    if (this.twocolumn) this.outputdblcol(c)
+    else this.outputpage(c)
+    this.textfloatsheight = 0
+    this.floatplacement()
+  }
+
+  /** \@outputpage: the page shipped, then \@colht is \textheight again */
+  private outputpage(s: ShippedContent) {
+    this.ship(s)
+    this.colht = this.k.dimens.textheight
+  }
+
+  /**
+   * \@outputdblcol: the first column waits in \@leftcolumn; with the second, the page goes out (\hb@xt@\textwidth with
+   * each column \hb@xt@\columnwidth and \columnseprule between, \@combinedblfloats), and in \@dblfloatplacement's
+   * group the two-column floats go on pages of their own while they fill them (\@startdblcolumn), or to the next
+   * page's top
+   */
+  private outputdblcol(c: Column) {
+    if (this.firstcolumn) { this.firstcolumn = false; this.leftcolumn = c; return }
+    this.firstcolumn = true
+    const dbltop = this.dbltoplist.map((f) => f.box)
+    this.dbltoplist = []
+    this.outputpage({ kind: "dbl", left: this.leftcolumn!, right: c, dbltop })
+    this.leftcolumn = null
+    this.dblfloatplacement()
+    const textmin = this.colht - this.dbltoproom
     for (;;) {
-      this.colroom = this.colht
-      const floats = this.tryfcolumn(this.k.dimens.fpmin, true)
-      if (!floats) break
-      this.ship({ kind: "floats", floats })
-      this.opcol()
+      // \@startdblcolumn (\@fpmin is \dblfloatpagefraction\textheight)
+      const floats = this.tryfcolumn(fraction(this.k.ints.dblfloatpagefraction, this.k.dimens.textheight), true, this.double())
+      if (floats) { this.outputpage({ kind: "floats", floats, dbl: true, colht: this.colht }); continue }
+      const waiting = this.deferlist
+      this.deferlist = []
+      for (const f of waiting) this.addtodblcol(f, textmin)
+      break
     }
+  }
+
+  /** \@startcolumn: a column of floats when they fill one (returned), else each deferred float tries the new column */
+  private startcolumn(): BoxNode[] | null {
+    this.colroom = this.colht
+    const floats = this.tryfcolumn(fraction(this.k.ints.floatpagefraction, this.colht), true, this.single())
+    if (floats) return floats
     const waiting = this.deferlist
     this.deferlist = []
     for (const f of waiting) this.addtonextcol(f)
+    return null
   }
 
   /** The output routine at a page break (\outputpenalty ≥ -\@Mi): \@makecol\@opcol\@startcolumn, or \@doclearpage. */
   output(page: Page): Node[] | void {
-    const top = this.toplist.map((f) => f.box), bot = this.botlist.map((f) => f.box)
     if (page.outputPenalty === -10001) {
       if (!page.inserts[this.k.ints.footins]?.length) {
         // the page (\write and \vbox{}) is dropped, all but what \vsplit\@cclv to\z@ splits off, the
@@ -286,22 +378,34 @@ export class LatexOutput {
         this.deferlist = [...this.toplist, ...this.botlist, ...this.deferlist]
         this.toplist = []; this.botlist = []; this.midlist = []
         this.colroom = this.colht
-        for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false)); ) { this.ship({ kind: "floats", floats }); this.opcol() }
-        if (this.deferlist.length) throw new OutputUnsupported("floats left after \\clearpage")
+        for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false, this.single())); ) this.opcol({ kind: "floats", floats, colht: this.colht })
         const first = page.nodes.findIndex((n) => n.kind !== "whatsit")
-        return [...page.nodes.slice(0, first < 0 ? page.nodes.length : first), ...this.endOutput()]
+        const kept = page.nodes.slice(0, first < 0 ? page.nodes.length : first)
+        if (this.twocolumn && !this.firstcolumn) {
+          // \vbox{}\clearpage: an empty second column, and \clearpage again while floats wait (its \hbox{} when
+          // \@dbltopnum is -1 needs \pagetotal below \topskip: here it is still the dropped page's, \topskip)
+          return [...kept, emptyBox("vlist"), ...newpage(), ...clearRest(), ...(this.deferlist.length ? [...newpage(), ...clearRest()] : []), ...this.endOutput()]
+        }
+        if (this.twocolumn) {
+          // the two-column floats waiting go on float pages, in \@dblfloatplacement's group
+          this.deferlist = [...this.dbltoplist, ...this.deferlist]
+          this.dbltoplist = []
+          this.colht = this.k.dimens.textheight
+          this.dblfloatplacement()
+          for (let floats; (floats = this.tryfcolumn(-MAX_DIMEN, false, this.double())); ) this.outputpage({ kind: "floats", floats, dbl: true, colht: this.colht })
+        }
+        if (this.deferlist.length) throw new OutputUnsupported("floats left after \\clearpage")
+        return [...kept, ...this.endOutput()]
       }
       // footnotes still held over: \vbox{\box\@cclv\vfil}, \@makecol\@opcol, and \clearpage again
       // (its \newpage falls on an empty page: \write\m@ne{}\vbox{}\penalty-\@Mi)
-      this.ship({ kind: "text", page, top, bot })
-      this.toplist = []; this.botlist = []; this.midlist = []
-      this.opcol()
+      if (this.twocolumn) throw new OutputUnsupported("footnotes held over at a \\clearpage in two columns")
+      this.opcol(this.makecol(page))
       return [...clearRest(), ...this.endOutput()]
     }
-    this.ship({ kind: "text", page, top, bot })
-    this.toplist = []; this.botlist = []; this.midlist = []
-    this.opcol()
-    this.startcolumn()
+    this.opcol(this.makecol(page))
+    // \@startcolumn, and \@opcol\@startcolumn while it makes columns of floats
+    for (let floats; (floats = this.startcolumn()); ) this.opcol({ kind: "floats", floats, colht: this.colht })
     return this.endOutput()
   }
 
@@ -327,8 +431,11 @@ export class LatexOutput {
     this.shipped.push(shipped)
   }
 
-  /** At the end: floats still waiting were never output. */
-  done() { if (this.deferlist.length || this.toplist.length || this.botlist.length) throw new OutputUnsupported("floats lost at the end of the document") }
+  /** At the end: floats still waiting were never output, nor a first column. */
+  done() {
+    if (this.deferlist.length || this.toplist.length || this.botlist.length || this.dbltoplist.length) throw new OutputUnsupported("floats lost at the end of the document")
+    if (this.leftcolumn) throw new OutputUnsupported("a first column never shipped out")
+  }
 }
 
 /** \romannumeral */
@@ -338,6 +445,8 @@ export function roman(n: number): string {
   return out
 }
 
+/** \newpage: \vfil\penalty-\@M */
+const newpage = (): Node[] => [filGlue(), penalty(-10000)]
 /** The rest of \clearpage after its \newpage: \write\m@ne{}\vbox{}\penalty-\@Mi */
 const clearRest = (): Node[] => [{ kind: "whatsit", text: "\\write-{}" }, emptyBox("vlist"), penalty(-10001)]
 
@@ -371,18 +480,22 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
  * .4\columnwidth \kern2.6pt. \@cflt puts the top floats above, each followed by \floatsep, then
  * \vskip-\floatsep \vskip\textfloatsep; \@cflb the bottom floats below, after \textfloatsep. Then
  * \vbox to\@colht{\unvbox the output box, \vskip-its depth, \@textbottom}. `column` is that box's
- * list from \topskip on, or null for a page of floats.
+ * list from \topskip on, or null for a page of floats. Two columns go side by side in \hb@xt@\textwidth (each in
+ * \hb@xt@\columnwidth{… \hss}, \hfil, \columnseprule's \vrule in \normalcolor, \hfil), under the two-column floats
+ * (\@combinedblfloats: each followed by \dblfloatsep, then \vskip-\dblfloatsep \vskip\dbltextfloatsep, in \vbox
+ * to\textheight); `column` is then the first column that has text.
  */
 export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false): { outputbox: BoxNode; column: Node[] | null }[] {
   const textbottom: Node[] = k.ints.raggedbottom ? [glue(0, 7, FIL)] : [] // \vskip\z@\@plus.0001fil
   const rule: Node = { kind: "rule", width: xnOverD(k.dimens.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 }
-  const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth, { floatsep, textfloatsep, fptop, fpsep, fpbot } = k.glue
-  return pages.map((sh) => {
+  const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth, { floatsep, textfloatsep, dblfloatsep, dbltextfloatsep } = k.glue
+  const makecol = (sh: Column, count: number): { outputbox: BoxNode; column: Node[] | null } => {
     if (sh.kind === "floats") {
+      const [fptop, fpsep, fpbot] = sh.dbl ? [k.glue.dblfptop, k.glue.dblfpsep, k.glue.dblfpbot] : [k.glue.fptop, k.glue.fpsep, k.glue.fpbot]
       const list: Node[] = [plain(fptop), plain(negate(fpsep))]
       for (const b of sh.floats) list.push(plain(fpsep), b)
       list.push(plain(fpbot))
-      return { outputbox: vpack(list, { exactly: k.dimens.textheight }), column: null }
+      return { outputbox: vpack(list, { exactly: sh.colht }), column: null }
     }
     const pg = sh.page
     let box255 = vpack(pg.nodes.slice(), { exactly: pg.goal }, maxDepth)
@@ -403,11 +516,25 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)
     // letter.cls's \@texttop: \vskip\z@ plus.00006fil on page 1
-    const col = [...(letter && sh.count === 1 ? [glue(0, 4, FIL)] : []), ...list, glue(-out.depth), ...textbottom]
+    const col = [...(letter && count === 1 ? [glue(0, 4, FIL)] : []), ...list, glue(-out.depth), ...textbottom]
     const column = first === box255 ? col : first.list
     // a column with no box (only \write nodes and glue, before a chapter's float pages) has no \topskip
     const top = column.findIndex((n) => n.kind === "glue" && n.param === "topskip")
-    return { outputbox: vpack(col, { exactly: k.dimens.textheight }), column: top < 0 ? null : column.slice(top) }
+    return { outputbox: vpack(col, { exactly: sh.colht }), column: top < 0 ? null : column.slice(top) }
+  }
+  return pages.map((sh) => {
+    if (sh.kind !== "dbl") return makecol(sh, sh.count)
+    const left = makecol(sh.left, sh.count), right = makecol(sh.right, sh.count)
+    const cw = k.dimens.columnwidth
+    const row = hpack([
+      hpack([left.outputbox, ssGlue()], { exactly: cw }), filGlue(),
+      ...setgroup([{ kind: "rule", width: k.dimens.columnseprule, height: null, depth: null }]), filGlue(),
+      hpack([right.outputbox, ssGlue()], { exactly: cw }),
+    ], { exactly: k.dimens.textwidth })
+    const outputbox = sh.dbltop.length
+      ? vpack([...sh.dbltop.flatMap((b) => [b, plain(dblfloatsep)]), plain(negate(dblfloatsep)), plain(dbltextfloatsep), row], { exactly: k.dimens.textheight })
+      : vpack([row])
+    return { outputbox, column: left.column ?? right.column }
   })
 }
 

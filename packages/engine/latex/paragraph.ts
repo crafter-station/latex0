@@ -108,11 +108,14 @@ export function mathEnv(k: ClassOptionData, size: SizeCommand, amsmath = false):
   }
 }
 
+/** \hsize in the document: \columnwidth (\textwidth but in two columns; beamer's themes set \textwidth alone) */
+export const hsizeOf = (k: ClassOptionData) => (k.ints.twocolumn ? k.dimens.columnwidth : k.dimens.textwidth)
+
 /** Line-breaking parameters as a class sets them (latex.ltx and the class's .clo). */
 export function classParams(k: ClassOptionData): LineBreakParams {
   const i = k.ints
   return {
-    hsize: k.dimens.textwidth, leftSkip: spec("leftskip", k.glue.leftskip), rightSkip: spec("rightskip", k.glue.rightskip), parFillSkip: spec("parfillskip", k.glue.parfillskip),
+    hsize: hsizeOf(k), leftSkip: spec("leftskip", k.glue.leftskip), rightSkip: spec("rightskip", k.glue.rightskip), parFillSkip: spec("parfillskip", k.glue.parfillskip),
     pretolerance: i.pretolerance, tolerance: i.tolerance, emergencyStretch: k.dimens.emergencystretch, linePenalty: i.linepenalty, adjDemerits: i.adjdemerits,
     doubleHyphenDemerits: i.doublehyphendemerits, finalHyphenDemerits: i.finalhyphendemerits, hangIndent: 0, hangAfter: 1, parShape: [],
     interLinePenalty: i.interlinepenalty, clubPenalty: i.clubpenalty, widowPenalty: i.widowpenalty, brokenPenalty: i.brokenpenalty, looseness: i.looseness, prevGraf: 0,

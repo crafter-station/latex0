@@ -13,12 +13,14 @@ export function classData(cls: string, option = "10pt", extras: string[] = []): 
   const d = classFile(cls)
   const o = d.options[option]
   if (!o) throw new Error(`no data for ${cls} [${option}]`)
-  // the paper and side options: the last of each kind wins, as in the class's option processing
+  // the paper, side and column options: the last of each kind wins, as in the class's option processing
   const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? "letterpaper"
   const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" ? "twoside" : "oneside")
-  const v = o.variants?.[`${paper},${side}`]
+  const twocolumn = [...extras].reverse().find((x) => x === "onecolumn" || x === "twocolumn") === "twocolumn"
+  const v = o.variants?.[`${paper},${side}${twocolumn ? ",twocolumn" : ""}`]
+  if (twocolumn && !v) throw new Unsupported(`class option twocolumn for ${cls}`)
   if (!v) return o
-  return withTextHeight({ ...o, dimens: { ...o.dimens, ...v.dimens }, ints: { ...o.ints, ...v.ints } })
+  return withTextHeight({ ...o, dimens: { ...o.dimens, ...v.dimens }, ints: { ...o.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
 }
 
 /** The float rooms \@floatplacement and \@flsettextmin take from \textheight: <fraction>\@colht, x_n_over_d (§ 455). */
@@ -29,7 +31,7 @@ export function withTextHeight(k: ClassOptionData): ClassOptionData {
 
 const PAPERS = ["letterpaper", "a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper"]
 /** Class options that change nothing on the page for the classes laid out */
-const NEUTRAL = ["final", "onecolumn", "notitlepage", "openany", "10pt", "11pt", "12pt"]
+const NEUTRAL = ["final", "notitlepage", "openany", "10pt", "11pt", "12pt"]
 
 /** \documentclass[…]{cls} → class, size option (default 10pt), the paper and side options, and the options not modeled. */
 export function documentClass(src: string): { cls: string; option: string; extras: string[]; unknown: string[] } {
@@ -37,8 +39,8 @@ export function documentClass(src: string): { cls: string; option: string; extra
   if (!m) throw new Error("no \\documentclass")
   const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)
   const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? "10pt"
-  const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside")
-  const unknown = opts.filter((o) => !extras.includes(o) && !NEUTRAL.includes(o) && !(o === "openany" && m[2] !== "book"))
+  const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter"))
+  const unknown = opts.filter((o) => !extras.includes(o) && !NEUTRAL.includes(o) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter"))
   return { cls: m[2], option, extras, unknown }
 }
 

@@ -13,6 +13,7 @@ import type { Ctx } from "./context"
 import { dataFont } from "./data"
 import { anchor, labelName } from "./hyperref"
 import { isSpanish } from "./babel"
+import { hsizeOf } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, negate } from "./vlist"
 import { setgroup } from "./xcolor"
@@ -169,6 +170,6 @@ function titlerule(cx: Ctx) {
   const hrule = (): Node => ({ kind: "rule", width: null, height: 0, depth: 0 })
   v.vskip(topskip); v.nodes.push(hrule(), penalty(10000)); v.vskip(negate(topskip))
   const line = [glue(0), { ...fillGlue(), leaders: { kind: "leaders" as const, box: { kind: "rule" as const, width: null, height: 26214, depth: 0 } } }, kern(0, true), glue(0)]
-  v.nodes.push(hpack(line, { exactly: run.k.dimens.textwidth }), hrule(), penalty(10000))
+  v.nodes.push(hpack(line, { exactly: hsizeOf(run.k) }), hrule(), penalty(10000))
   v.prevDepth = IGNORE_DEPTH
 }

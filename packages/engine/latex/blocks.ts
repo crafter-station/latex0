@@ -20,7 +20,7 @@ export type Block =
   | { kind: "maketitle" }
   /** \begin{titlepage}: its body, read in vertical mode (vmode.ts) */
   | { kind: "titlepage"; body: string }
-  | { kind: "float"; env: "figure" | "table" | "algorithm"; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
+  | { kind: "float"; env: "figure" | "table" | "algorithm"; /** figure* or table* (\@dblfloat) */ star?: boolean; fps: string | null; body: string; inPar: boolean; /** a blank line (\par) before it */ blank: boolean }
   | { kind: "toc" }
   /** \markboth{left}{right} (left null: \markright{right}) in vertical mode */
   | { kind: "mark"; left: string | null; right: string }
@@ -43,6 +43,9 @@ export type Block =
   | { kind: "pagebreak"; no: boolean; n: number }
   /** \thispagestyle{style} and \pagenumbering{style} in vertical mode */
   | { kind: "pagestyle"; cmd: "thispagestyle" | "pagenumbering"; style: string }
+
+/** A float environment's name: figure* and table* are figures and tables of the page's width (\@dblfloat) */
+const floatEnv = (name: string) => ({ env: name.replace("*", "") as "figure" | "table" | "algorithm", ...(name.endsWith("*") ? { star: true } : {}) })
 
 /** The list-like environments: \list ones and \trivlist ones (center, flushleft, flushright), and abstract. */
 export const ENVS = ["itemize", "enumerate", "description", "quote", "quotation", "verse", "center", "flushleft", "flushright", "abstract", "thebibliography", "LXtheorem", "proof"] as const
@@ -220,7 +223,7 @@ export function blocksOf(body: string): Block[] {
   body = body.replace(/(^|[^\\])%[^\n]*\n[ \t]*(?=[^\s])/g, "$1").replace(/(^|[^\\])%.*$/gm, "$1")
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
-  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure|table|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*/g
+  const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure\*?|table\*?|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*/g
   let at = 0, endpe = false, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
@@ -243,7 +246,7 @@ export function blocksOf(body: string): Block[] {
     // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
     if (m[6] && m[7] !== "H" && inParagraph(before)) { // the paragraph goes on: the float stands in it (its \vadjust), as \LXfloat{n}
       const ph = `\\LXfloat{${inline.length}}`
-      inline.push({ kind: "float", env: m[6] as "figure" | "table" | "algorithm", fps: m[7] ?? null, body: m[8], inPar: true, blank: false })
+      inline.push({ kind: "float", ...floatEnv(m[6]), fps: m[7] ?? null, body: m[8], inPar: true, blank: false })
       body = body.slice(0, m.index) + ph + body.slice(re.lastIndex)
       re.lastIndex = m.index + ph.length
       continue
@@ -302,7 +305,7 @@ export function blocksOf(body: string): Block[] {
     }
     if (m[6]) {
       const inPar = inParagraph(before)
-      out.push({ kind: "float", env: m[6] as "figure" | "table" | "algorithm", fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
+      out.push({ kind: "float", ...floatEnv(m[6]), fps: m[7] ?? null, body: m[8], inPar, blank: /\n[ \t]*\n\s*$/.test(before) })
       at = re.lastIndex; endpe = false; continue
     }
     if (m[1]) { // a heading: its argument in braces
