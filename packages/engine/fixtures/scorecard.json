@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1031,
-  "exact": 1017,
+  "fixtures": 1080,
+  "exact": 1066,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 14,
-  "glyphs": 639145
+  "glyphs": 708714
  },
  "areas": [
   {
@@ -26,8 +26,8 @@
   },
   {
    "area": "array",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "babel",
@@ -51,8 +51,8 @@
   },
   {
    "area": "caption",
-   "fixtures": 28,
-   "exact": 28
+   "fixtures": 30,
+   "exact": 30
   },
   {
    "area": "classes",
@@ -61,8 +61,13 @@
   },
   {
    "area": "cleveref",
-   "fixtures": 37,
-   "exact": 37
+   "fixtures": 39,
+   "exact": 39
+  },
+  {
+   "area": "colortbl",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "display",
@@ -116,13 +121,23 @@
   },
   {
    "area": "listings",
-   "fixtures": 41,
-   "exact": 41
+   "fixtures": 42,
+   "exact": 42
   },
   {
    "area": "lists",
-   "fixtures": 19,
-   "exact": 19
+   "fixtures": 21,
+   "exact": 21
+  },
+  {
+   "area": "longtable",
+   "fixtures": 5,
+   "exact": 5
+  },
+  {
+   "area": "longtable-pdftex",
+   "fixtures": 1,
+   "exact": 1
   },
   {
    "area": "macros",
@@ -140,6 +155,11 @@
    "exact": 5
   },
   {
+   "area": "multicol",
+   "fixtures": 6,
+   "exact": 6
+  },
+  {
    "area": "multirow",
    "fixtures": 2,
    "exact": 2
@@ -151,8 +171,8 @@
   },
   {
    "area": "pages",
-   "fixtures": 22,
-   "exact": 22
+   "fixtures": 25,
+   "exact": 25
   },
   {
    "area": "parskip",
@@ -166,13 +186,13 @@
   },
   {
    "area": "sections",
-   "fixtures": 22,
-   "exact": 22
+   "fixtures": 23,
+   "exact": 23
   },
   {
    "area": "setspace",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 11,
+   "exact": 11
   },
   {
    "area": "siunitx",
@@ -181,18 +201,23 @@
   },
   {
    "area": "tabular",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
+  },
+  {
+   "area": "tabularx",
+   "fixtures": 3,
+   "exact": 3
   },
   {
    "area": "templates",
-   "fixtures": 33,
-   "exact": 33
+   "fixtures": 37,
+   "exact": 37
   },
   {
    "area": "text",
-   "fixtures": 37,
-   "exact": 37
+   "fixtures": 45,
+   "exact": 45
   },
   {
    "area": "tikz",
@@ -201,8 +226,8 @@
   },
   {
    "area": "title",
-   "fixtures": 14,
-   "exact": 14
+   "fixtures": 16,
+   "exact": 16
   },
   {
    "area": "titlesec",
@@ -381,6 +406,28 @@
    "issue": "#272"
   },
   {
+   "id": "templates/corpus-propuesta-tesis",
+   "file": "macro/templates/corpus-propuesta-tesis.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1445,
+   "covers": "the corpus thesis proposal in Spanish: its \\cellcolor Gantt chart with xcolor's [table] option",
+   "issue": "#342"
+  },
+  {
+   "id": "templates/corpus-receta-multicols",
+   "file": "macro/templates/corpus-receta-multicols.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 764,
+   "covers": "the corpus recipe in Spanish (receta-es.tex) without its enumitem options (not laid out yet): multicols with \\section* and itemize in each column and a \\columnbreak between, then a numbered method",
+   "issue": "#342"
+  },
+  {
    "id": "templates/corpus-recipe",
    "file": "macro/templates/corpus-recipe.tex",
    "area": "templates",
@@ -412,6 +459,28 @@
    "glyphs": 267,
    "covers": "the starter-corpus slides (corpus/slides.tex): beamer with \\usetheme{Madrid} (its shadows), \\frame{\\titlepage}, itemize and enumerate frames, the infolines footline, the navigation symbols",
    "issue": "#324"
+  },
+  {
+   "id": "templates/corpus-tables-report-nocolor",
+   "file": "macro/templates/corpus-tables-report-nocolor.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1026,
+   "covers": "the corpus tables report without xcolor's [table] option and its \\rowcolors and \\rowcolor (not laid out yet): booktabs and \\multirow tables in floats, a tabularx with >{\\bfseries}l X >{\\centering\\arraybackslash}p{2cm}, a longtable with \\caption, \\endfirsthead, \\endhead and \\endfoot over two pages",
+   "issue": "#342"
+  },
+  {
+   "id": "templates/corpus-tables-report",
+   "file": "macro/templates/corpus-tables-report.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1026,
+   "covers": "the corpus tables report as it is: xcolor's [table] option (colortbl's template in every table, \\rowcolors and \\rowcolor in a booktabs table, a \\multirow table with \\cline), a tabularx, and a longtable with \\caption and heads over two pages",
+   "issue": "#342"
   },
   {
    "id": "templates/corpus-thesis-chapter",
@@ -1105,6 +1174,28 @@
    "glyphs": 105,
    "covers": "a size in >{decl} of p, m and b columns: \\insert@pcolumn's declarations are in no group of their own, so the size is still in force at the paragraph's end (\\@endpbox's \\par): the entry's lines at its \\baselineskip; with \\bfseries, after \\centering\\arraybackslash, an empty entry, a row ended by \\\\[skip]",
    "issue": "#277"
+  },
+  {
+   "id": "array/tabular-star-array",
+   "file": "micro/array/tabular-star-array.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "array.sty's tabular*: \\extracolsep{\\fill} in @{} and in !{} (\\NC@ecs), with text beside it, \\extracolsep{\\stretch{2}}, booktabs rules and \\cmidrule across stretched tabskips, \\multicolumn; w{l}{…}, w{c}{…}, w{r}{…}, w{s}{…} and W columns (an entry wider than the box, W's \\hfil's), >{\\bfseries} and <{decl} around a w column, an entry ending in a space and \\hfill (\\textonly@unskip and \\endlrbox's \\unskip), \\multicolumn{1}{w{c}{2cm}}, a \\\\[skip] after a W entry (its \\unskip in the box)",
+   "issue": "#342"
+  },
+  {
+   "id": "array/w-columns-xcolor",
+   "file": "micro/array/w-columns-xcolor.tex",
+   "area": "array",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 70,
+   "covers": "array.sty's w and W columns with xcolor loaded: lrbox's \\color@setgroup pushes the color and pops it around the entry (inside the \\makebox), a \\color in >{decl} inside the box, \\textcolor in an entry; a w column in a tabular in a \\color group (the color pushed is the current one); a \\color in >{decl} of c, l and r columns: \\textonly@unskip (and \\\\[skip]'s \\unskip) before its pop",
+   "issue": "#342"
   },
   {
    "id": "babel/australian",
@@ -5439,6 +5530,17 @@
    "issue": "#282"
   },
   {
+   "id": "caption/captionof-font",
+   "file": "micro/caption/captionof-font.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 635,
+   "covers": "\\captionof in minipages set in another font (\\textsf, \\textsl, \\bfseries, the abstract's \\small): \\caption@normalsize's \\normalfont\\normalsize sets the caption and the \\baselineskip of the paragraph around its \\parbox; the caption's \\parbox has \\sloppy's \\emergencystretch 3em in the normal font (its \\@parboxrestore after \\caption@normalsize); the text after it is in the minipage's font again; position=top after text (the interline glue before it at \\normalsize's \\baselineskip), a narrow caption that needs the emergency stretch; a caption wider than its minipage, whose paragraph around the \\parbox needs the emergency stretch: 3em in the font before the caption (\\caption@parboxrestore's \\sloppy comes before \\caption@normalsize)",
+   "issue": "#350"
+  },
+  {
    "id": "caption/graphics",
    "file": "micro/caption/graphics.tex",
    "area": "caption",
@@ -5536,6 +5638,17 @@
    "glyphs": 108,
    "covers": "caption.sty's \\lst@MakeCaption around a listing without a caption: its options' \\@esphack puts a \\nobreak at the listing's top and bottom when \\if@nobreak (right after a heading, still true at the end) or \\if@noskipsec holds; a bottom frame, a single frame, xcolor",
    "issue": "#269"
+  },
+  {
+   "id": "caption/margins-twoside",
+   "file": "micro/caption/margins-twoside.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 359,
+   "covers": "caption.sty's unequal margins in a twoside document (\\caption@ifoddpage): swapped on an even page; the \\caption@newlabel \\write (and \\caption@@label's \\providecommand, once) before the caption's paragraph; the first run's parity is \\c@page's where the caption is read, the second run's the page its \\write was shipped out on (a float read on page 2 and placed on page 3); captions with equal margins step \\caption@thecounter too, and with a width= none of that",
+   "issue": "#350"
   },
   {
    "id": "caption/minipage",
@@ -6061,6 +6174,17 @@
    "issue": "#66"
   },
   {
+   "id": "cleveref/enumitem-labels",
+   "file": "micro/cleveref/enumitem-labels.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 117,
+   "covers": "cleveref with enumitem's label= and ref=: \\cref@currentlabel's label is \\theenum… as enumitem sets it (the ref format, no \\p@), in the .aux file's key@cref line and in \\cref and \\ref; nested lists, label*=, start=, font= and a list after one with its own labels",
+   "issue": "#350"
+  },
+  {
    "id": "cleveref/float-in-paragraph-page",
    "file": "micro/cleveref/float-in-paragraph-page.tex",
    "area": "cleveref",
@@ -6149,6 +6273,17 @@
    "issue": "#277"
   },
   {
+   "id": "cleveref/size-group-page-hook",
+   "file": "micro/cleveref/size-group-page-hook.tex",
+   "area": "cleveref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 18854,
+   "covers": "the output routine's \\baselineskip hook for a size group's paragraph goes before what the paragraph reads of the main vertical list: cleveref's page counter for a \\label in it, at its \\parskip (fuzz doc-8-146)",
+   "issue": "#350"
+  },
+  {
    "id": "cleveref/subcaption",
    "file": "micro/cleveref/subcaption.tex",
    "area": "cleveref",
@@ -6169,6 +6304,39 @@
    "glyphs": 179,
    "covers": "the type of a lemma sharing theorem's counter: LaTeX's first aid for cleveref rebuilds a \\label's \\cref@currentlabel from \\@currentcounter (theorem) unless amsmath's \\iftag@ holds, which a numbered multline leaves true (then cleveref's own \\refstepcounter[lemma]{theorem}: lemma); equation, \\[ \\], align and gather set it false again, $$ leaves it alone, multline* leaves it false",
    "issue": "#66"
+  },
+  {
+   "id": "colortbl/colortbl-colors-pdf",
+   "file": "micro/colortbl/colortbl-colors-pdf.tex",
+   "area": "colortbl",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 226,
+   "covers": "colortbl through xcolor's [table] option: its column template in every tabular (the entry in \\hbox\\z@ aligned with \\hskip\\stretch{.5}\\kern\\z@, \\hfill or \\hfill\\kern\\z@, \\vrule height\\ht\\z@, \\unhbox\\z@), \\rowcolors{2}{gray!10}{white} in a table float (\\rownum counting each \\cr, the preamble's too) with \\rowcolor over the head row and booktabs rules, \\cellcolor in entries (a Gantt chart), >{\\columncolor{…}} columns, a \\multicolumn in a colored row, p and r columns, \\hline and | rules, a plain tabular with no colors",
+   "issue": "#342"
+  },
+  {
+   "id": "colortbl/colortbl-colors",
+   "file": "micro/colortbl/colortbl-colors.tex",
+   "area": "colortbl",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 226,
+   "covers": "colortbl through xcolor's [table] option: its column template in every tabular (the entry in \\hbox\\z@ aligned with \\hskip\\stretch{.5}\\kern\\z@, \\hfill or \\hfill\\kern\\z@, \\vrule height\\ht\\z@, \\unhbox\\z@), \\rowcolors{2}{gray!10}{white} in a table float (\\rownum counting each \\cr, the preamble's too) with \\rowcolor over the head row and booktabs rules, \\cellcolor in entries (a Gantt chart), >{\\columncolor{…}} columns, a \\multicolumn in a colored row, p and r columns, \\hline and | rules, a plain tabular with no colors",
+   "issue": "#342"
+  },
+  {
+   "id": "colortbl/colortbl-rowcolors",
+   "file": "micro/colortbl/colortbl-rowcolors.tex",
+   "area": "colortbl",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "colortbl's \\rowcolors at the top level: \\rownum counting on from tabular to tabular (each \\cr, \\cline's too, and a last row's \\crcr with no \\\\), an empty odd color, start 1; a tabularx in its scope (\\rownum counts through tabularx's trial tables too, two rows: an odd count each); a tabularx with no X column (one trial); a second \\rowcolors (a \\cmidrule's \\cr counted) (\\rownum from 0 again), an empty even color; a \\rowcolor over a longtable's \\caption; a longtable before it, with \\hline\\hline (colortbl's \\LT@@hline: two single rules) and \\rowcolor",
+   "issue": "#342"
   },
   {
    "id": "display/align-amsmath",
@@ -7378,6 +7546,17 @@
    "covers": "lstlisting: C and C++ keywords and comments in typewriter"
   },
   {
+   "id": "listings/caption-margins-twoside",
+   "file": "micro/listings/caption-margins-twoside.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 193,
+   "covers": "a listing caption (caption.sty) with unequal margins in a twoside document: on an even page they swap places (\\caption@ifoddpage, the page of the \\caption@newlabel \\write from the run before), the right one the \\hspace at the paragraph's end",
+   "issue": "#350"
+  },
+  {
    "id": "listings/caption",
    "file": "micro/listings/caption.tex",
    "area": "listings",
@@ -7840,6 +8019,28 @@
    "issue": "#334"
   },
   {
+   "id": "lists/enumitem-label-refs-hyperref",
+   "file": "micro/lists/enumitem-label-refs-hyperref.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 65,
+   "covers": "\\ref to enumitem items whose label has groups and text font commands ({(b)}.1 from label*=, \\textbf{1.}, \\textit{i}): the .aux file's \\newlabel (\\protect \\textbf  {1.}) and \\ref typesetting the groups and the command (its italic corrections), in hyperref links",
+   "issue": "#350"
+  },
+  {
+   "id": "lists/enumitem-label-refs-plain",
+   "file": "micro/lists/enumitem-label-refs-plain.tex",
+   "area": "lists",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 65,
+   "covers": "\\ref to enumitem items whose label has groups and text font commands ({(b)}.1 from label*=, \\textbf{1.}, \\textit{i}): the .aux file's \\newlabel (\\protect \\textbf  {1.}) and \\ref typesetting the groups and the command (its italic corrections)",
+   "issue": "#350"
+  },
+  {
    "id": "lists/enumitem-spanish",
    "file": "micro/lists/enumitem-spanish.tex",
    "area": "lists",
@@ -7958,6 +8159,72 @@
    "glyphs": 439,
    "covers": "lists nested four deep (\\@listii … \\@listiv: \\leftmargin, \\labelwidth, \\topsep, \\parsep, \\itemsep, the enclosing \\parskip in \\@topsep), itemize labels (\\textbullet, bold \\textendash, \\textasteriskcentered, \\textperiodcentered), enumerate labels (1. (a) i. A.), an item's text after a nested list (\\@doendpe), mixed itemize and enumerate",
    "issue": "#30"
+  },
+  {
+   "id": "longtable/longtable-booktabs",
+   "file": "micro/longtable/longtable-booktabs.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1111,
+   "covers": "longtable with array.sty and booktabs (the corpus report's account list): a p{4cm} column, \\caption then \\toprule … \\midrule \\endfirsthead, \\toprule … \\midrule \\endhead, \\bottomrule \\endfoot (in longtable, booktabs's rules are \\@BLTrule rows after \\nobreak), rows over two pages after a paragraph, \\midrule and \\addlinespace in the body; a head of \\addlinespace alone (\\unskip takes it: no interline glue before the save row); a \\label after the table (\\@currentHref: \\MakeLinkTarget's target*.1)",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-chunks",
+   "file": "micro/longtable/longtable-chunks.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 467,
+   "covers": "longtable with \\setcounter{LTchunksize}{3}: chunks of three rows (\\prevdepth 0pt after each), a wider row in a later chunk (the save row's widths from the .aux file the first run wrote), \\\\* and \\\\[4pt], \\hline\\hline in the body, [l] and [r] tables, a table starting near the bottom of a page (head, foot and first row do not fit: \\vfil\\break first), a last foot taller than the foot",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-kernel",
+   "file": "micro/longtable/longtable-kernel.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 899,
+   "covers": "longtable without array: a table over three pages, \\endfirsthead, \\endhead, \\endfoot and \\endlastfoot, \\hline and \\hline\\hline, a \\caption in the first head, the text before and after it",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-lastfoot",
+   "file": "micro/longtable/longtable-lastfoot.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 388,
+   "covers": "longtable's end with a last foot taller than the foot and too little room left for it (\\LT@output at \\penalty-30000 ships the page with the foot, then the head and the last foot start the next), \\box emptying the foot's register (\\vsize not given back), an [r] table, \\\\[6pt] in the last foot",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable/longtable-start",
+   "file": "micro/longtable/longtable-start.tex",
+   "area": "longtable",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 40,
+   "covers": "\\LT@start's room check with a first row taller than the strut (\\vsplit of the first chunk to \\ht\\@arstrutbox: the row's height and depth count), a p{1cm} column (\\LT@startpbox's \\everypar strut without array.sty, and the kernel's \\@finalstrut for an empty entry), a head and no foot, after \\vspace* near the bottom of the page",
+   "issue": "#342"
+  },
+  {
+   "id": "longtable-pdftex/longtable-kernel-pdf",
+   "file": "micro/longtable-pdftex/longtable-kernel-pdf.tex",
+   "area": "longtable-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 899,
+   "covers": "longtable without array: a table over three pages, \\endfirsthead, \\endhead, \\endfoot and \\endlastfoot, \\hline and \\hline\\hline, a \\caption in the first head, the text before and after it",
+   "issue": "#342"
   },
   {
    "id": "macros/caption-short-robust",
@@ -8655,6 +8922,72 @@
    "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
   },
   {
+   "id": "multicol/multicols-balance",
+   "file": "micro/multicol/multicols-balance.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 555,
+   "covers": "multicol's multicols on one page: \\enough@room, \\addvspace\\multicolsep, the \\kern before it, the page so far kept in \\partial@page by an \\eject, the body two and three columns wide (\\tolerance 9999, \\pretolerance -1, \\emergencystretch), \\balance@columns's \\vsplit iterations, \\page@sofar's row of columns, text after it",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-columnbreak",
+   "file": "micro/multicol/multicols-columnbreak.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 420,
+   "covers": "multicol's \\columnbreak (\\penalty-\\@Mv: the material so far kept in \\colbreak@box, \\vsize less \\pagetotal, then balanced with the forced break), right after a \\section* (the meeting notes' and the recipe's layout), lists and \\section* in the columns, \\columnseprule and \\columnsep set in the preamble with xcolor loaded (the rule's \\normalcolor), multicols first on a page (an empty page so far)",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-full",
+   "file": "micro/multicol/multicols-full.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1263,
+   "covers": "multicols with a page's worth of material: \\vsize two columns' worth (\\set@mult@vsize) holding it all, the balanced height more than \\@colroom (cut to it: a last column too large, by less than \\maxbalancingoverflow)",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-pages",
+   "file": "micro/multicol/multicols-pages.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9000,
+   "covers": "multicols over three pages: \\multi@column@out at each page break (the material \\vsplit into columns to \\@colroom, what is left back on the list, \\partial@page above the first page's columns only, \\@colroom\\@colht and \\vsize again), then balancing on the last page; a \\columnbreak on the second page",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-room",
+   "file": "micro/multicol/multicols-room.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 354,
+   "covers": "multicol's \\enough@room: less than \\premulticols (50pt) left on the page (\\newpage first), and less than \\postmulticols (20pt) after the columns (\\newpage after); \\columnbreak[3] and [0] (penalties, not forced), a \\columnbreak before \\end{multicols} (the page empty again: \\colbreak@box put back), three columns",
+   "issue": "#342"
+  },
+  {
+   "id": "multicol/multicols-star",
+   "file": "micro/multicol/multicols-star.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6736,
+   "covers": "multicols* (no balancing: \\multi@column@out at \\penalty-\\@Mvi, the last skip and depth taken back and \\vfil before it): short (ending with a list: its skip taken back), and over a page into a second",
+   "issue": "#342"
+  },
+  {
    "id": "multirow/array",
    "file": "micro/multirow/array.tex",
    "area": "multirow",
@@ -8895,6 +9228,39 @@
    "glyphs": 5856,
    "covers": "a float page from \\chapter's \\clearpage after a full page: the \\write nodes \\vsplit keeps make a page with no box (no \\topskip), and \\thispagestyle{plain} goes to that page, not to the chapter's (\\@specialpage is for the next page shipped); a random document (fuzz:documents seed 4)",
    "issue": "#30"
+  },
+  {
+   "id": "pages/colroom-after-group",
+   "file": "micro/pages/colroom-after-group.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5602,
+   "covers": "the output routine's 1.5\\baselineskip check (\\@colroom) after a {\\Large … \\par} group: the paragraphs after it are back to \\normalsize's \\baselineskip (25pt left: the text goes on, where \\Large's would leave an empty column)",
+   "issue": "#350"
+  },
+  {
+   "id": "pages/colroom-small-at-par",
+   "file": "micro/pages/colroom-small-at-par.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5583,
+   "covers": "the output routine's check that 1.5\\baselineskip is left for text on a page with floats (\\@colroom, else \\@emptycol) uses the \\baselineskip in force where the page builder fired: at a paragraph's lines, its \\par's: \\small's, declared in the paragraph after its \\normalsize start in the group (17.5pt left: the text goes on)",
+   "issue": "#350"
+  },
+  {
+   "id": "pages/colroom-small-group",
+   "file": "micro/pages/colroom-small-group.tex",
+   "area": "pages",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5597,
+   "covers": "the output routine's check that 1.5\\baselineskip is left for text on a page with floats (\\@colroom, else \\@emptycol) uses the \\baselineskip in force where the page builder fired: in a {\\small … \\par} group (the float read in it, placed when its \\par fires the output routine), \\small's (17.5pt left: the text goes on)",
+   "issue": "#350"
   },
   {
    "id": "pages/enlargethispage-float",
@@ -9527,6 +9893,17 @@
    "issue": "#336"
   },
   {
+   "id": "sections/centercr-group-afterheading",
+   "file": "micro/sections/centercr-group-afterheading.tex",
+   "area": "sections",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 710,
+   "covers": "\\\\ in a \\textbf group of a centered paragraph right after a heading: the next paragraph starts in the group, where \\@afterheading's \\everypar sets \\clubpenalty and clears itself only to the group's end (the \\clubpenalty at its \\par the outer 10000, or the group's 150 when another \\\\ in it ends it); and the paragraph after it; footnotes in the group see its \\clubpenalty, those after it the outer one",
+   "issue": "#350"
+  },
+  {
    "id": "sections/chapters-report",
    "file": "micro/sections/chapters-report.tex",
    "area": "sections",
@@ -9703,6 +10080,28 @@
    "issue": "#277"
   },
   {
+   "id": "setspace/caption-here",
+   "file": "micro/setspace/caption-here.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 362,
+   "covers": "caption.sty's captions in a float.sty [H] float that setspace (loaded before float.sty) leaves double-spaced: \\caption@normalsize's singlespacing single-spaces the caption and a minipage's caption in it, the float's text stays double-spaced",
+   "issue": "#350"
+  },
+  {
+   "id": "setspace/captionof-minipage",
+   "file": "micro/setspace/captionof-minipage.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 482,
+   "covers": "caption.sty's \\captionof in a minipage in double-spaced text: \\caption@normalsize's singlespacing (\\setstretch{1} in the caption's group) single-spaces the caption's lines and the paragraph around its \\parbox, and the text after it is double-spaced again; with position=top after text, the interline glue before the caption's paragraph is single-spaced too",
+   "issue": "#350"
+  },
+  {
    "id": "setspace/double",
    "file": "micro/setspace/double.tex",
    "area": "setspace",
@@ -9734,6 +10133,17 @@
    "glyphs": 365,
    "covers": "an [H] algorithm with setspace loaded before float.sty (algorithm.sty): float.sty's \\@float@HH does not go through setspace's \\@xfloat, so the box keeps the document's \\setstretch{1.5}: its caption and lines stretched",
    "issue": "#277"
+  },
+  {
+   "id": "setspace/here-caption-sty",
+   "file": "micro/setspace/here-caption-sty.tex",
+   "area": "setspace",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 365,
+   "covers": "an [H] algorithm with setspace loaded before float.sty and caption.sty: the box keeps the document's \\setstretch{1.5}, but caption.sty's \\caption@normalsize single-spaces its caption (\\caption@font@singlespacing)",
+   "issue": "#350"
   },
   {
    "id": "setspace/mixed",
@@ -9984,6 +10394,50 @@
    "covers": "a table float with a \\multicolumn wider than its columns, \\hline\\hline, a span to the end, \\cline from the first column, \\small entries"
   },
   {
+   "id": "tabular/tabular-star-kernel",
+   "file": "micro/tabular/tabular-star-kernel.tex",
+   "area": "tabular",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "the kernel's tabular*: \\extracolsep{\\fill} in @{} first and between columns (the tabskip glue after each column, the last one zero), \\extracolsep{2pt} and \\extracolsep\\fill without braces, text before one, a width narrower than the natural one, \\hline, \\cline and \\multicolumn across stretched tabskips, [t] and [b] positions, in a table float with \\centering (\\linewidth there: \\columnwidth) and in text",
+   "issue": "#342"
+  },
+  {
+   "id": "tabularx/tabularx-column-m",
+   "file": "micro/tabularx/tabularx-column-m.tex",
+   "area": "tabularx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 96,
+   "covers": "tabularx.sty with \\tabularxcolumn \\renewcommand'd to >{\\raggedright\\arraybackslash}m{#1} (the first trial's X columns still p{…}), in a \\small table with \\extrarowheight, X entries of two widths, \\\\[skip]",
+   "issue": "#342"
+  },
+  {
+   "id": "tabularx/tabularx-columns",
+   "file": "micro/tabularx/tabularx-columns.tex",
+   "area": "tabularx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 535,
+   "covers": "tabularx.sty's X columns: the trial tabulars (each X p{\\TX@col@width}) and \\TX@arith's steps to the target width, then tabular* to it; one and two X columns, >{\\raggedright\\arraybackslash}X, a \\newcolumntype over X, booktabs rules and \\cmidrule, \\multirow, \\multicolumn over an X column and an X \\multicolumn (counted), @{} and @{\\extracolsep{\\fill}}, [t], a table with no X column, X columns too narrow (\\TX@error@width), a span wider than the table (the minimum width reached: backing up), \\noindent before one, in a table float, the corpus's risk table",
+   "issue": "#342"
+  },
+  {
+   "id": "tabularx/tabularx-cv-es",
+   "file": "micro/tabularx/tabularx-cv-es.tex",
+   "area": "tabularx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 551,
+   "covers": "the corpus CV's tabularx tables (cv-es.tex): @{}l X r@{} with \\multicolumn{2}{p{0.75\\textwidth}} entries and \\\\[6pt], X r and l X, with spanish babel, geometry and xcolor, \\parindent zero",
+   "issue": "#342"
+  },
+  {
    "id": "text/accent-commands-headings",
    "file": "micro/text/accent-commands-headings.tex",
    "area": "text",
@@ -10127,6 +10581,83 @@
    "issue": "#113"
   },
   {
+   "id": "text/latex-logo-sizes-OT1",
+   "file": "micro/text/latex-logo-sizes-OT1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 203,
+   "covers": "\\LaTeX's A at \\sf@size where no size command of the class has that size (5, 6 and 7pt): the .fd files' font of the shape in force there (OT1): roman, bold, italic, slanted, small capitals, sans and typewriter, in 11pt at \\small, \\footnotesize and \\scriptsize",
+   "issue": "#350"
+  },
+  {
+   "id": "text/latex-logo-sizes-T1",
+   "file": "micro/text/latex-logo-sizes-T1.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 203,
+   "covers": "\\LaTeX's A at \\sf@size where no size command of the class has that size (5, 6 and 7pt): the .fd files' font of the shape in force there (T1): roman, bold, italic, slanted, small capitals, sans and typewriter, in 11pt at \\small, \\footnotesize and \\scriptsize",
+   "issue": "#350"
+  },
+  {
+   "id": "text/latex-logo-sizes-lmodern",
+   "file": "micro/text/latex-logo-sizes-lmodern.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 237,
+   "covers": "\\LaTeX's A at \\sf@size where no size command of the class has that size (5, 6 and 7pt): the font package's family's font of the shape in force there (lmodern, T1): roman, bold, italic, slanted, small capitals, sans and typewriter, bold small capitals (undeclared: \\wrong@fontshape's n), in 11pt at \\small, \\footnotesize and \\scriptsize",
+   "issue": "#350"
+  },
+  {
+   "id": "text/latex-logo-sizes-times",
+   "file": "micro/text/latex-logo-sizes-times.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 183,
+   "covers": "\\LaTeX's A at \\sf@size where no size command of the class has that size (5, 6 and 7pt): the font package's family's font of the shape in force there (times, T1): roman, bold, italic, slanted, small capitals and typewriter, in 11pt at \\small, \\footnotesize and \\scriptsize",
+   "issue": "#350"
+  },
+  {
+   "id": "text/latexe-bold-10pt",
+   "file": "micro/text/latexe-bold-10pt.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 93,
+   "covers": "\\LaTeXe in bold (10pt): \\boldmath in its \\mbox (series b…), the \\varepsilon from cmmib and the subscript's shift from cmbsy's parameters at text and script size (fontmath.ltx's bold version, the .fd files' sizes); in \\textbf, \\small, \\large and \\Huge",
+   "issue": "#350"
+  },
+  {
+   "id": "text/latexe-bold-11pt",
+   "file": "micro/text/latexe-bold-11pt.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 93,
+   "covers": "\\LaTeXe in bold (11pt): \\boldmath in its \\mbox (series b…), the \\varepsilon from cmmib and the subscript's shift from cmbsy's parameters at text and script size (fontmath.ltx's bold version, the .fd files' sizes); in \\textbf, \\small, \\large and \\Huge",
+   "issue": "#350"
+  },
+  {
+   "id": "text/latexe-bold-12pt",
+   "file": "micro/text/latexe-bold-12pt.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 93,
+   "covers": "\\LaTeXe in bold (12pt): \\boldmath in its \\mbox (series b…), the \\varepsilon from cmmib and the subscript's shift from cmbsy's parameters at text and script size (fontmath.ltx's bold version, the .fd files' sizes); in \\textbf, \\small, \\large and \\Huge",
+   "issue": "#350"
+  },
+  {
    "id": "text/lead-group-footnotes",
    "file": "micro/text/lead-group-footnotes.tex",
    "area": "text",
@@ -10157,6 +10688,17 @@
    "glyphs": 77,
    "covers": "\\\\ in a paragraph (\\@gnewline: \\unskip, \\nobreak\\hfil\\break), \\\\* and \\\\[skip] (\\vadjust after the line; the space after ] stays), \\hfill, \\hfil, \\quad, \\qquad, a size group {\\large …} in a paragraph, \\setlength{\\parindent}{0pt} in the preamble, \\vspace (\\vskip skip \\vskip\\z@skip) and \\hrule (no interline glue after it) between paragraphs",
    "issue": "#30"
+  },
+  {
+   "id": "text/nocorr",
+   "file": "micro/text/nocorr.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 120,
+   "covers": "\\nocorr in a text font command's argument (\\check@nocorr@): first, no italic correction before the argument; last (after the first token), none after it; both; and in a group, where it does not count",
+   "issue": "#350"
   },
   {
    "id": "text/paragraph-basic",
@@ -10825,6 +11367,17 @@
    "issue": "#336"
   },
   {
+   "id": "title/centercr-in-group",
+   "file": "micro/title/centercr-in-group.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 373,
+   "covers": "\\\\ as \\@centercr in a group of a paragraph's text (\\textbf, \\emph, \\textit in \\textbf, a size group, {\\large …\\par}): \\unskip\\par in the groups, the paragraph's \\baselineskip and alignment the groups', no \\check@icr; \\addvspace{-\\parskip}, \\\\* and \\\\[skip] in the group's font; the next paragraph starts in the groups again with their declarations, after \\ignorespaces, and after the groups that end right after the \\\\ (in vertical mode)",
+   "issue": "#350"
+  },
+  {
    "id": "title/maketitle-authors",
    "file": "micro/title/maketitle-authors.tex",
    "area": "title",
@@ -10911,6 +11464,17 @@
    "glyphs": 675,
    "covers": "a two-sided report's titlepage: \\vspace* first, \\null, \\\\ as \\@centercr in a group (\\\\*[skip]), \\bigskip, a size change in the last paragraph (its \\par at the new size); in the body, {\\centering …\\par}, {\\raggedleft …\\par}, {\\raggedright\\itshape …\\par}, two paragraphs in one group, \\medskip, and {} stopping \\@esphack's \\ignorespaces",
    "issue": "#329"
+  },
+  {
+   "id": "title/titlepage-group-ends-par",
+   "file": "micro/title/titlepage-group-ends-par.tex",
+   "area": "title",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 436,
+   "covers": "a paragraph that a size group after its text ends ({\\Large … \\par} with no \\par before it): the group's text in its font, its \\par with the group's \\baselineskip and \\centering in force for all the lines, and the declarations gone after it; a \\vspace in the paragraph before the group; the same in the body",
+   "issue": "#350"
   },
   {
    "id": "title/titlepage-report-twoside",
