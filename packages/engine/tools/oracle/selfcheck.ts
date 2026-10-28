@@ -84,7 +84,8 @@ import type { BoxNode } from "../../trace/schema"
 
 // every line of every page dump must parse into a known node. Node kinds the engine does
 // not model yet stay opaque, but only if they are kinds show_box prints (§§ 183–198, pdfTeX)
-const KNOWN_OPAQUE = /^\\(write|special|openout|closeout|mathon|mathoff|marks?\d*\{|insert\d+|vadjust|[cx]?leaders|pdf\w+|unset|lastbox|setlanguage\d+ \(hyphenmin \d+,\d+\)$)/
+// (\glue(\nonscript): § 189 prints no spec for cond_math_glue)
+const KNOWN_OPAQUE = /^\\(write|special|openout|closeout|mathon|mathoff|marks?\d*\{|insert\d+|vadjust|[cx]?leaders|pdf\w+|unset|lastbox|setlanguage\d+ \(hyphenmin \d+,\d+\)$|glue\(\\nonscript\)$)/
 const opaque: string[] = []
 let nodes = 0
 const walk = (ns: BoxNode[]) => ns.forEach((n) => {
