@@ -1,0 +1,31 @@
+% fixture: pdflatex/natbib-bibitems-hyperref
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: natbib's thebibliography with hyperref: \hyper@natanchorstart in each label (\Hy@raisedlink, the cite.key anchor around \@biblabel), and the citations' \hyper@natlinkstart … \hyper@natlinkend links (\hyper@linkstart's hbox, colorlinks' citecolor), \hyper@natlinkbreak between the names and the year, numbers in \mbox es, undefined keys, a hyphen in a name (in the link's hbox no discretionary after it)
+% issue: #352
+\documentclass{article}
+\usepackage[round]{natbib}
+\usepackage[colorlinks,citecolor=blue]{hyperref}
+\begin{document}
+Early work found effects \citep{brown1982}, whereas \citet{card1994} found none; see \citep[see][p.~2]{card1994,dube2010}
+and \citet[p.~950]{dube2010}, \citeauthor{dube2010} in \citeyear{dube2010}, \citealp{brown1982,nokey}, \citet{leesmith}.
+
+\begin{thebibliography}{4}
+\bibitem[Brown et~al.(1982)Brown, Gilroy, and Kohen]{brown1982}
+Charles Brown, Curtis Gilroy, and Andrew Kohen.
+\newblock The effect of the minimum wage on employment and unemployment.
+
+\bibitem[Card and Krueger(1994)]{card1994}
+David Card and Alan~B. Krueger.
+\newblock Minimum wages and employment.
+
+\bibitem[Dube et~al.(2010)Dube, Lester, and Reich]{dube2010}
+Arindrajit Dube, T.~William Lester, and Michael Reich.
+\newblock Minimum wage effects across state borders.
+
+\bibitem[Lee-Smith(2001)]{leesmith}
+A. Lee-Smith.
+\newblock A hyphen in the name.
+\end{thebibliography}
+\end{document}

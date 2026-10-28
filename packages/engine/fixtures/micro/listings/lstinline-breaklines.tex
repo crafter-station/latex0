@@ -1,0 +1,18 @@
+% fixture: listings/lstinline-breaklines
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \lstinline with breaklines=true: a discretionary after each token (its post-break text the empty frame box and \lst@breakcurrindent), lines broken inside the inline code, breakatwhitespace, breakindent, and the break indent carried to a later listing
+% issue: #352
+\documentclass{article}
+\usepackage{listings}
+\lstset{breaklines=true, basicstyle=\ttfamily\small}
+\begin{document}
+A long call such as \lstinline{cache.put(key, value); cache.get(key); cache.evict(oldest_entry_in_the_table)} is
+broken where TeX likes, and so is \lstinline[breakatwhitespace]{for (int i = 0; i < n; i++) total += weights[i] * values[i];}
+in the middle of a line of prose that goes on and on and on, and \lstinline[breakindent=1em]!x = f(a)(b)(c)(d)(e)(f)(g)(h)(i)(j)(k)(l)(m)(n)(o)(p)!.
+\begin{lstlisting}
+def a_very_long_function_name(first_argument, second_argument, third_argument, fourth_argument):
+    return first_argument
+\end{lstlisting}
+\end{document}

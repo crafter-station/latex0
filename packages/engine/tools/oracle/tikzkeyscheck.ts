@@ -130,7 +130,7 @@ function makeDefs(r: () => number): { defs: Def[]; styles: string[]; reads: stri
 }
 
 /** option lists outside the subset: TeX has the keys, the engine refuses them */
-const UNSUPPORTED = ["outer sep=auto", "stroke", "x=2cm", "cap=round", "double", "text opacity=0.5", "dash=on 1pt off 1pt phase 0pt", "text height=1ex", "-{Stealth[length=2pt]}", "line width=2\\pgflinewidth"]
+const UNSUPPORTED = ["outer sep=auto", "stroke", "x=2cm", "cap=round", "text depth=1ex", "text opacity=0.5", "dash=on 1pt off 1pt phase 0pt", "text height=1ex", "-{Stealth[length=2pt]}", "line width=2\\pgflinewidth"]
 
 /** option lists TeX reports an error for (each in a document of its own: TeX goes on in a state of its own) */
 const ERRORS: [Lib, string][] = [

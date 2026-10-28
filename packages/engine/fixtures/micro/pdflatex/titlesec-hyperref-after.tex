@@ -1,0 +1,27 @@
+% fixture: pdflatex/titlesec-hyperref-after
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: hyperref loaded after titlesec: its titlesec patches (\ttl@Hy@refstepcounter saves the anchor, which \ttl@select puts after the space above the title, none for starred titles), with \label, \ref, nameref and a table of contents
+% issue: #352
+\documentclass[11pt]{article}
+\usepackage{titlesec}
+\usepackage[colorlinks=true,linkcolor=black]{hyperref}
+\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}[\titlerule]
+\begin{document}
+\tableofcontents
+\section{Experience}\label{sec:exp}
+Some text that starts the section, see Section~\ref{sec:edu} on page~\pageref{sec:edu}.
+
+\subsection{Background.}\label{sec:bg}
+More text in the subsection, and \nameref{sec:bg}.
+\subsubsection{A third level}\label{sec:deep}
+A deep title, \ref{sec:deep}.
+\section{Education}\label{sec:edu}
+\subsection{Right after a ruled heading}
+Text.
+\section*{Unnumbered}
+Text after an unnumbered section heading, back to~\ref{sec:exp}.
+\subsection*{Also unnumbered}
+Last words.
+\end{document}

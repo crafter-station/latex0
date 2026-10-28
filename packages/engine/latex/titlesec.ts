@@ -125,12 +125,15 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
     if (refs.cleveref) refs.cleveref.current = { type, arabic: counters.sectional[level], prefix: counters.crefPrefix(type), label: number }
   }
   // hyperref loaded first: titlesec's \AtBeginDocument lets \ttl@Hy@refstepcounter be hyperref's \refstepcounter,
-  // its anchor on the vertical list now; a starred title has none (\ttl@Hy@steplink is \@gobble)
-  if (hyper && numbered) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
+  // its anchor on the vertical list now, and \ttl@Hy@steplink \@gobble. Loaded after, its own: the anchor saved in
+  // \ttl@Hy@saveanchor for \ttl@select (a starred title has no \ttl@savewrite, so no \ttl@Hy@steplink either)
+  const saved = hyper && numbered && cx.pre.titlesecHyperref
+  if (hyper && numbered && !saved) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode()))
   // \ttl@straight@i: \def\@currentlabelname{#2}, the optional title (empty for a starred one), which \label writes with or
   // without nameref (nameref's \label@hook drops a final period)
   refs.name = b.star ? "" : labelName(heading.source ?? heading.title, cx.pre.nameref)
   if (!afterHeading) { v.addpenalty(-300); v.addvspace(before) } // (\bottomtitlespace is negative: bottomtitles)
+  if (saved) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // \ttl@select: \ttl@Hy@saveanchor
   v.afterindent = false // \titlespacing*: \@afterindentfalse
   const font = f.bold ? run.k.sizes[f.size].bold : run.k.sizes[f.size].font
   const tf = loadFont(dataFont(font.name), font.at)

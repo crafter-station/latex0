@@ -1,0 +1,33 @@
+% fixture: natbib/bibitems-numbers
+% tier: T3
+% engine: document
+% covers: natbib's numbers with thebibliography: \NAT@bibsetnum (the widest [n], \bibsep), [n] labels from the run before (a [label]) or \c@NAT@ctr (none), \natexlab empty; \citep with several keys (\NAT@sep\penalty\@m), notes, \citet (the names, the brackets in \mbox es, the same names twice), \citealt, \citealp, \citeauthor, \citeyear, \citeyearpar and an undefined key
+% issue: #352
+\documentclass[11pt]{article}
+\usepackage[numbers]{natbib}
+\begin{document}
+Results \citep{card1994}, \citep{card1994,card1995a,dube2010} and \citep[see][p.~3]{dube2010}; \citet{card1994}
+and \citet{card1994,card1995a} found none, while \citet[ch.~2]{dube2010} and \citet{card1994,dube2010} differ.
+Also \citealt{dube2010}, \citealp{dube2010}, \citeauthor{dube2010}, \citeyear{dube2010}, \citeyearpar{dube2010},
+\cite{card1994} and \citep{card1994,nokey,plain}.
+
+\begin{thebibliography}{10}
+\bibitem[Card and Krueger(1994)]{card1994}
+David Card and Alan~B. Krueger.
+\newblock Minimum wages and employment.
+\newblock \emph{American Economic Review}, 84\penalty0 (4):\penalty0 772--793, 1994.
+
+\bibitem[Card and Krueger(1995{\natexlab{a}})]{card1995a}
+David Card and Alan~B. Krueger.
+\newblock \emph{Myth and Measurement}.
+\newblock Princeton University Press, 1995{\natexlab{a}}.
+
+\bibitem[Dube et~al.(2010)Dube, Lester, and Reich]{dube2010}
+Arindrajit Dube, T.~William Lester, and Michael Reich.
+\newblock Minimum wage effects across state borders, a title long enough to break over a line or two in the list.
+
+\bibitem{plain}
+A. Plain.
+\newblock No label at all.
+\end{thebibliography}
+\end{document}

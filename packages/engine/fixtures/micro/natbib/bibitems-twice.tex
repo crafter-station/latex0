@@ -1,0 +1,24 @@
+% fixture: natbib/bibitems-twice
+% tier: T3
+% engine: document
+% covers: natbib's numbers with two thebibliography environments: \c@NAT@ctr from 1 in each, a key in both (the last \bibcite wins: the first list's [label] shows the number the second gave it)
+% issue: #352
+\documentclass{article}
+\usepackage[numbers]{natbib}
+\begin{document}
+See \citep{x,y} and \citet{x}.
+
+\begin{thebibliography}{9}
+\bibitem[Alpha(2000)]{x}
+A. Alpha. First.
+\bibitem[Gamma(2002)]{z}
+G. Gamma. Third.
+\end{thebibliography}
+
+\begin{thebibliography}{9}
+\bibitem[Beta(2001)]{y}
+B. Beta. Second.
+\bibitem[Alpha(2000)]{x}
+A. Alpha. Again.
+\end{thebibliography}
+\end{document}

@@ -32,7 +32,7 @@ import { chars } from "./keys"
 import { alignLines, type AlignLine, type Baselines } from "./text"
 import { readForeach, sampleValues, substitute } from "./foreach"
 import { LABEL_RESTORE, LABEL_SAVE, PIN_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
-import { pgfArrowsMeta, pgfSetArrows, shareArrows } from "../pgf/arrows"
+import { pgfArrowsMeta, pgfDeclareMeansGreater, pgfSetArrows, pgfSetShortenEnd, pgfSetShortenStart, shareArrows } from "../pgf/arrows"
 import { pgfPathArc, pgfPathArcAxes } from "../pgf/arcs"
 import { pgfPathGrid } from "../pgf/grid"
 import { pgfUsePathQFillStroke, pgfUsePathQStroke } from "../pgf/quick"
@@ -590,9 +590,8 @@ export class TikzPicture {
   /** \pgfsetcornersarced{\pgfpoint{#1}{#1}} (tikz.code.tex 279–280): pgf rounds the corners the path makes from here on (pgf/round.ts) */
   corners(st: TikzState) { this.s.setLocal({ cornerArc: st.arcCorners && st.corner ? { ...st.corner } : null }) }
 
-  /** \tikz@processarrows (1201–1208): \pgfsetarrows{#1}, as pgf reads it (pgf/arrows.ts); >=… is not modeled there */
-  arrows(v: Toks, st: TikzState) {
-    if (st.arrowMeans) throw new Unsupported("tikz: >= with an arrow specification")
+  /** \tikz@processarrows (1201–1208): \pgfsetarrows{#1}, as pgf reads it (pgf/arrows.ts) */
+  arrows(v: Toks, _st: TikzState) {
     // (a braced tip name is the name: \pgfarrows@parser takes it as an argument)
     pgfSetArrows(this.s, text(v.filter((t) => t !== "{" && t !== "}"), "arrows"))
   }
@@ -688,7 +687,7 @@ export class TikzPicture {
       if (m === "filltrue" || m === "fillfalse") fill = m === "filltrue"
       else if (m === "drawtrue" || m === "drawfalse") draw = m === "drawtrue"
       else if (m === "cliptrue") clip = true
-      else boundary = true
+      else if (m === "boundarytrue") boundary = true
     }
     // Step 5': the options, in a graphic scope and a group
     const options = st.options.length > 0
@@ -699,9 +698,22 @@ export class TikzPicture {
       this.runOptions()
     }
     if (!clip) { this.begin(); this.begin(); this.begin() } // \pgfidscope, \begingroup
-    // Step 10: \pgfusepath{fill,draw,clip}
     this.syncLineWidth()
+    // Step 9: a double stroke in a group and a graphic scope, \tikz@double@setup there (\pgfsetlinewidth is global)
+    const double = draw && st.mode.reduce((on, m) => (m === "doubletrue" ? true : m === "doublefalse" ? false : on), false)
+    if (double) {
+      this.begin()
+      this.d.beginscope()
+      const lw = this.s.lineWidth, ds = st.doubleSetup
+      const [width, inner] = ds.kind === "default" ? [2 * lw + 39322, 39322] : ds.kind === "distance" ? [ds.d + 2 * lw, ds.d] : [lw + ds.d, ds.d - lw]
+      pgfSetLineWidth(this.s, this.d, pt(width))
+      this.globalLineWidth()
+      if (inner > 0) this.s.setLocal({ inner: { width: inner, spec: this.colorSpec(st.innerStrokeColor), named: isColorName(str(st.innerStrokeColor)) } })
+    }
+    // Step 10: \pgfusepath{fill,draw,clip}
     pgfUsePath(this.s, this.d, [...(fill ? ["fill"] : []), ...(draw ? ["draw"] : []), ...(clip ? ["clip"] : [])])
+    // Step 11
+    if (double) { this.d.endscope(); this.end() }
     // Step 13: \box\tikz@figbox
     if (this.L.figbox) this.s.out.push(hpack(this.L.figbox))
     // Step 14
@@ -1344,7 +1356,10 @@ export class TikzPicture {
     const to = this.L.to
     if (!to) throw new Unsupported("tikz: a to path outside to")
     const nodes = ["{", LABEL, ...to.nodes, "}"]
-    if (!this.tz.st.toCurve) inp.insert(["-", "-", " ", "(", ...to.target, ")", " ", ...nodes])
+    if (this.tz.st.toLoop) { // \pgfextra{\let\tikztotarget=\tikztostart}[looseness=8,min distance=5mm,every loop]\tikz@to@curve@path
+      this.L.to = { ...to, target: to.start }
+      inp.insert(["[", ...chars("looseness=8,min distance=5mm,every loop"), "]", "[", ...chars("every curve to"), "]", TO_COMPUTE, UPDATE, ...nodes])
+    } else if (!this.tz.st.toCurve) inp.insert(["-", "-", " ", "(", ...to.target, ")", " ", ...nodes])
     else inp.insert(["[", ...chars("every curve to"), "]", TO_COMPUTE, UPDATE, ...nodes])
   }
 
@@ -2163,6 +2178,8 @@ export class TikzDocument {
       corners: (st) => this.at("rounded corners").corners(st),
       at: (v, st) => this.at("at").atOption(v, st),
       labelPost: (v, st) => this.at("label").labelPost(v, st),
+      means: (v) => pgfDeclareMeansGreater(this.at(">").s, text(v, "arrows")),
+      shorten: (end, v) => (end ? pgfSetShortenEnd : pgfSetShortenStart)(this.at("shorten").s, text(v, "shorten")),
       vector: (axis, v) => this.at("a vector").vector(axis, v),
       vectors: () => this.at("vectors").s.local.vectors,
       space: () => this.at("a blank").s.space(),

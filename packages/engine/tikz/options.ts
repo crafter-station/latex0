@@ -45,7 +45,16 @@ export type OptionCall =
   | { op: "strokeopacity" | "fillopacity"; arg: Toks }
 
 /** \tikz@mode's switches, \tikz@mode@<name> */
-export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue"
+export type ModeCall = "drawtrue" | "drawfalse" | "filltrue" | "fillfalse" | "cliptrue" | "boundarytrue" | "doubletrue" | "doublefalse"
+
+/** \tikz@double@setup: the line width and inner line width from \pgflinewidth (sp) when the path is stroked */
+export type DoubleSetup =
+  /** the default: 2\pgflinewidth + 0.6pt, inner 0.6pt */
+  | { kind: "default" }
+  /** double distance=d: d + 2\pgflinewidth, inner d */
+  | { kind: "distance"; d: number }
+  /** double distance between line centers=d: \pgflinewidth + d, inner d - \pgflinewidth */
+  | { kind: "centers"; d: number }
 
 /** a transformation, as TikZ hands it to pgf */
 export type TransformCall =
@@ -86,6 +95,9 @@ export interface TikzState {
   textColor: Toks
   strokeColor: Toks
   fillColor: Toks
+  /** \pgfinnerstrokecolor (set at once by double=color) and \tikz@double@setup */
+  innerStrokeColor: Toks
+  doubleSetup: DoubleSetup
   /** \tikz@dashpattern (its items as typed) and \tikz@dashphase */
   dashPattern: Toks[]
   dashPhase: Toks
@@ -155,6 +167,8 @@ export interface TikzState {
   /** topaths: \tikz@to@path the curve (\tikz@to@switch@on), \tikz@to@out, \tikz@to@in, \tikz@to@bend, \iftikz@to@relative,
    *  the loosenesses and the distances' bounds (their text) */
   toCurve: boolean
+  /** topaths' loop: its to path (\tikztotarget the start, looseness=8, min distance=5mm, every loop, the curve) */
+  toLoop: boolean
   toOut: Toks
   toIn: Toks
   toBend: string
@@ -208,6 +222,10 @@ export interface TikzSetup {
   space?: () => void
   /** tikz@label@post with the distance: a label's place by the node it labels (\tikzlastnode) */
   labelPost?: (distance: Toks, st: TikzState) => void
+  /** >=…: \pgfdeclarearrow{name=<->,means={#1}} (pgf's picture) */
+  means?: (v: Toks) => void
+  /** shorten < and shorten >: \pgfsetshortenstart, \pgfsetshortenend (pgf's picture) */
+  shorten?: (end: boolean, v: Toks) => void
 }
 
 /** pgf's styles and keys that TikZ's options reach (pgfmoduleshapes.code.tex 887–897) */
@@ -235,6 +253,8 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   align/none/.style={text justified,node halign header=},
   help lines/.style={color=gray,line width=0.2pt},
   style/.style={#1}, every to/.style={}, every curve to/.style={}, every edge/.style={draw},
+  every loop/.style={->,shorten >=1pt}, loop right/.style={right,out=15,in=-15,loop}, loop above/.style={above,out=105,in=75,loop},
+  loop left/.style={left,out=195,in=165,loop}, loop below/.style={below,out=285,in=255,loop},
   x radius/.initial=0pt, y radius/.initial=0pt, start angle/.initial=, end angle/.initial=, delta angle/.initial=, every arc/.style={},
   every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={},
   transparent/.style={opacity=0}, ultra nearly transparent/.style={opacity=0.05}, very nearly transparent/.style={opacity=0.1},
@@ -341,6 +361,7 @@ export class Tikz {
       lineWidth: 0x6666, // 0.4pt
       options: [], mode: [], transform: null,
       textColor: [], strokeColor: [], fillColor: [],
+      innerStrokeColor: chars("white"), doubleSetup: { kind: "default" },
       dashPattern: [], dashPhase: chars("0pt"),
       corner: null, arcCorners: false,
       anchor: chars("center"), autoAnchor: false, autoDirection: "left",
@@ -354,7 +375,7 @@ export class Tikz {
       pinDistance: chars("3ex"), pinPosition: chars("above"), pinEdge: [],
       gridX: chars("1cm"), gridY: chars("1cm"),
       plotHandler: "lineto", plotMark: [], plotSamples: "25", plotDomain: "-5:5", plotSamplesAt: chars("-5,-4.5833333,...,5"), plotVar: "\\x", plotMarkSize: 2 * 65536,
-      toCurve: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
+      toCurve: false, toLoop: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
       toLooseness: { out: "1", in: "1", outMin: "0pt", outMax: "10000pt", inMin: "0pt", inMax: "10000pt" },
     }
     this.install()
@@ -657,6 +678,17 @@ export class Tikz {
         st().mode.push(on)
       }, "")
     }
+    // double draw options (tikz.code.tex 192–233): every double/.try after double
+    opt("double", (v) => {
+      const temp = str(this.expand(v))
+      if (temp === "none") { st().mode.push("doublefalse"); return }
+      if (temp !== "") st().innerStrokeColor = v // \pgfsetinnerstrokecolor{#1}
+      st().mode.push("doubletrue")
+      this.set("every double/.try")
+    }, "")
+    opt("double distance", (v) => { st().doubleSetup = { kind: "distance", d: this.length(v) }; this.set("double") })
+    opt("double distance between line centers", (v) => { st().doubleSetup = { kind: "centers", d: this.length(v) }; this.set("double") })
+    k.pgfkeys("/tikz/double equal sign distance/.style={double distance between line centers=0.45ex}")
     opt("rounded corners", (v) => {
       // \pgfsetcornersarced{\pgfpoint{#1}{#1}}
       const x = this.length(v), y = this.length(v)
@@ -737,6 +769,7 @@ export class Tikz {
     opt(">", (v) => {
       if (v.length && (same(v, ["["]) || same(v, ["]"]))) throw new Unsupported("pgf: arrow tip means a bracket")
       st().arrowMeans = tipSequence(v, this.db, false)
+      this.setup.means?.(v) // (pgf's picture: none in the keys' own check)
     })
     // labels (tikz.code.tex 759–905): label=[options]position:text appends to \tikz@after@path a node of its own
     opt("append after command", (v) => { st().afterPath.push(...v) })
@@ -775,14 +808,14 @@ export class Tikz {
     })
     // topaths (tikzlibrarytopaths.code.tex 27–128): curved to paths
     const macro = (v: Toks) => this.parse(plain(this.expand(v), "a number")).result // \pgfmathsetmacro
-    opt("out", (v) => { st().toOut = v; st().toCurve = true })
-    opt("in", (v) => { st().toIn = v; st().toCurve = true })
+    opt("out", (v) => { st().toOut = v; st().toCurve = true; st().toLoop = false })
+    opt("in", (v) => { st().toIn = v; st().toCurve = true; st().toLoop = false })
     opt("bend angle", (v) => { st().toBend = macro(v) })
     opt("bend left", (v) => {
       if (v.length) st().toBend = macro(v)
       st().toOut = chars(st().toBend)
       st().toIn = chars(macro(chars(`180-(${st().toBend})`)))
-      st().toCurve = true
+      st().toCurve = true; st().toLoop = false
       st().toRelative = true
     }, "")
     opt("bend right", (v) => {
@@ -792,10 +825,14 @@ export class Tikz {
       this.setup.space?.()
       st().toIn = chars(macro(chars(`180-(${str(st().toOut)})`)))
       this.setup.space?.()
-      st().toCurve = true
+      st().toCurve = true; st().toLoop = false
       st().toRelative = true
     }, "")
     ifKey("relative", (b) => { st().toRelative = b })
+    opt("loop", () => { st().toLoop = true }, "") // (364–375: the loop's own to path)
+    // tikz.code.tex 1198–1199
+    opt("shorten <", (v) => { this.setup.shorten?.(false, v) })
+    opt("shorten >", (v) => { this.setup.shorten?.(true, v) })
     // line caps, joins and opacity (107–109, 189, 243, 248): \csname pgfset#1cap\endcsname is \relax for another name
     opt("line cap", (v) => {
       const k = plain(v, "line cap")
@@ -847,8 +884,8 @@ export class Tikz {
       if (t[0] === "(") throw new Unsupported("tikz: step=(…)")
       st().gridX = st().gridY = t
     })
-    // (each also switches the curve on)
-    const loose = (name: string, set: (l: TikzState["toLooseness"], v: Toks) => void) => opt(name, (v) => { set(st().toLooseness, v); st().toCurve = true })
+    // (each also switches the curve on, \tikz@to@switch@on: \tikz@to@path the curve's, a loop's replaced)
+    const loose = (name: string, set: (l: TikzState["toLooseness"], v: Toks) => void) => opt(name, (v) => { set(st().toLooseness, v); st().toCurve = true; st().toLoop = false })
     const dist = (v: Toks) => plain(this.expand(v), "a distance")
     loose("looseness", (l, v) => { l.out = l.in = macro(v) })
     loose("out looseness", (l, v) => { l.out = macro(v) })

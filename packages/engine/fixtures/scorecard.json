@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 938,
-  "exact": 925,
+  "fixtures": 957,
+  "exact": 944,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 13,
-  "glyphs": 609228
+  "glyphs": 615940
  },
  "areas": [
   {
@@ -56,8 +56,8 @@
   },
   {
    "area": "classes",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 16,
+   "exact": 16
   },
   {
    "area": "cleveref",
@@ -116,8 +116,8 @@
   },
   {
    "area": "listings",
-   "fixtures": 39,
-   "exact": 39
+   "fixtures": 41,
+   "exact": 41
   },
   {
    "area": "lists",
@@ -146,8 +146,8 @@
   },
   {
    "area": "natbib",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 16,
+   "exact": 16
   },
   {
    "area": "pages",
@@ -161,8 +161,8 @@
   },
   {
    "area": "pdflatex",
-   "fixtures": 27,
-   "exact": 27
+   "fixtures": 29,
+   "exact": 29
   },
   {
    "area": "sections",
@@ -176,8 +176,8 @@
   },
   {
    "area": "siunitx",
-   "fixtures": 12,
-   "exact": 12
+   "fixtures": 13,
+   "exact": 13
   },
   {
    "area": "tabular",
@@ -196,8 +196,8 @@
   },
   {
    "area": "tikz",
-   "fixtures": 32,
-   "exact": 32
+   "fixtures": 36,
+   "exact": 36
   },
   {
    "area": "title",
@@ -206,8 +206,8 @@
   },
   {
    "area": "titlesec",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 6,
+   "exact": 6
   },
   {
    "area": "twocolumn",
@@ -4953,6 +4953,17 @@
    "covers": "letter [12pt]"
   },
   {
+   "id": "classes/letter-cc-encl",
+   "file": "micro/classes/letter-cc-encl.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 446,
+   "covers": "letter's \\encl and \\cc after \\closing: \\par\\noindent and a \\parbox[t]{\\textwidth} hanging from the name's box (\\@hangfrom), \\sloppy, \\stopbreaks's \\nobreak after each \\par and the blank lines between them; a long list that wraps",
+   "issue": "#352"
+  },
+  {
    "id": "classes/letter-geometry",
    "file": "micro/classes/letter-geometry.tex",
    "area": "classes",
@@ -6651,6 +6662,17 @@
    "covers": "lstlisting: \\allowbreak, the caption between \\nobreak\\vskip\\smallskipamount, \\lst@doendpe"
   },
   {
+   "id": "listings/define-style",
+   "file": "micro/listings/define-style.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 156,
+   "covers": "\\lstdefinestyle and style= (the style's keys where style= stands, the name lower case without spaces, a style naming another), keepspaces=true (each space its own token, no lost space) in fixed and fullflexible columns and in a style, a listing's own keys after its style",
+   "issue": "#352"
+  },
+  {
    "id": "listings/flexible",
    "file": "micro/listings/flexible.tex",
    "area": "listings",
@@ -6799,6 +6821,17 @@
    "status": "pass",
    "glyphs": 45,
    "covers": "\\lstinline inside \\emph: the argument already tokenized (spaces in a row are one)"
+  },
+  {
+   "id": "listings/lstinline-breaklines",
+   "file": "micro/listings/lstinline-breaklines.tex",
+   "area": "listings",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 379,
+   "covers": "\\lstinline with breaklines=true: a discretionary after each token (its post-break text the empty frame box and \\lst@breakcurrindent), lines broken inside the inline code, breakatwhitespace, breakindent, and the break indent carried to a later listing",
+   "issue": "#352"
   },
   {
    "id": "listings/lstinline-spaces",
@@ -7841,6 +7874,94 @@
    "issue": "#251"
   },
   {
+   "id": "natbib/bibitems-agsm",
+   "file": "micro/natbib/bibitems-agsm.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 407,
+   "covers": "natbib with \\bibliographystyle{agsm} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-agu",
+   "file": "micro/natbib/bibitems-agu.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 413,
+   "covers": "natbib with \\bibliographystyle{agu} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-authoryear",
+   "file": "micro/natbib/bibitems-authoryear.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1445,
+   "covers": "natbib's thebibliography with \\bibitem[Author(year)Long]{key} (\\bibsection, \\bibhang and \\bibsep, labels \\hfil\\hfill, \\@clubpenalty in the items, \\bibcleanup) and the citations it defines the run after: \\citep, \\citet, \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar, \\cite, \\Citet, \\citet*, pre- and post-notes, several keys, the same authors twice (\\NAT@yrsep, the year's extra label), an undefined key among them",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-chicago",
+   "file": "micro/natbib/bibitems-chicago.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 413,
+   "covers": "natbib with \\bibliographystyle{chicago} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-dcu",
+   "file": "micro/natbib/bibitems-dcu.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 413,
+   "covers": "natbib with \\bibliographystyle{dcu} and thebibliography: its \\bibpunct (open, close, \\NAT@sep, \\NAT@aysep, \\NAT@yrsep) in \\citep and \\citet with several keys, the same authors twice (\\NAT@yrsep, then \\unskip and \\NAT@spacechar)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-hyperref",
+   "file": "micro/natbib/bibitems-hyperref.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 464,
+   "covers": "natbib's thebibliography with hyperref: \\hyper@natanchorstart in each label (\\Hy@raisedlink, the cite.key anchor around \\@biblabel), and the citations' \\hyper@natlinkstart … \\hyper@natlinkend links (\\hyper@linkstart's hbox, colorlinks' citecolor), \\hyper@natlinkbreak between the names and the year, numbers in \\mbox es, undefined keys, a hyphen in a name (in the link's hbox no discretionary after it)",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-numbers",
+   "file": "micro/natbib/bibitems-numbers.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 537,
+   "covers": "natbib's numbers with thebibliography: \\NAT@bibsetnum (the widest [n], \\bibsep), [n] labels from the run before (a [label]) or \\c@NAT@ctr (none), \\natexlab empty; \\citep with several keys (\\NAT@sep\\penalty\\@m), notes, \\citet (the names, the brackets in \\mbox es, the same names twice), \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar and an undefined key",
+   "issue": "#352"
+  },
+  {
+   "id": "natbib/bibitems-twice",
+   "file": "micro/natbib/bibitems-twice.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 109,
+   "covers": "natbib's numbers with two thebibliography environments: \\c@NAT@ctr from 1 in each, a key in both (the last \\bibcite wins: the first list's [label] shows the number the second gave it)",
+   "issue": "#352"
+  },
+  {
    "id": "natbib/first-run",
    "file": "micro/natbib/first-run.tex",
    "area": "natbib",
@@ -8419,6 +8540,17 @@
    "covers": "under pdflatex (PDF, positions from its box dumps): \\sqrt[n] (\\root n\\of: the index in \\rootbox at scriptscript style, a \\mathchoice of \\r@@t: \\mkern5mu, the index raised .6(height-depth) of the radical box, \\mkern-10mu, the box): in text, scripts, fractions, display; a superscript after it goes on a new empty noad (the tail is the choice)"
   },
   {
+   "id": "pdflatex/natbib-bibitems-hyperref",
+   "file": "micro/pdflatex/natbib-bibitems-hyperref.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 464,
+   "covers": "natbib's thebibliography with hyperref: \\hyper@natanchorstart in each label (\\Hy@raisedlink, the cite.key anchor around \\@biblabel), and the citations' \\hyper@natlinkstart … \\hyper@natlinkend links (\\hyper@linkstart's hbox, colorlinks' citecolor), \\hyper@natlinkbreak between the names and the year, numbers in \\mbox es, undefined keys, a hyphen in a name (in the link's hbox no discretionary after it)",
+   "issue": "#352"
+  },
+  {
    "id": "pdflatex/palatino-t1-pdftex",
    "file": "micro/pdflatex/palatino-t1-pdftex.tex",
    "area": "pdflatex",
@@ -8461,6 +8593,17 @@
    "glyphs": 348,
    "covers": "under pdflatex (the virtual fonts are pdfTeX's to resolve, the layout the TFMs'), \\usepackage[T1]{fontenc} with times in report at 11pt: ptmr8t and friends, accents and T1 composites, quotes and dashes, hyphenation, chapter headings, footnote marks in T1 at \\sf@size, the bold \\textendash, sans and typewriter (phv, pcr) in T1",
    "issue": "#340"
+  },
+  {
+   "id": "pdflatex/titlesec-hyperref-after",
+   "file": "micro/pdflatex/titlesec-hyperref-after.tex",
+   "area": "pdflatex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 424,
+   "covers": "hyperref loaded after titlesec: its titlesec patches (\\ttl@Hy@refstepcounter saves the anchor, which \\ttl@select puts after the space above the title, none for starred titles), with \\label, \\ref, nameref and a table of contents",
+   "issue": "#352"
   },
   {
    "id": "pdflatex/xcolor-definecolor",
@@ -8942,6 +9085,17 @@
    "glyphs": 258,
    "covers": "siunitx's S column (a c column around \\siunitx_cell_begin:w … \\siunitx_cell_end:): an entry's tokens without spaces, text in braces alone between \\hskip 0pt plus .5fill's, empty entries; numbers in marker mode (integer and decimal boxes aligned on the decimal marker, the wider side padded with \\hfil), with exponents, compact and separate uncertainties, no integer or no decimals, and the column's options (output-decimal-marker, group-separator, round-mode); table-format (the model's integer width, 0 for none, a number wider than it squeezed with \\hss, the decimal carry after it; an exponent or separate uncertainty the model lacks dropped) with signs and none, per column and from \\sisetup; \\\\[skip] after an S entry (its \\unskip takes the \\hskip1sp); the space factor an S entry leaves (1000 after a number, its text's after text, none changed when empty); S with rules, booktabs and \\multicolumn headers",
    "issue": "#278"
+  },
+  {
+   "id": "siunitx/units-emulated",
+   "file": "micro/siunitx/units-emulated.tex",
+   "area": "siunitx",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 180,
+   "covers": "siunitx's \\celsius (\\degreeCelsius) and the deprecated letter units it still defines (\\bar, \\barn, \\knot, \\mmHg, \\nauticalmile, \\atomicmassunit), alone, with prefixes, powers and \\per, in quantities and in math",
+   "issue": "#352"
   },
   {
    "id": "siunitx/units",
@@ -9505,6 +9659,28 @@
    "issue": "#326"
   },
   {
+   "id": "tikz/double-pdftex",
+   "file": "micro/tikz/double-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5,
+   "covers": "TikZ double lines: double (2\\pgflinewidth+0.6pt over an inner 0.6pt line in white, in a group and a scope), double=color, double distance, double distance between line centers, double equal sign distance, double=none, on lines with arrow tips, closed paths, filled paths and drawn nodes (a state as in an automaton), every double, with thick and line width",
+   "issue": "#352"
+  },
+  {
+   "id": "tikz/double",
+   "file": "micro/tikz/double.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5,
+   "covers": "TikZ double lines: double (2\\pgflinewidth+0.6pt over an inner 0.6pt line in white, in a group and a scope), double=color, double distance, double distance between line centers, double equal sign distance, double=none, on lines with arrow tips, closed paths, filled paths and drawn nodes (a state as in an automaton), every double, with thick and line width",
+   "issue": "#352"
+  },
+  {
    "id": "tikz/figure-pdftex",
    "file": "micro/tikz/figure-pdftex.tex",
    "area": "tikz",
@@ -9657,6 +9833,28 @@
    "glyphs": 92,
    "covers": "\\usepackage{tikz}; tikzpicture environments between paragraphs and in a paragraph: lines, -|, |-, cycle, colors, widths and dash patterns",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/loops-pdftex",
+   "file": "micro/tikz/loops-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "TikZ loops (topaths' loop, loop above, below, left and right: the target the start, looseness=8, min distance=5mm, every loop's -> and shorten >=1pt) on nodes and with labels, a loop on a small node (min distance), a loop whose target is another node (the start it is), edges with bend left between nodes, shorten < and shorten >",
+   "issue": "#352"
+  },
+  {
+   "id": "tikz/loops",
+   "file": "micro/tikz/loops.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "TikZ loops (topaths' loop, loop above, below, left and right: the target the start, looseness=8, min distance=5mm, every loop's -> and shorten >=1pt) on nodes and with labels, a loop on a small node (min distance), a loop whose target is another node (the start it is), edges with bend left between nodes, shorten < and shorten >",
+   "issue": "#352"
   },
   {
    "id": "tikz/node-borders-pdftex",
@@ -9943,6 +10141,17 @@
    "glyphs": 371,
    "covers": "titlesec loaded without changes: the straight class, the hang shape, the spacing taken from \\@startsection",
    "issue": "#249"
+  },
+  {
+   "id": "titlesec/hyperref-after-titlesec",
+   "file": "micro/titlesec/hyperref-after-titlesec.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 424,
+   "covers": "hyperref loaded after titlesec: its titlesec patches (\\ttl@Hy@refstepcounter saves the anchor, which \\ttl@select puts after the space above the title, none for starred titles), with \\label, \\ref, nameref and a table of contents",
+   "issue": "#352"
   },
   {
    "id": "titlesec/labels",

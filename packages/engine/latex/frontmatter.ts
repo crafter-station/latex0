@@ -284,6 +284,8 @@ export function bibliography(cx: Ctx) {
   const { cls, hyper } = cx.pre
   const { marks, mkboth, v } = cx
   const [name, macro] = cls === "article" ? [cx.pre.names.refname, "refname"] : [cx.pre.names.bibname, "bibname"]
+  // (natbib's \bibsection: the \@mkboth inside the heading's title)
+  if (cx.pre.natbib && mkboth) throw new Unsupported("natbib's thebibliography with running heads")
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
   const value = markValue([{ text: name }], true)

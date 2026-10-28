@@ -123,7 +123,8 @@ export function makeDocument(r: () => number): string {
   const siNum = () => pick(["0.75", "12345", "1234", "-3.5", "+2", "1.2e3", "1.2e-3", "e5", ".5", "1,5", "1.74 \\pm 0.02", "1.23 +- 0.045", "1.5(2)", "3.45d-4", "100", "0", "1234567.89012", "-0", "42", "6.022e23", "1.5 \\pm 1.2"])
   const siUnit = () => pick(["\\metre", "\\second", "\\kilo\\gram", "\\metre\\per\\second", "\\metre\\per\\second\\squared", "\\square\\metre", "\\cubic\\centi\\metre", "\\degreeCelsius",
     "\\ohm", "\\kilo\\ohm", "\\micro\\metre", "\\percent", "\\joule\\per\\kilogram\\per\\kelvin", "\\newton\\metre", "\\degree", "\\arcminute", "\\hertz", "\\mA", "\\kWh", "\\dB",
-    "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us"])
+    "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us",
+    "\\celsius", "\\milli\\bar", "\\knot", "\\mmHg"])
   // its options: rounding, digit groups, markers and products, separate uncertainties, per-mode, phrases
   const siKeys = () => Array.from({ length: 1 + Math.floor(r() * 2) }, () => pick(["round-mode=places", "round-mode = places, round-precision = 1", "round-mode=figures, round-precision=3",
     "round-mode=places, round-pad=false, round-precision=3", "round-mode=places, round-zero-positive=false", "round-mode=figures, round-precision=1", "group-digits=none", "group-digits=integer",
@@ -230,18 +231,19 @@ export function makeDocument(r: () => number): string {
     const coord = () => pick([`(${num()},${num()})`, `(${num()}cm,${num()}pt)`, `(${pick(["30", "90", "-45", "180"])}:${num()})`, `+(${num()},${num()})`, `++(${num()},${num()})`])
     const nodeText = () => pick(["x", "In", "Out", "a b", "$y_1$", "Step 2", "", "A longer text, in a node."])
     const nodeOptions = () => pick(["", "", "[draw]", "[draw,circle]", "[fill=blue!10]", "[draw,rounded corners]", "[above]", "[below right]", "[inner sep=1pt]", "[font=\\small]", "[red,sloped,above]", "[auto]", "[near end,swap]",
-      "[align=center]", "[draw,text width=2cm,align=center]", "[ellipse,draw]", "[text width=15mm]", "[node font=\\footnotesize,draw]", "[label=above:$a$]", "[draw,label={[red]right:r}]"])
+      "[align=center]", "[draw,text width=2cm,align=center]", "[ellipse,draw]", "[text width=15mm]", "[node font=\\footnotesize,draw]", "[label=above:$a$]", "[draw,label={[red]right:r}]", "[draw,circle,double]"])
     // (\\ only where lines are set: align= or a text width)
     const node = () => { const o = nodeOptions(); return `node${o} {${/align|text width/.test(o) && r() < 0.5 ? "Two\\\\lines" : nodeText()}}` }
     const names: string[] = []
     const target = () => (names.length && r() < 0.4 ? `(${pick(names)})` : coord())
     const op = () => pick([` -- ${target()}`, ` -- ${coord()}`, ` rectangle ${coord()}`, ` circle (${pick(["2pt", "0.5", "1mm"])})`, " -- cycle", ` -| ${target()}`, ` |- ${coord()}`, ` to ${target()}`,
       ` ${node()}`, ` -- ${node()} ${coord()}`, ` to ${node()} ${target()}`,
-      ` .. controls ${coord()} and ${coord()} .. ${target()}`, ` to[${pick(["bend left", "out=90,in=180", "bend right=20"])}] ${target()}`, ` ${coord().replace(/^\+\+?/, "")} edge[->] ${target()}`,
+      ` .. controls ${coord()} and ${coord()} .. ${target()}`, ` to[${pick(["bend left", "out=90,in=180", "bend right=20", "loop above", "loop left", "loop below,looseness=3"])}] ${target()}`, ` ${coord().replace(/^\+\+?/, "")} edge[->] ${target()}`,
       ` arc (${pick(["0:90", "30:200", "180:-45"])}:${pick(["1", "5mm", "0.5"])})`, ` grid${pick(["", "[step=0.5]"])} ${coord().replace(/^\+\+?/, "")}`,
       ` -- ($(${num()},${num()})!0.5!(${num()},${num()})$)`, ` -- ($(${num()},${num()})+(1,0)$)`,
       ` -- plot${pick(["", "[mark=*]"])} coordinates {${coord().replace(/^\+\+?/, "")} ${coord().replace(/^\+\+?/, "")}}`, ` -- plot[domain=0:1,samples=4] (\\x,{\\x*\\x})`])
-    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]", "[opacity=0.5]", "[line cap=round,line join=round]", "[x=0.5cm]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
+    const path = () => `${pick(["\\draw", "\\draw", "\\fill", "\\filldraw"])}${pick(["", "", "[thick]", "[red]", "[dashed,blue]", "[fill=green!20]", "[line width=1pt]", "[->]", "[<->,thick]", "[opacity=0.5]", "[line cap=round,line join=round]", "[x=0.5cm]",
+      "[double]", "[double=red,thick]", "[double distance=2pt,->]", "[double equal sign distance]", "[->,>=latex]", "[shorten >=2pt,shorten <=1pt,->]"])} ${names.length && r() < 0.3 ? `(${pick(names)})` : pick(["(0,0)", "(1,1)", "(0pt,2pt)"])}${Array.from({ length: 1 + Math.floor(r() * 4) }, op).join("")};`
     const named = () => {
       const name = `n${names.length}`
       const at = names.length && r() < 0.5 ? `[draw,${pick(["right", "below", "above"])} of=${pick(names)}]` : `${pick(["[draw]", "[draw,circle]", "[fill=yellow!20]", ""])} at ${coord().replace(/^\+\+?/, "")}`
@@ -302,7 +304,7 @@ export function makeDocument(r: () => number): string {
       if (crefOn && r() < 0.012) ws[i] += pick([` \\cref{${key()}}`, ` \\Cref{${key()}}`, "~\\cref{eq:3-1}", " \\Cref{eq:6-1}", " \\cref{thm:4}", ` \\cref{${pick(["s:1", "t:2"])}}.`,
         ` \\cref{${ckey()},${ckey()}}`, ` \\Cref{${ckey()},${ckey()},${ckey()}}`, " \\cref{eq:l1,eq:l2,eq:l3}", "~\\cref{eq:l2,eq:3-1,eq:l1}", ` \\cpageref{${key()}}`, ` \\Cpageref{${key()},${key()}}`,
         ` \\crefrange{${key()}}{${key()}}`, ` \\Crefrange{eq:l1}{eq:l${1 + Math.floor(r() * 4)}}`, ...(hyper ? [` \\cref*{${ckey()},${ckey()}}`] : [])])
-      if (r() < 0.006) ws[i] += natOn // natbib with no .bbl: every key undefined
+      if (r() < 0.006) ws[i] += natOn // natbib: keys undefined (no .bbl) or from its thebibliography
         ? pick([" \\citep{b1}", "~\\citet{b2,b1}", " \\cite{b3}", " \\citep[p.~4]{b1}", " \\citet[see][ch.~2]{b2}", " \\citealp{b1}", " \\citeauthor{b3}", " \\citeyearpar{b1}", "~\\cite[][p.~9]{nobody}", " (\\citealt{b1,b2})"])
         : pick(["~\\cite{b1}", " \\cite{b2,b1}", " \\cite{b3}", "~\\cite{nobody}"]) // numbers from the .aux file
       if (tikzOn && r() < 0.004) ws[i] += ` ${tikzPic(true)}`
@@ -438,11 +440,14 @@ export function makeDocument(r: () => number): string {
     if (r() < 0.05) keys.push(`breakatwhitespace=${pick(["true", "false"])}`)
     if (r() < 0.05) keys.push(`breakindent=${pick(["10pt", "0pt", "2em"])}`)
     if (r() < 0.05) keys.push(`breakautoindent=${pick(["true", "false"])}`)
+    if (r() < 0.08) keys.push(pick(["keepspaces", "keepspaces=true", "keepspaces=false"]))
     return keys
   }
-  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",").replace(/breaklines=true/, "breaklines=false") : "" // (\lstinline has no breaklines yet)
+  const lstsetKeys = lst && r() < 0.5 ? lstKeys(false).join(",") : ""
   lstOn = lst
-  if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? [`\\lstset{${lstsetKeys}}`] : []))
+  // (a third of them through \lstdefinestyle and style=, by the keys' length: no draw)
+  const lstStyled = lstsetKeys.length % 3 === 0 ? [`\\lstdefinestyle{Fuzz Style}{${lstsetKeys}}`, "\\lstset{style=fuzzstyle}"] : [`\\lstset{${lstsetKeys}}`]
+  if (lst) out.push("\\usepackage{listings}", ...(lstsetKeys ? lstStyled : []))
   if (colorOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{xcolor}") // (anywhere in the preamble)
   if (btOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{booktabs}")
   if (mrOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{multirow}")
@@ -486,7 +491,7 @@ export function makeDocument(r: () => number): string {
   // nameref alone (not with titlesec or cleveref yet)
   nrOn = !hyper && !isLetter && r() < 0.12
   if (nrOn) out.push("\\usepackage{nameref}")
-  // titlesec (after hyperref): its defaults, or \titleformat's font, label, sep and \titlerule
+  // titlesec: its defaults, or \titleformat's font, label, sep and \titlerule
   tsOn = cls === "article" && !nrOn && !out.includes("\\pagestyle{headings}") && !out.includes("\\usepackage{fancyhdr}") && r() < 0.2
   if (tsOn) {
     out.push("\\usepackage{titlesec}")
@@ -496,6 +501,11 @@ export function makeDocument(r: () => number): string {
       const label = pick(["", `\\the${name}`, `\\the${name}\\quad`])
       out.push(`\\titleformat{\\${name}}${r() < 0.2 ? "[hang]" : ""}{${format}}{${label}}{${pick(["0em", "0pt", "1em", "6pt", ".5em"])}}{}${r() < 0.5 ? "[\\titlerule]" : ""}`)
     }
+  }
+  // hyperref after titlesec instead (its titlesec patches), with an odd number of formats: no draw
+  if (tsOn && hyper && out.filter((l) => l.startsWith("\\titleformat")).length % 2 === 1) {
+    const hl = out.filter((l) => /\{hyperref\}$|^\\hypersetup/.test(l))
+    out.splice(0, out.length, ...out.filter((l) => !hl.includes(l)), ...hl)
   }
   // natbib: its options, and a \bibliographystyle in the preamble or at the end (read back from the .aux)
   natOn = !isLetter && r() < 0.15
@@ -539,7 +549,7 @@ export function makeDocument(r: () => number): string {
   tikzOn = !isLetter && r() < 0.15
   if (tikzOn) out.splice(1 + Math.floor(r() * (out.length - 1)), 0, "\\usepackage{tikz}", "\\usetikzlibrary{calc,shapes.geometric}")
   const titled = r() < 0.5 && !isLetter // report: a title page
-  if (isLetter) out.push(`\\signature{${words(2)}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
+  if (isLetter) out.push(`\\signature{${words(2)}${r() < 0.3 ? ` \\\\ ${words(3)}` : ""}}`, `\\address{${words(2)} \\\\ ${words(3)}${r() < 0.5 ? ` \\\\ ${words(2)}` : ""}}`, ...(r() < 0.3 ? [`\\date{${words(3)}}`] : []))
   if (titled) {
     const name = () => words(1 + Math.floor(r() * 3))
     // (a subtitle after \\ at another size; \thanks in an article's, without hyperref)
@@ -766,8 +776,18 @@ export function makeDocument(r: () => number): string {
   // appendices: \appendix, then a heading or two
   if (!isLetter && !crefOn && !tsOn && r() < 0.15) out.push("", "\\appendix", `\\${cls === "article" ? "section" : "chapter"}{${words(2)}}`, text(10 + Math.floor(r() * 40)), ...(r() < 0.4 ? [`\\section{${words(2)}}`, text(20)] : []))
   // a bibliography: \section*{References} (\chapter*{Bibliography}) and its numbered list
-  if (isLetter) out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []), "\\end{letter}")
-  if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : []))
+  if (isLetter) {
+    out.push(`\\closing{${words(2)},}`, ...(r() < 0.5 ? [""] : []))
+    // \encl and \cc after it, short or wrapping, with blank lines between
+    for (let n = r() < 0.3 ? 1 + Math.floor(r() * 3) : 0; n > 0; n--) out.push(`\\${pick(["cc", "encl"])}{${words(r() < 0.3 ? 30 : 4)}}`, ...(r() < 0.3 ? ["", ...(r() < 0.3 ? [""] : [])] : []))
+    out.push("\\end{letter}")
+  }
+  // (natbib: no .bbl, or its own thebibliography with \bibitem[short(year)long]{key}, \newblock and \natexlab)
+  const natBib = () => {
+    const labels = [pick(["Smith(2001)", "Smith et~al.(2001)Smith, Jones, and Lee", ""]), pick(["Smith(2002{\\natexlab{a}})", "Jones and Lee(1999)", "van Dyke(2010)"]), pick(["Smith(2002{\\natexlab{b}})", "Lee(2003)", ""])]
+    return ["\\begin{thebibliography}{3}", ...labels.flatMap((l, i) => [`\\bibitem${l ? `[${l}]` : ""}{b${i + 1}}`, `${words(3)}.`, `\\newblock ${text(5 + Math.floor(r() * 20))}`, ""]), "\\end{thebibliography}"]
+  }
+  if (natOn) out.push("", ...(natStyle && natStyleAtEnd ? [`\\bibliographystyle{${natStyle}}`] : []), ...(r() < 0.7 ? ["\\bibliography{refs}"] : natBib()))
   else if (r() < 0.2 && !isLetter) {
     const n = 1 + Math.floor(r() * (r() < 0.2 ? 12 : 4))
     out.push("", `\\begin{thebibliography}{${n < 10 ? "9" : "99"}}`)

@@ -1,0 +1,25 @@
+% fixture: classes/letter-cc-encl
+% tier: T3
+% engine: document
+% covers: letter's \encl and \cc after \closing: \par\noindent and a \parbox[t]{\textwidth} hanging from the name's box (\@hangfrom), \sloppy, \stopbreaks's \nobreak after each \par and the blank lines between them; a long list that wraps
+% issue: #352
+\documentclass[11pt]{letter}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\signature{Eleanor Whitfield\\Tenant, Flat 4B}
+\address{Flat 4B, 27 Marlow Road\\Bristol BS6 5EX}
+\date{3 October 2026}
+\begin{document}
+\begin{letter}{Harbourside Property Management Ltd\\12 Quay Street\\Bristol BS1 4DB}
+\opening{Dear Sir or Madam,}
+
+I am writing to report a persistent leak in the ceiling of the bathroom at the above address.
+
+\closing{Yours faithfully,}
+
+\encl{Photographs (4); email of 14 September 2026; a copy of the tenancy agreement, the inventory, the deposit certificate and the letters exchanged with the previous agent}
+\cc{Bristol City Council Private Housing Team}
+
+
+\cc{The Tenants' Association}
+\end{letter}
+\end{document}

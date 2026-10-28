@@ -36,9 +36,9 @@ export type Block =
   | { kind: "lof"; file: "lof" | "lot" }
   | { kind: "matter"; which: "front" | "main" | "back" }
   /** \begin{letter}{to}: \opening, the blocks of its body, \closing, and the \par tokens after it */
-  | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number }
+  | { kind: "letter"; to: string; opening: string; blocks: Block[]; closing: string; pars: number; /** \encl{…} and \cc{…} after the closing, with the blank lines after each */ after: { cmd: "cc" | "encl"; text: string; pars: number }[] }
   /** \begin{thebibliography}: its heading and \@mkboth, then the list */
-  | { kind: "bib"; keys: string[] }
+  | { kind: "bib"; keys: string[]; /** each \bibitem's [label] (natbib's) */ labels: (string | null)[] }
   /** \begin{lstlisting}[options]: the n-th listing taken out of the source before expansion */
   | { kind: "listing"; n: number }
   /** \newpage, \clearpage and \cleardoublepage (in a paragraph: its \par first) */
@@ -57,7 +57,7 @@ export type EnvName = typeof ENVS[number]
 export const ENV_ALT = ENVS.join("|")
 /** An environment: its items (one, from \item\relax, for all but itemize, enumerate and description). */
 export interface ListBlock {
-  kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** thebibliography's \bibitem keys */ keys?: string[]; /** enumitem's [options] */ options?: string
+  kind: "list"; env: EnvName; items: Item[]; inPar: boolean; blank: boolean; /** thebibliography's widest label */ widest?: string; /** thebibliography's \bibitem keys and [labels] */ keys?: string[]; labels?: (string | null)[]; /** enumitem's [options] */ options?: string
   /** an amsthm theorem (\begin{name} became \begin{LXtheorem}{name}): its name and [note]; a proof's [title] */
   thm?: { name: string; note: string | null }; proofTitle?: string
   /** abstract: its body as typed, and what follows \end{abstract}: a space, then a blank line or not, or none */
@@ -192,7 +192,7 @@ export function inParagraph(before: string): boolean {
 
 /** The commands a paragraph lays out (paragraph.ts), less \the<counter> and the text symbols */
 const TEXT_COMMANDS = [
-  "footnote", "noindent", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
+  "newblock", "penalty", "footnote", "noindent", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
   "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "cref", "Cref", "cpageref", "Cpageref", "crefrange", "Crefrange", "cpagerefrange", "Cpagerefrange", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
@@ -297,14 +297,17 @@ export function blocksOf(body: string): Block[] {
     }
     if (m[20]) { out.push({ kind: "lof", file: m[20] === "figures" ? "lof" : "lot" }); at = re.lastIndex; endpe = false; continue }
     if (m[10]) { out.push({ kind: "matter", which: m[10] as "front" | "main" | "back" }); at = re.lastIndex; endpe = false; continue }
-    if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last
+    if (m[12] !== undefined) { // a letter: \opening{…} first, \closing{…} last but for \encl{…} and \cc{…}
       const end = body.indexOf("\\end{letter}", re.lastIndex)
       if (end < 0) throw new Unsupported("\\begin{letter} without its \\end")
       const inner = body.slice(re.lastIndex, end)
+      const arg = "\\s*\\{((?:[^{}]|\\{[^{}]*\\})*)\\}(\\s*)"
       const op = inner.match(/^\s*\\opening\s*\{((?:[^{}]|\{[^{}]*\})*)\}/)
-      const cl = inner.match(/\\closing\s*\{((?:[^{}]|\{[^{}]*\})*)\}(\s*)$/)
+      const cl = inner.match(new RegExp(`\\\\closing${arg}((?:\\\\(?:cc|encl)${arg})*)$`))
       if (!op || !cl) throw new Unsupported("a letter without \\opening first and \\closing last")
-      out.push({ kind: "letter", to: m[12], opening: op[1], blocks: blocksOf(inner.slice(op[0].length, cl.index)), closing: cl[1], pars: (cl[2].match(/\n[ \t]*\n/g) ?? []).length })
+      const blanks = (s: string) => Math.max(0, (s.match(/\n/g) ?? []).length - 1) // (each empty line a \par)
+      const after = [...cl[3].matchAll(new RegExp(`\\\\(cc|encl)${arg}`, "g"))].map((x) => ({ cmd: x[1] as "cc" | "encl", text: x[2], pars: blanks(x[3]) }))
+      out.push({ kind: "letter", to: m[12], opening: op[1], blocks: blocksOf(inner.slice(op[0].length, cl.index)), closing: cl[1], pars: blanks(cl[2]), after })
       re.lastIndex = at = end + "\\end{letter}".length
       endpe = false
       continue
@@ -314,11 +317,16 @@ export function blocksOf(body: string): Block[] {
       const end = body.indexOf("\\end{thebibliography}", re.lastIndex)
       if (end < 0) throw new Unsupported("\\begin{thebibliography} without its \\end")
       const inner = body.slice(re.lastIndex, end)
-      if (/\\bibitem\s*\[/.test(inner)) throw new Unsupported("\\bibitem[label]")
-      const bib = parseList("thebibliography", inner.replace(/\\bibitem\s*\{[^{}]*\}/g, "\\item "), false, true)
+      // (a .bbl's \providecommand{\natexlab}[1]{#1}: natbib has it already, and the source's expansion leaves {})
+      const bibitem = /\\bibitem\s*(?:\[((?:[^[\]{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\])?\s*\{([^{}]*)\}/g
+      const items = inner.replace(/^\s*(?:\{\}|\\providecommand\{\\natexlab\}\[1\]\{#1\})[ \t]*\n/, "")
+      const bib = parseList("thebibliography", items.replace(bibitem, "\\item "), false, true)
       bib.widest = m[11]
-      bib.keys = [...inner.matchAll(/\\bibitem\s*\{([^{}]*)\}/g)].map((x) => x[1].trim())
-      out.push({ kind: "bib", keys: bib.keys }, bib)
+      const found = [...items.matchAll(bibitem)]
+      bib.keys = found.map((x) => x[2].trim())
+      bib.labels = found.map((x) => x[1] ?? null)
+      if (/\\bibitem(?![A-Za-z])/.test(items.replace(bibitem, ""))) throw new Unsupported("a \\bibitem here")
+      out.push({ kind: "bib", keys: bib.keys, labels: bib.labels }, bib)
       re.lastIndex = at = end + "\\end{thebibliography}".length
       endpe = true
       continue

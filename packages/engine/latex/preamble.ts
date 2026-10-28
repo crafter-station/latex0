@@ -10,7 +10,7 @@ import { classData, CM_FONTS, documentClass, withFonts, withT1, type FontSetup }
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
-import { lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
+import { lstDefineStyle, lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { times, setspaceCommand, setspaceOptions, withSetspace, type SetSpace } from "./setspace"
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import type { AlgorithmPackages } from "./algorithm"
@@ -82,6 +82,8 @@ export interface Preamble {
   crefNames: CrefNameDef[]
   /** titlesec: each level's format */
   titlesec: TitleFormats | null
+  /** hyperref loaded after titlesec: its patches (\ttl@Hy@refstepcounter, \ttl@Hy@steplink) */
+  titlesecHyperref: boolean
   /** \if@titlepage: report and book, unless notitlepage (\maketitle and the abstract on pages of their own) */
   titlepage: boolean
   /** \usepackage[T1]{fontenc} */
@@ -176,11 +178,22 @@ export function readPreamble(src: string): Preamble {
   const colorDefs: [string, string, string][] = [] // \definecolor
   // \tikzset{…} and \tikzstyle…, which may run over lines: on one
   pre = pre.replace(/\\tikzset\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
-  for (let i = pre.indexOf("\\lstset{"); i >= 0; i = pre.indexOf("\\lstset{")) {
-    let depth = 0, j = i + 7
-    for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
-    lstBase = lstOptions(pre.slice(i + 8, j), lstBase)
-    pre = pre.slice(0, i) + pre.slice(j + 1)
+  // and \lstdefinestyle{name}{…}, in order
+  for (let m = pre.match(/\\lst(set|definestyle)\s*\{/); m; m = pre.match(/\\lst(set|definestyle)\s*\{/)) {
+    const i = m.index!
+    const group = (k: number) => { // the braced group at k, and the index after it
+      let depth = 0, j = k
+      for (; j < pre.length; j++) { if (pre[j] === "{") depth++; else if (pre[j] === "}" && --depth === 0) break }
+      if (j >= pre.length) throw new Unsupported(`preamble: ${m[0]}`)
+      return [pre.slice(k + 1, j), j + 1] as const
+    }
+    const [a, j] = group(i + m[0].length - 1)
+    if (m[1] === "set") { lstBase = lstOptions(a, lstBase); pre = pre.slice(0, i) + pre.slice(j); continue }
+    const k = pre.slice(j).match(/^\s*\{/)
+    if (!k) throw new Unsupported(`preamble: \\lstdefinestyle{${a}} without its keys in braces`)
+    const [keys, e] = group(j + k[0].length - 1)
+    lstBase = lstDefineStyle(a, keys, lstBase)
+    pre = pre.slice(0, i) + pre.slice(e)
   }
   let pagestyle = cls === "book" ? "headings" : "plain"
   let amsmath = false
@@ -191,6 +204,7 @@ export function readPreamble(src: string): Preamble {
   let fancy: FancyHdr | null = null
   let fancyGeometry: number | null = null // how many geometry calls came before the first \pagestyle{fancy}
   let hyper = false // hyperref, with the dvips driver
+  let titlesecHyperref = false
   const hyperOpts = hyperDefaults()
   let hyperNotes = true
   let nameref = false // (hyperref loads it)
@@ -369,8 +383,8 @@ export function readPreamble(src: string): Preamble {
       for (const f of ["algorithm", "float"]) if (names.includes(f) && !usesFloat && (hyper || names.includes("hyperref") && names.indexOf("hyperref") < names.indexOf(f))) algorithm.afterHyperref = true
       if (names.includes("algorithm") || names.includes("float")) usesFloat = true
       if (names.includes("hyperref")) {
-        // (hyperref's titlesec patches: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's for starred titles)
-        if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) throw new Unsupported("hyperref after titlesec")
+        // (hyperref's titlesec patches when titlesec came first: \ttl@Hy@saveanchor's anchors, \ttl@Hy@steplink's)
+        if (titlesec || names.indexOf("titlesec") >= 0 && names.indexOf("titlesec") < names.indexOf("hyperref")) titlesecHyperref = true
         hyper = true
       }
       if (names.includes("nameref")) nameref = true
@@ -540,8 +554,9 @@ export function readPreamble(src: string): Preamble {
     return before + cmds.replace(/[^\n]/g, "")
   })
   if (/\\bibliography(?:style)?\b/.test(body)) throw new Unsupported("\\bibliography in a paragraph")
+  // natbib's \natexlab (\NAT@set@cites): its argument in author-year, nothing with numbers (the last run's)
+  if (natbib) { const numbers = natbibStyle(natbib, bibstyles).numbers; body = body.replace(/\\natexlab\s*\{([^{}]*)\}/g, numbers ? "" : "$1") }
   if (setspace && /\\(?:singlespacing|onehalfspacing|doublespacing|setstretch|begin\{(?:spacing|singlespace\*?|onehalfspace|doublespace)\})/.test(body)) throw new Unsupported("setspace's spacing in the document")
-  if (natbib && /\\begin\{thebibliography\}/.test(body)) throw new Unsupported("thebibliography with natbib")
   for (const [cmd, name, star] of operators) body = body.replace(new RegExp(`\\\\${cmd}(?![A-Za-z])`, "g"), () => `\\operatorname${star ? "*" : ""}{${name}}`)
   // a theorem environment: \begin{LXtheorem}{name}
   for (const name of thmDefs.keys()) body = body.replace(new RegExp(`\\\\begin\\{${name}\\}`, "g"), `\\begin{LXtheorem}{${name}}`).replace(new RegExp(`\\\\end\\{${name}\\}`, "g"), "\\end{LXtheorem}")
@@ -549,7 +564,7 @@ export function readPreamble(src: string): Preamble {
   if (/\\begin\{algorithmic\}/.test(body.replace(/\\begin\{algorithm\}[^]*?\\end\{algorithm\}/g, ""))) throw new Unsupported("algorithmic outside an algorithm float")
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book"), body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

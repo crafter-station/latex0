@@ -1,0 +1,15 @@
+% fixture: siunitx/units-emulated
+% tier: T3
+% engine: document
+% specials: compare
+% covers: siunitx's \celsius (\degreeCelsius) and the deprecated letter units it still defines (\bar, \barn, \knot, \mmHg, \nauticalmile, \atomicmassunit), alone, with prefixes, powers and \per, in quantities and in math
+% issue: #352
+\documentclass{article}
+\usepackage{siunitx}
+\begin{document}
+The bath was held at \SI{25.0}{\celsius} and then at \qty{-4}{\celsius}, read in \si{\celsius} and \unit{\celsius\per\second}.
+Pressures in \si{\bar}, \si{\milli\bar}, \SI{1013}{\hecto\bar} and \SI{760}{\mmHg}; cross sections in \si{\barn}
+and \si{\femto\barn}; speeds in \SI{12}{\knot} over \SI{3}{\nauticalmile}; masses in \si{\atomicmassunit},
+\si{\kilo\bar\per\square\metre} and \si{\barn\squared}.
+In math $T = \SI{300}{\celsius}$ and $p = \SI{2}{\bar}$.
+\end{document}

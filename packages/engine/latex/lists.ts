@@ -18,7 +18,7 @@ import { flushglue, sloppy, zeroskip } from "./kernel"
 import { groupStart, tabularStart } from "./source"
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
-import { anchor, labelName, linkTarget } from "./hyperref"
+import { anchor, hyperDriver, labelName, linkTarget } from "./hyperref"
 import { setgroup } from "./xcolor"
 import { crefWrites, hsizeOf, labelWrite, selectFont, type FontAttrs } from "./paragraph"
 import { leadingColor } from "./colors"
@@ -71,6 +71,9 @@ export function topCtx(cx: Ctx): EnvCtx {
  */
 export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   const { cls, enumitem, hyper, nameref, thmDefs } = cx.pre
+  // natbib's thebibliography (\bibitem[label]{key} only there)
+  const natbib = b.env === "thebibliography" && cx.pre.natbib ? cx.doc.natbib! : null
+  if (b.env === "thebibliography" && !natbib && b.labels?.some((l) => l !== null)) throw new Unsupported("\\bibitem[label]")
   const { counters, esphackNobreaks, lastNode, refs, romanFont, run, typeset, v } = cx
   if (b.env === "abstract") return abstract(cx, b, ctx)
   const outerLabel = refs.label, outerCref = refs.cleveref?.current ?? null // \@currentlabel is local to the environment (and cleveref's \cref@currentlabel)
@@ -135,11 +138,15 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     // (letter.cls: quotation keeps \parsep, verse indents 15pt)
     else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
     else if (b.env === "verse") { const ind = cls === "letter" ? 15 * 65536 : ems("1.5em"); itemsep = dimen(0); itemindent = -ind; listparindent = itemindent; rightmargin = leftmargin; leftmargin += ind }
-    else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
+    else if (b.env === "thebibliography" && natbib && !natbib.numbers) { // natbib's \NAT@bibsetup: \leftmargin\bibhang (1em at its load) \itemindent-\leftmargin
+      leftmargin = romanFont.params[QUAD]; itemindent = -leftmargin
+    } else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
       const w: Node[] = []
       appendText(w, `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
       labelwidth = hpack(w).width; leftmargin = labelwidth + run.k.dimens.labelsep
     }
+    // natbib's \@bibsetup: \itemsep\bibsep (\@listi's \itemsep and \parsep when it loaded) \parsep\z@
+    if (b.env === "thebibliography" && natbib) { itemsep = addGlue(run.k.glue["list1itemsep@normalsize"], run.k.glue["list1parsep@normalsize"]); parsep = dimen(0) }
   }
   const itemDepth = ctx.itemDepth + (b.env === "itemize" ? 1 : 0), enumDepth = ctx.enumDepth + (b.env === "enumerate" ? 1 : 0)
   const descDepth = (ctx.descDepth ?? 0) + (b.env === "description" ? 1 : 0)
@@ -233,8 +240,10 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   if (b.env === "center") { align = { leftSkip: flushglue("leftskip"), rightSkip: flushglue("rightskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
   else if (b.env === "flushleft") { atRightskip = filGlue(); align = { rightSkip: flushglue("rightskip") }; finalHyph = 0; parindent = 0 }
   else if (b.env === "flushright") { align = { leftSkip: flushglue("leftskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
-  // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m
-  const bib = b.env === "thebibliography" ? { ...sloppy(romanFont.params[QUAD]), clubPenalty: 4000, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
+  // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m (natbib's leaves
+  // \@clubpenalty, which \@item's \everypar sets)
+  const atClub = b.env === "thebibliography" && !natbib ? 4000 : run.k.ints.clubpenalty
+  const bib = b.env === "thebibliography" ? { ...sloppy(romanFont.params[QUAD]), clubPenalty: atClub, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
   const shape = { ...align, ...(parShape ? { parShape } : {}), ...(finalHyph !== undefined ? { finalHyphenDemerits: finalHyph } : {}), ...bib }
   const font = sizeFont
   const bold = loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at)
@@ -277,7 +286,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     if (given) frenchTextGuard(given)
     // (babel's otherlanguage over an item's paragraphs: what its end restores is not modeled in a list)
     if (parts.some((p) => p.kind === "text" && languageGroups(p.text).closed)) throw new Unsupported("otherlanguage over an item's paragraphs")
-    run.hyperItem = hyper && (b.env === "enumerate" || b.env === "thebibliography") // hyperref's \item: \if@nmbrlist
+    run.hyperItem = hyper && (b.env === "enumerate" || b.env === "thebibliography" && !natbib) // hyperref's \item: \if@nmbrlist (natbib's has no \usecounter)
     // \@item: before the first item \@beginparpenalty, \@topsep and -\parskip (right after a heading,
     // \@nbitem: \@outerparskip-\parskip); then \@itempenalty and \itemsep
     let club: number | undefined
@@ -344,7 +353,20 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       }
       if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
     } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, sourceText(given), font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
-    else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
+    else if (natbib) {
+      // natbib's \@lbibitem: \item[\hfil\NAT@anchor{key}{\NAT@num}], \NAT@num the run before's number for a [label]
+      // (none the first run), else \c@NAT@ctr; \NAT@anchor puts \@biblabel (\hfill, or numbers' [n]) when it has one
+      const key = b.keys![i], label = b.labels![i]
+      const num = label === null || label === "" ? String(i + 1) : refs.natCites?.get(key)?.num ?? ""
+      content = [filGlue(), filGlue()] // (\@mklab's \hfil)
+      // hyperref: \hyper@natanchorstart{key} (\Hy@raisedlink{\hyper@anchorstart{cite.key}}) before, \hyper@anchorend after
+      const a = hyper ? anchor(`cite.${key}`, run.k.sizes[ctx.size].baselineskip.width, "h", undefined) : []
+      const [begin, end] = hyperDriver.pdftex ? [a, []] : [a.slice(0, 3), a.slice(3)]
+      content.push(...begin)
+      if (num !== "" && natbib.numbers) appendText(content, `[${num}]`, font, { spaceFactor: 1000 }, false)
+      else if (num !== "") content.push(fillGlue())
+      content.push(...end)
+    } else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
       content = [filGlue()]
       const l = b.env === "thebibliography" ? `[${i + 1}]` : given
       if (l) appendText(content, sourceText(l), font, { spaceFactor: 1000 }, false)
@@ -382,7 +404,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         if (p.blank) v.par()
         if (run.noskipsec && !p.inPar) throw new Unsupported("a nested list after a run-in heading lost to a listing")
         // (the \clubpenalty in force: what the item's \everypar left, or before its first paragraph what was there)
-        const inForce = started ? itemClub ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty) : groupClub
+        const inForce = started ? itemClub ?? atClub : groupClub
         // (enumitem: \labelsep, \enit@outerparindent, \labelenum… and \labelitem…, \theenum…, and the list's group for resume)
         const labels = eit && b.env !== "description" ? { ...ctx.labels, [`${b.env === "enumerate" ? "enum" : "item"}${level}`]: eit.label ?? (b.env === "enumerate" ? `{${ENUM_LABELS[level - 1]}}` : null) } : ctx.labels
         return list(cx, p, { depth, itemDepth, enumDepth, totalLeft, lineWidth, parskip: parsep, parsep: trivial ? childParsep : parsep, itemsep, topsep, partopsep, labelwidth, size: ctx.size, atRightskip, finalHyph, enums: b.env === "enumerate" ? [...ctx.enums, counter] : ctx.enums, club: inForce,
@@ -407,7 +429,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       if (/^\s*(?:\\[A-Za-z]+(?![A-Za-z])\s*)+\{\\color(?![A-Za-z])/.test(p.text)) throw new Unsupported("a color group after declarations starting a paragraph")
       if (inGroup && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a group starting an item's paragraph here")
       // (later, where \@item's \everypar may still run in the group: the \clubpenalty from before must be \@clubpenalty)
-      if (inGroup && (p.start === "par" || p.start === "cr") && itemClub !== undefined && itemClub !== (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)) throw new Unsupported("a group starting an item's later paragraph here")
+      if (inGroup && (p.start === "par" || p.start === "cr") && itemClub !== undefined && itemClub !== atClub) throw new Unsupported("a group starting an item's later paragraph here")
       // (after a nested list, \@doendpe's \everypar runs in the group, and its \par clears all it set; after \\ the
       // push comes after \@centercr's skip, below)
       if (colorStart && (p.start === "label" || p.start === "doendpe")) p.text = leadingColor(cx, p.text)
@@ -437,9 +459,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
       if (p.start === "label") {
         // (footnotes read in a color group, and a leading tabular's p{width} entries, see what \@item's \everypar set
         // there; after it, the one from before)
-        const everyparClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
+        const everyparClub = club ?? atClub
         typeset(p.text, { start, ...shape, ...un, ...body, ...groups, ...(club && !grouped ? { clubPenalty: club } : grouped ? { clubPenalty: groupClub, noteClubPenalty: groupClub, ...{ leadGroupNoteClubPenalty: everyparClub } } : {}) }, parsep, size)
-        if (!grouped) groupClub = club ?? (b.env === "thebibliography" ? 4000 : run.k.ints.clubpenalty)
+        if (!grouped) groupClub = club ?? atClub
         // (\@item's \everypar ran in the group: after it, \clubpenalty is the one from before, and \everypar still \@item's)
         else itemClub = groupClub
       }
@@ -464,6 +486,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   })
   // \endtrivlist: the last item's \par, then \@endparenv
   v.endtrivlist(parsep, ctx.parskip, topsepadd, ctx.endparpenalty)
+  if (natbib) v.vskip(negate(v.lastSkip)) // \bibcleanup: \vskip-\lastskip
   // enumitem's \enit@endlist: resume's counter (enumerate) and keys after the group
   if (eit) ctx.scope?.set(b.env, { level: b.env === "description" ? descDepth : level, counter: b.env === "enumerate" ? counter : null, keys: eit.keys })
   refs.label = outerLabel
