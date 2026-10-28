@@ -578,12 +578,20 @@ const caption: FrameHandler = (cx, v, text) => {
   const box = hpack([colorPush(normal.fg), colorPush(normal.fg), colorPush(at.fg), colorPush(nameColors.fg), ...hlistInput(`${name}:`, k, nameSize, doc, SANS, state, true), colorPop(),
     ...hlistInput(`\\ ${a.arg.trim()}`, k, size, doc, SANS, state, true), colorPop(), colorPop(), colorPop()])
   const hsize = k.dimens.textwidth
-  if (box.width > hsize) throw new Unsupported("beamer: a caption wider than the frame")
   const skip = dimen(7 * 65536) // \abovecaptionskip and \belowcaptionskip
   v.nodes.push(penalty(10000), penalty(10000))
   v.vskip(skip)
   v.nodes.push(penalty(10000))
-  v.box(hpack([filGlue(), box, filGlue()], { exactly: hsize }), k.sizes.normalsize.baselineskip)
+  if (box.width <= hsize) v.box(hpack([filGlue(), box, filGlue()], { exactly: hsize }), k.sizes.normalsize.baselineskip)
+  else {
+    // wider: the template in vertical mode, then \par: the colors' pushes there, the paragraph (\@parboxrestore's
+    // \parskip and \leftskip zero and \sloppy, the template's \raggedright) from \insertcaptionname on, in the caption's
+    // size, the pops after it
+    v.nodes.push(colorPush(normal.fg), colorPush(at.fg), colorPush(nameColors.fg))
+    const name0 = hlistInput(`${name}:`, k, nameSize, doc, SANS, { spaceFactor: 1000 }, true)
+    addParagraph(cx, v, `\\ ${a.arg.trim()}`, { size, start: [...name0, colorPop()], leftskip: dimen(0), rightskip: k.glue.rightskip, sloppy: selectFont(k, "normalsize", SANS).params[QUAD] }, dimen(0))
+    v.nodes.push(colorPop(), colorPop())
+  }
   v.nodes.push(penalty(10000))
   v.vskip(skip)
   v.nodes.push(penalty(10000), penalty(10000))
