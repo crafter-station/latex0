@@ -123,7 +123,8 @@ export function makeDocument(r: () => number): string {
   const siNum = () => pick(["0.75", "12345", "1234", "-3.5", "+2", "1.2e3", "1.2e-3", "e5", ".5", "1,5", "1.74 \\pm 0.02", "1.23 +- 0.045", "1.5(2)", "3.45d-4", "100", "0", "1234567.89012", "-0", "42", "6.022e23", "1.5 \\pm 1.2"])
   const siUnit = () => pick(["\\metre", "\\second", "\\kilo\\gram", "\\metre\\per\\second", "\\metre\\per\\second\\squared", "\\square\\metre", "\\cubic\\centi\\metre", "\\degreeCelsius",
     "\\ohm", "\\kilo\\ohm", "\\micro\\metre", "\\percent", "\\joule\\per\\kilogram\\per\\kelvin", "\\newton\\metre", "\\degree", "\\arcminute", "\\hertz", "\\mA", "\\kWh", "\\dB",
-    "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us"])
+    "m/s", "kg.m/s^2", "\\volt\\ampere", "\\per\\second", "\\electronvolt", "\\milli\\litre", "\\metre\\tothe{3}", "\\us",
+    "\\celsius", "\\milli\\bar", "\\knot", "\\mmHg"])
   // its options: rounding, digit groups, markers and products, separate uncertainties, per-mode, phrases
   const siKeys = () => Array.from({ length: 1 + Math.floor(r() * 2) }, () => pick(["round-mode=places", "round-mode = places, round-precision = 1", "round-mode=figures, round-precision=3",
     "round-mode=places, round-pad=false, round-precision=3", "round-mode=places, round-zero-positive=false", "round-mode=figures, round-precision=1", "group-digits=none", "group-digits=integer",

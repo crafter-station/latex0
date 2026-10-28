@@ -154,6 +154,8 @@ const UNITS: Record<string, string> = {
   volt: "V", watt: "W", weber: "Wb", astronomicalunit: "au", bel: "B", dalton: "Da", day: "d", electronvolt: "eV", hectare: "ha",
   hour: "h", litre: "L", liter: "L", minute: "min", neper: "Np", tonne: "t", arcminute: "′", arcsecond: "″", degree: "°",
   percent: "%", bit: "bit", byte: "B",
+  // (siunitx-emulation: \celsius is \degreeCelsius; units the SI brochure dropped, still defined with a warning)
+  celsius: "°C", atomicmassunit: "u", bar: "bar", barn: "b", knot: "kn", mmHg: "mmHg", nauticalmile: "M",
 }
 const COMPOUNDS: Record<string, string> = {
   kilogram: "kilo gram", decibel: "deci bel",
