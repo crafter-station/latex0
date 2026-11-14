@@ -22,8 +22,10 @@ export class TocWriter {
   /** \addcontentsline{lof}{figure}{\protect\numberline{n}{\ignorespaces text}} (or lot): its \write */
   listLine(file: ListFile, number: string, source: string, anchor: string, ignorespaces = true): Node {
     const title = printTokens(source) // (as \protected@write prints it)
+    // (\, is robust, \x@protect: \protect\, in the \write's tokens, and \, in the file, where shipout's \protect is \noexpand)
+    const tokens = title.replace(/\\,/g, "\\protect \\,")
     // (\@caption's line starts with \ignorespaces; longtable's \LT@c@ption's has none)
-    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{${file}}{\\protect \\contentsline {${file === "lof" ? "figure" : "table"}}{\\protect \\numberline {${number}}{${ignorespaces ? "\\ignorespaces " : ""}${title}}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{${file}}{\\protect \\contentsline {${file === "lof" ? "figure" : "table"}}{\\protect \\numberline {${number}}{${ignorespaces ? "\\ignorespaces " : ""}${tokens}}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
     this.listWrites.push({ node, file, entry: { number, title, anchor } })
     return node
   }

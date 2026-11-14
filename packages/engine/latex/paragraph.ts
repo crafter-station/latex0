@@ -281,6 +281,8 @@ export interface ParagraphOptions {
   everyparNoindent?: boolean
   /** plain groups and font declarations read (no \everypar runs in them here) */
   groups?: boolean
+  /** restricted horizontal mode (an \hbox's list: no discretionary after a hyphen, no penalties in a formula) */
+  restricted?: boolean
   start?: Node[]; parShape?: [number, number][]; clubPenalty?: number
   /** the text font, when not the size's roman (a heading's \bfseries) */
   font?: FontRef
@@ -1769,7 +1771,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base, ...(opts.restricted ? { restricted: true } : {}) }
   if (opts.leadLanguageGroups && opts.leadGroupNoteClubPenalty !== undefined) {
     pctx.langGroups = { outer: opts.leadLanguageGroups, opened: 0, outerClub: pctx.noteClub }
     pctx.noteClub = opts.leadGroupNoteClubPenalty
