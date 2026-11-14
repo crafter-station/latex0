@@ -19,7 +19,8 @@ import { pgfSetDash, pgfSetFillColor, pgfSetLineWidth } from "./graphicstate"
 import { FUNCTIONS, reciprocal, type PgfMathCtx } from "./mathfunctions"
 import { TRIGONOMETRIC } from "./mathtrig"
 import { invoke, pgfPathClose, pgfPathCurveTo, pgfPathLineTo, pgfPathMoveTo, resetPathSizes } from "./paths"
-import { pgfPointNormalised, pointLineAtDistance, qpoint, setLength, type PgfPoint } from "./points"
+import { pgfPointNormalised, pgfPointPolar, pointLineAtDistance, qpoint, setLength, type PgfPoint } from "./points"
+import { pgfPathArc } from "./arcs"
 import { beginPgfScope, endPgfScope } from "./scopes"
 import type { PgfState, SoftPathItem } from "./state"
 import { mul, pgfLowLevelSyncCm, pgfTransformCm, pgfTransformReset, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformYScale } from "./transformations"
@@ -237,6 +238,167 @@ const META: Record<string, Kind> = {
       quickUse(s, d, "stroke")
     },
   },
+  // Tee Barb (439–520): a T, or with no length (Bar) an I
+  "Tee Barb": {
+    defaults: (s, p, late) => {
+      p.length = lineWidthDependent(s, "1.5pt", "2")
+      late.push(() => { p.width = lineWidthDependent(s, "3pt", "4") })
+      late.push(() => { p.inset = lengthDependent(s, p, "0.0pt", ".5", "0") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
+    },
+    key: (p) => `${tn(p.width)},${tn(p.length)},${tn(p.inset)},${tn(p.lineWidth)},${p.harpoon ? "h" : ""}${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`,
+    setup: (s, p, i) => {
+      s.space()
+      const halfLw = mul(".5", p.lineWidth)
+      let a = p.length - p.inset, swa = false
+      if (a < halfLw) { a = halfLw; swa = true }
+      let b = -p.inset, swb = false
+      if (b > -halfLw) { b = mul("-.5", p.lineWidth); swb = true }
+      savethe(s)
+      savethe(s)
+      savethe(s)
+      const tip = a + (p.roundCap && !swa ? halfLw : 0)
+      i.tip = tip
+      s.space()
+      s.space() // \pgfarrowssetvisualbackend
+      const back = b + (p.roundCap && !swb ? mul("-.5", p.lineWidth) : 0)
+      i.back = back
+      s.space()
+      i.line = p.reversed ? mul(".25", p.lineWidth) : mul("-.25", p.lineWidth)
+      upperHull(i, tip, mul(".5", p.width), p.harpoon)
+      upperHull(i, back, mul(".5", p.width), p.harpoon)
+      if (p.harpoon) i.hull.push({ x: halfLw, y: mul("-.5", p.lineWidth) })
+      return [p.width, a, b]
+    },
+    draw: (s, d, p, [width, a, b]) => {
+      s.space()
+      pgfSetDash(s, d, [], "+0pt")
+      const yc = s.lineWidth
+      if (p.lineWidth !== s.lineWidth) pgfSetLineWidth(s, d, `+${tn(p.lineWidth)}pt`)
+      d.cap(p.roundCap ? "round" : "butt")
+      d.join(p.roundJoin ? "round" : "miter")
+      const x = a + mul("-.5", p.lineWidth), y = b + mul(".5", p.lineWidth)
+      const top = mul(".5", width) + mul("-.5", p.lineWidth), bottom = mul("-.5", width) + mul(".5", p.lineWidth)
+      const move = (px: number, py: number) => { pgfPathMoveTo(s, q(px, py)); s.space() }
+      const line = (px: number, py: number, blank = true) => { pgfPathLineTo(s, q(px, py)); if (blank) s.space() }
+      if (x === y) {
+        // no bar atop the I
+        move(0, mul(".5", width))
+        line(0, p.harpoon ? mul("-.5", p.lineWidth) : mul("-.5", width))
+      } else if (a === mul(".5", p.lineWidth)) {
+        // a bar in one direction
+        move(b, top)
+        line(0, top)
+        if (p.harpoon) line(0, mul("-.5", yc), false)
+        else { line(0, bottom); line(b, bottom) }
+      } else {
+        move(b, top)
+        line(a, top)
+        move(0, top)
+        if (p.harpoon) line(0, mul("-.5", yc), false)
+        else { line(0, bottom); move(b, bottom); line(a, bottom) }
+      }
+      quickUse(s, d, "stroke")
+    },
+  },
+  // Hooks (221–331), its arc the initial 180°
+  Hooks: {
+    defaults: (s, p, late) => {
+      p.length = lineWidthDependent(s, "0.75pt", "1.25")
+      late.push(() => { p.width = lengthDependent(s, p, "0.0pt", "4", "-1") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
+    },
+    key: (p) => `${tn(p.lineWidth)},${tn(p.length)},${tn(p.width)},180,${p.harpoon ? "h" : ""}${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`,
+    setup: (s, p, i) => {
+      s.space()
+      const lw = p.lineWidth
+      if (p.harpoon) {
+        i.hull.push({ x: mul(".5", p.length), y: mul("-.5", lw) })
+        s.space()
+        i.hull.push({ x: p.length, y: mul("-.5", lw) + mul(".125", p.width) })
+        s.space()
+      }
+      upperHull(i, p.length, mul(".375", p.width), p.harpoon)
+      s.space()
+      upperHull(i, mul(".5", p.length), mul(".5", p.width), p.harpoon)
+      s.space()
+      const x0 = p.roundCap ? mul("-.5", lw) : 0
+      upperHull(i, x0, mul(".25", p.width), p.harpoon)
+      s.space()
+      upperHull(i, x0, mul(".5", p.width), p.harpoon)
+      s.space()
+      const length = p.length + mul("-.5", lw), width = p.width - lw
+      if (p.reversed && p.roundJoin) { i.back = mul("-.5", lw); s.space() }
+      i.tip = length + mul(".5", lw)
+      if (p.roundCap) i.back = mul("-.5", lw)
+      if (p.reversed) i.line = mul(".5", lw)
+      else if (p.harpoon) i.line = 0
+      else i.line = mul(".25", lw)
+      s.space()
+      for (let k = 0; k < 4; k++) savethe(s)
+      return [length, width]
+    },
+    draw: (s, d, p, [length, width]) => {
+      s.space()
+      pgfSetDash(s, d, [], "+0pt")
+      d.join(p.roundJoin ? "round" : "miter")
+      d.cap(p.roundCap ? "round" : "butt")
+      if (p.lineWidth !== s.lineWidth) pgfSetLineWidth(s, d, `+${tn(p.lineWidth)}pt`)
+      s.begingroup()
+      pgfTransformXScale(s, `+${tn(length)}pt`)
+      s.space()
+      pgfTransformYScale(s, `+${tn(mul(".25", width))}pt`)
+      s.space()
+      pgfPathMoveTo(s, () => { const pp = pgfPointPolar(s, "+90.0", "+1pt"); return { x: pp.x, y: pp.y + PT } })
+      s.space()
+      pgfPathArc(s, "90.0", "+-90", "+1pt", () => s.space())
+      s.space()
+      if (!p.harpoon) { pgfPathArc(s, "+90", "+-90.0", "+1pt", () => s.space()); s.space() }
+      s.endgroup()
+      s.space()
+      if (p.harpoon && p.reversed) { pgfPathLineTo(s, q(s.lineWidth, 0)); s.space() }
+      quickUse(s, d, "stroke")
+    },
+  },
+  // Implies (761–795): the tip of a double line
+  Implies: {
+    defaults: () => {},
+    key: (p) => tn(p.length),
+    setup: (s, _p, i) => {
+      s.space()
+      const xa = s.local.inner?.width ?? 0
+      const a = mul(".25", s.lineWidth) + mul(".25", xa)
+      const b = mul(".5", s.lineWidth) + mul("-.5", xa)
+      i.tip = mul("2.06", a) + mul(".5", b)
+      s.space()
+      i.back = mul("-1.36", a) + mul(".5", b)
+      s.space()
+      upperHull(i, mul("-1.4", a), mul("2.8", a))
+      s.space()
+      upperHull(i, mul("2", a), mul(".5", b))
+      s.space()
+      savethe(s)
+      savethe(s)
+      return [a, b]
+    },
+    draw: (s, d, _p, [a, b]) => {
+      s.space()
+      pgfTransformXShift(s, `${tn(mul(".06", a))}pt`)
+      s.space()
+      pgfSetLineWidth(s, d, `${tn(b)}pt`)
+      pgfSetDash(s, d, [], "+0pt")
+      d.cap("round")
+      d.join("round")
+      const pp = (fx: string, fy: string) => q(mul(fx, a), fy === "0" ? 0 : mul(fy, a))
+      pgfPathMoveTo(s, pp("-1.4", "2.65"))
+      s.space()
+      pgfPathCurveTo(s, pp("-0.75", "1.25"), pp("1", "0.05"), pp("2", "0"))
+      s.space()
+      pgfPathCurveTo(s, pp("1", "-0.05"), pp("-.75", "-1.25"), pp("-1.4", "-2.65"))
+      s.space()
+      quickUse(s, d, "stroke")
+    },
+  },
   // Latex (809–900)
   Latex: {
     defaults: (s, p, late) => {
@@ -393,7 +555,9 @@ export function pgfArrowsMeta(s: PgfState) {
   for (const k of Object.keys(META)) r.start[k] = k
   r.means.LaTeX = parseSpec(s, r, "Latex", false)
   r.means.To = parseSpec(s, r, "Computer Modern Rightarrow", false)
+  r.means.Bar = parseSpec(s, r, "Tee Barb[length=+0pt]", false)
   r.start.LaTeX = "LaTeX"
+  r.start.Bar = "Bar"
 }
 
 /**

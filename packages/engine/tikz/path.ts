@@ -105,6 +105,8 @@ const LABEL = "\\pgfextra@tikz@label"
 const TO_PATH = "\\tikz@to@path", TO_COMPUTE = "\\pgfextra@tikz@to@compute"
 /** \pgf@stop, which ends the labels \tikz@invoke@collected@onpath scans (2777–2783) */
 const STOP = "\\pgf@stop"
+/** \pgfextra{\tikz@atbegin@to} as a to path begins (3092) */
+const AT_BEGIN_TO = "\\pgfextra@tikz@atbegin@to"
 /** \pgfextra{\tikz@enable@edge@quotes} as a to path begins (3093) */
 const QUOTES = "\\pgfextra@tikz@quotes"
 /** tikz-cd's \pgfextra{\global\let\tikzcdmatrixname\tikzlastnode} after a diagram's matrix */
@@ -744,6 +746,7 @@ export class TikzPicture {
         case UPDATE: this.L.updatenext = true; this.L.updatecurrent = true; continue
         case TO_PATH: this.toPath(inp); continue
         case TO_COMPUTE: this.toCompute(inp); continue
+        case AT_BEGIN_TO: this.atBeginTo(); continue
         case QUOTES: if (this.tz.quotes) this.tz.keys.setValue(QUOTE_KEY, ["\\tikz@quote@parser"]); continue
         case CD_NAME: this.tz.cdMatrix = this.L.lastNode; continue
         case LABEL: this.L.isLabel = true; continue
@@ -1362,7 +1365,41 @@ export class TikzPicture {
     const { local, target, nodes } = this.toOrEdge(inp)
     // \tikz@do@to: the to path scanned in a group of its own, then the current point updated again
     this.L.to = { start, target, nodes }
-    inp.insert(["{", QUOTES, "[", ...chars("style=every to"), "]", "[", ...local, "]", TO_PATH, "}", UPDATE])
+    inp.insert(["{", AT_BEGIN_TO, QUOTES, "[", ...chars("style=every to"), "]", "[", ...local, "]", TO_PATH, "}", UPDATE])
+  }
+
+  /**
+   * \tikz@atbegin@to: tikz-cd's shifts (tikzlibrarycd.code.tex 165–200). The first one makes the to path's ends
+   * coordinates (a path of its own, `(start) <to path>` with a coordinate at each end, then the to path between
+   * them); each moves both coordinates to the left of the arrow by its amount.
+   */
+  private atBeginTo() {
+    const hooks = this.tz.st.atBeginTo
+    if (!hooks.length) return
+    const s = this.s
+    const A = "tikzcd@nodea", B = "tikzcd@nodeb"
+    const insert = () => this.moveto(new Input(["(", ...chars(A), ")"])) // \tikzset{insert path={(tikzcd@nodea)}}
+    hooks.forEach((h, k) => {
+      const to = this.L.to
+      if (!to) throw new Unsupported("tikz-cd: a shift outside a to path")
+      if (k === 0) {
+        // @shiftabletopath
+        this.begin()
+        this.L.to = { ...to, nodes: [...chars(`coordinate[pos=0,commutative diagrams/@starttransform/.try](${A}) coordinate[pos=1,commutative diagrams/@endtransform/.try](${B})`)] }
+        this.command(new Input(["\\path", " ", "(", ...to.start, ")", " ", TO_PATH, ";"]))
+        this.end()
+        this.L.to = { ...to, start: chars(A), target: chars(B) }
+        insert()
+      }
+      const a = pgfPointAnchor(s, A, "center"), b = pgfPointAnchor(s, B, "center")
+      const n = pgfPointNormalised(pgfPointDiff(b, a), s.units)
+      let r = this.checkUnit(h.amount)
+      // (a factor of the default shift, the key's .@def)
+      if (!r.units) r = this.checkUnit(chars(`${r.result}*+0.56ex`))
+      const shift = `[shift={(${r.result}*${pt(n.y)},-${r.result}*${pt(n.x)})}]`
+      for (const c of [A, B]) this.command(new Input(tokenize(`\\coordinate (${c}) at (${shift}${c});`)))
+      insert()
+    })
   }
 
   /** \tikz@to@use@last@coordinate (3103–3108): the node the last point was on, or the point */
