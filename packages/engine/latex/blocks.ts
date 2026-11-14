@@ -206,7 +206,7 @@ const TEXT_COMMANDS = [
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
   "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
-  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox", "scalebox", "reflectbox", "resizebox",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "textsubscript", "textsuperscript", "colorbox", "fcolorbox", "scalebox", "reflectbox", "resizebox",
   "og", "fg", "up", "fup", "ier", "iere", "iers", "ieres", "ieme", "iemes", "no", "No", "nos", "Nos"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */

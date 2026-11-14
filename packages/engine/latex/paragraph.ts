@@ -391,6 +391,8 @@ type Piece =
   | { kind: "scalebox"; x: string; y?: string; inner: Piece[] }
   | { kind: "resizebox"; star: boolean; width: string; height: string; inner: Piece[] }
   /** xcolor's \colorbox[model]{bg}{text} and \fcolorbox[model]{frame}[model]{bg}{text} */
+  /** \textsubscript{…} (`sub`) and \textsuperscript{…}: the text */
+  | { kind: "script"; sub: boolean; inner: Piece[] }
   | { kind: "colorbox"; model?: string; spec: string; frame?: { model?: string; spec: string }; inner: Piece[] }
   /** \parbox[pos][height][inner]{width}{text} */
   | { kind: "parbox"; pos: string; height: string | null; inner: string; width: string; src: string }
@@ -669,6 +671,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    // \textsubscript and \textsuperscript (a macro skips the spaces before its argument)
+    const scr = body.slice(i).match(/^\\text(sub|super)script(?![A-Za-z])\s*\{/)
+    if (scr) {
+      const open = i + scr[0].length - 1, j = closingBrace(body, open)
+      const inner = pieces(body.slice(open + 1, j), false, { groups: true, grouped: true })
+      flushText()
+      out.push({ kind: "script", sub: scr[1] === "sub", inner })
+      i = j + 1; continue
+    }
     // xcolor's \colorbox#1#{\color@box{#1}} and \fcolorbox (the model: what comes before the color's brace)
     const cb = body.slice(i).match(/^\\(colorbox|fcolorbox)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}(?:\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\})?\s*\{/)
     if (cb && (cb[1] === "fcolorbox") === (cb[5] !== undefined)) {
@@ -1197,6 +1208,24 @@ function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, 
 }
 
 /**
+ * \textsubscript and \textsuperscript (latex.ltx): \@textsubscript{\selectfont#1}, that is
+ * {\m@th\ensuremath{_{\mbox{\fontsize\sf@size\z@\selectfont#1}}}}: a formula with no \mathsurround whose only noad
+ * has an empty nucleus and the text, an \hbox in the current font at \sf@size, as its subscript (§ 1186: the box
+ * itself). \sf@size is the size's script size; the text is read at the size command of that size.
+ */
+function scriptPiece(list: Node[], p: Extract<Piece, { kind: "script" }>, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  const { k } = ctx
+  const sf = (Object.keys(k.sizes) as SizeCommand[]).find((s) => k.sizes[s].font.at === k.sizes[size].scriptSize)
+  if (!sf) throw new Unsupported(`\\text${p.sub ? "sub" : "super"}script at ${size}`)
+  const content: Node[] = []
+  appendPieces(content, p.inner, selectFont(k, sf, attrs), sf, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  const box = { kind: "box" as const, box: hpack(content) }
+  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: p.sub ? null : box, sub: p.sub ? box : null }], mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted)
+  list.push({ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 })
+  state.spaceFactor = 1000 // (after a formula, § 1196)
+}
+
+/**
  * graphics' \scalebox and \reflectbox: \Gscale@box on \hbox{{text}}. \resizebox: \mbox{text} for two !; else the text
  * in \@begin@tempboxa's \hbox, the sizes read with \width, \height, \depth and \totalheight its own (\setlength), the
  * factors \Gscale@div of each size by the box's width and height (\resizebox*: its height plus depth), a ! taking the
@@ -1313,6 +1342,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       else list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     }
     else if (p.kind === "box") boxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "script") scriptPiece(list, p, size, state, ctx, attrs)
     else if (p.kind === "colorbox") colorboxPiece(list, p, font, size, state, ctx, attrs)
     else if (p.kind === "scalebox" || p.kind === "resizebox") scaleboxPiece(list, p, font, size, state, ctx, attrs)
     else if (p.kind === "parbox") {
