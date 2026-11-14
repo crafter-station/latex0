@@ -18,7 +18,9 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
-import { squeeze, appendToVlist, crefWrites, hsizeOf, labelWrite, framed, mathEnv, mathText, paragraphInput, selectFont, spec, parseFormula, siContext, type FontAttrs, type ParagraphOptions } from "./paragraph"
+import { squeeze, appendToVlist, closingBrace, crefWrites, fontAt, hlistInput, hsizeOf, labelWrite, framed, mathEnv, mathFonts, mathText, paragraphInput, selectFont, spec, parseFormula, siContext, type FontAttrs, type ParagraphOptions } from "./paragraph"
+import type { CrefLabel } from "./cleveref"
+import type { ParagraphTrace } from "../trace/decisions"
 import type { MathText } from "../mathlayout/parse"
 import type { GlueSpec } from "../layout/dimen"
 import type { SizeCommand } from "../layout/classdata"
@@ -75,7 +77,7 @@ export function paragraphWithDisplays(cx: Ctx, text: string, noindent: boolean, 
     if (!next) return
     // the display
     const ps = params ?? paragraphInput("", run.k, "normalsize", doc, { amsmath }).params
-    displayMath(cx, next, displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape), justBox, font)
+    displayMath(cx, next, displayLine(prevGraf, ps.hsize, ps.hangIndent, ps.hangAfter, ps.parShape), justBox, font, {}, ps.hangIndent === 0 && !ps.parShape.length ? { clubPenalty: club } : null)
     prevGraf += 3
   })
 }
@@ -117,6 +119,205 @@ function splitTop(src: string, sep: "\\\\" | "&"): string[] {
 }
 const si = (cx: Ctx, font: Font) => (cx.doc.siunitx ? siContext(cx.run.k, "normalsize", font, cx.doc.siunitx) : undefined)
 
+/** What a row of an alignment says about its tag, taken out of its source: \label{key} (\label@in@display: \gdef\df@label),
+ *  \tag{…} and \tag*{…} (\tag@in@align: \global\tag@true, \nonumber, \gdef\df@tag) and \nonumber or \notag
+ *  (\global\@eqnswfalse). They act globally from wherever they stand in the row and make no node. */
+interface RowMarks { src: string; label: string | null; tag: { star: boolean; src: string } | null; nonumber: boolean }
+function rowMarks(row: string, where: string): RowMarks {
+  const m: RowMarks = { src: "", label: null, tag: null, nonumber: false }
+  const re = /\\(label|tag|nonumber|notag)(?![A-Za-z@])/g
+  let at = 0
+  for (let x: RegExpExecArray | null; (x = re.exec(row)); ) {
+    if (row[x.index - 1] === "\\") continue // (\\ before it: rows are split there, so this is not reached)
+    m.src += row.slice(at, x.index)
+    at = x.index + x[0].length
+    if (x[1] === "nonumber" || x[1] === "notag") { m.nonumber = true; re.lastIndex = at; continue }
+    let j = at
+    const star = x[1] === "tag" && row[j] === "*"
+    if (star) j++
+    while (row[j] === " " || row[j] === "\n") j++
+    if (row[j] !== "{") throw new Unsupported(`\\${x[1]} without a braced argument in ${where}`)
+    const end = closingBrace(row, j), arg = row.slice(j + 1, end)
+    if (x[1] === "label") {
+      if (m.label !== null) throw new Unsupported(`several \\label in a row of ${where}`) // (amsmath's error: the first is lost)
+      if (!/^[A-Za-z0-9:._-]+$/.test(arg)) throw new Unsupported(`\\label{${arg}}`)
+      m.label = arg
+    } else {
+      if (m.tag) throw new Unsupported(`several \\tag in a row of ${where}`)
+      m.tag = { star, src: arg }
+    }
+    at = end + 1; re.lastIndex = at
+  }
+  m.src += row.slice(at)
+  return m
+}
+
+/**
+ * \make@display@tag, the tag of a row of an align or gather, or of a multline. A numbered one steps the counter
+ * (\incr@eqnum) and prints \tagform@\theequation; a \tag prints \df@tag: \tagform@{…}, or for \tag* \maketag@@@{…},
+ * an \hbox{\m@th\normalfont …}, with \@currentlabel what it reads; then the \label (\ltx@label\df@label), after the
+ * tag's box. hyperref puts the counter's anchor before the number (after `last`, raised by `raise`, the \baselineskip
+ * there), and \Hy@make@anchor, an anchor AMS.<\Hy@linkcounter> after the parenthesis, in a \tag (the measuring pass
+ * set every \tag of the display once already, stepping the counter: `measuredTags`).
+ */
+const measuredTags = (cx: Ctx, rows: { marks: RowMarks }[]) => { if (cx.pre.hyper) cx.run.linkcounter += rows.filter((r) => r.marks.tag).length }
+/** the tag column's cell of an align or gather row: \setboxz@h{\strut@{\make@display@tag}} */
+function rowTag(cx: Ctx, m: RowMarks, numbered: boolean, strutBox: () => BoxNode, noTags = false): BoxNode {
+  const s = strutBox()
+  return hpack([s, ...displayTag(cx, m, numbered, () => ({ raise: cx.run.k.sizes.normalsize.baselineskip.width + cx.run.k.dimens.jot, last: s }), noTags)]) // (\baselineskip after \openup\jot)
+}
+/** `place`, given the tag's width, says where it goes: the \baselineskip there and the node before it */
+function displayTag(cx: Ctx, m: RowMarks, numbered: boolean, place: (width: number) => { raise: number; last: Node }, noTags = false): Node[] {
+  const { hyper } = cx.pre
+  const { counters, refs, romanFont, run } = cx
+  const out: Node[] = []
+  let label = refs.label, cref: CrefLabel | null | undefined = undefined
+  if (numbered) {
+    counters.equation++
+    refs.href = stepHref(cx, "equation", counters.equation)
+    const l: Node[] = []
+    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
+    l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
+    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
+    // hyperref: the anchor between the strut and the number
+    const box = hpack(l), at = place(box.width)
+    if (hyper) out.push(...anchor(refs.href, at.raise, "h", at.last))
+    out.push(box)
+    label = counters.the("equation", counters.equation)
+    cref = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label }
+  } else if (m.tag) {
+    const a: FontAttrs = { enc: cx.pre.t1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
+    if (selectFont(run.k, "normalsize", a).name !== romanFont.name) throw new Unsupported("\\tag in a document whose \\normalfont is not roman")
+    const body = m.tag.src.replace(/\s+/g, " ").trim() // \ignorespaces … \unskip
+    if (/\\(label|footnote|tag)(?![A-Za-z])/.test(body)) throw new Unsupported("\\label, \\footnote or \\tag in a \\tag")
+    const st = { spaceFactor: 1000 }
+    const open: Node[] = []
+    let l: Node[]
+    if (hyper) {
+      refs.href = `AMS.${++run.linkcounter}`
+      if (!m.tag.star) appendText(open, "(", romanFont, st, false)
+      l = hlistInput(body, run.k, "normalsize", cx.doc, a, st, true)
+    } else l = hlistInput((m.tag.star ? "" : "(") + body, run.k, "normalsize", cx.doc, a, st, true)
+    if (!m.tag.star) {
+      const tail = l[l.length - 1] ?? open[open.length - 1]
+      if (tail?.kind === "char") l.push(kern(fontAt(tail.font, tail.size).chars.get(tail.char)!.italic, true)) // \@@italiccorr
+      appendText(l, ")", romanFont, st, false)
+    }
+    // (the anchor has no width: where the tag goes, which sets how far the anchor is raised, depends on the width only)
+    const at = place(hpack([...open, ...l]).width)
+    out.push(hpack(hyper ? [...open, ...anchor(refs.href, at.raise, "h", open[open.length - 1]), ...l] : l))
+    if (m.label !== null && !/^[^\\{}$#%&~^_]*$/.test(body)) throw new Unsupported(`\\label of a row with \\tag{${body}}`)
+    // \make@df@tag@@@: \toks@\@xp{\p@equation{#1}}\edef\@currentlabel{\the\toks@}, the braces kept; \tag*: \def\@currentlabel{#1}
+    label = m.tag.star ? body : `{${body}}`
+    cref = { type: "equation", arabic: 2147483647, prefix: "", label } // cleveref's \make@df@tag@@@
+  }
+  if (m.label !== null) {
+    // a row with no tag (gather's): \@currentlabel is the one outside the display, \@currentHref (global) the last one
+    // set, by a tag of the display in the measuring pass or in a row before; only a display with no tag at all is modelled
+    if (cref === undefined && (refs.cleveref || !noTags)) throw new Unsupported("\\label in a row with no tag")
+    out.push(labelWrite(refs, m.label, label), ...(cref ? crefWrites(refs, m.label, true, cref) : []))
+  }
+  return out
+}
+
+/** \intertext{…} or mathtools' \shortintertext{…} between the rows of an alignment */
+interface Intertext { text: string; short: boolean }
+type RowOrText = { row: string } | Intertext
+/** An alignment's source as its rows (split at \\) and the \intertext between them; an \intertext ends the row it
+ *  stands in (\ifvmode\else\\\@empty\fi) */
+function rowsAndTexts(src: string, where: string): RowOrText[] {
+  const out: RowOrText[] = []
+  const chunks: (string | Intertext)[] = []
+  let depth = 0, start = 0
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (c === "{") depth++
+    else if (c === "}") depth--
+    else if (c === "\\") {
+      const x = src.slice(i).match(/^\\(short)?intertext(?![A-Za-z@])\s*(?=\{)/)
+      if (!x) { const env = src.slice(i).match(/^\\(begin|end)\s*\{/); if (env) depth += env[1] === "begin" ? 1 : -1; i++; continue }
+      if (depth !== 0) throw new Unsupported(`\\intertext inside a group or an environment in ${where}`)
+      const open = i + x[0].length, end = closingBrace(src, open)
+      chunks.push(src.slice(start, i), { text: src.slice(open + 1, end), short: !!x[1] })
+      start = end + 1; i = end
+    }
+  }
+  chunks.push(src.slice(start))
+  chunks.forEach((ch, i) => {
+    if (typeof ch !== "string") { out.push(ch); return }
+    const rows = splitTop(ch, "\\\\")
+    const last = i === chunks.length - 1
+    if (!last && !rows[rows.length - 1].trim()) rows.pop() // the \\ before an \intertext (in vertical mode it adds none)
+    else if (last && chunks.length > 1 && !rows[rows.length - 1].trim()) throw new Unsupported(`${where} ending with \\intertext`)
+    for (const row of rows) out.push({ row })
+  })
+  return out
+}
+
+/**
+ * An \intertext's \vbox{\normalbaselines \noindent\ignorespaces text\par}: a paragraph of the text around the display.
+ * `par` is what that paragraph's surroundings set, null where they are not modelled (a \parshape or a hanging
+ * indentation in force, a text font not the roman one). amsmath's \measure@ and \gmeasure@ set the rows once before
+ * the alignment itself, the \intertext with them, so each is broken twice: its trace is noted here and again where it
+ * is put (`rowsToVlist`). In the measuring pass \label is \@gobble, in the alignment \label@in@display.
+ */
+function intertextBox(cx: Ctx, it: Intertext, par: ParagraphOptions | null, skips: Skips, where: string): { box: BoxNode; trace: ParagraphTrace } {
+  const { run, doc, decisions } = cx
+  const name = it.short ? "\\shortintertext" : "\\intertext"
+  if (it.short && !mathFonts.packages.mathtools) throw new Unsupported("\\shortintertext without mathtools")
+  if (!par) throw new Unsupported(`${name} in ${where} in a shaped paragraph or in a font not roman`)
+  if (skips.leftSkip || skips.rightSkip) throw new Unsupported(`${name} in ${where} in \\centering or a ragged paragraph`)
+  if (/\\(label|footnote|footnotetext|footnotemark|begin|par|\\|\[)(?![A-Za-z])|\$\$|\n[ \t]*\n/.test(it.text)) throw new Unsupported(`\\label, a footnote, an environment or a second paragraph in ${name}`)
+  const p = paragraphInput(squeeze(it.text), run.k, "normalsize", doc, { ...par, start: [], amsmath: true })
+  if (p.notes.length) throw new Unsupported(`a footnote in ${name}`)
+  const lb = lineBreak(p.list, p.params)
+  decisions.push(lb.trace)
+  const list: Node[] = [], sz = run.k.sizes.normalsize
+  let depth: number | null = IGNORE_DEPTH
+  for (const n of lb.vlist) { // (\normalbaselines)
+    if (n.kind === "hlist") depth = appendToVlist(list, n, depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
+    else list.push(n)
+  }
+  return { box: vpack(list), trace: lb.trace }
+}
+
+/**
+ * The rows of an align or gather on the vertical list (§ 1206: an alignment in a display), with \openup\jot and amsmath's
+ * \everycr: \predisplaypenalty and \abovedisplayskip; after the preamble's \cr \vskip-\lineskiplimit
+ * \vskip\normallineskiplimit; each row, then \penalty\@eqpen (\interdisplaylinepenalty, \@M) and \\'s \vskip\z@.
+ * An \intertext is \noalign material: \penalty\postdisplaypenalty \vskip\belowdisplayskip, the text's \vbox,
+ * \penalty\predisplaypenalty \vskip\abovedisplayskip. mathtools' own (\MT_intertext:) has after each of the two
+ * skips \vskip-\lineskiplimit \vskip\normallineskiplimit and \vskip of its above- and below-intertext-sep (0pt);
+ * its \shortintertext is the same with \abovedisplayshortskip for both skips and 3pt for both seps.
+ * `after` is what follows the last row (\black@), before \postdisplaypenalty and \belowdisplayskip.
+ */
+function rowsToVlist(cx: Ctx, seq: (BoxNode | { box: BoxNode; trace: ParagraphTrace; short: boolean })[], indent: number, after: () => void) {
+  const { run, v, decisions } = cx
+  const sz = run.k.sizes.normalsize
+  const jot = 196608
+  const skip = (g: GlueSpec) => glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)
+  const limits = () => [glue(-(run.k.dimens.lineskiplimit + jot)), glue(run.k.dimens.normallineskiplimit)]
+  const mt = !!mathFonts.packages.mathtools
+  v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
+  v.nodes.push(...limits())
+  const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
+  for (const rb of seq) {
+    if ("kind" in rb) {
+      rb.display = true; rb.shift = indent
+      v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
+      v.nodes.push(penalty(10000), glue(0)) // \interdisplaylinepenalty is \@M in amsmath; \\ adds \vskip\z@
+      continue
+    }
+    const sep = rb.short ? [glue(196608)] : [glue(0)]
+    v.nodes.push(penalty(run.k.ints.postdisplaypenalty), skip(rb.short ? sz.abovedisplayshortskip : sz.belowdisplayskip), ...(mt ? [...limits(), ...sep] : []))
+    decisions.push(rb.trace)
+    v.prevDepth = appendToVlist(v.nodes, rb.box, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
+    v.nodes.push(penalty(run.k.ints.predisplaypenalty), skip(rb.short ? sz.abovedisplayshortskip : sz.abovedisplayskip), ...(mt ? [...limits(), ...sep.map((g) => ({ ...g }))] : []))
+  }
+  after()
+  v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+}
+
 function stepHref(cx: Ctx, counter: string, n: number): string {
   return cx.run.hyperItem && cx.pre.amsmath ? `Item.${++cx.run.items}` : cx.counters.href(counter, n)
 }
@@ -135,6 +336,11 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
   const segs = displaySegments(text)
   const font = selectFont(run.k, size, opts.attrs ?? cx.normalAttrs)
   let prevGraf = 0
+  // what a paragraph inside a display (an \intertext) keeps of this one: its penalties; with a \parshape that is not
+  // the whole width (a list's), a hanging indentation or another font, not modelled
+  const whole = (opts.parShape ?? []).every(([indent, width]) => indent === 0 && width === hsizeOf(run.k))
+  const inner: ParagraphOptions | null = whole && !opts.hangIndent && !opts.attrs && !opts.font
+    ? { ...(opts.clubPenalty !== undefined ? { clubPenalty: opts.clubPenalty } : {}), ...(opts.interLinePenalty !== undefined ? { interLinePenalty: opts.interLinePenalty } : {}) } : null
   segs.forEach((seg, i) => {
     if (typeof seg !== "string") return
     const first = i === 0, last = i === segs.length - 1
@@ -148,7 +354,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
       ...(last ? { ...(end ? { end } : {}), ...(unskip ? { unskip } : {}) } : { widowPenalty: run.k.ints.displaywidowpenalty }) }
     if (last && !t && !end) return // (an empty paragraph after the display makes no line)
     if (!first && !last && !t) { // two displays in a row: the second starts with an empty list (§ 1145: no line break)
-      displayMath(cx, next!, displayLine(prevGraf, hsizeOf(run.k), 0, 1, opts.parShape ?? []), null, font, skipsOf(opts))
+      displayMath(cx, next!, displayLine(prevGraf, hsizeOf(run.k), 0, 1, opts.parShape ?? []), null, font, skipsOf(opts), inner)
       prevGraf += 3
       return
     }
@@ -158,7 +364,7 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
     if (first) v.paragraph(lb.vlist, parskip, run.k.sizes[size].baselineskip); else v.lines(lb.vlist)
     prevGraf += lb.lines.length
     if (next) {
-      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, font, skipsOf(opts))
+      displayMath(cx, next, displayLine(prevGraf, params.hsize, params.hangIndent, params.hangAfter, params.parShape), lb.lines[lb.lines.length - 1] ?? null, font, skipsOf(opts), inner)
       prevGraf += 3
     }
   })
@@ -166,18 +372,18 @@ export function listParagraphWithDisplays(cx: Ctx, text: string, opts: Paragraph
 
 /** A display (§§ 1145–1206) on line prev_graf+2 of the paragraph (`line`), after `justBox`, its last line so far;
  *  `font`: the text font then, whose \fontdimen6 \predisplaysize allows for */
-function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, font: Font, skips: Skips = {}) {
+function displayMath(cx: Ctx, next: Display, line: { width: number; indent: number }, justBox: BoxNode | null, font: Font, skips: Skips = {}, par: ParagraphOptions | null = null) {
   const quad = font.params[QUAD]
   const { amsmath, hyper } = cx.pre
   // amsmath's \iftag@ after it: \mathdisplay (equation, \[ \]) and \displ@y@'s \everycr (align, gather) leave it false,
   // a numbered multline's \mmeasure@ true; $$ leaves it alone
-  if (amsmath && next.kind !== "dollars") cx.run.tagFlag = next.kind === "multline" && !/\\(nonumber|notag)\b/.test(next.src)
+  if (amsmath && next.kind !== "dollars") cx.run.tagFlag = next.kind === "multline" && !/\\(nonumber|notag)\b/.test(next.src) || next.kind.startsWith("multline") && /\\tag(?![A-Za-z@])/.test(next.src)
   const { counters, refs, romanFont, run, v } = cx
-  if (next.kind === "align" || next.kind === "align*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
+  if (next.kind === "align" || next.kind === "align*" || next.kind === "alignat" || next.kind === "alignat*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
-    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips)
+    if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips, par)
     else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, font)
-    else alignDisplay(cx, next, line, font, skips)
+    else alignDisplay(cx, next, line, font, skips, par)
     return
   }
   // \label{key}: \protected@write\@auxout{}{\string\newlabel{key}{{\@currentlabel}{\thepage }{}{\@currentHref}{}}}.
@@ -244,56 +450,65 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
  * amsmath's align and align* (\start@align\@ne, \align@, \measure@, \calc@shift@align,
  * \math@cr@@@align, \place@tag): fields alternate right- and left-aligned, the whole is centred
  * by \eqnshift@ with \alignsep@ between column pairs, and each row's number is set off at the
- * right edge. TeX finishes it as an alignment in a display (§ 1206).
+ * right edge. TeX finishes it as an alignment in a display (§ 1206). alignat and alignat* (\start@align\z@) are the
+ * same with no space between the column pairs, as many pairs as declared. A row's \tag, \label and \notag are in its
+ * tag (`rowTag`); \intertext goes between the rows (`rowsToVlist`).
  */
-export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}) {
+export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}, par: ParagraphOptions | null = null) {
   const em = font.params[QUAD]
-  const { amsmath, hyper } = cx.pre
-  const { counters, decisions, doc, refs, romanFont, run, v } = cx
-  const starred = d.kind === "align*"
+  const { amsmath } = cx.pre
+  const { decisions, doc, run, v } = cx
+  const starred = d.kind.endsWith("*")
   let src = d.src.trim()
+  // alignat's argument, the number of column pairs (\start@align\z@: \maxfields@ twice it, \checkat@true)
+  const at = d.kind.startsWith("alignat") ? src.match(/^\{\s*(\d+)\s*\}/) : null
+  if (d.kind.startsWith("alignat")) {
+    if (!at || +at[1] < 1) throw new Unsupported(`${d.kind} without its number of columns`)
+    src = src.slice(at[0].length)
+  }
   if (/\\\\\s*$/.test(src)) throw new Unsupported("align ending with \\\\")
-  if (/\\(label|tag|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in align")
+  if (/\\raisetag\b/.test(src)) throw new Unsupported("\\raisetag in align")
   const env = mathEnv(run.k, "normalsize", true)
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
   const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) })
-  const rows = splitTop(src, "\\\\").map((r) => {
-    const numbered = !starred && !/\\(nonumber|notag)\b/.test(r)
-    const fields = splitTop(r.replace(/\\(nonumber|notag)\b/g, ""), "&").map((f, j) => {
-      const items = parse(f)
-      // \setboxz@h{\@lign$\m@th\displaystyle{##}$} and {{}##} for the left-aligned fields
-      return mathBox([{ noad: ORD_NOAD, nucleus: groupField(j % 2 ? [{ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, ...items] : items), sup: null, sub: null }])
-    })
-    return { fields, numbered }
+  const field = (f: string, j: number) => {
+    const items = parse(f)
+    // \setboxz@h{\@lign$\m@th\displaystyle{##}$} and {{}##} for the left-aligned fields
+    return mathBox([{ noad: ORD_NOAD, nucleus: groupField(j % 2 ? [{ noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null }, ...items] : items), sup: null, sub: null }])
+  }
+  const seq = rowsAndTexts(src, d.kind)
+  const texts = seq.map((x) => ("row" in x ? null : { ...intertextBox(cx, x, par, skips, d.kind), short: x.short })) // (\measure@ sets them first)
+  const rows = seq.flatMap((x) => ("row" in x ? [x.row] : [])).map((row) => {
+    const marks = rowMarks(row, d.kind)
+    // \math@cr@@@align: a row has a tag when it is numbered (\if@eqnsw) or has a \tag (\iftag@)
+    const numbered = !starred && !marks.nonumber && !marks.tag
+    // (a row with neither never runs \make@display@tag: its \label stays in \df@label for the next row that does)
+    if (marks.label !== null && !numbered && !marks.tag) throw new Unsupported(`\\label in a row of ${d.kind} with no tag`)
+    const fields = splitTop(marks.src, "&").map(field)
+    return { fields, numbered, marks, tagged: numbered || !!marks.tag }
   })
   const z = line.width
   const sz = run.k.sizes.normalsize, strut = sz.strut
   const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
   // tags: \strut@ and (n) in \maketag@@@, numbered in row order
-  const tags = rows.map((r) => {
-    if (!r.numbered) return hpack([strutBox()])
-    counters.equation++
-    refs.href = stepHref(cx, "equation", counters.equation)
-    const l: Node[] = []
-    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
-    const last = l[l.length - 1] as CharNode
-    l.push(kern(romanFont.chars.get(last.char)!.italic, true)) // \@@italiccorr
-    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
-    // hyperref: the anchor between the strut and the number, at \baselineskip plus \jot
-    if (hyper) { const s = strutBox(); return hpack([s, ...anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
-    return hpack([strutBox(), hpack(l)])
-  })
+  measuredTags(cx, rows)
+  const tags = rows.map((r) => rowTag(cx, r.marks, r.numbered, strutBox))
   // \measure@
   let maxfields = Math.max(...rows.map((r) => r.fields.length))
+  if (at) {
+    if (maxfields > 2 * +at[1]) throw new Unsupported(`more columns in ${d.kind} than it declares`) // (amsmath's error: Extra & on this line)
+    maxfields = 2 * +at[1]
+  }
   if (maxfields % 2) maxfields++
   const colW = Array.from({ length: maxfields }, (_, j) => Math.max(0, ...rows.map((r) => r.fields[j]?.width ?? 0)))
   const totwidth = colW.reduce((a, b) => a + b, 0)
   const div = (a: number, b: number) => Math.trunc(a / b)
-  const minalignsep = 655360
+  const minalignsep = at ? 0 : 655360 // (\measure@, \xatlevel@ 0: \let\minalignsep\z@)
   const mintagsep = xnOverD(env.fonts[0][2]!.params[QUAD], 32768, 65536)
-  let tempcntb = maxfields / 2, tempcnta = tempcntb
-  tempcntb -= 1; tempcnta += 1
-  let eqnshift = div(z - totwidth, tempcnta), alignsep = eqnshift
+  // \xatlevel@ 1 (align): the space is shared between the margins and the column pairs; 0 (alignat): no space between
+  // the pairs, the rest halved
+  const tempcntb = at ? 0 : maxfields / 2 - 1, tempcnta = at ? 2 : maxfields / 2 + 1
+  let eqnshift = div(z - totwidth, tempcnta), alignsep = at ? 0 : eqnshift
   if (alignsep < minalignsep) { alignsep = minalignsep; if (eqnshift > 0) eqnshift = div(z - totwidth - tempcntb * alignsep, 2) }
   if (eqnshift < 0) eqnshift = 0
   // \calc@shift@align (tags on the right, not fleqn), last row first; a tag that does not fit beside its
@@ -329,12 +544,11 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   const cells = rows.map((r, ri) => {
     const row: Node[][] = []
     for (let j = 0; j < maxfields; j++) {
-      const f = r.fields[j]
-      if (!f) { row.push(j % 2 ? [filGlue()] : [filGlue(), strutBox()]); continue } // \add@amps: empty fields
+      const f = r.fields[j] ?? field("", j) // \add@amps: the fields a row leaves out are set too, empty
       row.push(j % 2 ? [f, filGlue()] : [filGlue(), strutBox(), f])
     }
     const tagCol: Node[] = [kern(-alignsep, true)]
-    if (r.numbered && shifted[ri]) {
+    if (r.tagged && shifted[ri]) {
       // \place@tag: \llap{\vtop{\normalbaselines \setbox\@ne\null \dp\@ne\lineht@ \box\@ne \boxz@}}, \lineht@
       // the deepest field of the row (\set@field; \math@cr@@@align resets it after each row)
       // (\measure@'s rows never reset it: the first row starts from the deepest field of them all)
@@ -345,23 +559,15 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
       const vt = vpack(list)
       vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
       tagCol.push(kern(-tagshift, true), hpack([ssGlue(), vt], { exactly: 0 }))
-    } else if (r.numbered) tagCol.push(kern(-tagshift, true), hpack([ssGlue(), tags[ri]], { exactly: 0 }))
+    } else if (r.tagged) tagCol.push(kern(-tagshift, true), hpack([ssGlue(), tags[ri]], { exactly: 0 }))
     row.push(tagCol)
     return row
   })
   const tabskip = [paramGlue("tabskip", glue(eqnshift))]
   for (let j = 0; j <= maxfields; j++) tabskip.push(paramGlue("tabskip", glue(j % 2 ? alignsep : 0)))
   const rowBoxes = halign(cells.map((r) => r.map((c) => c)), tabskip, { additional: 0 })
-  // § 1206, with \openup\jot and amsmath's \everycr
-  v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
-  const jot = 196608
-  v.nodes.push(glue(-(run.k.dimens.lineskiplimit + jot)), glue(run.k.dimens.normallineskiplimit))
-  const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
-  for (const rb of rowBoxes) {
-    rb.display = true; rb.shift = line.indent
-    v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
-    v.nodes.push(penalty(10000), glue(0)) // \interdisplaylinepenalty is \@M in amsmath; \\ adds \vskip\z@
-  }
+  let nrow = 0
+  rowsToVlist(cx, texts.map((t) => t ?? rowBoxes[nrow++]), line.indent, () => {
   // \black@\totwidth@ after the last row: an align wider than the display shows its width in a
   // \noalign{\nointerlineskip \vskip-\ht\strutbox@ \vskip-\dp\strutbox@ \vbox{\noindent
   // \hbox to\displaywidth{\hbox to\totwidth@{\strut@\hfill}}} \prevdepth restored}
@@ -374,7 +580,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
     decisions.push(lb.trace)
     v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))
   }
-  v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+  })
 }
 
 /**
@@ -383,42 +589,46 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
  * less the tag's width when that is tight), its number set off at the right edge, or below the row when it does not
  * fit; an \halign to \displaywidth finished as an alignment in a display (§ 1206), as align is.
  */
-export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}) {
+export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}, par: ParagraphOptions | null = null) {
   const em = font.params[QUAD]
-  const { amsmath, hyper } = cx.pre
-  const { counters, decisions, doc, refs, romanFont, run, v } = cx
+  const { amsmath } = cx.pre
+  const { decisions, doc, run, v } = cx
   const starred = d.kind === "gather*"
   const src = d.src.trim()
   if (/\\\\\s*$/.test(src)) throw new Unsupported("gather ending with \\\\")
-  if (/\\(label|tag|intertext|shortintertext|raisetag)\b/.test(src)) throw new Unsupported("\\label, \\tag or \\intertext in gather")
+  if (/\\raisetag\b/.test(src)) throw new Unsupported("\\raisetag in gather")
   if (splitTop(src, "&").length > 1) throw new Unsupported("& in gather")
   const env = mathEnv(run.k, "normalsize", true)
   const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) })
   const sz = run.k.sizes.normalsize, strut = sz.strut
   const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
   // \setboxz@h{$\m@th\displaystyle{##}$}
-  const rows = splitTop(src, "\\\\").map((r) => ({
-    numbered: !starred && !/\\(nonumber|notag)\b/.test(r),
-    box: hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, { noad: ORD_NOAD, nucleus: groupField(parse(r.replace(/\\(nonumber|notag)\b/g, ""))), sup: null, sub: null }], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }]),
-  }))
-  // the tag column: \setboxz@h{\strut@{##}}, ## \make@display@tag's (n) in \maketag@@@, numbered in row order
-  const tags = rows.map((r) => {
-    if (!r.numbered) return hpack([strutBox()])
-    counters.equation++
-    refs.href = stepHref(cx, "equation", counters.equation)
-    const l: Node[] = []
-    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
-    l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
-    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
-    if (hyper) { const s = strutBox(); return hpack([s, ...anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", s), hpack(l)]) }
-    return hpack([strutBox(), hpack(l)])
+  const seq = rowsAndTexts(src, d.kind)
+  const texts = seq.map((x) => ("row" in x ? null : { ...intertextBox(cx, x, par, skips, d.kind), short: x.short })) // (\gmeasure@ sets them first)
+  const rows = seq.flatMap((x) => ("row" in x ? [x.row] : [])).map((row) => {
+    const marks = rowMarks(row, d.kind)
+    const numbered = !starred && !marks.nonumber && !marks.tag
+    return {
+      marks, numbered, tagged: numbered || !!marks.tag,
+      box: hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, { noad: ORD_NOAD, nucleus: groupField(parse(marks.src)), sup: null, sub: null }], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }]),
+    }
   })
+  // the tag column: \setboxz@h{\strut@{##}}, ## \make@display@tag's (n) in \maketag@@@, numbered in row order
+  // (\math@cr@@@gather runs \make@display@tag in every row: a row with no tag writes its \label too)
+  measuredTags(cx, rows)
+  // \gmeasure@ set the rows with \math@cr@@@gather itself, whose \make@display@tag steps the counter with
+  // \refstepcounter (align's and multline's measuring pass use \stepcounter): \@currentHref, which the kernel sets
+  // globally, is the last numbered row's from then on, and a \tag row before the first numbered one writes it in its
+  // \label (with hyperref a \tag has an anchor of its own)
+  const nums = rows.filter((r) => r.numbered).length
+  if (nums && !cx.pre.hyper) cx.refs.href = cx.counters.href("equation", cx.counters.equation + nums)
+  const tags = rows.map((r) => rowTag(cx, r.marks, r.numbered, strutBox, !rows.some((x) => x.tagged)))
   const z = line.width
   const totwidth = Math.max(0, ...rows.map((r) => r.box.width)) // \gmeasure@
   const mintagsep = xnOverD(env.fonts[0][2]!.params[QUAD], 32768, 65536)
   const cells = rows.map((r, ri) => {
     // \calc@shift@gather (tags on the right, not fleqn)
-    const tw = r.numbered ? tags[ri].width : 0
+    const tw = tags[ri].width
     let eqnshift = z - r.box.width, shifted = false
     if (tw > 0) {
       if (2 * mintagsep + r.box.width + tw > z) shifted = true
@@ -440,16 +650,8 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
   })
   const centering = paramGlue("tabskip", glue(0, 65536000, NORMAL, 0, NORMAL)) // \@centering: 0pt plus 1000pt
   const rowBoxes = halign(cells, [paramGlue("tabskip", glue(0)), centering, paramGlue("tabskip", glue(0))], { exactly: z })
-  // § 1206, with \openup\jot and amsmath's \everycr, as align
-  v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
-  const jot = 196608
-  v.nodes.push(glue(-(run.k.dimens.lineskiplimit + jot)), glue(run.k.dimens.normallineskiplimit))
-  const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
-  for (const rb of rowBoxes) {
-    rb.display = true; rb.shift = line.indent
-    v.prevDepth = appendToVlist(v.nodes, rb, v.prevDepth, bs, ls, run.k.dimens.lineskiplimit + jot)
-    v.nodes.push(penalty(10000), glue(0))
-  }
+  let nrow = 0
+  rowsToVlist(cx, texts.map((t) => t ?? rowBoxes[nrow++]), line.indent, () => {
   // \black@\totwidth@
   if (totwidth > z) {
     const wide = hpack([hpack([strutBox(), fillGlue()], { exactly: totwidth })], { exactly: z })
@@ -458,7 +660,7 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
     decisions.push(lb.trace)
     v.nodes.push(glue(-strut.height), glue(-strut.depth), vpack(lb.vlist))
   }
-  v.nodes.push(penalty(run.k.ints.postdisplaypenalty), spec("belowdisplayskip", sz.belowdisplayskip))
+  })
 }
 
 /**
@@ -471,12 +673,14 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
  */
 export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font) {
   const em = font.params[QUAD]
-  const { amsmath, hyper } = cx.pre
-  const { counters, refs, romanFont, run, v } = cx
-  const src = d.src.trim()
+  const { amsmath } = cx.pre
+  const { run, v } = cx
+  // \label, \tag and \nonumber act in \mmeasure@ (\label@in@display, \tag@in@align); in the alignment \label is \@gobble
+  // and \tag \gobble@tag
+  const marks = rowMarks(d.src.trim(), d.kind), src = marks.src.trim()
   if (/\\\\\s*$/.test(src)) throw new Unsupported("multline ending with \\\\")
-  if (/\\(label|tag|shoveleft|shoveright|raisetag|begin)\b/.test(src)) throw new Unsupported("\\label, \\tag, \\shoveleft, \\shoveright or an environment in multline")
-  const numbered = d.kind === "multline" && !/\\(nonumber|notag)\b/.test(src)
+  if (/\\(shoveleft|shoveright|raisetag|begin|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\shoveleft, \\shoveright, \\intertext or an environment in multline")
+  const numbered = d.kind === "multline" && !marks.nonumber && !marks.tag
   const env = mathEnv(run.k, "normalsize", true)
   const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) })
   const sz = run.k.sizes.normalsize, strut = sz.strut
@@ -489,31 +693,30 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
   // \mmeasure@: the last row's width and depth, and whether the number fits beside it (its own mlist: mlist_to_hlist
   // changes the one it converts)
   const lastBox = hpack(formula(parse(rowSrcs[rowSrcs.length - 1])))
-  let tag: BoxNode | null = null
-  if (numbered) {
-    counters.equation++
-    refs.href = stepHref(cx, "equation", counters.equation)
-    const l: Node[] = []
-    appendText(l, `(${counters.the("equation", counters.equation)}`, romanFont, { spaceFactor: 1000 }, false)
-    l.push(kern(romanFont.chars.get((l[l.length - 1] as CharNode).char)!.italic, true)) // \@@italiccorr
-    appendText(l, ")", romanFont, { spaceFactor: 1000 }, false)
-    tag = hpack(l) // \maketag@@@
-  }
-  const shifted = !!tag && lastBox.width + tag.width + gap > z
+  // \make@display@tag: the number or the \tag (\maketag@@@'s box) and the \label; with hyperref the number's anchor
+  // before it. It goes after `g`, the \hskip\multlinetaggap, or when it does not fit (\mmeasure@'s \shifttag@) after
+  // the strut `s` of a box below the row, where \normalbaselines holds
+  const tagged = numbered || !!marks.tag
+  if (marks.label !== null && !tagged) throw new Unsupported(`\\label in ${d.kind} with no tag`)
+  const g = glue(gap), s = strutBox()
+  let shifted = false
+  measuredTags(cx, [{ marks }])
+  const tag = tagged ? displayTag(cx, marks, numbered, (w) => {
+    shifted = lastBox.width + w + gap > z
+    return shifted ? { raise: sz.baselineskip.width, last: s } : { raise: sz.baselineskip.width + run.k.dimens.jot, last: g }
+  }) : null
   const cells = rows.map((items, ri) => {
     const first = ri === 0, last = ri === rows.length - 1
     const lead: MItem[] = first ? [hfilneg(), glue(gap)] : []
     let inner: Node[]
     if (!last) inner = formula([...lead, ...items])
     else if (!tag) inner = formula([...lead, ...items, glue(gap), hfilneg()])
-    // (hyperref: \make@display@tag's \refstepcounter puts the equation's anchor before the number)
-    else if (!shifted) { const g = glue(gap); inner = [...formula([...lead, ...items]), g, ...(hyper ? anchor(refs.href, sz.baselineskip.width + run.k.dimens.jot, "h", g) : []), tag, hfilneg()] }
+    else if (!shifted) inner = [...formula([...lead, ...items]), g, ...tag, hfilneg()]
     else {
       // \llap{\vtop{\normalbaselines \setbox\@ne\null \dp\@ne\lineht@ \box\@ne \hbox{\strut@\make@display@tag}}}
       const nul = hpack([]); nul.depth = lastBox.depth
       const list: Node[] = [nul]
-      const s = strutBox()
-      appendToVlist(list, hpack([s, ...(hyper ? anchor(refs.href, sz.baselineskip.width, "h", s) : []), tag]), lastBox.depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
+      appendToVlist(list, hpack([s, ...tag]), lastBox.depth, sz.baselineskip, run.k.glue.normallineskip, run.k.dimens.normallineskiplimit)
       const vt = vpack(list)
       vt.depth = vt.height + vt.depth; vt.height = 0 // \vtop: the first box's height (§ 1087)
       inner = [...formula([...lead, ...items]), glue(gap), hpack([ssGlue(), vt], { exactly: 0 }), hfilneg()]
