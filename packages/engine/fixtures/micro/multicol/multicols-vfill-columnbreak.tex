@@ -1,0 +1,17 @@
+% fixture: multicol/multicols-vfill-columnbreak
+% tier: T3
+% engine: document
+% covers: \vfill\columnbreak after a blank line: both in vertical mode (\vfill's \par, then \columnbreak's \penalty-\@Mv on the vertical list, not a \vadjust in a paragraph)
+\documentclass{article}
+\usepackage{multicol}
+\begin{document}
+\begin{multicols}{2}
+The first column has a few words of text that run on for three or four lines of the narrow column, and then it stops short.
+
+\vfill\columnbreak
+
+The second column starts here after the break and has some more words in it that also run on for a few lines, a little longer than the first so that the columns differ.
+
+A last paragraph in the second column, with enough words to make two lines.
+\end{multicols}
+\end{document}

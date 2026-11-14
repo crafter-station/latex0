@@ -1,0 +1,20 @@
+% fixture: fonts/familydefault-sf
+% tier: T3
+% engine: document
+% covers: \renewcommand{\familydefault}{\sfdefault} in the preamble: \normalfont selects Computer Modern sans, so the body, a heading, list labels, a footnote and its mark, \textnormal and the page number are in it (its shapes: cmssi for italic, cmssbx; small caps substituted), while \texttt and math keep their fonts
+\documentclass{article}
+\renewcommand{\familydefault}{\sfdefault}
+\begin{document}
+\section{A heading}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here. Then \textbf{bold words}, \emph{emphasised words}, \textsc{Small Caps}, \texttt{typewriter} and a note\footnote{The note in the default family, with \textit{italic} too.} with math $a^2+b_i = \sin x$ in it.
+\begin{itemize}
+\item A first item --- with a dash
+\begin{enumerate}
+\item A numbered item
+\end{enumerate}
+\end{itemize}
+\begin{description}
+\item[Label] described
+\end{description}
+{\small Small words, \textnormal{normal} ones} and {\large\bfseries large bold ones}.
+\end{document}

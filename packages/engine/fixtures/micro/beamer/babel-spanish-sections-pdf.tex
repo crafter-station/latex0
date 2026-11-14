@@ -1,0 +1,24 @@
+% fixture: beamer/babel-spanish-sections-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: babel's spanish: sections with accents in the table of contents, the .toc and the bookmarks, a footnote, inverted punctuation
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\title{Energías}
+\begin{document}
+\begin{frame}{Contenido}
+\tableofcontents
+\end{frame}
+\section{Situación actual}
+\begin{frame}{Matriz energética}
+Texto.\footnote{Una nota al pie más.}
+\end{frame}
+\section{Conclusión}
+\begin{frame}{Fin}
+¡Gracias por su atención! ¿Sí?
+\end{frame}
+\end{document}

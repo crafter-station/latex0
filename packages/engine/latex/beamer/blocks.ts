@@ -17,6 +17,8 @@ import { DISPLAY } from "../blocks"
 import type { FontAttrs } from "../paragraph"
 import { selectFont } from "../paragraph"
 import { Unsupported } from "../unsupported"
+import { babelState, captions } from "../babel"
+import { sourceText } from "../encodings"
 import { dimen, plain, type VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv } from "./colorbox"
@@ -65,9 +67,10 @@ function readBlock(text: string): BlockSource {
     // \begin{proof}[name]: \insertproofname is the name with \@addpunct{.} (none after one there)
     kind = ""
     const o = text.slice(i).match(/^\s*\[([^\]]*)\]/)
-    let name = "Proof"
+    // (\proofname: \translate{Proof}, English; with babel its \captions<lang>'s name, LaTeX source)
+    let name = babelState.b ? sourceText(captions(babelState.b, false).proofname).normalize("NFC") : "Proof"
     if (o) { name = o[1].trim(); i += o[0].length }
-    if (/[\\{}]/.test(name)) throw new Unsupported(`beamer: a proof's name ${name}`)
+    if (o && /[\\{}]/.test(name)) throw new Unsupported(`beamer: a proof's name ${name}`)
     title = /[.?!]$/.test(name) ? name : `${name}.`
     qed = true
   } else {

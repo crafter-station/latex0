@@ -1,0 +1,33 @@
+% fixture: minipage/vspace
+% tier: T3
+% engine: document
+% covers: \vspace in a minipage's vertical mode (\@vspace: \vskip skip \vskip\z@skip): \vspace{0pt} first in two [t] minipages side by side (the \vtop's height zero, so their tops line up: \centering after it, text and a rule), one holding only the \vspace (\endminipage's \unskip takes the \z@skip), and a skip in em between two paragraphs
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\noindent
+\begin{minipage}[t]{0.3\linewidth}
+  \vspace{0pt}
+  \centering
+  Text at the top of the first one, on a few lines.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\linewidth}
+  \vspace{0pt}
+  \centering
+  \rule{2cm}{1cm}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.3\linewidth}
+  \vspace{0pt}
+  \centering
+\end{minipage}
+
+Text between.
+
+\noindent\begin{minipage}{5cm}
+A first paragraph.
+
+\vspace{1.5em plus 2pt}
+
+A second paragraph, after the skip.
+\end{minipage}
+\end{document}

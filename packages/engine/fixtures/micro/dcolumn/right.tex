@@ -1,0 +1,16 @@
+% fixture: dcolumn/right
+% tier: T3
+% engine: document
+% covers: dcolumn's D{.}{.}{n} (\DC@right): \hfill, the entry before the point in an \hbox{$…$}, the point and what follows in an \hbox to n digits and the point's width, the entry a formula (a minus, a superscript); an entry with no point (the second box empty), an empty one, and \\[skip]'s strut after the boxes
+\documentclass{article}
+\usepackage{dcolumn}
+\begin{document}
+\begin{tabular}{lD{.}{.}{3}}
+Intercept & 7.112 \\
+Slope & -0.6 \\[3pt]
+Grade & 187 \\
+Water & 1.25^{*} \\
+None & \\
+Last & .5
+\end{tabular}
+\end{document}

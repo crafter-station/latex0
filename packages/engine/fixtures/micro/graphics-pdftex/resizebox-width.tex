@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/resizebox-width
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \resizebox{width}{!}{text} under pdfTeX: the factor \Gscale@div of the width by the text's (\@begin@tempboxa's box in \hbox{{\box\@tempboxa}}), for both directions; a length, a factor of \linewidth, of \width, and em in the current font
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+\noindent\resizebox{3cm}{!}{Three cm (gyp)} and \resizebox{.25\linewidth}{!}{a quarter of the line} and \resizebox{1.5\width}{!}{wider} and \textit{\resizebox{7em}{!}{seven em}} in a paragraph.
+\end{document}

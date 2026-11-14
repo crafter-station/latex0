@@ -1,0 +1,21 @@
+% fixture: classes/letter-medskip
+% tier: T3
+% engine: document
+% covers: letter.cls's \medskipamount (\parskip as the class loads, 0.7em in 11pt): \medskip in a paragraph's text and between paragraphs
+% issue: #363
+\documentclass[11pt]{letter}
+\name{John Smith}
+\address{221B Baker Street \\ London}
+\date{March 3, 2025}
+\begin{document}
+\begin{letter}{Dr. Recipient \\ Some Institute}
+\opening{Dear Dr. Recipient,}
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor. \medskip Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\medskip
+After the skip.
+
+\closing{Yours sincerely,}
+\end{letter}
+\end{document}

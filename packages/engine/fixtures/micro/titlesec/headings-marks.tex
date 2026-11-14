@@ -1,0 +1,21 @@
+% fixture: titlesec/headings-marks
+% tier: T3
+% engine: document
+% covers: titlesec with \pagestyle{headings}, two-sided: article's \sectionmark and \subsectionmark from \ttl@write
+% issue: #249
+\documentclass[twoside]{article}
+\usepackage{titlesec}
+\pagestyle{headings}
+\begin{document}
+\section{Introduction}
+Some text that starts the section.
+\subsection{Background}
+More text in the subsection.
+\newpage
+Text on the second page.
+\section{Methods}
+\subsection{Right after a heading}
+Text.
+\newpage
+Text on the third page.
+\end{document}

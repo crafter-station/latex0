@@ -1,0 +1,18 @@
+% fixture: graphics-pdftex/resizebox-math
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \resizebox{\linewidth}{!}{$formula$} under pdfTeX: the formula (its math nodes in the box, spaces around it in the argument) scaled to the line's width, in a paragraph of its own
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Before.
+
+\noindent\resizebox{\linewidth}{!}{$
+  E \to A \times B \to C
+$}
+
+After.
+\end{document}

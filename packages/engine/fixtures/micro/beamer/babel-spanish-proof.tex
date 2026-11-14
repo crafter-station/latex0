@@ -1,0 +1,16 @@
+% fixture: beamer/babel-spanish-proof
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: babel's spanish: a proof's name is \captionsspanish's \proofname (Demostraci\'on, its accent with \bbl@allowhyphens), the theorems' names translator's English ones (no dictionary loaded but English)
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Teoremas}
+\begin{theorem}Algo.\end{theorem}
+\begin{proof}Sencillo.\end{proof}
+\begin{example}Un ejemplo.\end{example}
+\end{frame}
+\end{document}

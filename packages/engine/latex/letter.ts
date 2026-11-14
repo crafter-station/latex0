@@ -10,7 +10,7 @@ import { xnOverD } from "../layout/arith"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
 import { raggedleft as raggedleftShape, raggedright as raggedrightShape, sloppy } from "./kernel"
-import { processBlock } from "./body"
+import { groupBlocks, processBlock } from "./body"
 import { Unsupported } from "./unsupported"
 import { dimen, IGNORE_DEPTH, negate, VerticalList } from "./vlist"
 import { type OutputHook } from "./output"
@@ -66,7 +66,7 @@ export function letter(cx: Ctx, b: Extract<Block, { kind: "letter" }>) {
   vspace(dimen(2 * parskip))
   typeset(b.opening, {}, outerParskip)
   v.nodes.push(penalty(10000))
-  b.blocks.forEach((x, i, all) => processBlock(cx, x, i, all))
+  groupBlocks(cx, "a letter", () => b.blocks.forEach((x, i, all) => processBlock(cx, x, i, all)))
   // \closing
   v.par()
   v.nodes.push(penalty(10000))

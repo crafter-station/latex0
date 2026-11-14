@@ -1,0 +1,15 @@
+% fixture: tikz-cd/empty-cells
+% tier: T3
+% engine: document
+% specials: compare
+% covers: empty cells (no node), a cell that holds only an arrow (an empty node), a row ended by \\ before the diagram's end (one more row)
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Empty
+\begin{tikzcd}
+A \arrow[rr] \arrow[dr] & & B \\
+& \arrow[ur] &  \\
+\end{tikzcd}
+end.
+\end{document}

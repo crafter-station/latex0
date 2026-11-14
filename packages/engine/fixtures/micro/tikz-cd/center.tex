@@ -1,0 +1,17 @@
+% fixture: tikz-cd/center
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a diagram in a center environment
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Text before
+\begin{center}
+\begin{tikzcd}
+A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+C \arrow[r, "k"'] & D
+\end{tikzcd}
+\end{center}
+and after.
+\end{document}

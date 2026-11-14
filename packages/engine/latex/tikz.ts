@@ -10,7 +10,11 @@ import { emptyBox, glue, kern, paramGlue, ssGlue, type BoxNode, type Node } from
 import { hpack, vpack } from "../layout/pack"
 import { DvipsDriver } from "../pgf/drivers/dvips"
 import { DVIPS_HEADER } from "../pgf/drivers/dvipsheader"
-import { TexArith } from "../pgf/fixed"
+import { TexArith, toNumber } from "../pgf/fixed"
+import type { PgfUnits } from "../pgf/mathparser"
+import { CD } from "../tikz/cd"
+import { dataFont, mathData } from "./data"
+import { loadFont } from "../layout/font"
 import { pgfSetDash } from "../pgf/graphicstate"
 import { pgfDefObject } from "../pgf/objects"
 import { pgfPathClose } from "../pgf/paths"
@@ -24,7 +28,7 @@ import { tokenize } from "../tikz/tokens"
 import { SIZE_COMMANDS, type ClassOptionData, type SizeCommand } from "../layout/classdata"
 import type { Ctx } from "./context"
 import { QUAD, X_HEIGHT } from "../layout/font"
-import { appendToVlist, DECLARATIONS, fontDeclaration, hlistInput, paragraphInput, selectFont, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "./paragraph"
+import { appendToVlist, DECLARATIONS, fontDeclaration, hlistInput, mathFonts, paragraphInput, selectFont, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "./paragraph"
 import { lineBreak } from "../layout/linebreak"
 import { parseDimen } from "../layout/dimen"
 import { sloppy } from "./kernel"
@@ -87,6 +91,18 @@ export function pgfCompatObjects(): Node[] {
 
 const arrowStates = new WeakMap<object, PgfState>()
 const nodeRegistries = new WeakMap<object, Map<string, PgfNodeRecord>>()
+/** \tikz@fig@count of each document */
+const figCounts = new WeakMap<object, { fig: number }>()
+
+/**
+ * tikz-cd's pgfmath functions at a size (tikzlibrarycd.code.tex 216–226): after `$\relax$`, axis_height is
+ * \the\fontdimen22\textfont2 and rule_thickness \the\fontdimen8\textfont3
+ */
+function mathConstants(k: ClassOptionData, size: SizeCommand, amsmath: boolean): Record<string, string> {
+  const m = (amsmath || mathFonts.packages.amsfonts ? k.sizes[size].mathAms : k.sizes[size].math).text
+  const param = (fam: number, n: number) => toNumber(loadFont(dataFont(m[fam].name), m[fam].at).params[n])
+  return { axis_height: param(2, 22), rule_thickness: param(3, 8) }
+}
 
 /**
  * A node's text as \hbox{<font><text>} holds it, at the size and in the font where the picture stands: the font
@@ -122,11 +138,11 @@ export function nodeBaselines(font: string, k: ClassOptionData, size: SizeComman
 }
 
 /** em and ex after a font option's commands (pgfmath's \pgfmath@selectfont, LaTeX's \selectfont) */
-export function nodeUnits(font: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs): { em: number; ex: number } {
+export function nodeUnits(font: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, amsmath?: boolean): PgfUnits {
   const decls = fontOption(font)
   for (const d of decls) attrs = fontDeclaration(d, attrs, k, decls.size ?? size, doc)!
   const f = selectFont(k, decls.size ?? size, attrs)
-  return { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
+  return { em: f.params[QUAD], ex: f.params[X_HEIGHT], ...(amsmath === undefined ? {} : { constants: mathConstants(k, decls.size ?? size, amsmath) }) }
 }
 
 /**
@@ -220,10 +236,17 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
   const src = cx.tikz[n]
   let nodes = nodeRegistries.get(cx.doc)
   if (!nodes) nodeRegistries.set(cx.doc, (nodes = new Map()))
+  const cd = tikz.libraries.includes("cd")
+  // (tikz-cd's quotes with babel's shorthands: \tikzcd@handle@shortcuts@next and the babel library, not modeled)
+  if (cd && cx.pre.babel?.languages.some((l) => !/^(?:english|american|british|usenglish|ukenglish|USenglish|UKenglish|canadian|australian|newzealand)$/.test(l))) throw new Unsupported("tikz-cd with babel's shorthands")
+  let counts = figCounts.get(cx.doc)
+  if (!counts) figCounts.set(cx.doc, (counts = { fig: 0 }))
+  if (cd) units = { ...units, constants: mathConstants(cx.run.k, size, cx.pre.amsmath) } as PgfUnits
   const doc = new TikzDocument({
     units, colors, positioning: tikz.libraries.includes("positioning"), arrowsMeta: tikz.libraries.includes("arrows.meta"), calc: tikz.libraries.includes("calc"), plotmarks: tikz.libraries.includes("plotmarks"), geometric: tikz.libraries.includes("shapes.geometric"),
+    matrix: tikz.libraries.includes("matrix"), quotes: tikz.libraries.includes("quotes"), cd, counts,
     text: { hlist: (text, font) => nodeHlist(text, font, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath), baselines: (font) => nodeBaselines(font, cx.run.k, size),
-      units: (font) => nodeUnits(font, cx.run.k, size, cx.doc, attrs),
+      units: (font) => nodeUnits(font, cx.run.k, size, cx.doc, attrs, cd ? cx.pre.amsmath : undefined),
       minipage: (text, nodeFont, textFont, width, action, before, after) => nodeMinipage(text, nodeFont, textFont, width, action, before, after, cx.run.k, size, cx.doc, attrs, cx.pre.amsmath, outer) }, nodes,
   })
   // the preamble's style definitions
@@ -232,6 +255,10 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
     if (t[0] === "\\tikzset") {
       const body = t.slice(1).join("").trim()
       doc.tz.set(tokenize(body.slice(1, -1)))
+    } else if (t[0] === "\\tikzcdset") {
+      if (!cd) throw new Unsupported(`preamble: ${line}`)
+      const body = t.slice(1).join("").trim()
+      doc.tz.keys.pgfqkeys(CD, tokenize(body.slice(1, -1)))
     } else if (doc.tz.tikzstyle(t.slice(1)) !== t.length - 1) throw new Unsupported(`preamble: ${line}`)
     const st = doc.tz.st
     if (st.options.length || st.mode.length || st.transform?.length) throw new Unsupported(`preamble: ${line} sets more than styles`)
@@ -239,6 +266,11 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
   // (the arrow tips instantiated so far are the document's: its first picture's state keeps them)
   doc.arrows = arrowStates.get(cx.doc) ?? null
   const s = new PgfState(units)
+  // (tikz-cd's pgfmath functions run `$\relax$` where they are evaluated: \mathsurround's two nodes on the picture's list)
+  if (cd) {
+    const surround = mathData().dimens.mathsurround
+    ;(units as PgfUnits).onConstant = () => s.out.push({ kind: "math", on: true, width: surround }, { kind: "math", on: false, width: surround })
+  }
   // (the color pgf reads as `.`: \colorlet's view of xcolor's current color)
   const used = doc.picture(src, s, cx.driver === "pdftex" ? new PdftexDriver(s) : new DvipsDriver(s), colors.pgfColor(color))
   if (tokenize(src, false, true).slice(used).some((x) => x !== " ")) throw new Unsupported("text after a picture")

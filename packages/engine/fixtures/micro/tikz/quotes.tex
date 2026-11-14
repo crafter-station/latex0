@@ -1,0 +1,16 @@
+% fixture: tikz/quotes
+% tier: T3
+% engine: document
+% specials: compare
+% covers: the quotes library on a to path: "text", "text"' and "text" with options as the edge's nodes
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{quotes}
+\begin{document}
+Quotes \begin{tikzpicture}
+\node (a) at (0,0) {a};
+\node (b) at (3,1) {b};
+\draw[->] (a) to["up"] (b);
+\draw (a) to[bend right, "down"', "mid" {pos=0.2, red}] (b);
+\end{tikzpicture} end.
+\end{document}

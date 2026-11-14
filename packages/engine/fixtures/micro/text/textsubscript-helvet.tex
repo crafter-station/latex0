@@ -1,0 +1,13 @@
+% fixture: text/textsubscript-helvet
+% tier: T3
+% engine: document
+% covers: \textsubscript with T1 and helvet as the default family at 11pt: the text in phv at \sf@size (8pt), the formula's shifts from the math fonts
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\pagestyle{empty}
+\begin{document}
+Direct emissions from our fleet fell to 182 kt CO\textsubscript{2}e, mainly due to the
+introduction of 140 electric vans in urban depots, and 40 m\textsuperscript{2} more.
+\end{document}

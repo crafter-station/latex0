@@ -1,0 +1,15 @@
+% fixture: parskip/setlength-baselineskip-fraction
+% tier: T3
+% engine: document
+% covers: \setlength{\parskip}{.37\baselineskip plus 1pt} and \setlength{\parindent}{1.3\baselineskip} in the preamble at 10pt: a decimal factor times \baselineskip's width (§ 455: nx_plus_y with xn_over_d of the fraction), then the stretch
+\documentclass{article}
+\pagestyle{empty}
+\setlength{\parindent}{1.3\baselineskip}
+\setlength{\parskip}{.37\baselineskip plus 1pt}
+\begin{document}
+First paragraph of text that is long enough to run over the end of its first line and so to take two lines here.
+
+Second paragraph.
+
+Third paragraph.
+\end{document}

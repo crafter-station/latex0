@@ -15,7 +15,8 @@ import type { Ctx } from "./context"
 import { centering, raggedleft, raggedright } from "./kernel"
 import { BODY_DECLARATIONS, closingBrace, fontDeclaration, noteSubstitution, paragraphInput, selectFont, SKIP_AMOUNTS, type FontAttrs } from "./paragraph"
 import { groupStart, NO_ARGUMENT } from "./source"
-import { leadingColor } from "./colors"
+import { LEADING_COLOR, leadingColor } from "./colors"
+import { colorPop } from "./xcolor"
 import { Unsupported } from "./unsupported"
 import { dimen, negate } from "./vlist"
 import type { OutputHook } from "./output"
@@ -44,7 +45,12 @@ export function topDeclarations(text: string): string[] {
   const out: string[] = []
   for (let i = 0; i < text.length; ) {
     if (text[i] === "{") { i = closingBrace(text, i) + 1; continue }
-    if (text[i] === "$") { const j = text.indexOf("$", i + 1); if (j < 0) throw new Unsupported("an unbalanced $"); i = j + 1; continue }
+    if (text[i] === "$") { // (a formula: to its $, not a \$ in it)
+      let j = text.indexOf("$", i + 1)
+      while (j > 0 && text[j - 1] === "\\" && text.slice(i + 1, j).match(/\\*$/)![0].length % 2) j = text.indexOf("$", j + 1)
+      if (j < 0) throw new Unsupported("an unbalanced $")
+      i = j + 1; continue
+    }
     const m = text.slice(i).match(/^\\([A-Za-z]+|[^])/)
     if (m) { if (isDeclaration(m[1])) out.push(m[1]); i += m[0].length; continue }
     i++
@@ -72,14 +78,14 @@ export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:v
 const PARBOX_TEXT = /\\parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\}\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g
 
 /**
- * The material of a group or environment in vertical mode. `top`: the body's own level, where a declaration would
- * last past this text (not laid out). A group's \clubpenalty and \everypar settings end with it.
+ * The material of a group or environment in vertical mode, or of the body's own level (body.ts keeps the declarations
+ * in force at its end, which is what this returns). A group's \clubpenalty and \everypar settings end with it.
  */
 /** `first`: what starts the first paragraph in place of the indent box (\@item's \box\@labels), and the \clubpenalty
  *  its \everypar sets (`club`: \@item's, in place of \@afterheading's) */
 export interface MaterialOptions { first?: Node[]; club?: number }
 
-export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boolean, mo: MaterialOptions = {}) {
+export function verticalMaterial(cx: Ctx, src: string, st: DeclState, mo: MaterialOptions = {}): DeclState {
   const { run, v } = cx
   const font = () => selectFont(run.k, st.size, st.attrs)
   const units = () => ({ em: font().params[QUAD], ex: font().params[X_HEIGHT] })
@@ -100,8 +106,9 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     }
     const sk = rest.match(/^\\(bigskip|medskip|smallskip)(?![A-Za-z])/)
     if (sk) {
-      if (cx.pre.cls === "letter" && sk[1] === "medskip") throw new Unsupported("\\medskip in a letter")
-      v.vskip(SKIP_AMOUNTS[sk[1]]); v.vskip(dimen(0)); i += sk[0].length; continue
+      // (amsart's: by the size, \@adjustvertspacing)
+      if (cx.pre.cls === "amsart" && st.size !== "normalsize") throw new Unsupported(`\\${sk[1]} at \\${st.size} in amsart`)
+      v.vskip(cx.pre.cls === "amsart" ? run.k.glue[`${sk[1]}amount`] : sk[1] === "medskip" && cx.doc.medskipamount ? cx.doc.medskipamount : SKIP_AMOUNTS[sk[1]]); v.vskip(dimen(0)); i += sk[0].length; continue // (letter.cls's \medskipamount)
     }
     const vf = rest.match(/^\\vfill(?![A-Za-z])/)
     if (vf) { v.vskip({ width: 0, stretch: 65536, stretchOrder: FILL, shrink: 0, shrinkOrder: 0 }); i += vf[0].length; continue }
@@ -109,7 +116,6 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     if (nl) { v.box(hpack([]), run.k.sizes[st.size].baselineskip); i += nl[0].length; continue }
     const decl = rest.match(/^\\([A-Za-z]+)(?![A-Za-z])/)
     if (decl && isDeclaration(decl[1])) {
-      if (top) throw new Unsupported(`\\${decl[1]} for the paragraphs after it`)
       st = declare(cx, st, decl[1]); i += decl[0].length; continue
     }
     if (rest[0] === "{" && !rest.startsWith("{}")) {
@@ -121,7 +127,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         if (!/^\s*$/.test(inner.slice(end + 4))) throw new Unsupported("a paragraph starting in a group that ends after it")
         const saved = { club: v.club, everypar: v.afterheadingEverypar }
         reopened = false // (its paragraphs start in it, as here)
-        verticalMaterial(cx, inner, { ...st }, false, mo)
+        verticalMaterial(cx, inner, { ...st }, mo)
         outputBaselineskip(cx, st) // (the page builder goes on after the group)
         v.club = saved.club; v.afterheadingEverypar = saved.everypar
         i = j + 1; continue
@@ -161,10 +167,12 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     // the declarations each had before it; a text font command's \check@icr does not come, \nocorr)
     const segs = gcr ? gcr.chain.map((g, n) => ({ ...g, text: src.slice(g.body, gcr!.chain[n + 1]?.start ?? gcr!.at) })) : []
     for (const g of segs) if (g.cmd && !g.text.trim()) throw new Unsupported("\\\\ first in a text font command's argument")
-    // (a color's pop comes where its group ends, after the \par)
-    if (segs.some((g) => /\\color(?![A-Za-z])/.test(g.text))) throw new Unsupported("\\\\ in a \\color group")
-    const text = ending ? `${before}{${ending.inner}}` : gcr ? before + segs.map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${g.text}`).join("") + segs.map((g) => (g.cmd ? "\\nocorr}" : "}")).join("") : before
-    if (top && topDeclarations(text).length) throw new Unsupported("a declaration for the paragraphs after it")
+    // (a color's push in this paragraph, or on the vertical list before it, and its pop where its group ends, after the
+    // \par: \textcolor's, or a \color that starts its group)
+    const colorOf = (g: (typeof segs)[number]) => g.color ?? g.text.match(/^\s*\\color(?![A-Za-z])\s*((?:\[[^\]{}]*\])?\s*\{[^{}]*\})/)?.[1] ?? null
+    for (const g of segs) if (/\\color(?![A-Za-z])/.test(g.color === undefined && colorOf(g) ? g.text.replace(/^\s*\\color(?![A-Za-z])/, "") : g.text)) throw new Unsupported("\\\\ in a \\color group")
+    const opening = (g: (typeof segs)[number]) => g.color !== undefined ? `{\\LXtextcolornopop${g.color} ${g.text}` : `${g.cmd ? `\\${g.cmd}` : ""}{${colorOf(g) ? g.text.replace(/^(\s*)\\color(?![A-Za-z])/, "$1\\LXcolornopop") : g.text}`
+    const text = ending ? `${before}{${ending.inner}}` : gcr ? before + segs.map(opening).join("") + segs.map((g) => (g.cmd ? "\\nocorr}" : "}")).join("") : before
     const end = topDeclarations(before).reduce((s, d) => declare(cx, s, d), st)
     const parEnd = [ending?.inner ?? "", ...segs.map((g) => g.text)].reduce((e, t) => topDeclarations(t).reduce((s, d) => declare(cx, s, d), e), end)
     if (parEnd.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
@@ -180,8 +188,11 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
       if (gcr.skip !== undefined) { const outer = st; st = parEnd; v.vskip(skip(gcr.skip)); st = outer }
       // (groups that end right after it end in vertical mode: the paragraph starts after them)
       let open = segs.length, after = gcr.end
-      while (open > 0 && !src.slice(after, closingBrace(src, segs[open - 1].body - 1)).trim()) after = closingBrace(src, segs[--open].body - 1) + 1
-      src = segs.slice(0, open).map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${topDeclarations(g.text).map((d) => `\\${d} `).join("")}`).join("") + src.slice(after).replace(/^\s+/, "")
+      while (open > 0 && !src.slice(after, closingBrace(src, segs[open - 1].body - 1)).trim()) {
+        after = closingBrace(src, segs[--open].body - 1) + 1
+        if (colorOf(segs[open])) v.nodes.push(colorPop()) // (\reset@color in vertical mode)
+      }
+      src = segs.slice(0, open).map((g) => { const c = colorOf(g); return `${g.cmd ? `\\${g.cmd}` : ""}{${c ? `\\LXcolorpushed${c} ` : ""}${topDeclarations(g.text).map((d) => `\\${d} `).join("")}` }).join("") + src.slice(after).replace(/^\s+/, "")
       i = 0
       reopened = open > 0
     }
@@ -192,6 +203,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
       i += cr[0].length
     }
   }
+  return st
 }
 
 /** the text font commands, whose argument is a group of the paragraph's text */
@@ -232,15 +244,16 @@ function commandBefore(src: string, from: number, open: number): { name: string;
 
 /** a \\ in groups of a paragraph's text: the groups it is in, outermost first (each one's text font command or a plain
  *  group, where that starts, and where its text starts), and the \\ (where, where it and its * and [skip] end) */
-interface GroupCr { chain: { cmd: string | null; start: number; body: number }[]; at: number; end: number; star: boolean; skip?: string }
+interface GroupCr { chain: { cmd: string | null; start: number; body: number; /** \textcolor's [model]{spec} */ color?: string }[]; at: number; end: number; star: boolean; skip?: string }
 
 /** the \\ in the group that opens at `open` (text from `from` before it), if it is in plain groups and text font
  *  commands' arguments only (not a box's, a footnote's …) */
 function groupCr(src: string, from: number, open: number): GroupCr | null {
   const head = commandBefore(src, from, open)
-  if (head && !(TEXT_FONT_COMMANDS.has(head.name) && !head.args) && !(NO_ARGUMENT.has(head.name) && !head.args) && ARITY[head.name] !== head.args) return null
+  const textcolor = head?.name === "textcolor" && head.args === 1 // (its text's group)
+  if (head && !textcolor && !(TEXT_FONT_COMMANDS.has(head.name) && !head.args) && !(NO_ARGUMENT.has(head.name) && !head.args) && ARITY[head.name] !== head.args) return null
   const cmd = head && TEXT_FONT_COMMANDS.has(head.name) && !head.args ? head.name : null
-  const level = { cmd, start: cmd ? head!.at : open, body: open + 1 }
+  const level = { cmd, start: cmd || textcolor ? head!.at : open, body: open + 1, ...(textcolor ? { color: src.slice(head!.at + "\\textcolor".length, open).trim() } : {}) }
   const close = closingBrace(src, open)
   for (let k = open + 1; k < close; ) {
     if (src[k] === "{") {
@@ -283,7 +296,7 @@ function paragraph(cx: Ctx, text: string, st: DeclState, end: DeclState, unskip:
     club = v.club
   }
   // (a {\color …} group that starts it: the push on the vertical list, before the paragraph)
-  if (/^\{\\color(?![A-Za-z])/.test(text)) text = leadingColor(cx, text)
+  if (LEADING_COLOR.test(text)) text = leadingColor(cx, text)
   const align = end.align === "centering" ? centering() : end.align === "raggedright" ? raggedright() : end.align === "raggedleft" ? raggedleft() : {}
   const start: Node[] = mo.first ?? (indent ? [emptyBox("hlist", st.align ? 0 : run.k.dimens.parindent)] : [])
   const { list, params, notes } = paragraphInput(counted(text, true), run.k, st.size, doc, { start, attrs: st.attrs, groups: true, topDecls: true, centercr: !!st.align, clubPenalty: club, ...noteClubs, amsmath, ...align, ...(unskip ? { unskip } : {}) })
@@ -321,7 +334,7 @@ export function titlepage(cx: Ctx, body: string) {
   if (restonecol) columnSwitch(cx, false)
   else v.nodes.push(filGlue(), penalty(-10000))
   v.nodes.push(hook("empty"), hook("page=1"))
-  verticalMaterial(cx, body, { size: "normalsize", attrs: cx.normalAttrs, align: null }, false)
+  verticalMaterial(cx, body, { size: "normalsize", attrs: cx.normalAttrs, align: null })
   if (restonecol) columnSwitch(cx, true)
   else v.nodes.push(filGlue(), penalty(-10000))
   if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))

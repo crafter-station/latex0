@@ -1,0 +1,15 @@
+% fixture: tikz-cd/square
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a tikzcd diagram with the initial row and column sep: cells split at & and \\, the cells' nodes (asymmetrical rectangle, anchored at their base), arrows r and d between their borders from the math axis, labels in script style on the arrow's left and with ' on its right
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+A square:
+\begin{tikzcd}
+A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+C \arrow[r, "k"'] & D
+\end{tikzcd}
+after.
+\end{document}

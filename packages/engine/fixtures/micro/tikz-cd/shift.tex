@@ -1,0 +1,10 @@
+% fixture: tikz-cd/shift
+% tier: T3
+% engine: document
+% specials: compare
+% covers: shift left and shift right: by the default, a factor of it and a dimension, with labels, on a diagonal and a bent arrow
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Shift \begin{tikzcd} A \arrow[r, shift left, "u"] \arrow[r, shift right, "v"'] \arrow[d, shift left=2] \arrow[dr, shift right=1ex] & B \arrow[d, bend left, shift left] \\ C & D \end{tikzcd} end.
+\end{document}

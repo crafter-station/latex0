@@ -1,0 +1,20 @@
+% fixture: cite/hyperref
+% tier: T3
+% engine: document
+% specials: compare
+% covers: cite.sty with hyperref (dvips): each number a link to its item (\hyper@@link[cite] from \bibcite), an \hbox, with no box around the list; a range's ends linked
+\documentclass{article}
+\usepackage{cite}
+\usepackage{hyperref}
+\begin{document}
+Linked numbers \cite{b,a} and a range \cite{c,a,b} and a note \cite[p.~5]{e,a} and an unknown key \cite{nokey,f} in a line.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

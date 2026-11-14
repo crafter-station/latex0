@@ -1,0 +1,13 @@
+% fixture: text/textsuperscript
+% tier: T3
+% engine: document
+% covers: \textsuperscript: {\m@th$^{\mbox{\fontsize\sf@size\z@\selectfont text}}$}, the text in the current font at \sf@size (roman, bold, at \small)
+\documentclass[12pt]{article}
+\pagestyle{empty}
+\begin{document}
+The area is 40 m\textsuperscript{2} and the 1\textsuperscript{st} of the month, the
+2\textsuperscript{nd} too. \textbf{Bold 3\textsuperscript{rd} here} and a longer one,
+x\textsuperscript{two words}, so that the paragraph runs over a few lines of text.
+
+{\small Small 4\textsuperscript{th} text.\par}
+\end{document}

@@ -1,0 +1,18 @@
+% fixture: titlesec/toc-marks
+% tier: T3
+% engine: document
+% covers: \tableofcontents with titlesec and running heads: the title's \@mkboth saved by \ttl@select (\ttl@gmk) and run after the title (\ttl@mk in \ttl@finmarks)
+% issue: #249
+\documentclass{article}
+\usepackage{titlesec}
+\pagestyle{headings}
+\begin{document}
+\tableofcontents
+\newpage
+Text on the second page.
+\newpage
+\section{Introduction}
+Some text that starts the section.
+\newpage
+Text on the fourth page.
+\end{document}

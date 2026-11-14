@@ -1,0 +1,19 @@
+% fixture: cite/babel
+% tier: T3
+% engine: document
+% covers: cite.sty with babel (spanish): its \@citex kept (\org@@citex), the list as without babel
+\documentclass{article}
+\usepackage[spanish]{babel}
+\usepackage{cite}
+\begin{document}
+Un texto con citas \cite{b,a} y un rango \cite{c,a,b}, con nota \cite[p\'ag.~5]{e,a}.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

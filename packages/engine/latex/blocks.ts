@@ -68,6 +68,8 @@ export interface ListBlock {
   thm?: { name: string; note: string | null }; proofTitle?: string
   /** abstract: its body as typed, and what follows \end{abstract}: a space, then a blank line or not, or none */
   source?: string; after?: "blank" | "space" | "none"
+  /** amsart's abstract: its \list (amsart's quotation's settings, \labelwidth\z@) and \item[\hskip\labelsep\scshape\abstractname.] */
+  amsAbstract?: boolean
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
@@ -171,8 +173,8 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
 export const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
-export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "gather" | "gather*" | "multline" | "multline*"; src: string }
-export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|gather\*?|multline\*?)\}([^]*?)\\end\{\3\}/
+export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "alignat" | "alignat*" | "gather" | "gather*" | "multline" | "multline*"; src: string }
+export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|alignat\*?|gather\*?|multline\*?)\}([^]*?)\\end\{\3\}/
 /** A paragraph's text split at its displays: text, display, text, …, text. */
 export function displaySegments(text: string): (string | Display)[] {
   const out: (string | Display)[] = []
@@ -200,19 +202,19 @@ export function inParagraph(before: string): boolean {
 const TEXT_COMMANDS = [
   "newblock", "penalty", "footnote", "noindent", "nocorr", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
-  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "cref", "Cref", "cpageref", "Cpageref", "crefrange", "Crefrange", "cpagerefrange", "Cpagerefrange", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
+  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "citen", "citenum", "citeonline", "cref", "Cref", "cpageref", "Cpageref", "crefrange", "Crefrange", "cpagerefrange", "Cpagerefrange", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
-  "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
+  "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "LXcolornopop", "LXtextcolornopop", "LXcolorcarried", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
   "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
-  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "textsubscript", "textsuperscript", "colorbox", "fcolorbox", "scalebox", "reflectbox", "resizebox",
   "og", "fg", "up", "fup", "ier", "iere", "iers", "ieres", "ieme", "iemes", "no", "No", "nos", "Nos"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
 const SI_USE = new RegExp(`\\\\(?:${Object.keys(SI_COMMANDS).join("|")})(?![A-Za-z])\\s*(?:\\[(?:[^\\]{}]|\\{[^{}]*\\})*\\])?(?:\\s*\\{(?:[^{}]|\\{[^{}]*\\})*\\})*`, "g")
 /** \rule and \hspace with their arguments, and the boxes' length arguments (which may name registers: \textwidth, \width) */
-const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|enlargethispage\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
+const LENGTH_USE = /\\(?:rule\s*(?:\[[^\]{}]*\])?\s*\{[^{}]*\}\s*\{[^{}]*\}|hspace\s*\*?\s*\{[^{}]*\}|enlargethispage\s*\*?\s*\{[^{}]*\}|(?:makebox|framebox)(?=\s*\[)|raisebox\s*\{[^{}]*\}|resizebox\s*\*?\s*\{[^{}]*\}\s*\{[^{}]*\}|parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\})(?:\s*\[[^\]{}]*\])*/g
 /** A command in text that is none of them (not an assignment like \parindent=…) */
 const UNKNOWN_COMMAND = new RegExp(`\\\\(?!(?:${[...TEXT_COMMANDS, ...Object.keys(TEXT_SYMBOLS), ...SYMBOL_COMMANDS].join("|")}|the[a-zA-Z]+)(?![A-Za-z]))[a-zA-Z]+(?!\\s*=)`)
 
@@ -229,7 +231,9 @@ function braceDepth(t: string): number {
 }
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
-export function blocksOf(body: string): Block[] {
+/** `headingRefs`: headings may hold ~ and \ref{key} (amsart's, which it lays out); `titleEndpe`: \maketitle leaves
+ *  \@doendpe in force (amsart's: text right after it is not indented) */
+export function blocksOf(body: string, { headingRefs = false, titleEndpe = false } = {}): Block[] {
   // babel's otherlanguage and otherlanguage* (the end goes back to the language before: the paragraph knows it)
   body = body.replace(/\\begin\{otherlanguage(\*?)\}\s*\{([A-Za-z]+)\}/g, (_, star: string, lang: string) => `\\LXotherlanguage${star ? "star" : ""}{${lang}}`)
     .replace(/\\end\{otherlanguage(\*?)\}/g, (_, star: string) => `\\LXendotherlanguage${star ? "star" : ""}{}`)
@@ -256,7 +260,8 @@ export function blocksOf(body: string): Block[] {
     // (counter commands start no paragraph)
     const pageInPar = !!(m[15] || m[18] || /^\\(?:no)?pagebreak/.test(m[0])) && inParagraph(before.replace(COUNTER_COMMANDS, ""))
     if (/^\\(?:no)?pagebreak/.test(m[0]) && pageInPar) continue
-    if (m[0].startsWith("\\columnbreak") && inParagraph(before)) continue // (in a paragraph: \vadjust, as \pagebreak there)
+    // (in a paragraph: \vadjust, as \pagebreak there; after \vfill alone it is in vertical mode still)
+    if (m[0].startsWith("\\columnbreak") && inParagraph(before) && !/(?:^|\n[ \t]*\n)\s*(?:\\vfill(?![A-Za-z])\s*)+$/.test(before)) continue
     if ((m[15] || m[18]) && braceDepth(before) !== 0) throw new Unsupported(`\\${m[15] ?? m[18]} in a group`)
     if (m[18] && pageInPar) throw new Unsupported(`\\${m[18]} in a paragraph`)
     // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
@@ -268,7 +273,7 @@ export function blocksOf(body: string): Block[] {
       continue
     }
     text(before)
-    if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
+    if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = titleEndpe && !/\n[ \t]*\n/.test(m[0]); continue }
     if (m[14] !== undefined) { out.push({ kind: "titlepage", body: m[14] }); at = re.lastIndex; endpe = false; continue }
     if (m[15]) { out.push({ kind: "newpage", cmd: m[15] as "newpage", ...(pageInPar ? { inPar: true } : {}) }); at = re.lastIndex; endpe = false; continue }
     if (m[18]) { out.push({ kind: "pagestyle", cmd: m[18] as "thispagestyle", style: m[19].trim() }); at = re.lastIndex; continue }
@@ -393,7 +398,6 @@ export function blocksOf(body: string): Block[] {
   // text, inline math and footnotes only; other commands are not laid out yet
   // (\raggedbottom, \flushbottom and \suppressfloats in vertical mode, before a paragraph: body.ts)
   const check = (t: string) => { const m = t.replace(/^(?:\s*\\(?:raggedbottom|flushbottom|suppressfloats(?:\s*\[[tb]\])?)(?![A-Za-z]))+/, "").replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
-    if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }
@@ -409,7 +413,7 @@ export function blocksOf(body: string): Block[] {
       walk(b)
     }
     else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "longtable" || b.kind === "multicols" || b.kind === "columnbreak" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
-    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
+    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(headingRefs ? b.title.replace(/~|\\ref\{[A-Za-z0-9:._-]+\}/g, " ") : b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
 }

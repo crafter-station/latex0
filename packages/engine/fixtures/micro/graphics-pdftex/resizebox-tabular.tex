@@ -1,0 +1,24 @@
+% fixture: graphics-pdftex/resizebox-tabular
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \resizebox{.5\linewidth}{!}{a tabular} in a center environment under pdfTeX: the tabular's \hbox scaled to half the line
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Before.
+\begin{center}
+\resizebox{0.5\linewidth}{!}{%
+\begin{tabular}{|c|c|}
+  \hline
+  1 & 2 \\
+  \hline
+  13 & 14 \\
+  \hline
+\end{tabular}%
+}
+\end{center}
+After.
+\end{document}

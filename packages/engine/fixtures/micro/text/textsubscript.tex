@@ -1,0 +1,14 @@
+% fixture: text/textsubscript
+% tier: T3
+% engine: document
+% covers: \textsubscript: {\m@th$_{\mbox{\fontsize\sf@size\z@\selectfont text}}$}, the text in the current font at \sf@size (roman, bold, at \large), the space factor after it
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+Direct emissions fell to 182 kt CO\textsubscript{2}e, mainly due to the vans. Water is
+H\textsubscript{2}O. The next sentence starts after a subscript\textsubscript{end.} Then
+\textbf{bold CO\textsubscript{2} here} and \emph{x\textsubscript{max}} and a longer one,
+T\textsubscript{two words}, so that the paragraph runs over a few lines of text.
+
+{\large Large CO\textsubscript{2} text.\par}
+\end{document}

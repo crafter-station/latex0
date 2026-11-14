@@ -1,0 +1,10 @@
+% fixture: fonts/size-body-level-in-paragraph
+% tier: T3
+% engine: document
+% covers: a size command in a paragraph at the body's level (\footnotesize mid-text, not in a group): the text after it in its font, the paragraph's lines with its \baselineskip (the one in force at the \par), and the next paragraph all in it
+\documentclass[11pt]{article}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here. \footnotesize The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\end{document}

@@ -1,0 +1,14 @@
+% fixture: beamer/babel-spanish-frenchspacing
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: babel's spanish: \extrasspanish's \frenchspacing (\bbl@frenchspacing) in a frame's paragraph, the space after a period, a question mark and a colon the interword one
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Frases}
+Una frase. Otra frase! Y una pregunta? Dos puntos: y punto y coma; fin. Las frases siguen hasta llenar varias de las lineas del marco. Otra mas. Y otra.
+\end{frame}
+\end{document}

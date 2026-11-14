@@ -1,0 +1,15 @@
+% fixture: babel/french-title-preamble
+% tier: T3
+% engine: document
+% covers: babel activates french's ; : ! ? at \begin{document}: in \title, \author, \date and \thanks read in the preamble they are characters of the text (no thin space or \unskip before them), while the same punctuation in the body gets french's spacing
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\title{Vraiment? Oui! Un titre : long; et encore un mot ? fin\thanks{Merci ! Vraiment?}}
+\author{Paris; Lyon : Nice!}
+\date{Le jour?}
+\begin{document}
+\maketitle
+Vraiment? Oui! Un titre : long; et encore un mot ? fin.
+\end{document}

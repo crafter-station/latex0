@@ -1,0 +1,17 @@
+% fixture: caption/text-commands-hyperref
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a caption with \, and a formula with hyperref (dvips): the list of tables' line is a link, an \hbox, where the formula has no \relpenalty (restricted horizontal mode); the anchor before the caption's text
+\documentclass{article}
+\usepackage{hyperref}
+\begin{document}
+\listoftables
+Text.
+\begin{table}[h]
+\caption{Latency of 10\,000 switches with $b=64$.}\label{a}
+\centering
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+See \ref{a}.
+\end{document}

@@ -1,0 +1,19 @@
+% fixture: beamer/babel-spanish-date-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: babel's spanish: \today on the title page is spanish.ldf's \spanishdate (day~de month\ de~year, ~ babel's shorthand), and an institute that ends with an accent (\bbl@allowhyphens before the box's \par)
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\title{Proyecto}
+\author{Valentina \and Mateo}
+\institute{Colegio San Bartolomé}
+\date{\today}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\end{document}

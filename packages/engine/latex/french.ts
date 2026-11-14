@@ -16,6 +16,7 @@ import { babelState } from "./babel"
 import type { Ctx } from "./context"
 import { appendText } from "./encodings"
 import { babelGuillemet } from "./portuguese"
+import { germanShorthand } from "./german"
 import { fontAt, selectFont } from "./paragraph"
 import { Unsupported } from "./unsupported"
 
@@ -58,6 +59,21 @@ const SIZES = [5, 6, 7, 8, 9, 10, 10.95, 12, 14.4, 17.28, 20.74, 24.88, 29.86, 3
 /** t1cmr.fd's EC fonts for Computer Modern Roman's shapes */
 const EC: Record<string, string> = { "m/n": "ecrm", "m/sl": "ecsl", "m/it": "ecti", "m/sc": "eccc", "bx/n": "ecbx", "bx/it": "ecbi", "bx/sl": "ecbl", "bx/sc": "ecxc" }
 
+/** ot1cmr.fd's font for Computer Modern Roman's shapes at a size it declares (`pt`) */
+function ot1cmr(series: string, shape: string, pt: number): string | null {
+  const ten = pt === 10 || pt === 10.95, big = pt >= 12
+  switch (`${series}/${shape}`) {
+    case "m/n": return pt === 10.95 ? "cmr10" : pt === 14.4 ? "cmr12" : pt > 15 ? "cmr17" : `cmr${pt}` // (<5>…<12>gen*cmr)
+    case "m/sl": return pt <= 7 ? "cmsl8" : ten ? "cmsl10" : big ? "cmsl12" : `cmsl${pt}`
+    case "m/it": return pt <= 7 ? "cmti7" : ten ? "cmti10" : big ? "cmti12" : `cmti${pt}`
+    case "m/sc": return "cmcsc10"
+    case "bx/n": return ten ? "cmbx10" : big ? "cmbx12" : `cmbx${pt}` // (<5>…<9>gen*cmbx)
+    case "bx/sl": return "cmbxsl10"
+    case "bx/it": return "cmbxti10"
+  }
+  return null
+}
+
 /**
  * \up{text} (\fup: \FB@up@fake, as Computer Modern has no -sup.fd): \settoheight\FB@Mht{M}, less .12 of it and .65ex;
  * \raisebox{\FB@Mht}{\scalefont{.65}\MakeLowercase{text}} (scalefnt: \fontsize{.65\f@size}, which NFSS substitutes
@@ -72,7 +88,7 @@ export function frenchUp(text: string, enc: string, fam: string, series: string,
   const pt = at / 65536, code = String(Math.round(pt * 100)).padStart(4, "0")
   let name: string
   if (enc === "T1") { const p = EC[`${series}/${shape}`]; if (!p) throw new Unsupported(`\\up in T1/cmr/${series}/${shape}`); name = p + code }
-  else { if (series !== "m" || shape !== "n") throw new Unsupported(`\\up in OT1/cmr/${series}/${shape}`); name = pt === 10.95 ? "cmr10" : pt === 14.4 ? "cmr12" : pt > 15 ? "cmr17" : `cmr${pt}` }
+  else { const n = ot1cmr(series, shape, Math.round(pt * 100) / 100); if (!n) throw new Unsupported(`\\up in OT1/cmr/${series}/${shape}`); name = n }
   const small = fontAt(name, at)
   const inner: Node[] = []
   appendText(inner, text.toLowerCase(), small, { spaceFactor: 1000 }, false)
@@ -155,10 +171,18 @@ export function frenchCaptionStart(cx: Ctx, name: string, number: string, roman:
 }
 
 /** text typeset as characters alone (a caption, a list's label, a mark) where french's active ; : ! ? would add their
- *  spaces, or babel-german's " its shorthands: not modeled (`loaded`: the language is loaded, which one is selected where
- *  the text is typeset not known) */
-export function frenchTextGuard(text: string, loaded = false): void {
+ *  spaces, or babel-german's " its shorthands other than the letters ("a, "s …): not modeled (`loaded`: the language is
+ *  loaded, which one is selected where the text is typeset not known). Returns the text with those letters. */
+export function frenchTextGuard(text: string, loaded = false): string {
   const on = (lang: string) => (loaded ? !!babelState.b?.languages.includes(lang) : babelState.lang === lang)
   if (on("french") && /[;:!?]/.test(text)) throw new Unsupported(`french's ; : ! ? in "${text}"`)
-  if ((on("german") || on("ngerman")) && text.includes('"')) throw new Unsupported(`babel-german's " in "${text}"`)
+  if (!on("german") && !on("ngerman")) return text
+  // (loaded: the main language's, when the body selects no other outside a paragraph)
+  const lang = loaded ? babelState.switches ? null : babelState.b!.main : babelState.lang
+  if (lang !== "german" && lang !== "ngerman" && text.includes('"')) throw new Unsupported(`babel-german's " in "${text}"`)
+  return text.replace(/"(.?)/g, (two) => {
+    const sh = /^"[A-Za-z]$/.test(two) ? germanShorthand(two, lang!) : null
+    if (typeof sh !== "string") throw new Unsupported(`babel-german's " in "${text}"`)
+    return sh
+  }).normalize("NFC") // (as UTF-8 input: a paragraph reads it too)
 }

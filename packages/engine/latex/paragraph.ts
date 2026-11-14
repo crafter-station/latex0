@@ -24,24 +24,26 @@ import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { shipOut } from "../emit/trace"
-import { classData, documentClass, familyFont } from "./classes"
+import { classData, documentClass, familyFont, isKoma, setupFont } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, enlargeInsert, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
+import { gscaleBox, gscaleDiv } from "./graphics"
 import { anchor, autorefLanguage, autorefName, hyperDriver, natLink, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
-import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
+import { babelAux, babelState, babelSwitch, preambleText, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
 import { germanShorthand, germanShorthandNodes, germanT1, isGerman, type GermanShorthand } from "./german"
 import { frenchMarkSpace, frenchNoteStart, frenchNumero, frenchPunctuation, frenchQuote, frenchUp } from "./french"
 import { babelGuillemet, isPortuguese, portugueseHyphen, portugueseShorthand } from "./portuguese"
-import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand, spanishText } from "./spanish"
+import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishQuoting, spanishShorthand, spanishText } from "./spanish"
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
 import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
 import { crefOutput, crefRangeOutput, crefWrite, writtenLabel, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatEntry, type NatItem, type NatStyle } from "./natbib"
+import { citeList, type CiteOptions } from "./cite"
 import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
@@ -56,6 +58,13 @@ const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStr
 
 const hyphenators = new Map<string, ReturnType<typeof buildHyphenator>>()
 const hyphenator = (id = "en-us") => { let h = hyphenators.get(id); if (!h) hyphenators.set(id, (h = buildHyphenator(hyphenationData(id)))); return h }
+/** the patterns with a class's \hyphenation exceptions after the pattern file's (amsart's) */
+const classHyphenator = (k: ClassOptionData) => {
+  const id = `${k.patterns ?? "en-us"}+${k.cls}`
+  let h = hyphenators.get(id)
+  if (!h) { const d = hyphenationData(k.patterns ?? "en-us"); hyphenators.set(id, (h = buildHyphenator({ ...d, exceptions: [...d.exceptions, ...k.exceptions!] }))) }
+  return h
+}
 export { mathData }
 
 /** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
@@ -168,6 +177,11 @@ export interface DocState {
   /** in multicols (\columnbreak) */
   columns?: boolean
   footnote: number; substituted?: Set<string>; refs?: Refs
+  /** the size of the last \check@mathfonts (\everymath's): \sf@size is its script size, which amsart's \@makefnmark
+   *  takes (amsart's \AtBeginDocument sets \footnotesep from \footnotesize M$^1$) */
+  mathSize?: SizeCommand
+  /** letter.cls's \medskipamount (\parskip as it loads), which \medskip in a paragraph takes */
+  medskipamount?: GlueSpec
   /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
   thanks?: { n: number; src: string }[]
   /** \clubpenalty in vertical mode where the paragraph being read starts, when it is not the paragraph's own (a box
@@ -183,12 +197,16 @@ export interface DocState {
   xcolor?: boolean
   /** xcolor (not color) is loaded: its \@frameb@x frames \fbox and \framebox */
   xcolorFbox?: boolean
+  /** graphicx is loaded: \scalebox, \reflectbox and \resizebox */
+  graphicx?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
   float?: (n: number, traces: ParagraphTrace[], club: number) => Node
   /** babel is loaded: its languages, and whether before hyperref */
   babel?: Babel & { beforeHyperref?: boolean }
   /** natbib is loaded: its citation punctuation */
   natbib?: NatStyle
+  /** cite.sty is loaded: its options */
+  cite?: CiteOptions
   /** a color expression as its \special text */
   color?: (spec: string, model?: string) => string
   /** \lstinline number n (taken out of the source before expansion) at a size in a font; \linewidth where it stands
@@ -281,6 +299,8 @@ export interface ParagraphOptions {
   everyparNoindent?: boolean
   /** plain groups and font declarations read (no \everypar runs in them here) */
   groups?: boolean
+  /** restricted horizontal mode (an \hbox's list: no discretionary after a hyphen, no penalties in a formula) */
+  restricted?: boolean
   start?: Node[]; parShape?: [number, number][]; clubPenalty?: number
   /** the text font, when not the size's roman (a heading's \bfseries) */
   font?: FontRef
@@ -320,6 +340,8 @@ export interface ParagraphOptions {
   centercr?: boolean
   /** \spaceskip and \xspaceskip, when set (not zero) */
   spaceSkips?: { space: GlueSpec; xspace: GlueSpec }
+  /** xcolor's current color where the paragraph starts, when not the document's (a \color before it in its box) */
+  color?: string
 }
 
 /**
@@ -329,8 +351,9 @@ export interface ParagraphOptions {
  */
 export const squeeze = (t: string): string => {
   const s = t.replace(/\s+/g, " ").replace(/^ /, "")
-  // a space after } or ~ is glue \par removes in place of what comes before it, and so is a control space (\␣)
-  return /[}~] $|(^|[^\\])(\\\\)*\\ $/.test(s) ? s : s.replace(/ $/, "")
+  // a space after } or ~ is glue \par removes in place of what comes before it, and so is a control space (\␣) and a
+  // space after babel's two-character shorthands ("> and "= end in \bbl@allowhyphens' \hskip\z@skip)
+  return /[}~] $|"\S $|(^|[^\\])(\\\\)*\\ $/.test(s) ? s : s.replace(/ $/, "")
 }
 
 /** Where the group opened at `open` closes (braces nest, \{ and \} do not count). */
@@ -367,13 +390,14 @@ type Piece =
    *  (`otherstar`, `endotherstar`); \foreignlanguage{lang}{…} */
   | { kind: "babel"; what: "select" | "other" | "endother" | "otherstar" | "endotherstar"; lang: string } | { kind: "foreign"; lang: string; inner: Piece[] } | { kind: "lstinline"; n: number } | { kind: "verb"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "tikz"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
-  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
+  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean; /** a \color after other things in its group, its push not on the vertical list */ declared?: boolean
+      /** its group goes on past the paragraph's end (a \\ in it): no pop here */ open?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
   | { kind: "pagebreak"; no: boolean; n: number; /** multicol's \columnbreak */ column?: boolean }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
-  | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
+  | { kind: "vspace"; star: boolean; skip: string | GlueSpec; /** \bigskip, \smallskip: the class's amount */ amount?: string }
   /** \enlargethispage{len} and \enlargethispage*{len} in a paragraph */
   | { kind: "enlarge"; star: boolean; skip: string }
   /** \hfill, \hfil, \quad, \qquad, \enspace, \hrulefill, \dotfill */
@@ -381,7 +405,13 @@ type Piece =
   /** \mbox, \makebox[width][pos], \fbox, \framebox[width][pos] and \raisebox{lift}[height][depth]: the command, its
    *  optional arguments as given (`lift`: \raisebox's first) and its text */
   | { kind: "box"; cmd: "mbox" | "makebox" | "fbox" | "framebox" | "raisebox"; opts: (string | undefined)[]; lift?: string; inner: Piece[] }
+  /** graphics' \scalebox{x}[y]{text} (`y` undefined: x), \reflectbox{text} and \resizebox{width}{height}{text}
+   *  (`star`: \resizebox*, the height is the height plus depth; ! for a size: the other's factor) */
+  | { kind: "scalebox"; x: string; y?: string; inner: Piece[] }
+  | { kind: "resizebox"; star: boolean; width: string; height: string; inner: Piece[] }
   /** xcolor's \colorbox[model]{bg}{text} and \fcolorbox[model]{frame}[model]{bg}{text} */
+  /** \textsubscript{…} (`sub`) and \textsuperscript{…}: the text */
+  | { kind: "script"; sub: boolean; inner: Piece[] }
   | { kind: "colorbox"; model?: string; spec: string; frame?: { model?: string; spec: string }; inner: Piece[] }
   /** \parbox[pos][height][inner]{width}{text} */
   | { kind: "parbox"; pos: string; height: string | null; inner: string; width: string; src: string }
@@ -392,11 +422,11 @@ type Piece =
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
   | { kind: "group"; inner: Piece[] } | { kind: "decl"; name: string; inner: Piece[] }
   /** {\large …}: a size command in a group */
-  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string; sub?: true } | { kind: "pageref"; key: string }
+  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[]; /** cite.sty's \citen, \citenum, \citeonline: the numbers alone */ bare?: true } | { kind: "ref"; key: string; sub?: true } | { kind: "pageref"; key: string }
   /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
   /** a float that starts in the paragraph (\LXfloat{n}) */
   | { kind: "float"; n: number }
-  | { kind: "natcite"; cmd: string; star: boolean; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean; preSrc: string; postSrc: string }
+  | { kind: "natcite"; cmd: string; star: boolean; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean; preSrc: string; postSrc: string; /** two optional arguments */ both?: true }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
   /** cleveref's \cref{keys}, \Cref, \cpageref and \Cpageref (`star`: no links), \crefrange{a}{b} and friends; what they
@@ -552,7 +582,8 @@ function swSlant(list: Node[]) {
 
 /** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
-interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean; /** babel's language where the parse is, and the
+interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean; /** the text is a brace group's, to its end: a
+ *  \color in it lasts to the end of the pieces (\aftergroup\reset@color) */ colorGroup?: boolean; /** babel's language where the parse is, and the
  *  languages otherlanguage and \foreignlanguage go back to: whose shorthands are on */ lang?: { name: string; stack: string[] } }
 export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
 /** the classes' old font commands (\DeclareOldFontCommand{\bf}{\normalfont\bfseries}…) */
@@ -569,7 +600,10 @@ export const SKIP_AMOUNTS: Record<string, GlueSpec> = {
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const lang = po.lang ?? { name: babelState.lang, stack: [...babelState.stack] }
-  const inner: PieceOptions = { ...po, grouped: true, lang }
+  const shorthands = !preambleText.on // (the shorthand characters are active from \begin{document})
+  const inner: PieceOptions = { ...po, grouped: true, lang, colorGroup: false }
+  /** a brace group's text; and the rest of this text after a declaration */
+  const group: PieceOptions = { ...inner, colorGroup: true }, rest: PieceOptions = { ...inner, colorGroup: po.colorGroup }
   const out: Piece[] = []
   let i = 0, text = ""
   const flushText = () => {
@@ -580,12 +614,13 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     // \string~: the character ~ (other), the font's own
     if (body.startsWith("\\string~", i)) { text += "~"; i += 8; continue }
     // \# \% \& are \chardef'd: the character, with ligatures and kerns as any other; \$ is \textdollar (TS1)
-    if (lang.name === "spanish") { // spanish.ldf's shorthands
-      if (body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
+    if (lang.name === "spanish" && body.startsWith("\\%", i)) { flushText(); out.push({ kind: "percent" }); i += 2; continue }
+    if (lang.name === "spanish" && shorthands) { // spanish.ldf's shorthands
       const sh = spanishShorthand(body.slice(i, i + 2))
-      if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
+      // ("< and "> in T1: \guillemotleft{}, its \chardef joining the run before, which the {} ends)
+      if (sh) { if (typeof sh === "string") text += sh; else if (!sh.quoting && germanT1.on) { text += sh.right ? "»" : "«"; flushText() } else { flushText(); out.push(sh) } i += 2; continue }
       // an active character's lookahead (an undelimited argument) skips the spaces after it: ~ x is ~x, < < is <<
-      if (body[i] === "~" || body[i] === "<" || body[i] === ">") {
+      if (body[i] === "~" || !spanishQuoting.off && (body[i] === "<" || body[i] === ">")) {
         let j = i + 1
         while (body[j] === " ") j++
         const two = spanishShorthand(body[i] + (body[j] ?? ""))
@@ -594,16 +629,16 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
         i = j; continue
       }
     }
-    if (lang.name === "french" && ";:!?".includes(body[i])) { // (french.ldf's active punctuation)
+    if (lang.name === "french" && shorthands && ";:!?".includes(body[i])) { // (french.ldf's active punctuation)
       if (body[i + 1] === "`") throw new Unsupported(`french's ${body[i]}\``) // (the ligature of ?` and !`)
       flushText(); out.push({ kind: "frpunct", ch: body[i] }); i++; continue
     }
-    if (isGerman(lang.name) && body[i] === '"') { // (babel-german's shorthands)
+    if (isGerman(lang.name) && shorthands && body[i] === '"') { // (babel-german's shorthands)
       const sh = germanShorthand(body.slice(i, i + 2), lang.name)
       if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) }
       i += 2; continue
     }
-    if (isPortuguese(lang.name) && body[i] === '"') { // (portuges.ldf's)
+    if (isPortuguese(lang.name) && shorthands && body[i] === '"') { // (portuges.ldf's)
       const sh = portugueseShorthand(body.slice(i, i + 2))
       if (sh.kind === "guillemet" && germanT1.on) text += sh.right ? "»" : "«"; else { flushText(); out.push(sh) }
       i += 2; continue
@@ -653,10 +688,19 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (pb) { flushText(); out.push({ kind: "pagebreak", no: !!pb[1], n: pb[2] === undefined ? 4 : Number(pb[2]) }); i += pb[0].length; continue }
     const colb = body.slice(i).match(/^\\columnbreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/)
     if (colb) { flushText(); out.push({ kind: "pagebreak", no: false, n: colb[1] === undefined ? 4 : Number(colb[1]), column: true }); i += colb[0].length; continue }
-    const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
-    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
+    const bs = body.slice(i).match(/^\\(bigskip|medskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
+    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: bs[1] === "medskip" ? "\\medskipamount" : SKIP_AMOUNTS[bs[1]], amount: bs[1] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
+    // \textsubscript and \textsuperscript (a macro skips the spaces before its argument)
+    const scr = body.slice(i).match(/^\\text(sub|super)script(?![A-Za-z])\s*\{/)
+    if (scr) {
+      const open = i + scr[0].length - 1, j = closingBrace(body, open)
+      const inner = pieces(body.slice(open + 1, j), false, { groups: true, grouped: true })
+      flushText()
+      out.push({ kind: "script", sub: scr[1] === "sub", inner })
+      i = j + 1; continue
+    }
     // xcolor's \colorbox#1#{\color@box{#1}} and \fcolorbox (the model: what comes before the color's brace)
     const cb = body.slice(i).match(/^\\(colorbox|fcolorbox)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}(?:\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\})?\s*\{/)
     if (cb && (cb[1] === "fcolorbox") === (cb[5] !== undefined)) {
@@ -666,6 +710,33 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       if (cb[1] === "colorbox") out.push({ kind: "colorbox", ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3], inner })
       else out.push({ kind: "colorbox", ...(cb[4] ?? cb[2]) !== undefined ? { model: cb[4] ?? cb[2] } : {}, spec: cb[5]!, frame: { ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3] }, inner })
       i = j + 1; continue
+    }
+    // graphics' \scalebox{x}[y]{text}, \reflectbox{text} (\Gscale@box-1[1]) and \resizebox(*){width}{height}{text}
+    const gs = body.slice(i).match(/^\\(scalebox|reflectbox|resizebox)(?![A-Za-z])/)
+    if (gs) {
+      const cmd = gs[1]
+      let j = i + gs[0].length
+      const arg = (): string => {
+        const m = body.slice(j).match(/^\s*\{/)
+        if (!m) throw new Unsupported(`\\${cmd} ${body.slice(j, j + 20)}`)
+        const open = j + m[0].length - 1, close = closingBrace(body, open)
+        j = close + 1
+        return body.slice(open + 1, close)
+      }
+      const text = () => pieces(arg(), false, { groups: true, grouped: true })
+      flushText()
+      if (cmd === "resizebox") {
+        const star = body.slice(j).match(/^\s*\*/) // (\@ifstar skips the spaces before it)
+        if (star) j += star[0].length
+        const width = arg(), height = arg()
+        out.push({ kind: "resizebox", star: !!star, width, height, inner: text() })
+      } else if (cmd === "reflectbox") out.push({ kind: "scalebox", x: "-1", y: "1", inner: text() })
+      else {
+        const x = arg(), y = body.slice(j).match(/^\s*\[([^[\]{}]*)\]/)
+        if (y) j += y[0].length
+        out.push({ kind: "scalebox", x, ...(y ? { y: y[1] } : {}), inner: text() })
+      }
+      i = j; continue
     }
     // boxes: \@ifnextchar[ skips the spaces before an optional argument, and a macro those before an argument
     const bx = body.slice(i).match(/^\\(mbox|makebox|fbox|framebox|raisebox|parbox)(?![A-Za-z])/)
@@ -707,20 +778,20 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     const ru = body.slice(i).match(/^\\rule(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{([^{}]*)\}/)
     if (ru) { flushText(); out.push({ kind: "rule", raise: ru[1] ?? "0pt", width: ru[2], height: ru[3] }); i += ru[0].length; continue }
     // \textcolor[model]{spec}{text}; a group that starts with \color[model]{spec} (\color skips the spaces after it)
-    const tc = body.slice(i).match(/^\\textcolor(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{/) ?? body.slice(i).match(/^\{\\(?:color|LXcolorpushed)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
+    const tc = body.slice(i).match(/^\\textcolor(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*\{/) ?? body.slice(i).match(/^\{\\(?:color|LXcolorpushed|LXcolornopop|LXtextcolornopop|LXcolorcarried)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
     if (tc) {
       const open = i + tc[0].length - (tc[0].startsWith("{") ? tc[0].length : 1)
       let depth = 0, j = open
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced color group")
-      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, inner), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
+      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, group), ...(/^\{\\LXcolor(?:pushed|carried)/.test(tc[0]) ? { pushed: true } : {}), ...(/^\{\\LX(?:text)?color(?:nopop|carried)/.test(tc[0]) ? { open: true } : {}) }); i = j + 1; continue
     }
     const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
     if (sz) {
       let depth = 0, j = i
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced {")
-      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, inner) }); i = j + 1; continue
+      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, group) }); i = j + 1; continue
     }
     const si = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
     if (si && si[1] in SI_COMMANDS) { // siunitx: its options, its arguments in braces
@@ -771,12 +842,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
+    // cite.sty's \citen, \citenum and \citeonline (\@cite@n: an undelimited argument)
+    const citen = body.slice(i).match(/^\\(?:citen|citenum|citeonline)(?![A-Za-z])\s*\{([A-Za-z0-9:._,\s-]+)\}/)
+    if (citen) { flushText(); out.push({ kind: "cite", keys: citen[1].split(",").map((x) => x.trim()), bare: true }); i += citen[0].length; continue }
     // natbib's commands: \@ifstar, then \@ifnextchar[ twice (each skips spaces), then the keys
     const nat = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])(\*?)\s*(?:\[([^\]]*)\]\s*(?:\[([^\]]*)\]\s*)?)?\{([A-Za-z0-9:._,\s-]+)\}/)
     if (nat && nat[1] in NAT_COMMANDS) {
       // one optional argument is the post-note; two are the pre- and post-notes
       const [pre, post] = nat[4] !== undefined ? [nat[3], nat[4]] : ["", nat[3] ?? ""]
-      flushText(); out.push({ kind: "natcite", cmd: nat[1], star: nat[2] === "*", keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined, preSrc: pre, postSrc: post }); i += nat[0].length; continue
+      flushText(); out.push({ kind: "natcite", cmd: nat[1], star: nat[2] === "*", keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined, preSrc: pre, postSrc: post, ...(nat[4] !== undefined ? { both: true as const } : {}) }); i += nat[0].length; continue
     }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
@@ -847,7 +921,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (rx) { flushText(); out.push({ kind: "group", inner: [] }); i += rx[0].length; continue }
     if (po.groups && body[i] === "{") { // (no ligature or kern across its ends either)
       const j = closingBrace(body, i)
-      flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue
+      flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, group) }); i = j + 1; continue
+    }
+    // \color[model]{spec} in a group: \set@color's push here, \ignorespaces, and \aftergroup\reset@color: its pop where
+    // the group ends (\LXcolorpushed: read in vertical mode, before the paragraph, its push on the vertical list)
+    const col = body.slice(i).match(/^\\(color|LXcolorpushed)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
+    if (col) {
+      // (a command's argument: where its group ends, and what the command does before that, is the command's)
+      if (!po.colorGroup) throw new Unsupported(`\\color outside a group in "${body.slice(i, i + 40)}"`)
+      flushText(); out.push({ kind: "color", spec: col[3], model: col[2], inner: pieces(body.slice(i + col[0].length), footnotes, rest), ...(col[1] === "LXcolorpushed" ? { pushed: true } : { declared: true }) }); i = body.length; continue
     }
     // a declaration (or a size command) in a group: to the group's end
     const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/) : null
@@ -858,8 +940,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       flushText(); i += decl[0].length; continue
     }
     if (decl && (BODY_DECLARATIONS.includes(decl[1]) || (SIZE_COMMANDS as readonly string[]).includes(decl[1]))) {
-      const rest = pieces(body.slice(i + decl[0].length), footnotes, inner)
-      flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
+      const after = pieces(body.slice(i + decl[0].length), footnotes, rest)
+      flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: after } : { kind: "size", size: decl[1] as SizeCommand, inner: after }); i = body.length; continue
     }
     if (body[i] === "$") {
       let j = body.indexOf("$", i + 1)
@@ -927,6 +1009,7 @@ function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
     const family = k.families && { cmr: k.families.rm, cmss: k.families.sf, cmtt: k.families.tt }[a.fam]
     if (!family || family === a.fam) return selectFont(other, s, a)
     if (family === "phv") throw new Unsupported(`\\LaTeX at ${size} in phv`) // (its scale)
+    if (family === "cmss" || family === "cmtt") return selectFont(other, s, { ...a, fam: family }) // (\familydefault's)
     const fonts = Object.fromEntries(["n", a.shape].map((sh) => [`${a.enc}/${a.fam}/${a.ser}/${sh}`, familyFont(family, `${a.enc}/${a.ser}/${sh}`, other.sizes[s].size)]))
     return selectFont({ ...other, sizes: { ...other.sizes, [s]: { ...other.sizes[s], fonts } } }, s, a)
   }
@@ -943,7 +1026,7 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  */
 /** \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size */
 function markFont(k: ClassOptionData, size: SizeCommand): Font {
-  if (k.families && k.families.rm !== "cmr") { const r = familyFont(k.families.rm, `${k.ints.T1 ? "T1" : "OT1"}/m/n`, k.sizes[size].scriptSize); return loadFont(dataFont(r.name), r.at) }
+  if (k.families && k.families.rm !== "cmr") { const r = setupFont(k, k.families.rm, `${k.ints.T1 ? "T1" : "OT1"}/m/n`, k.sizes[size].scriptSize); return loadFont(dataFont(r.name), r.at) }
   const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
   return loadFont(dataFont(ref.name), ref.at)
 }
@@ -965,7 +1048,7 @@ function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath 
   const sf = k.sizes[size].scriptSize, pt = String(Math.round(sf / 655.36)).padStart(4, "0")
   const font = (name: string) => loadFont(dataFont(name), sf)
   // (\rmdefault's at \sf@size)
-  const rm = (enc: string) => { const r = familyFont(k.families!.rm, `${enc}/m/n`, sf); return loadFont(dataFont(r.name), r.at) }
+  const rm = (enc: string) => { const r = setupFont(k, k.families!.rm, `${enc}/m/n`, sf); return loadFont(dataFont(r.name), r.at) }
   const [f, code] = kind === "section" && k.ints.T1 ? [k.families && k.families.rm !== "cmr" ? rm("T1") : font(`ecrm${pt}`), 159]
     : [k.families && k.families.rm !== "cmr" ? rm("TS1") : font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
   const chars = kind.endsWith("2") || kind === "**" ? [code, code] : [code]
@@ -980,12 +1063,27 @@ export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: Do
   return footnoteInsert(src, n, ctx, 0, fnsymbolMark(n, k, "footnotesize", amsmath))
 }
 
-function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
+/** amsart's \@adminfootnotes: \@footnotetext{text} with \@makefnmark and \@thefnmark \relax, in vertical mode; `later`:
+ *  the paragraphs after the first (\@setthanks: each \thanks after a \par) */
+export function amsAdminFootnote(src: string, k: ClassOptionData, doc: DocState, club: number, later: string[] = []) {
+  const ctx: PieceContext = { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], noteClub: club, amsmath: true, base: { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" } }
+  return footnoteInsert(src, 0, ctx, 0, undefined, true, later)
+}
+
+function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false, font = markFont(k, size)): BoxNode {
   const digits: Node[] = []
-  appendText(digits, String(n), markFont(k, size), { spaceFactor: 1000 }, false)
+  appendText(digits, String(n), font, { spaceFactor: 1000 }, false)
   const mbox = hpack(digits)
   const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return hpack([{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }])
+}
+
+/** amsart's \@makefnmark: \raise.9ex\hbox{\fontsize\sf@size\z@\normalfont\@thefnmark}, .9ex the font's around it, \sf@size
+ *  the script size of `size`, where math was last laid out */
+function amsFootnoteMark(n: number, k: ClassOptionData, size: SizeCommand, around: Font): BoxNode {
+  const digits: Node[] = []
+  appendText(digits, String(n), markFont(k, size), { spaceFactor: 1000 }, false)
+  return { ...hpack(digits), shift: -new Scanner(".9ex", { em: 0, ex: around.params[X_HEIGHT] }).scanDimen().value }
 }
 
 /** Interline glue (§ 679) and the box, appended to a vertical list; returns the new \prevdepth. */
@@ -1004,7 +1102,7 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[]) {
+function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[], admin = false, later: string[] = []) {
   const k = singleSpaced(outer.k) // setspace's \@footnotetext: \def\baselinestretch{\setspace@singlespace}
   const ctx = { ...outer, k }
   const fs: SizeCommand = "footnotesize"
@@ -1019,32 +1117,59 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   const lang0 = languageHyphenation(babelState.lang)
-  const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const ams = k.cls === "amsart", koma = isKoma(k.cls ?? "")
+  if (ams && mark) throw new Unsupported("\\thanks in amsart")
+  if (koma && (mark || babelState.b?.main === "french")) throw new Unsupported(`${mark ? "\\thanks" : "french.ldf's footnotes"} in KOMA-Script`)
+  const markBox = ams ? amsFootnoteMark(n, k, outer.doc.mathSize ?? "footnotesize", font) : hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   // (french.ldf's footnotes, but for \maketitle's \thanks: its own \@makefntext)
   const french = !mark && babelState.b?.main === "french"
   if (french && hn) throw new Unsupported("french.ldf's footnotes with hyperref")
-  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut] : [markBox, strut]
+  // (KOMA-Script's \deffootnote[1em]{1.5em}{1em}{\textsuperscript{\thefootnotemark}}: \leftskip 1.5em, \parindent 1em
+  // \noindent, \hskip\dimexpr 1em-1.5em, \hbox to\z@{\hss\@@makefnmark})
+  const ems = (x: string) => new Scanner(x, { em, ex: 0 }).scanDimen().value
+  if (koma) params.leftSkip = paramGlue("leftskip", glue(ems("1.5em")))
+  // (amsart's \@makefntext: \indent\@makefnmark, \parindent\normalparindent)
+  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut] : ams ? [emptyBox("hlist", k.dimens.parindent), ...(admin ? [] : [markBox]), strut]
+    : koma ? [glue(ems("1em") - ems("1.5em")), hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: 0 }), strut] : [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
   const from = list.length, languages: LanguageMark[] = []
-  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
+  appendPieces(list, pieces(squeeze(src), false, admin ? { groups: true } : {}), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
   params.hyphenation = hyphenation(k, font, fixLanguage(list, from, lang0, false, languages)) // (\noindent)
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
-  list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
+  // \@finalstrut\strutbox (amsart's \strut: \unhcopy\strutbox)
+  const finalStrut = (): Node => ({ kind: "rule", width: 0, height: k.sizes[fs].strut.height, depth: k.sizes[fs].strut.depth })
+  if (ams) { if (!later.length) list.push(finalStrut()) }
+  else list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth })
   const { vlist, trace } = lineBreak(list, params)
+  const traces = [trace]
   // the insertion's vertical list starts with \prevdepth = ignore_depth (§ 1099)
   const v: Node[] = []
   let prevDepth: number | null = null
-  for (const x of vlist) {
-    if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
-    else v.push(x)
+  const put = (lines: Node[]) => {
+    for (const x of lines) {
+      if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
+      else v.push(x)
+    }
   }
+  put(vlist)
+  // the paragraphs after a \par in the text (amsart's \@setthanks): \parskip (\@parboxrestore's \z@skip) and the
+  // indentation (\parindent\normalparindent) before each, the \unskip\strut after the last
+  later.forEach((t, i) => {
+    const l: Node[] = [emptyBox("hlist", k.dimens.parindent)], langs: LanguageMark[] = []
+    appendPieces(l, pieces(squeeze(t), false, { groups: true }), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages: langs })
+    if (i === later.length - 1) { if (l.at(-1)?.kind === "glue") l.pop(); l.push(finalStrut()) }
+    const lb = lineBreak(l, { ...params, hyphenation: hyphenation(k, font, fixLanguage(l, 1, lang0, false, langs)) })
+    traces.push(lb.trace)
+    v.push(spec("parskip", ZERO), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip (its paragraph start)
+    put(lb.vlist)
+  })
   const box = vpack(v)
   const ins: InsNode = {
     kind: "ins", n: k.ints.footins, height: box.height + box.depth, depth: k.sizes[fs].strut.depth,
     splitTopSkip: glue(k.dimens.footnotesep), floatCost: 20000, list: v,
   }
-  return { ins, trace }
+  return { ins, trace, traces }
 }
 
 const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
@@ -1053,7 +1178,7 @@ const glueOf = (g: GlueSpec): GlueNode => glue(g.width, g.stretch, g.stretchOrde
 /** The hyphenation of a paragraph that starts in babel's language `lang` (none: the class's patterns and hyphenmins) */
 function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>, lang = languageHyphenation(babelState.lang)): LineBreakParams["hyphenation"] {
   return {
-    hyphenator: hyphenator(lang?.patterns ?? k.patterns),
+    hyphenator: !lang && k.exceptions ? classHyphenator(k) : hyphenator(lang?.patterns ?? k.patterns),
     fontOf: (name, size) => (name === font.name && size === font.size ? font : fontAt(name, size)),
     lHyf: lang?.lhm ?? k.ints.lefthyphenmin, rHyf: lang?.rhm ?? k.ints.righthyphenmin, ucHyph: k.ints.uchyph, patterns: hyphenator,
     ...(languageLc(babelState.lang) ? { lc: languageLc(babelState.lang) } : {}), // (the extras in force at the paragraph's end)
@@ -1094,7 +1219,7 @@ function fixLanguage(list: Node[], from: number, start: Language | null, startsH
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** otherlanguage groups open where the paragraph started, still to end, and those opened in it; the \clubpenalty in force after the first end */ langGroups?: { outer: number; opened: number; outerClub?: number }; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** the list `host` that `list` continues (a tabular entry after the template's \hskip1sp): \lastskip at the list's start is the host's */ before?: { host: Node[]; list: Node[] }; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** otherlanguage groups open where the paragraph started, still to end, and those opened in it; the \clubpenalty in force after the first end */ langGroups?: { outer: number; opened: number; outerClub?: number }; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
@@ -1146,6 +1271,47 @@ function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, 
   if (p.cmd === "makebox") { list.push(hpack(aligned, { exactly: width })); return }
   // \framebox[width][pos]: \hb@xt@ width{\kern\fboxsep \bm@pos \kern\fboxsep}, framed with \kern-\fboxrule inside the rules
   list.push(framed(hpack([kern(FBOXSEP, true), ...aligned, kern(FBOXSEP, true)], { exactly: width }), [kern(-FBOXRULE, true)], ctx.doc.xcolorFbox))
+}
+
+/**
+ * \textsubscript and \textsuperscript (latex.ltx): \@textsubscript{\selectfont#1}, that is
+ * {\m@th\ensuremath{_{\mbox{\fontsize\sf@size\z@\selectfont#1}}}}: a formula with no \mathsurround whose only noad
+ * has an empty nucleus and the text, an \hbox in the current font at \sf@size, as its subscript (§ 1186: the box
+ * itself). \sf@size is the size's script size; the text is read at the size command of that size.
+ */
+function scriptPiece(list: Node[], p: Extract<Piece, { kind: "script" }>, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  const { k } = ctx
+  const sf = (Object.keys(k.sizes) as SizeCommand[]).find((s) => k.sizes[s].font.at === k.sizes[size].scriptSize)
+  if (!sf) throw new Unsupported(`\\text${p.sub ? "sub" : "super"}script at ${size}`)
+  const content: Node[] = []
+  appendPieces(content, p.inner, selectFont(k, sf, attrs), sf, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  const box = { kind: "box" as const, box: hpack(content) }
+  const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: p.sub ? null : box, sub: p.sub ? box : null }], mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted)
+  list.push({ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 })
+  state.spaceFactor = 1000 // (after a formula, § 1196)
+}
+
+/**
+ * graphics' \scalebox and \reflectbox: \Gscale@box on \hbox{{text}}. \resizebox: \mbox{text} for two !; else the text
+ * in \@begin@tempboxa's \hbox, the sizes read with \width, \height, \depth and \totalheight its own (\setlength), the
+ * factors \Gscale@div of each size by the box's width and height (\resizebox*: its height plus depth), a ! taking the
+ * other's, and \Gscale@box on \hbox{{\box\@tempboxa}}
+ */
+function scaleboxPiece(list: Node[], p: Extract<Piece, { kind: "scalebox" | "resizebox" }>, font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  if (!ctx.doc.graphicx) throw new Unsupported(`\\${p.kind} without graphicx`)
+  const content: Node[] = []
+  appendPieces(content, p.inner, font, size, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  state.spaceFactor = 1000 // (after a box)
+  const natural = hpack(content)
+  if (p.kind === "scalebox") { list.push(gscaleBox(natural, p.x.trim(), (p.y ?? p.x).trim(), hyperDriver.pdftex)); return }
+  if (p.width === "!" && p.height === "!") { list.push(natural); return }
+  const base = lengthEnv(ctx, font), outer = base.internal!
+  const dims: Record<string, number> = { width: natural.width, height: natural.height, depth: natural.depth, totalheight: natural.height + natural.depth }
+  const env: ScanEnv = { ...base, internal: (name, s) => (name in dims ? { level: "dimen", value: dims[name] } : outer(name, s)) }
+  const len = (x: string) => { try { return parseDimen(x, env) } catch { throw new Unsupported(`\\resizebox length "${x}"`) } }
+  const div = (num: string, den: number) => { if (den === 0) throw new Unsupported("\\resizebox: division by 0"); return gscaleDiv(len(num), den) }
+  const x = p.width === "!" ? null : div(p.width, dims.width), y = p.height === "!" ? null : div(p.height, p.star ? dims.totalheight : dims.height)
+  list.push(gscaleBox(hpack([natural]), x ?? y!, y ?? x!, hyperDriver.pdftex))
 }
 
 /**
@@ -1213,7 +1379,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     if (p.kind === "text") { appendSymbols(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, { enc: attrs.enc, select: (enc) => symbolFont(k, size, attrs, enc), used: doc.textDefaults ??= new Set() }, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
     if (p.kind === "logo") {
       // (\LaTeXe: \boldmath in a series b…)
-      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), ((env) => (attrs.ser.startsWith("b") ? env.bold!() : env))(mathEnv(k, size, ctx.amsmath)), TEXT, false), { kind: "math", on: false, width: 0 }]
+      const epsilon = (): Node[] => [(doc.mathSize = size, { kind: "math", on: true, width: 0 }), ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), ((env) => (attrs.ser.startsWith("b") ? env.bold!() : env))(mathEnv(k, size, ctx.amsmath)), TEXT, false), { kind: "math", on: false, width: 0 }]
       list.push(...logoNodes(p.name, font, () => sfFont(k, size, attrs), state, (l) => hpack(l), epsilon)); ctx.ignoreSpaces = false; continue
     }
     if (p.kind === "currentlabel") {
@@ -1242,7 +1408,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       else list.push(p.cmd === "hfill" ? fillGlue() : p.cmd === "hfil" ? filGlue() : glue(font.params[QUAD] * (p.cmd === "qquad" ? 2 : 1)))
     }
     else if (p.kind === "box") boxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "script") scriptPiece(list, p, size, state, ctx, attrs)
     else if (p.kind === "colorbox") colorboxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "scalebox" || p.kind === "resizebox") scaleboxPiece(list, p, font, size, state, ctx, attrs)
     else if (p.kind === "parbox") {
       if (!doc.parbox) throw new Unsupported("\\parbox outside a document")
       list.push(...doc.parbox(p, size, attrs, state.sfcodes, { notes: ctx.notes, club: ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))
@@ -1314,7 +1482,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // \vskip\z@skip}, \@esphack: after a space, \nobreak\hskip\z@skip, and the spaces after it go
       if (ctx.restricted) throw new Unsupported("\\vspace in restricted horizontal mode")
       let g: GlueSpec
-      if (typeof p.skip !== "string") g = p.skip
+      // (amsart's amounts are .7\baselineskip plus .7\baselineskip and its halves, by the size: \@adjustvertspacing)
+      if (p.amount && k.cls === "amsart") { if (size !== "normalsize") throw new Unsupported(`\\${p.amount} at \\${size} in amsart`); g = k.glue[`${p.amount}amount`] }
+      else if (typeof p.skip !== "string") g = p.skip
+      else if (p.skip === "\\medskipamount") g = doc.medskipamount ?? SKIP_AMOUNTS.medskip
       else try { g = parseGlue(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${p.skip}}`) }
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
@@ -1352,6 +1523,59 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push({ kind: "adjust", list: [doc.float(p.n, ctx.notes, ctx.noteClub ?? ctx.params.clubPenalty)] }) // (its paragraphs' traces where its footnotes' go, read with their \clubpenalty)
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
+    else if (doc.cite && (p.kind === "cite" || p.kind === "natcite" && p.cmd === "cite")) {
+      // cite.sty's \cite (cite.ts): \leavevmode\cite@adjust\citeleft{\@cite@n{keys}\citemid{note}\spacefactor\@m}\citeright
+      if (doc.natbib) throw new Unsupported("cite.sty with natbib")
+      if (p.kind === "natcite" && (p.star || p.both)) throw new Unsupported(`\\cite${p.star ? "*" : "[…][…]"} with cite.sty`) // (\@citex[#1]#2: the keys would be * or [)
+      const o = doc.cite, bare = p.kind === "cite" && !!p.bare
+      const run = (text: string, f = font) => appendText(list, text, f, state, !ctx.restricted)
+      const pen = o.nobreak ? 10000 : 1000 // \citepunctpenalty
+      if (!bare) {
+        if (o.adjust) {
+          // \cite@adjust: \unskip, \penalty\citeprepenalty unless a penalty is last; after no glue the space factor is
+          // 1001, and above 1000 the space is \  (the font's own), else the glue taken off
+          // (at an entry's start the list before is the template's: its \hskip1sp is the glue taken off)
+          const host = !list.length && ctx.before?.list === list ? ctx.before.host : list
+          const last = host.at(-1), skip = last?.kind === "glue" ? last : null
+          if (skip) host.pop()
+          const tail = host.at(-1)
+          if (!(tail?.kind === "penalty" && tail.penalty !== 0)) list.push(penalty(o.nobreak ? 10000 : 301))
+          if (!skip || !skip.width && !skip.stretch && !skip.shrink) state.spaceFactor = 1001
+          list.push(state.spaceFactor > 1000 || !skip ? normalSpace(font, state) : glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder))
+        }
+        run(o.ref ? "[Ref." : "[")
+        if (o.ref) list.push(penalty(10000), normalSpace(font, state))
+      }
+      for (const item of citeList(o, p.keys.map((x) => x.trim()), (key) => doc.refs?.cites?.get(key))) {
+        if (item.kind === "punct") {
+          run(",")
+          list.push(penalty(pen))
+          if (o.punct === "small") { const g = parseGlue(".13em plus .1em minus .1em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] }); list.push(glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)) }
+          else if (o.punct === "space") list.push(normalSpace(font, state))
+        } else if (item.kind === "dash") { // \hbox{--}\penalty\citepunctpenalty
+          const l: Node[] = []
+          appendText(l, "--", font, { spaceFactor: 1000 }, false)
+          list.push(hpack(l), penalty(pen))
+          state.spaceFactor = 1000
+        } else if (item.kind === "undefined") run("?", selectFont(k, size, fontDeclaration("bfseries", attrs, k, size, doc)!)) // {\bfseries ?}
+        else if (doc.refs?.hyper) { // hyperref's \bibcite: the number in \hyper@@link[cite] to the item's cite.<key> anchor
+          const t: Node[] = []
+          appendText(t, item.text, font, { spaceFactor: 1000 }, false)
+          list.push(...refLink(t, `cite.${item.key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite"))
+          state.spaceFactor = 1000
+        } else run(item.text)
+      }
+      if (!bare) {
+        if (p.kind === "natcite" && p.optional) { // \citemid{note}: ,\penalty\citemidpenalty\  and the note in a group
+          run(",")
+          list.push(penalty(o.nobreak ? 10000 : 151), normalSpace(font, state))
+          appendPieces(list, pieces(`{${p.postSrc}}`, false, { groups: true }), font, size, state, ctx, attrs)
+        }
+        state.spaceFactor = 1000
+        run("]")
+      }
+    }
+    else if (p.kind === "cite" && p.bare) throw new Unsupported("\\citen without cite.sty")
     else if (p.kind === "natcite" || p.kind === "cite" && doc.natbib) {
       if (!doc.natbib) throw new Unsupported(`\\${p.kind === "natcite" ? p.cmd : "cite"} without natbib`)
       const n = p.kind === "natcite" ? p : { cmd: "cite", star: false, keys: p.keys, pre: [], post: [], optional: false, preSrc: "", postSrc: "" }
@@ -1392,22 +1616,23 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
-      // ,\penalty\@m\  , then ]
-      appendText(list, "[", font, state, !ctx.restricted)
+      // ,\penalty\@m\  , then ] (amsart's \@cite: in a group with \@citestyle, \upshape\mdseries)
+      const cf = k.cls === "amsart" ? selectFont(k, size, applyFontCommand("textmd", applyFontCommand("textup", attrs, font, ctx.base, k, size, doc), font, ctx.base, k, size, doc)) : font
+      appendText(list, "[", cf, state, !ctx.restricted)
       p.keys.forEach((key, i) => {
         if (i) {
-          appendText(list, ",", font, state, !ctx.restricted)
-          list.push(penalty(1000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+          appendText(list, ",", cf, state, !ctx.restricted)
+          list.push(penalty(1000), glue(cf.params[SPACE], cf.params[SPACE_STRETCH], NORMAL, cf.params[SPACE_SHRINK], NORMAL))
         }
         const n = doc.refs?.cites?.get(key), l: Node[] = []
         // hyperref's \bibcite: the number in \hyper@@link[cite] to the item's cite.<key> anchor
-        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, font, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite")) }
-        else if (n) appendText(l, n, font, { spaceFactor: 1000 }, false)
+        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, cf, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite")) }
+        else if (n) appendText(l, n, cf, { spaceFactor: 1000 }, false)
         else appendText(l, "?", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
         list.push(hpack(l))
         state.spaceFactor = 1000
       })
-      appendText(list, "]", font, state, !ctx.restricted)
+      appendText(list, "]", cf, state, !ctx.restricted)
     }
     else if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
       list.push(penalty(10000), normalSpace(font, state))
@@ -1559,7 +1784,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       ctx.noteClub = noteClub
       ctx.color = outer
       ctx.ignoreSpaces = false // \ignorespaces stops at the closing brace
-      list.push({ kind: "whatsit", text: "\\special{color pop}" })
+      if (!p.open) list.push({ kind: "whatsit", text: "\\special{color pop}" })
     }
     else if (p.kind === "smuggle") {
       // \beamer@smuggle in horizontal mode: a \lastskip other than 0.0pt taken off before the nodes, put back after them
@@ -1682,6 +1907,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
+      doc.mathSize = size
       list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined, { dollarNext: true, font, text: mathText(k, size, doc, attrs, !!ctx.amsmath), frame: (b) => framed(b, [], doc.xcolorFbox), env: mathEnv(k, size, ctx.amsmath) }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else if (p.kind === "thanks") {
@@ -1697,7 +1923,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const n = ++doc.footnote
       // hyperref: the mark in a link to the note's anchor (\hyper@linkstart{link}{Hfootnote.n} … \hyper@linkend)
       const hn = doc.refs?.hyper ? (doc.refs.hfootnotes = (doc.refs.hfootnotes ?? 0) + 1) : 0
-      const mark = footnoteMark(n, k, size, ctx.amsmath)
+      // (KOMA-Script's \@makefnmark: \textsuperscript{\thefootnotemark}, in the font around it)
+      const mark = k.cls === "amsart" ? amsFootnoteMark(n, k, doc.mathSize ?? "footnotesize", font) : isKoma(k.cls ?? "") ? footnoteMark(n, k, size, ctx.amsmath, sfFont(k, size, attrs)) : footnoteMark(n, k, size, ctx.amsmath)
       if (babelState.b?.main === "french") frenchMarkSpace(list, font)
       list.push(penalty(10000), ...(hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : [mark]))
       const { ins, trace } = footnoteInsert(p.src, n, ctx, hn)
@@ -1711,10 +1938,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
  * Material in restricted horizontal mode (a tabular cell): text, formulas, font, size and color
  * commands, in the font `attrs` at `size`; no footnotes or labels.
  */
-export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
+export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state: { spaceFactor: number; before?: Node[] } = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
   const list: Node[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups, grouped: groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
+  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups, grouped: groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}), ...(state.before ? { before: { host: state.before, list } } : {}) }, attrs)
   return list
 }
 
@@ -1749,6 +1976,12 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     body = s.rest().trimStart()
   }
   const ps = pieces(body, true, { groups: !!opts.groups, grouped: !!opts.topDecls, centercr: !!opts.centercr })
+  // (a group that starts the paragraph with declarations and \color: read in vertical mode, its push goes on the
+  // vertical list before the paragraph; the caller puts it there (\LXcolorpushed), or it is not laid out)
+  if (!noindentFirst) for (let p: Piece | undefined = ps[0]; p; p = p.inner[0]) {
+    if (p.kind === "color" && p.declared) throw new Unsupported("a group starting a paragraph with declarations and \\color here")
+    if (p.kind !== "group" && p.kind !== "size" && p.kind !== "decl") break
+  }
   // (where a \noindent starts the paragraph, its language is the one before)
   if (noindentFirst && (ps[0]?.kind === "babel" || ps[0]?.kind === "foreign")) throw new Unsupported("babel's language commands after \\noindent")
   const lang0 = languageHyphenation(babelState.lang)
@@ -1769,7 +2002,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base, ...(opts.color ? { color: opts.color } : {}), ...(opts.restricted ? { restricted: true } : {}) }
   if (opts.leadLanguageGroups && opts.leadGroupNoteClubPenalty !== undefined) {
     pctx.langGroups = { outer: opts.leadLanguageGroups, opened: 0, outerClub: pctx.noteClub }
     pctx.noteClub = opts.leadGroupNoteClubPenalty

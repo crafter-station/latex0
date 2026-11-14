@@ -1,0 +1,16 @@
+% fixture: tikz-cd/arrows-pdftex
+% tier: T3
+% engine: document
+% specials: compare
+% oracle: pdflatex
+% covers: arrow styles under pdfTeX: hook, two heads, dashed, mapsto, Rightarrow, equal, harpoon, shift left, bend right, a label's description
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Styles
+\begin{tikzcd}
+A \arrow[r, hook] \arrow[d, mapsto] \arrow[dr, dashed, "d" description] & B \arrow[d, Rightarrow] \arrow[r, equal] & C \arrow[d, harpoon] \\
+D \arrow[r, two heads, shift left] \arrow[r, tail, shift right] & E \arrow[r, bend right, "b"'] & F
+\end{tikzcd}
+end.
+\end{document}

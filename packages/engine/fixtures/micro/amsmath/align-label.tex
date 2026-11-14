@@ -1,0 +1,17 @@
+% fixture: amsmath/align-label
+% tier: T3
+% engine: document
+% covers: \label in align (\label@in@display, written by \make@display@tag in the tag's box after the number), in a first, a middle and a last row, beside \notag rows, with \ref and \eqref to them before and after
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+We refer ahead to \eqref{eq:b} and to \ref{eq:c}, which follow from
+\begin{align}
+a &= b + c \label{eq:a} \\
+  &= d + e \notag \\
+\label{eq:b} x^2 + y^2 &= z^2 \\
+f(x) &= \int_0^x g(t)\,dt \nonumber \\
+  &\le \frac{1}{2} \label{eq:c}
+\end{align}
+and back to \eqref{eq:a}, \eqref{eq:b} and \eqref{eq:c} in the text after the display.
+\end{document}

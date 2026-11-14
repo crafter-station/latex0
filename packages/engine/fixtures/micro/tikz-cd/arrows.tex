@@ -1,0 +1,15 @@
+% fixture: tikz-cd/arrows
+% tier: T3
+% engine: document
+% specials: compare
+% covers: arrow styles on the Computer Modern tip: dashed, dotted, leftarrow, no head, leftrightarrow, two heads, tail
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Styles
+\begin{tikzcd}
+A \arrow[r, dashed] \arrow[d, dotted] & B \arrow[d, leftarrow] \arrow[r, no head] & C \arrow[d, leftrightarrow] \\
+D \arrow[r, two heads] & E \arrow[r, tail] & F
+\end{tikzcd}
+end.
+\end{document}

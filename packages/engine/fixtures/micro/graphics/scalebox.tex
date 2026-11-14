@@ -1,0 +1,11 @@
+% fixture: graphics/scalebox
+% tier: T3
+% engine: document
+% specials: compare
+% covers: graphics' \scalebox{x}[y]{text} and \reflectbox{text} with dvips (dvips.def's \Gscale@start and \Gscale@end: two ps: specials with the factors as given, around the text in an \rlap), positive, identity and negative factors
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Text before \scalebox{2}{Big gyp} and \scalebox{.5}[1.5]{narrow, tall (gyp)} and \scalebox{1.0}{same} and \scalebox{-2}[-.5]{Both gyp} and \reflectbox{reflected} in a paragraph that runs over more than one line of the page here.
+\end{document}

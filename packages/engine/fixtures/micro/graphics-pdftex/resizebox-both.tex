@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/resizebox-both
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \resizebox{width}{height}{text} under pdfTeX (\Gscale@box@dddd: a factor for each direction, no keepaspectratio), \resizebox*{2\width}{\totalheight}{text} (lengths of the text's own box) and \resizebox{!}{!}{text} (\mbox)
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Text \resizebox{2cm}{1cm}{Both gyp} and \resizebox*{2\width}{\totalheight}{twice as wide (gyp)} and \resizebox{!}{!}{as it is} in a line, and \resizebox{1cm}{\height}{squeezed text}.
+\end{document}

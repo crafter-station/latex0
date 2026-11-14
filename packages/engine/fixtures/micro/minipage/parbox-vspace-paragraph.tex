@@ -1,0 +1,10 @@
+% fixture: minipage/parbox-vspace-paragraph
+% tier: T3
+% engine: document
+% covers: \vspace at the end of a \parbox's paragraph: \@vspace's \vadjust (after a space: \nobreak\hskip\z@skip, which the \par takes off), its skips after the last line in the box
+\documentclass{article}
+\begin{document}
+\noindent\fbox{\parbox{6cm}{Words in a box that go on for two lines of it or so, and then a space.
+\vspace{6pt}}}
+and text after it.
+\end{document}

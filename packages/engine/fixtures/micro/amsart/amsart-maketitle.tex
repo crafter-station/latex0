@@ -1,0 +1,32 @@
+% fixture: amsart/amsart-maketitle
+% tier: T3
+% engine: document
+% covers: amsart's \maketitle: the title in capitals with \@upprep's spaces, two authors \MakeUppercase'd, the abstract (\abstractbox, \@setabstract), \date, \subjclass and \keywords as footnotes without marks, \topskip 42pt on the first page, \ps@firstpage; the addresses (\interlinepenalty\@M) and emails at the end of the document
+% issue: #360
+\documentclass{amsart}
+\begin{document}
+\title{On the Distribution of Lattice Points in Large Convex Regions of the Plane}
+\author{Ann Author}
+\address{Department of Mathematics, Some University \\ Some City}
+\email{ann@example.org}
+\author{Bob Writer}
+\address{Institute for Advanced Things, a Very Long Name of an Institute That Goes On and On Past the End of a Line}
+\email{bob@example.org}
+\date{May 2026}
+\subjclass[2010]{Primary 11P21}
+\keywords{lattice points, convex regions}
+
+\begin{abstract}
+We count the lattice points in large convex regions of the plane whose boundary has positive curvature, and give an error term that improves on the classical one by a power of the logarithm.
+
+A second paragraph of the abstract, indented by the normal paragraph indentation of the class.
+\end{abstract}
+
+\maketitle
+
+\section{Introduction}
+Let $D$ be a convex region of the plane. The number of points of $\mathbb{Z}^2$ in the dilate $tD$ is the area of $tD$ up to an error term, and the problem is to bound that term as $t$ grows.
+
+\section{Results}
+Our main result is an improvement of the exponent for regions with smooth boundary.
+\end{document}

@@ -1,0 +1,22 @@
+% fixture: parskip/setlength-baselineskip-factor
+% tier: T3
+% engine: document
+% covers: \setlength{\parskip}{1\baselineskip} in the preamble at 11pt: a factor times a skip register is a dimension (§ 455, the register's width: 13.6pt), so the \parskip has no stretch; paragraphs, a section heading and a list take it
+\documentclass[11pt]{article}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1\baselineskip}
+\begin{document}
+First paragraph of text that is long enough to run over the end of its first line and so to take two lines here.
+
+Second paragraph.
+\section*{A heading}
+Third paragraph, after the heading.
+\begin{enumerate}
+\item One item.
+\item Another item.
+
+With a second paragraph.
+\end{enumerate}
+After the list.
+\end{document}

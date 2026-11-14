@@ -1,0 +1,29 @@
+% fixture: natbib/bibsep-parskip
+% tier: T3
+% engine: document
+% covers: natbib's \bibsep is \@listi's \itemsep plus \parsep as natbib loads: after parskip.sty that is 0pt plus its \parsep\parskip (.5\baselineskip plus 2pt), the skip between items, and not a \parskip set after natbib
+% issue: #363
+\documentclass{article}
+\usepackage{parskip}
+\usepackage[round]{natbib}
+\setlength{\parskip}{3pt plus 1pt}
+\begin{document}
+Text \citep{a}.
+
+\begin{thebibliography}{3}
+\bibitem[Smith(2001)]{a}
+John Smith.
+\newblock A title.
+\newblock Some Press, 2001.
+
+\bibitem[Jones and Lee(1999)]{b}
+Ann Jones and Bo Lee.
+\newblock Another title.
+\newblock Other Press, 1999.
+
+\bibitem[Lee(2003)]{c}
+Bo Lee.
+\newblock A third title.
+\newblock Press, 2003.
+\end{thebibliography}
+\end{document}

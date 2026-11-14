@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/scalebox
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: graphics' \scalebox{x}{text} and \scalebox{x}[y]{text} under pdfTeX (\Gscale@box: \pdfsave, \pdfsetmatrix{x 0 0 y}, the text in an \rlap, \pdfrestore; the box x times as wide, y times as high and deep), in a paragraph that breaks around them
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Text before \scalebox{2}{Big gyp} and after it, then \scalebox{.5}[1.5]{narrow, tall (gyp)} with words that follow so that the paragraph runs over more than one line of the page; a factor with digits \scalebox{1.37}[0.731]{Mixed} ends it.
+\end{document}

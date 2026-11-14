@@ -69,7 +69,7 @@ interface Environments { open: { name: string; id: number }[]; done: number[]; m
  */
 const NO_ASSIGNMENT = new Set(("par noindent indent relax emph underline footnote footnotemark label ref pageref eqref autoref nameref cref Cref " +
   "cite citep citet hfill hfil quad qquad enspace thinspace vspace hspace vfill smallskip medskip bigskip newline linebreak " +
-  "newpage clearpage pagebreak nopagebreak mbox fbox makebox framebox parbox raisebox colorbox fcolorbox rule hrule hrulefill dotfill " +
+  "newpage clearpage pagebreak nopagebreak mbox fbox makebox framebox parbox raisebox scalebox reflectbox resizebox colorbox fcolorbox rule hrule hrulefill dotfill " +
   "null ldots dots today LaTeX TeX setcounter addtocounter stepcounter arabic roman Roman alph Alph value lstplaceholder").split(" "))
 const noAssignment = (name: string) => NO_ASSIGNMENT.has(name) || /^(?:the|text|LX)[A-Za-z]+$/.test(name)
 

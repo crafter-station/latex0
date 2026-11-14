@@ -711,12 +711,24 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         out.push({ noad: big[2] === "l" ? 4 : big[2] === "r" ? 5 : big[2] === "m" ? 3 : ORD, nucleus, sup: null, sub: null })
         continue
       }
+      if (t.cs === "LXtikz") {
+        // a TikZ picture (\LXtikz{n}, taken out of the source): \pgfsys@typesetpicturebox's \raise…\box in math mode, a box
+        // that is an ord noad (§ 1076); its text in the text font, as in an \hbox
+        if (!opts.text) throw new Error("math: a picture without the text font")
+        if (opts.boldVersion) throw new Error("math: a picture in \\boldsymbol")
+        const b = opts.text(`\\LXtikz{${rawArgument(t.cs)}}`, 0, null)
+        const inner = b.list.length === 1 ? b.list[0] : null
+        if (!inner || (inner.kind !== "hlist" && inner.kind !== "vlist")) throw new Error("math: a picture with trimmed sides")
+        out.push({ noad: ORD, nucleus: { kind: "box", box: inner }, sup: null, sub: null })
+        continue
+      }
       if (t.cs === "mbox" || t.cs === "text" || t.cs in TEXT_FONT_COMMANDS) {
         if (!opts.text) throw new Error(`math: \\${t.cs} without the text font`)
         if (opts.boldVersion) throw new Error(`math: \\${t.cs} in \\boldsymbol`) // (its formulas would be in \mathversion{bold} too)
         const text = opts.text, src = rawArgument(t.cs), decl = TEXT_FONT_COMMANDS[t.cs]
         const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null })
         if (t.cs === "mbox" || !opts.amsmath) { out.push(box(text(src, 0, null, decl))); continue } // \leavevmode\hbox{#1}; \nfss@text: {\mbox{<decl>#1}}
+        if (src.includes("\\LXtikz{")) throw new Error(`math: a picture in \\${t.cs}`) // (set in each of \mathchoice's four styles)
         // amstext's \text@: {\mathchoice{\textdef@\displaystyle\f@size{#1}}{\textdef@\textstyle\f@size{…}}{…\sf@size…}{…\ssf@size…}}
         out.push(groupNoad([palette((st) => [box(text(src, st < 4 ? 0 : st < 6 ? 1 : 2, st === 0 ? "display" : "text", decl))])]))
         continue

@@ -1,0 +1,24 @@
+% fixture: xcolor/centercr-color
+% tier: T3
+% engine: document
+% covers: \\ (\@centercr after \centering or \raggedright) in a \color group and in \textcolor's text: the paragraph ends in the group with the color pushed and not popped; the next one starts in it again with no push, and the pop comes where the group ends (in the paragraph, or in vertical mode after the \\ when the group ends right after it); a \color group starting the paragraph pushes on the vertical list; \\* and \\[skip]; in a size group
+% issue: #363
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+{\Large\raggedright here can their when those be was {\color{green!60!blue} baffled even\\[8pt] great of} for way official and more text here.\par}
+
+{\centering Some text {\color{teal} fifty\\[6pt] back other} and more text.\par}
+
+{\centering {\color{orange} were \\ his Knuth other} after it.\par}
+
+{\raggedright A line \textcolor{blue}{there Paris \\ so with} and after.\par}
+
+{\centering Then \textcolor{red!50}{each\\*} next line.\par}
+
+{\centering \textcolor{black}{no\\* would one} two.\par}
+
+{\raggedleft Last {\color{red} one \\} end.\par}
+
+{\centering Last {\color{red} one \\}\par}
+\end{document}

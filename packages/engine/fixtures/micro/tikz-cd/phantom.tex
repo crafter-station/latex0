@@ -1,0 +1,11 @@
+% fixture: tikz-cd/phantom
+% tier: T3
+% engine: document
+% specials: compare
+% covers: phantom (nothing drawn, the label at its center), marking (sloped on the arrow), and TikZ's draw=, thick and >-> on an arrow
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Marks \begin{tikzcd}
+A \arrow[r, phantom, "\subset" description] \arrow[d, draw=red, "g" marking] & B \arrow[d, thick, "/" marking]\\ C \arrow[r, >->] \arrow[r, bend right, <->] & D \end{tikzcd} end.
+\end{document}

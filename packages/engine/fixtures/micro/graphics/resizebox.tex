@@ -1,0 +1,11 @@
+% fixture: graphics/resizebox
+% tier: T3
+% engine: document
+% specials: compare
+% covers: graphics' \resizebox and \resizebox* with dvips: the factors \Gscale@div gives, printed in the ps: specials; a width, a height, both, and \mbox for two !
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+\noindent\resizebox{3cm}{!}{Three cm (gyp)} and \resizebox{!}{1cm}{Height gyp} and \resizebox*{!}{1cm}{Total gyp} and \resizebox{2cm}{1cm}{Both gyp} and \resizebox{!}{!}{as it is} and \resizebox{.25\linewidth}{!}{a quarter}.
+\end{document}

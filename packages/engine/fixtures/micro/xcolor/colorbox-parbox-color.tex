@@ -1,0 +1,17 @@
+% fixture: xcolor/colorbox-parbox-color
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a masthead: \colorbox around a \parbox that starts \centering\color{white}\vspace{6pt} (the push, then the skips, on the box's list), its lines in groups, a \colorbox in it pushing the white for its text (\color@setgroup), \vspace ending the last paragraph, the pop last in the box
+\documentclass{article}
+\usepackage{xcolor}
+\definecolor{masthead}{HTML}{1B4F72}
+\begin{document}
+\noindent\colorbox{masthead}{\parbox{\dimexpr\textwidth-2\fboxsep}{%
+  \centering\color{white}\vspace{6pt}
+  {\Huge\bfseries The Bulletin}\\[2pt]
+  {\small Garden Association, \colorbox{black}{Issue 14}}
+  \vspace{6pt}}}
+
+Text after it.
+\end{document}

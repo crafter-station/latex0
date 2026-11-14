@@ -1,0 +1,15 @@
+% fixture: babel/german-title-preamble
+% tier: T3
+% engine: document
+% covers: babel activates babel-german's " at \begin{document}: in \title and \author read in the preamble "o is the character " and o (T1's straight quote), while "o in the body is ö
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\title{Gr"o"se und "Ubertragung}
+\author{M"uller}
+\date{}
+\begin{document}
+\maketitle
+Gr"o"se und "Ubertragung von M"uller.
+\end{document}

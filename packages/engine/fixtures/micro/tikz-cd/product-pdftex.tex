@@ -1,0 +1,17 @@
+% fixture: tikz-cd/product-pdftex
+% tier: T3
+% engine: document
+% specials: compare
+% oracle: pdflatex
+% covers: the product diagram under pdfTeX
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+The product:
+\begin{tikzcd}[row sep=2em, column sep=1.5em, ampersand replacement=\&]
+  E \arrow[dr, "e"'] \arrow[drr, "p_2"] \arrow[ddr, "p_1"'] \& \& \\
+  \& A \times B \arrow[r, "\pi_2"'] \arrow[d, "\pi_1"] \& B \arrow[d, "g"] \\
+  \& A \arrow[r, "f"'] \& C
+\end{tikzcd}
+and text after.
+\end{document}

@@ -1,0 +1,23 @@
+% fixture: titlesec/format-color
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \color in \titleformat's format: read in vertical mode in \ttl@select's group, its push on the vertical list before the title's paragraph, the label's \sbox pushing that color (\color@setgroup), its pop after the after code (\titlerule) where the group ends
+\documentclass{article}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\definecolor{accent}{RGB}{0,82,147}
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection}{1em}{}[\titlerule]
+\titleformat{\subsection}{\color[rgb]{.5,0,0}\normalfont\large\bfseries}{}{0em}{}
+\begin{document}
+Some text first.
+
+\section{A Colored Title}
+The text after the title.
+
+\subsection{A Second One}
+More text here.
+
+\section*{Without a Number}
+The last paragraph.
+\end{document}

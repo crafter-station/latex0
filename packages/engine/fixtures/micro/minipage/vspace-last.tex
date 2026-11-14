@@ -1,0 +1,13 @@
+% fixture: minipage/vspace-last
+% tier: T3
+% engine: document
+% covers: \vspace last in a minipage: \endminipage's \unskip takes \@vspace's \vskip\z@skip and the skip itself stays, so a [b] minipage's text stands a centimetre above the baseline
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\noindent Text \begin{minipage}[b]{4cm}
+Raised text in a minipage.
+
+\vspace{1cm}
+\end{minipage} and text after it.
+\end{document}

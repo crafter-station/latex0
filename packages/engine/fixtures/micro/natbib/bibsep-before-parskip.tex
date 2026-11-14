@@ -1,0 +1,28 @@
+% fixture: natbib/bibsep-before-parskip
+% tier: T3
+% engine: document
+% covers: natbib's \bibsep is \@listi's \itemsep plus \parsep as natbib loads: before parskip.sty, the class's (8pt plus 4pt minus 2pt in 10pt), whatever parskip changes later
+% issue: #363
+\documentclass{article}
+\usepackage[round]{natbib}
+\usepackage{parskip}
+\begin{document}
+Text \citep{a}.
+
+\begin{thebibliography}{3}
+\bibitem[Smith(2001)]{a}
+John Smith.
+\newblock A title.
+\newblock Some Press, 2001.
+
+\bibitem[Jones and Lee(1999)]{b}
+Ann Jones and Bo Lee.
+\newblock Another title.
+\newblock Other Press, 1999.
+
+\bibitem[Lee(2003)]{c}
+Bo Lee.
+\newblock A third title.
+\newblock Press, 2003.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,23 @@
+% fixture: natbib/bibhang-fontenc
+% tier: T3
+% engine: document
+% covers: natbib's \bibhang is 1em in the font selected as natbib loads: natbib before fontenc takes OT1 cmr at 11pt (10.95pt's quad), the text is T1 ecrm
+% issue: #363
+\documentclass[11pt]{article}
+\usepackage[square]{natbib}
+\usepackage[T1]{fontenc}
+\begin{document}
+Text \citep{a}.
+
+\begin{thebibliography}{2}
+\bibitem[Smith(2001)]{a}
+John Smith.
+\newblock A long title that runs over the line so that its second line hangs by the bibhang of the font.
+\newblock Some Press, 2001.
+
+\bibitem[Jones and Lee(1999)]{b}
+Ann Jones and Bo Lee.
+\newblock Another long title that runs over the line so that its second line hangs by the bibhang.
+\newblock Other Press, 1999.
+\end{thebibliography}
+\end{document}

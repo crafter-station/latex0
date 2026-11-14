@@ -20,8 +20,10 @@ import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import { arrowDb, setArrows, tipSequence, type ArrowDb, type Tip } from "./arrows"
 import { DEFAULT_VECTORS, type PgfVectors } from "../pgf/state"
+import { FORWARD_QUOTES, installCd, type CdHooks } from "./cd"
 import { chars, Keys, NOVALUE } from "./keys"
 import { arg, contains, find, groupEnd, isCs, plain, same, str, type Tok, type Toks } from "./tokens"
+import { installTreeKeys, TREE_STYLES, treeState, type TreeState } from "./trees"
 
 /** a pgf call TikZ appends to \tikz@options */
 export type OptionCall =
@@ -82,7 +84,7 @@ export type NodeAt =
   | { kind: "point"; point: () => { x: number; y: number } }
 
 /** The macros and registers TikZ's options set, as they are inside a picture */
-export interface TikzState {
+export interface TikzState extends TreeState {
   /** \pgflinewidth (sp) */
   lineWidth: number
   /** \tikz@options */
@@ -174,7 +176,32 @@ export interface TikzState {
   toBend: string
   toRelative: boolean
   toLooseness: { out: string; in: string; outMin: string; outMax: string; inMin: string; inMax: string }
+  /** \iftikz@is@matrix, \tikz@matrix@anchor, \pgfmatrixcolumnsep, \pgfmatrixrowsep, \tikz@ampersand@replacement (null: \pgfutil@empty) */
+  isMatrix: boolean
+  matrixAnchor: Toks
+  columnSep: Toks
+  rowSep: Toks
+  ampersand: Tok | null
+  /** the matrix library's `matrix of nodes` (its execute at begin, end and empty cell) and \iftikz@lib@matrix@empty */
+  matrixOfNodes: boolean
+  nodesInEmptyCells: boolean
+  /** \tikz@atbegin@node, \tikz@atend@node */
+  atBeginNode: Tok[]
+  atEndNode: Tok[]
+  /** \tikz@atbegin@to (tikz-cd's shifts: what the to path's ends move by, read when the to path starts) */
+  atBeginTo: ToHook[]
+  /** tikz-cd: \tikzcd@ar@target and \tikzcd@ar@start (null: the arrow's own cell), \tikzcd@startanchor, \tikzcd@endanchor (`.anchor` or empty), \iftikzcd@mathmode */
+  cdTarget: string | null
+  cdStart: string | null
+  cdStartAnchor: string
+  cdEndAnchor: string
+  cdMathMode: boolean
 }
+
+/** what tikz-cd's keys run as a to path begins (tikzlibrarycd.code.tex 153–206) */
+export type ToHook =
+  /** shift left=#1 (a dimension, or a factor of the default 0.56ex): both ends moved to the left of the arrow */
+  | { kind: "shift left"; amount: Toks }
 
 const clone = (s: TikzState): TikzState => ({
   ...s,
@@ -186,6 +213,9 @@ const clone = (s: TikzState): TikzState => ({
   endTips: [...s.endTips],
   afterPath: [...s.afterPath],
   toLooseness: { ...s.toLooseness },
+  atBeginNode: [...s.atBeginNode],
+  atEndNode: [...s.atEndNode],
+  atBeginTo: [...s.atBeginTo],
 })
 
 export interface TikzSetup {
@@ -200,6 +230,16 @@ export interface TikzSetup {
   plotmarks?: boolean
   /** \usetikzlibrary{shapes.geometric} (or shapes): its ellipse */
   geometric?: boolean
+  /** \usetikzlibrary{matrix}, \usetikzlibrary{quotes}, \usetikzlibrary{cd} (tikz-cd, which loads both and arrows.meta) */
+  matrix?: boolean
+  quotes?: boolean
+  cd?: boolean
+  /** edge node=…: the node appended to the to path's \tikz@tonodes */
+  edgeNode?: (v: Toks) => void
+  /** tikz-cd's keys in a picture */
+  cdHooks?: () => CdHooks
+  /** baseline=(coordinate): \pgfsetbaselinepointlater */
+  baselinePoint?: (v: Toks) => void
   /**
    * positioning's `of`: \tikz@scan@one@point(#2), the point and, for a node's name, the node whose border it
    * is on (\iftikz@shapeborder)
@@ -256,7 +296,9 @@ const TIKZ_STYLES = `nodes/.code=\\tikzset{every node/.append style={#1}},
   every loop/.style={->,shorten >=1pt}, loop right/.style={right,out=15,in=-15,loop}, loop above/.style={above,out=105,in=75,loop},
   loop left/.style={left,out=195,in=165,loop}, loop below/.style={below,out=285,in=255,loop},
   x radius/.initial=0pt, y radius/.initial=0pt, start angle/.initial=, end angle/.initial=, delta angle/.initial=, every arc/.style={},
-  every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={},
+  every picture/.style={}, every path/.style={}, every scope/.style={}, every node/.style={}, every cell/.style={}, every matrix/.style={},
+  cells/.code=\\tikzset{every cell/.append style={#1}},
+  edge label/.style={/tikz/edge node={node[auto]{#1}}}, edge label'/.style={/tikz/edge node={node[auto,swap]{#1}}},
   transparent/.style={opacity=0}, ultra nearly transparent/.style={opacity=0.05}, very nearly transparent/.style={opacity=0.1},
   nearly transparent/.style={opacity=0.25}, semitransparent/.style={opacity=0.5}, nearly opaque/.style={opacity=0.75},
   very nearly opaque/.style={opacity=0.9}, ultra nearly opaque/.style={opacity=0.95}, opaque/.style={opacity=1},
@@ -352,7 +394,10 @@ export class Tikz {
   /** \usetikzlibrary{plotmarks} */
   get plotmarks(): boolean { return !!this.setup.plotmarks }
   /** whether pgf declares the shape (\pgf@sh@s@<name>) */
-  hasShape(name: string): boolean { return SHAPES.has(name) || (name === "ellipse" && !!this.setup.geometric) }
+  hasShape(name: string): boolean { return SHAPES.has(name) || (name === "ellipse" && !!this.setup.geometric) || (name === "asymmetrical rectangle" && !!this.setup.cd) }
+  /** \usetikzlibrary{quotes}, \usetikzlibrary{cd} */
+  get quotes(): boolean { return !!this.setup.quotes || !!this.setup.cd }
+  get cd(): boolean { return !!this.setup.cd }
 
   constructor(setup: TikzSetup) {
     this.setup = setup
@@ -374,9 +419,13 @@ export class Tikz {
       afterPath: [], labelAngle: [], labelDistance: chars("0pt"), labelPosition: chars("above"), absolute: false, currentPointLocal: false,
       pinDistance: chars("3ex"), pinPosition: chars("above"), pinEdge: [],
       gridX: chars("1cm"), gridY: chars("1cm"),
+      ...treeState(),
       plotHandler: "lineto", plotMark: [], plotSamples: "25", plotDomain: "-5:5", plotSamplesAt: chars("-5,-4.5833333,...,5"), plotVar: "\\x", plotMarkSize: 2 * 65536,
       toCurve: false, toLoop: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
       toLooseness: { out: "1", in: "1", outMin: "0pt", outMax: "10000pt", inMin: "0pt", inMax: "10000pt" },
+      isMatrix: false, matrixAnchor: [], columnSep: chars("0pt"), rowSep: chars("0pt"), ampersand: null, matrixOfNodes: false, nodesInEmptyCells: false,
+      atBeginNode: [], atEndNode: [], atBeginTo: [],
+      cdTarget: null, cdStart: null, cdStartAnchor: "", cdEndAnchor: "", cdMathMode: true,
     }
     this.install()
   }
@@ -606,6 +655,36 @@ export class Tikz {
     this.setup.arrows?.(v, this.st)
   }
 
+  /** tikz-cd: \tikzcdmatrixname, and \tikzcd@currentrow, \tikzcd@currentcolumn of the arrow being drawn */
+  cdMatrix = ""
+  cdCell: { row: number; column: number } | null = null
+
+  /** \tikz@edge@quotes@as (edge quotes mean=…): what "text"options stands for on a to path; tikz-cd's own while it draws its arrows */
+  edgeQuotes: ((text: Toks, options: Toks) => Tok[]) | null = null
+
+  /**
+   * \tikz@quote@parser (tikzlibraryquotes.code.tex 12–36) on a to path: `"text"`, then `'` (swap) and the options,
+   * in braces or up to the item's end, handed to \pgfkeysalso as the edge's quotes mean
+   */
+  private quote(item: Toks) {
+    if (item[0] !== "\"") throw new Unsupported("tikz: quotes")
+    const close = find(item, ["\""], 1)
+    if (close < 0) throw new Unsupported("tikz: a quote without its end")
+    const text = arg(item.slice(1, close))
+    let rest = trimmed(item.slice(close + 1))
+    let apo = false
+    if (rest[0] === "'") { apo = true; rest = trimmed(rest.slice(1)) }
+    let options: Tok[]
+    if (rest[0] === "{") {
+      const e = groupEnd(rest, 0)
+      if (e < 0) throw new Unsupported("tikz: unbalanced braces")
+      options = rest.slice(1, e)
+    } else options = rest
+    if (apo) options = ["'", ",", ...options]
+    const as = this.edgeQuotes ?? ((t: Toks, o: Toks): Tok[] => [...chars("edge node="), "{", ...chars("node [every edge quotes,"), ...o, "]", "{", ...t, "}", "}"])
+    this.keys.also(as(text, options))
+  }
+
   /** the color options of /tikz/.unknown: \tikz@compat@color@set and the text color */
   private compatColor(name: string) {
     this.st.options.push({ op: "compatcolor", color: name })
@@ -702,7 +781,13 @@ export class Tikz {
     opt("use as bounding box", () => { st().mode.push("boundarytrue") }, "")
     // baseline (88–94): \pgfsetbaseline{#1}, or a coordinate (not modeled)
     opt("baseline", (v) => {
-      if (v[0] === "(" || !this.setup.baseline) throw new Unsupported("tikz: baseline at a coordinate")
+      // (\pgfutil@ifnextchar(: blanks skipped)
+      const t = trimmed(v)
+      if (t[0] === "(") {
+        if (!this.setup.baselinePoint) throw new Unsupported("tikz: baseline at a coordinate")
+        return this.setup.baselinePoint(t)
+      }
+      if (!this.setup.baseline) throw new Unsupported("tikz: baseline outside a picture")
       this.setup.baseline(v)
     }, "0pt")
     // radius (285–295): \pgfmathparse'd, with pt when it has units
@@ -899,8 +984,58 @@ export class Tikz {
     loose("in min distance", (l, v) => { l.inMin = dist(v) })
     loose("in max distance", (l, v) => { l.inMax = dist(v) })
     loose("in distance", (l, v) => { l.inMin = l.inMax = dist(v) })
+    // matrices (1457–1468), the nodes' and the to paths' hooks (1489–1496), edge node (1340–1342)
+    opt("matrix", (v) => {
+      const b = plain(v, "matrix")
+      if (b !== "true" && b !== "false") throw new Unsupported(`tikz: matrix=${b}`)
+      st().isMatrix = b === "true"
+    }, "true")
+    opt("matrix anchor", (v) => { st().matrixAnchor = v })
+    opt("column sep", (v) => { st().columnSep = v })
+    opt("row sep", (v) => { st().rowSep = v })
+    opt("ampersand replacement", (v) => {
+      const t = v.filter((x) => x !== " ")
+      if (t.length !== 1 || !isCs(t[0])) throw new Unsupported("tikz: ampersand replacement")
+      st().ampersand = t[0]
+    })
+    opt("execute at begin node", (v) => { st().atBeginNode.push(...v) })
+    opt("execute at end node", (v) => { st().atEndNode.push(...v) })
+    opt("edge node", (v) => {
+      if (!this.setup.edgeNode) throw new Unsupported("tikz: edge node outside a picture")
+      this.setup.edgeNode(v)
+    })
     k.pgfqkeys("/tikz", TIKZ_STYLES)
+    installTreeKeys(k, st, (v) => this.length(v))
+    k.pgfqkeys("/tikz", TREE_STYLES)
     k.define("/tikz/.unknown", [{ kind: "native", run: (kk, v) => this.unknown(kk, v) }])
+
+    if (this.setup.matrix || this.setup.cd) {
+      // tikzlibrarymatrix.code.tex 14–21, 54–64: the cells' code is mirrored where a matrix is made (tikz/path.ts)
+      k.define("/tikz/matrix of nodes", [{ kind: "native", run: () => {
+        this.set("matrix,cells={anchor=base}")
+        st().matrixOfNodes = true
+      } }])
+      k.setValue("/tikz/matrix of nodes/.@def", NOVALUE)
+      opt("nodes in empty cells", (v) => {
+        const b = plain(v, "nodes in empty cells")
+        if (b !== "true" && b !== "false") throw new Unsupported(`tikz: nodes in empty cells=${b}`)
+        st().nodesInEmptyCells = b === "true"
+      }, "true")
+      this.set("matrix of math nodes/.style={matrix of nodes,nodes={execute at begin node=$,execute at end node=$}}")
+    }
+    if (this.setup.cd) {
+      installCd(this, k, () => {
+        if (!this.setup.cdHooks) throw new Unsupported("tikz-cd: a key outside a picture")
+        return this.setup.cdHooks()
+      })
+      k.charHandlers[FORWARD_QUOTES] = (_k, item) => this.set([...chars("every to/.append style="), "{", ...item, "}"])
+    }
+    if (this.quotes) {
+      // tikzlibraryquotes.code.tex: "text"options in a to path's or an edge's options
+      k.syntaxHandlers = true
+      k.charHandlers["\\tikz@quote@parser"] = (_k, item) => this.quote(item)
+      this.set("every edge quotes/.style={auto}")
+    }
 
     if (this.setup.positioning) {
       for (const [name, p] of Object.entries(PLACEMENTS)) {

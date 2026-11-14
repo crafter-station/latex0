@@ -1,0 +1,10 @@
+% fixture: tikz-cd/loop
+% tier: T3
+% engine: document
+% specials: compare
+% covers: loops: loop right, loop above, and loop with a distance and angles
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Loop \begin{tikzcd} A \arrow[loop right, "f"] \arrow[loop above] & B \arrow[loop, distance=2em, in=305, out=235, "g"] \end{tikzcd} end.
+\end{document}

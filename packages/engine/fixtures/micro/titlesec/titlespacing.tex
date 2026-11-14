@@ -1,0 +1,20 @@
+% fixture: titlesec/titlespacing
+% tier: T3
+% engine: document
+% covers: \titlespacing*{\cmd}{0pt}{before}{after}: the skips before and after the title as written, set at each title (\ttl@assign's \setlength, ex in the font there), in place of the ones \ttl@extract takes from the class
+\documentclass{article}
+\usepackage{titlesec}
+\titlespacing*{\section}{0pt}{12pt}{6pt}
+\titlespacing*{\subsection}{0pt}{2ex plus 1ex minus .5ex}{1.2ex plus .1ex}
+\begin{document}
+Some text first.
+
+\section{A Title}
+The text after the title.
+
+\subsection{A Second One}
+More text here.
+
+\subsubsection{The class's spacing}
+The last paragraph.
+\end{document}

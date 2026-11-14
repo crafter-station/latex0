@@ -1,0 +1,9 @@
+% fixture: minipage/vspace-parbox
+% tier: T3
+% engine: document
+% covers: \vspace first in a \parbox[t] (vertical mode there too): \vspace{0pt} puts the box's top at the baseline, beside a \parbox[t] without it
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\noindent Text \parbox[t]{3cm}{\vspace{0pt}Hanging below the line, on two lines of text.} and \parbox[t]{3cm}{First line on the baseline, the rest below.} end.
+\end{document}

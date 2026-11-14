@@ -34,7 +34,7 @@ export class VerticalList {
   private indentAfter = true
   alwaysIndent = false
   /** \clubpenalty at the outer level: \@afterheading's \everypar sets \@M, which lasts until a later paragraph resets it */
-  club = 150
+  club: number
   /** \@afterheading's \everypar is still in force (it clears itself in the first paragraph after the one it set up) */
   afterheadingEverypar = false
   /** \@doendpe has redefined \par: the next \par resets \clubpenalty */
@@ -45,7 +45,7 @@ export class VerticalList {
   endpeEverypar = false
   /** a \par at the outer level */
   par() { if (this.endpePar) { this.club = this.k.ints.clubpenalty; this.endpePar = this.doendpe = this.endpeEverypar = false; this.afterheadingEverypar = false } }
-  constructor(private k: ClassOptionData) {}
+  constructor(private k: ClassOptionData) { this.club = k.ints.clubpenalty }
 
   /** \lastskip: the last node's glue, or 0pt (a hook stands for an assignment, not a node) */
   get lastSkip(): GlueSpec {

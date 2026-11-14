@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/reflectbox
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \reflectbox{text} under pdfTeX: \Gscale@box-1[1]
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Text and \reflectbox{its reflection (gyp)} in a line.
+\end{document}

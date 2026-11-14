@@ -1,0 +1,10 @@
+% fixture: fonts/familydefault-helvet-scaled
+% tier: T3
+% engine: document
+% covers: \familydefault as \sfdefault with helvet scaled: the body and a footnote mark (\normalfont at \sf@size) in Helvetica at .95 of each size
+\documentclass{article}
+\usepackage[scaled]{helvet}
+\renewcommand*{\familydefault}{\sfdefault}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here. A note\footnote{Its text.} here, {\small and small\footnote{Another.} words}.
+\end{document}
