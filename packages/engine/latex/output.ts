@@ -19,6 +19,7 @@ import { documentPages } from "../trace/decisions"
 import { dataFont } from "./data"
 import { distillerDestFix, hyperDriver, pageAnchor } from "./hyperref"
 import { setgroup, xcolor } from "./xcolor"
+import { isKoma } from "./classes"
 import { Unsupported } from "./unsupported"
 
 const MAX_DIMEN = 0o7777777777
@@ -657,7 +658,9 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     }
     // \color@begingroup\normalcolor\footnoterule\unvbox\footins\color@endgroup
     const rule: Node = { kind: "rule", width: xnOverD(sh.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 }
-    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial(`push ${xcolor.normal}`)] : []), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
+    // (KOMA-Script's: \kern-\dimexpr 2.6\p@+.4\p@, \vskip\z@\@plus.05fil unless \flushbottom, \hrule .4pt by .4\columnwidth, \kern 2.6\p@)
+    const komaFil = isKoma(k.cls ?? "") && sh.raggedbottom ? [glue(0, 3277, FIL)] : []
+    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial(`push ${xcolor.normal}`)] : []), kern(-196608, true), ...komaFil, rule, kern(170394, true), ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
     if (sh.top.length) list = [...sh.top.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep)), plain(textfloatsep), ...list]
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)

@@ -1,0 +1,21 @@
+% fixture: koma/koma-maketitle
+% tier: T3
+% engine: document
+% covers: KOMA-Script's \maketitle (titlepage=false): \next@tdpage's \clearpage after text, \setparsizes{\z@}{\z@}{\z@\@plus1fil}, \null\vskip2em, a center with \subject (\bfseries\Large), the title in \sectfont\huge, \subtitle (\sectfont\large), the authors' tabulars with \and in \Large (\lineskip .5em), the date, \publishers; \thispagestyle{plain}; the abstract as a quotation (abstract=false)
+% issue: #360
+\documentclass{scrartcl}
+\subject{Project proposal}
+\title{Digitising the Parish Archive}
+\subtitle{Project Proposal for the Heritage Fund}
+\author{$\displaystyle\frac{\frac{a}{b}}{\frac{c}{d}}$ St.\ Mary's Historical Society \and Margaret Ellis}
+\date{May 2026}
+\publishers{Published by the Society}
+\begin{document}
+A paragraph before the title, which \maketitle's \clearpage leaves on a page of its own.
+\maketitle
+\begin{abstract}
+The parish archive holds over four thousand documents dating from 1640 to 1950, including registers of baptisms, marriages and burials.
+\end{abstract}
+\section{Summary}
+Many are fragile. We request funds to digitise and catalogue the collection.
+\end{document}

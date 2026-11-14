@@ -24,7 +24,7 @@ import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { shipOut } from "../emit/trace"
-import { classData, documentClass, familyFont, setupFont } from "./classes"
+import { classData, documentClass, familyFont, isKoma, setupFont } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
@@ -1028,9 +1028,9 @@ export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: Do
   return footnoteInsert(src, n, ctx, 0, fnsymbolMark(n, k, "footnotesize", amsmath))
 }
 
-function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
+function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false, font = markFont(k, size)): BoxNode {
   const digits: Node[] = []
-  appendText(digits, String(n), markFont(k, size), { spaceFactor: 1000 }, false)
+  appendText(digits, String(n), font, { spaceFactor: 1000 }, false)
   const mbox = hpack(digits)
   const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return hpack([{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }])
@@ -1067,12 +1067,19 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   const lang0 = languageHyphenation(babelState.lang)
+  const koma = isKoma(k.cls ?? "")
+  if (koma && (mark || babelState.b?.main === "french")) throw new Unsupported(`${mark ? "\\thanks" : "french.ldf's footnotes"} in KOMA-Script`)
   const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   // (french.ldf's footnotes, but for \maketitle's \thanks: its own \@makefntext)
   const french = !mark && babelState.b?.main === "french"
   if (french && hn) throw new Unsupported("french.ldf's footnotes with hyperref")
-  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut] : [markBox, strut]
+  // (KOMA-Script's \deffootnote[1em]{1.5em}{1em}{\textsuperscript{\thefootnotemark}}: \leftskip 1.5em, \parindent 1em
+  // \noindent, \hskip\dimexpr 1em-1.5em, \hbox to\z@{\hss\@@makefnmark})
+  const ems = (x: string) => new Scanner(x, { em, ex: 0 }).scanDimen().value
+  if (koma) params.leftSkip = paramGlue("leftskip", glue(ems("1.5em")))
+  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut]
+    : koma ? [glue(ems("1em") - ems("1.5em")), hpack([ssGlue(), footnoteMark(n, k, fs, ctx.amsmath)], { exactly: 0 }), strut] : [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
   const from = list.length, languages: LanguageMark[] = []
   appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
@@ -1769,7 +1776,8 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const n = ++doc.footnote
       // hyperref: the mark in a link to the note's anchor (\hyper@linkstart{link}{Hfootnote.n} … \hyper@linkend)
       const hn = doc.refs?.hyper ? (doc.refs.hfootnotes = (doc.refs.hfootnotes ?? 0) + 1) : 0
-      const mark = footnoteMark(n, k, size, ctx.amsmath)
+      // (KOMA-Script's \@makefnmark: \textsuperscript{\thefootnotemark}, in the font around it)
+      const mark = isKoma(k.cls ?? "") ? footnoteMark(n, k, size, ctx.amsmath, sfFont(k, size, attrs)) : footnoteMark(n, k, size, ctx.amsmath)
       if (babelState.b?.main === "french") frenchMarkSpace(list, font)
       list.push(penalty(10000), ...(hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : [mark]))
       const { ins, trace } = footnoteInsert(p.src, n, ctx, hn)

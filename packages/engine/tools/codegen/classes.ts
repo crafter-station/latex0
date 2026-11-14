@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { SIZE_COMMANDS, type ClassData, type ClassOptionData, type SizeData } from "../../layout/classdata"
-import { parseGlue } from "../../layout/dimen"
+import { parseGlue, type GlueSpec } from "../../layout/dimen"
 import { parseScaled } from "../oracle/tracing"
 import { loadTfm } from "../oracle/oracle"
 import { texEnv } from "../tex"
@@ -17,6 +17,7 @@ const OUT = "packages/engine/data/classes"
 const CLASSES: Record<string, string[]> = {
   article: ["10pt", "11pt", "12pt"], report: ["10pt", "11pt", "12pt"], book: ["10pt", "11pt", "12pt"], letter: ["10pt", "11pt", "12pt"],
   beamer: ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"],
+  scrartcl: ["10pt", "11pt", "12pt"],
 }
 /** beamer's own lengths (registers, or macros as geometry's are): geometry's margins, the text margins and sidebars,
  *  and what \beamer@calculateheadfoot sets at \begin{document} for the theme loaded (the default: an empty headline
@@ -237,12 +238,36 @@ function variants(cls: string, option: string, base: ClassOptionData): ClassOpti
   return out
 }
 
+/** KOMA-Script's parskip= options (those that do not depend on the line width), against the class's defaults: what each
+ *  sets (\setparsizes: \parindent, \parskip, \parfillskip) */
+const KOMA_OPTIONS = ["parskip=half", "parskip=full", "parskip=half-", "parskip=full-"]
+function optionVariants(cls: string, option: string, base: ClassOptionData): NonNullable<ClassOptionData["options"]> {
+  const out: NonNullable<ClassOptionData["options"]> = {}
+  for (const o of KOMA_OPTIONS) {
+    const dir = join(".cache/classes", `${cls}-${option}-${o.replace(/[=*+]/g, "_")}`)
+    mkdirSync(dir, { recursive: true })
+    const src = [`\\documentclass[${option},${o}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}",
+      ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), "\\end{document}", ""].join("\n")
+    writeFileSync(join(dir, "v.tex"), src)
+    execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "v.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
+    const diff = { dimens: {} as Record<string, number>, glue: {} as Record<string, GlueSpec> }
+    for (const line of readFileSync(join(dir, "v.log"), "latin1").split("\n")) {
+      const m = line.match(/^([DG]):([\w@]+)=(.*)$/)
+      if (!m) continue
+      if (m[1] === "D") { const x = dimen(m[3]); if (x !== base.dimens[m[2]]) diff.dimens[m[2]] = x }
+      else { const x = glue(m[3]); if (JSON.stringify(x) !== JSON.stringify(base.glue[m[2]])) diff.glue[m[2]] = x }
+    }
+    out[o] = diff
+  }
+  return out
+}
+
 export function codegenClasses(check: boolean): number {
   const stale: string[] = []
   for (const [cls, options] of Object.entries(CLASSES)) {
-    const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : "LaTeX kernel and standard classes as loaded by `latex`", options: {} }
+    const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : ["article", "report", "book", "letter"].includes(cls) ? "LaTeX kernel and standard classes as loaded by `latex`" : `${cls} as loaded by \`latex\``, options: {} }
     // (beamer's paper is its own, 128mm × 96mm by default, or its aspect ratio's)
-    for (const o of options) { const d = texData(cls, o); d.variants = variants(cls, o, d); data.options[o] = d }
+    for (const o of options) { const d = texData(cls, o); d.variants = variants(cls, o, d); if (cls.startsWith("scr")) d.options = optionVariants(cls, o, d); data.options[o] = d }
     const body = JSON.stringify(data) + "\n"
     const file = join(OUT, `${cls}.json`)
     if (existsSync(file) && readFileSync(file, "utf8") === body) continue

@@ -11,22 +11,44 @@ import { Unsupported } from "./unsupported"
 
 export function classData(cls: string, option = "10pt", extras: string[] = []): ClassOptionData {
   const d = classFile(cls)
-  const o = d.options[option]
-  if (!o) throw new Error(`no data for ${cls} [${option}]`)
+  const o0 = d.options[option]
+  if (!o0) throw new Error(`no data for ${cls} [${option}]`)
+  const o = { ...o0, cls }
   // the paper, side and column options: the last of each kind wins, as in the class's option processing
-  const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? "letterpaper"
+  const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? (isKoma(cls) ? "a4paper" : "letterpaper")
   const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" ? "twoside" : "oneside")
   const twocolumn = [...extras].reverse().find((x) => x === "onecolumn" || x === "twocolumn") === "twocolumn"
   const v = o.variants?.[`${paper},${side}${twocolumn ? ",twocolumn" : ""}`]
   if (twocolumn && !v) throw new Unsupported(`class option twocolumn for ${cls}`)
-  if (!v) return o
-  return withTextHeight({ ...o, dimens: { ...o.dimens, ...v.dimens }, ints: { ...o.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
+  // KOMA-Script's parskip= (the last one)
+  const ps = [...extras].reverse().find((x) => x.startsWith("parskip="))
+  const p = ps && ps !== "parskip=false" ? o.options?.[ps] : null
+  if (ps && ps !== "parskip=false" && !p) throw new Unsupported(`class option ${ps}`)
+  const o1 = p ? { ...o, dimens: { ...o.dimens, ...p.dimens }, glue: { ...o.glue, ...p.glue } } : o
+  if (!v) return o1
+  return withTextHeight({ ...o1, dimens: { ...o1.dimens, ...v.dimens }, ints: { ...o1.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
 }
 
 /** The float rooms \@floatplacement and \@flsettextmin take from \textheight: <fraction>\@colht, x_n_over_d (§ 455). */
 export function withTextHeight(k: ClassOptionData): ClassOptionData {
   const h = k.dimens.textheight, f = (n: string) => Math.trunc((h * k.ints[n]) / 65536) // the fractions are below 1
   return { ...k, dimens: { ...k.dimens, toproom: f("topfraction"), botroom: f("bottomfraction"), textmin: f("textfraction"), fpmin: f("floatpagefraction") } }
+}
+
+/** the classes with chapters (the counters within \c@chapter) */
+export const hasChapters = (cls: string) => cls === "report" || cls === "book"
+
+/** KOMA-Script's classes laid out: scrartcl (fontsize=11pt and paper=a4 by default) */
+export const isKoma = (cls: string) => cls === "scrartcl"
+/** a KOMA-Script key=value option as the standard option it means, else as written */
+function komaOption(o: string): string {
+  const m = o.replace(/\s+/g, "").match(/^([a-z]+)=(.*)$/)
+  if (!m) return o
+  const [, key, value] = m
+  if (key === "fontsize" && /^1[012]pt$/.test(value)) return value
+  if (key === "paper" && ["a4", "a5", "b5", "letter", "legal", "executive"].includes(value)) return `${value}paper`
+  if ((key === "twoside" || key === "twocolumn") && ["true", "on", "yes", "false", "off", "no"].includes(value)) return ["true", "on", "yes"].includes(value) ? key : key === "twoside" ? "oneside" : "onecolumn"
+  return o
 }
 
 const PAPERS = ["letterpaper", "a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper"]
@@ -37,9 +59,10 @@ const NEUTRAL = ["final", "notitlepage", "openany", "10pt", "11pt", "12pt"]
 export function documentClass(src: string): { cls: string; option: string; extras: string[]; unknown: string[] } {
   const m = src.match(/\\documentclass\s*(?:\[([^\]]*)\])?\s*\{(\w+)\}/)
   if (!m) throw new Error("no \\documentclass")
-  const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)
-  const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? "10pt"
-  const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter"))
+  // (KOMA-Script's options: fontsize=, paper=, twoside=, twocolumn= as the size, paper and side options)
+  const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean).map((o) => (isKoma(m[2]) ? komaOption(o) : o))
+  const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? (isKoma(m[2]) ? "11pt" : "10pt")
+  const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter") || (isKoma(m[2]) && /^parskip=/.test(o)))
   const unknown = opts.filter((o) => !extras.includes(o) && !NEUTRAL.includes(o) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter"))
   return { cls: m[2], option, extras, unknown }
 }
@@ -63,6 +86,20 @@ export function withT1(k: ClassOptionData, cls: string): ClassOptionData {
     }
   }
   return { ...k, sizes, glue: glues, ints: { ...k.ints, T1: 1 } }
+}
+
+/** KOMA-Script's \par@updaterelative at \begin{document}: \parindent (and parskip=half's or full's \parfillskip) are 1em of
+ *  the document's font then, not of Computer Modern's as the data has them */
+export function withKomaParsizes(k: ClassOptionData, base: ClassOptionData): ClassOptionData {
+  const em = (kk: ClassOptionData) => { const r = kk.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at).params[QUAD] }
+  const was = em(base), now = em(k)
+  if (was === now) return k
+  const dimens = { ...k.dimens }, glue = { ...k.glue }
+  if (dimens.parindent === was) dimens.parindent = now
+  else if (dimens.parindent !== 0) throw new Unsupported("KOMA-Script's \\parindent in another font")
+  if (glue.parfillskip.width === was) glue.parfillskip = { ...glue.parfillskip, width: now }
+  else if (glue.parfillskip.width !== 0) throw new Unsupported("KOMA-Script's \\parfillskip in another font")
+  return { ...k, dimens, glue }
 }
 
 /** The fonts the preamble's font packages select (#340): the families \rmdefault, \sfdefault and \ttdefault name, and

@@ -47,6 +47,8 @@ export interface SizeData {
 }
 
 export interface ClassOptionData {
+  /** the class (from ClassData) */
+  cls?: string
   dimens: Record<string, number>
   glue: Record<string, GlueSpec>
   ints: Record<string, number>
@@ -59,6 +61,8 @@ export interface ClassOptionData {
   patterns?: string
   /** what the paper and side options change ("a4paper,twoside"), against the class defaults */
   variants?: Record<string, { dimens: Record<string, number>; ints: Record<string, number> }>
+  /** what other class options change (KOMA-Script's parskip=), against the class defaults */
+  options?: Record<string, { dimens: Record<string, number>; glue: Record<string, GlueSpec> }>
   /** font packages (#340): the families \rmdefault, \sfdefault and \ttdefault name, whose fonts the FontAttrs families
    *  cmr, cmss and cmtt then select (absent: Computer Modern's) */
   families?: { rm: string; sf: string; tt: string; /** helvet.sty's scaled= (\Hv@scale), for phv */ phvScale?: string | null }

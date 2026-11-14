@@ -28,6 +28,7 @@ import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
 import { hlistInput } from "./paragraph"
 import { labelText, preset, type ListSetup, type ResumeScope } from "./enumitem"
 import { representation } from "./counters"
+import { isKoma } from "./classes"
 import { frenchItemLabel, frenchListDimens, frenchTextGuard } from "./french"
 
 /** the environments whose text may hold declarations here: no labels, one item */
@@ -69,7 +70,7 @@ export function topCtx(cx: Ctx): EnvCtx {
  * text after it is not indented (\@doendpe); \\ in center, flushleft, flushright and verse is
  * \@centercr (\par\addvspace{-\parskip}). Then \endtrivlist and \@endparenv.
  */
-export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
+export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   const { cls, enumitem, hyper, nameref, thmDefs } = cx.pre
   // natbib's thebibliography (\bibitem[label]{key} only there)
   const natbib = b.env === "thebibliography" && cx.pre.natbib ? cx.doc.natbib! : null
@@ -107,6 +108,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     const D = (p: string) => run.k.dimens[depth === 1 ? `list1${p}@${ctx.size}` : `list${depth}${p}`]
     leftmargin = D("leftmargin")
     for (const p of listSets(depth)) { if (p === "topsep") topsep = L(p); else if (p === "parsep") parsep = L(p); else if (p === "itemsep") itemsep = L(p); else partopsep = L(p) }
+    // (KOMA-Script's \@listi … \@listiii end with \@list@extra: \ifdim\parskip>\z@ \topsep\z@ \parsep\parskip \itemsep\z@\fi)
+    if (isKoma(cls) && depth <= 3 && ctx.parskip.width > 0) { topsep = dimen(0); parsep = ctx.parskip; itemsep = dimen(0) }
     if (depth >= 2) labelwidth = D("labelwidth") + run.k.dimens.labelsep - ls // \labelwidth\leftmargin<depth> \advance\labelwidth-\labelsep
     // (in a list that took \FB@listHsettings, \leftmarginii … vi are \leftmarginFB: \@listii … vi's \leftmargin, and their
     // \labelwidth less \labelsep)
@@ -136,6 +139,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     if (b.env === "description" && !french) { labelwidth = 0; itemindent = enumitem ? 0 : -leftmargin }
     else if (b.env === "quote") rightmargin = leftmargin
     // (letter.cls: quotation keeps \parsep, verse indents 15pt)
+    // (KOMA-Script's: \listparindent 1em)
+    else if (b.env === "quotation" && isKoma(cls)) { listparindent = ems("1em"); itemindent = listparindent; rightmargin = leftmargin; parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
     else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
     else if (b.env === "verse") { const ind = cls === "letter" ? 15 * 65536 : ems("1.5em"); itemsep = dimen(0); itemindent = -ind; listparindent = itemindent; rightmargin = leftmargin; leftmargin += ind }
     else if (b.env === "thebibliography" && natbib && !natbib.numbers) { // natbib's \NAT@bibsetup: \leftmargin\bibhang (1em at its load) \itemindent-\leftmargin
@@ -234,10 +239,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
   // paragraph settings: \@trivlist's \leftskip\z@skip \rightskip\@rightskip \parfillskip\@flushglue, then
   // \centering, \raggedright or \raggedleft (\parindent\z@)
   let atRightskip = ctx.atRightskip, finalHyph = ctx.finalHyph
-  let align: { leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode } = atRightskip ? { rightSkip: paramGlue("rightskip", atRightskip) } : {}
+  // (\parfillskip\@flushglue: KOMA-Script's parskip=half and full set another outside)
+  let align: { leftSkip?: GlueNode; rightSkip?: GlueNode; parFillSkip?: GlueNode } = { ...(atRightskip ? { rightSkip: paramGlue("rightskip", atRightskip) } : {}), ...(isKoma(cls) ? { parFillSkip: flushglue("parfillskip") } : {}) }
   let parindent = amsthm ? run.k.dimens.parindent : listparindent
   if (b.env === "center") { align = { leftSkip: flushglue("leftskip"), rightSkip: flushglue("rightskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
-  else if (b.env === "flushleft") { atRightskip = filGlue(); align = { rightSkip: flushglue("rightskip") }; finalHyph = 0; parindent = 0 }
+  else if (b.env === "flushleft") { atRightskip = filGlue(); align = { rightSkip: flushglue("rightskip"), ...(isKoma(cls) ? { parFillSkip: flushglue("parfillskip") } : {}) }; finalHyph = 0; parindent = 0 }
   else if (b.env === "flushright") { align = { leftSkip: flushglue("leftskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
   // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m (natbib's leaves
   // \@clubpenalty, which \@item's \everypar sets)
@@ -292,7 +298,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     let club: number | undefined
     const penaltyAt = v.nodes.length
     if (i === 0 && v.nobreak) { v.addvspace(addGlue(ctx.parskip, negate(parsep))); v.nobreak = false; club = 10000 }
-    else if (i === 0) { v.addpenalty(ctx.beginparpenalty ?? -LOW_PENALTY); v.addvspace(topsepAll); v.addvspace(negate(parsep)) }
+    // (KOMA-Script's \deferred@thm@head for amsthm has no \addvspace{-\parskip})
+    else if (i === 0) { v.addpenalty(ctx.beginparpenalty ?? -LOW_PENALTY); v.addvspace(topsepAll); if (!(thmDef && isKoma(cls))) v.addvspace(negate(parsep)) }
     else { v.addpenalty(-LOW_PENALTY); v.addvspace(itemsep) }
     // babel's \@bibitem: \@safe@activestrue\org@@bibitem…, whose \item ends the item before (\par) and adds the penalty
     if (b.env === "thebibliography") {
@@ -327,7 +334,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /\$|\\(?!(?:textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{)/.test(refs.label) && hasLabel(parts)) throw new Unsupported(`a \\label to "${refs.label}"`)
         if (eit?.label != null || eit?.format) l.push(...formatted(cx.normalAttrs, labelText(eit.label ?? `{${ENUM_LABELS[level - 1]}}`, [...ctx.enums, n])))
         else if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
-        else appendText(l, level === 1 ? `${n}.` : level === 2 ? `(${alph(n)})` : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
+        else appendText(l, level === 1 ? `${n}.` : level === 2 ? (isKoma(cls) ? `${alph(n)})` : `(${alph(n)})`) : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
       }
       // \hss\llap{#1}, enumitem's \nobreak first; or \nobreak #1\hfil (align=left)
       content = french && b.env === "itemize" ? [filGlue(), ...l] // (\itemizeFB keeps \list's \@mklab, \hfil #1)
@@ -335,7 +342,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
     } else if (b.env === "description") { // \descriptionlabel: \hspace\labelsep\normalfont\bfseries #1 (enumitem: \labelsep\z@ and \nobreak, the label, \hfil)
       const l: Node[] = []
       if (given && eit?.format) l.push(...formatted({ ...cx.normalAttrs, ser: "bx" }, given))
-      else if (given) appendText(l, sourceText(given.replace(/\s+/g, " ")), bold, { spaceFactor: 1000 }, false)
+      // (KOMA-Script's descriptionlabel font: \sffamily\bfseries, its disposition's)
+      else if (given) appendText(l, sourceText(given.replace(/\s+/g, " ")), isKoma(cls) ? selectFont(run.k, ctx.size, { ...cx.normalAttrs, fam: "cmss", ser: "bx" }) : bold, { spaceFactor: 1000 }, false)
       if (!eit) content = [glue(ls), ...l]
       else if (!eit.boxdesc) { // \nobreak\descriptionlabel{label}, \enit@postlabel after the box
         if (eit.align !== "left") throw new Unsupported(`enumitem align=${eit.align} in a description of style other than standard`)
@@ -506,9 +514,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
  * article's abstract (one column, no title page): \small, \begin{center}{\bfseries \abstractname
  * \vspace{-.5em}\vspace{\z@}}\end{center}, then the text in a quotation
  */
-export function abstract(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
+export function abstract(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   const { cls } = cx.pre
   const { run, v } = cx
+  // (KOMA-Script's, abstract=false: \quotation)
+  if (isKoma(cls) && !run.k.ints.twocolumn) return list(cx, { kind: "list", env: "quotation", items: b.items, inPar: b.inPar, blank: false }, ctx)
   if (cls !== "article") throw new Unsupported(`abstract in ${cls}`)
   const small = { ...ctx, size: "small" as SizeCommand }
   const bf = loadFont(dataFont(run.k.sizes.small.bold.name), run.k.sizes.small.bold.at)

@@ -1,0 +1,20 @@
+% fixture: koma/koma-fonts
+% tier: T3
+% engine: document
+% covers: scrartcl with fontsize=12pt, paper=letter, parskip=full, T1 and Latin Modern: \parindent and \parfillskip (1em) of the document's font (\par@updaterelative), \scr@parindent 0pt for \subparagraph, amsthm's theorem head with no \addvspace{-\parskip} (KOMA-Script's patch)
+% issue: #360
+\documentclass[fontsize=12pt,paper=letter,parskip=full]{scrartcl}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsthm}
+\newtheorem{definition}{Definition}
+\begin{document}
+\section{Words}
+Typesetting is the composition of text by means of arranging physical type or its digital equivalents. Stored letters and other symbols are retrieved and ordered according to the orthography of a language.
+
+The breaking of paragraphs into lines is a small part of this craft.
+\begin{definition}
+A definition after a paragraph, with the full line of space between paragraphs.
+\end{definition}
+\subparagraph{Sub} A subparagraph with no indentation of its own.
+\end{document}
