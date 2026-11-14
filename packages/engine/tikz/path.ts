@@ -1381,7 +1381,15 @@ export class TikzPicture {
       if (!inp.ifNext("h")) { inp.insert(["c"]); break }
       inp.literal("hild")
       const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
-      if (inp.ifNext("f")) throw new Unsupported("tikz: child foreach")
+      if (inp.ifNext("f")) {
+        // \tikz@collect@children@foreach[#1]foreach#2in#3 (4568–4580): \foreach#2in{#3} counts the children
+        inp.literal("foreach")
+        const head = [...inp.delimited(["i", "n"]), "i", "n", "{", ...inp.undelimited(), "}", "{", "}"]
+        const each = readForeach({ t: head, i: 0 }, this.s.units, new Map()).iterations
+        this.tz.st.numberOfChildren += each.length
+        list.push({ options, code: inp.ifNext("{") ? inp.undelimited() : [], each })
+        continue
+      }
       this.tz.st.numberOfChildren++
       list.push({ options, code: inp.ifNext("{") ? inp.undelimited() : [] })
     }
