@@ -61,7 +61,7 @@ export interface ClassOptionData {
   variants?: Record<string, { dimens: Record<string, number>; ints: Record<string, number> }>
   /** font packages (#340): the families \rmdefault, \sfdefault and \ttdefault name, whose fonts the FontAttrs families
    *  cmr, cmss and cmtt then select (absent: Computer Modern's) */
-  families?: { rm: string; sf: string; tt: string }
+  families?: { rm: string; sf: string; tt: string; /** helvet.sty's scaled= (\Hv@scale), for phv */ phvScale?: string | null }
 }
 
 /** A class: its data for each size option ("10pt", "11pt", "12pt"). */

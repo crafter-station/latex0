@@ -1,0 +1,11 @@
+% fixture: fonts/familydefault-lmodern
+% tier: T3
+% engine: document
+% covers: \familydefault as \sfdefault with lmodern: the body, a heading and a footnote in Latin Modern Sans
+\documentclass{article}
+\usepackage{lmodern}
+\renewcommand{\familydefault}{\sfdefault}
+\begin{document}
+\section{A heading}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here. A note\footnote{Its text.} here, with \textbf{bold} and \textit{italic} words.
+\end{document}

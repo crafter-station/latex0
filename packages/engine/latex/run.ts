@@ -5,6 +5,7 @@
 import type { CaptionKeys } from "./captionsetup"
 import type { ClassOptionData } from "../layout/classdata"
 import type { Node } from "../layout/nodes"
+import type { DeclState } from "./vmode"
 
 export interface RunState {
   k: ClassOptionData
@@ -73,6 +74,9 @@ export interface RunState {
   oddPages: { n: number; node: Node }[]
   /** the \baselineskip the output routine sees where the main vertical list is now (OutputHook), when not \normalsize's */
   outputBaselineskip?: number
+  /** the declarations in force at the body's level (\small, \bfseries, \centering between its paragraphs or in one), when
+   *  not the ones it starts with */
+  body?: DeclState
 }
 
 export function runState(k: ClassOptionData): RunState {

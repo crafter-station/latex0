@@ -44,7 +44,12 @@ export function topDeclarations(text: string): string[] {
   const out: string[] = []
   for (let i = 0; i < text.length; ) {
     if (text[i] === "{") { i = closingBrace(text, i) + 1; continue }
-    if (text[i] === "$") { const j = text.indexOf("$", i + 1); if (j < 0) throw new Unsupported("an unbalanced $"); i = j + 1; continue }
+    if (text[i] === "$") { // (a formula: to its $, not a \$ in it)
+      let j = text.indexOf("$", i + 1)
+      while (j > 0 && text[j - 1] === "\\" && text.slice(i + 1, j).match(/\\*$/)![0].length % 2) j = text.indexOf("$", j + 1)
+      if (j < 0) throw new Unsupported("an unbalanced $")
+      i = j + 1; continue
+    }
     const m = text.slice(i).match(/^\\([A-Za-z]+|[^])/)
     if (m) { if (isDeclaration(m[1])) out.push(m[1]); i += m[0].length; continue }
     i++
@@ -72,14 +77,14 @@ export const needsVerticalMode = (text: string) => /\\par(?![A-Za-z])|^\s*\\(?:v
 const PARBOX_TEXT = /\\parbox(?:\s*\[[^\]{}]*\])*\s*\{[^{}]*\}\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g
 
 /**
- * The material of a group or environment in vertical mode. `top`: the body's own level, where a declaration would
- * last past this text (not laid out). A group's \clubpenalty and \everypar settings end with it.
+ * The material of a group or environment in vertical mode, or of the body's own level (body.ts keeps the declarations
+ * in force at its end, which is what this returns). A group's \clubpenalty and \everypar settings end with it.
  */
 /** `first`: what starts the first paragraph in place of the indent box (\@item's \box\@labels), and the \clubpenalty
  *  its \everypar sets (`club`: \@item's, in place of \@afterheading's) */
 export interface MaterialOptions { first?: Node[]; club?: number }
 
-export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boolean, mo: MaterialOptions = {}) {
+export function verticalMaterial(cx: Ctx, src: string, st: DeclState, mo: MaterialOptions = {}): DeclState {
   const { run, v } = cx
   const font = () => selectFont(run.k, st.size, st.attrs)
   const units = () => ({ em: font().params[QUAD], ex: font().params[X_HEIGHT] })
@@ -109,7 +114,6 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     if (nl) { v.box(hpack([]), run.k.sizes[st.size].baselineskip); i += nl[0].length; continue }
     const decl = rest.match(/^\\([A-Za-z]+)(?![A-Za-z])/)
     if (decl && isDeclaration(decl[1])) {
-      if (top) throw new Unsupported(`\\${decl[1]} for the paragraphs after it`)
       st = declare(cx, st, decl[1]); i += decl[0].length; continue
     }
     if (rest[0] === "{" && !rest.startsWith("{}")) {
@@ -121,7 +125,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
         if (!/^\s*$/.test(inner.slice(end + 4))) throw new Unsupported("a paragraph starting in a group that ends after it")
         const saved = { club: v.club, everypar: v.afterheadingEverypar }
         reopened = false // (its paragraphs start in it, as here)
-        verticalMaterial(cx, inner, { ...st }, false, mo)
+        verticalMaterial(cx, inner, { ...st }, mo)
         outputBaselineskip(cx, st) // (the page builder goes on after the group)
         v.club = saved.club; v.afterheadingEverypar = saved.everypar
         i = j + 1; continue
@@ -164,7 +168,6 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
     // (a color's pop comes where its group ends, after the \par)
     if (segs.some((g) => /\\color(?![A-Za-z])/.test(g.text))) throw new Unsupported("\\\\ in a \\color group")
     const text = ending ? `${before}{${ending.inner}}` : gcr ? before + segs.map((g) => `${g.cmd ? `\\${g.cmd}` : ""}{${g.text}`).join("") + segs.map((g) => (g.cmd ? "\\nocorr}" : "}")).join("") : before
-    if (top && topDeclarations(text).length) throw new Unsupported("a declaration for the paragraphs after it")
     const end = topDeclarations(before).reduce((s, d) => declare(cx, s, d), st)
     const parEnd = [ending?.inner ?? "", ...segs.map((g) => g.text)].reduce((e, t) => topDeclarations(t).reduce((s, d) => declare(cx, s, d), e), end)
     if (parEnd.align !== st.align && /\\\\/.test(text)) throw new Unsupported("\\\\ after \\centering in a paragraph")
@@ -192,6 +195,7 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, top: boole
       i += cr[0].length
     }
   }
+  return st
 }
 
 /** the text font commands, whose argument is a group of the paragraph's text */
@@ -321,7 +325,7 @@ export function titlepage(cx: Ctx, body: string) {
   if (restonecol) columnSwitch(cx, false)
   else v.nodes.push(filGlue(), penalty(-10000))
   v.nodes.push(hook("empty"), hook("page=1"))
-  verticalMaterial(cx, body, { size: "normalsize", attrs: cx.normalAttrs, align: null }, false)
+  verticalMaterial(cx, body, { size: "normalsize", attrs: cx.normalAttrs, align: null })
   if (restonecol) columnSwitch(cx, true)
   else v.nodes.push(filGlue(), penalty(-10000))
   if (!run.k.ints.twoside) v.nodes.push(hook("page=1"))

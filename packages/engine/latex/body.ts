@@ -28,7 +28,9 @@ import { list, topCtx } from "./lists"
 import { floatBlock, floatMarker } from "./floats"
 import { listing } from "./lstlisting"
 import { letter } from "./letter"
-import { needsVerticalMode, titlepage, verticalMaterial } from "./vmode"
+import { needsVerticalMode, titlepage, topDeclarations, verticalMaterial, type DeclState } from "./vmode"
+import { selectFont } from "./paragraph"
+import { QUAD, X_HEIGHT } from "../layout/font"
 import { babelAux, babelState, babelSwitch, languageGroups } from "./babel"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
@@ -48,6 +50,10 @@ export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
 function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   const { amsmath, cls } = cx.pre
   const { bodyUnits, counted, esphackNobreaks, noskipsecPar, refs, run, v } = cx
+  // declarations in force at the body's level (\small … between paragraphs): its paragraphs are laid out in them, and
+  // what does not read the size or the font (page breaks, page styles); a list's \@listi, a display's skips, a
+  // heading's skips in ex … as the size command sets them are not
+  if (run.body && b.kind !== "par" && b.kind !== "newpage" && b.kind !== "pagebreak" && b.kind !== "pagestyle") throw new Unsupported(`a ${b.kind} with declarations in force at the body's level (\\${run.body.size})`)
   // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter
   if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter" && b.kind !== "listing") throw new Unsupported(`a ${b.kind} in a letter`)
   if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
@@ -116,6 +122,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
         if (m[11] !== undefined) counted(m[11])
         else if (m[9] !== undefined) v.nodes.push({ kind: "whatsit", text: "", hook: (m[9] === "suppressfloats" ? (m[10] ? `suppress-${m[10]}` : "suppress") : m[9]) as OutputHook })
         // (\@esphack in vertical mode: \nobreak while \if@nobreak or \if@noskipsec)
+        else if (m[8] !== undefined && run.body) throw new Unsupported("\\enlargethispage with declarations in force at the body's level")
         else if (m[8] !== undefined) v.nodes.push(enlargeInsert(pageLength(cx, m[8]), !!m[7]), ...(v.nobreak || run.noskipsec ? [penalty(10000)] : []))
         else if (m[4] !== undefined) {
           const what = m[4].startsWith("selectlanguage") ? "select" : m[4] === "LXotherlanguage" ? (m[5] ? "otherstar" : "other") : m[5] ? "endotherstar" : "endother"
@@ -128,7 +135,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
           for (const w of [labelWrite(refs, m[1]), ...crefWrites(refs, m[1], false)]) v.nodes.push(w, ...esphackNobreaks(v.nobreak))
         } else if (m[3] !== undefined) {
           let g: GlueSpec
-          try { g = parseGlue(m[3], bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[3]}}`) }
+          try { g = parseGlue(m[3], run.body ? declUnits(cx, run.body) : bodyUnits) } catch { throw new Unsupported(`\\vspace{${m[3]}}`) }
           if (m[2]) v.nodes.push({ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000))
           v.vskip(g); v.vskip(dimen(0))
         } else { v.nodes.push({ kind: "rule", width: null, height: 26214, depth: 0 }); v.prevDepth = IGNORE_DEPTH } // 0.4pt
@@ -144,7 +151,17 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
       if (run.runIn) throw new Unsupported("\\par or a skip right after a run-in heading")
       if (b.noindent || b.afterThm) throw new Unsupported("\\par or a skip right after a list")
       v.par()
-      verticalMaterial(cx, b.text, { size: "normalsize", attrs: cx.normalAttrs, align: null }, true)
+      setBody(cx, verticalMaterial(cx, b.text, run.body ?? bodyStart(cx)))
+      return
+    }
+    // declarations at the body's level (\small, \bfseries, \centering not in a group): in force for the rest of the
+    // paragraph and for the paragraphs after it
+    if (run.body || displaySegments(b.text).some((t) => typeof t === "string" && topDeclarations(t).length)) {
+      if (run.runIn) throw new Unsupported("a declaration at the body's level right after a run-in heading")
+      if (b.noindent || b.afterThm) throw new Unsupported("a declaration at the body's level right after a list")
+      if (b.unskip || b.inGroup) throw new Unsupported("a declaration at the body's level in a paragraph a list or a group ends")
+      v.par()
+      setBody(cx, verticalMaterial(cx, b.text, run.body ?? bodyStart(cx)))
       return
     }
     // a group that starts before the paragraph does (with \color: the push goes on the vertical list)
@@ -243,6 +260,28 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   v.endpePar = v.doendpe = v.endpeEverypar = true
 }
 
+/** the declarations in force where the body starts: \normalsize, \normalfont, no \centering */
+const bodyStart = (cx: Ctx): DeclState => ({ size: "normalsize", attrs: cx.normalAttrs, align: null })
+/** em and ex in the font the declarations select */
+function declUnits(cx: Ctx, st: DeclState) { const f = selectFont(cx.run.k, st.size, st.attrs); return { em: f.params[QUAD], ex: f.params[X_HEIGHT] } }
+/** the declarations in force at the body's level from here on (none kept when they are the ones it starts with) */
+function setBody(cx: Ctx, st: DeclState) {
+  const a = st.attrs, n = cx.normalAttrs
+  const start = st.size === "normalsize" && st.align === null && a.enc === n.enc && a.fam === n.fam && a.ser === n.ser && a.shape === n.shape
+  if (start) delete cx.run.body
+  else cx.run.body = st
+}
+
+/**
+ * Blocks read in a group (an abstract's, \twocolumn's optional argument): a declaration at their level would end with
+ * the group, at a place the paragraphs around it are not laid out for.
+ */
+export function groupBlocks(cx: Ctx, what: string, blocks: () => void) {
+  const before = cx.run.body
+  blocks()
+  if (cx.run.body !== before) throw new Unsupported(`a declaration for the paragraphs after it in ${what}`)
+}
+
 /** a length for \enlargethispage: in the body font, with \baselineskip, \textheight and the widths */
 export function pageLength(cx: Ctx, src: string): GlueSpec {
   const { run } = cx, widths = widthRegisters(cx, hsizeOf(run.k))
@@ -265,7 +304,7 @@ function columns(cx: Ctx, b: Extract<Block, { kind: "columns" }>) {
   if (!b.two) throw new Unsupported("\\onecolumn[…]")
   const top = blocksOf(b.top)
   if (top.some((x) => x.kind !== "par" && x.kind !== "heading" && x.kind !== "list")) throw new Unsupported("\\twocolumn[…] with more than text, headings and lists")
-  v.nodes.push({ kind: "whatsit", text: "", hook: { topnewpage: topnewpageBox(cx, () => top.forEach((x, i, all) => processBlock(cx, x, i, all))) } satisfies OutputHook })
+  v.nodes.push({ kind: "whatsit", text: "", hook: { topnewpage: topnewpageBox(cx, () => groupBlocks(cx, "\\twocolumn[…]", () => top.forEach((x, i, all) => processBlock(cx, x, i, all)))) } satisfies OutputHook })
 }
 
 /**
@@ -295,7 +334,7 @@ function twocolumnAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
     if (/\\footnote\b/.test(last.text)) throw new Unsupported("a footnote in a two-column abstract's last paragraph")
     last.inGroup = true
   }
-  blocks.forEach((x, i, all) => { if (x === last && outside) v.club = before.club; processBlock(cx, x, i, all) })
+  groupBlocks(cx, "a two-column abstract", () => blocks.forEach((x, i, all) => { if (x === last && outside) v.club = before.club; processBlock(cx, x, i, all) }))
   v.club = before.club; v.afterheadingEverypar = before.afterheading; cx.refs.name = before.name
 }
 
@@ -329,7 +368,7 @@ function reportAbstract(cx: Ctx, b: ListBlock, next: Block | undefined) {
   const blocks = blocksOf(body)
   // (text right after \begin{abstract}: the center's \@doendpe takes its indent)
   if (blocks[0]?.kind === "par" && !/^\s*\n[ \t]*\n/.test(body)) blocks[0].noindent = true
-  blocks.forEach((x, i, all) => { if (x.kind !== "par") throw new Unsupported(`a ${x.kind} in report's abstract`); processBlock(cx, x, i, all) })
+  groupBlocks(cx, "report's abstract", () => blocks.forEach((x, i, all) => { if (x.kind !== "par") throw new Unsupported(`a ${x.kind} in report's abstract`); processBlock(cx, x, i, all) }))
   // (\end{abstract} finds \if@endpe false: the center's \@doendpe went with the text's first paragraph; with no text it holds)
   if (!blocks.length && next) throw new Unsupported("an empty abstract in report")
   if (next?.kind === "par") next.noindent = false

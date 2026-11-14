@@ -1,0 +1,22 @@
+% fixture: fonts/familydefault-helvet-t1
+% tier: T3
+% engine: document
+% covers: \familydefault as \sfdefault with helvet in T1: the body, a heading, list labels, a footnote and its mark and the page number in Helvetica (phvr8t and its shapes), set before the package that names the family
+\documentclass[11pt]{article}
+\renewcommand\familydefault{\sfdefault}
+\usepackage[T1]{fontenc}
+\usepackage{helvet}
+\begin{document}
+\section{A heading}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here. Then \textbf{bold words}, \emph{emphasised words}, \textsc{Small Caps}, \texttt{typewriter} and a note\footnote{The note in the default family, with \textit{italic} too.} with math $a^2+b_i = \sin x$ in it.
+\begin{itemize}
+\item A first item --- with a dash
+\begin{enumerate}
+\item A numbered item
+\end{enumerate}
+\end{itemize}
+\begin{description}
+\item[Label] described
+\end{description}
+{\small Small words, \textnormal{normal} ones} and {\large\bfseries large bold ones}.
+\end{document}

@@ -183,10 +183,15 @@ export function prepareSource(source: string): DocumentSource {
     commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
   source = counterFormats(source)
   source = captionNames(source)
+  // the preamble's \familydefault (\renewcommand, \def) as one of the family defaults: \LXfamilydefault{rm|sf|tt}
+  { const begin = documentStart(source); if (begin >= 0) source = source.slice(0, begin).replace(/\\(?:renewcommand\*?\s*(?:\{\\familydefault\}|\\familydefault(?![A-Za-z]))|def\s*\\familydefault(?![A-Za-z]))\s*\{\s*\\(rm|sf|tt)default\s*\}/g, (all: string, family: string, offset: number, text: string) =>
+    commentedAt(text, offset) ? all : `\\LXfamilydefault{${family}}`) + source.slice(begin) }
   // the preamble's \baselinestretch (\renewcommand, \def, \linespread): \LXstretch{factor}
   { const begin = documentStart(source); if (begin >= 0) source = source.slice(0, begin).replace(/\\(?:renewcommand\*?\s*(?:\{\\baselinestretch\}|\\baselinestretch(?![A-Za-z]))|def\s*\\baselinestretch(?![A-Za-z])|linespread(?![A-Za-z]))\s*\{\s*(\d*\.?\d+)\s*\}/g, "\\LXstretch{$1}") + source.slice(begin) }
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
+  // (with another default family, the roman is no longer the font \normalfont selects: the family cmr here)
+  if (/\\LXfamilydefault\{(?:sf|tt)\}/.test(expanded.text) && /\\(?:rmfamily|textrm|rm)(?![A-Za-z])/.test(expanded.text.replace(/(^|[^\\])%.*$/gm, "$1"))) throw new Unsupported("\\rmfamily or \\textrm with \\familydefault changed")
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
   const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
