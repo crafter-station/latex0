@@ -92,4 +92,13 @@ export function installTreeKeys(k: Keys, st: () => TreeState, length: (v: Toks) 
     if (b !== "true" && b !== "false") throw new Unsupported(`tikz: missing=${b}`)
     st().childMissing = b === "true"
   }, "true")
+  opt("edge from parent path", (v) => { st().edgeToParentPath = v })
+  // parent anchor, child anchor (1372–1373): `.#1`, or nothing for border
+  for (const [name, field] of [["parent anchor", "parentAnchor"], ["child anchor", "childAnchor"]] as const) {
+    opt(name, (v) => {
+      // (TeX expands the anchors when the path's coordinates are read; the engine replaces them when the path begins)
+      if (st().edgePathOpen) throw new Unsupported(`tikz: ${name} on an edge from parent's path`)
+      st()[field] = same(v, chars("border")) ? [] : [".", ...v]
+    })
+  }
 }
