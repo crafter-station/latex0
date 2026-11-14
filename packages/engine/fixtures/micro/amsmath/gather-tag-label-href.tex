@@ -1,0 +1,22 @@
+% fixture: amsmath/gather-tag-label-href
+% tier: T3
+% engine: document
+% covers: the \label of a \tag row of a gather that comes before its numbered rows: \gmeasure@ has run \make@display@tag's \refstepcounter for the later rows already, so the \@currentHref it writes (set globally by the kernel) is the last numbered row's; in an align (\stepcounter in the measuring pass) it is still the one from before the display
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+\section{Tags first}
+A tagged row first, then numbered ones; see \eqref{h:x}, \eqref{h:y} and \eqref{h:z}.
+\begin{gather}
+a = b \tag{X} \label{h:x} \\
+c = d \\
+e = f \label{h:y}
+\end{gather}
+and the same rows aligned:
+\begin{align}
+a &= b \tag{Z} \label{h:z} \\
+c &= d \\
+e &= f
+\end{align}
+The text goes on.
+\end{document}

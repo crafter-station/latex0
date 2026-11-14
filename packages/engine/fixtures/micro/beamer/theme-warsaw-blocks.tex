@@ -1,0 +1,27 @@
+% fixture: beamer/theme-warsaw-blocks
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: Warsaw's blocks (rounded with shadows, block title's font without the size: \setbeamerfont{block title}{size={}}), items and an enumeration
+\documentclass{beamer}
+\usetheme{Warsaw}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Blocks}
+\begin{block}{A block}
+Its text.
+\end{block}
+\begin{exampleblock}{An example}
+More text.
+\end{exampleblock}
+\begin{alertblock}{An alert}
+Careful.
+\end{alertblock}
+\begin{itemize}
+\item First
+\end{itemize}
+\begin{enumerate}
+\item One
+\end{enumerate}
+\end{frame}
+\end{document}

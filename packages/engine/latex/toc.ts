@@ -22,8 +22,10 @@ export class TocWriter {
   /** \addcontentsline{lof}{figure}{\protect\numberline{n}{\ignorespaces text}} (or lot): its \write */
   listLine(file: ListFile, number: string, source: string, anchor: string, ignorespaces = true): Node {
     const title = printTokens(source) // (as \protected@write prints it)
+    // (\, is robust, \x@protect: \protect\, in the \write's tokens, and \, in the file, where shipout's \protect is \noexpand)
+    const tokens = title.replace(/\\,/g, "\\protect \\,")
     // (\@caption's line starts with \ignorespaces; longtable's \LT@c@ption's has none)
-    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{${file}}{\\protect \\contentsline {${file === "lof" ? "figure" : "table"}}{\\protect \\numberline {${number}}{${ignorespaces ? "\\ignorespaces " : ""}${title}}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{${file}}{\\protect \\contentsline {${file === "lof" ? "figure" : "table"}}{\\protect \\numberline {${number}}{${ignorespaces ? "\\ignorespaces " : ""}${tokens}}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
     this.listWrites.push({ node, file, entry: { number, title, anchor } })
     return node
   }
@@ -45,6 +47,14 @@ export class TocWriter {
     const title = printTokens(source) // (as \protected@write prints it, and the next run reads it)
     const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${NAMES[level]}}{${number !== null ? `\\protect \\numberline {${number}}` : ""}${title}}{\\thepage }{${anchor}}\\protected@file@percent }}` }
     this.writes.push({ node, entry: { level, number, title, anchor, ...(language ? { language } : {}) } })
+    return node
+  }
+
+  /** amsart's \@tocwrite: \addcontentsline{toc}{name}{\protect\tocname{\namename}{\@secnumber}{title}} (\sectionname … empty) */
+  writeAms(level: TocEntry["level"], number: string, source: string): Node {
+    const title = printTokens(source.replace(/~/g, "\\protect \\nonbreakingspace ")) // (amsart's ~)
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${NAMES[level]}}{\\protect \\toc${NAMES[level]} {}{${number}}{${title}}}{\\thepage }{}\\protected@file@percent }}` }
+    this.writes.push({ node, entry: { level, number, title, anchor: "" } })
     return node
   }
 

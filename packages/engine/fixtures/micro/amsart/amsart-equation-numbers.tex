@@ -1,0 +1,25 @@
+% fixture: amsart/amsart-equation-numbers
+% tier: T3
+% engine: document
+% covers: amsart's equation numbers on the left (amsmath with leqno: \veqno is \leqno, § 1203–1205): a number beside a centred formula, a formula pushed right of a number less than twice its width away, a number too wide for the line set above the formula at the left with no \abovedisplayskip, always the long display skips (after a short line too), \label and \ref of an equation
+% issue: #360
+\documentclass{amsart}
+\begin{document}
+The breaking of paragraphs into lines is a small part of this craft, but it decides how evenly the words are spread and how easily the eye moves from one line to the next.
+\begin{equation}\label{eq:pyth}
+a^2+b^2=c^2
+\end{equation}
+A short line.
+\begin{equation}
+x=y
+\end{equation}
+A formula that comes close to the number moves to the right of the centre, as in
+\begin{equation}
+a_1+a_2+a_3+a_4+a_5+a_6+a_7+a_8+a_9+a_{10}+a_{11}+a_{12}+a_{13}+a_{14}+a_{15}+a_{16}+a_{17}=0
+\end{equation}
+and one as wide as the line leaves the number above it, as in
+\begin{equation}
+a_1+a_2+a_3+a_4+a_5+a_6+a_7+a_8+a_9+a_{10}+a_{11}+a_{12}+a_{13}+a_{14}+a_{15}+a_{16}+a_{17}+a_{18}+a_{19}+a_{20}=0
+\end{equation}
+By \eqref{eq:pyth} and (\ref{eq:pyth}) the text goes on after the displays.
+\end{document}

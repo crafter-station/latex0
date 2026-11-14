@@ -1,0 +1,18 @@
+% fixture: beamer/theme-warsaw-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: the Warsaw theme (\usetheme{Warsaw}: the rounded inner theme with shadows, the shadow outer theme, orchid and whale): the fading declared in the preamble (at the top of the first page under dvips, a form under pdfTeX), the headline's shadow picture, the shadow theme's frame title (its shading from frametitle's bg to frametitle right's, the shadow below), the split footline, navigation symbols
+\documentclass{beamer}
+\usetheme{Warsaw}
+\title{A title}
+\author{An author}
+\begin{document}
+\begin{frame}{A frame title}
+Text.
+\end{frame}
+\begin{frame}{Another}
+More text.
+\end{frame}
+\end{document}

@@ -1,0 +1,14 @@
+% fixture: amsart/amsart-maketitle-doendpe
+% tier: T3
+% engine: document
+% covers: text right after amsart's \maketitle is not indented: the \@endpetrue of \@settitle's center and \@setauthors's \endtrivlist comes out of \maketitle's \begingroup groups (\aftergroup\propagate@doendpe), so \@doendpe's \everypar takes the indent box; the paragraph after it is indented again
+% issue: #360
+\documentclass{amsart}
+\title{On the Breaking of Paragraphs}
+\author{Ada Writer}
+\begin{document}
+\maketitle
+The breaking of paragraphs into lines is a small part of this craft, but it decides how evenly the words are spread and how easily the eye moves from one line to the next.
+
+Stored letters and other symbols are retrieved and ordered according to the orthography of a language.
+\end{document}

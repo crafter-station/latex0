@@ -1,0 +1,18 @@
+% fixture: cite/adjust
+% tier: T3
+% engine: document
+% covers: cite.sty's \cite@adjust: \unskip and \penalty\@highpenalty before the citation unless a penalty is last (after ~), then the glue taken off again, or \  (the font's interword glue) where no glue came before or the space factor is above 1000 (after a period, a comma); after a capital letter (999) the glue again; at a paragraph's start a space after the indentation
+\documentclass{article}
+\usepackage{cite}
+\begin{document}
+\cite{a} starts this paragraph. A citation right after a word\cite{b} gets a space, one after a period. \cite{c} and after a comma, \cite{d} gets the normal space, after a tie~\cite{e} no penalty, after a capital letter as in NASA \cite{f} the same glue, and after an explicit skip\hspace{1em}\cite{a} or a zero one\hspace{0pt}\cite{b} or a stretching one\hfil\cite{c} too, in a paragraph of several lines.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

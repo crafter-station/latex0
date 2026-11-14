@@ -1,0 +1,21 @@
+% fixture: titlesec/label-text
+% tier: T3
+% engine: document
+% covers: a \titleformat label with text around the counter: a period after \thesection (kerned to the number), a word before \thesubsection, \quad and a final space in the label's box
+% issue: #249
+\documentclass{article}
+\usepackage{titlesec}
+\titleformat{\section}{\Large\bfseries}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\large\bfseries}{Part \thesubsection: }{0pt}{}
+\titleformat{\subsubsection}{\normalsize\bfseries}{(\thesubsubsection)\quad}{0pt}{}
+\begin{document}
+\section{Message from the board}
+Some text that starts the section.
+\subsection{Scope}
+More text in the subsection.
+\subsubsection{Details}
+Text.
+\setcounter{section}{10}
+\section{A long title that wraps onto a second line because it is much longer than the text width is}
+Last words.
+\end{document}

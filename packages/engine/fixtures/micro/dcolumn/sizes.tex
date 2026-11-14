@@ -1,0 +1,14 @@
+% fixture: dcolumn/sizes
+% tier: T3
+% engine: document
+% covers: D columns at \small in a 12pt document with amsmath: the digit's width (\hbox{$1$}) and the point's in the size in force
+\documentclass[12pt]{article}
+\usepackage{amsmath}
+\usepackage{dcolumn}
+\begin{document}
+{\small
+\begin{tabular}{D{.}{.}{2}D{.}{,}{3.2}}
+-0.6 & 1.5 \\
+1.25 & -12.25
+\end{tabular}}
+\end{document}

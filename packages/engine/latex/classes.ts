@@ -7,16 +7,19 @@ import { loadFont, QUAD } from "../layout/font"
 import { times } from "../layout/dimen"
 import { glue } from "../layout/nodes"
 import { classFile, dataFont, familyFile, mathFontsFile } from "./data"
+import { appendText } from "./encodings"
+import type { Node } from "../layout/nodes"
+import { hpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
 
 export function classData(cls: string, option = "10pt", extras: string[] = []): ClassOptionData {
   const d = classFile(cls)
   const o0 = d.options[option]
   if (!o0) throw new Error(`no data for ${cls} [${option}]`)
-  const o = { ...o0, cls }
+  const o = { ...o0, cls, ...(d.hyphenation ? { exceptions: d.hyphenation } : {}) }
   // the paper, side and column options: the last of each kind wins, as in the class's option processing
   const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? (isKoma(cls) ? "a4paper" : "letterpaper")
-  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" ? "twoside" : "oneside")
+  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" || cls === "amsart" ? "twoside" : "oneside")
   const twocolumn = [...extras].reverse().find((x) => x === "onecolumn" || x === "twocolumn") === "twocolumn"
   const v = o.variants?.[`${paper},${side}${twocolumn ? ",twocolumn" : ""}`]
   if (twocolumn && !v) throw new Unsupported(`class option twocolumn for ${cls}`)
@@ -108,6 +111,27 @@ export function withKomaParsizes(k: ClassOptionData, base: ClassOptionData, rela
   else if (glue.parfillskip.width === was) glue.parfillskip = { ...glue.parfillskip, width: now }
   else if (glue.parfillskip.width !== 0) throw new Unsupported("KOMA-Script's \\parfillskip in another font")
   return { ...k, dimens, glue }
+}
+
+/**
+ * amsart's \AtBeginDocument list margins, in the font then: \leftmargini the width of \labelenumi\hskip\labelsep with the
+ * counter at 13, (13), plus \normalparindent; \leftmarginii … iv those of (m), (xiii), (M); \labelwidth\leftmargini less
+ * \labelsep. The data has them in OT1's Computer Modern: the difference in the document's font goes to every list
+ * dimension taken from them.
+ */
+export function withAmsMargins(k: ClassOptionData, base: ClassOptionData): ClassOptionData {
+  const width = (kk: ClassOptionData, s: string) => { const r = kk.sizes.normalsize.font, l: Node[] = []; appendText(l, s, loadFont(dataFont(r.name), r.at), { spaceFactor: 1000 }, false); return hpack(l).width }
+  const labels = ["(13)", "(m)", "(xiii)", "(M)"]
+  const delta = labels.map((l) => width(k, l) - width(base, l))
+  if (delta.every((d) => d === 0)) return k
+  const dimens = { ...k.dimens }
+  for (const key of Object.keys(dimens)) {
+    const m = key.match(/^(?:leftmargin(iv|iii|ii|i)|list([1-4])(?:leftmargin|labelwidth)(?:@\w+)?|labelwidth)$/)
+    if (!m) continue
+    const level = m[1] ? ["i", "ii", "iii", "iv"].indexOf(m[1]) : m[2] ? Number(m[2]) - 1 : 0
+    dimens[key] += delta[level]
+  }
+  return { ...k, dimens }
 }
 
 /** The fonts the preamble's font packages select (#340): the families \rmdefault, \sfdefault and \ttdefault name, and

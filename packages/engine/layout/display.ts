@@ -66,10 +66,10 @@ export interface DisplayParams {
 export type DisplayItem = { node: Node } | { box: BoxNode }
 
 /**
- * §§ 1199–1205 for \eqno (not \leqno): the formula's hlist (from mlist_to_hlist
- * in display style) and the equation number's box, or null.
+ * §§ 1199–1205: the formula's hlist (from mlist_to_hlist in display style) and the equation number's
+ * box, or null; `left`: the number came with \leqno.
  */
-export function finishDisplay(formula: Node[], eqno: BoxNode | null, p: DisplayParams): DisplayItem[] {
+export function finishDisplay(formula: Node[], eqno: BoxNode | null, p: DisplayParams, left = false): DisplayItem[] {
   let b = hpack(formula); b.display = true
   const shrink = [0, 0, 0, 0]
   for (const n of formula) if (n.kind === "glue") shrink[n.shrinkOrder] += n.shrink
@@ -86,15 +86,18 @@ export function finishDisplay(formula: Node[], eqno: BoxNode | null, p: DisplayP
   let d = half(z - w)
   if (e > 0 && d < 2 * e) { d = half(z - w - e); if (formula[0]?.kind === "glue") d = 0 }
   const out: DisplayItem[] = [{ node: penalty(p.preDisplayPenalty) }]
-  const short = !(d + s <= p.preSize)
-  out.push({ node: short ? paramGlue("abovedisplayshortskip", glueOf(p.aboveDisplayShortSkip)) : paramGlue("abovedisplayskip", glueOf(p.aboveDisplaySkip)) })
+  // § 1203: the short skips when the line before ends left of the formula, and never with \leqno; a \leqno number
+  // too wide for the line goes above, at the left
+  const short = !(d + s <= p.preSize || left)
+  if (left && eqno && e === 0) { eqno.shift = s; out.push({ box: eqno }, { node: penalty(10000) }) }
+  else out.push({ node: short ? paramGlue("abovedisplayshortskip", glueOf(p.aboveDisplayShortSkip)) : paramGlue("abovedisplayskip", glueOf(p.aboveDisplaySkip)) })
   let g2: Node | null = short ? paramGlue("belowdisplayshortskip", glueOf(p.belowDisplayShortSkip)) : paramGlue("belowdisplayskip", glueOf(p.belowDisplaySkip))
   // § 1204
-  if (e !== 0) b = hpack([b, kern(z - w - e - d), eqno!])
+  if (e !== 0) { if (left) { b = hpack([eqno!, kern(z - w - e - d), b]); d = 0 } else b = hpack([b, kern(z - w - e - d), eqno!]) }
   b.shift = s + d
   out.push({ box: b })
   // § 1205: a number too wide for the line goes below, right-aligned
-  if (eqno && e === 0) {
+  if (eqno && e === 0 && !left) {
     out.push({ node: penalty(10000) })
     eqno.shift = s + z - eqno.width
     out.push({ box: eqno })

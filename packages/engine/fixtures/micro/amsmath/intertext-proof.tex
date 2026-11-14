@@ -1,0 +1,17 @@
+% fixture: amsmath/intertext-proof
+% tier: T3
+% engine: document
+% covers: \intertext in an align inside an amsthm proof (a trivlist: \linewidth is \columnwidth, its \parshape the whole width), with a \label and \eqref in the text, the proof's \qed after the display
+\documentclass{article}
+\usepackage{amsmath,amsthm}
+\begin{document}
+\begin{proof}
+Let $\varepsilon>0$ be given. Then, by the triangle inequality,
+\begin{align}
+|f(x)-f(y)| &\le |f(x)-f_n(x)| + |f_n(x)-f_n(y)| \label{eq:tri} \\
+\intertext{and, since the convergence in \eqref{eq:tri} is uniform,}
+ &< \varepsilon \notag
+\end{align}
+for all $n$ large enough.
+\end{proof}
+\end{document}

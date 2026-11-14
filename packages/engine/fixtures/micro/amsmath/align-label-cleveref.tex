@@ -1,0 +1,21 @@
+% fixture: amsmath/align-label-cleveref
+% tier: T3
+% engine: document
+% covers: \label in align and gather with cleveref (\ltx@label is \cref@label: the second \newlabel with \cref@currentlabel), a \tag row's (cleveref's \make@df@tag@@@: [equation][2147483647][]), and \cref to one row, to several and to a tagged one
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{cleveref}
+\begin{document}
+See \cref{eq:a}, \cref{eq:a,eq:b,eq:g} and \cref{eq:t}; also \Cref{eq:g}.
+\begin{align}
+a &= b + c \label{eq:a} \\
+d &= e + f \tag{T} \label{eq:t} \\
+u &= v \label{eq:b}
+\end{align}
+and gathered,
+\begin{gather}
+x^2 + y^2 = z^2 \label{eq:g} \\
+p = q \notag
+\end{gather}
+with \cref{eq:b} last.
+\end{document}

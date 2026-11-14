@@ -1,0 +1,15 @@
+% fixture: dcolumn/centre
+% tier: T3
+% engine: document
+% covers: dcolumn's D{sep}{out}{-1} (\DC@centre): the boxes before and from the separator, the narrower widened to the other with \hfill, so the separator is in the column's middle; an entry with no separator (\phantom's box), a second separator an ordinary character, the output \cdot for a comma
+\documentclass{article}
+\usepackage{dcolumn}
+\begin{document}
+\begin{tabular}{D{.}{.}{-1}D{,}{\cdot}{-1}}
+1.5 & 1,5 \\
+100.25 & 100,25 \\
+3 & 12345 \\
+.12345 & ,125 \\
+1.2.3 & x,y
+\end{tabular}
+\end{document}

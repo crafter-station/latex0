@@ -18,6 +18,7 @@ const CLASSES: Record<string, string[]> = {
   article: ["10pt", "11pt", "12pt"], report: ["10pt", "11pt", "12pt"], book: ["10pt", "11pt", "12pt"], letter: ["10pt", "11pt", "12pt"],
   beamer: ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"],
   scrartcl: ["10pt", "11pt", "12pt"],
+  amsart: ["10pt", "11pt", "12pt"],
 }
 /** beamer's own lengths (registers, or macros as geometry's are): geometry's margins, the text margins and sidebars,
  *  and what \beamer@calculateheadfoot sets at \begin{document} for the theme loaded (the default: an empty headline
@@ -263,12 +264,21 @@ function optionVariants(cls: string, option: string, base: ClassOptionData): Non
   return out
 }
 
+/** The \hyphenation exceptions a class file sets as it loads (amsart.cls's list), as written */
+function classHyphenation(file: string): string[] {
+  const path = execFileSync("kpsewhich", [file], { env: texEnv(), encoding: "utf8" }).trim()
+  const src = readFileSync(path, "latin1").replace(/%.*$/gm, "")
+  return [...src.matchAll(/\\hyphenation\{([^{}]*)\}/g)].flatMap((m) => m[1].split(/\s+/).filter(Boolean))
+}
+
 export function codegenClasses(check: boolean): number {
   const stale: string[] = []
   for (const [cls, options] of Object.entries(CLASSES)) {
     const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : ["article", "report", "book", "letter"].includes(cls) ? "LaTeX kernel and standard classes as loaded by `latex`" : `${cls} as loaded by \`latex\``, options: {} }
     // (beamer's paper is its own, 128mm × 96mm by default, or its aspect ratio's)
     for (const o of options) { const d = texData(cls, o); d.variants = variants(cls, o, d); if (cls.startsWith("scr")) d.options = optionVariants(cls, o, d); data.options[o] = d }
+    const exceptions = classHyphenation(`${cls}.cls`)
+    if (exceptions.length) data.hyphenation = exceptions
     const body = JSON.stringify(data) + "\n"
     const file = join(OUT, `${cls}.json`)
     if (existsSync(file) && readFileSync(file, "utf8") === body) continue

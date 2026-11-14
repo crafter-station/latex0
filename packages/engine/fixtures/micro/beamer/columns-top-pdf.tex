@@ -1,0 +1,26 @@
+% fixture: beamer/columns-top-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: columns[T] (\beamer@colheadskip: \vskip-1ex\nointerlineskip after the column's \leavevmode, the \vtop aligned at that empty line): text, a list, and a column [t] among them
+\documentclass{beamer}
+\begin{document}
+\begin{frame}{Columns}
+\begin{columns}[T]
+\begin{column}{0.3\textwidth}
+\textbf{Solar}
+\begin{itemize}
+\item High
+\item Costs
+\end{itemize}
+\end{column}
+\begin{column}{0.3\textwidth}
+Text that fills more than one line of the narrow column.
+\end{column}
+\begin{column}[t]{0.2\textwidth}
+Top
+\end{column}
+\end{columns}
+\end{frame}
+\end{document}

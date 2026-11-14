@@ -22,6 +22,7 @@ import { arrowDb, setArrows, tipSequence, type ArrowDb, type Tip } from "./arrow
 import { DEFAULT_VECTORS, type PgfVectors } from "../pgf/state"
 import { chars, Keys, NOVALUE } from "./keys"
 import { arg, contains, find, groupEnd, isCs, plain, same, str, type Tok, type Toks } from "./tokens"
+import { installTreeKeys, TREE_STYLES, treeState, type TreeState } from "./trees"
 
 /** a pgf call TikZ appends to \tikz@options */
 export type OptionCall =
@@ -82,7 +83,7 @@ export type NodeAt =
   | { kind: "point"; point: () => { x: number; y: number } }
 
 /** The macros and registers TikZ's options set, as they are inside a picture */
-export interface TikzState {
+export interface TikzState extends TreeState {
   /** \pgflinewidth (sp) */
   lineWidth: number
   /** \tikz@options */
@@ -374,6 +375,7 @@ export class Tikz {
       afterPath: [], labelAngle: [], labelDistance: chars("0pt"), labelPosition: chars("above"), absolute: false, currentPointLocal: false,
       pinDistance: chars("3ex"), pinPosition: chars("above"), pinEdge: [],
       gridX: chars("1cm"), gridY: chars("1cm"),
+      ...treeState(),
       plotHandler: "lineto", plotMark: [], plotSamples: "25", plotDomain: "-5:5", plotSamplesAt: chars("-5,-4.5833333,...,5"), plotVar: "\\x", plotMarkSize: 2 * 65536,
       toCurve: false, toLoop: false, toOut: chars("45"), toIn: chars("135"), toBend: "30", toRelative: false,
       toLooseness: { out: "1", in: "1", outMin: "0pt", outMax: "10000pt", inMin: "0pt", inMax: "10000pt" },
@@ -900,6 +902,8 @@ export class Tikz {
     loose("in max distance", (l, v) => { l.inMax = dist(v) })
     loose("in distance", (l, v) => { l.inMin = l.inMax = dist(v) })
     k.pgfqkeys("/tikz", TIKZ_STYLES)
+    installTreeKeys(k, st, (v) => this.length(v))
+    k.pgfqkeys("/tikz", TREE_STYLES)
     k.define("/tikz/.unknown", [{ kind: "native", run: (kk, v) => this.unknown(kk, v) }])
 
     if (this.setup.positioning) {

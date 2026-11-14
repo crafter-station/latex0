@@ -1,0 +1,36 @@
+% fixture: amsart/amsart-proofs
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: amsart: \qedhere in the display that ends a proof (\eqno\hbox{\qedsymbol}, no symbol at the end), gather* and align* (amsmath's, tags on the left: \eqnshift@ and \kern-\gdisplaywidth@\rlap{\boxz@}), \cite in amsart's \@citestyle (upright medium inside a theorem), thebibliography with [n] labels (no amsplain), \listparindent zero in \footnotesize's \@listi, \sloppy's \emergencystretch in the bibliography's font
+% issue: #360
+\documentclass[11pt]{amsart}
+\newtheorem{theorem}{Theorem}
+\begin{document}
+\begin{theorem}
+Every prime congruent to one modulo four is a sum of two squares \cite{HW,IK}, uniquely up to order and signs.
+\end{theorem}
+\begin{proof}
+By the identity of Brahmagupta and Fibonacci it suffices to treat primes, and then
+\[
+(a^2+b^2)(c^2+d^2) = (ac-bd)^2 + (ad+bc)^2. \qedhere
+\]
+\end{proof}
+A gathered display:
+\begin{gather*}
+x^2+y^2=z^2 \\
+\sum_{i=1}^n i=\frac{n(n+1)}{2}
+\end{gather*}
+and an aligned one:
+\begin{align*}
+a &= \int_0^1 f(x)\,dx \\
+  &= b.
+\end{align*}
+\begin{thebibliography}{9}
+\bibitem{HW} G.~H. Hardy and E.~M. Wright, \emph{An introduction to the theory of numbers}, Oxford, 2008.
+\bibitem{IK} H.~Iwaniec and E.~Kowalski, \emph{Analytic number theory}, AMS, 2004.
+
+A second paragraph in the same item, not indented in the bibliography's footnote size.
+\bibitem{L} See \texttt{verylongidentifierthatcannotbebrokenanywhereatall} and \texttt{anotherverylongidentifierthatcannotbebroken}.
+\end{thebibliography}
+\end{document}

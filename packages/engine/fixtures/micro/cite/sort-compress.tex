@@ -1,0 +1,18 @@
+% fixture: cite/sort-compress
+% tier: T3
+% engine: document
+% covers: cite.sty's \cite{keys}: the numbers sorted (\@make@cite@list), two consecutive ones with \citepunct (,\penalty\@m\hskip.13em plus.1em minus.1em), three or more as first, \citedash (\hbox{--}\penalty\@m) and last, runs and single numbers mixed, a key given twice, each number a group of its own
+\documentclass{article}
+\usepackage{cite}
+\begin{document}
+Unsorted keys \cite{b,a} are sorted, and three or more consecutive numbers \cite{c,a,b} are compressed to a range, here too \cite{f,e,d,b,a} but not here \cite{a,c,e}, and mixed forms \cite{a,b,d,e,f} or \cite{f,a,d,c} appear in the text of a paragraph that is long enough to be broken into several lines, with a key twice \cite{b,a,b} and a single one \cite{d}.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

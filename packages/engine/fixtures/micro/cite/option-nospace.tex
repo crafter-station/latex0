@@ -1,0 +1,18 @@
+% fixture: cite/option-nospace
+% tier: T3
+% engine: document
+% covers: cite.sty's nospace option: \citepunct is ,\penalty\citepunctpenalty with no glue
+\documentclass{article}
+\usepackage[nospace]{cite}
+\begin{document}
+With no space after the commas \cite{a,c,e} and \cite{b,a,f,e,d} in a line of text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

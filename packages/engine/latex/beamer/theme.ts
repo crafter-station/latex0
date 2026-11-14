@@ -33,6 +33,8 @@ export interface Theme { name: string; data: BeamerThemeData
   sidebarHead?: true
   /** Boadilla's itemize subitem and subsubitem templates (\tiny triangles and stars in structure's fg) */
   boadillaItems?: true
+  /** the shadow outer theme (beamerouterthemeshadow.sty: the split theme, a shadow under the headline, its frame title) */
+  outerShadow?: true
   /** the rounded inner theme's shadow option (\beamer@themerounded@shadow: false, Madrid's, CambridgeUS's, AnnArbor's,
    *  Boadilla's and PaloAlto's true) */
   shadow: boolean }
@@ -46,6 +48,7 @@ const PRESENTATION: Record<string, Partial<Theme>> = {
   Malmoe: { footline: "split", headline: "split" },
   Copenhagen: { inner: "rounded", footline: "split", headline: "split" },
   Luebeck: { inner: "rectangles", footline: "split", headline: "split" },
+  Warsaw: { inner: "rounded", footline: "split", headline: "split", outerShadow: true },
   Berlin: { inner: "rectangles", footline: "authorinstitutetitle", headline: "miniframes" },
   Dresden: { footline: "authorinstitutetitle", headline: "miniframes" },
   Ilmenau: { inner: "rounded", footline: "authorinstitutetitle", headline: "miniframes" },

@@ -1,0 +1,27 @@
+% fixture: caption/text-commands
+% tier: T3
+% engine: document
+% specials: compare
+% covers: caption.sty's \caption with \, \% \& \# and a formula in its text: the single-line check (\caption@slc's \sbox) with them, a caption of several lines, one in a minipage, with amsmath's \, (.1667em)
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{caption}
+\begin{document}
+\listoffigures
+Text.
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}Y\end{tabular}
+\caption{Latency (median of 10\,000 switches), 5\% of $b=64$ \& item \#2.}
+\end{figure}
+\begin{figure}[h]
+\centering
+\begin{tabular}{c}Y\end{tabular}
+\caption{A long caption with 10\,000 switches and 5\% of $b=64$ that describes the figure in great detail, so long that it cannot fit on a single line}
+\end{figure}
+\begin{figure}[h]
+\begin{minipage}{5cm}
+\caption{In a box 10\,000 switches and 5\% of $b=64$ that it describes}
+\end{minipage}
+\end{figure}
+\end{document}

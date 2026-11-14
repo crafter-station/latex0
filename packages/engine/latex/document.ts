@@ -36,7 +36,7 @@ import { readPreamble } from "./preamble"
 import { runState } from "./run"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
-import { VerticalList } from "./vlist"
+import { IGNORE_DEPTH, VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { COLOR_STY, Colors, colorPush, xcolor } from "./xcolor"
@@ -54,6 +54,7 @@ import { beamerDocument } from "./beamer"
 import { unbraced } from "./enumitem"
 import { today } from "./frontmatter"
 import { natBibitem, type NatEntry } from "./natbib"
+import { amsAddresses, amsHeadFoot } from "./amsart"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -91,7 +92,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 }
 
 /** The commands that read what the run before wrote to the .aux file: with one, LaTeX runs twice. */
-const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
+const READS_AUX = /\\(?:ref|pageref|eqref|cite|citen|citenum|citeonline|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
 interface Aux { /** longtable's \LT@i … lines */ longtables: Map<number, LtEntry[]>; toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry>; /** caption.sty's \caption@newlabel{n}{page} */ captionPages: Map<number, number> }
@@ -120,11 +121,14 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   if (pre.babel && /\\today(?![A-Za-z])/.test(body) && /\\(?:selectlanguage|foreignlanguage)(?![A-Za-z])|\\begin\s*\{otherlanguage/.test(body)) throw new Unsupported("\\today with babel's language commands")
   const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
   if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart", titleEndpe: cls === "amsart" })
   spanishLayout.on = isSpanish(pre.babel)
   germanT1.on = !!run.k.ints.T1
 
   const v = new VerticalList(run.k)
+  // (the \write and \prevdepth 0pt are the standard classes' \onecolumn's \clearpage, which amsart does not run)
+  // (and its \thispagestyle{plain} as it loads)
+  if (cls === "amsart") { v.nodes = [{ kind: "whatsit", text: "", hook: "plain" }]; v.prevDepth = IGNORE_DEPTH }
   // (spanish.ldf's layout, french.ldf's \bbl@frenchindent: \@afterindentfalse is \@afterindenttrue)
   v.alwaysIndent = isSpanish(pre.babel) || pre.babel?.main === "french"
   // a color package: xcolor, or the color package siunitx or hyperref's colorlinks loads at \begin{document} (its
@@ -203,7 +207,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     const c = pre.hyperOpts.colors, spec = (x: string) => (usesXcolor ? colors.spec(x) : COLOR_STY[x] ?? colorSpec(x))
     hyperDriver.colors = { link: spec(c.link), anchor: spec(c.anchor), cite: spec(c.cite), file: spec(c.file), url: spec(c.url) }
   }
-  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
+  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}), ...(pre.cite ? { cite: pre.cite } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
@@ -310,6 +314,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
 
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
   if (run.noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
+  if (cls === "amsart") amsAddresses(cx) // (its \AtEndDocument)
   let built: ReturnType<typeof endDocument>
   try { built = endDocument(v.nodes, run.k, outerParskip, v.prevDepth, !!pre.k.ints.twocolumn) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
@@ -333,7 +338,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     // (an output routine run at a \bibitem sees babel's \@safe@activestrue: null where hyperref or natbib replaced \@bibitem)
     const at = run.bibSafe.find((w) => pages[i].reached >= w.from && pages[i].reached < w.to)
     const safe = at ? (at.exact && !hyper && !pre.natbib ? true : null) : false
-    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : undefined
+    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : cls === "amsart" ? { ...amsHeadFoot(run.k, style, even, pages[i].thepage, heads[i]), traces: [] } : undefined
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
@@ -366,7 +371,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof" || b.kind === "longtable") || READS_AUX.test(body) || hyper || pre.natbib || run.oddPages.length) { // (longtable: its widths) (natbib: the .aux's \bibstyle)
+  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof" || b.kind === "longtable") || READS_AUX.test(body) || [...tabulars0, ...minipages0].some((x) => READS_AUX.test(x.body)) || hyper || pre.natbib || pre.cite || run.oddPages.length) { // (longtable: its widths) (natbib: the .aux's \bibstyle) (cite.sty: \cite[note]{keys}, and its citations in tabulars)
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>(), countOf = new Map<Node, number>()
     const walk = (n: Node, i: number) => { pageOf.set(n, pages[i].thepage); countOf.set(n, pages[i].count); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, i) }
     shipped.forEach((b, i) => walk(b, i))

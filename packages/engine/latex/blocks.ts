@@ -68,6 +68,8 @@ export interface ListBlock {
   thm?: { name: string; note: string | null }; proofTitle?: string
   /** abstract: its body as typed, and what follows \end{abstract}: a space, then a blank line or not, or none */
   source?: string; after?: "blank" | "space" | "none"
+  /** amsart's abstract: its \list (amsart's quotation's settings, \labelwidth\z@) and \item[\hskip\labelsep\scshape\abstractname.] */
+  amsAbstract?: boolean
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
@@ -171,8 +173,8 @@ export function parseList(env: EnvName, inner: string, inPar: boolean, blank: bo
 export const HEADINGS = { chapter: 0, section: 1, subsection: 2, subsubsection: 3, paragraph: 4, subparagraph: 5 } as const
 
 /** A displayed formula in a paragraph: \[…\], $$…$$, or an equation, equation* or displaymath environment. */
-export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "gather" | "gather*" | "multline" | "multline*"; src: string }
-export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|gather\*?|multline\*?)\}([^]*?)\\end\{\3\}/
+export interface Display { kind: "bracket" | "dollars" | "equation" | "equation*" | "displaymath" | "align" | "align*" | "alignat" | "alignat*" | "gather" | "gather*" | "multline" | "multline*"; src: string }
+export const DISPLAY = /(?<!\\)\\\[([^]*?)\\\]|\$\$([^]*?)\$\$|\\begin\{(equation\*?|displaymath|align\*?|alignat\*?|gather\*?|multline\*?)\}([^]*?)\\end\{\3\}/
 /** A paragraph's text split at its displays: text, display, text, …, text. */
 export function displaySegments(text: string): (string | Display)[] {
   const out: (string | Display)[] = []
@@ -200,13 +202,13 @@ export function inParagraph(before: string): boolean {
 const TEXT_COMMANDS = [
   "newblock", "penalty", "footnote", "noindent", "nocorr", "textbf", "textmd", "textit", "textsl", "textsc", "textup", "textrm", "textsf",
   "texttt", "textnormal", "emph", "setcounter", "addtocounter", "stepcounter", "refstepcounter", "arabic",
-  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "cref", "Cref", "cpageref", "Cpageref", "crefrange", "Crefrange", "cpagerefrange", "Cpagerefrange", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
+  "roman", "Roman", "alph", "Alph", "value", "label", "ref", "subref", "eqref", "pageref", "autoref", "nameref", "Nameref", "cite", "citen", "citenum", "citeonline", "cref", "Cref", "cpageref", "Cpageref", "crefrange", "Crefrange", "cpagerefrange", "Cpagerefrange", "citep", "citet", "citealt", "citealp", "citeauthor", "citeyear", "citeyearpar",
   "Citep", "Citet", "Citealt", "Citealp", "Citeauthor", "LXlstinline",
   "LXurl", "LXfloat", "LXgraphic", "LXtikz", "LXhref", "LXtabular", "LXminipage", "underline", "textcolor", "color", "LXcolorpushed", "hfill",
   "hfil", "quad", "qquad", "vspace", "hrule", "tiny", "scriptsize", "footnotesize", "small", "normalsize",
   "large", "Large", "LARGE", "huge", "Huge", ...BODY_DECLARATIONS, "centering", "raggedright", "raggedleft", "par", "vfill", "bigskip", "medskip", "smallskip", "null", "u", "v", "H", "r", "c", "k", ...Object.keys(TEXT_LETTERS),
   "selectlanguage", "foreignlanguage", "LXotherlanguage", "LXotherlanguagestar", "LXendotherlanguage", "LXendotherlanguagestar",
-  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "colorbox", "fcolorbox", "scalebox", "reflectbox", "resizebox",
+  "rule", "hspace", "hrulefill", "dotfill", "enspace", "thinspace", "pagebreak", "nopagebreak", "columnbreak", "relax", "mbox", "makebox", "fbox", "framebox", "raisebox", "parbox", "textsubscript", "textsuperscript", "colorbox", "fcolorbox", "scalebox", "reflectbox", "resizebox",
   "og", "fg", "up", "fup", "ier", "iere", "iers", "ieres", "ieme", "iemes", "no", "No", "nos", "Nos"
 ]
 /** siunitx's commands with their options and arguments, which the paragraph reads (siunitx.ts) */
@@ -229,7 +231,9 @@ function braceDepth(t: string): number {
 }
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
-export function blocksOf(body: string): Block[] {
+/** `headingRefs`: headings may hold ~ and \ref{key} (amsart's, which it lays out); `titleEndpe`: \maketitle leaves
+ *  \@doendpe in force (amsart's: text right after it is not indented) */
+export function blocksOf(body: string, { headingRefs = false, titleEndpe = false } = {}): Block[] {
   // babel's otherlanguage and otherlanguage* (the end goes back to the language before: the paragraph knows it)
   body = body.replace(/\\begin\{otherlanguage(\*?)\}\s*\{([A-Za-z]+)\}/g, (_, star: string, lang: string) => `\\LXotherlanguage${star ? "star" : ""}{${lang}}`)
     .replace(/\\end\{otherlanguage(\*?)\}/g, (_, star: string) => `\\LXendotherlanguage${star ? "star" : ""}{}`)
@@ -269,7 +273,7 @@ export function blocksOf(body: string): Block[] {
       continue
     }
     text(before)
-    if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = false; continue }
+    if (m[5]) { out.push({ kind: "maketitle" }); at = re.lastIndex; endpe = titleEndpe && !/\n[ \t]*\n/.test(m[0]); continue }
     if (m[14] !== undefined) { out.push({ kind: "titlepage", body: m[14] }); at = re.lastIndex; endpe = false; continue }
     if (m[15]) { out.push({ kind: "newpage", cmd: m[15] as "newpage", ...(pageInPar ? { inPar: true } : {}) }); at = re.lastIndex; endpe = false; continue }
     if (m[18]) { out.push({ kind: "pagestyle", cmd: m[18] as "thispagestyle", style: m[19].trim() }); at = re.lastIndex; continue }
@@ -409,7 +413,7 @@ export function blocksOf(body: string): Block[] {
       walk(b)
     }
     else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "longtable" || b.kind === "multicols" || b.kind === "columnbreak" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
-    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
+    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(headingRefs ? b.title.replace(/~|\\ref\{[A-Za-z0-9:._-]+\}/g, " ") : b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
 }

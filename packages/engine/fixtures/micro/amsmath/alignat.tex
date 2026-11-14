@@ -1,0 +1,27 @@
+% fixture: amsmath/alignat
+% tier: T3
+% engine: document
+% covers: amsmath's alignat and alignat* (\start@align\z@: \xatlevel@ 0 in \measure@, no space between the column pairs and no \minalignsep, the rest halved into \eqnshift@; \maxfields@ twice the argument), with fewer columns in a row than declared, a \tag, a \label, \notag and \intertext, and a row whose number has to move the block (\x@calc@shift@rc)
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+With alignat the columns touch, and the author puts the space between them; see \eqref{at:b}.
+\begin{alignat}{2}
+x &= y_1 - y_2 + y_3 &\qquad& \text{by the first hypothesis} \\
+  &= y' \circ y^* && \text{by the second} \label{at:b} \\
+  &= y(0)\, y' \notag \\
+\intertext{and at last}
+  &= z && \text{as wanted} \tag{$\ast$}
+\end{alignat}
+Three pairs, unnumbered:
+\begin{alignat*}{3}
+a_{11} x_1 &{}+{}& a_{12} x_2 &{}+{}& a_{13} x_3 &= b_1 \\
+           &    & a_{22} x_2 &{}-{}& a_{23} x_3 &= b_2
+\end{alignat*}
+A row so wide that its number pulls the whole block to the left:
+\begin{alignat}{1}
+a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p + q + r + s + t + u + v + w &= x + y + z \\
+a &= b
+\end{alignat}
+The text goes on after the last display.
+\end{document}

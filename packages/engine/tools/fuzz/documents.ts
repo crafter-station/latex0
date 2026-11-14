@@ -16,6 +16,7 @@
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { runFixture } from "../unit/run"
+import { makeClassDocument } from "./classes"
 
 const WORDS = `the of and a to in is was that for it as with on by be at from this which are or an have but not they
 were his her one all their there been has more when will would who so no if out up into than them can only other new
@@ -872,7 +873,7 @@ export function makeDocument(r: () => number, s: () => number = rng(1), m: () =>
 }
 
 export function fuzzDocuments(n: number, seed: number): number {
-  const r = rng(seed)
+  const r = rng(seed), cr = rng(seed ^ 0x5bd1e995)
   const dir = ".cache/fuzzdoc"
   mkdirSync(dir, { recursive: true })
   let pass = 0, glyphs = 0, pending = 0
@@ -883,8 +884,12 @@ export function fuzzDocuments(n: number, seed: number): number {
   for (let i = 0; i < n; i++) {
     const file = join(dir, `doc-${seed}-${i}.tex`)
     // some under pdflatex (positions from its box dumps; its hyperref and xcolor nodes), unless they use EPS graphics
-    const doc = makeDocument(r, s, m)
-    writeFileSync(file, `% engine: document\n${!doc.includes("\\includegraphics") && r() < 0.3 ? "% oracle: pdflatex\n" : ""}` + doc)
+    // (a class document, from a stream of its own, takes the place of some: the others stay as they were)
+    const doc0 = makeDocument(r, s, m)
+    const pdf0 = !doc0.includes("\\includegraphics") && r() < 0.3
+    const classDoc = cr() < 0.15
+    const doc = classDoc ? makeClassDocument(cr) : doc0
+    writeFileSync(file, `% engine: document\n${(classDoc ? cr() < 0.3 : pdf0) ? "% oracle: pdflatex\n" : ""}` + doc)
     const res = runFixture(file)
     // TeX's work files (a log with \tracingassigns runs to tens of megabytes) and its saved reference are
     // kept only for differences

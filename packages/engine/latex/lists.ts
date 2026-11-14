@@ -34,6 +34,8 @@ import { frenchItemLabel, frenchListDimens, frenchTextGuard } from "./french"
 /** the environments whose text may hold declarations here: no labels, one item */
 const DECLARING: string[] = ["center", "flushleft", "flushright", "quote", "quotation", "verse"]
 const TEXTBULLET = 136 // \textbullet in TS1
+/** amsart's \normalparindent */
+const AMS_PARINDENT = 12 * 65536
 
 /** What an environment inherits: \@listdepth, the itemize and enumerate depths, \@totalleftmargin and
  *  \linewidth, \parskip, \topsep and \partopsep in force, the size, \@rightskip and \finalhyphendemerits */
@@ -77,6 +79,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   if (b.env === "thebibliography" && !natbib && b.labels?.some((l) => l !== null)) throw new Unsupported("\\bibitem[label]")
   const { counters, esphackNobreaks, lastNode, refs, romanFont, run, typeset, v } = cx
   if (b.env === "abstract") return abstract(cx, b, ctx)
+  // amsart's thebibliography: \normalfont\bibliofont (\footnotesize) \labelsep .5em before its \list
+  if (cls === "amsart" && b.env === "thebibliography" && ctx.size !== "footnotesize") {
+    const f = loadFont(dataFont(cx.run.k.sizes.footnotesize.font.name), cx.run.k.sizes.footnotesize.font.at)
+    return list(cx, b, { ...ctx, size: "footnotesize", labelsep: new Scanner(".5em", { em: f.params[QUAD], ex: 0 }).scanDimen().value })
+  }
   const outerLabel = refs.label, outerCref = refs.cleveref?.current ?? null // \@currentlabel is local to the environment (and cleveref's \cref@currentlabel)
   const amsthm = b.env === "LXtheorem" || b.env === "proof"
   const trivial = b.env === "center" || b.env === "flushleft" || b.env === "flushright" || amsthm
@@ -95,7 +102,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   const parskipParsep = (d: number, p: string) => (cx.pre.parskip && p === "parsep" && (d === 2 || d === 3 || d === 1 && ctx.size !== "small" && ctx.size !== "footnotesize") ? ctx.parskip : undefined)
   // what \@list<depth> sets: article, report and book \@listi–iii \topsep \parsep \itemsep, \@listiii also
   // \partopsep; letter \@listI \parsep \topsep \itemsep, \@listii none of them, \@listiii \topsep \itemsep
+  // amsart \@listI \topsep \parsep \itemsep (and \listparindent\normalparindent), \@listii also \partopsep, \@listiii–vi none
   const listSets = (d: number): string[] => cls === "letter" ? (d === 1 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "itemsep"] : [])
+    : cls === "amsart" ? (d === 1 ? ["topsep", "parsep", "itemsep"] : d === 2 ? ["topsep", "parsep", "itemsep", "partopsep"] : [])
     : d <= 2 ? ["topsep", "parsep", "itemsep"] : d === 3 ? ["topsep", "parsep", "itemsep", "partopsep"] : []
   if (trivial && enumitem && ctx.depth >= 1) {
     const d = ctx.depth, L = (p: string) => parskipParsep(d, p) ?? run.k.glue[d === 1 ? `list1${p}@${ctx.size}` : `list${d}${p}`]
@@ -111,6 +120,11 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
     // (KOMA-Script's \@listi … \@listiii end with \@list@extra: \ifdim\parskip>\z@ \topsep\z@ \parsep\parskip \itemsep\z@\fi)
     if (isKoma(cls) && depth <= 3 && ctx.parskip.width > 0) { topsep = dimen(0); parsep = ctx.parskip; itemsep = dimen(0) }
     if (depth >= 2) labelwidth = D("labelwidth") + run.k.dimens.labelsep - ls // \labelwidth\leftmargin<depth> \advance\labelwidth-\labelsep
+    if (cls === "amsart" && depth === 1) {
+      // (\Small's \@listi, \footnotesize's, sets no \listparindent; \SMALL and \Tiny keep the one in force)
+      if (ctx.size === "scriptsize" || ctx.size === "tiny") throw new Unsupported(`a list at \\${ctx.size} in amsart`)
+      if (ctx.size !== "footnotesize") listparindent = AMS_PARINDENT
+    }
     // (in a list that took \FB@listHsettings, \leftmarginii … vi are \leftmarginFB: \@listii … vi's \leftmargin, and their
     // \labelwidth less \labelsep)
     if (ctx.frenchMargins && depth >= 2) { const fb = frenchListDimens(cx); leftmargin = fb.labelwidth + ls; labelwidth = fb.labelwidth }
@@ -136,19 +150,22 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
       }
     }
     // \labelwidth\z@ \itemindent-\leftmargin (enumitem: \enit@calcleft's)
-    if (b.env === "description" && !french) { labelwidth = 0; itemindent = enumitem ? 0 : -leftmargin }
+    if (b.env === "description" && cls === "amsart") { if (enumitem) throw new Unsupported("enumitem's description in amsart"); labelwidth = 0; itemindent = -12 * 65536 }
+    else if (b.env === "description" && !french) { labelwidth = 0; itemindent = enumitem ? 0 : -leftmargin }
     else if (b.env === "quote") rightmargin = leftmargin
     // (letter.cls: quotation keeps \parsep, verse indents 15pt)
     // (KOMA-Script's: \listparindent 1em)
     else if (b.env === "quotation" && isKoma(cls)) { listparindent = ems("1em"); itemindent = listparindent; rightmargin = leftmargin; parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
+    // (amsart: \leftmargin3pc \listparindent\normalparindent \itemindent\z@ \rightmargin\leftmargin \parsep\z@\@plus\p@)
+    else if (b.env === "quotation" && cls === "amsart") { leftmargin = 36 * 65536; listparindent = AMS_PARINDENT; itemindent = 0; rightmargin = leftmargin; parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }; if (b.amsAbstract) labelwidth = 0 }
     else if (b.env === "quotation") { listparindent = ems("1.5em"); itemindent = listparindent; rightmargin = leftmargin; if (cls !== "letter") parsep = { width: 0, stretch: 65536, stretchOrder: 0, shrink: 0, shrinkOrder: 0 } }
     else if (b.env === "verse") { const ind = cls === "letter" ? 15 * 65536 : ems("1.5em"); itemsep = dimen(0); itemindent = -ind; listparindent = itemindent; rightmargin = leftmargin; leftmargin += ind }
     else if (b.env === "thebibliography" && natbib && !natbib.numbers) { // natbib's \NAT@bibsetup: \leftmargin\bibhang (1em at its load) \itemindent-\leftmargin
       leftmargin = romanFont.params[QUAD]; itemindent = -leftmargin
     } else if (b.env === "thebibliography") { // \settowidth\labelwidth{\@biblabel{widest}} \leftmargin\labelwidth \advance\leftmargin\labelsep
       const w: Node[] = []
-      appendText(w, `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
-      labelwidth = hpack(w).width; leftmargin = labelwidth + run.k.dimens.labelsep
+      appendText(w, cx.pre.amsplain ? `${b.widest}.` : `[${b.widest}]`, sizeFont, { spaceFactor: 1000 }, false)
+      labelwidth = hpack(w).width; leftmargin = labelwidth + (cls === "amsart" ? ls : run.k.dimens.labelsep)
     }
     // natbib's \@bibsetup: \itemsep\bibsep (\@listi's \itemsep and \parsep when it loaded) \parsep\z@
     if (b.env === "thebibliography" && natbib) { itemsep = addGlue(run.k.glue["list1itemsep@normalsize"], run.k.glue["list1parsep@normalsize"]); parsep = dimen(0) }
@@ -169,6 +186,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
       if (b.env === "description") return 0 // (\@itemlabel empty)
       if (b.env === "enumerate") { if (isSpanish(cx.pre.babel)) throw new Unsupported("enumitem's widest label with spanish"); return hpack(labelFont(cx.normalAttrs, labelText(ENUM_LABELS[level - 1], "widest"))).width }
       // \labelitemi … iv: \textbullet, \bfseries\textendash, \textasteriskcentered, \textperiodcentered (spanish.ldf's labels)
+      if (cls === "amsart") throw new Unsupported("enumitem's widest itemize label in amsart")
       if (isSpanish(cx.pre.babel)) return hpack(spanishItemLabel(level, run.k, ctx.size, sizeFont, loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at), cx.pre.amsmath)).width
       const f = level === 2 ? loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at) : loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
       return f.chars.get(level === 2 ? (run.k.ints.T1 ? 21 : 123) : [TEXTBULLET, 0, 42, 183][level - 1])!.width
@@ -187,7 +205,10 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   const thmDef = b.thm ? thmDefs.get(b.thm.name)! : null
   if (thmDef) {
     const half = (g: GlueSpec): GlueSpec => ({ ...g, width: Math.trunc(g.width / 2), stretch: Math.trunc(g.stretch / 2), shrink: Math.trunc(g.shrink / 2) }) // \divide…\tw@
-    topsepAll = topsepadd = thmDef.style === "remark" ? half(ctx.topsep) : ctx.topsep
+    // (amsart's \thm@space@setup: .5\baselineskip\@plus.2\baselineskip\@minus.2\baselineskip, remark's too)
+    const bs = run.k.sizes[ctx.size].baselineskip.width
+    topsepAll = topsepadd = cls === "amsart" ? new Scanner(".5\\baselineskip plus.2\\baselineskip minus.2\\baselineskip", { ...units, internal: (n) => (n === "baselineskip" ? { level: "dimen", value: bs } : undefined) }).scanGlue()
+      : thmDef.style === "remark" ? half(ctx.topsep) : ctx.topsep
     if (b.items.some((it) => it.parts.some((p) => p.kind === "list"))) throw new Unsupported("a list in a theorem")
     if (hyper && !thmDef.counter) throw new Unsupported("an unnumbered theorem with hyperref")
   }
@@ -247,12 +268,15 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   else if (b.env === "flushright") { align = { leftSkip: flushglue("leftskip"), parFillSkip: zeroskip("parfillskip") }; finalHyph = 0; parindent = 0 }
   // thebibliography: \sloppy \clubpenalty4000 \@clubpenalty\clubpenalty \widowpenalty4000 \sfcode`\.\@m (natbib's leaves
   // \@clubpenalty, which \@item's \everypar sets)
-  const atClub = b.env === "thebibliography" && !natbib ? 4000 : run.k.ints.clubpenalty
-  const bib = b.env === "thebibliography" ? { ...sloppy(romanFont.params[QUAD]), clubPenalty: atClub, widowPenalty: 4000, noteWidowPenalty: 4000, sfcodes: { 46: 1000 } } : {}
+  // (amsart's: \sloppy in \bibliofont, \clubpenalty\@M \widowpenalty\clubpenalty)
+  const atClub = b.env === "thebibliography" && !natbib ? (cls === "amsart" ? 10000 : 4000) : run.k.ints.clubpenalty
+  const bibWidow = cls === "amsart" ? 10000 : 4000
+  const bib = b.env === "thebibliography" ? { ...sloppy((cls === "amsart" ? sizeFont : romanFont).params[QUAD]), clubPenalty: atClub, widowPenalty: bibWidow, noteWidowPenalty: bibWidow, sfcodes: { 46: 1000 } } : {}
   const shape = { ...align, ...(parShape ? { parShape } : {}), ...(finalHyph !== undefined ? { finalHyphenDemerits: finalHyph } : {}), ...bib }
   const font = sizeFont
   const bold = loadFont(dataFont(run.k.sizes[ctx.size].bold.name), run.k.sizes[ctx.size].bold.at)
   const companion = loadFont(dataFont(run.k.sizes[ctx.size].companion.name), run.k.sizes[ctx.size].companion.at)
+  const mathSymbols = () => { const f = run.k.sizes[ctx.size].math.text[2]; return loadFont(dataFont(f.name), f.at) } // (family 2)
   let counter = eit?.counter ?? 0 // \c@enum…: an item with its own label does not step it (\usecounter, then start= or resume)
   const outerHyperItem = run.hyperItem
   if (b.env === "enumerate") run.enums[level - 1] = counter
@@ -273,18 +297,19 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
    *  (\hbox to.77778em{\hfil\vrule\vbox to.675em{\hrule width.6em\vfil\hrule}\vrule\hfil}) in the body's font */
   const lastPart = b.items.at(-1)?.parts.at(-1)
   if (b.env === "proof" && (!lastPart || lastPart.kind !== "text" || !lastPart.text)) throw new Unsupported("a proof that does not end with text")
-  const qedAt = (p: Part) => b.env === "proof" && p === lastPart
-  const qed = (): Node[] => {
-    const frac = (d: string) => new Scanner(d, { em: sizeFont.params[QUAD], ex: sizeFont.params[X_HEIGHT] }).scanDimen().value
-    const vrule = (): Node => ({ kind: "rule", width: 26214, height: null, depth: null })
-    const vb = vpack([{ kind: "rule", width: frac(".6em"), height: 26214, depth: 0 }, filGlue(), { kind: "rule", width: null, height: 26214, depth: 0 }], { exactly: frac(".675em") })
-    const box = hpack([filGlue(), vrule(), vb, vrule(), filGlue()], { exactly: frac(".77778em") })
-    return [penalty(9999), hpack([]), penalty(10000), fillGlue(), glue(sizeFont.params[QUAD]), hpack([box])]
+  // (\qedhere in the display that ends the proof: the symbol there, \setQED@elt empties the \QED@stack)
+  const qedHere = b.env === "proof" && b.items.some((it) => it.parts.some((p) => p.kind === "list" || /\\qedhere(?![A-Za-z])/.test(p.text)))
+  if (qedHere) {
+    const segs = lastPart!.kind === "text" ? displaySegments(lastPart!.text) : []
+    const other = b.items.flatMap((it) => it.parts).filter((p) => p !== lastPart && (p.kind === "list" || /\\qedhere(?![A-Za-z])/.test(p.text)))
+    if (other.length || segs.length < 3 || (segs.at(-1) as string).trim() || segs.slice(0, -2).some((x) => /\\qedhere(?![A-Za-z])/.test(typeof x === "string" ? x : x.src))) throw new Unsupported("\\qedhere elsewhere than in the display that ends the proof")
   }
+  const qedAt = (p: Part) => b.env === "proof" && p === lastPart && !qedHere
+  const qed = (): Node[] => [penalty(9999), hpack([]), penalty(10000), fillGlue(), glue(sizeFont.params[QUAD]), hpack([qedSymbol(cx, ctx.size)])]
   // the \clubpenalty in force when an item's paragraph starts in a group (where \@item's \everypar sets its own):
   // thebibliography's, the outer one before the first item, then what the last item's \everypar set
   const innerScope: ResumeScope = new Map(ctx.scope ?? []) // (the environment's group)
-  let groupClub = b.env === "thebibliography" ? 4000 : ctx.club ?? (depth <= 1 ? v.club : run.k.ints.clubpenalty)
+  let groupClub = b.env === "thebibliography" ? atClub : ctx.club ?? (depth <= 1 ? v.club : run.k.ints.clubpenalty)
   // what declarations in the environment's text set (center, flushleft, flushright, quote, quotation, verse)
   let envState: DeclState = { size: ctx.size, attrs: bodyAttrs ?? cx.normalAttrs, align: null }, declared = false
   let bibItemStart = 0 // (where the item's material starts)
@@ -318,6 +343,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
         if (eit?.format) throw new Unsupported(`enumitem font=${eit.format} for itemize's own labels`)
         if (spanish) l.push(...spanishItemLabel(level, run.k, ctx.size, font, companion, cx.pre.amsmath))
         else if (french) l.push(frenchItemLabel(cx, font).node) // (\Frlabelitemi … iv: \FrenchLabelItem, \textemdash)
+        // (amsart's: $\m@th\bullet$, \bfseries --, $\m@th\ast$, $\m@th\cdot$)
+        else if (cls === "amsart" && level !== 2) { l.push({ kind: "math", on: true, width: 0 }, charNode(mathSymbols(), [15, 0, 3, 1][level - 1]), { kind: "math", on: false, width: 0 }); cx.doc.mathSize = ctx.size } // (\check@mathfonts)
+        else if (cls === "amsart") appendText(l, "--", bold, { spaceFactor: 1000 }, false)
         else if (level === 2) l.push(charNode(bold, run.k.ints.T1 ? 21 : 123)) // \textendash in OT1 and T1
         else l.push(charNode(companion, [TEXTBULLET, 0, 42, 183][level - 1]))
       } else { // \labelenumi … iv: 1. (a) i. A.
@@ -334,6 +362,8 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
         if ((eit?.ref != null || /[{}]/.test(ctx.thes?.join("") ?? "")) && /\$|\\(?!(?:textbf|textmd|textit|textsl|textsc|textup|textrm|textsf|texttt|textnormal|emph)\s*\{)/.test(refs.label) && hasLabel(parts)) throw new Unsupported(`a \\label to "${refs.label}"`)
         if (eit?.label != null || eit?.format) l.push(...formatted(cx.normalAttrs, labelText(eit.label ?? `{${ENUM_LABELS[level - 1]}}`, [...ctx.enums, n])))
         else if (spanish) l.push(...spanishEnumLabel(level, n, run.k, ctx.size, font, selectFont(run.k, ctx.size, { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "it" }), cx.pre.amsmath))
+        // (amsart's: (1) (a) (i) (A), in \upshape)
+        else if (cls === "amsart") appendText(l, `(${[String(n), alph(n), roman(n), alph(n).toUpperCase()][level - 1]})`, font, { spaceFactor: 1000 }, false)
         else appendText(l, level === 1 ? `${n}.` : level === 2 ? (isKoma(cls) ? `${alph(n)})` : `(${alph(n)})`) : level === 3 ? `${roman(n)}.` : `${alph(n).toUpperCase()}.`, font, { spaceFactor: 1000 }, false)
       }
       // \hss\llap{#1}, enumitem's \nobreak first; or \nobreak #1\hfil (align=left)
@@ -344,6 +374,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
       if (given && eit?.format) l.push(...formatted({ ...cx.normalAttrs, ser: "bx" }, given))
       // (KOMA-Script's descriptionlabel font: \sffamily\bfseries, its disposition's)
       else if (given) appendText(l, sourceText(given.replace(/\s+/g, " ")), isKoma(cls) ? selectFont(run.k, ctx.size, { ...cx.normalAttrs, fam: "cmss", ser: "bx" }) : bold, { spaceFactor: 1000 }, false)
+      if (!eit && cls === "amsart") appendText(l, ":", bold, { spaceFactor: 1000 }, false) // (amsart's \descriptionlabel: \upshape\bfseries #1:)
       if (!eit) content = [glue(ls), ...l]
       else if (!eit.boxdesc) { // \nobreak\descriptionlabel{label}, \enit@postlabel after the box
         if (eit.align !== "left") throw new Unsupported(`enumitem align=${eit.align} in a description of style other than standard`)
@@ -367,6 +398,9 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
         st.spaceFactor = 1000
       }
       if (st.spaceFactor <= 1000) appendText(content, ".", it, st, false) // \@addpunct: a period unless the title ends in punctuation
+    } else if (b.amsAbstract) { // \@mklab: \hfil #1
+      content = [filGlue(), glue(ls)]
+      appendText(content, `${sourceText(cx.pre.names.abstractname)}.`, selectFont(run.k, ctx.size, { ...cx.normalAttrs, shape: "sc" }), { spaceFactor: 1000 }, false)
     } else if (trivial) content = given ? (() => { const l: Node[] = []; appendText(l, sourceText(given), font, { spaceFactor: 1000 }, false); return l })() : [] // \makelabel##1{##1}
     else if (natbib) {
       // natbib's \@lbibitem: \item[\hfil\NAT@anchor{key}{\NAT@num}], \NAT@num the run before's number for a [label]
@@ -383,7 +417,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
       content.push(...end)
     } else { // \@mklab: \hfil #1 (thebibliography's label: \@biblabel{n}, [n])
       content = [filGlue()]
-      const l = b.env === "thebibliography" ? `[${i + 1}]` : given
+      const l = b.env === "thebibliography" ? (cx.pre.amsplain ? `${i + 1}.` : `[${i + 1}]`) : given
       if (l) appendText(content, sourceText(l), font, { spaceFactor: 1000 }, false)
       // \refstepcounter{enumiv}; with hyperref (\@skiphyperreftrue) \@currentHref stays what it was
       if (b.env === "thebibliography") {
@@ -530,6 +564,18 @@ export function abstract(cx: Ctx, b: ListBlock, ctx: EnvCtx): void {
   list(cx, { kind: "list", env: "center", items: [{ label: null, parts: [{ kind: "text", text: "", start: "label", nodes: head }] }], inPar: b.inPar, blank: false }, small)
   v.afterheadingEverypar = false
   list(cx, { kind: "list", env: "quotation", items: b.items, inPar: false, blank: false }, small)
+}
+
+/** \qedsymbol at a size: amsthm's \openbox (\hbox to.77778em{\hfil\vrule\vbox to.675em{\hrule width.6em\vfil\hrule}\vrule
+ *  \hfil}), amsart's \textsquare (\usefont{U}{msa}{m}{n}\char3) */
+export function qedSymbol(cx: Ctx, size: SizeCommand): Node {
+  const k = cx.run.k
+  if (cx.pre.cls === "amsart") { const msa = k.sizes[size].amsFonts.msa[0]; return charNode(loadFont(dataFont(msa.name), msa.at), 3) }
+  const f = loadFont(dataFont(k.sizes[size].font.name), k.sizes[size].font.at)
+  const frac = (d: string) => new Scanner(d, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }).scanDimen().value
+  const vrule = (): Node => ({ kind: "rule", width: 26214, height: null, depth: null })
+  const vb = vpack([{ kind: "rule", width: frac(".6em"), height: 26214, depth: 0 }, filGlue(), { kind: "rule", width: null, height: 26214, depth: 0 }], { exactly: frac(".675em") })
+  return hpack([filGlue(), vrule(), vb, vrule(), filGlue()], { exactly: frac(".77778em") })
 }
 
 /** a \label in the parts, or in an environment inside them (conservatively: it may see this \@currentlabel) */
