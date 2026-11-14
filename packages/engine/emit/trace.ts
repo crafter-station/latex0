@@ -4,7 +4,7 @@
 // bit-identical to the DVI TeX would write.
 
 import { texRound, vetGlue } from "../layout/arith"
-import { SHRINKING, STRETCHING, type BoxNode } from "../layout/nodes"
+import { SHRINKING, STRETCHING, type BoxNode, type PdfRegion } from "../layout/nodes"
 import type { Trace, TraceGlyph, TraceRule, TracePage } from "../trace/schema"
 
 interface Cursor { h: number; v: number }
@@ -13,8 +13,8 @@ interface Cursor { h: number; v: number }
 export type PageMark =
   /** `glyphs` and `rules`: how many of the page's glyphs and rules came before it */
   | { kind: "whatsit"; text: string; h: number; v: number; glyphs: number; rules: number }
-  /** (h, v) is the left end of the image box's baseline */
-  | { kind: "image"; name: string; h: number; v: number; width: number; height: number; depth: number; glyphs: number; rules: number }
+  /** (h, v) is the left end of the image box's baseline; `pdf`: for a page of a PDF file, what of it fills the box */
+  | { kind: "image"; name: string; pdf?: PdfRegion; h: number; v: number; width: number; height: number; depth: number; glyphs: number; rules: number }
   /** pdfTeX's \pdfrefxform: the form's number; (h, v) is the left end of the form box's baseline */
   | { kind: "form"; number: number; h: number; v: number; width: number; height: number; depth: number; glyphs: number; rules: number }
 
@@ -37,7 +37,7 @@ const whatsit = (marks: PageMark[] | null, text: string, cur: Cursor, page: Trac
 /** the mark of an image's or a form's box whose baseline starts at (h, v) */
 function drawnBox(p: BoxNode, h: number, v: number, page: TracePage): PageMark {
   const at = { h, v, width: p.width, height: p.height, depth: p.depth, glyphs: page.glyphs.length, rules: page.rules.length }
-  return p.image ? { kind: "image", name: p.image, ...at } : { kind: "form", number: p.form!, ...at }
+  return p.image ? { kind: "image", name: p.image, ...(p.pdf ? { pdf: p.pdf } : {}), ...at } : { kind: "form", number: p.form!, ...at }
 }
 
 function hlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] | null) {

@@ -24,7 +24,7 @@ export type { Node, Token } from "./types"
 // installs the engine's data (data/*.json) first; a construct the engine cannot lay out exactly yet
 // throws Unsupported.
 export { document, type DocumentOptions } from "./latex/document"
-export { svgPages, type SvgOptions, type SvgPages } from "./emit/svg"
+export { svgPages, type PdfImage, type SvgOptions, type SvgPages } from "./emit/svg"
 export { installData, type DataSource, type WebFonts } from "./latex/data"
 export { Unsupported } from "./latex/unsupported"
 export { bitmapInfo, imageInfo, type Bitmap, type Image } from "./latex/images"

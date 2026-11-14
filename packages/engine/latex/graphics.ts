@@ -9,7 +9,7 @@
 import { printScaled } from "../layout/arith"
 import { MAX_DIMEN, parseDimen, times } from "../layout/dimen"
 import { hpack } from "../layout/pack"
-import { kern, ssGlue, type BoxNode, type Node } from "../layout/nodes"
+import { kern, ssGlue, type BoxNode, type Node, type PdfRegion } from "../layout/nodes"
 import { widthRegisters } from "./boxes"
 import type { Ctx } from "./context"
 import type { Bitmap } from "./images"
@@ -99,7 +99,7 @@ export function bitmapSize(b: Bitmap): { width: number; height: number } {
  * made sp by bp2int, round(x × 6578176 / 100.0) with web2c's zround ((int)(x + .5)); the two swapped for a page
  * whose /Rotate is 90 or 270
  */
-export function pdfSize(pdf: Pdf, page: string | undefined, pagebox: string | undefined): { width: number; height: number } {
+export function pdfSize(pdf: Pdf, page: string | undefined, pagebox: string | undefined): { width: number; height: number; pdf: PdfRegion } {
   if (pdf.unsupported) throw new Unsupported(pdf.unsupported)
   const pg = page === undefined || page.trim() === "" ? "1" : page.trim()
   if (!/^[+-]?\d+$/.test(pg)) throw new Unsupported(`\\includegraphics page=${page}`)
@@ -113,16 +113,17 @@ export function pdfSize(pdf: Pdf, page: string | undefined, pagebox: string | un
   let width = bp2int(box[2] - box[0]), height = bp2int(box[3] - box[1])
   if (p.rotate === 90 || p.rotate === 270) [width, height] = [height, width]
   if (width <= 0 || height <= 0 || width > MAX_DIMEN || height > MAX_DIMEN) throw new Unsupported("a PDF page with no width or height, or too large")
-  return { width, height }
+  // (write_epdf writes a /Matrix only for a /Rotate that is a multiple of 90)
+  return { width, height, pdf: { page: n, box: [box[0], box[1], box[2], box[3]], rotate: p.rotate % 90 === 0 ? p.rotate : 0 } }
 }
 
 /**
  * \Gin@setfile's box under pdfTeX: \hbox{\Ginclude@@pdftex}, its depth zero and its size the requested one; in it
  * \hbox{\Gscale@box{x}[y]{\pdfrefximage}} (GPT@setup@scale: a ! factor is the other)
  */
-function pdftexBox(name: string, image: { width: number; height: number }, scalex: string | null, scaley: string | null, reqW: number, reqH: number, mbox: boolean): Node[] {
+function pdftexBox(name: string, image: { width: number; height: number; pdf?: PdfRegion }, scalex: string | null, scaley: string | null, reqW: number, reqH: number, mbox: boolean): Node[] {
   const sx = scalex ?? scaley ?? "1", sy = scaley ?? sx
-  const box0 = hpack([{ kind: "hlist", width: image.width, height: image.height, depth: 0, shift: 0, list: [], glueSet: 0, glueSign: 0, glueOrder: 0, image: name }])
+  const box0 = hpack([{ kind: "hlist", width: image.width, height: image.height, depth: 0, shift: 0, list: [], glueSet: 0, glueSign: 0, glueOrder: 0, image: name, ...(image.pdf ? { pdf: image.pdf } : {}) }])
   const box = hpack([hpack([gscaleBox(box0, sx, sy, true)])])
   box.depth = 0; box.height = reqH; box.width = reqW
   return mbox ? [hpack([box])] : [box]
