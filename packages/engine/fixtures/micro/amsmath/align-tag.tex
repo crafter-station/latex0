@@ -1,0 +1,25 @@
+% fixture: amsmath/align-tag
+% tier: T3
+% engine: document
+% covers: \tag and \tag* in align and align* (\tag@in@align: \df@tag is \tagform@{…} or \maketag@@@{…} in \normalfont, no counter stepped), a tag with a formula and one ending in an italic letter (\@@italiccorr), a \label on a \tag row reading the tag's text, \notag beside them, and the numbering going on after
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Tags replace the number of a row; see \eqref{eq:star}, \eqref{eq:two} and \ref{eq:raw}.
+\begin{align}
+a &= b + c \tag{A} \label{eq:star} \\
+d &= e + f \\
+g &= h \tag*{[iii]} \label{eq:raw} \\
+x^2 + y^2 &= z^2 \tag{$\ast\ast$} \\
+u &= v \notag \\
+p &= q + r \tag{2.1\textit{f}} \\
+s &= t \label{eq:two}
+\end{align}
+and in the starred form, where no row has a number of its own,
+\begin{align*}
+f(x) &= x^2 \tag{B'} \\
+&= x \cdot x \\
+&\ge 0 \tag*{Q.E.D.}
+\end{align*}
+as claimed in \eqref{eq:star}.
+\end{document}

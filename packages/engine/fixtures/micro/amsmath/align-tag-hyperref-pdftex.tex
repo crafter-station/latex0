@@ -1,0 +1,24 @@
+% fixture: amsmath/align-tag-hyperref-pdftex
+% tier: T3
+% engine: document
+% covers: \label and \tag in align and gather with hyperref: a numbered row's anchor before its number, a \tag's \Hy@make@anchor (an anchor AMS.n inside the tag, \Hy@linkcounter stepped by the measuring pass too), \tag*, and \ref and \eqref links to both kinds
+% specials: compare
+% oracle: pdflatex
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\begin{document}
+Links go to \eqref{eq:a}, \eqref{eq:t}, \ref{eq:s} and \eqref{eq:g}.
+\begin{align}
+a &= b + c \label{eq:a} \\
+d &= e + f \tag{T} \label{eq:t} \\
+g &= h \tag*{[iii]} \label{eq:s} \\
+u &= v \notag
+\end{align}
+and gathered,
+\begin{gather}
+x^2 + y^2 = z^2 \tag{P} \label{eq:g} \\
+p = q \label{eq:h}
+\end{gather}
+with \eqref{eq:h} last.
+\end{document}
