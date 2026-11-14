@@ -98,8 +98,9 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   const measure = (el: HTMLDivElement | null) => {
     observer.current?.disconnect()
     if (!el) return
-    observer.current = new ResizeObserver(([entry]) => setPanelWidth(entry.contentRect.width))
-    observer.current.observe(el)
+    // (the scroll area's viewport, not the pages' container: that one grows with the pages when they are zoomed)
+    observer.current = new ResizeObserver(([entry]) => setPanelWidth(entry.contentRect.width - 32))
+    observer.current.observe(el.closest("[data-radix-scroll-area-viewport]") ?? el)
   }
 
   useEffect(() => {
