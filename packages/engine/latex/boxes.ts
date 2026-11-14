@@ -12,6 +12,7 @@ import { centering as centeringShape, raggedleft, raggedright, sloppy, zeroskip 
 import { caption, captionCall, captionXref, type Captioned } from "./floats"
 import { copyKeys, runList, setCaptionKeys } from "./captionsetup"
 import { Unsupported } from "./unsupported"
+import { colorPop, colorPush } from "./xcolor"
 import { IGNORE_DEPTH, negate, plain } from "./vlist"
 import type { MinipageSource } from "./source"
 import { preamble, tabularBox, tabularLines, vtop, xColumns, type ColumnTypes, type TabCol, type TabLine, type TabularEnv } from "./tabular"
@@ -124,9 +125,12 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
   // (\@parboxrestore's \leftskip and \rightskip zero, whatever the class has: beamer's \raggedright)
   const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph, leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip") })
   const what = parbox ? "a \\parbox" : "a minipage"
-  const odd = body.match(/\\(?:footnote|begin|item|vspace|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
+  const odd = body.match(/\\(?:footnote|begin|item|vspace\s*\*|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
   if (odd) throw new Unsupported(`${odd[0]} in ${what}`)
   const list: Node[] = []
+  // \color in vertical mode: \set@color's push on the box's list, the color of what follows; \reset@color's pops
+  // (\aftergroup) after \color@endgroup's \endgraf\endgroup, last in the box
+  let color = outer.color, pops = 0
   let pd: number | null = IGNORE_DEPTH
   // (in it, \textwidth and \columnwidth are its \hsize, and so is \linewidth after \@parboxrestore)
   const outerWidth = run.minipageWidth, outerTop = f.top, outerKeys = f.keys, outerCaptype = run.captype, outerCaption = run.floatCaption
@@ -225,7 +229,16 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
     if (/^\\label/.test(part)) throw new Unsupported(`${part} in a minipage`)
     if (part.trim()) cap = null // (a \label after text is in a paragraph)
   for (let text of part.split(/\n[ \t]*\n|\\par(?![A-Za-z])/)) {
-    for (let d; (d = text.match(/^\s*\\(centering|raggedright|raggedleft)(?![A-Za-z])\s*/)); text = text.slice(d[0].length)) align = d[1] as "centering"
+    // in vertical mode, before the paragraph starts: \centering and friends, \color (\ignorespaces after it), and
+    // \vspace{skip} (\@vspace: \vskip skip \vskip\z@skip)
+    for (let d; (d = text.match(/^\s*\\(centering|raggedright|raggedleft)(?![A-Za-z])\s*|^\s*\\(color)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*|^\s*\\(vspace)\s*\{([^{}]*)\}\s*/)); text = text.slice(d[0].length)) {
+      if (d[1]) align = d[1] as "centering"
+      else if (d[2]) { color = cx.colorSpec(d[4], d[3]); list.push(colorPush(color)); pops++ }
+      else { try { list.push(plain(parseGlue(d[6], { em: font.params[QUAD], ex: font.params[X_HEIGHT] })), glue(0)) } catch { throw new Unsupported(`\\vspace{${d[6]}} in ${what}`) } }
+    }
+    // (a \vspace later is in its paragraph, a \vadjust; after declarations or groups alone it is in vertical mode still)
+    const vs = text.search(/\\vspace(?![A-Za-z])/)
+    if (vs >= 0 && !text.slice(0, vs).replace(/\\(?:bfseries|mdseries|itshape|slshape|scshape|upshape|rmfamily|sffamily|ttfamily|normalfont|normalsize|small|footnotesize|scriptsize|tiny|large|Large|LARGE|huge|Huge)(?![A-Za-z])|[{}\s]/g, "")) throw new Unsupported(`\\vspace after declarations in ${what}`)
     if (/\\(?:centering|raggedright|raggedleft)(?![A-Za-z])/.test(text)) throw new Unsupported(`\\centering or friends in ${what}'s paragraph`)
     // under \centering and friends \\ is \@centercr: \unskip\par, \nobreak for \\*, \addvspace{-\parskip} (\parskip is
     // zero here: a zero skip after the lines), \vskip for \\[skip]
@@ -241,10 +254,11 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
         if (prev.skip !== undefined) { try { list.push(plain(parseGlue(prev.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }))) } catch { throw new Unsupported(`\\\\[${prev.skip}] in ${what}`) } }
       }
       if (!ln.text.trim()) { if (li === 0 && ln.cr) throw new Unsupported(`\\\\ first in ${what}`); return }
+      if (li > 0 && /^\s*\\(?:vspace|color)(?![A-Za-z])/.test(ln.text)) throw new Unsupported(`${ln.text.trim().slice(0, 20)} after \\\\ in ${what}`)
       parskips()
       let p: ReturnType<typeof paragraphInput>
       try {
-        p = paragraphInput(ln.text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape(), ...(ln.cr ? { unskip: 1 } : {}) })
+        p = paragraphInput(ln.text, run.k, size, doc, { attrs, ...(sfcodes ? { sfcodes } : {}), hsize, start: [emptyBox("hlist", 0)], amsmath, groups: true, ...sloppy(font.params[QUAD]), clubPenalty: outer.club, widowPenalty: outer.widow, noteWidowPenalty: outer.widow, ...shape(), ...(ln.cr ? { unskip: 1 } : {}), ...(color ? { color } : {}) })
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("paragraph adapter")) throw new Unsupported(`${what} paragraph "${ln.text.trim().slice(0, 40)}"`)
         throw e
@@ -257,6 +271,7 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
   }
   } finally { run.minipageWidth = outerWidth; run.captype = outerCaptype; run.floatCaption = outerCaption; outerCaption.top = outerTop; outerCaption.keys = outerKeys } // (the position a caption fixed in it ends with its group)
   if (!parbox && list.at(-1)?.kind === "glue") list.pop() // \unskip
+  for (; pops > 0; pops--) list.push(colorPop())
   // \@parboxto: to the height, with \bm@<inner> as \vss and \unvbox (s: \unvbox alone)
   let to: PackSpec | undefined
   if (m.height !== null) {

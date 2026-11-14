@@ -320,6 +320,8 @@ export interface ParagraphOptions {
   centercr?: boolean
   /** \spaceskip and \xspaceskip, when set (not zero) */
   spaceSkips?: { space: GlueSpec; xspace: GlueSpec }
+  /** xcolor's current color where the paragraph starts, when not the document's (a \color before it in its box) */
+  color?: string
 }
 
 /**
@@ -367,7 +369,7 @@ type Piece =
    *  (`otherstar`, `endotherstar`); \foreignlanguage{lang}{…} */
   | { kind: "babel"; what: "select" | "other" | "endother" | "otherstar" | "endotherstar"; lang: string } | { kind: "foreign"; lang: string; inner: Piece[] } | { kind: "lstinline"; n: number } | { kind: "verb"; n: number } | { kind: "url"; n: number } | { kind: "href"; n: number; inner: Piece[] } | { kind: "tabular"; n: number } | { kind: "graphic"; n: number } | { kind: "tikz"; n: number } | { kind: "minipage"; n: number } | { kind: "smuggle"; n: number } | { kind: "underline"; inner: Piece[] }
   /** \textcolor[model]{spec}{…} or {\color[model]{spec} …}: the color's push, the group, its pop */
-  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean }
+  | { kind: "color"; spec: string; model?: string; inner: Piece[]; /** pushed already (in vertical mode, before the paragraph) */ pushed?: boolean; /** a \color after other things in its group, its push not on the vertical list */ declared?: boolean }
   /** \\ in a paragraph (\@normalcr): its * and [skip] */
   | { kind: "newline"; star: boolean; skip: string | null }
   /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
@@ -552,7 +554,8 @@ function swSlant(list: Node[]) {
 
 /** `groups`: plain groups and font declarations read (where no \everypar runs in them: an entry, a p{width} box);
  *  `grouped`: the body is a group's (a declaration lasts to its end) */
-interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean; /** babel's language where the parse is, and the
+interface PieceOptions { groups?: boolean; grouped?: boolean; centercr?: boolean; /** the text is a brace group's, to its end: a
+ *  \color in it lasts to the end of the pieces (\aftergroup\reset@color) */ colorGroup?: boolean; /** babel's language where the parse is, and the
  *  languages otherlanguage and \foreignlanguage go back to: whose shorthands are on */ lang?: { name: string; stack: string[] } }
 export const DECLARATIONS = ["bfseries", "mdseries", "itshape", "slshape", "scshape", "upshape", "rmfamily", "sffamily", "ttfamily", "normalfont"]
 /** the classes' old font commands (\DeclareOldFontCommand{\bf}{\normalfont\bfseries}…) */
@@ -569,7 +572,9 @@ export const SKIP_AMOUNTS: Record<string, GlueSpec> = {
 
 function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] {
   const lang = po.lang ?? { name: babelState.lang, stack: [...babelState.stack] }
-  const inner: PieceOptions = { ...po, grouped: true, lang }
+  const inner: PieceOptions = { ...po, grouped: true, lang, colorGroup: false }
+  /** a brace group's text; and the rest of this text after a declaration */
+  const group: PieceOptions = { ...inner, colorGroup: true }, rest: PieceOptions = { ...inner, colorGroup: po.colorGroup }
   const out: Piece[] = []
   let i = 0, text = ""
   const flushText = () => {
@@ -713,14 +718,14 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       let depth = 0, j = open
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced color group")
-      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, inner), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
+      flushText(); out.push({ kind: "color", spec: tc[2], model: tc[1], inner: pieces(body.slice(i + tc[0].length, j), footnotes, group), ...(tc[0].startsWith("{\\LXcolorpushed") ? { pushed: true } : {}) }); i = j + 1; continue
     }
     const sz = body.slice(i).match(new RegExp(`^\\{\\\\(${SIZE_COMMANDS.join("|")})(?![A-Za-z])\\s*`))
     if (sz) {
       let depth = 0, j = i
       for (; j < body.length; j++) { if (body[j] === "{") depth++; else if (body[j] === "}" && --depth === 0) break }
       if (j >= body.length) throw new Unsupported("paragraph adapter: unbalanced {")
-      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, inner) }); i = j + 1; continue
+      flushText(); out.push({ kind: "size", size: sz[1] as SizeCommand, inner: pieces(body.slice(i + sz[0].length, j), footnotes, group) }); i = j + 1; continue
     }
     const si = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/)
     if (si && si[1] in SI_COMMANDS) { // siunitx: its options, its arguments in braces
@@ -847,7 +852,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     if (rx) { flushText(); out.push({ kind: "group", inner: [] }); i += rx[0].length; continue }
     if (po.groups && body[i] === "{") { // (no ligature or kern across its ends either)
       const j = closingBrace(body, i)
-      flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, inner) }); i = j + 1; continue
+      flushText(); out.push({ kind: "group", inner: pieces(body.slice(i + 1, j), footnotes, group) }); i = j + 1; continue
+    }
+    // \color[model]{spec} in a group: \set@color's push here, \ignorespaces, and \aftergroup\reset@color: its pop where
+    // the group ends (\LXcolorpushed: read in vertical mode, before the paragraph, its push on the vertical list)
+    const col = body.slice(i).match(/^\\(color|LXcolorpushed)(?![A-Za-z])\s*(?:\[([^\]{}]*)\])?\s*\{([^{}]*)\}\s*/)
+    if (col) {
+      // (a command's argument: where its group ends, and what the command does before that, is the command's)
+      if (!po.colorGroup) throw new Unsupported(`\\color outside a group in "${body.slice(i, i + 40)}"`)
+      flushText(); out.push({ kind: "color", spec: col[3], model: col[2], inner: pieces(body.slice(i + col[0].length), footnotes, rest), ...(col[1] === "LXcolorpushed" ? { pushed: true } : { declared: true }) }); i = body.length; continue
     }
     // a declaration (or a size command) in a group: to the group's end
     const decl = po.groups && po.grouped ? body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])\s*/) : null
@@ -858,8 +871,8 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       flushText(); i += decl[0].length; continue
     }
     if (decl && (BODY_DECLARATIONS.includes(decl[1]) || (SIZE_COMMANDS as readonly string[]).includes(decl[1]))) {
-      const rest = pieces(body.slice(i + decl[0].length), footnotes, inner)
-      flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: rest } : { kind: "size", size: decl[1] as SizeCommand, inner: rest }); i = body.length; continue
+      const after = pieces(body.slice(i + decl[0].length), footnotes, rest)
+      flushText(); out.push(BODY_DECLARATIONS.includes(decl[1]) ? { kind: "decl", name: decl[1], inner: after } : { kind: "size", size: decl[1] as SizeCommand, inner: after }); i = body.length; continue
     }
     if (body[i] === "$") {
       let j = body.indexOf("$", i + 1)
@@ -1749,6 +1762,12 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
     body = s.rest().trimStart()
   }
   const ps = pieces(body, true, { groups: !!opts.groups, grouped: !!opts.topDecls, centercr: !!opts.centercr })
+  // (a group that starts the paragraph with declarations and \color: read in vertical mode, its push goes on the
+  // vertical list before the paragraph; the caller puts it there (\LXcolorpushed), or it is not laid out)
+  if (!noindentFirst) for (let p: Piece | undefined = ps[0]; p; p = p.inner[0]) {
+    if (p.kind === "color" && p.declared) throw new Unsupported("a group starting a paragraph with declarations and \\color here")
+    if (p.kind !== "group" && p.kind !== "size" && p.kind !== "decl") break
+  }
   // (where a \noindent starts the paragraph, its language is the one before)
   if (noindentFirst && (ps[0]?.kind === "babel" || ps[0]?.kind === "foreign")) throw new Unsupported("babel's language commands after \\noindent")
   const lang0 = languageHyphenation(babelState.lang)
@@ -1769,7 +1788,7 @@ export function paragraphInput(body: string, k: ClassOptionData = classData("art
   const list: Node[] = opts.start ?? (indent ? [emptyBox("hlist", k.dimens.parindent)] : [])
   const notes: ParagraphTrace[] = []
   const base: FontAttrs = opts.attrs ?? { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: opts.font && opts.font.name === k.sizes[size].bold.name ? "bx" : "m", shape: "n" }
-  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base }
+  const pctx: PieceContext = { k, params, mathSurround, doc, notes, languages: [], lead: ps[0], noteClub: opts.noteClubPenalty, ...(opts.leadGroupNoteClubPenalty !== undefined ? { leadGroupNoteClub: opts.leadGroupNoteClubPenalty } : {}), noteWidow: opts.noteWidowPenalty, sfcodes: opts.sfcodes, amsmath: opts.amsmath, base, ...(opts.color ? { color: opts.color } : {}) }
   if (opts.leadLanguageGroups && opts.leadGroupNoteClubPenalty !== undefined) {
     pctx.langGroups = { outer: opts.leadLanguageGroups, opened: 0, outerClub: pctx.noteClub }
     pctx.noteClub = opts.leadGroupNoteClubPenalty

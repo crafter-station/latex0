@@ -256,7 +256,8 @@ export function blocksOf(body: string): Block[] {
     // (counter commands start no paragraph)
     const pageInPar = !!(m[15] || m[18] || /^\\(?:no)?pagebreak/.test(m[0])) && inParagraph(before.replace(COUNTER_COMMANDS, ""))
     if (/^\\(?:no)?pagebreak/.test(m[0]) && pageInPar) continue
-    if (m[0].startsWith("\\columnbreak") && inParagraph(before)) continue // (in a paragraph: \vadjust, as \pagebreak there)
+    // (in a paragraph: \vadjust, as \pagebreak there; after \vfill alone it is in vertical mode still)
+    if (m[0].startsWith("\\columnbreak") && inParagraph(before) && !/(?:^|\n[ \t]*\n)\s*(?:\\vfill(?![A-Za-z])\s*)+$/.test(before)) continue
     if ((m[15] || m[18]) && braceDepth(before) !== 0) throw new Unsupported(`\\${m[15] ?? m[18]} in a group`)
     if (m[18] && pageInPar) throw new Unsupported(`\\${m[18]} in a paragraph`)
     // (float.sty's [H] ends the paragraph: \float@endH's \vskip)
@@ -393,7 +394,6 @@ export function blocksOf(body: string): Block[] {
   // text, inline math and footnotes only; other commands are not laid out yet
   // (\raggedbottom, \flushbottom and \suppressfloats in vertical mode, before a paragraph: body.ts)
   const check = (t: string) => { const m = t.replace(/^(?:\s*\\(?:raggedbottom|flushbottom|suppressfloats(?:\s*\[[tb]\])?)(?![A-Za-z]))+/, "").replace(/\\[#%&$]/g, "").replace(SI_USE, "").replace(LENGTH_USE, "").replace(/\$[^$]*\$/g, "").match(UNKNOWN_COMMAND); if (m) throw new Unsupported(`${m[0]} in "${t.slice(0, 40)}"`)
-    if (/(?<!\{)\\color\b/.test(t)) throw new Unsupported(`\\color outside a group in "${t.slice(0, 40)}"`)
     if (/\\(?:label|ref|pageref|Nameref)\b(?!\{[A-Za-z0-9:._-]+\})|\\(?:autoref|nameref)\b(?!\*?\{[A-Za-z0-9:._-]+\})/.test(t)) throw new Unsupported(`a \\label or \\ref key in "${t.slice(0, 40)}"`)
     if (/\\footnote\{(?:[^{}]|\{[^{}]*\})*\\label\b/.test(t)) throw new Unsupported("\\label in a footnote")
   }

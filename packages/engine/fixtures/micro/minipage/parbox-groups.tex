@@ -1,0 +1,12 @@
+% fixture: minipage/parbox-groups
+% tier: T3
+% engine: document
+% covers: groups with size commands and font declarations in a \parbox's paragraphs under \centering: {\Huge\bfseries …}\\[2pt] ends the line outside the group (the box's \baselineskip), then a {\small …} line
+\documentclass{article}
+\begin{document}
+\noindent\parbox{\textwidth}{\centering
+{\Huge\bfseries The Riverside Bulletin}\\[2pt]
+{\small Community Garden Association, Autumn 2026, {\itshape Issue 14}}}
+
+Text after it.
+\end{document}

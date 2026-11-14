@@ -21,7 +21,7 @@ import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { anchor, hyperDriver, labelName, linkTarget } from "./hyperref"
 import { setgroup } from "./xcolor"
 import { crefWrites, hsizeOf, labelWrite, selectFont, type FontAttrs } from "./paragraph"
-import { leadingColor } from "./colors"
+import { LEADING_COLOR, leadingColor } from "./colors"
 import { ALIGNMENTS, declare, topDeclarations, type DeclState } from "./vmode"
 import { isSpanish, languageGroups } from "./babel"
 import { spanishEnumLabel, spanishEnumRef, spanishItemLabel } from "./spanish"
@@ -431,7 +431,7 @@ export function list(cx: Ctx, b: ListBlock, ctx: EnvCtx) {
         }
       }
       // a group that starts the paragraph (the paragraph starts in it; a {\color …} group's push goes on the vertical list)
-      const colorStart = /^\s*\{\\color(?![A-Za-z])/.test(p.text), inGroup = groupStart(p.text)
+      const colorStart = LEADING_COLOR.test(p.text), inGroup = groupStart(p.text)
       // (declarations first, then a {\color …} group: its push goes on the vertical list after them, not laid out)
       if (/^\s*(?:\\[A-Za-z]+(?![A-Za-z])\s*)+\{\\color(?![A-Za-z])/.test(p.text)) throw new Unsupported("a color group after declarations starting a paragraph")
       if (inGroup && club && p.start !== "label" && p.start !== "doendpe") throw new Unsupported("a group starting an item's paragraph here")
