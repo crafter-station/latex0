@@ -8,7 +8,7 @@
 // miniframes, tree and sidebar outer themes, the presentation themes Pittsburgh,
 // Malmoe, Copenhagen, Luebeck, Berlin, Dresden, Ilmenau, Szeged, Montpellier,
 // Hannover, Berkeley, Rochester, Goettingen and Marburg, and Madrid, CambridgeUS,
-// AnnArbor, Boadilla and PaloAlto with their shadows or without, as data/beamer has them,
+// AnnArbor, Boadilla, PaloAlto and Warsaw (the shadow outer theme) with their shadows or without, as data/beamer has them,
 // with the default navigation symbols or none: any other theme or template setting
 // throws Unsupported.
 
@@ -76,9 +76,9 @@ const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "
   "infolines-headline", "CambridgeUS", "AnnArbor", "Boadilla", "Pittsburgh", "rectangles", "whale-orchid-circles", "whale-orchid-rectangles", "split", "whale-orchid-split", "Malmoe", "Copenhagen", "Luebeck", "miniframes", "Berlin", "Dresden", "Ilmenau", "Szeged", "tree", "Montpellier", "Hannover", "sidebar", "Berkeley", "PaloAlto", "Rochester", "Goettingen", "Marburg",
   "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine",
   // (a presentation theme, then a color theme)
-  "Boadilla-beaver"]
+  "Boadilla-beaver", "Warsaw", "Warsaw-seahorse"]
 /** the presentation themes with the rounded inner theme's shadows on by default */
-const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla", "PaloAlto"]
+const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla", "PaloAlto", "Warsaw"]
 /** a presentation theme's option (\DeclareOptionBeamer{shadow}[true], the theme's \PassOptionsToPackage{shadow=true}
  *  first): whether its rounded boxes have shadows */
 function shadowOption(theme: string, option: string | undefined): boolean {
@@ -158,7 +158,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     }
     // the presentation themes data/beamer has whole (the data of those with shadows made with shadow=false: the
     // shadows change no color, font or size)
-    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover|Berkeley|PaloAlto|Rochester|Goettingen|Marburg)\}$/)
+    const p = line.match(/^\\usetheme(?:\[([^\]]*)\])?\{(CambridgeUS|AnnArbor|Boadilla|Pittsburgh|Malmoe|Copenhagen|Luebeck|Warsaw|Berlin|Dresden|Ilmenau|Szeged|Montpellier|Hannover|Berkeley|PaloAlto|Rochester|Goettingen|Marburg)\}$/)
     if (p) {
       if (!SHADOWS.includes(p[2]) && p[1] !== undefined) throw new Unsupported(`beamer: ${p[2]}'s options`)
       if (SHADOWS.includes(p[2])) shadow = shadowOption(p[2], p[1])

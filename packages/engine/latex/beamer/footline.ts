@@ -36,6 +36,7 @@ import { navMax, type NavHead } from "./headnav"
 import { miniframesFootline, miniframesHeadline, treeHeadline } from "./miniframes"
 import type { BeamerPgf } from "./pgf"
 import { sidebarHeadline } from "./sidebar"
+import { headlineShadow } from "./shadow"
 import { navigationLink, type Head } from "./sections"
 import { fontSize, outerColors, useColor, type ColorState, type Theme } from "./theme"
 
@@ -78,7 +79,23 @@ export function headlineTemplate(k: ClassOptionData, t: Theme, info: TitleInfo, 
   else if (t.headline === "miniframes") miniframesHeadline(k, t, at, colors, list, decisions)
   else if (t.headline === "tree") treeHeadline(k, t, at, info, colors, list, decisions)
   else if (t.headline === "sidebar") sidebarHeadline(k, t, colors, list, decisions)
-  else if (t.headline === "split") {
+  else if (t.headline === "split" && t.outerShadow) {
+    // the shadow outer theme's addition after the split theme's line: \vskip0pt ends its paragraph, the picture
+    // begins another, which \vskip-2pt ends (the template's pops before that skip, beamer's \reset@color)
+    const params = { ...classParams(k), hsize: k.dimens.paperwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO) }
+    let prevDepth: number | null = null
+    const par = (nodes: Node[]) => {
+      const { vlist, trace } = lineBreak([emptyBox("hlist", 0), ...nodes], params)
+      decisions.push(trace)
+      list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+      for (const n of vlist) if (n.kind === "hlist") prevDepth = appendToVlist(list, n, prevDepth, ZERO, ZERO, 0); else list.push(n)
+    }
+    par(splitHeadBoxes(k, t, at, colors, decisions))
+    list.push(glue(0))
+    par(headlineShadow(at.pgf, k, colors.fg))
+    list.push(colorPop(), colorPop(), glue(-2 * 65536))
+    return list
+  } else if (t.headline === "split") {
     // \leavevmode, then the boxes in a group: no \par, so the paragraph (one line) ends with the template's pops, at
     // the \vbox's end
     const { vlist, trace } = lineBreak([emptyBox("hlist", 0), ...splitHeadBoxes(k, t, at, colors, decisions), colorPop(), colorPop()], { ...classParams(k), hsize: k.dimens.paperwidth, leftSkip: spec("leftskip", ZERO), rightSkip: spec("rightskip", ZERO) })

@@ -49,6 +49,7 @@ import { pgfSetPage, pgfTakePageTop } from "../../pgf/fadings"
 import { pdfObjects, pdfOpenActionPage1, pdfOutline, pdfPageObjects, pdfShipPage, pgfPdfForms, type PdfPageObjects } from "../../pgf/pdfforms"
 import { evaluate, outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
+import { declareShadowTheme } from "./shadow"
 import { babelBegin, babelFrenchspacing, isSpanish } from "../babel"
 import { accentHyphens, babelUmlauts } from "../encodings"
 import { isGerman } from "../german"
@@ -262,6 +263,8 @@ function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | 
   }
   const cx: BeamerCtx = { pre, media, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
     lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d), pageTops: [], ships, shipped: 0 }
+  // (the shadow outer theme's shadings and fading, as the theme loads)
+  if (pre.theme.outerShadow) declareShadowTheme(cx.pgf, pre.k)
   // the sidebar canvas's shading (beamerbaseauxtemplates.sty's \beamer@calcvertshading, as the theme loads): from the
   // bottom color at 0cm to the top one at \paperheight, the sidebar's width wide
   const canvas = pre.theme.sidebarCanvas

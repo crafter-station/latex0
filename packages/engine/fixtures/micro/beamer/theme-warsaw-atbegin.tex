@@ -1,0 +1,22 @@
+% fixture: beamer/theme-warsaw-atbegin
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: Warsaw with \AtBeginSection's outline frames (\tableofcontents[currentsection] in rounded boxes' colors: whale's and orchid's balls shaded), the headline's navigation on each
+\documentclass{beamer}
+\usetheme{Warsaw}
+\AtBeginSection[]{
+  \begin{frame}{Outline}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
+\begin{document}
+\section{First}
+\begin{frame}{A frame}
+Text.
+\end{frame}
+\section{Second}
+\begin{frame}{Another}
+More.
+\end{frame}
+\end{document}
