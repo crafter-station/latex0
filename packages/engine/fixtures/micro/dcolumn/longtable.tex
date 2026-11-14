@@ -1,0 +1,14 @@
+% fixture: dcolumn/longtable
+% tier: T3
+% engine: document
+% covers: a D column in a longtable
+\documentclass{article}
+\usepackage{longtable}
+\usepackage{dcolumn}
+\begin{document}
+\begin{longtable}{lD{.}{.}{4}}
+a & 1.5 \\
+b & 22.125 \\
+c & 3
+\end{longtable}
+\end{document}

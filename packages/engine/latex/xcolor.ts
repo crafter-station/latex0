@@ -85,6 +85,9 @@ function convert(c: Col, to: Model): Col {
 /** The colors of a document: xcolor's base set and \definecolor's */
 export class Colors {
   private defs = new Map<string, string>(Object.entries(BASE))
+  /** the color mixins in force (xxcolor.sty's \applycolormixins: \colorlet{c}{c<mixin>} for each, the colormixin
+   *  environment's !20!parent.bg), which pgf applies to a shading's colors */
+  mixins = ""
   /** what pgf makes of a color \color[model]{…} set (\colorlet's normalized values; RGB by \rdivide), by its \special text; null when two differ */
   private pgfViews = new Map<string, string | null>()
 

@@ -1,0 +1,14 @@
+% fixture: babel/german-enumitem
+% tier: T3
+% engine: document
+% covers: babel-german's letter shorthands in a description label that enumitem's format= key typesets in a group (read as a paragraph's text, \"o's accent in OT1)
+% issue: #363
+\documentclass{article}
+\usepackage[ngerman]{babel}
+\usepackage{enumitem}
+\begin{document}
+\begin{description}[format=\itshape]
+\item[Gr"o"se] eine Beschreibung von M"uller.
+\item[F"ur "Ubertragung] noch eine.
+\end{description}
+\end{document}

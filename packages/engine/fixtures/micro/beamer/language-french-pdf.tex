@@ -1,0 +1,31 @@
+% fixture: beamer/language-french-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \usepackage[french]{babel}: french.ldf's active punctuation, \frenchspacing, patterns and \proofname in a frame (beamer: no list customisation), a date without \today
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\setbeamertemplate{navigation symbols}{}
+\title{Title}
+\author{Author}
+\date{Mars}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Text}
+\begin{columns}
+\begin{column}{0.3\textwidth}
+A demonstration of considerable hyphenation, particularly extraordinarily unbelievable. Another sentence! And: more? Yes; right.
+\end{column}
+\begin{column}{0.3\textwidth}
+\begin{itemize}
+\item One
+\end{itemize}
+\begin{proof}Easy.\end{proof}
+\end{column}
+\end{columns}
+\end{frame}
+\end{document}

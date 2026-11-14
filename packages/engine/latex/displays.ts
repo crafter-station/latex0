@@ -18,6 +18,7 @@ import { Unsupported } from "./unsupported"
 import { addGlue, dimen, IGNORE_DEPTH } from "./vlist"
 import { anchor, dest, HA, HS, hyperDriver, pdfdest } from "./hyperref"
 import { setgroup } from "./xcolor"
+import { qedSymbol } from "./lists"
 import { squeeze, appendToVlist, closingBrace, crefWrites, fontAt, hlistInput, hsizeOf, labelWrite, framed, mathEnv, mathFonts, mathText, paragraphInput, selectFont, spec, parseFormula, siContext, type FontAttrs, type ParagraphOptions } from "./paragraph"
 import type { CrefLabel } from "./cleveref"
 import type { ParagraphTrace } from "../trace/decisions"
@@ -294,7 +295,7 @@ function intertextBox(cx: Ctx, it: Intertext, par: ParagraphOptions | null, skip
 function rowsToVlist(cx: Ctx, seq: (BoxNode | { box: BoxNode; trace: ParagraphTrace; short: boolean })[], indent: number, after: () => void) {
   const { run, v, decisions } = cx
   const sz = run.k.sizes.normalsize
-  const jot = 196608
+  const jot = run.k.dimens.jot
   const skip = (g: GlueSpec) => glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)
   const limits = () => [glue(-(run.k.dimens.lineskiplimit + jot)), glue(run.k.dimens.normallineskiplimit)]
   const mt = !!mathFonts.packages.mathtools
@@ -379,8 +380,12 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   // a numbered multline's \mmeasure@ true; $$ leaves it alone
   if (amsmath && next.kind !== "dollars") cx.run.tagFlag = next.kind === "multline" && !/\\(nonumber|notag)\b/.test(next.src) || next.kind.startsWith("multline") && /\\tag(?![A-Za-z@])/.test(next.src)
   const { counters, refs, romanFont, run, v } = cx
+  // (amsart's tags are on the left: leqno)
+  if (cx.pre.cls === "amsart" && (["align", "alignat", "gather", "multline"].includes(next.kind) || /\\tag\b/.test(next.src))) throw new Unsupported(`an equation number in amsart (leqno): ${next.kind}`)
   if (next.kind === "align" || next.kind === "align*" || next.kind === "alignat" || next.kind === "alignat*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
+    // (amsmath sets these twice, to measure and to typeset: what a picture does once, its arrow tips' instances, is in the first)
+    if (next.src.includes("\\LXtikz{")) throw new Unsupported(`a TikZ picture in ${next.kind}`)
     if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips, par)
     else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, font)
     else alignDisplay(cx, next, line, font, skips, par)
@@ -398,6 +403,10 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   const crefEq = { type: "equation", arabic: counters.equation, prefix: counters.crefPrefix("equation"), label: counters.the("equation", counters.equation) }
   const newlabel: Node[] | null = label ? [labelWrite(refs, label[1], counters.the("equation", counters.equation)), ...crefWrites(refs, label[1], true, crefEq)] : null
   let mlist: MItem[]
+  const qedhere = /\\qedhere(?![A-Za-z])/.test(next.src)
+  if (qedhere && (!cx.pre.usesAmsthm || label)) throw new Unsupported("\\qedhere here")
+  if (qedhere) next = { ...next, src: next.src.replace(/\\qedhere(?![A-Za-z])\s*/, "") }
+  if (/\\qedhere(?![A-Za-z])/.test(next.src)) throw new Unsupported("two \\qedhere")
   if (!label) mlist = parse(next.src)
   else {
     const before = next.src.slice(0, label.index), after = next.src.slice(label.index! + label[0].length)
@@ -405,9 +414,16 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
     else if (depthOf(before) !== 0) throw new Unsupported("\\label inside a group in an equation")
     else mlist = [...parse(before), ...newlabel!, ...parse(after)]
   }
-  const env = mathEnv(run.k, "normalsize", amsmath)
+  const env = mathEnv(run.k, "normalsize", amsmath); cx.doc.mathSize = "normalsize"
   if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
+  // (amsart passes leqno to amsmath: \veqno is \leqno; \displaymath@qed's is \eqno still)
+  const left = next.kind === "equation" && cx.pre.cls === "amsart"
   let eqno: BoxNode | null = null
+  // amsthm's \qedhere in amsmath's equation* (\[ \]): \displaymath@qed's \eqno\hbox{\qedsymbol}
+  if (qedhere) {
+    if (!(amsmath && (next.kind === "equation*" || next.kind === "bracket"))) throw new Unsupported(`\\qedhere in ${next.kind}`)
+    eqno = hpack([hpack([qedSymbol(cx, "normalsize")])]); eqno.display = true
+  }
   if (next.kind === "equation" && amsmath) { // \mathopen{} after \incr@eqnum, and \veqno \tagform@\theequation: \hbox{\normalfont (1\/)}, then the \label
     mlist.unshift({ noad: OPEN_NOAD, nucleus: groupField([]), sup: null, sub: null })
     // (hyperref's \refstepcounter socket with cleveref, hyperref/fixcleveref: after the anchor, the first aid's
@@ -442,7 +458,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
     width: line.width, indent: line.indent, preSize: preDisplaySize(justBox, quad), mathQuad: env.fonts[0][2]!.params[QUAD],
     preDisplayPenalty: run.k.ints.predisplaypenalty, postDisplayPenalty: run.k.ints.postdisplaypenalty,
     aboveDisplaySkip: sz.abovedisplayskip, belowDisplaySkip: sz.belowdisplayskip, aboveDisplayShortSkip: sz.abovedisplayshortskip, belowDisplayShortSkip: sz.belowdisplayshortskip,
-  })
+  }, left)
   for (const it of items) { if ("box" in it) v.box(it.box, sz.baselineskip); else v.nodes.push(it.node) }
 }
 
@@ -468,7 +484,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   }
   if (/\\\\\s*$/.test(src)) throw new Unsupported("align ending with \\\\")
   if (/\\raisetag\b/.test(src)) throw new Unsupported("\\raisetag in align")
-  const env = mathEnv(run.k, "normalsize", true)
+  const env = mathEnv(run.k, "normalsize", true); cx.doc.mathSize = "normalsize"
   const mathBox = (items: MItem[]) => hpack([{ kind: "math", on: true, width: 0 }, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 }])
   const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) })
   const field = (f: string, j: number) => {
@@ -489,7 +505,7 @@ export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent:
   })
   const z = line.width
   const sz = run.k.sizes.normalsize, strut = sz.strut
-  const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+  const strutBox = () => hpack([{ ...vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])]), shift: xnOverD(run.k.dimens.normallineskiplimit, 32768, 65536) }]) // \strut@: \lower.5\normallineskiplimit\vbox{\kern-\normallineskiplimit\copy\strutbox}
   // tags: \strut@ and (n) in \maketag@@@, numbered in row order
   measuredTags(cx, rows)
   const tags = rows.map((r) => rowTag(cx, r.marks, r.numbered, strutBox))
@@ -598,10 +614,10 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
   if (/\\\\\s*$/.test(src)) throw new Unsupported("gather ending with \\\\")
   if (/\\raisetag\b/.test(src)) throw new Unsupported("\\raisetag in gather")
   if (splitTop(src, "&").length > 1) throw new Unsupported("& in gather")
-  const env = mathEnv(run.k, "normalsize", true)
+  const env = mathEnv(run.k, "normalsize", true); cx.doc.mathSize = "normalsize"
   const parse = (f: string) => parseFormula(f.replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) })
   const sz = run.k.sizes.normalsize, strut = sz.strut
-  const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+  const strutBox = () => hpack([{ ...vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])]), shift: xnOverD(run.k.dimens.normallineskiplimit, 32768, 65536) }]) // \strut@: \lower.5\normallineskiplimit\vbox{\kern-\normallineskiplimit\copy\strutbox}
   // \setboxz@h{$\m@th\displaystyle{##}$}
   const seq = rowsAndTexts(src, d.kind)
   const texts = seq.map((x) => ("row" in x ? null : { ...intertextBox(cx, x, par, skips, d.kind), short: x.short })) // (\gmeasure@ sets them first)
@@ -626,6 +642,19 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
   const z = line.width
   const totwidth = Math.max(0, ...rows.map((r) => r.box.width)) // \gmeasure@
   const mintagsep = xnOverD(env.fonts[0][2]!.params[QUAD], 32768, 65536)
+  // (amsart: tags on the left, \iftagsleft@; with no tags, gather* alone: each row's \eqnshift@ the display width less
+  // the row and less half of it, the tag column \kern-\gdisplaywidth@\rlap{\boxz@}, then \tabskip\gdisplaywidth@)
+  const left = cx.pre.cls === "amsart"
+  if (left && rows.some((r) => r.tagged)) throw new Unsupported("gather's numbers on the left (leqno)")
+  const gdw = Math.max(totwidth, z)
+  let leftBoxes: BoxNode[] | null = null
+  if (left) {
+    const cells = rows.map((r) => {
+      const e = Math.max(0, -Math.trunc((z - r.box.width) / 2) + z - r.box.width)
+      return [[strutBox(), kern(e, true), r.box, filGlue()], [kern(-gdw, true), hpack([hpack([strutBox()]), ssGlue()], { exactly: 0 })]]
+    })
+    leftBoxes = halign(cells, [paramGlue("tabskip", glue(0)), paramGlue("tabskip", glue(0, 65536000, NORMAL, 0, NORMAL)), paramGlue("tabskip", glue(gdw))], { exactly: z })
+  }
   const cells = rows.map((r, ri) => {
     // \calc@shift@gather (tags on the right, not fleqn)
     const tw = tags[ri].width
@@ -649,7 +678,7 @@ export function gatherDisplay(cx: Ctx, d: Display, line: { width: number; indent
     return [[strutBox(), kern(eqnshift, true), r.box, filGlue()], tagCol]
   })
   const centering = paramGlue("tabskip", glue(0, 65536000, NORMAL, 0, NORMAL)) // \@centering: 0pt plus 1000pt
-  const rowBoxes = halign(cells, [paramGlue("tabskip", glue(0)), centering, paramGlue("tabskip", glue(0))], { exactly: z })
+  const rowBoxes = leftBoxes ?? halign(cells, [paramGlue("tabskip", glue(0)), centering, paramGlue("tabskip", glue(0))], { exactly: z })
   let nrow = 0
   rowsToVlist(cx, texts.map((t) => t ?? rowBoxes[nrow++]), line.indent, () => {
   // \black@\totwidth@
@@ -681,10 +710,10 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
   if (/\\\\\s*$/.test(src)) throw new Unsupported("multline ending with \\\\")
   if (/\\(shoveleft|shoveright|raisetag|begin|intertext|shortintertext)\b/.test(src)) throw new Unsupported("\\shoveleft, \\shoveright, \\intertext or an environment in multline")
   const numbered = d.kind === "multline" && !marks.nonumber && !marks.tag
-  const env = mathEnv(run.k, "normalsize", true)
+  const env = mathEnv(run.k, "normalsize", true); cx.doc.mathSize = "normalsize"
   const parse = (f: string) => parseFormula(f.replace(/\\(nonumber|notag)\b/g, "").replace(/\s+/g, " "), amsmath, em, si(cx, font), { display: true, font, text: text(cx, font), frame: (b) => framed(b, [], cx.doc.xcolorFbox), env: mathEnv(cx.run.k, "normalsize", amsmath) })
   const sz = run.k.sizes.normalsize, strut = sz.strut
-  const strutBox = () => hpack([vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])])]) // \strut@
+  const strutBox = () => hpack([{ ...vpack([kern(-run.k.dimens.normallineskiplimit, true), hpack([{ kind: "rule", width: 0, height: strut.height, depth: strut.depth }])]), shift: xnOverD(run.k.dimens.normallineskiplimit, 32768, 65536) }]) // \strut@: \lower.5\normallineskiplimit\vbox{\kern-\normallineskiplimit\copy\strutbox}
   const z = line.width, gap = 655360 // \multlinegap and \multlinetaggap, 10pt
   const empty: MItem = { noad: ORD_NOAD, nucleus: { kind: "mlist", list: [] }, sup: null, sub: null } // the {} after \displaystyle
   const formula = (items: MItem[]) => [{ kind: "math", on: true, width: 0 } as Node, ...mlistToHlist([{ kind: "style", style: DISPLAY_STYLE }, empty, ...items], env, TEXT_STYLE, false), { kind: "math", on: false, width: 0 } as Node]
@@ -727,7 +756,7 @@ export function multlineDisplay(cx: Ctx, d: Display, line: { width: number; inde
   // § 1206, with \openup\jot and amsmath's \everycr (\@display@init); \mmeasure@'s \halign ran it already and cleared
   // \ifdt@p, so the first \cr's \noalign is the \penalty\@eqpen, not align's \lineskiplimit skips
   v.nodes.push(penalty(run.k.ints.predisplaypenalty), spec("abovedisplayskip", sz.abovedisplayskip))
-  const jot = 196608
+  const jot = run.k.dimens.jot
   v.nodes.push(penalty(10000))
   const bs = addGlue(sz.baselineskip, dimen(jot)), ls = addGlue(run.k.glue.lineskip, dimen(jot))
   for (const rb of rowBoxes) {

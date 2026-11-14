@@ -14,7 +14,7 @@ import type { ClassOptionData, SizeCommand } from "../../layout/classdata"
 import { parseDimen } from "../../layout/dimen"
 import { QUAD, X_HEIGHT, type Font } from "../../layout/font"
 import { spaceGlue } from "../../layout/hmode"
-import { appendText } from "../encodings"
+
 import { lineBreak } from "../../layout/linebreak"
 import { emptyBox, fillGlue, glue, paramGlue, ssGlue, type BoxNode, type Node } from "../../layout/nodes"
 import { hpack, vpack } from "../../layout/pack"
@@ -24,7 +24,7 @@ import { appendToVlist, classParams, selectFont, spec } from "../paragraph"
 import { dimen } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv, resetColor } from "./colorbox"
-import { headFootBox, plain, type FootlineAt } from "./footline"
+import { headFootBox, plain, plainText, type FootlineAt } from "./footline"
 import { SANS } from "./frame"
 import type { TitleInfo } from "./preamble"
 import { navigationLink } from "./sections"
@@ -42,7 +42,7 @@ const templateColors = (t: Theme, name: string): string[] => [outerColors(t).fg,
  */
 function minipage(k: ClassOptionData, text: string, { font: f, baselineskip }: SizedFont, width: number, traces: ParagraphTrace[]): BoxNode {
   const list: Node[] = [emptyBox("hlist", 0)]
-  appendText(list, plain(text), f, { spaceFactor: 1000 }, false)
+  plainText(list, plain(text), f)
   const { vlist, trace } = lineBreak(list, { ...classParams(k), hsize: width, leftSkip: spec("leftskip", FIL), rightSkip: spec("rightskip", FIL), parFillSkip: spec("parfillskip", ZERO) })
   traces.push(trace)
   const lines: Node[] = []
@@ -80,7 +80,7 @@ function sidebarFormat(k: ClassOptionData, t: Theme, name: string, leftskip: str
   return beamercolorbox(k, t, name, colorboxOptions(`wd=${width}sp,leftskip=${leftskip},rightskip=1ex plus1fil`, k, env), at, (b) => {
     b.v.box(vpack([]), bs)
     const list: Node[] = [emptyBox("hlist", 0)]
-    appendText(list, plain(text), f, { spaceFactor: 1000 }, false)
+    plainText(list, plain(text), f)
     const { vlist, trace } = lineBreak(list, { ...classParams(k), hsize: b.hsize, leftSkip: spec("leftskip", b.leftskip), rightSkip: spec("rightskip", b.rightskip), ...sloppy(f.params[QUAD]) })
     traces.push(trace)
     boxParagraph(b.v, vlist, bs)

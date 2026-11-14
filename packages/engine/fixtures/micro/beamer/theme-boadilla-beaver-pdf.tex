@@ -1,0 +1,33 @@
+% fixture: beamer/theme-boadilla-beaver-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: the Boadilla theme followed by \usecolortheme{beaver} (a color theme after a presentation theme: beaver's colors over rose's and dolphin's), its shadows on: the title page, the footline, a block, items
+\documentclass{beamer}
+\usetheme{Boadilla}
+\usecolortheme{beaver}
+\title{A title}
+\author{An author}
+\institute{A place}
+\date{2026}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\section{One}
+\begin{frame}{A frame}{Its subtitle}
+\begin{itemize}
+\item First
+\begin{itemize}
+\item Second
+\end{itemize}
+\end{itemize}
+\begin{block}{A block}
+Its text and \alert{an alert}.
+\end{block}
+\begin{exampleblock}{An example}
+More text.
+\end{exampleblock}
+\end{frame}
+\end{document}

@@ -1,0 +1,18 @@
+% fixture: cite/option-nocompress
+% tier: T3
+% engine: document
+% covers: cite.sty's nocompress option: the numbers sorted, each one set
+\documentclass{article}
+\usepackage[nocompress]{cite}
+\begin{document}
+Sorted but not compressed \cite{c,a,b} and \cite{f,e,d,a} in a line of text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,12 @@
+% fixture: text/medskip-in-paragraph
+% tier: T3
+% engine: document
+% covers: \medskip in a paragraph's text (\vspace\medskipamount: \vadjust{\vskip 6pt plus 2pt minus 2pt \vskip\z@skip}, after a space \nobreak\hskip\z@skip), and between paragraphs
+% issue: #363
+\documentclass{article}
+\begin{document}
+Some text before the skip that runs long enough to break into lines here. \medskip More text after it, and a long sentence again that runs to the end of the line and beyond it.
+
+\medskip
+A paragraph after a vertical \medskip, then\medskip{} one with no space before it.
+\end{document}

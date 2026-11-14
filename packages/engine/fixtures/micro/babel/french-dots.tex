@@ -1,0 +1,19 @@
+% fixture: babel/french-dots
+% tier: T3
+% engine: document
+% covers: french's extras \let \textellipsis to \FBtextellipsis (.\kern\fontdimen3\font.\kern\fontdimen3\font.\xspace, no kern after the last period, \xspace \relax), through \ldots, \dots and \textellipsis{}, its first use ending the run before (\@changed@cmd); English's three kerns in \foreignlanguage and otherlanguage*, and French's in English text's \foreignlanguage
+% issue: #363
+\documentclass{article}
+\usepackage[english,french]{babel}
+\begin{document}
+Une phrase\ldots puis encore\ldots et la suite. Un mot\dots{} et un autre\textellipsis{} avant la fin\ldots, voil\`a.
+Les points de suspension\ldots ferment la ligne quand le texte est long et que les mots tombent mal\ldots
+\foreignlanguage{english}{English words\ldots and more\ldots} puis le fran\c{c}ais\ldots
+
+\begin{otherlanguage*}{english}
+Some English text\ldots with dots\dots{} and more\textellipsis{} in it.
+\end{otherlanguage*}
+
+\selectlanguage{english}
+English text\ldots and \foreignlanguage{french}{du fran\c{c}ais\ldots{} ici} and English again\ldots
+\end{document}

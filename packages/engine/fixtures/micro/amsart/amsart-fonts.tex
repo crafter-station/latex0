@@ -1,0 +1,31 @@
+% fixture: amsart/amsart-fonts
+% tier: T3
+% engine: document
+% covers: amsart [12pt] with T1 and Latin Modern: \leftmargini … iv from (13) (m) (xiii) (M) and \footnotesep from \footnotesize M$^1$ in the document's fonts, \smallskip and \bigskip by the class's amounts, run-in \paragraph (\fontdimen2 after it), the hyphenation exceptions amsart sets (Rie-mann-ian, in-fin-ite-ly)
+% issue: #360
+\documentclass[12pt]{amsart}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\begin{document}
+\section{Lists}
+Riemannian manifolds are infinitely differentiable, and the Riemannian metric varies smoothly from point to point; infinitely many such metrics exist on every manifold.\footnote{A footnote with its mark and the class's footnote separation.}
+\begin{enumerate}
+\item First.
+\begin{enumerate}
+\item Nested.
+\begin{enumerate}
+\item Deeper.
+\begin{enumerate}
+\item Deepest.
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+Text after the list.
+
+\smallskip
+Text after a small skip.
+\bigskip
+
+\paragraph{Run in} A paragraph heading in the body font, run into its paragraph after an interword space.
+\end{document}

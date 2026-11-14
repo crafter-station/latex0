@@ -19,12 +19,12 @@ import { chapter, clearpage, columnSwitch, heading, topnewpageBox } from "./sect
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { type OutputHook } from "./output"
-import { tocLink } from "./hyperref"
+import { hyperDriver, tocLink } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularLines } from "./tabular"
 import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
 import { ALIGNMENTS, topDeclarations, verticalMaterial } from "./vmode"
-import { babelSelect, babelState, babelToday, isSpanish, type Babel } from "./babel"
+import { babelSelect, babelState, babelToday, isSpanish, preambleText, type Babel } from "./babel"
 
 /** article's \maketitle and \@maketitle: \newpage, \null, \vskip 2em, a center environment with
  *  {\LARGE title\par}, \vskip 1.5em, {\large \lineskip .5em author tabulars\par}, \vskip 1em,
@@ -51,7 +51,9 @@ export function maketitle(cx: Ctx) {
   // article in two columns: \twocolumn[\@maketitle], \clearpage and \@topnewpage's box
   // (report's titlepage environment in two columns: \onecolumn instead of \newpage, and \twocolumn after it)
   const twocolumn = !titlepage && !!run.k.ints.twocolumn, restonecol = titlepage && !!run.k.ints.twocolumn
-  const atmaketitle = () => {
+  // (the title, the author, the date and their \thanks are text the preamble read: babel's shorthands are not active in it)
+  const preambleRead = (f: () => void) => { preambleText.on = true; try { f() } finally { preambleText.on = false } }
+  const atmaketitle = () => preambleRead(() => {
     const { outerParskip, v } = cx
     if (titlepage) {
       if (restonecol) columnSwitch(cx, false)
@@ -116,16 +118,16 @@ export function maketitle(cx: Ctx) {
       // \endtrivlist; then \par \vskip 1.5em, \thispagestyle{plain}, \@thanks: \footnotetext[n]{text} in vertical mode
       v.vskip(dimen(em("1.5em", romanFont)))
     }
-  }
+  })
   if (twocolumn) { clearpage(cx); main.nodes.push(hook({ topnewpage: topnewpageBox(cx, atmaketitle) })) }
   else atmaketitle()
   if (!titlepage) {
     main.nodes.push(hook("plain"))
-    for (const t of doc.thanks) {
+    for (const t of doc.thanks) preambleRead(() => {
       const { ins, trace } = thanksInsert(t.src, t.n, run.k, doc, main.club, amsmath)
       main.nodes.push(ins)
       decisions.push(trace)
-    }
+    })
   }
   delete doc.thanks
   doc.footnote = 0 // \setcounter{footnote}{0}
@@ -152,18 +154,21 @@ function contents(cx: Ctx) {
   if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source, end })
   else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source, end })
   // parskip.sty's \@starttoc: \vskip-\lastskip \vskip(\lastskip plus \parskip), and \parskip zero for the lines (tocskip)
-  const last = v.nodes.at(-1)
-  if (cx.pre.parskip) {
-    if (last?.kind !== "glue") throw new Unsupported("parskip's \\@starttoc after no skip")
-    const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
-    v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
-  }
+  if (cx.pre.parskip) parskipStarttoc(cx)
   const tocdepth = cls === "article" ? 3 : 2
   // (\@starttoc reads the .toc in a group: its \babel@toc lines select their languages there)
   const lang = babelState.lang
   for (const e of toc ?? []) { if (e.language) babelSelect(e.language); if (e.level <= tocdepth) tocLine(cx, e, cx.pre.parskip ? dimen(0) : cx.outerParskip) }
   babelSelect(lang)
   v.nobreak = false
+}
+
+/** parskip.sty's \@starttoc: \vskip-\lastskip \vskip(\lastskip plus \parskip); \lastskip is zero after a mark or a
+ *  penalty (\@mkboth's in vertical mode) */
+function parskipStarttoc(cx: Ctx) {
+  const last = cx.v.nodes.at(-1)
+  const g: GlueSpec = last?.kind === "glue" ? { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder } : dimen(0)
+  cx.v.vskip(negate(g)); cx.v.vskip(addGlue(g, cx.outerParskip))
 }
 
 /**
@@ -182,12 +187,7 @@ function list(cx: Ctx, file: ListFile) {
   const value = markValue([{ text: name }], true)
   if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
   // parskip.sty's \@starttoc, as \tableofcontents has it
-  if (cx.pre.parskip) {
-    const last = v.nodes.at(-1)
-    if (last?.kind !== "glue") throw new Unsupported("parskip's \\@starttoc after no skip")
-    const g = { width: last.width, stretch: last.stretch, stretchOrder: last.stretchOrder, shrink: last.shrink, shrinkOrder: last.shrinkOrder }
-    v.vskip(negate(g)); v.vskip(addGlue(g, cx.outerParskip))
-  }
+  if (cx.pre.parskip) parskipStarttoc(cx)
   // (the .lof's and .lot's \babel@toc lines are not modeled: their entries' language)
   if (babelState.switches && lists?.[file]?.length) throw new Unsupported(`\\listof… with babel's language commands`)
   for (const e of lists?.[file] ?? []) {
@@ -267,7 +267,8 @@ export function tocLine(cx: Ctx, e: TocEntry, parskip: GlueSpec) {
   // hyperref (linktoc=section): the number and the title in a link to the heading's anchor
   let body = e.title
   if (hyper && e.anchor) {
-    const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath }).list
+    // (with dvips the link's text is an \hbox: restricted horizontal mode, a formula there has no \relpenalty)
+    const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath, restricted: !hyperDriver.pdftex }).list
     start.push(...tocLink([...nl, ...title], e.anchor, run.k.sizes.normalsize.baselineskip.width))
     body = ""
   } else start.push(...nl)
@@ -283,13 +284,16 @@ export function tocLine(cx: Ctx, e: TocEntry, parskip: GlueSpec) {
 export function bibliography(cx: Ctx) {
   const { cls, hyper } = cx.pre
   const { marks, mkboth, v } = cx
+  // (amsart's \@bibtitlestyle: \section*{\refname}, no \@mkboth)
+  if (cls === "amsart") { heading(cx, { kind: "heading", level: 1, star: true, title: cx.pre.names.refname, source: "\\refname" }); return }
   const [name, macro] = cls === "article" ? [cx.pre.names.refname, "refname"] : [cx.pre.names.bibname, "bibname"]
-  // (natbib's \bibsection: the \@mkboth inside the heading's title)
-  if (cx.pre.natbib && mkboth) throw new Unsupported("natbib's thebibliography with running heads")
-  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}` })
-  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}` })
   const value = markValue([{ text: name }], true)
-  if (mkboth) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
+  // (natbib's \bibsection: the \@mkboth inside the heading's title, its marks in the title's line, as
+  // \tableofcontents has them)
+  const end = cx.pre.natbib && mkboth ? marks.insert(markboth(value, value), false) : undefined
+  if (cls === "article") heading(cx, { kind: "heading", level: 1, star: true, title: name, source: `\\${macro}`, end })
+  else chapter(cx, { kind: "heading", level: 0, star: true, title: name, source: `\\${macro}`, end })
+  if (mkboth && !end) v.nodes.push(...marks.insert(markboth(value, value), v.nobreak))
 }
 
 /** \today: "January 1, 2025", or babel's main language's (LaTeX source: ~ is \nobreakspace) */

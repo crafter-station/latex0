@@ -1,0 +1,37 @@
+% fixture: beamer/language-british-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \usepackage[british]{babel} with the Boadilla theme: english.ldf's UK \today, the British patterns, on the title page, in the footline, in narrow columns, a proof and a caption
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[british]{babel}
+\usetheme{Boadilla}
+\title{Title}
+\author{Author}
+\date{\today}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Text}
+\begin{columns}
+\begin{column}{0.3\textwidth}
+A demonstration of considerable hyphenation, particularly extraordinarily unbelievable. Another sentence! And: more? Yes; right.
+\end{column}
+\begin{column}{0.3\textwidth}
+\begin{itemize}
+\item One
+\end{itemize}
+\begin{proof}Easy.\end{proof}
+\end{column}
+\end{columns}
+\end{frame}
+\begin{frame}{Figure}
+\begin{figure}
+Drawing
+\caption{A figure}
+\end{figure}
+\end{frame}
+\end{document}

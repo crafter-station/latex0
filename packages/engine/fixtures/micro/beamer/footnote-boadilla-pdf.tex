@@ -1,0 +1,13 @@
+% fixture: beamer/footnote-boadilla-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: \footnoterule's .4\columnwidth with a theme that sets the text margins (Boadilla: \columnwidth is the \textwidth \begin{document} finds)
+\documentclass{beamer}
+\usetheme{Boadilla}
+\begin{document}
+\begin{frame}{Notes}
+Text.\footnote{A footnote.}
+\end{frame}
+\end{document}

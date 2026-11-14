@@ -7,26 +7,58 @@ import { loadFont, QUAD } from "../layout/font"
 import { times } from "../layout/dimen"
 import { glue } from "../layout/nodes"
 import { classFile, dataFont, familyFile, mathFontsFile } from "./data"
+import { appendText } from "./encodings"
+import type { Node } from "../layout/nodes"
+import { hpack } from "../layout/pack"
 import { Unsupported } from "./unsupported"
 
 export function classData(cls: string, option = "10pt", extras: string[] = []): ClassOptionData {
   const d = classFile(cls)
-  const o = d.options[option]
-  if (!o) throw new Error(`no data for ${cls} [${option}]`)
+  const o0 = d.options[option]
+  if (!o0) throw new Error(`no data for ${cls} [${option}]`)
+  const o = { ...o0, cls, ...(d.hyphenation ? { exceptions: d.hyphenation } : {}) }
   // the paper, side and column options: the last of each kind wins, as in the class's option processing
-  const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? "letterpaper"
-  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" || cls === "memoir" ? "twoside" : "oneside")
+  const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? (isKoma(cls) ? "a4paper" : "letterpaper")
+  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" || cls === "amsart" || cls === "memoir" ? "twoside" : "oneside")
   const twocolumn = [...extras].reverse().find((x) => x === "onecolumn" || x === "twocolumn") === "twocolumn"
   const v = o.variants?.[`${paper},${side}${twocolumn ? ",twocolumn" : ""}`]
   if (twocolumn && !v) throw new Unsupported(`class option twocolumn for ${cls}`)
-  if (!v) return o
-  return withTextHeight({ ...o, dimens: { ...o.dimens, ...v.dimens }, ints: { ...o.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
+  // KOMA-Script's parskip= (the last one)
+  const ps = [...extras].reverse().find((x) => x.startsWith("parskip="))
+  const p = ps && ps !== "parskip=false" ? o.options?.[ps] : null
+  if (ps && ps !== "parskip=false" && !p) throw new Unsupported(`class option ${ps}`)
+  const o1 = p ? { ...o, dimens: { ...o.dimens, ...p.dimens }, glue: { ...o.glue, ...p.glue } } : o
+  if (!v) return o1
+  const o2 = withTextHeight({ ...o1, dimens: { ...o1.dimens, ...v.dimens }, ints: { ...o1.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
+  // (parskip=half+, full+, half* and full*: \parfillskip .3333\linewidth or .25\linewidth plus 1fil, which \par@update
+  // sets at \begin{document}, \linewidth this paper's \textwidth then)
+  const f = ps && p ? komaParfill(ps) : null
+  return f ? { ...o2, glue: { ...o2.glue, parfillskip: { ...o2.glue.parfillskip, width: times(f, o2.dimens.textwidth) } } } : o2
 }
+
+/** the factor of \linewidth in the \parfillskip of KOMA-Script's parskip= option's + and * variants, else null */
+export const komaParfill = (option: string): string | null => (option.endsWith("+") ? ".3333" : option.endsWith("*") ? ".25" : null)
 
 /** The float rooms \@floatplacement and \@flsettextmin take from \textheight: <fraction>\@colht, x_n_over_d (§ 455). */
 export function withTextHeight(k: ClassOptionData): ClassOptionData {
   const h = k.dimens.textheight, f = (n: string) => Math.trunc((h * k.ints[n]) / 65536) // the fractions are below 1
   return { ...k, dimens: { ...k.dimens, toproom: f("topfraction"), botroom: f("bottomfraction"), textmin: f("textfraction"), fpmin: f("floatpagefraction") } }
+}
+
+/** the classes with chapters (the counters within \c@chapter) */
+export const hasChapters = (cls: string) => cls === "report" || cls === "book" || cls === "memoir"
+
+/** KOMA-Script's classes laid out: scrartcl (fontsize=11pt and paper=a4 by default) */
+export const isKoma = (cls: string) => cls === "scrartcl"
+/** a KOMA-Script key=value option as the standard option it means, else as written */
+function komaOption(o: string): string {
+  const m = o.replace(/\s+/g, "").match(/^([a-z]+)=(.*)$/)
+  if (!m) return o
+  const [, key, value] = m
+  if (key === "fontsize" && /^1[012]pt$/.test(value)) return value
+  if (key === "paper" && ["a4", "a5", "b5", "letter", "legal", "executive"].includes(value)) return `${value}paper`
+  if ((key === "twoside" || key === "twocolumn") && ["true", "on", "yes", "false", "off", "no"].includes(value)) return ["true", "on", "yes"].includes(value) ? key : key === "twoside" ? "oneside" : "onecolumn"
+  return o
 }
 
 const PAPERS = ["letterpaper", "a4paper", "a5paper", "b5paper", "legalpaper", "executivepaper"]
@@ -37,9 +69,10 @@ const NEUTRAL = ["final", "notitlepage", "openany", "10pt", "11pt", "12pt"]
 export function documentClass(src: string): { cls: string; option: string; extras: string[]; unknown: string[] } {
   const m = src.match(/\\documentclass\s*(?:\[([^\]]*)\])?\s*\{(\w+)\}/)
   if (!m) throw new Error("no \\documentclass")
-  const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)
-  const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? "10pt"
-  const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter"))
+  // (KOMA-Script's options: fontsize=, paper=, twoside=, twocolumn= as the size, paper and side options)
+  const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean).map((o) => (isKoma(m[2]) ? komaOption(o) : o))
+  const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? (isKoma(m[2]) ? "11pt" : "10pt")
+  const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter") || (isKoma(m[2]) && /^parskip=/.test(o)))
   // (memoir: openright, its default, and openany are \chapter's, memoir.ts; notitlepage is not an option of its)
   const unknown = opts.filter((o) => !extras.includes(o) && !(NEUTRAL.includes(o) && !(m[2] === "memoir" && o === "notitlepage")) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter") && !(m[2] === "memoir" && (o === "openright" || o === "portrait")))
   return { cls: m[2], option, extras, unknown }
@@ -64,6 +97,42 @@ export function withT1(k: ClassOptionData, cls: string): ClassOptionData {
     }
   }
   return { ...k, sizes, glue: glues, ints: { ...k.ints, T1: 1 } }
+}
+
+/** KOMA-Script's \par@updaterelative at \begin{document}: \parindent (and parskip=half's or full's \parfillskip) are 1em of
+ *  the document's font then, not of Computer Modern's as the data has them (`relative`: the + and * variants' \parfillskip) */
+export function withKomaParsizes(k: ClassOptionData, base: ClassOptionData, relative = false): ClassOptionData {
+  const em = (kk: ClassOptionData) => { const r = kk.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at).params[QUAD] }
+  const was = em(base), now = em(k)
+  if (was === now) return k
+  const dimens = { ...k.dimens }, glue = { ...k.glue }
+  if (dimens.parindent === was) dimens.parindent = now
+  else if (dimens.parindent !== 0) throw new Unsupported("KOMA-Script's \\parindent in another font")
+  if (relative) {} // (a part of \linewidth, in no font)
+  else if (glue.parfillskip.width === was) glue.parfillskip = { ...glue.parfillskip, width: now }
+  else if (glue.parfillskip.width !== 0) throw new Unsupported("KOMA-Script's \\parfillskip in another font")
+  return { ...k, dimens, glue }
+}
+
+/**
+ * amsart's \AtBeginDocument list margins, in the font then: \leftmargini the width of \labelenumi\hskip\labelsep with the
+ * counter at 13, (13), plus \normalparindent; \leftmarginii … iv those of (m), (xiii), (M); \labelwidth\leftmargini less
+ * \labelsep. The data has them in OT1's Computer Modern: the difference in the document's font goes to every list
+ * dimension taken from them.
+ */
+export function withAmsMargins(k: ClassOptionData, base: ClassOptionData): ClassOptionData {
+  const width = (kk: ClassOptionData, s: string) => { const r = kk.sizes.normalsize.font, l: Node[] = []; appendText(l, s, loadFont(dataFont(r.name), r.at), { spaceFactor: 1000 }, false); return hpack(l).width }
+  const labels = ["(13)", "(m)", "(xiii)", "(M)"]
+  const delta = labels.map((l) => width(k, l) - width(base, l))
+  if (delta.every((d) => d === 0)) return k
+  const dimens = { ...k.dimens }
+  for (const key of Object.keys(dimens)) {
+    const m = key.match(/^(?:leftmargin(iv|iii|ii|i)|list([1-4])(?:leftmargin|labelwidth)(?:@\w+)?|labelwidth)$/)
+    if (!m) continue
+    const level = m[1] ? ["i", "ii", "iii", "iv"].indexOf(m[1]) : m[2] ? Number(m[2]) - 1 : 0
+    dimens[key] += delta[level]
+  }
+  return { ...k, dimens }
 }
 
 /** The fonts the preamble's font packages select (#340): the families \rmdefault, \sfdefault and \ttdefault name, and

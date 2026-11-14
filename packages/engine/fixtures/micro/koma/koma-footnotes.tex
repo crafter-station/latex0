@@ -1,0 +1,11 @@
+% fixture: koma/koma-footnotes
+% tier: T3
+% engine: document
+% covers: scrartcl's defaults (fontsize=11pt, paper=a4, typearea), KOMA-Script's footnotes (\deffootnote[1em]{1.5em}{1em}: \leftskip 1.5em, the mark in \hbox to\z@ after \hskip-.5em; \textsuperscript in the font around it, italic in \emph), \footnoterule (\kern-3pt, \vskip\z@\@plus.05fil under \raggedbottom, \kern2.6pt)
+% issue: #360
+\documentclass{scrartcl}
+\begin{document}
+Typesetting is the composition of text by means of arranging physical type or its digital equivalents. Stored letters and other symbols are retrieved and ordered according to the orthography of a language for visual display. The breaking of paragraphs into lines is a small part of this craft, but it decides how evenly the words are spread and how easily the eye moves from one line to the next.
+
+Second paragraph with some more words to see indentation. Then a footnote\footnote{A note.} and more text, \emph{and in italics\footnote{Its mark in italics.} too}.
+\end{document}

@@ -1,0 +1,13 @@
+% fixture: beamer/theme-warsaw-sizes
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: Warsaw at 8pt and with a long frame title that takes two lines (the picture as high as the title's minipage and 2pt)
+\documentclass[8pt]{beamer}
+\usetheme{Warsaw}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{A frame title so long that it does not fit on one line of the frame and has to be broken into two lines by the paragraph builder}
+Text.
+\end{frame}
+\end{document}

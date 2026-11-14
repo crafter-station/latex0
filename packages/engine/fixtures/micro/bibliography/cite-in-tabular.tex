@@ -1,0 +1,15 @@
+% fixture: bibliography/cite-in-tabular
+% tier: T3
+% engine: document
+% covers: LaTeX's own \cite only inside a tabular: the citations read from the .aux of the run before there too
+\documentclass{article}
+\begin{document}
+\begin{tabular}{lc}
+Method \cite{a} & \cite{b,a}
+\end{tabular}
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\end{thebibliography}
+\end{document}

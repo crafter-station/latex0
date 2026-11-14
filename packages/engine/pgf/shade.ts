@@ -96,9 +96,9 @@ function parseFunc(s: PgfState, spec: string, colors: Colors): Parsed {
   const stops: Stop[] = items.map((x) => {
     const m = x.match(/^rgb\(([^)]*)\)=\(([^,]*),([^,]*),([^,]*)\)$/)
     if (!m) throw new Unsupported(`pgf: shading specification ${spec}`)
-    // \pgf@getrgbtuplewithmixin: \definecolor{pgfshadetemp}{rgb}{…} and its values in rgb
+    // \pgf@getrgbtuplewithmixin: \definecolor{pgfshadetemp}{rgb}{…}, \applycolormixins{pgfshadetemp} and its values in rgb
     colors.define("pgfshadetemp", "rgb", `${m[2]},${m[3]},${m[4]}`)
-    return { pos: m[1], rgb: rgbValues(colors, "pgfshadetemp").split(",").join(" ") }
+    return { pos: m[1], rgb: rgbValues(colors, `pgfshadetemp${colors.mixins}`).split(",").join(" ") }
   })
   if (stops.length < 2) throw new Unsupported(`pgf: a shading of one colour ${spec}`)
   const bp = (pos: string) => toNumber(bpCorrect(setLength(pos, s)))
@@ -217,7 +217,7 @@ export function pgfUseShading(s: PgfState, d: PgfDriver, name: string, colors: C
   if (typeof deps === "string" && deps !== "") {
     for (const dep of deps.split(",")) {
       if (dep !== dep.trim() || dep === "") throw new Unsupported(`pgf: shading dependency "${dep}"`)
-      adds += `,${rgbValues(colors, dep)}`
+      adds += `,${rgbValues(colors, `${dep}${colors.mixins}`)}` // (\applycolormixins{\@temp} first)
     }
   }
   const xname = `@pgfshading${name}${adds}!`

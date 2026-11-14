@@ -1,0 +1,14 @@
+% fixture: beamer/babel-spanish-accents
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: \usepackage[spanish]{babel}: spanish.ldf's OT1 \' and \~ (\es@accent) add \bbl@allowhyphens after an accented letter unless a space follows, in a frame's title and text
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Energías renovables}
+La energía eólica crece rápidamente en épocas de sequía; el señor Núñez habló del año.
+\end{frame}
+\end{document}

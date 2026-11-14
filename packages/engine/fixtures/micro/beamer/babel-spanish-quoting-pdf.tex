@@ -1,0 +1,15 @@
+% fixture: beamer/babel-spanish-quoting-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: babel's spanish: beamer's \deactivatequoting (beamerbasecompatibility.sty's begindocument/end hook): << and >> are the characters, not spanish.ldf's quoting shorthands, and < in math is the relation
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Comillas}
+Dijo <<hola>> y < luego > de $a<b$.
+\end{frame}
+\end{document}

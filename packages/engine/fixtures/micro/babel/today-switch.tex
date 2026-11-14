@@ -1,0 +1,30 @@
+% fixture: babel/today-switch
+% tier: T3
+% engine: document
+% covers: \today in the date of the language selected where it is: \selectlanguage and otherlanguage switch the date (\date<lang>), and the end of otherlanguage restores it; otherlanguage* and \foreignlanguage switch only the extras, so \today in them keeps the date around them
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman,french,english]{babel}
+\begin{document}
+Today is \today.
+\foreignlanguage{french}{Aujourd'hui \today.} And \today.
+
+\begin{otherlanguage}{ngerman}
+Heute ist \today.
+\end{otherlanguage}
+
+\begin{otherlanguage*}{french}
+Aujourd'hui \today.
+\end{otherlanguage*}
+
+\selectlanguage{french}
+Aujourd'hui, le \today.
+\begin{otherlanguage}{ngerman}
+Heute ist \today.
+\end{otherlanguage}
+Encore le \today.
+
+\selectlanguage{english}
+Again \today.
+\end{document}

@@ -1,0 +1,12 @@
+% fixture: babel/french-up-ot1-11pt
+% tier: T3
+% engine: document
+% covers: french's \up at 11pt in OT1's shapes: .65 of 10.95pt is 7pt (cmsl8, cmti7, cmbx7, cmcsc10), and at \large (cmsl8 at 8pt, cmti8)
+% issue: #363
+\documentclass[11pt]{article}
+\usepackage[french]{babel}
+\begin{document}
+\textsl{le 1\ier} \textit{le 2\up{e}} \textbf{le 3\up{e}} \textsc{le 4\up{e}} le 5\up{e}
+
+{\large \textsl{le 1\ier} \textit{le 2\up{e}}}
+\end{document}

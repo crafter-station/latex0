@@ -1,0 +1,44 @@
+% fixture: koma/koma-lists
+% tier: T3
+% engine: document
+% covers: KOMA-Script's lists: \labelenumii a), quotation's \listparindent 1em, the description label in \sffamily\bfseries, \@list@extra (a nested list in an item: \topsep\z@, \parsep the item's \parskip, \itemsep\z@)
+% issue: #360
+\documentclass{scrartcl}
+\begin{document}
+A paragraph before the lists, long enough to fill the first line of the page with some words.
+\begin{enumerate}
+\item The first item of the enumeration, which is long enough to need a second line of text.
+
+A second paragraph in the same item, indented by the normal paragraph indentation.
+\item Second.
+\begin{enumerate}
+\item Nested first.
+\item Nested second.
+\begin{enumerate}
+\item Deeper.
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+\begin{itemize}
+\item A bullet item.
+\begin{itemize}
+\item A dash item.
+\begin{itemize}
+\item An asterisk item.
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\begin{description}
+\item[Term] Its description, which goes on for long enough to wrap onto a second line of the page.
+\item[Other] Short.
+\end{description}
+\begin{quote}
+A quotation in the quote environment that is long enough to wrap onto a second line of text.
+\end{quote}
+\begin{quotation}
+A quotation in the quotation environment, long enough to wrap onto a second line of text.
+
+And a second paragraph of it.
+\end{quotation}
+Text after.
+\end{document}

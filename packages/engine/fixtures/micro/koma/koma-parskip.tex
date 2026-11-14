@@ -1,0 +1,30 @@
+% fixture: koma/koma-parskip
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% covers: KOMA-Script's options paper=a4, fontsize=11pt, parskip=half: \parskip .5\baselineskip plus .5\baselineskip, \parindent 0pt, \parfillskip 1em plus 1fil (the headings' and the lists' 0pt plus 1fil), \@list@extra at the outer level, \maketitle with \subtitle
+% issue: #360
+\documentclass[paper=a4,fontsize=11pt,parskip=half]{scrartcl}
+\title{Digitising the Parish Archive}
+\subtitle{Project Proposal for the Heritage Fund}
+\author{St.\ Mary's Historical Society}
+\date{May 2026}
+\begin{document}
+\maketitle
+
+\section{Summary}
+The parish archive holds over 4000 documents dating from 1640 to 1950, including registers of baptisms, marriages and burials, vestry minutes and estate maps. Many are fragile.
+
+A second paragraph after a half line of space.
+\section{Objectives}
+\begin{enumerate}
+  \item Conserve and digitise all registers and vestry minutes.
+  \item Create a searchable online catalogue.
+\end{enumerate}
+\begin{description}
+  \item[Months 1--2] Conservation assessment and procurement.
+  \item[Months 3--9] Scanning and cataloguing.
+\end{description}
+\section{Contact}
+Margaret Ellis, Secretary.
+\end{document}

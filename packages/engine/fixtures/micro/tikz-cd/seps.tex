@@ -1,0 +1,22 @@
+% fixture: tikz-cd/seps
+% tier: T3
+% engine: document
+% specials: compare
+% covers: row sep and column sep by name (large, small), sep=tiny, column sep=huge, cramped
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Seps
+\begin{tikzcd}[row sep=large, column sep=small]
+A \arrow[r] \arrow[d] & B \arrow[d] \\
+C \arrow[r] & D
+\end{tikzcd}
+\begin{tikzcd}[sep=tiny]
+A \arrow[r] & B \\
+C \arrow[r] & D
+\end{tikzcd}
+\begin{tikzcd}[cramped, column sep=huge]
+A \arrow[r] & B
+\end{tikzcd}
+end.
+\end{document}

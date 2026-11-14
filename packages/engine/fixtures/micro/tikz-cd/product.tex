@@ -1,0 +1,16 @@
+% fixture: tikz-cd/product
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a tikzcd diagram: row sep and column sep as lengths, ampersand replacement, a matrix of math nodes with empty cells, \arrow with the directions dr, drr, ddr, r and d, quoted labels and ' for swap
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+The product:
+\begin{tikzcd}[row sep=2em, column sep=1.5em, ampersand replacement=\&]
+  E \arrow[dr, "e"'] \arrow[drr, "p_2"] \arrow[ddr, "p_1"'] \& \& \\
+  \& A \times B \arrow[r, "\pi_2"'] \arrow[d, "\pi_1"] \& B \arrow[d, "g"] \\
+  \& A \arrow[r, "f"'] \& C
+\end{tikzcd}
+and text after.
+\end{document}

@@ -33,6 +33,9 @@ import { selectFont } from "./paragraph"
 import { epigraph, memoirBlock } from "./memoir"
 import { QUAD, X_HEIGHT } from "../layout/font"
 import { babelAux, babelState, babelSwitch, languageGroups } from "./babel"
+import { komaMaketitle } from "./koma"
+import { isKoma } from "./classes"
+import { amsAbstract, amsMaketitle } from "./amsart"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -60,6 +63,11 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
   // memoir: what it leaves the kernel's or is laid out its way (memoir.ts); its floats, contents, title, lists … are its own
   if (cx.pre.memoir) memoirBlock(b)
+  // KOMA-Script: its contents, bibliography heading, appendix, \twocolumn, titlepage and marks are its own
+  if (isKoma(cls) && (["toc", "lof", "appendix", "contentsline", "mark", "columns", "titlepage", "letter", "listing", "matter", "bib"].includes(b.kind) || (b.kind === "newpage" && b.cmd === "cleardoublepage"))) throw new Unsupported(`a ${b.kind === "newpage" ? "\\cleardoublepage" : b.kind} in KOMA-Script`)
+  // amsart: its floats and captions, contents, appendix, \twocolumn, titlepage, \cleardoublepage (\pagestyle{empty} for
+  // the page it leaves blank) and \markboth (amsart's) are its own
+  if (cls === "amsart" && (["toc", "lof", "appendix", "contentsline", "mark", "columns", "titlepage", "letter", "float", "listing", "matter", "longtable", "multicols", "columnbreak"].includes(b.kind) || (b.kind === "newpage" && b.cmd === "cleardoublepage"))) throw new Unsupported(`a ${b.kind === "newpage" ? "\\cleardoublepage" : b.kind} in amsart`)
   // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
   // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
@@ -67,7 +75,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
   if (b.kind === "epigraph") { epigraph(cx, b); return }
-  if (b.kind === "maketitle") { maketitle(cx); return }
+  if (b.kind === "maketitle") { if (cls === "amsart") amsMaketitle(cx); else if (isKoma(cls)) komaMaketitle(cx); else maketitle(cx); return }
   if (b.kind === "columns") { if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.two ? "two" : "one"}column right after a run-in heading`); columns(cx, b); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
@@ -244,6 +252,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     for (let i = 0; i < langs.opened; i++) babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
     return
   }
+  if (b.env === "abstract" && cls === "amsart") { amsAbstract(cx, b); return }
   if (b.env === "abstract" && run.k.ints.twocolumn && !cx.pre.titlepage) { twocolumnAbstract(cx, b, blocks[bi + 1]); return }
   if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }
   if (b.blank) v.par() // a blank line before the list

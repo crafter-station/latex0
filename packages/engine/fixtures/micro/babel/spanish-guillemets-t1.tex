@@ -1,0 +1,13 @@
+% fixture: babel/spanish-guillemets-t1
+% tier: T3
+% engine: document
+% covers: spanish.ldf's "< and "> in T1: \guillemotleft{} and \guillemotright{}, a \chardef that joins the run before (no right boundary kern after ” or a letter before it), which the {} ends; and << >> (the quoting environment) after the same characters
+% issue: #363
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\begin{document}
+q\textquotedblright "<niño"> y f"<o"> y Te"<V">.
+
+Dijo q\textquotedblright <<niño>> y f<<V>>.
+\end{document}

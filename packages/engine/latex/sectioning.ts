@@ -20,6 +20,9 @@ import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
 import { titlesecHeading } from "./titlesec"
 import { memoirChapter, memoirHeading } from "./memoir"
+import { komaHeading } from "./koma"
+import { isKoma } from "./classes"
+import { amsHeading } from "./amsart"
 import { isSpanish } from "./babel"
 
 /**
@@ -234,6 +237,8 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const { bodyUnits, contentsWrites, counted, counters, headings, lastNode, marks, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
   if (cx.pre.titlesec) return titlesecHeading(cx, heading)
   if (cx.pre.memoir) return memoirHeading(cx, heading)
+  if (isKoma(cls)) return komaHeading(cx, heading)
+  if (cls === "amsart") return amsHeading(cx, heading)
   if (heading.level >= 4) return runInHeading(cx, heading)
   const b = { ...heading, title: counted(heading.title) } // as \protected@edef and the typesetting see it
   const size = (["normalsize", "Large", "large", "normalsize"] as const)[b.level as 0 | 1 | 2 | 3]

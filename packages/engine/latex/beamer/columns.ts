@@ -15,26 +15,29 @@ import { hpack, vpack } from "../../layout/pack"
 import { mathEnv, selectFont } from "../paragraph"
 import { vtop } from "../tabular"
 import { Unsupported } from "../unsupported"
-import { VerticalList } from "../vlist"
+import { dimen, VerticalList } from "../vlist"
 import { coverBegin, coverEnd } from "./overlays"
-import { bracedArg, begunParagraph, frameContent, SANS, type FrameCtx } from "./frame"
+import { addParagraph, bracedArg, begunParagraph, frameContent, SANS, type FrameCtx } from "./frame"
 import { lengthEnv } from "./colorbox"
 
-/** a column as written: its placement (the columns' when it gives none), width and material */
-interface ColumnSource { align: "c" | "t" | "b"; width: string; body: string }
+/** \beamer@colmode: c, t, b, or T (a \vtop as t, the column begun with \beamer@colheadskip) */
+type Align = "c" | "t" | "b" | "T"
 
-/** \beamer@colmode from the keys c, t and b (T, height and totalwidth throw Unsupported) */
-function align(options: string, current: "c" | "t" | "b"): "c" | "t" | "b" {
+/** a column as written: its placement (the columns' when it gives none), width and material */
+interface ColumnSource { align: Align; width: string; body: string }
+
+/** \beamer@colmode from the keys c, t, T and b (height and totalwidth throw Unsupported) */
+function align(options: string, current: Align): Align {
   let a = current
   for (const o of options.split(",").map((x) => x.trim()).filter(Boolean)) {
-    if (o === "c" || o === "t" || o === "b") a = o
+    if (o === "c" || o === "t" || o === "b" || o === "T") a = o
     else if (o !== "onlytextwidth") throw new Unsupported(`beamer: the columns option ${o}`)
   }
   return a
 }
 
 /** The columns as written: \begin{column}[options]{width}…\end{column} or \column[options]{width}… (up to the next) */
-function columnsOf(body: string, mode: "c" | "t" | "b"): ColumnSource[] {
+function columnsOf(body: string, mode: Align): ColumnSource[] {
   const out: ColumnSource[] = []
   let i = 0
   const options = () => {
@@ -143,12 +146,20 @@ function minipage(cx: FrameCtx, c: ColumnSource, width: number): Node[] {
   v.nodes = []
   v.prevDepth = null // a \vbox begins with \prevdepth -1000pt
   // \leavevmode: the first paragraph begun (in an empty list, new_graf adds no \parskip, nor LaTeX's)
-  const rest = begunParagraph(inner, v, c.body)
+  let rest = c.body
+  if (c.align === "T") {
+    // \beamer@colheadskip, \vskip-1ex\nointerlineskip: the skip ends the paragraph begun (its line the indentation box
+    // alone, which the \vtop is aligned at), and what follows comes with no interline glue
+    addParagraph(inner, v, "", {}, k.glue.parskip)
+    const f = selectFont(k, "normalsize", SANS)
+    v.vskip(dimen(-f.params[X_HEIGHT]))
+    v.prevDepth = null
+  } else rest = begunParagraph(inner, v, c.body)
   if (v.nodes[0]?.kind === "glue" && v.nodes[0].param === "parskip" && v.nodes[1]?.kind === "glue" && v.nodes[1].param === "parskip") v.nodes.splice(0, 2)
   frameContent(inner, v, rest)
   cx.endpe = false
   const list = unskip(v.nodes)
-  if (c.align === "t") return [vtop(list)]
+  if (c.align === "t" || c.align === "T") return [vtop(list)]
   const box = vpack(list)
   if (c.align === "b") return [box]
   // \vcenter: make_vcenter (§ 736), about the axis

@@ -19,6 +19,7 @@ import { dataFont } from "../data"
 import { mathEnv, selectFont } from "../paragraph"
 import { times } from "../setspace"
 import { Unsupported } from "../unsupported"
+import { babelState } from "../babel"
 import { VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { bracedArg, SANS, setParagraph, type FrameCtx } from "./frame"
@@ -56,6 +57,8 @@ export function readFootnotes(cx: FrameCtx, text: string, size: SizeCommand): st
     const m = rest.match(/\\footnote(?![A-Za-z])/)
     if (!m) return out + rest
     if (cx.inMinipage) throw new Unsupported("beamer: a footnote in a minipage")
+    // (french.ldf's footnotes, \FBFrenchFootnotestrue: its \@makefntext and marks)
+    if (babelState.b?.languages.includes("french")) throw new Unsupported("beamer: \\footnote with french.ldf")
     const before = rest.slice(0, m.index)
     if (/\s$/.test(before) || (!before && /\s$/.test(out)) || (!before && !out)) throw new Unsupported("beamer: a footnote after a space or starting a paragraph")
     const after = rest.slice(m.index! + m[0].length)

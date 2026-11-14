@@ -1,0 +1,33 @@
+% fixture: beamer/theme-warsaw-sections-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: Warsaw's headline with sections and subsections (the split theme's navigation boxes, then \vskip0pt, the shadow's picture and \vskip-2pt), the title page and the table of contents in rounded boxes
+\documentclass{beamer}
+\usetheme{Warsaw}
+\title{A title}
+\author{An author}
+\institute{A place}
+\date{2026}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\begin{frame}{Outline}
+\tableofcontents
+\end{frame}
+\section{First}
+\subsection{One}
+\begin{frame}{A frame}
+Text.
+\end{frame}
+\subsection{Two}
+\begin{frame}{Another}
+More.
+\end{frame}
+\section{Second}
+\begin{frame}{Last}
+End.
+\end{frame}
+\end{document}

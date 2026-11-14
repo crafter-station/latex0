@@ -47,6 +47,9 @@ export interface SizeData {
 }
 
 export interface ClassOptionData {
+  /** the class and its \hyphenation exceptions (set as it loads, from ClassData) */
+  cls?: string
+  exceptions?: string[]
   dimens: Record<string, number>
   glue: Record<string, GlueSpec>
   ints: Record<string, number>
@@ -59,13 +62,15 @@ export interface ClassOptionData {
   patterns?: string
   /** what the paper and side options change ("a4paper,twoside"), against the class defaults */
   variants?: Record<string, { dimens: Record<string, number>; ints: Record<string, number> }>
+  /** what other class options change (KOMA-Script's parskip=), against the class defaults */
+  options?: Record<string, { dimens: Record<string, number>; glue: Record<string, GlueSpec> }>
   /** font packages (#340): the families \rmdefault, \sfdefault and \ttdefault name, whose fonts the FontAttrs families
    *  cmr, cmss and cmtt then select (absent: Computer Modern's) */
   families?: { rm: string; sf: string; tt: string; /** helvet.sty's scaled= (\Hv@scale), for phv */ phvScale?: string | null }
 }
 
 /** A class: its data for each size option ("10pt", "11pt", "12pt"). */
-export interface ClassData { class: string; tex: string; options: Record<string, ClassOptionData> }
+export interface ClassData { class: string; tex: string; options: Record<string, ClassOptionData>; /** the \hyphenation exceptions the class sets (for \language 0) */ hyphenation?: string[] }
 
 /** A font family past Computer Modern (data/nfss/<family>.json, #340): at each font size (sp), the font NFSS selects
  *  for each "encoding/series/shape", its \hyphenchar, and whether the .fd file declares that shape */

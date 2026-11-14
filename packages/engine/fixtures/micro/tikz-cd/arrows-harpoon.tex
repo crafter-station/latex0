@@ -1,0 +1,15 @@
+% fixture: tikz-cd/arrows-harpoon
+% tier: T3
+% engine: document
+% specials: compare
+% covers: harpoons: harpoon, harpoon', leftharpoonup, rightharpoondown
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Harpoons
+\begin{tikzcd}
+A \arrow[r, harpoon] \arrow[d, harpoon'] & B \arrow[d, leftharpoonup] \\
+C \arrow[r, rightharpoondown] & D
+\end{tikzcd}
+end.
+\end{document}

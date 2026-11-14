@@ -1,0 +1,22 @@
+% fixture: cite/fonts
+% tier: T3
+% engine: document
+% covers: cite.sty in Times (T1) and at \small: \citepunct's glue .13em plus.1em minus.1em in the em of the font in force, \cite@adjust's \  that font's interword glue
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{cite}
+\begin{document}
+Text with citations \cite{a,c,e} and \cite{f,a} and \cite[p.~11]{a} in Times.
+
+{\small Smaller \cite{a,c} text.}
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

@@ -55,11 +55,17 @@ const THEMES: Record<string, { preamble: string[]; files: string[] }> = {
   ...presentation("Marburg", false, ["outerthemesidebar", "colorthemewhale"]),
   ...presentation("Copenhagen", false, ["outerthemesplit", "innerthemerounded", "colorthemewhale", "colorthemeorchid"]),
   ...presentation("Luebeck", false, ["outerthemesplit", "innerthemerectangles", "colorthemewhale", "colorthemeorchid"]),
+  ...presentation("Warsaw", true, ["outerthemeshadow", "outerthemesplit", "innerthemerounded", "colorthemeorchid", "colorthemewhale"]),
+  // a presentation theme, then a color theme
+  ...presentation("Boadilla", true, ["colorthemerose", "innerthemerounded", "colorthemedolphin", "outerthemeinfolines"], "beaver"),
+  ...presentation("Warsaw", true, ["outerthemeshadow", "outerthemesplit", "innerthemerounded", "colorthemeorchid", "colorthemewhale"], "seahorse"),
 }
 
-/** A presentation theme (\usetheme, with shadow=false where it has the option) and the theme files it loads */
-function presentation(name: string, shadow: boolean, parts: string[]): Record<string, { preamble: string[]; files: string[] }> {
-  return { [name]: { preamble: [`\\usetheme${shadow ? "[shadow=false]" : ""}{${name}}`], files: [`beamertheme${name}.sty`, ...parts.map((p) => `beamer${p}.sty`)] } }
+/** A presentation theme (\usetheme, with shadow=false where it has the option) and the theme files it loads; then the
+ *  color theme `color` (\usecolortheme after it: named <theme>-<color>) */
+function presentation(name: string, shadow: boolean, parts: string[], color?: string): Record<string, { preamble: string[]; files: string[] }> {
+  return { [color ? `${name}-${color}` : name]: { preamble: [`\\usetheme${shadow ? "[shadow=false]" : ""}{${name}}`, ...(color ? [`\\usecolortheme{${color}}`] : [])],
+    files: [`beamertheme${name}.sty`, ...parts.map((p) => `beamer${p}.sty`), ...(color ? [`beamercolortheme${color}.sty`] : [])] } }
 }
 
 /** An inner theme after color themes (alone), and after them followed by the infolines outer theme with the default

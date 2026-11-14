@@ -1,0 +1,13 @@
+% fixture: tikz-cd/options
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a diagram's arrows=, labels= and cells= options, a cell's own |[options]|
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Options \begin{tikzcd}[arrows=dashed, labels=description, cells={nodes={draw}}]
+A \arrow[r, "f"] & |[fill=yellow]| B \arrow[d, "g"] \\
+ & C
+\end{tikzcd} end.
+\end{document}

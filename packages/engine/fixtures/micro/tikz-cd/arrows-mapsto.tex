@@ -1,0 +1,10 @@
+% fixture: tikz-cd/arrows-mapsto
+% tier: T3
+% engine: document
+% specials: compare
+% covers: mapsto and mapsfrom (arrows.meta's Tee Barb without length as Bar, round caps)
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Maps \begin{tikzcd} A \arrow[r, mapsto] & B \arrow[d, mapsfrom] \\ & C \end{tikzcd} end.
+\end{document}
