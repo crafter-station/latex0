@@ -728,6 +728,7 @@ function parseTokens(input: Token[], data: MathData, opts: MathOptions, fam: num
         const text = opts.text, src = rawArgument(t.cs), decl = TEXT_FONT_COMMANDS[t.cs]
         const box = (b: BoxNode): Noad => ({ noad: ORD, nucleus: { kind: "box", box: b }, sup: null, sub: null })
         if (t.cs === "mbox" || !opts.amsmath) { out.push(box(text(src, 0, null, decl))); continue } // \leavevmode\hbox{#1}; \nfss@text: {\mbox{<decl>#1}}
+        if (src.includes("\\LXtikz{")) throw new Error(`math: a picture in \\${t.cs}`) // (set in each of \mathchoice's four styles)
         // amstext's \text@: {\mathchoice{\textdef@\displaystyle\f@size{#1}}{\textdef@\textstyle\f@size{…}}{…\sf@size…}{…\ssf@size…}}
         out.push(groupNoad([palette((st) => [box(text(src, st < 4 ? 0 : st < 6 ? 1 : 2, st === 0 ? "display" : "text", decl))])]))
         continue

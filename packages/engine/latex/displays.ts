@@ -175,6 +175,8 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   const { counters, refs, romanFont, run, v } = cx
   if (next.kind === "align" || next.kind === "align*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
+    // (amsmath sets these twice, to measure and to typeset: what a picture does once, its arrow tips' instances, is in the first)
+    if (next.src.includes("\\LXtikz{")) throw new Unsupported(`a TikZ picture in ${next.kind}`)
     if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips)
     else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, font)
     else alignDisplay(cx, next, line, font, skips)
