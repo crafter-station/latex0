@@ -8,6 +8,7 @@ import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 import { appendText } from "./encodings"
 import { fillGlue, glue, kern, penalty, type Node } from "../layout/nodes"
 import { hpack } from "../layout/pack"
+import { sectionMarks } from "./marks"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
 import { dataFont } from "./data"
@@ -152,9 +153,8 @@ export function titlespacing(formats: TitleFormats, line: string): boolean {
 export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const formats = cx.pre.titlesec!
   const { hyper } = cx.pre
-  const { contentsWrites, counted, counters, headings, lastNode, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
+  const { contentsWrites, counted, counters, headings, lastNode, marks, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
   if (heading.level < 1 || heading.level > 3) throw new Unsupported(`a titlesec ${["\\part", "", "", "", "\\paragraph", "\\subparagraph"][heading.level]}`)
-  if (headings) throw new Unsupported("titlesec with running heads")
   const level = heading.level as 1 | 2 | 3
   const f = formats[level]
   const b = { ...heading, title: counted(heading.title) }
@@ -213,12 +213,22 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
     hang = box.width
     start.push(box)
   }
-  typeset(b.title, { start, font, hangIndent: hang, interLinePenalty: 10000, clubPenalty: club, end: [...(heading.end ?? []), kern(0, true), strut()], ...(color ? { color } : {}) }, outerParskip, f.size)
+  typeset(b.title, { start, font, hangIndent: hang, interLinePenalty: 10000, clubPenalty: club, end: [kern(0, true), strut()], ...(color ? { color } : {}) }, outerParskip, f.size)
   v.nodes.push(penalty(10000))
   if (f.rule) titlerule(cx)
   if (color) v.nodes.push(colorPop())
-  // \ttl@write (unstarred): \sectionmark, \addcontentsline (\protected@write, \nobreak while \if@nobreak) and its \nobreak
-  if (!b.star) v.nodes.push(...contentsWrites(level, numbered ? number : null, b.title, numbered ? refs.href : "", afterHeading), penalty(10000))
+  // \ttl@finmarks, after \ttl@select's group. \ttl@savewrite is \ttl@write (unstarred): \sectionmark (the page
+  // style's or fancyhdr's: its \marks, each with \nobreak while \if@nobreak), \addcontentsline (\protected@write,
+  // \nobreak while \if@nobreak) and its \nobreak
+  if (!b.star) {
+    // (a title too deep for a number: \thesection in the mark only while \c@secnumdepth allows)
+    if (headings && !numbered && level < 3) throw new Unsupported("a running head for a titlesec title without a number")
+    if (headings && numbered) v.nodes.push(...marks.insert(sectionMarks(cx.pre.cls, !!run.k.ints.twoside, level, number, b.title, headings), afterHeading))
+    v.nodes.push(...contentsWrites(level, numbered ? number : null, b.title, numbered ? refs.href : "", afterHeading), penalty(10000))
+  }
+  // \ttl@mk: a \markboth, \markright or \@mkboth of the title (\tableofcontents's), which \ttl@select saved
+  // (\ttl@gmk) to run here in vertical mode, not in the title's line
+  for (const n of heading.end ?? []) v.nodes.push(n, ...(afterHeading ? [penalty(10000)] : []))
   v.nodes.push(penalty(10000)) // \par\nobreak
   v.vskip(after); v.vskip(parseGlue("0pt", units)) // \vspace: \vskip after \vskip\z@skip
   v.nobreak = true

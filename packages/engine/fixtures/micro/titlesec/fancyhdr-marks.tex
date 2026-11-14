@@ -1,0 +1,24 @@
+% fixture: titlesec/fancyhdr-marks
+% tier: T3
+% engine: document
+% covers: titlesec with fancyhdr's page style: \ttl@write's \sectionmark and \subsectionmark after the title (\ttl@finmarks), the running heads they make
+% issue: #249
+\documentclass{article}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\pagestyle{fancy}
+\begin{document}
+\section{Introduction}
+Some text that starts the section.
+\subsection{Background}
+More text in the subsection.
+\newpage
+Text on the second page.
+\section{Methods}
+\subsection{Right after a heading}
+Text.
+\section*{Unnumbered}
+Text after it.
+\newpage
+Text on the third page.
+\end{document}
