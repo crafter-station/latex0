@@ -33,10 +33,10 @@ export function IdeLayout() {
   const isActiveFileImage = activeFile?.blobUrl && isImageFile(activeFile.name)
 
   const [zoom, setZoom] = useState(100)
-  // the exact page view (beta), remembered per browser
-  const [exact, setExact] = useState(false)
+  // the exact page view is the preview unless this browser turned it off
+  const [exact, setExact] = useState(true)
   useEffect(() => {
-    try { setExact(localStorage.getItem("latex0:exact-view") === "1") } catch {}
+    try { setExact(localStorage.getItem("latex0:exact-view") !== "0") } catch {}
   }, [])
   const handleToggleExact = useCallback(() => {
     setExact((on) => {
