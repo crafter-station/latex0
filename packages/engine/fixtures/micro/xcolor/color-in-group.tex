@@ -1,0 +1,10 @@
+% fixture: xcolor/color-in-group
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \color after text in a group: \set@color's push where it is read (its \ignorespaces takes the space after it), \reset@color's pop where the group ends (\aftergroup)
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+Some words {in a group \color{red} that turns red} and the text after it, {\itshape then\color[rgb]{0,.5,0} green} again.
+\end{document}

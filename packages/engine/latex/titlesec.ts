@@ -16,7 +16,7 @@ import { isSpanish } from "./babel"
 import { hsizeOf } from "./paragraph"
 import { Unsupported } from "./unsupported"
 import { IGNORE_DEPTH, negate } from "./vlist"
-import { setgroup } from "./xcolor"
+import { COLOR_CMD, colorPop, colorPush, setgroup } from "./xcolor"
 
 /** \titleformat{\cmd}[hang]{format}{label}{sep}{before}[after], as far as it is modeled */
 export interface TitleFormat {
@@ -30,6 +30,10 @@ export interface TitleFormat {
   sep: string
   /** \titlerule as the after code */
   rule: boolean
+  /** \color[model]{spec} in the format: read in vertical mode in \ttl@select's group */
+  color?: { spec: string; model?: string }
+  /** \titlespacing*{\cmd}{0pt}{before}{after}: the skips as written (\ttl@assign's \setlength at each title) */
+  spacing?: { before: string; after: string }
 }
 
 export type TitleFormats = Record<1 | 2 | 3, TitleFormat>
@@ -77,7 +81,11 @@ export function titleformat(formats: TitleFormats, line: string): boolean {
   if (before.trim()) throw new Unsupported(`\\titleformat's before code ${before.trim()}`)
   // the format runs in the font the heading starts in: the document's \normalfont \normalsize
   let size: SizeCommand = "normalsize", bold = false
-  for (const t of format.match(/\\[a-zA-Z]+|\S/g) ?? []) {
+  // (\color: one, the last thing it reads its arguments; more would each push and pop)
+  const colors = [...format.matchAll(COLOR_CMD)]
+  if (colors.length > 1) throw new Unsupported(`titlesec format ${format.trim()}`)
+  const color = colors[0] ? { spec: colors[0][2], ...(colors[0][1] !== undefined ? { model: colors[0][1] } : {}) } : undefined
+  for (const t of format.replace(COLOR_CMD, " ").match(/\\[a-zA-Z]+|\S/g) ?? []) {
     if (t === "\\normalfont") bold = false
     else if (t === "\\bfseries") bold = true
     else if (["\\normalsize", "\\large", "\\Large", "\\LARGE", "\\huge", "\\Huge", "\\small", "\\footnotesize"].includes(t)) size = t.slice(1) as SizeCommand
@@ -86,7 +94,31 @@ export function titleformat(formats: TitleFormats, line: string): boolean {
   const lb = label.trim()
   const kind = lb === "" ? "none" : lb === `\\the${m[1]}` ? "number" : lb === `\\the${m[1]}\\quad` || lb === `\\@seccntformat{${m[1]}}` ? "default" : null
   if (!kind) throw new Unsupported(`titlesec label ${lb}`)
-  formats[level] = { size, bold, label: kind, sep: sep.trim() || "0pt", rule: code[1]?.trim() === "\\titlerule", ...(lb === `\\the${m[1]}\\quad` ? { typed: true } : {}) }
+  formats[level] = { size, bold, label: kind, sep: sep.trim() || "0pt", rule: code[1]?.trim() === "\\titlerule", ...(lb === `\\the${m[1]}\\quad` ? { typed: true } : {}), ...(color ? { color } : {}), ...(formats[level].spacing ? { spacing: formats[level].spacing } : {}) }
+  return true
+}
+
+/**
+ * \titlespacing*{\cmd}{left}{before}{after}[right] in the preamble (\ttl@spacing@ii keeps the arguments as written);
+ * false if the line is not one. The left and right spaces must be zero; the star is \@afterindentfalse, as the
+ * spacing \ttl@extract makes.
+ */
+export function titlespacing(formats: TitleFormats, line: string): boolean {
+  const m = line.match(/^\\titlespacing(\*?)\{\\([a-z]+)\}(.*)$/)
+  if (!m) return false
+  const level = LEVELS[m[2]]
+  if (!level) throw new Unsupported(`\\titlespacing{\\${m[2]}}`)
+  if (!m[1]) throw new Unsupported("\\titlespacing without its *")
+  const a = args(m[3], 3)
+  if (!a) throw new Unsupported(`preamble: ${line}`)
+  const [[left, before, after], rest] = a
+  const right = rest.trim().match(/^(?:\[(.*)\])?$/)
+  if (!right) throw new Unsupported(`preamble: ${line}`)
+  const zero = (s: string) => { try { return parseDimen(s, { em: 1, ex: 1 }) === 0 } catch { return false } }
+  if (!zero(left) || !zero(right[1] ?? "0pt")) throw new Unsupported(`\\titlespacing's left or right space ${left}${right[1] !== undefined ? `, ${right[1]}` : ""}`)
+  // (*n: multiples of \beforetitleunit and \aftertitleunit)
+  if (/^\s*\*/.test(before) || /^\s*\*/.test(after)) throw new Unsupported(`\\titlespacing's ${before}, ${after}`)
+  formats[level].spacing = { before: before.trim(), after: after.trim() }
   return true
 }
 
@@ -108,9 +140,11 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
   const b = { ...heading, title: counted(heading.title) }
   // \ttl@extract: \titlespacing*{\cmd}{indent}{-beforeskip}{afterskip}, \the of each at load time (which
   // scans back to the same skip), in the font selected when titlesec loaded
+  // (\titlespacing's own: \ttl@assign's \setlength here, in the font the title starts in)
   const units = cx.pre.titlesecUnits!
-  const before = parseGlue(level === 1 ? "3.5ex plus 1ex minus .2ex" : "3.25ex plus 1ex minus .2ex", units)
-  const after = parseGlue(level === 1 ? "2.3ex plus .2ex" : "1.5ex plus .2ex", units)
+  const spaced = (s: string) => { try { return parseGlue(s, cx.bodyUnits) } catch { throw new Unsupported(`\\titlespacing's ${s}`) } }
+  const before = f.spacing ? spaced(f.spacing.before) : parseGlue(level === 1 ? "3.5ex plus 1ex minus .2ex" : "3.25ex plus 1ex minus .2ex", units)
+  const after = f.spacing ? spaced(f.spacing.after) : parseGlue(level === 1 ? "2.3ex plus .2ex" : "1.5ex plus .2ex", units)
   noskipsecPar("a heading") // \if@noskipsec \leavevmode \fi
   v.par()
   const afterHeading = v.nobreak
@@ -135,6 +169,11 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
   if (!afterHeading) { v.addpenalty(-300); v.addvspace(before) } // (\bottomtitlespace is negative: bottomtitles)
   if (saved) v.nodes.push(...anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", lastNode())) // \ttl@select: \ttl@Hy@saveanchor
   v.afterindent = false // \titlespacing*: \@afterindentfalse
+  // the format's \color, read in vertical mode in \ttl@select's group (\ttlh@hang's #1, before the title's
+  // paragraph): \set@color's push on the vertical list; \reset@color's pop (\aftergroup) where that group ends, after
+  // the title, its \nobreak and the after code
+  const color = f.color ? cx.colorSpec(f.color.spec, f.color.model) : undefined
+  if (color) v.nodes.push(colorPush(color))
   const font = f.bold ? run.k.sizes[f.size].bold : run.k.sizes[f.size].font
   const tf = loadFont(dataFont(font.name), font.at)
   const { height, depth } = run.k.sizes[f.size].strut
@@ -147,13 +186,14 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
     if (f.label !== "none") appendText(label, number + (f.label === "default" && !f.typed && isSpanish(cx.pre.babel) ? "." : ""), tf, { spaceFactor: 1000 }, false) // (spanish.ldf's \@seccntformat)
     if (f.label === "default") label.push(glue(tf.params[QUAD]))
     label.push(strut(), glue(parseDimen(f.sep, { em: tf.params[QUAD], ex: tf.params[X_HEIGHT] })))
-    const box = hpack(setgroup(label)) // \sbox: \color@setgroup
+    const box = hpack(color ? [colorPush(color), ...label, colorPop()] : setgroup(label)) // \sbox: \color@setgroup (the color in force)
     hang = box.width
     start.push(box)
   }
-  typeset(b.title, { start, font, hangIndent: hang, interLinePenalty: 10000, clubPenalty: club, end: [...(heading.end ?? []), kern(0, true), strut()] }, outerParskip, f.size)
+  typeset(b.title, { start, font, hangIndent: hang, interLinePenalty: 10000, clubPenalty: club, end: [...(heading.end ?? []), kern(0, true), strut()], ...(color ? { color } : {}) }, outerParskip, f.size)
   v.nodes.push(penalty(10000))
   if (f.rule) titlerule(cx)
+  if (color) v.nodes.push(colorPop())
   // \ttl@write (unstarred): \sectionmark, \addcontentsline (\protected@write, \nobreak while \if@nobreak) and its \nobreak
   if (!b.star) v.nodes.push(...contentsWrites(level, numbered ? number : null, b.title, numbered ? refs.href : "", afterHeading), penalty(10000))
   v.nodes.push(penalty(10000)) // \par\nobreak

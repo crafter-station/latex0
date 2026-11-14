@@ -1,0 +1,10 @@
+% fixture: minipage/parbox-vspace-vertical
+% tier: T3
+% engine: document
+% covers: \vspace in vertical mode at the start of a \parbox (after \centering): \@vspace's \vskip skip \vskip\z@skip on the box's list before its first paragraph
+\documentclass{article}
+\begin{document}
+\noindent\fbox{\parbox{6cm}{\centering\vspace{6pt}
+Words in a box, centered, that go on for two lines of it or so.}}
+and text after it.
+\end{document}

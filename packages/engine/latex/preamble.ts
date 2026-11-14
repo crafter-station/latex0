@@ -14,7 +14,7 @@ import { lstDefineStyle, lstOptions, LST_DEFAULTS, type LstOptions } from "./lis
 import { times, setspaceCommand, setspaceOptions, stretchedSizes, withSetspace, type SetSpace } from "./setspace"
 import { natbibOptions, natbibStyle, type NatStyle } from "./natbib"
 import type { AlgorithmPackages } from "./algorithm"
-import { titleformat, titlesecDefaults, type TitleFormats } from "./titlesec"
+import { titleformat, titlesecDefaults, titlespacing, type TitleFormats } from "./titlesec"
 import { CAPTION_LISTS, captionDefaults, copyKeys, setCaptionKeys, type CaptionSetup } from "./captionsetup"
 import type { CrefNameDef, CrefOptions } from "./cleveref"
 import type { MathPackages } from "./paragraph"
@@ -531,7 +531,7 @@ export function readPreamble(src: string): Preamble {
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     if (fancy && fancyCommand(fancy, line)) continue
-    if (titlesec && titleformat(titlesec, line)) continue
+    if (titlesec && (titleformat(titlesec, line) || titlespacing(titlesec, line))) continue
     // \raggedbottom (\@textbottom \vskip\z@\@plus.0001fil) and \flushbottom (\relax)
     if ((line === "\\raggedbottom" || line === "\\flushbottom") && cls !== "letter") { raggedbottom = line === "\\raggedbottom" ? 1 : 0; continue }
     const m = line.match(/^\\pagestyle\{(plain|empty|headings|myheadings|fancy)\}$/)

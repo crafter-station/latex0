@@ -22,7 +22,7 @@ import { bibliography, listOf, maketitle, tableOfContents } from "./frontmatter"
 import { appendix, chapter, cleardoublepage, clearpage, columnSwitch, heading, matter, newpage, topnewpageBox } from "./sectioning"
 import { enlargeInsert, type OutputHook } from "./output"
 import { markboth, markright, markValue } from "./marks"
-import { leadingColor } from "./colors"
+import { LEADING_COLOR, leadingColor } from "./colors"
 import { paragraphWithDisplays } from "./displays"
 import { list, topCtx } from "./lists"
 import { floatBlock, floatMarker } from "./floats"
@@ -149,7 +149,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     }
     // a group that starts before the paragraph does (with \color: the push goes on the vertical list)
     const cg = groupStart(b.text)
-    if (/^\s*\{\\color(?![A-Za-z])/.test(b.text)) {
+    if (LEADING_COLOR.test(b.text)) {
       // (after a list, \@doendpe's \everypar runs in the group; its \par at the end of the paragraph clears all it set)
       b.text = leadingColor(cx, b.text)
     }
