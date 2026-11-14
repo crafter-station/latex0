@@ -181,7 +181,7 @@ async function compare(browser: Browser, file: string, scale: number): Promise<C
   let svg: ReturnType<typeof svgPages>
   try {
     const laid = document(src, { epoch: ORACLE_EPOCH, driver: "pdftex", images })
-    svg = svgPages(laid.trace, laid.view!, { image: (f) => (existsSync(join(dir, f)) ? f : undefined) })
+    svg = svgPages(laid.trace, laid.view!, { image: (f, pdf) => (!pdf && existsSync(join(dir, f)) ? f : undefined) })
   } catch (e) {
     result.error = e instanceof Unsupported ? `not laid out: ${e.message}` : `engine error: ${(e as Error).message}`
     return result

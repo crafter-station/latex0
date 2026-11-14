@@ -19,6 +19,7 @@
 
 import { webfontData } from "../latex/data"
 import type { Trace, TraceGlyph, TraceRule } from "../trace/schema"
+import type { PdfRegion } from "../layout/nodes"
 import type { PageForm, PageMark } from "./trace"
 
 /** What drawing the pages needs besides the trace */
@@ -33,9 +34,18 @@ export interface PageView {
   forms?: Record<number, PageForm>
 }
 
+/** A page of a PDF file as an image: what of the file fills the image's box (the page, its page box in the page's
+ *  default user space, the page turned clockwise by `rotate`), and the size in bp the box has on the paper, under
+ *  the transformations it is drawn in (what a picture's resolution has to serve) */
+export interface PdfImage extends PdfRegion { width: number; height: number }
+
 export interface SvgOptions {
-  /** an image file's URL (an \includegraphics name); none: the image is left out, with a warning */
-  image?: (name: string) => string | undefined
+  /**
+   * An image file's URL (an \includegraphics name); none: the image is left out, with a warning. An <image> shows
+   * a bitmap or an SVG, not a PDF: for a PDF file's page `pdf` says what of the file the image is, and the URL must
+   * be a picture of exactly that (the host's rasterization of the region), drawn stretched over the image's box.
+   */
+  image?: (name: string, pdf?: PdfImage) => string | undefined
 }
 
 export interface SvgPages {
@@ -303,10 +313,13 @@ class Stream {
     this.ov = v
   }
 
-  /** What takes the plain SVG coordinates of the stream's positions (x(), y()) to where the state draws them: "" in
-   *  the page's own state */
+  /** What takes the plain SVG coordinates of the stream's positions (x(), y()) to where the state draws them */
+  private placement(): Matrix {
+    return mul(mul([1, 0, 0, 1, -(this.ph + this.oh) * K, -(this.pv + this.ov) * K], [1, 0, 0, -1, 0, 0]), this.gs.ctm)
+  }
+  /** placement() as an SVG transform: "" in the page's own state */
   private transform(): string {
-    const m = mul(mul([1, 0, 0, 1, -(this.ph + this.oh) * K, -(this.pv + this.ov) * K], [1, 0, 0, -1, 0, 0]), this.gs.ctm)
+    const m = this.placement()
     const same = Math.abs(m[0] - 1) < 1e-9 && Math.abs(m[1]) < 1e-9 && Math.abs(m[2]) < 1e-9 && Math.abs(m[3] - 1) < 1e-9 && Math.abs(m[4]) < 1e-6 && Math.abs(m[5]) < 1e-6
     return same ? "" : svgMatrix(m)
   }
@@ -390,11 +403,16 @@ class Stream {
   }
 
   private image(m: PageMark & { kind: "image" }) {
-    const url = this.page.options.image?.(m.name)
-    if (!url) return this.page.warn(`the image ${m.name} (no file given)`)
-    // (an <image> is a bitmap or an SVG: a PDF's page is not drawn)
-    if (/\.(pdf|eps|ps)$/i.test(m.name)) return this.page.warn(`the image ${m.name} (a PDF's page: only bitmaps are drawn)`)
     const gs = this.gs
+    // (an <image> is a bitmap or an SVG: a PDF's page is drawn as the picture of it the host gives)
+    let pdf: PdfImage | undefined
+    if (m.pdf) {
+      const t = this.placement()
+      pdf = { ...m.pdf, width: +(m.width * K * Math.hypot(t[0], t[1])).toFixed(3), height: +((m.height + m.depth) * K * Math.hypot(t[2], t[3])).toFixed(3) }
+    }
+    const known = pdf || !/\.(pdf|eps|ps)$/i.test(m.name)
+    const url = known ? this.page.options.image?.(m.name, pdf) : undefined
+    if (!url) return this.page.warn(known && !pdf ? `the image ${m.name} (no file given)` : `the image ${m.name} (a PDF's page: only bitmaps are drawn)`)
     this.page.emit(`<image href="${escape(url)}" x="${this.x(m.h)}" y="${this.y(m.v - m.height)}" width="${pt(m.width)}" height="${pt(m.height + m.depth)}" preserveAspectRatio="none"${gs.ca !== 1 ? ` opacity="${gs.ca}"` : ""}/>`, gs, this.transform())
   }
 

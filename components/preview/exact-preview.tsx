@@ -5,7 +5,8 @@ import { useFileStore } from "@/lib/file-store"
 import { bundleLatexFiles } from "@/lib/latex-bundler"
 import { findMainFile } from "@/lib/file-utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { ExactRequest, ExactResponse } from "@/lib/exact/protocol"
+import { PDF_REGION, type ExactRequest, type ExactResponse } from "@/lib/exact/protocol"
+import type { PdfPictures } from "@/lib/exact/pdf-regions"
 import { HtmlPreview } from "./html-preview"
 
 interface ExactPreviewProps {
@@ -22,6 +23,24 @@ const fontFaces = (fonts: string[]) =>
 // only takes over when the document still cannot be laid out after STALE_MS.
 const STALE_MS = 1500
 
+type Laid = Extract<ExactResponse, { ok: true }>
+const REGION_IMAGE = new RegExp(`<image href="${PDF_REGION}(\\d+)"[^>]*/>`, "g")
+
+/** The pages with the pictures of their PDF regions: an image whose picture is not drawn yet is left out (it
+ *  comes when the picture is ready); one that cannot be drawn is named */
+function withPictures(r: Laid, pictures: PdfPictures | null): { pages: string[]; warnings: string[] } {
+  if (!r.pdfRegions.length) return { pages: r.pages, warnings: r.warnings }
+  const pages = r.pages.map((svg) => svg.replace(REGION_IMAGE, (image, n) => {
+    const url = pictures?.url(r.pdfRegions[Number(n)])
+    return url ? image.replace(`${PDF_REGION}${n}`, url) : ""
+  }))
+  const failed = r.pdfRegions.flatMap((region) => {
+    const why = pictures?.failure(region)
+    return why ? [`the image ${region.name} (${why})`] : []
+  })
+  return { pages, warnings: [...r.warnings, ...new Set(failed)] }
+}
+
 export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   const files = useFileStore((s) => s.files)
   const worker = useRef<Worker | null>(null)
@@ -30,6 +49,30 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   // the last document laid out; what the download prints and what stays up while the source is broken
   const [drawn, setDrawn] = useState<{ pages: string[]; fonts: string[]; warnings: string[]; ms: number } | null>(null)
   const pagesRef = useRef<{ pages: string[]; fonts: string[] } | null>(null)
+  // the pictures of the PDF files' pages the document includes (pdf.js, loaded with the first such document)
+  const pictures = useRef<PdfPictures | null>(null)
+  const loading = useRef<Promise<void> | null>(null)
+  const laid = useRef<Laid | null>(null)
+  const show = useCallback((r: Laid) => {
+    const pages = { ...withPictures(r, pictures.current), fonts: r.fonts, ms: r.ms }
+    pagesRef.current = pages
+    setDrawn(pages)
+  }, [])
+  const draw = useCallback((r: Laid) => {
+    laid.current = r
+    show(r)
+    if (!r.pdfRegions.length && !pictures.current) return
+    const again = () => { if (laid.current) show(laid.current) }
+    if (pictures.current) return pictures.current.show(r.pdfRegions, again)
+    loading.current ??= import("@/lib/exact/pdf-regions").then(({ PdfPictures }) => {
+      pictures.current = new PdfPictures()
+      if (laid.current) pictures.current.show(laid.current.pdfRegions, again)
+    })
+  }, [show])
+  useEffect(() => () => {
+    laid.current = null
+    void loading.current?.then(() => { pictures.current?.dispose(); pictures.current = null; loading.current = null })
+  }, [])
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [fallback, setFallback] = useState(false)
   const settle = useCallback((r: ExactResponse) => {
@@ -37,19 +80,18 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
     if (staleTimer.current) clearTimeout(staleTimer.current)
     staleTimer.current = null
     if (r.ok) {
-      const pages = { pages: r.pages, fonts: r.fonts, warnings: r.warnings, ms: r.ms }
-      pagesRef.current = pages
-      setDrawn(pages)
+      draw(r)
       setFallback(false)
     } else if (pagesRef.current) {
       staleTimer.current = setTimeout(() => {
         pagesRef.current = null
+        laid.current = null
         setFallback(true)
       }, STALE_MS)
     } else {
       setFallback(true)
     }
-  }, [])
+  }, [draw])
   // 100% fits the page to the panel's width
   const [panelWidth, setPanelWidth] = useState(0)
   const observer = useRef<ResizeObserver | null>(null)
@@ -95,11 +137,14 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   // Download: the browser prints the SVG pages, one per sheet at the document's paper size.
   useEffect(() => {
     const onDownload = (e: Event) => {
-      const last = pagesRef.current
-      if (!last) return
+      if (!pagesRef.current) return
       e.stopImmediatePropagation()
       const main = findMainFile(useFileStore.getState().files)
-      printPages(last.pages, last.fonts, (main?.name ?? "document").replace(/\.tex$/i, ""))
+      // (the pictures of PDF figures still being drawn are waited for: the print has them)
+      void Promise.resolve(loading.current).then(() => pictures.current?.settled()).then(() => {
+        const last = pagesRef.current
+        if (last) printPages(last.pages, last.fonts, (main?.name ?? "document").replace(/\.tex$/i, ""))
+      })
     }
     window.addEventListener("latex0:download-pdf", onDownload)
     return () => window.removeEventListener("latex0:download-pdf", onDownload)
@@ -181,7 +226,13 @@ function printPages(pages: string[], fonts: string[], title: string): void {
     done = true
     setTimeout(() => iframe.remove(), 1000)
   }
-  void Promise.all(fonts.map((f) => doc.fonts.load(`10pt l0-${f}`))).then(() => {
+  // the fonts and the images (a picture of a PDF figure is a blob URL of this page's) are loaded before printing
+  const images = [...new Set([...doc.querySelectorAll("image")].map((el) => el.getAttribute("href") ?? ""))].filter(Boolean).map((href) => {
+    const image = doc.createElement("img")
+    image.src = href
+    return image.decode().catch(() => {})
+  })
+  void Promise.all([...fonts.map((f) => doc.fonts.load(`10pt l0-${f}`)), ...images]).then(() => {
     win.addEventListener("afterprint", cleanup, { once: true })
     win.focus()
     win.print()

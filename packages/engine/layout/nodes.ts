@@ -27,6 +27,14 @@ export interface KernNode { kind: "kern"; width: number; /** \kern from the sour
 export interface PenaltyNode { kind: "penalty"; penalty: number }
 /** null dimensions are "running" and take the enclosing box's size (§ 138). */
 export interface RuleNode { kind: "rule"; width: number | null; height: number | null; depth: number | null }
+/**
+ * What pdfTeX embeds of a PDF file for one image (pdftoepdf.cc's write_epdf: a form whose /BBox is the page box
+ * and whose /Matrix turns it by /Rotate), which fills the image's box: the page (from 1), the page box (x1 y1 x2 y2
+ * in the page's default user space, bp), and how many degrees clockwise the page is turned when it is shown: 0, 90,
+ * 180 or 270 (a /Rotate that is not a multiple of 90 turns nothing)
+ */
+export interface PdfRegion { page: number; box: [number, number, number, number]; rotate: number }
+
 export interface BoxNode {
   kind: "hlist" | "vlist"
   width: number; height: number; depth: number
@@ -38,6 +46,8 @@ export interface BoxNode {
   display?: boolean
   /** pdfTeX's \pdfrefximage: an image of the box's size (its list empty), the file's name */
   image?: string
+  /** an image that is a page of a PDF file: what of the file fills the box */
+  pdf?: PdfRegion
   /** pdfTeX's \pdfrefxform: a form of the box's size (its list empty), its number */
   form?: number
 }

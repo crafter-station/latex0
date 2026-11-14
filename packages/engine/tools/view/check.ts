@@ -8,6 +8,7 @@
 
 import { svgPages, type PageView } from "../../emit/svg"
 import type { PageForm, PageMark } from "../../emit/trace"
+import type { PdfRegion } from "../../layout/nodes"
 import type { Trace, TraceGlyph, TraceRule } from "../../trace/schema"
 import "../data"
 
@@ -19,7 +20,8 @@ interface Item { at: [h: number, v: number] }
 type Step =
   | (Item & { glyph: number })
   | (Item & { rule: [width: number, height: number] })
-  | (Item & { image: string; size: [width: number, height: number] })
+  /** `pdf`: the image is a page of a PDF file, this region of it */
+  | (Item & { image: string; size: [width: number, height: number]; pdf?: PdfRegion })
   | (Item & { form: number; size: [width: number, height: number] })
   /** a whatsit as a box dump prints it */
   | (Item & { mark: string })
@@ -40,7 +42,7 @@ function content(steps: Step[]): { glyphs: TraceGlyph[]; rules: TraceRule[]; mar
     const h = sp(s.at[0]), v = sp(s.at[1]), counts = { glyphs: glyphs.length, rules: rules.length }
     if ("glyph" in s) glyphs.push({ font: "cmr10", size: sp(10), char: s.glyph, h, v, width: sp(7.5) })
     else if ("rule" in s) rules.push({ h, v, width: sp(s.rule[0]), height: sp(s.rule[1]) })
-    else if ("image" in s) marks.push({ kind: "image", name: s.image, h, v, width: sp(s.size[0]), height: sp(s.size[1]), depth: 0, ...counts })
+    else if ("image" in s) marks.push({ kind: "image", name: s.image, ...(s.pdf ? { pdf: s.pdf } : {}), h, v, width: sp(s.size[0]), height: sp(s.size[1]), depth: 0, ...counts })
     else if ("form" in s) marks.push({ kind: "form", number: s.form, h, v, width: sp(s.size[0]), height: sp(s.size[1]), depth: 0, ...counts })
     else marks.push({ kind: "whatsit", text: s.mark, h, v, ...counts })
   }
@@ -53,7 +55,12 @@ function draw(c: Case): { svg: string[]; warnings: string[] } {
   const forms: Record<number, PageForm> = {}
   for (const [k, f] of Object.entries(c.forms ?? {})) forms[Number(k)] = { width: sp(f.size[0]), height: sp(f.size[1]), depth: 0, ...content(f.steps), resources: f.resources ?? "" }
   const view: PageView = { paper: { width: sp(200), height: sp(100) }, origin: { h: 0, v: 0 }, marks: pages.map((p) => p.marks), forms }
-  const out = svgPages(trace, view, { image: (name) => (name === "missing.png" ? undefined : `/files/${name}`) })
+  // the host: a file's URL; for a PDF file's page, the URL of a picture of the region it is asked for (none of
+  // undrawn.pdf, as a host that cannot draw PDF files)
+  const out = svgPages(trace, view, {
+    image: (name, pdf) => (name === "missing.png" || name === "undrawn.pdf" ? undefined
+      : pdf ? `/raster/${name}?page=${pdf.page}&box=${pdf.box.join(",")}&rotate=${pdf.rotate}&size=${pdf.width}x${pdf.height}` : `/files/${name}`),
+  })
   const open = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" width="200pt" height="100pt" stroke-miterlimit="10"><rect width="200" height="100" fill="#fff"/>`
   return { svg: out.pages.map((p) => (p.startsWith(open) && p.endsWith("</svg>") ? p.slice(open.length, -6) : p)), warnings: out.warnings }
 }
@@ -257,6 +264,37 @@ const CASES: Case[] = [
       `<g mask="url(#l0p1m1)"><path d="M20 0L50 0L50 10L20 10Z" transform="matrix(1 0 0 -1 10 50)" fill="#ff0000"/></g>` +
       `<g mask="url(#l0p1m1)"><path d="M20 0L50 0L50 10L20 10Z" transform="matrix(1 0 0 -1 10 50)" fill="#ff0000"/></g>` +
       `<path d="M0 0L10 0L10 10L0 10Z" transform="matrix(1 0 0 -1 10 50)"/>`],
+  },
+  {
+    name: "a PDF file's page as an image: the host is told the page, the region and the size on the paper, and its picture fills the box",
+    pages: [[
+      { at: [10, 60], glyph: A },
+      // \includegraphics[page=2]{plot.pdf} at its natural size: 100bp by 50bp of the page, from (10, 20)
+      { at: [20, 60], image: "plot.pdf", size: [100, 50], pdf: { page: 2, box: [10, 20, 110, 70], rotate: 0 } },
+      { at: [130, 60], glyph: A },
+      // a page turned by /Rotate 90 (its box 50bp by 100bp, shown 100bp by 50bp), at 40% (\Gscale@box about (140, 90))
+      { at: [140, 90], mark: "\\pdfsave" }, { at: [140, 90], mark: "\\pdfsetmatrix{.4 0 0 .4}" },
+      { at: [140, 90], image: "turned.pdf", size: [100, 50], pdf: { page: 1, box: [0, 0, 50, 100], rotate: 90 } },
+      { at: [140, 90], mark: "\\pdfrestore" },
+    ]],
+    // (a text ends with pdfTeX's origin back at the paper's corner: \pdfsave moves it to (140, 90) again)
+    svg: [`${text(10, 60)}<image href="/raster/plot.pdf?page=2&#38;box=10,20,110,70&#38;rotate=0&#38;size=100x50" x="20" y="10" width="100" height="50" preserveAspectRatio="none"/>${text(130, 60)}`
+      + `<g transform="matrix(0.4 0 0 0.4 84 54)"><image href="/raster/turned.pdf?page=1&#38;box=0,0,50,100&#38;rotate=90&#38;size=40x20" x="140" y="40" width="100" height="50" preserveAspectRatio="none"/></g>`],
+  },
+  {
+    name: "a PDF file's page under an opacity and a clipping path, stretched (width= and height=); one the host gives no picture of",
+    pages: [[
+      lit(0, 100, "q 0 0 60 100 re W n /pgf@ca0.5 gs"),
+      { at: [10, 80], mark: "\\pdfsave" }, { at: [10, 80], mark: "\\pdfsetmatrix{2 0 0 .5}" },
+      { at: [10, 80], image: "plot.pdf", size: [40, 60], pdf: { page: 1, box: [0, 0, 40, 60], rotate: 0 } },
+      { at: [10, 80], mark: "\\pdfrestore" },
+      lit(0, 100, "Q"),
+      { at: [100, 80], image: "undrawn.pdf", size: [40, 60], pdf: { page: 1, box: [0, 0, 40, 60], rotate: 0 } },
+      { at: [150, 80], glyph: A },
+    ]],
+    svg: [`<clipPath id="l0p1c1"><path d="M0 0L60 0L60 100L0 100Z" transform="matrix(1 0 0 -1 0 100)"/></clipPath>`
+      + `<g clip-path="url(#l0p1c1)"><g transform="matrix(2 0 0 0.5 -10 40)"><image href="/raster/plot.pdf?page=1&#38;box=0,0,40,60&#38;rotate=0&#38;size=80x30" x="10" y="20" width="40" height="60" preserveAspectRatio="none" opacity="0.5"/></g></g>${text(150, 80)}`],
+    warnings: ["the image undrawn.pdf (a PDF's page: only bitmaps are drawn)"],
   },
   {
     name: "what is not drawn is named, and the rest is drawn",
