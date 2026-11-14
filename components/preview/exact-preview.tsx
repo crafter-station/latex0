@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useFileStore } from "@/lib/file-store"
 import { bundleLatexFiles } from "@/lib/latex-bundler"
 import { findMainFile } from "@/lib/file-utils"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { PDF_REGION, type ExactRequest, type ExactResponse } from "@/lib/exact/protocol"
 import type { PdfPictures } from "@/lib/exact/pdf-regions"
 import { HtmlPreview } from "./html-preview"
@@ -98,9 +97,9 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   const measure = (el: HTMLDivElement | null) => {
     observer.current?.disconnect()
     if (!el) return
-    // (the scroll area's viewport, not the pages' container: that one grows with the pages when they are zoomed)
+    // (the scrolling panel, not the pages' container: that one grows with the pages when they are zoomed)
     observer.current = new ResizeObserver(([entry]) => setPanelWidth(entry.contentRect.width - 32))
-    observer.current.observe(el.closest("[data-radix-scroll-area-viewport]") ?? el)
+    observer.current.observe(el)
   }
 
   useEffect(() => {
@@ -165,7 +164,8 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   }
 
   return (
-    <ScrollArea className="relative h-full flex-1">
+    // (a plain scrolling panel: zoomed pages are wider than it, and scroll sideways)
+    <div ref={measure} className="relative h-full flex-1 overflow-auto">
       {drawn && <style>{fontFaces(drawn.fonts)}</style>}
       <div className="pointer-events-none sticky top-2 z-10 -mb-7 ml-auto mr-3 w-fit select-none rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
         Exact view · beta{drawn ? ` · ${drawn.pages.length} page${drawn.pages.length === 1 ? "" : "s"} · ${result?.ok ? `${Math.round(drawn.ms)} ms` : "editing…"}` : ""}
@@ -175,7 +175,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
           The layout is exact, but the preview does not draw: {drawn.warnings.join("; ")}.
         </div>
       )}
-      <div ref={measure} className="flex flex-col items-center gap-4 p-4">
+      <div className="flex w-max min-w-full flex-col items-center gap-4 p-4">
         {!drawn ? (
           <div className="p-8 text-sm text-muted-foreground">Laying out…</div>
         ) : (
@@ -190,7 +190,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
           ))
         )}
       </div>
-    </ScrollArea>
+    </div>
   )
 }
 
