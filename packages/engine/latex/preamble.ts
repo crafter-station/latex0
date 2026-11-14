@@ -4,7 +4,7 @@
 // body comes back with each theorem environment as \begin{LXtheorem}{name}.
 
 import type { ClassOptionData, FontRef } from "../layout/classdata"
-import { parseDimen, parseGlue, type GlueSpec } from "../layout/dimen"
+import { parseDimen, parseGlue, type GlueSpec, type Internal } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 import { classData, CM_FONTS, documentClass, withFonts, withT1, type FontSetup } from "./classes"
 import { dataFont } from "./data"
@@ -553,9 +553,16 @@ export function readPreamble(src: string): Preamble {
   if (lengths.length) {
     for (const [name, value, font] of lengths) {
       const f = selectedFont(font)
-      const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
+      // \baselineskip there is the class's \normalsize's (§ 455: a factor times its width; § 461: the glue itself when it
+      // comes first); a \baselinestretch in force by then would depend on which \selectfont ran since: not modeled
+      const internal = (cs: string): Internal | undefined => {
+        if (cs !== "baselineskip") return undefined
+        if (stretch || setspace) throw new Unsupported(`\\setlength{\\${name}}{${value}} with \\baselinestretch`)
+        return { level: "glue", value: k.glue.baselineskip }
+      }
+      const units = { em: f.params[QUAD], ex: f.params[X_HEIGHT], internal }
       let g: GlueSpec
-      try { g = parseGlue(value, units) } catch { throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
+      try { g = parseGlue(value, units) } catch (e) { if (e instanceof Unsupported) throw e; throw new Unsupported(`\\setlength{\\${name}}{${value}}`) }
       if (name === "extrarowheight") k = { ...k, array: { extrarowheight: g.width } }
       else if (name === "parindent") k = { ...k, dimens: { ...k.dimens, parindent: g.width } }
       else if (name === "headheight" || name === "columnsep" || name === "columnseprule") k = { ...k, dimens: { ...k.dimens, [name]: g.width } }
