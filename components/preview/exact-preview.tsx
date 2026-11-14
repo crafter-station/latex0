@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useFileStore } from "@/lib/file-store"
 import { bundleLatexFiles } from "@/lib/latex-bundler"
 import { findMainFile } from "@/lib/file-utils"
@@ -32,7 +32,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   const pagesRef = useRef<{ pages: string[]; fonts: string[] } | null>(null)
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [fallback, setFallback] = useState(false)
-  const settle = (r: ExactResponse) => {
+  const settle = useCallback((r: ExactResponse) => {
     setResult(r)
     if (staleTimer.current) clearTimeout(staleTimer.current)
     staleTimer.current = null
@@ -49,9 +49,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
     } else {
       setFallback(true)
     }
-  }
-  const settleRef = useRef(settle)
-  settleRef.current = settle
+  }, [])
   // 100% fits the page to the panel's width
   const [panelWidth, setPanelWidth] = useState(0)
   const observer = useRef<ResizeObserver | null>(null)
@@ -66,7 +64,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
     const w = new Worker(new URL("../../lib/exact/engine.worker.ts", import.meta.url), { type: "module" })
     w.onmessage = (e: MessageEvent<ExactResponse>) => {
       if (e.data.id !== nextId.current) return // a newer edit is on its way
-      settleRef.current(e.data)
+      settle(e.data)
     }
     worker.current = w
     return () => {
@@ -74,7 +72,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
       worker.current = null
       if (staleTimer.current) clearTimeout(staleTimer.current)
     }
-  }, [])
+  }, [settle])
 
   useEffect(() => {
     if (!files.length) return
@@ -90,9 +88,9 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
       })
       .catch((e) => {
         if (id !== nextId.current) return
-        settleRef.current({ id, ok: false, reason: e instanceof Error ? e.message : "bundling failed" })
+        settle({ id, ok: false, reason: e instanceof Error ? e.message : "bundling failed" })
       })
-  }, [files])
+  }, [files, settle])
 
   // Download: the browser prints the SVG pages, one per sheet at the document's paper size.
   useEffect(() => {
