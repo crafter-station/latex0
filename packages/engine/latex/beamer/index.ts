@@ -46,7 +46,7 @@ import { SANS } from "./frame"
 import { beamerFirstPage, linkPages, navigationPgf, navigationSymbols, navLines, pgfBackground, type NavLine } from "./navigation"
 import { BeamerPgf } from "./pgf"
 import { pgfSetPage, pgfTakePageTop } from "../../pgf/fadings"
-import { pdfObjects, pdfOpenActionPage1, pdfOutline, pdfPageObjects, pdfShipPage, pgfPdfForms, type PdfPageObjects } from "../../pgf/pdfforms"
+import { pdfObjects, pdfOpenActionPage1, pdfOutline, pdfPageObjects, pdfShipPage, pageForms, pgfPdfForms, type PdfPageObjects } from "../../pgf/pdfforms"
 import { evaluate, outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 import { declareShadowTheme } from "./shadow"
@@ -320,7 +320,7 @@ function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | 
   return {
     result: {
       trace,
-      view: { paper: { width: paperwidth, height: paperheight }, origin: { h: INCH + hoffset, v: INCH + voffset }, marks: drawn },
+      view: { paper: { width: paperwidth, height: paperheight }, origin: { h: INCH + hoffset, v: INCH + voffset }, marks: drawn, forms: pageForms(pgf.s) },
       decisions,
       pages: pageTrace,
       columns: columns.map((c) => c.column && c.column.map(emitBoxes)),
