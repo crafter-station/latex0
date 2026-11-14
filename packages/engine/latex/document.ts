@@ -91,7 +91,7 @@ export function document(source: string, { epoch = Math.floor(Date.now() / 1000)
 }
 
 /** The commands that read what the run before wrote to the .aux file: with one, LaTeX runs twice. */
-const READS_AUX = /\\(?:ref|pageref|eqref|cite|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
+const READS_AUX = /\\(?:ref|pageref|eqref|cite|citen|citenum|citeonline|[cC](?:page)?ref(?:range)?\*?|autoref\*?|nameref\*?|Nameref)\{/
 
 /** What a run writes for the next one: the .toc file's lines and the .aux file's \newlabel values. */
 interface Aux { /** longtable's \LT@i … lines */ longtables: Map<number, LtEntry[]>; toc: TocEntry[]; labels: Map<string, NewLabel>; /** hyperref's .out file */ bookmarks: Bookmark[]; /** hyperref's \HyPL@Entry lines */ pageLabels: string; /** the .lof and .lot files */ lists: Record<ListFile, ListEntry[]>; /** \bibcite: key → number */ cites: Map<string, string>; /** natbib's \bibcite */ natCites: Map<string, NatEntry>; /** cleveref's \newlabel{key@cref} */ crefs: Map<string, CrefEntry>; /** caption.sty's \caption@newlabel{n}{page} */ captionPages: Map<number, number> }
@@ -203,7 +203,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     const c = pre.hyperOpts.colors, spec = (x: string) => (usesXcolor ? colors.spec(x) : COLOR_STY[x] ?? colorSpec(x))
     hyperDriver.colors = { link: spec(c.link), anchor: spec(c.anchor), cite: spec(c.cite), file: spec(c.file), url: spec(c.url) }
   }
-  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}) }
+  const doc: DocState = { footnote: 0, refs, ...(pre.babel ? { babel: pre.babel } : {}), xcolor: usesColor, siunitx: pre.usesSiunitx ? pre.siOptions : undefined, subcaption: pre.usesSubcaption, color: colorSpec, ...(pre.natbib ? { natbib: prev ? pre.natbib.later : pre.natbib.first } : {}), ...(pre.cite ? { cite: pre.cite } : {}) }
   const decisions: ParagraphTrace[] = []
   // where each paragraph was broken: the length of the main vertical list then (its material so far)
   const brokenAt: number[] = []
@@ -366,7 +366,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   }
   // \thepage in each toc line and \newlabel: the page its \write was shipped out on
   let written: Aux | null = null
-  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof" || b.kind === "longtable") || READS_AUX.test(body) || hyper || pre.natbib || run.oddPages.length) { // (longtable: its widths) (natbib: the .aux's \bibstyle)
+  if (blocks.some((b) => b.kind === "toc" || b.kind === "lof" || b.kind === "longtable") || READS_AUX.test(body) || [...tabulars0, ...minipages0].some((x) => READS_AUX.test(x.body)) || hyper || pre.natbib || pre.cite || run.oddPages.length) { // (longtable: its widths) (natbib: the .aux's \bibstyle) (cite.sty: \cite[note]{keys}, and its citations in tabulars)
     const pageOf = new Map<Node, string>(), order = new Map<Node, number>(), countOf = new Map<Node, number>()
     const walk = (n: Node, i: number) => { pageOf.set(n, pages[i].thepage); countOf.set(n, pages[i].count); order.set(n, order.size); if (n.kind === "hlist" || n.kind === "vlist") for (const c of n.list) walk(c, i) }
     shipped.forEach((b, i) => walk(b, i))

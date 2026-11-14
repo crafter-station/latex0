@@ -1,0 +1,20 @@
+% fixture: caption/text-commands-kernel
+% tier: T3
+% engine: document
+% specials: compare
+% covers: LaTeX's own \caption with \, (robust: \protect\, in the lot line's \write), \% \& \# and a formula in its text: on one line (\@makecaption's \sbox) and as a paragraph, and their lines in the list of tables
+\documentclass{article}
+\begin{document}
+\listoftables
+Text.
+\begin{table}[h]
+\caption{Latency (median of 10\,000 switches), 5\% of $b=64$ \& item \#2.}
+\centering
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\begin{table}[h]
+\caption{A long caption with 10\,000 switches and 5\% of $b=64$ that describes the table in great detail, so long that it cannot fit on a single line}
+\centering
+\begin{tabular}{c}Y\end{tabular}
+\end{table}
+\end{document}

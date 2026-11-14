@@ -19,7 +19,7 @@ import { chapter, clearpage, columnSwitch, heading, topnewpageBox } from "./sect
 import { Unsupported } from "./unsupported"
 import { addGlue, dimen, LOW_PENALTY, negate } from "./vlist"
 import { type OutputHook } from "./output"
-import { tocLink } from "./hyperref"
+import { hyperDriver, tocLink } from "./hyperref"
 import { colorPop, colorPush, setgroup, xcolor } from "./xcolor"
 import { preamble, tabularLines } from "./tabular"
 import { mathEnv, paragraphInput, spec, squeeze, thanksInsert } from "./paragraph"
@@ -267,7 +267,8 @@ export function tocLine(cx: Ctx, e: TocEntry, parskip: GlueSpec) {
   // hyperref (linktoc=section): the number and the title in a link to the heading's anchor
   let body = e.title
   if (hyper && e.anchor) {
-    const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath }).list
+    // (with dvips the link's text is an \hbox: restricted horizontal mode, a formula there has no \relpenalty)
+    const title = paragraphInput(e.title, run.k, "normalsize", doc, { start: [], font, amsmath, restricted: !hyperDriver.pdftex }).list
     start.push(...tocLink([...nl, ...title], e.anchor, run.k.sizes.normalsize.baselineskip.width))
     body = ""
   } else start.push(...nl)

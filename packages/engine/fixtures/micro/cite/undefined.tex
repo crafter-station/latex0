@@ -1,0 +1,18 @@
+% fixture: cite/undefined
+% tier: T3
+% engine: document
+% covers: cite.sty's undefined keys: {\bfseries ?} set at once, before the sorted numbers, with \citepunct between; in an italic font the bold one of that shape
+\documentclass{article}
+\usepackage{cite}
+\begin{document}
+An unknown key \cite{nokey} alone, one after known ones \cite{b,nokey,a}, two \cite{nokey,nope} and \emph{in emphasized text \cite{c,nokey}} too.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

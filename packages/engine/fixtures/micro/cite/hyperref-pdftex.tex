@@ -1,0 +1,21 @@
+% fixture: cite/hyperref-pdftex
+% tier: T3
+% engine: document
+% specials: compare
+% oracle: pdflatex
+% covers: cite.sty with hyperref (pdfTeX): each number between \pdfstartlink and \pdfendlink in the paragraph, colored with colorlinks
+\documentclass{article}
+\usepackage{cite}
+\usepackage[colorlinks]{hyperref}
+\begin{document}
+Linked numbers \cite{b,a} and a range \cite{c,a,b} and a note \cite[p.~5]{e,a} and an unknown key \cite{nokey,f} in a line.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

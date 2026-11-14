@@ -1,0 +1,18 @@
+% fixture: cite/option-ref
+% tier: T3
+% engine: document
+% covers: cite.sty's ref option: \citeleft is [Ref.\penalty\@M\ 
+\documentclass{article}
+\usepackage[ref]{cite}
+\begin{document}
+With the word in the brackets \cite{a,c,e} and \cite[p.~2]{b} in a line of text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

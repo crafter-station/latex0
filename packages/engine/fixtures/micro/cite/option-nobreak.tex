@@ -1,0 +1,18 @@
+% fixture: cite/option-nobreak
+% tier: T3
+% engine: document
+% covers: cite.sty's nobreak option: \citeprepenalty, \citemidpenalty and \citepunctpenalty are \@M, so no line breaks before or in a citation
+\documentclass{article}
+\usepackage[nobreak]{cite}
+\begin{document}
+With the nobreak option a paragraph cannot be broken before a citation or inside one, so the lines of this paragraph are broken elsewhere than with the defaults \cite[see the long note here]{a,c,e} and also here \cite{b,a,f,e,d}, which is seen where a citation such as \cite{a,c,e} comes near the end of a line of the text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}
