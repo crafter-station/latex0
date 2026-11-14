@@ -124,6 +124,8 @@ export function memoirLayout(k: ClassOptionData, m: Memoir, units: (font: unknow
     d.evensidemargin = toPoint(d.trimedge + d.foremargin - INCH)
     d.textwidth = toPoint(d.textwidth)
   }
+  // (margins that leave no type block: LaTeX goes on with lengths that make no page)
+  if (d.textwidth <= 0 || d.textheight <= k.glue.topskip.width) throw new Unsupported("memoir's margins: no type block left")
   // \begin{document}: \columnwidth\textwidth (two columns are not laid out)
   d.columnwidth = d.textwidth
   return withTextHeight({ ...k, dimens: d })
@@ -199,6 +201,8 @@ export function memoirBlock(b: Block): void {
     for (const it of b.items) for (const p of it.parts) { if (p.kind === "list") throw new Unsupported("a list in a quote in memoir"); memoirText(p.text) }
     return
   }
+  // (memoir's \cleardoublepage is its \cleartorecto or \cleartoverso, the blank page in the cleared style: untried here)
+  if (b.kind === "newpage" && b.cmd === "cleardoublepage") throw new Unsupported("\\cleardoublepage in memoir")
   if (b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "epigraph") return
   if (b.kind === "pagestyle" && b.cmd === "thispagestyle" && (b.style === "plain" || b.style === "empty")) return
   throw new Unsupported(b.kind === "pagestyle" ? `\\${b.cmd}{${b.style}} in memoir` : `a ${b.kind} in memoir`)
