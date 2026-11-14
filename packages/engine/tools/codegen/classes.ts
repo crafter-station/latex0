@@ -7,7 +7,7 @@ import { execFileSync } from "node:child_process"
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { SIZE_COMMANDS, type ClassData, type ClassOptionData, type SizeData } from "../../layout/classdata"
-import { parseGlue } from "../../layout/dimen"
+import { parseGlue, type GlueSpec } from "../../layout/dimen"
 import { parseScaled } from "../oracle/tracing"
 import { loadTfm } from "../oracle/oracle"
 import { texEnv } from "../tex"
@@ -17,11 +17,23 @@ const OUT = "packages/engine/data/classes"
 const CLASSES: Record<string, string[]> = {
   article: ["10pt", "11pt", "12pt"], report: ["10pt", "11pt", "12pt"], book: ["10pt", "11pt", "12pt"], letter: ["10pt", "11pt", "12pt"],
   beamer: ["8pt", "9pt", "10pt", "11pt", "12pt", "14pt", "17pt", "20pt"],
+  memoir: ["10pt", "11pt", "12pt"],
+  scrartcl: ["10pt", "11pt", "12pt"],
+  amsart: ["10pt", "11pt", "12pt"],
 }
+/** memoir's own lengths: the stock and the trims, the margins its layout commands keep (\setlrmarginsandblock …
+ *  \fixthelayout), \onelineskip, and the lengths its \epigraph and \chapter read */
+const MEMOIR_DIMENS = ["stockwidth", "stockheight", "trimtop", "trimedge", "spinemargin", "foremargin", "uppermargin", "lowermargin", "binding", "headdrop", "onelineskip", "epigraphwidth", "epigraphrule", "normalrulethickness"]
+const MEMOIR_GLUE = ["beforeepigraphskip", "afterepigraphskip", "beforechapskip", "midchapskip", "afterchapskip"]
+/** the lengths of a class besides the kernel's */
+const classDimens = (cls: string) => (cls === "memoir" ? MEMOIR_DIMENS : [])
 /** beamer's own lengths (registers, or macros as geometry's are): geometry's margins, the text margins and sidebars,
  *  and what \beamer@calculateheadfoot sets at \begin{document} for the theme loaded (the default: an empty headline
  *  and footline) */
 const BEAMER_DIMENS = ["Gm@lmargin", "Gm@rmargin", "beamer@leftmargin", "beamer@rightmargin", "beamer@leftsidebar", "beamer@rightsidebar", "headdp", "footheight", "sidebarheight"]
+
+/** KOMA-Script's own lengths: typearea's \footheight (scrlayer's foot layers) */
+const KOMA_DIMENS = ["footheight"]
 
 const DIMENS = [
   "paperwidth", "paperheight", "textwidth", "textheight", "oddsidemargin", "evensidemargin", "topmargin", "headheight", "headsep",
@@ -75,7 +87,7 @@ function probe(cls: string, option: string, packages = ""): string {
     ...(packages.includes("fontenc") ? [...new Set(FONT_SHAPES.map((f) => f.split("/").slice(0, 2).join("/")))].map((ef) => `{\\fontencoding{${ef.split("/")[0]}}\\fontfamily{${ef.split("/")[1]}}\\fontseries{m}\\fontshape{n}\\selectfont}`) : []),
     ...(packages.includes("fontenc") ? FONT_SHAPES.map((f) => `\\immediate\\write16{D:${f}:\\ifcsname ${f}\\endcsname 1\\else 0\\fi}`) : []),
     ...(packages.includes("fontenc") ? SIZE_COMMANDS.map((sz) => `{\\${sz}${FONT_SHAPES.map((f) => { const [e, fam, ser, sh] = f.split("/"); return `{\\fontencoding{${e}}\\fontfamily{${fam}}\\fontseries{${ser}}\\fontshape{${sh}}\\selectfont\\immediate\\write16{N:${sz}:${f}:\\fontname\\font:\\the\\hyphenchar\\font}}` }).join("")}}`) : []),
-    ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
+    ...[...DIMENS, ...classDimens(cls)].map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : cls.startsWith("scr") ? KOMA_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...[...GLUE, ...(cls === "memoir" ? MEMOIR_GLUE : [])].map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
     ...SIZE_COMMANDS.map((s) => `\\S\\${s}`),
     // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
     "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
@@ -187,7 +199,7 @@ function texData(cls: string, option: string): ClassOptionData {
   for (const [size, st] of struts) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].strut = st
   for (const [size, c] of companion) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].companion = c
   for (const [size, c] of bold) if (data.sizes[size as keyof ClassOptionData["sizes"]]) data.sizes[size as keyof ClassOptionData["sizes"]].bold = c
-  const missing = [...DIMENS.filter((d) => !(d in data.dimens)), ...GLUE.filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || ALPHABETS.some((a) => data.sizes[s].alphabets[a].length !== 3) || Object.values(data.sizes[s].amsFonts).some((f) => f.length !== 3) || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
+  const missing = [...[...DIMENS, ...classDimens(cls)].filter((d) => !(d in data.dimens)), ...[...GLUE, ...(cls === "memoir" ? MEMOIR_GLUE : [])].filter((g) => !(g in data.glue)), ...[...INTS, "raggedbottom", "twoside", "footins", "footinscount", "secnumdepth", "topnumber", "bottomnumber", "totalnumber", "topfraction", "bottomfraction", "textfraction", "floatpagefraction"].filter((i) => !(i in data.ints)), ...["footinsskip", "fptop", "fpsep", "fpbot", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "G").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "G").map(([, p]) => `list1${p}@${sz}`))].filter((g) => !(g in data.glue)), ...["footinsdimen", "toproom", "botroom", "textmin", "fpmin", ...[1, 2, 3, 4, 5, 6].flatMap((n) => LIST.filter(([t]) => t === "D").map(([, p]) => `list${n}${p}`)), ...SIZE_COMMANDS.flatMap((sz) => LIST.filter(([t]) => t === "D").map(([, p]) => `list1${p}@${sz}`))].filter((d) => !(d in data.dimens)), ...SIZE_COMMANDS.filter((s) => !data.sizes[s] || data.sizes[s].math.text.length !== 4 || ALPHABETS.some((a) => data.sizes[s].alphabets[a].length !== 3) || Object.values(data.sizes[s].amsFonts).some((f) => f.length !== 3) || !data.sizes[s].t1.font.name || !data.sizes[s].t1.bold.name || FONT_SHAPES.some((f) => !data.sizes[s].fonts[f]))]
   // letter has no floats' captions
   const absent = cls === "letter" ? ["abovecaptionskip", "belowcaptionskip"] : []
   const lacking = missing.filter((x) => !absent.includes(x))
@@ -213,12 +225,12 @@ const ASPECT_RATIOS = ["2013", "1610", "169", "149", "141", "54", "32"]
  *  aspect ratio) */
 function variants(cls: string, option: string, base: ClassOptionData): ClassOptionData["variants"] {
   const out: NonNullable<ClassOptionData["variants"]> = {}
-  const all = cls === "beamer" ? ASPECT_RATIOS.map((a) => `aspectratio=${a}`) : PAPERS.flatMap((paper) => SIDES.flatMap((side) => (cls === "letter" ? [""] : ["", ",twocolumn"]).map((column) => `${paper},${side}${column}`)))
+  const all = cls === "beamer" ? ASPECT_RATIOS.map((a) => `aspectratio=${a}`) : PAPERS.flatMap((paper) => SIDES.flatMap((side) => (cls === "letter" || cls === "memoir" ? [""] : ["", ",twocolumn"]).map((column) => `${paper},${side}${column}`)))
   for (const v of all) {
     const dir = join(".cache/classes", `${cls}-${option}-${v.replace(/[,=]/g, "-")}`)
     mkdirSync(dir, { recursive: true })
     const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}", "\\makeatletter", // (beamer's \\begin{document} ends with \\makeatother)
-      ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...INTS.map((i) => `\\P I\\${i}`),
+      ...[...DIMENS, ...classDimens(cls)].map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : cls.startsWith("scr") ? KOMA_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...INTS.map((i) => `\\P I\\${i}`),
       // the list margins (two columns change \\leftmargini … \\leftmarginvi and \\labelwidth)
       ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
       `{${["i", "ii", "iii", "iv", "v", "vi"].map((r, n) => `\\@list${r}${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list${n + 1}${p}=\\the\\${p}}`).join("")}`).join("")}}`,
@@ -237,12 +249,46 @@ function variants(cls: string, option: string, base: ClassOptionData): ClassOpti
   return out
 }
 
+/** KOMA-Script's parskip= options, against the class's defaults: what each sets (\setparsizes: \parindent, \parskip,
+ *  \parfillskip; the + and * variants' \parfillskip is .3333 and .25 of the \linewidth at \begin{document}, here the
+ *  default paper's \textwidth) */
+const KOMA_OPTIONS = ["parskip=half", "parskip=full", "parskip=half-", "parskip=full-", "parskip=half+", "parskip=full+", "parskip=half*", "parskip=full*"]
+function optionVariants(cls: string, option: string, base: ClassOptionData): NonNullable<ClassOptionData["options"]> {
+  const out: NonNullable<ClassOptionData["options"]> = {}
+  for (const o of KOMA_OPTIONS) {
+    const dir = join(".cache/classes", `${cls}-${option}-${o.replace(/[=*+]/g, "_")}`)
+    mkdirSync(dir, { recursive: true })
+    const src = [`\\documentclass[${option},${o}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}",
+      ...DIMENS.map((d) => `\\P D\\${d}`), ...GLUE.map((g) => `\\P G\\${g}`), "\\end{document}", ""].join("\n")
+    writeFileSync(join(dir, "v.tex"), src)
+    execFileSync("latex", ["-interaction=batchmode", "-halt-on-error", "v.tex"], { cwd: dir, env: texEnv({ max_print_line: "100000" }), encoding: "latin1" })
+    const diff = { dimens: {} as Record<string, number>, glue: {} as Record<string, GlueSpec> }
+    for (const line of readFileSync(join(dir, "v.log"), "latin1").split("\n")) {
+      const m = line.match(/^([DG]):([\w@]+)=(.*)$/)
+      if (!m) continue
+      if (m[1] === "D") { const x = dimen(m[3]); if (x !== base.dimens[m[2]]) diff.dimens[m[2]] = x }
+      else { const x = glue(m[3]); if (JSON.stringify(x) !== JSON.stringify(base.glue[m[2]])) diff.glue[m[2]] = x }
+    }
+    out[o] = diff
+  }
+  return out
+}
+
+/** The \hyphenation exceptions a class file sets as it loads (amsart.cls's list), as written */
+function classHyphenation(file: string): string[] {
+  const path = execFileSync("kpsewhich", [file], { env: texEnv(), encoding: "utf8" }).trim()
+  const src = readFileSync(path, "latin1").replace(/%.*$/gm, "")
+  return [...src.matchAll(/\\hyphenation\{([^{}]*)\}/g)].flatMap((m) => m[1].split(/\s+/).filter(Boolean))
+}
+
 export function codegenClasses(check: boolean): number {
   const stale: string[] = []
   for (const [cls, options] of Object.entries(CLASSES)) {
-    const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : "LaTeX kernel and standard classes as loaded by `latex`", options: {} }
+    const data: ClassData = { class: cls, tex: cls === "beamer" ? "beamer as loaded by `latex`, with its default theme" : ["article", "report", "book", "letter"].includes(cls) ? "LaTeX kernel and standard classes as loaded by `latex`" : `${cls} as loaded by \`latex\``, options: {} }
     // (beamer's paper is its own, 128mm × 96mm by default, or its aspect ratio's)
-    for (const o of options) { const d = texData(cls, o); d.variants = variants(cls, o, d); data.options[o] = d }
+    for (const o of options) { const d = texData(cls, o); d.variants = variants(cls, o, d); if (cls.startsWith("scr")) d.options = optionVariants(cls, o, d); data.options[o] = d }
+    const exceptions = classHyphenation(`${cls}.cls`)
+    if (exceptions.length) data.hyphenation = exceptions
     const body = JSON.stringify(data) + "\n"
     const file = join(OUT, `${cls}.json`)
     if (existsSync(file) && readFileSync(file, "utf8") === body) continue

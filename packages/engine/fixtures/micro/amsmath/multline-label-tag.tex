@@ -1,0 +1,29 @@
+% fixture: amsmath/multline-label-tag
+% tier: T3
+% engine: document
+% covers: \label and \tag in multline and multline* (read in \mmeasure@: \label@in@display, \tag@in@align; \make@display@tag in the last row puts the tag and then the \label), a \tag* that fits beside the last row and a \tag that does not (\shifttag@: below it), with \eqref and \ref to them
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+A long formula is split with multline; see \eqref{m:one}, \eqref{m:two} and \ref{m:three}.
+\begin{multline} \label{m:one}
+a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p \\
+= q + r + s + t + u + v + w + x + y + z
+\end{multline}
+With a tag in place of the number,
+\begin{multline}
+a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p \tag{M} \label{m:two} \\
+= q + r + s + t + u + v + w + x + y + z
+\end{multline}
+and in the starred form, with a tag too wide to stand beside the last row:
+\begin{multline*}
+a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p \\
+= q + r + s + t + u + v + w + x + y + z + a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p \tag*{[the long one]} \label{m:three}
+\end{multline*}
+The numbering goes on:
+\begin{multline}
+a + b + c + d + e + f + g + h + i + j + k + l + m + n + o + p \\
+= q + r + s + t + u + v + w + x + y + z
+\end{multline}
+which ends the example.
+\end{document}

@@ -68,8 +68,8 @@ async function typeset({ id, source: text, images }: ExactRequest): Promise<Exac
     try {
       const t = performance.now()
       const result = document(text, { images: info })
-      const { pages, fonts } = svgPages(result.trace, result.view!, { image: (name) => images[name] })
-      return { id, ok: true, pages, fonts, ms: performance.now() - t }
+      const { pages, fonts, warnings } = svgPages(result.trace, result.view!, { image: (name) => images[name] })
+      return { id, ok: true, pages, fonts, warnings, ms: performance.now() - t }
     } catch (e) {
       if (e instanceof Missing) { await fetchData(e.path); continue }
       const reason = e instanceof Unsupported ? e.message : `engine error: ${e instanceof Error ? e.message : String(e)}`

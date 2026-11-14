@@ -7,8 +7,10 @@
 // scope under the transformation that points the tip along the path, and adds the hull to the picture.
 // The setup and drawing code run in the picture's horizontal list: their stray spaces (\pgfdeclarearrow's
 // codes keep the end of line after `{`; \pgfarrowsdeclare's are trimmed) are \glue 0.0 there, and their
-// quick lengths' \unskip take a glue off. Tip options other than none, reversed and swapped tips, bending
-// and double lines are not modeled.
+// quick lengths' \unskip take a glue off. A tip's options (`[…]` after its name: the arrow keys below) are
+// read when the specification is parsed, each one code that sets the tip's registers when the tip is used
+// (\pgfarrows@getid): at once, or as a late option after the others. Colors, slant, angle, bending and
+// flexing are not modeled.
 
 import { Unsupported } from "../latex/unsupported"
 import type { PgfDriver } from "./drivers"
@@ -17,16 +19,31 @@ import { pgfSetDash, pgfSetFillColor, pgfSetLineWidth } from "./graphicstate"
 import { FUNCTIONS, reciprocal, type PgfMathCtx } from "./mathfunctions"
 import { TRIGONOMETRIC } from "./mathtrig"
 import { invoke, pgfPathClose, pgfPathCurveTo, pgfPathLineTo, pgfPathMoveTo, resetPathSizes } from "./paths"
-import { pgfPointNormalised, pointLineAtDistance, qpoint, setLength, type PgfPoint } from "./points"
+import { pgfPointNormalised, pgfPointPolar, pointLineAtDistance, qpoint, setLength, type PgfPoint } from "./points"
+import { pgfPathArc } from "./arcs"
 import { beginPgfScope, endPgfScope } from "./scopes"
 import type { PgfState, SoftPathItem } from "./state"
-import { mul, pgfLowLevelSyncCm, pgfTransformCm, pgfTransformReset, pgfTransformShift, pgfTransformXShift } from "./transformations"
+import { mul, pgfLowLevelSyncCm, pgfTransformCm, pgfTransformReset, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformYScale } from "./transformations"
+import { pgfmathParse } from "./mathparser"
 
-/** a tip sequence: the tip kinds in order, `.` marking the line's end */
-export type PgfTipSequence = readonly string[]
+/** an arrow option's code (\pgf@arrows@options): it sets the tip's registers, or queues a late option */
+export type TipOption = (s: PgfState, p: Params, late: (() => void)[]) => void
 
-/** the registers and switches a tip's options set (\pgfarrowlength …, \ifpgfarrowroundjoin …) */
-interface Params { length: number; width: number; inset: number; lineWidth: number; sep: number; roundCap: boolean; roundJoin: boolean; harpoon: boolean; open: boolean }
+/**
+ * an element of a tip sequence: \pgf@arrow@handle{name}{options}, a shorthand
+ * (\pgf@arrow@handle@shorthand{\pgf@ar@means@name}{options}, its own sequence read when the tip is drawn), or
+ * \pgf@arrow@handle@dot (the line's end)
+ */
+export type TipItem = { kind: "tip" | "means"; name: string; opts: readonly TipOption[] } | { kind: "dot" }
+
+/** a tip sequence */
+export type PgfTipSequence = readonly TipItem[]
+
+/** the registers and switches a tip's options set (\pgfarrowlength …, \ifpgfarrowroundjoin …, \pgfarrows@length@scale …) */
+interface Params {
+  length: number; width: number; inset: number; lineWidth: number; sep: number; roundCap: boolean; roundJoin: boolean; harpoon: boolean; open: boolean
+  swap: boolean; reversed: boolean; lengthScale: string; widthScale: string
+}
 
 /** what instantiating a tip keeps: its ends (\pgf@ar@ends@), its hull (\pgf@ar@hull@), its code (\pgf@ar@cache@) */
 interface Instance { tip: number; back: number; line: number; hull: PgfPoint[]; code: string }
@@ -72,10 +89,10 @@ const quick = (s: PgfState, x: number) => setLength(`+${tn(x)}pt`, s)
 /** \pgfarrowssavethe (742–746): the end of line after its last brace is a space */
 const savethe = (s: PgfState) => s.space()
 
-/** \pgfarrowsupperhullpoint{x}{y} (761–770): the point, and below the axis its mirror (no harpoon) */
-function upperHull(i: Instance, x: number, y: number) {
+/** \pgfarrowsupperhullpoint{x}{y} (761–770): the point, and below the axis its mirror (but for a harpoon) */
+function upperHull(i: Instance, x: number, y: number, harpoon = false) {
   i.hull.push({ x, y })
-  if (y > 0) i.hull.push({ x, y: -y })
+  if (y > 0 && !harpoon) i.hull.push({ x, y: -y })
 }
 
 /** \pgfusepathqstroke, …qfill, …qfillstroke (pgfcorequick.code.tex 100–122) */
@@ -189,7 +206,7 @@ const META: Record<string, Kind> = {
       late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
       p.roundCap = p.roundJoin = true
     },
-    key: (p) => metaKey(p, false, `${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`),
+    key: (p) => metaKey(p, false, `${p.harpoon ? "hr" : ""}${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`),
     setup: (s, p, i) => {
       s.space()
       const a = p.length - p.lineWidth, b = p.width - p.lineWidth
@@ -197,11 +214,12 @@ const META: Record<string, Kind> = {
       savethe(s)
       if (!p.roundJoin) throw new Unsupported("pgf: Computer Modern Rightarrow with a miter join")
       i.tip = mul(".5", p.lineWidth)
-      i.line = mul("-.5", p.lineWidth)
+      i.line = p.reversed && p.harpoon ? mul(".5", p.lineWidth) : mul("-.5", p.lineWidth)
       i.back = -a + mul("-.5", p.lineWidth)
       i.hull.push({ x: mul(".5", p.lineWidth), y: mul(".5", p.lineWidth) }, { x: mul(".5", p.lineWidth), y: mul("-.5", p.lineWidth) })
-      upperHull(i, -a + mul(".5", p.lineWidth), mul(".5", b) + mul(".5", p.lineWidth))
-      upperHull(i, -a + mul("-.5", p.lineWidth), mul(".5", b) + mul(".5", p.lineWidth))
+      upperHull(i, -a + mul(".5", p.lineWidth), mul(".5", b) + mul(".5", p.lineWidth), p.harpoon)
+      upperHull(i, -a + mul("-.5", p.lineWidth), mul(".5", b) + mul(".5", p.lineWidth), p.harpoon)
+      if (p.harpoon) i.hull.push({ x: -p.lineWidth, y: mul("-.5", p.lineWidth) }, { x: -a + mul("-.5", p.lineWidth), y: mul(".5", b) + mul("-.5", p.lineWidth) })
       return [a, b]
     },
     draw: (s, d, p, [a, b]) => {
@@ -214,7 +232,169 @@ const META: Record<string, Kind> = {
       s.space()
       pgfPathCurveTo(s, q(mul("-0.81731", a), mul(".2", b)), q(mul("-0.41019", a), mul("0.05833333", b)), q(0, 0))
       s.space()
-      pgfPathCurveTo(s, q(mul("-0.41019", a), mul("-0.05833333", b)), q(mul("-0.81731", a), mul("-.2", b)), q(-a, mul("-.5", b)))
+      if (p.harpoon) pgfPathLineTo(s, q(p.reversed ? mul(".5", p.lineWidth) : -p.lineWidth, 0))
+      else pgfPathCurveTo(s, q(mul("-0.41019", a), mul("-0.05833333", b)), q(mul("-0.81731", a), mul("-.2", b)), q(-a, mul("-.5", b)))
+      s.space()
+      quickUse(s, d, "stroke")
+    },
+  },
+  // Tee Barb (439–520): a T, or with no length (Bar) an I
+  "Tee Barb": {
+    defaults: (s, p, late) => {
+      p.length = lineWidthDependent(s, "1.5pt", "2")
+      late.push(() => { p.width = lineWidthDependent(s, "3pt", "4") })
+      late.push(() => { p.inset = lengthDependent(s, p, "0.0pt", ".5", "0") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
+    },
+    key: (p) => `${tn(p.width)},${tn(p.length)},${tn(p.inset)},${tn(p.lineWidth)},${p.harpoon ? "h" : ""}${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`,
+    setup: (s, p, i) => {
+      s.space()
+      const halfLw = mul(".5", p.lineWidth)
+      let a = p.length - p.inset, swa = false
+      if (a < halfLw) { a = halfLw; swa = true }
+      let b = -p.inset, swb = false
+      if (b > -halfLw) { b = mul("-.5", p.lineWidth); swb = true }
+      savethe(s)
+      savethe(s)
+      savethe(s)
+      const tip = a + (p.roundCap && !swa ? halfLw : 0)
+      i.tip = tip
+      s.space()
+      s.space() // \pgfarrowssetvisualbackend
+      const back = b + (p.roundCap && !swb ? mul("-.5", p.lineWidth) : 0)
+      i.back = back
+      s.space()
+      i.line = p.reversed ? mul(".25", p.lineWidth) : mul("-.25", p.lineWidth)
+      upperHull(i, tip, mul(".5", p.width), p.harpoon)
+      upperHull(i, back, mul(".5", p.width), p.harpoon)
+      if (p.harpoon) i.hull.push({ x: halfLw, y: mul("-.5", p.lineWidth) })
+      return [p.width, a, b]
+    },
+    draw: (s, d, p, [width, a, b]) => {
+      s.space()
+      pgfSetDash(s, d, [], "+0pt")
+      const yc = s.lineWidth
+      if (p.lineWidth !== s.lineWidth) pgfSetLineWidth(s, d, `+${tn(p.lineWidth)}pt`)
+      d.cap(p.roundCap ? "round" : "butt")
+      d.join(p.roundJoin ? "round" : "miter")
+      const x = a + mul("-.5", p.lineWidth), y = b + mul(".5", p.lineWidth)
+      const top = mul(".5", width) + mul("-.5", p.lineWidth), bottom = mul("-.5", width) + mul(".5", p.lineWidth)
+      const move = (px: number, py: number) => { pgfPathMoveTo(s, q(px, py)); s.space() }
+      const line = (px: number, py: number, blank = true) => { pgfPathLineTo(s, q(px, py)); if (blank) s.space() }
+      if (x === y) {
+        // no bar atop the I
+        move(0, mul(".5", width))
+        line(0, p.harpoon ? mul("-.5", p.lineWidth) : mul("-.5", width))
+      } else if (a === mul(".5", p.lineWidth)) {
+        // a bar in one direction
+        move(b, top)
+        line(0, top)
+        if (p.harpoon) line(0, mul("-.5", yc), false)
+        else { line(0, bottom); line(b, bottom) }
+      } else {
+        move(b, top)
+        line(a, top)
+        move(0, top)
+        if (p.harpoon) line(0, mul("-.5", yc), false)
+        else { line(0, bottom); move(b, bottom); line(a, bottom) }
+      }
+      quickUse(s, d, "stroke")
+    },
+  },
+  // Hooks (221–331), its arc the initial 180°
+  Hooks: {
+    defaults: (s, p, late) => {
+      p.length = lineWidthDependent(s, "0.75pt", "1.25")
+      late.push(() => { p.width = lengthDependent(s, p, "0.0pt", "4", "-1") })
+      late.push(() => { p.lineWidth = lineWidthDependent(s, "0.0pt", "1", "1") })
+    },
+    key: (p) => `${tn(p.lineWidth)},${tn(p.length)},${tn(p.width)},180,${p.harpoon ? "h" : ""}${p.roundJoin ? "j" : ""}${p.roundCap ? "c" : ""}`,
+    setup: (s, p, i) => {
+      s.space()
+      const lw = p.lineWidth
+      if (p.harpoon) {
+        i.hull.push({ x: mul(".5", p.length), y: mul("-.5", lw) })
+        s.space()
+        i.hull.push({ x: p.length, y: mul("-.5", lw) + mul(".125", p.width) })
+        s.space()
+      }
+      upperHull(i, p.length, mul(".375", p.width), p.harpoon)
+      s.space()
+      upperHull(i, mul(".5", p.length), mul(".5", p.width), p.harpoon)
+      s.space()
+      const x0 = p.roundCap ? mul("-.5", lw) : 0
+      upperHull(i, x0, mul(".25", p.width), p.harpoon)
+      s.space()
+      upperHull(i, x0, mul(".5", p.width), p.harpoon)
+      s.space()
+      const length = p.length + mul("-.5", lw), width = p.width - lw
+      if (p.reversed && p.roundJoin) { i.back = mul("-.5", lw); s.space() }
+      i.tip = length + mul(".5", lw)
+      if (p.roundCap) i.back = mul("-.5", lw)
+      if (p.reversed) i.line = mul(".5", lw)
+      else if (p.harpoon) i.line = 0
+      else i.line = mul(".25", lw)
+      s.space()
+      for (let k = 0; k < 4; k++) savethe(s)
+      return [length, width]
+    },
+    draw: (s, d, p, [length, width]) => {
+      s.space()
+      pgfSetDash(s, d, [], "+0pt")
+      d.join(p.roundJoin ? "round" : "miter")
+      d.cap(p.roundCap ? "round" : "butt")
+      if (p.lineWidth !== s.lineWidth) pgfSetLineWidth(s, d, `+${tn(p.lineWidth)}pt`)
+      s.begingroup()
+      pgfTransformXScale(s, `+${tn(length)}pt`)
+      s.space()
+      pgfTransformYScale(s, `+${tn(mul(".25", width))}pt`)
+      s.space()
+      pgfPathMoveTo(s, () => { const pp = pgfPointPolar(s, "+90.0", "+1pt"); return { x: pp.x, y: pp.y + PT } })
+      s.space()
+      pgfPathArc(s, "90.0", "+-90", "+1pt", () => s.space())
+      s.space()
+      if (!p.harpoon) { pgfPathArc(s, "+90", "+-90.0", "+1pt", () => s.space()); s.space() }
+      s.endgroup()
+      s.space()
+      if (p.harpoon && p.reversed) { pgfPathLineTo(s, q(s.lineWidth, 0)); s.space() }
+      quickUse(s, d, "stroke")
+    },
+  },
+  // Implies (761–795): the tip of a double line
+  Implies: {
+    defaults: () => {},
+    key: (p) => tn(p.length),
+    setup: (s, _p, i) => {
+      s.space()
+      const xa = s.local.inner?.width ?? 0
+      const a = mul(".25", s.lineWidth) + mul(".25", xa)
+      const b = mul(".5", s.lineWidth) + mul("-.5", xa)
+      i.tip = mul("2.06", a) + mul(".5", b)
+      s.space()
+      i.back = mul("-1.36", a) + mul(".5", b)
+      s.space()
+      upperHull(i, mul("-1.4", a), mul("2.8", a))
+      s.space()
+      upperHull(i, mul("2", a), mul(".5", b))
+      s.space()
+      savethe(s)
+      savethe(s)
+      return [a, b]
+    },
+    draw: (s, d, _p, [a, b]) => {
+      s.space()
+      pgfTransformXShift(s, `${tn(mul(".06", a))}pt`)
+      s.space()
+      pgfSetLineWidth(s, d, `${tn(b)}pt`)
+      pgfSetDash(s, d, [], "+0pt")
+      d.cap("round")
+      d.join("round")
+      const pp = (fx: string, fy: string) => q(mul(fx, a), fy === "0" ? 0 : mul(fy, a))
+      pgfPathMoveTo(s, pp("-1.4", "2.65"))
+      s.space()
+      pgfPathCurveTo(s, pp("-0.75", "1.25"), pp("1", "0.05"), pp("2", "0"))
+      s.space()
+      pgfPathCurveTo(s, pp("1", "-0.05"), pp("-.75", "-1.25"), pp("-1.4", "-2.65"))
       s.space()
       quickUse(s, d, "stroke")
     },
@@ -341,8 +521,12 @@ const META: Record<string, Kind> = {
   },
 }
 
-/** what pgf has declared: the tip kinds, the shorthands (`means`) and the start names (\pgf@ar@start@) */
-interface Registry { kinds: Record<string, Kind>; means: Record<string, string>; start: Record<string, string>; cache: Map<string, Instance> }
+/** what pgf has declared: the tip kinds, the shorthands (`means`: their sequences) and the start names (\pgf@ar@start@) */
+interface Registry {
+  kinds: Record<string, Kind>; means: Record<string, PgfTipSequence>; start: Record<string, string>; cache: Map<string, Instance>
+  /** the shorthands a package declares on tips that are not modeled: what stops each one where it is used */
+  refused: Record<string, string>
+}
 
 const registries = new WeakMap<PgfState, Registry>()
 function registry(s: PgfState): Registry {
@@ -350,11 +534,13 @@ function registry(s: PgfState): Registry {
   if (!r) {
     // pgfcorearrows.code.tex 1069–1079, 1145, 1185, 1222: `<->`, `>-<`, `|` and To, Bar
     r = {
-      kinds: { ...KINDS }, cache: new Map(),
-      means: { ">": "To", "<": ">[reversed]", To: "to" },
+      kinds: { ...KINDS }, cache: new Map(), means: { To: [] }, refused: {},
       start: { "<": ">", ">": "<", to: "to", stealth: "stealth", latex: "latex", To: "To" },
     }
     registries.set(s, r)
+    r.means[">"] = parseSpec(s, r, "To", false)
+    r.means["<"] = parseSpec(s, r, ">[reversed]", false)
+    r.means.To = parseSpec(s, r, "to", false)
   }
   return r
 }
@@ -367,30 +553,152 @@ export function pgfArrowsMeta(s: PgfState) {
   const r = registry(s)
   Object.assign(r.kinds, META)
   for (const k of Object.keys(META)) r.start[k] = k
-  Object.assign(r.means, { LaTeX: "Latex", To: "Computer Modern Rightarrow" })
+  r.means.LaTeX = parseSpec(s, r, "Latex", false)
+  r.means.To = parseSpec(s, r, "Computer Modern Rightarrow", false)
+  r.means.Bar = parseSpec(s, r, "Tee Barb[length=+0pt]", false)
   r.start.LaTeX = "LaTeX"
+  r.start.Bar = "Bar"
+}
+
+/**
+ * \pgfdeclarearrow{name=#1, means=#2} (60–90; the .tip handler, 143–147): the shorthand's sequence, parsed
+ * now; local to TeX's groups, or the document's when `global` (a package's own, declared as it loads)
+ */
+export function pgfDeclareArrowMeans(s: PgfState, name: string, spec: string, global = false) {
+  const r = registry(s)
+  if (r.kinds[name]) throw new Unsupported(`pgf: arrow tip '${name}' was already defined with drawing code`)
+  if (global) {
+    // (a package's own declaration: a tip kind that is not modeled is refused where the shorthand is used)
+    r.start[name] = name
+    try { r.means[name] = parseSpec(s, r, spec, false) } catch (e) {
+      if (!(e instanceof Unsupported)) throw e
+      r.means[name] = []
+      r.refused[name] = e.message
+    }
+    return
+  }
+  const seq = parseSpec(s, r, spec, false)
+  if (global) { r.means[name] = seq; r.start[name] = name } else s.setLocal({ means: { ...s.local.means, [name]: seq }, tipStarts: { ...s.local.tipStarts, [name]: name } })
 }
 
 /**
  * The tip kinds a shorthand or kind name stands for (\pgf@arrow@handle@shorthand@empty: the shorthand's
  * sequence, parsed when it was declared)
  */
-/** the tips a sequence draws: each shorthand's sequence as the means in force say (the local ones first) */
-export function resolveTips(s: PgfState, tips: PgfTipSequence, depth = 0): string[] {
+/** a tip to draw: its kind and its options (its own, then the enclosing shorthands'), or null for the line's end */
+type Tip = { name: string; opts: readonly TipOption[] } | null
+
+/**
+ * the tips a sequence draws: each shorthand's sequence as the means in force say (the local ones first), its
+ * options nested (\pgf@arrow@handle@shorthand: \pgf@arrows@nested@options, the inner shorthand's first)
+ */
+export function resolveTips(s: PgfState, tips: PgfTipSequence, nested: readonly TipOption[] = [], depth = 0): Tip[] {
   if (depth > 20) throw new Unsupported("pgf: arrow tip shorthands too deep")
   const r = registry(s)
-  return tips.flatMap((t) => {
-    if (!t.startsWith("=")) return [t]
-    const name = t.slice(1), m = s.local.means[name] ?? r.means[name]
-    if (m === undefined) throw new Unsupported(`pgf: unknown arrow tip kind ${name}`)
-    return resolveTips(s, parseSpec(r, m, false), depth + 1)
+  return tips.flatMap((t): Tip[] => {
+    if (t.kind === "dot") return [null]
+    if (t.kind === "tip") return [{ name: t.name, opts: [...t.opts, ...nested] }]
+    const m = s.local.means[t.name] ?? r.means[t.name]
+    if (m === undefined) throw new Unsupported(`pgf: unknown arrow tip kind ${t.name}`)
+    if (s.local.means[t.name] === undefined && r.refused[t.name]) throw new Unsupported(r.refused[t.name])
+    return resolveTips(s, m, t.opts.length ? [...t.opts, ...nested] : nested, depth + 1)
   })
 }
 
-/** \pgfdeclarearrow{name=<->,means={#1}} (TikZ's >=…): \pgf@ar@means@> the specification, \pgf@ar@start@< > */
+/** \pgfdeclarearrow{name=<->,means={#1}} (TikZ's >=…): \pgf@ar@means@> the sequence, \pgf@ar@start@< > */
 export function pgfDeclareMeansGreater(s: PgfState, spec: string) {
-  parseSpec(registry(s), spec, false) // (\pgfarrows@initial@parser: read now)
-  s.setLocal({ means: { ...s.local.means, ">": spec } })
+  s.setLocal({ means: { ...s.local.means, ">": parseSpec(s, registry(s), spec, false) } })
+}
+
+/** \pgfarrowsthreeparameters{#1} (571–579): `<dimension> <factor> <factor>`, the missing ones `+0`, read now */
+function threeParameters(s: PgfState, v: string): [string, string, string] {
+  const parts = `${v} +0 +0 +0 `.split(" ")
+  const macro = (x: string) => {
+    const r = pgfmathParse(x, s.units)
+    if (r.errors.length) throw new Unsupported(`pgf: an arrow option: ${r.errors[0]}`)
+    return r.result
+  }
+  return [`${tn(setLength(parts[0], s))}pt`, macro(parts[1]), macro(parts[2])]
+}
+
+/**
+ * The arrow keys (/pgf/arrow keys: pgfcorearrows.code.tex 470–536, pgflibraryarrows.meta.code.tex 28–84) of an
+ * option list, each as the code it adds to \pgf@arrows@options; the values are read now, the registers set when
+ * the tip is used.
+ */
+function arrowOptions(s: PgfState, list: string): TipOption[] {
+  const out: TipOption[] = []
+  const item = (raw: string) => {
+    const eq = raw.indexOf("=")
+    const key = (eq < 0 ? raw : raw.slice(0, eq)).trim()
+    let value: string | undefined = eq < 0 ? undefined : raw.slice(eq + 1).trim()
+    if (key === "") return
+    if (value?.startsWith("{") && value.endsWith("}")) value = value.slice(1, -1)
+    const need = (): string => {
+      if (value === undefined) throw new Unsupported(`pgf: arrow option ${key} without a value`)
+      return value
+    }
+    const dependent = (set: (p: Params, x: number) => void, late: boolean, onLength: boolean) => {
+      const [a, b, c] = threeParameters(s, need())
+      const run = (st: PgfState, p: Params) => set(p, onLength ? lengthDependent(st, p, a, b, c) : lineWidthDependent(st, a, b, c))
+      out.push(late ? (st, p, l) => { l.push(() => run(st, p)) } : (st, p) => run(st, p))
+    }
+    const scale = () => {
+      const r = pgfmathParse(need(), s.units)
+      if (r.errors.length) throw new Unsupported(`pgf: an arrow option: ${r.errors[0]}`)
+      return r.result
+    }
+    switch (key) {
+      case "length": return dependent((p, x) => { p.length = x }, false, false)
+      case "width": return dependent((p, x) => { p.width = x }, true, false)
+      case "width'": return dependent((p, x) => { p.width = x }, true, true)
+      case "inset": return dependent((p, x) => { p.inset = x }, true, false)
+      case "inset'": return dependent((p, x) => { p.inset = x }, true, true)
+      case "line width": return dependent((p, x) => { p.lineWidth = x }, true, false)
+      case "line width'": return dependent((p, x) => { p.lineWidth = x }, true, true)
+      case "sep": value ??= "0.88pt .3 1"; return dependent((p, x) => { p.sep = x }, false, false)
+      case "swap": out.push((_s, p) => { p.swap = !p.swap }); return
+      case "reversed": out.push((_s, p) => { p.reversed = !p.reversed }); return
+      case "harpoon": case "left": {
+        const on = key === "left" || (value ?? "true") === "true"
+        if (!on && value !== "false") throw new Unsupported(`pgf: arrow option harpoon=${value}`)
+        out.push((_s, p) => { p.harpoon = on })
+        return
+      }
+      case "right": out.push((_s, p) => { p.harpoon = true; p.swap = !p.swap }); return
+      case "line cap": {
+        const v = need()
+        if (v !== "butt" && v !== "round") throw new Unsupported(`pgf: arrow option line cap=${v}`)
+        out.push((_s, p) => { p.roundCap = v === "round" })
+        return
+      }
+      case "line join": {
+        const v = need()
+        if (v !== "miter" && v !== "round") throw new Unsupported(`pgf: arrow option line join=${v}`)
+        out.push((_s, p) => { p.roundJoin = v === "round" })
+        return
+      }
+      case "round": out.push((_s, p) => { p.roundCap = p.roundJoin = true }); return
+      case "sharp": out.push((_s, p) => { p.roundCap = p.roundJoin = false }); return
+      case "scale": { const r = scale(); out.push((_s, p) => { p.lengthScale = p.widthScale = r }); return }
+      case "scale length": { const r = scale(); out.push((_s, p) => { p.lengthScale = r }); return }
+      case "scale width": { const r = scale(); out.push((_s, p) => { p.widthScale = r }); return }
+      case "open": out.push((_s, p) => { p.open = true }); return
+      case "fill":
+        if (value === "none") { out.push((_s, p) => { p.open = true }); return }
+        if (value === undefined || value === "") { out.push((_s, p) => { p.open = false }); return }
+    }
+    throw new Unsupported(`pgf: arrow option ${raw.trim()}`)
+  }
+  // the items between commas at brace level 0
+  let depth = 0, from = 0
+  for (let i = 0; i <= list.length; i++) {
+    const c = list[i]
+    if (c === "{") depth++
+    else if (c === "}") depth--
+    else if (c === undefined || (c === "," && depth === 0)) { item(list.slice(from, i)); from = i + 1 }
+  }
+  return out
 }
 
 /**
@@ -398,11 +706,18 @@ export function pgfDeclareMeansGreater(s: PgfState, spec: string) {
  * character alone), their options, `.` for the line's end. With `start`, the names are translated to the
  * end names (\pgf@arrow@swapper) and the sequence reversed.
  */
-function parseSpec(r: Registry, spec: string, start: boolean): string[] {
-  const out: string[][] = []
+function parseSpec(s: PgfState, r: Registry, spec: string, start: boolean): TipItem[] {
+  const out: TipItem[] = []
   let rest = `${spec}[]`
-  const known = (n: string) => r.kinds[n] !== undefined || r.means[n] !== undefined
-  const swap = (n: string) => (start ? r.start[n] ?? "undefined" : n)
+  const known = (n: string) => r.kinds[n] !== undefined || r.means[n] !== undefined || s.local.means[n] !== undefined
+  const swap = (n: string) => (start ? s.local.tipStarts[n] ?? r.start[n] ?? "undefined" : n)
+  // \pgfarrows@initial@parser (291–299): options before the first name are every tip's first
+  let initial: TipOption[] = []
+  if (rest.trimStart().startsWith("[")) {
+    const open = rest.indexOf("["), close = rest.indexOf("]", open)
+    initial = arrowOptions(s, rest.slice(open + 1, close))
+    rest = rest.slice(close + 1)
+  }
   while (rest !== "") {
     const open = rest.indexOf("[")
     if (open < 0) break
@@ -410,7 +725,7 @@ function parseSpec(r: Registry, spec: string, start: boolean): string[] {
     const close = rest.indexOf("]", open)
     let options = rest.slice(open + 1, close)
     rest = rest.slice(close + 1)
-    if (name === "") { if (options.trim() !== "") throw new Unsupported("pgf: arrow tip options"); continue }
+    if (name === "") continue // \pgf@arrows@empty: the options go
     if (name !== "." && !known(swap(name))) {
       // \pgf@arrows@single@char@parser: the first character, without options; the rest is parsed on
       rest = `${name.slice(1)}[${options}]${rest}`
@@ -418,19 +733,20 @@ function parseSpec(r: Registry, spec: string, start: boolean): string[] {
       options = ""
       if (name !== "." && !known(swap(name))) throw new Unsupported(`pgf: unknown arrow tip kind ${name}`)
     }
-    if (options.trim() !== "") throw new Unsupported("pgf: arrow tip options")
-    // (a shorthand's own sequence is read when the tip is drawn: \pgf@arrow@handle@shorthand@empty{\pgf@ar@means@name})
+    if (name === ".") { out.push({ kind: "dot" }); continue }
+    // (a shorthand's own sequence is read when the tip is drawn: \pgf@arrow@handle@shorthand{\pgf@ar@means@name})
     const n = swap(name)
-    out.push(name === "." ? ["."] : r.kinds[n] ? [n] : [`=${n}`])
+    const opts = [...initial, ...arrowOptions(s, options)]
+    out.push({ kind: r.kinds[n] ? "tip" : "means", name: n, opts })
   }
   if (start) out.reverse()
-  return out.flat()
+  return out
 }
 
 /** \pgfsetarrowsstart{#1} (436–447) */
-export function pgfSetArrowsStart(s: PgfState, spec: string) { s.setLocal({ startTips: parseSpec(registry(s), spec, true) }) }
+export function pgfSetArrowsStart(s: PgfState, spec: string) { s.setLocal({ startTips: parseSpec(s, registry(s), spec, true) }) }
 /** \pgfsetarrowsend{#1} (272–283) */
-export function pgfSetArrowsEnd(s: PgfState, spec: string) { s.setLocal({ endTips: parseSpec(registry(s), spec, false) }) }
+export function pgfSetArrowsEnd(s: PgfState, spec: string) { s.setLocal({ endTips: parseSpec(s, registry(s), spec, false) }) }
 /** \pgfsetarrows{#1-#2} (1016–1020), without options */
 export function pgfSetArrows(s: PgfState, spec: string) {
   const dash = spec.indexOf("-")
@@ -446,19 +762,33 @@ export function pgfSetShortenEnd(s: PgfState, x: string) { s.setLocal({ shortenE
  * \pgfarrows@getid{#1}{#2} (632–652): the tip's options run (defaults, then the late ones), and the tip
  * instantiated (654–702) if its full name (\pgf@arrow@fullname: kind, line width, parameters) is new.
  */
-function getId(s: PgfState, d: PgfDriver, name: string): { i: Instance; p: Params } {
+function getId(s: PgfState, d: PgfDriver, tip: NonNullable<Tip>): { i: Instance; p: Params } {
   const r = registry(s)
+  const name = tip.name
   const kind = r.kinds[name]
-  const p: Params = { length: 0, width: 0, inset: 0, lineWidth: 0, sep: 0, roundCap: false, roundJoin: false, harpoon: false, open: false }
+  const p: Params = { length: 0, width: 0, inset: 0, lineWidth: 0, sep: 0, roundCap: false, roundJoin: false, harpoon: false, open: false, swap: false, reversed: false, lengthScale: "1", widthScale: "1" }
   const late: (() => void)[] = []
   kind.defaults(s, p, late)
+  for (const o of tip.opts) o(s, p, late)
   for (const f of late) f()
-  const key = `${name}@${tn(s.lineWidth)}@${s.local.inner ? tn(s.local.inner.width) : "0.0"}pt@@@@${kind.key(p)}`
+  // \pgfarrows@scale@list (arrows.meta 22–24): the length, the inset and the width by their scales
+  if (r.kinds.Latex) {
+    p.length = mul(p.lengthScale, p.length)
+    p.inset = mul(p.lengthScale, p.inset)
+    p.width = mul(p.widthScale, p.width)
+  }
+  const key = `${name}@${tn(s.lineWidth)}@${s.local.inner ? tn(s.local.inner.width) : "0.0"}pt@${p.reversed ? "r" : ""}@@@${kind.key(p)}`
   const cached = r.cache.get(key)
   if (cached) return { i: cached, p }
   const i: Instance = { tip: 0, back: 0, line: 0, hull: [], code: "" }
   s.begingroup()
   const saved = kind.setup(s, p, i)
+  // \pgf@arrows@handle@reverse (706–722): the ends and the hull mirrored
+  if (p.reversed) {
+    ;[i.tip, i.back] = [-i.back, -i.tip]
+    i.line = -i.line
+    i.hull = i.hull.map(({ x, y }) => ({ x: -x, y }))
+  }
   // the code, protocolled once (\pgfinterruptpath: the path and its sizes kept aside)
   const outer = s.protocol
   s.begingroup()
@@ -469,6 +799,7 @@ function getId(s: PgfState, d: PgfDriver, name: string): { i: Instance; p: Param
   s.protocol = ""
   s.sw.buffered = true
   beginPgfScope(s, d)
+  if (p.reversed) pgfTransformXScale(s, "-1")
   kind.draw(s, d, p, saved)
   endPgfScope(s, d)
   i.code = s.protocol
@@ -488,10 +819,10 @@ function getId(s: PgfState, d: PgfDriver, name: string): { i: Instance; p: Param
  * \pgf@arrow@compute@shortening (790–825): the path's shortening (\pgf@xa: from the tip to the line end,
  * or to the back end after `.`) and the sequence's length (\pgf@xb), each tip's getid in a group.
  */
-function shortening(s: PgfState, d: PgfDriver, tips: PgfTipSequence): { xa: number; xb: number } {
+function shortening(s: PgfState, d: PgfDriver, tips: readonly Tip[]): { xa: number; xb: number } {
   let xa = 0, xb = 0, after = false
   for (const t of tips) {
-    if (t === ".") { after = true; continue }
+    if (t === null) { after = true; continue }
     s.begingroup()
     const { i, p } = getId(s, d, t)
     s.endgroup()
@@ -505,12 +836,13 @@ function shortening(s: PgfState, d: PgfDriver, tips: PgfTipSequence): { xa: numb
 }
 
 /** \pgf@arrow@drawer (887–913): one tip, its back end at the origin, in a graphic scope under the synced transformation; the hull into the picture */
-function drawTip(s: PgfState, d: PgfDriver, name: string) {
+function drawTip(s: PgfState, d: PgfDriver, tip: NonNullable<Tip>) {
   s.begingroup()
-  const { i, p } = getId(s, d, name)
+  const { i, p } = getId(s, d, tip)
   // \pgf@arrow@drawer@shift (939–944)
   pgfTransformXShift(s, `${tn(-i.back)}pt`)
   const xc = i.tip + p.sep - i.back
+  if (p.swap) pgfTransformYScale(s, "-1")
   s.begingroup()
   beginPgfScope(s, d)
   // \pgf@arrows@color@setup (925–937): the fill colour pgfstrokecolor (a name)
@@ -549,15 +881,15 @@ function hull(s: PgfState, points: PgfPoint[]) {
 }
 
 /** \pgf@arrow@draw@arrow (876–885): the sequence, its tip at the origin */
-function drawArrow(s: PgfState, d: PgfDriver, tips: PgfTipSequence, total: number) {
+function drawArrow(s: PgfState, d: PgfDriver, tips: readonly Tip[], total: number) {
   s.begingroup()
   pgfTransformXShift(s, `${tn(-total)}pt`)
-  for (const t of tips) if (t !== ".") drawTip(s, d, t)
+  for (const t of tips) if (t !== null) drawTip(s, d, t)
   s.endgroup()
 }
 
 /** \pgf@do@draw@straightend, …start: the arrow from `from` to `at` (\pgftransformarrow, pgfcoretransformations.code.tex 606–621) */
-function drawAt(s: PgfState, d: PgfDriver, tips: PgfTipSequence, total: number, from: PgfPoint, at: PgfPoint) {
+function drawAt(s: PgfState, d: PgfDriver, tips: readonly Tip[], total: number, from: PgfPoint, at: PgfPoint) {
   s.begingroup()
   pgfTransformReset(s)
   pgfTransformShift(s, qpoint(at.x, at.y))
@@ -568,7 +900,7 @@ function drawAt(s: PgfState, d: PgfDriver, tips: PgfTipSequence, total: number, 
 }
 
 /** an end of the path, as \pgf@prepare@…@of@path leaves it for drawing the tip */
-export interface PathEnd { tips: PgfTipSequence; total: number; from: PgfPoint; at: PgfPoint }
+export interface PathEnd { tips: readonly Tip[]; total: number; from: PgfPoint; at: PgfPoint }
 
 const endPoint = (i: SoftPathItem): PgfPoint => ("x" in i ? { x: i.x, y: i.y } : { x: 0, y: 0 })
 const same = (a: PgfPoint, b: PgfPoint) => a.x === b.x && a.y === b.y

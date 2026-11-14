@@ -20,6 +20,8 @@ const TEXTBULLET = 136 // \textbullet in TS1
 export const spanishLayout = { on: false }
 /** spanish is the language selected (\extrasspanish: \textspanish, \mathspanish, its shorthands) */
 export const spanishText = { on: false }
+/** \deactivatequoting: < and > are not shorthands (beamer's begindocument/end hook, beamerbasecompatibility.sty) */
+export const spanishQuoting = { off: false }
 
 /** $\m@th …$ in a label: the formula between math nodes (\mathsurround 0pt) */
 function formula(src: string, k: ClassOptionData, size: SizeCommand, font: Font, amsmath: boolean): Node[] {
@@ -150,7 +152,7 @@ export function spanishMath(src: string): string {
  * are not modeled.
  */
 export function spanishShorthand(two: string): { kind: "guillemet"; right: boolean; quoting: boolean } | string | null {
-  if (two === "<<" || two === ">>") return { kind: "guillemet", right: two === ">>", quoting: true }
+  if (two === "<<" || two === ">>") return spanishQuoting.off ? null : { kind: "guillemet", right: two === ">>", quoting: true }
   if (two === '"<' || two === '">') return { kind: "guillemet", right: two === '">', quoting: false }
   const letter: Record<string, string> = { u: "u\u0308", U: "U\u0308", i: "i\u0308", I: "I\u0308", c: "c\u0327", C: "C\u0327" } // ("i: \"{\i}, as \"i)
   if (two[0] === '"') { if (Object.hasOwn(letter, two[1] ?? "")) return letter[two[1]]; throw new Unsupported(`spanish.ldf's shorthand ${two}`) }

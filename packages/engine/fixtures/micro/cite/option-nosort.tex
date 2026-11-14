@@ -1,0 +1,18 @@
+% fixture: cite/option-nosort
+% tier: T3
+% engine: document
+% covers: cite.sty's nosort option: the numbers in the order given, runs of consecutive ones still compressed
+\documentclass{article}
+\usepackage[nosort]{cite}
+\begin{document}
+In the order given \cite{c,a,b} and \cite{a,b,c,f,e,d} and \cite{d,e,f,a} in a line of text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

@@ -1,0 +1,20 @@
+% fixture: minipage/vspace-star
+% tier: T3
+% engine: document
+% covers: \vspace* in a minipage's vertical mode (\@vspacer: \hrule\@height\z@ \nobreak \vskip skip \vskip\z@skip, the \prevdepth kept): first in a [t] minipage (the rule is the \vtop's first box) beside one without it, and between two paragraphs (the next line's \baselineskip from the line before the rule)
+\documentclass{article}
+\pagestyle{empty}
+\begin{document}
+\noindent
+\begin{minipage}[t]{0.4\linewidth}
+  \vspace*{1cm}
+  Text below a centimetre of space, gyp.
+
+  \vspace*{5pt}
+
+  A second paragraph.
+\end{minipage}\hfill
+\begin{minipage}[t]{0.4\linewidth}
+  Text at the top.
+\end{minipage}
+\end{document}

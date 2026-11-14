@@ -1,0 +1,17 @@
+% fixture: koma/koma-caption
+% tier: T3
+% engine: document
+% covers: KOMA-Script's \@makecaption in a float, a caption of one line: \vskip\abovecaptionskip, \hb@xt@\hsize{\hfill\strut Table~1:\ text\hfill} on the vertical list, \kern\dp\strutbox, \kern-\dp\strutbox, \nopagebreak\vskip\belowcaptionskip\nopagebreak
+\documentclass{scrartcl}
+\begin{document}
+A paragraph before the floats, long enough to fill the first line of the page with some words.
+\begin{table}
+\centering
+\begin{tabular}{lr}
+Item & Cost \\
+Scanning & 6800 \\
+\end{tabular}
+\caption{Proposed budget.}
+\end{table}
+Text after the floats.
+\end{document}

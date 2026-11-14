@@ -10,7 +10,7 @@ import { isKnownCommand } from "../parser"
 import { Unsupported } from "./unsupported"
 import { SECTIONAL } from "./counters"
 import { LATEX_CAPTIONS } from "./babel"
-import { spanishText } from "./spanish"
+import { spanishQuoting, spanishText } from "./spanish"
 
 /** an lstlisting environment's [options] and lines */
 export interface Listing { options: string; lines: string[]; inline?: true }
@@ -183,10 +183,15 @@ export function prepareSource(source: string): DocumentSource {
     commentedAt(text, offset) ? all : `\\LXtabularxcolumn{${spec}}`)
   source = counterFormats(source)
   source = captionNames(source)
+  // the preamble's \familydefault (\renewcommand, \def) as one of the family defaults: \LXfamilydefault{rm|sf|tt}
+  { const begin = documentStart(source); if (begin >= 0) source = source.slice(0, begin).replace(/\\(?:renewcommand\*?\s*(?:\{\\familydefault\}|\\familydefault(?![A-Za-z]))|def\s*\\familydefault(?![A-Za-z]))\s*\{\s*\\(rm|sf|tt)default\s*\}/g, (all: string, family: string, offset: number, text: string) =>
+    commentedAt(text, offset) ? all : `\\LXfamilydefault{${family}}`) + source.slice(begin) }
   // the preamble's \baselinestretch (\renewcommand, \def, \linespread): \LXstretch{factor}
   { const begin = documentStart(source); if (begin >= 0) source = source.slice(0, begin).replace(/\\(?:renewcommand\*?\s*(?:\{\\baselinestretch\}|\\baselinestretch(?![A-Za-z]))|def\s*\\baselinestretch(?![A-Za-z])|linespread(?![A-Za-z]))\s*\{\s*(\d*\.?\d+)\s*\}/g, "\\LXstretch{$1}") + source.slice(begin) }
   const expanded = expandDocument(source, { known: isKnownCommand, defined: latexCommands(source), xspace: packagesOf(source).includes("xspace") })
   if (expanded.errors.length) throw new Unsupported(`macro expansion: ${expanded.errors[0]}`)
+  // (with another default family, the roman is no longer the font \normalfont selects: the family cmr here)
+  if (/\\LXfamilydefault\{(?:sf|tt)\}/.test(expanded.text) && /\\(?:rmfamily|textrm|rm)(?![A-Za-z])/.test(expanded.text.replace(/(^|[^\\])%.*$/gm, "$1"))) throw new Unsupported("\\rmfamily or \\textrm with \\familydefault changed")
   // tabulars: \LXtabular{n}, laid out where they stand (paragraphs, floats)
   const tabulars: TabularSource[] = []
   const commented = (t: string, at: number) => /(^|[^\\])%/.test(t.slice(t.lastIndexOf("\n", at) + 1, at))
@@ -351,7 +356,7 @@ function groupEndAt(s: string, i: number): number {
 function takeTikz(source: string, out: string[]): string {
   let result = ""
   let i = 0
-  const re = /\\begin\{tikzpicture\}|\\tikz(?![A-Za-z])|%/g
+  const re = /\\begin\{tikzpicture\}|\\begin\{tikzcd\}|\\tikz(?![A-Za-z])|%/g
   for (let m = re.exec(source); m; m = re.exec(source)) {
     if (m.index < i) continue
     if (m.index > 0 && source[m.index - 1] === "\\") continue
@@ -361,6 +366,11 @@ function takeTikz(source: string, out: string[]): string {
       const e = source.indexOf("\\end{tikzpicture}", m.index)
       if (e < 0) throw new Unsupported("a tikzpicture without its end")
       end = e + "\\end{tikzpicture}".length
+    } else if (m[0] === "\\begin{tikzcd}") {
+      // tikz-cd's diagram: a picture too
+      const e = source.indexOf("\\end{tikzcd}", m.index)
+      if (e < 0) throw new Unsupported("a tikzcd without its end")
+      end = e + "\\end{tikzcd}".length
     } else {
       let j = m.index + 5
       while (/\s/.test(source[j] ?? "")) j++
@@ -380,7 +390,7 @@ function takeTikz(source: string, out: string[]): string {
       }
     }
     const pic = source.slice(m.index, end)
-    if (/\\begin\{tikzpicture\}/.test(pic.slice(1))) throw new Unsupported("a tikzpicture in a tikzpicture")
+    if (/\\begin\{tikz(?:picture|cd)\}/.test(pic.slice(1))) throw new Unsupported("a tikzpicture in a tikzpicture")
     out.push(pic)
     result += source.slice(i, m.index) + `\\LXtikz{${out.length - 1}}`
     i = end
@@ -394,6 +404,6 @@ export const depthOf = (src: string) => { let d = 0; for (const m of src.matchAl
 
 /** a paragraph that a tabular (or a minipage, or spanish.ldf's quoting, <<) starts: it starts in \begin{tabular}'s group
  *  (\leavevmode), where \everypar's assignments stay */
-export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text) || spanishText.on && /^\s*<\s*</.test(text)
+export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text) || spanishText.on && !spanishQuoting.off && /^\s*<\s*</.test(text)
 /** a paragraph that starts in a group ({…}, not an empty one): its \everypar runs there */
 export const groupStart = (text: string) => /^\s*\{(?!\})/.test(text)

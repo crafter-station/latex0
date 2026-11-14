@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/scalebox-identity
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \scalebox with the identity under pdfTeX (pdftex.def's \Gscale@start: no \pdfsave, matrix or \pdfrestore when the normalized factors are 1 0 0 1): 1, 1.0 by 01, and +1.00 by 1; a factor normalized in the matrix (02.50 is 2.5, .0 is 0)
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+One \scalebox{1}{same} two \scalebox{1.0}[01]{same gyp} three \scalebox{+1.00}[1]{same} four \scalebox{02.50}[1.0]{wide} five \scalebox{1}[.0]{flat}.
+\end{document}

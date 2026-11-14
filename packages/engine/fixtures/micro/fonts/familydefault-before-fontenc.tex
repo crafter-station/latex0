@@ -1,0 +1,14 @@
+% fixture: fonts/familydefault-before-fontenc
+% tier: T3
+% engine: document
+% covers: \familydefault as \sfdefault before fontenc: fontenc selects the default family (\usefont\encodingdefault\familydefault…), so lengths in em and ex read after it in the preamble are the sans font's
+\documentclass{article}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[T1]{fontenc}
+\setlength{\parindent}{3em}
+\setlength{\parskip}{2ex}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\end{document}

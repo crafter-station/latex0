@@ -1,0 +1,15 @@
+% fixture: parskip/setlength-baselineskip
+% tier: T3
+% engine: document
+% covers: \setlength{\parskip}{\baselineskip} and \setlength{\parindent}{-\baselineskip} in the preamble at 12pt: the skip register itself (§ 461) and its negated width as a dimension (§ 449)
+\documentclass[12pt]{article}
+\pagestyle{empty}
+\setlength{\parindent}{-\baselineskip}
+\setlength{\parskip}{\baselineskip}
+\begin{document}
+First paragraph of text that is long enough to run over the end of its first line and so to take two lines here.
+
+Second paragraph.
+
+Third paragraph.
+\end{document}

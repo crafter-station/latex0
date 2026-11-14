@@ -1,0 +1,14 @@
+% fixture: hyperref/pdfstring-ligatures
+% tier: T3
+% engine: document
+% specials: compare
+% covers: hyperref's \pdfstringdef ligatures in a bookmark (\HyPsd@Subst): --- and -- are PU's \textemdash and \textendash (U+2014, U+2013), !` and ?` the inverted marks
+\documentclass{article}
+\usepackage{hyperref}
+\pagestyle{empty}
+\begin{document}
+\section{Dashes --- and -- ranges}
+Text.
+\section{Marks !`one and ?`two}
+More.
+\end{document}

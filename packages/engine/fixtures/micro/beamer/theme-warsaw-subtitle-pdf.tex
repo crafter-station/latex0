@@ -1,0 +1,17 @@
+% fixture: beamer/theme-warsaw-subtitle-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: Warsaw's frame title with a subtitle (framesubtitle's font and color, the color set in vertical mode before its paragraph), and a frame without a title
+\documentclass{beamer}
+\usetheme{Warsaw}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{A frame title}{Its subtitle}
+Text.
+\end{frame}
+\begin{frame}
+No title.
+\end{frame}
+\end{document}

@@ -20,6 +20,7 @@
 // objects), a form first written with a page, a link shipped twice (a new number) and a destination placed
 // twice are refused.
 
+import { shipForm, type PageForm } from "../emit/trace"
 import type { BoxNode, Node, WhatsitNode } from "../layout/nodes"
 import { Unsupported } from "../latex/unsupported"
 import { hpack } from "../layout/pack"
@@ -49,6 +50,13 @@ function objects(s: PgfState): Made {
 
 /** the forms pgf made so far, in order */
 export const pgfPdfForms = (s: PgfState): readonly PgfPdfForm[] => list(s)
+
+/** the forms as drawing the pages needs them (emit/svg), by number */
+export function pageForms(s: PgfState): Record<number, PageForm> {
+  const out: Record<number, PageForm> = {}
+  for (const f of list(s)) out[f.number] = shipForm(f.box, f.resources)
+  return out
+}
 
 /** the forms a list refers to (\pdfrefxform), in order */
 function references(nodes: Node[], out: number[] = []): number[] {

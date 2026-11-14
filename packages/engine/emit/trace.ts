@@ -5,7 +5,7 @@
 
 import { texRound, vetGlue } from "../layout/arith"
 import { SHRINKING, STRETCHING, type BoxNode } from "../layout/nodes"
-import type { Trace, TracePage } from "../trace/schema"
+import type { Trace, TraceGlyph, TraceRule, TracePage } from "../trace/schema"
 
 interface Cursor { h: number; v: number }
 
@@ -14,7 +14,17 @@ export type PageMark =
   /** `glyphs` and `rules`: how many of the page's glyphs and rules came before it */
   | { kind: "whatsit"; text: string; h: number; v: number; glyphs: number; rules: number }
   /** (h, v) is the left end of the image box's baseline */
-  | { kind: "image"; name: string; h: number; v: number; width: number; height: number; depth: number }
+  | { kind: "image"; name: string; h: number; v: number; width: number; height: number; depth: number; glyphs: number; rules: number }
+  /** pdfTeX's \pdfrefxform: the form's number; (h, v) is the left end of the form box's baseline */
+  | { kind: "form"; number: number; h: number; v: number; width: number; height: number; depth: number; glyphs: number; rules: number }
+
+/** A form XObject (\pdfxform) as drawing needs it: its box shipped on its own (the box's top-left corner at (0, 0)),
+ *  and its `resources` text */
+export interface PageForm {
+  width: number; height: number; depth: number
+  glyphs: TraceGlyph[]; rules: TraceRule[]; marks: PageMark[]
+  resources: string
+}
 
 /** The whatsits that reach the output file (§ 1366 out_what writes the others, \\write and \\openout, to files) */
 const SPECIAL = /^\\(?:special\{|pdf)/
@@ -22,6 +32,12 @@ const SPECIAL = /^\\(?:special\{|pdf)/
 const whatsit = (marks: PageMark[] | null, text: string, cur: Cursor, page: TracePage) => {
   if (SPECIAL.test(text)) page.specials.push({ text, h: cur.h, v: cur.v })
   marks?.push({ kind: "whatsit", text, h: cur.h, v: cur.v, glyphs: page.glyphs.length, rules: page.rules.length })
+}
+
+/** the mark of an image's or a form's box whose baseline starts at (h, v) */
+function drawnBox(p: BoxNode, h: number, v: number, page: TracePage): PageMark {
+  const at = { h, v, width: p.width, height: p.height, depth: p.depth, glyphs: page.glyphs.length, rules: page.rules.length }
+  return p.image ? { kind: "image", name: p.image, ...at } : { kind: "form", number: p.form!, ...at }
 }
 
 function hlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] | null) {
@@ -35,7 +51,7 @@ function hlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] 
         break
       case "hlist": case "vlist": {
         if (p.list.length === 0) {
-          if (p.image) marks?.push({ kind: "image", name: p.image, h: cur.h, v: baseLine + p.shift, width: p.width, height: p.height, depth: p.depth })
+          if (p.image || p.form !== undefined) marks?.push(drawnBox(p, cur.h, baseLine + p.shift, page))
           cur.h += p.width
           break
         }
@@ -109,7 +125,7 @@ function vlistOut(box: BoxNode, cur: Cursor, page: TracePage, marks: PageMark[] 
       case "char": throw new Error("vlist_out: character in vertical list")
       case "hlist": case "vlist": {
         if (p.list.length === 0) {
-          if (p.image) marks?.push({ kind: "image", name: p.image, h: leftEdge + p.shift, v: cur.v + p.height, width: p.width, height: p.height, depth: p.depth })
+          if (p.image || p.form !== undefined) marks?.push(drawnBox(p, leftEdge + p.shift, cur.v + p.height, page))
           cur.v += p.height + p.depth
           break
         }
@@ -160,4 +176,11 @@ export function shipOut(pages: BoxNode[], origin = { h: 0, v: 0 }, count0: numbe
     trace.pages.push(page)
   })
   return trace
+}
+
+/** A form's box as drawing needs it: shipped as pdfTeX ships a form, its top-left corner at (0, 0) */
+export function shipForm(box: BoxNode, resources: string): PageForm {
+  const marks: PageMark[][] = []
+  const { glyphs, rules } = shipOut([box], undefined, [0], marks).pages[0]
+  return { width: box.width, height: box.height, depth: box.depth, glyphs, rules, marks: marks[0], resources }
 }

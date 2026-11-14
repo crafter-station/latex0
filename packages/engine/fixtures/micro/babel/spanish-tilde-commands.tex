@@ -1,0 +1,12 @@
+% fixture: babel/spanish-tilde-commands
+% tier: T3
+% engine: document
+% covers: spanish.ldf's \~{} (\textasciitilde) as \es@accent: \futurelet sees what follows it, \bbl@allowhyphens (\nobreak\hskip\z@skip) unless a space token: before a command (the space after \textasciitilde gone), a group's end, a footnote, \textsc, and at a paragraph's end
+% issue: #363
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+Una prueba \textasciitilde \textsc{con} texto, {grupo \textasciitilde} y nota \textasciitilde\footnote{Una nota.} y otra \textasciitilde resultados y \textasciitilde\ espacio y \textasciitilde~fin.
+
+Al final \textasciitilde
+\end{document}

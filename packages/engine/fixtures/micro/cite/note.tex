@@ -1,0 +1,18 @@
+% fixture: cite/note
+% tier: T3
+% engine: document
+% covers: cite.sty's \cite[note]{keys}: \citemid (,\penalty\@medpenalty\ ) and the note in a group, \spacefactor\@m before \citeright; an empty note
+\documentclass{article}
+\usepackage{cite}
+\begin{document}
+A note follows the numbers \cite[p.~5]{b,a} after a comma and a space, a note ending in a period \cite[ch.~2 et seq.]{c} leaves the space after the bracket normal, an emphasized one \cite[\emph{passim}]{f,d,e} is set in its group, and an empty one \cite[]{a} leaves the comma and the space, in a paragraph that is long enough for several lines.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

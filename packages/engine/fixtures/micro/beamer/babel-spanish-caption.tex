@@ -1,0 +1,23 @@
+% fixture: beamer/babel-spanish-caption
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: babel's spanish: a figure's and a table's caption names are \captionsspanish's \figurename and \tablename (Figura, Cuadro), not translator's
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Figura}
+\begin{figure}
+Dibujo
+\caption{Una figura}
+\end{figure}
+\end{frame}
+\begin{frame}{Cuadro}
+\begin{table}
+\begin{tabular}{ll}a&b\end{tabular}
+\caption{Un cuadro}
+\end{table}
+\end{frame}
+\end{document}

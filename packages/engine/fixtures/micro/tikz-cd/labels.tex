@@ -1,0 +1,15 @@
+% fixture: tikz-cd/labels
+% tier: T3
+% engine: document
+% specials: compare
+% covers: labels: description (on the arrow, filled white), near start, pos=, two labels on one arrow, options in braces after the quote
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Labels
+\begin{tikzcd}
+A \arrow[r, "\phi" description] \arrow[d, "g" near start] \arrow[dr, "x", "y"' pos=0.7] & B \arrow[d, "f" {swap, near end}] \\
+C \arrow[r, "\psi"'] & D
+\end{tikzcd}
+end.
+\end{document}

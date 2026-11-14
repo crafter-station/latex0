@@ -29,7 +29,7 @@
     <img src="https://img.shields.io/badge/Monaco-68217A?style=for-the-badge&logo=visual-studio-code&logoColor=white" alt="Monaco Editor" />
   </a>
   <a href="https://latex0.crafter.run/scorecard">
-    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcrafter-station%2Flatex0%2Fmain%2Flib%2Flatex%2Ffixtures%2Fbadge.json&style=for-the-badge" alt="Fixtures identical to TeX" />
+    <img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fcrafter-station%2Flatex0%2Fmain%2Fpackages%2Fengine%2Ffixtures%2Fbadge.json&style=for-the-badge" alt="Fixtures identical to TeX" />
   </a>
 </p>
 
@@ -54,7 +54,7 @@ LATEX0 is an AI-powered LaTeX editor for the modern era. Write, compile, and col
 - **Real-time Collaboration** — See other users' cursors live with unique colors
 - **Document Persistence** — Save and manage multiple documents with auto-save
 - **Monaco Editor** — VS Code-quality editing with LaTeX syntax highlighting
-- **Live Preview** — Instant PDF rendering as you type
+- **Live Preview** — Pages laid out as pdfLaTeX lays them out, by a zero-dependency engine in your browser, on every keystroke
 - **Hybrid Authentication** — Sign in with Google/GitHub via Clerk, or work as a guest
 
 ## Quick Start
@@ -95,9 +95,6 @@ DATABASE_URL=your_postgresql_connection_string
 # AI Gateway (for chat functionality)
 AI_GATEWAY_API_KEY=your_ai_gateway_key
 
-# Latex Renderer
-NEXT_PUBLIC_LATEX_API_KEY=
-NEXT_PUBLIC_LATEX_API_URL=
 ```
 
 ### Optional

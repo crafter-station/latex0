@@ -1,0 +1,30 @@
+% fixture: amsmath/intertext
+% tier: T3
+% engine: document
+% covers: amsmath's \intertext in align, align* and gather: the row ended, then \noalign with \postdisplaypenalty, \belowdisplayskip, the text in a \vbox (one line and several, broken once by \measure@ and once in the alignment), \predisplaypenalty and \abovedisplayskip; after a \\ and without one; the alignment's columns kept across it
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+An alignment may be interrupted by a line of text without losing its columns:
+\begin{align}
+a &= b + c \\
+\intertext{and therefore}
+d + e + f &= g
+\intertext{which, after a longer remark that runs over more than one line of the text block so that the box holding it has two lines and a depth of its own, gives}
+x &= y \notag \\
+  &= z
+\end{align}
+The same holds without numbers,
+\begin{align*}
+f(x) &= x^2 \\
+\intertext{so that}
+f'(x) &= 2x,
+\end{align*}
+and for gathered rows:
+\begin{gather}
+a = b + c \\
+\intertext{whence}
+\sum_{i=1}^n i = \frac{n(n+1)}{2}
+\end{gather}
+The text goes on after the last display.
+\end{document}

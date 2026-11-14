@@ -1,0 +1,10 @@
+% fixture: babel/spanish-guillemets-ot1
+% tier: T3
+% engine: document
+% covers: spanish.ldf's "< and "> in OT1: \es@guillemot's \penalty\@M and its box of lasy's \ll and \gg, after a letter and ''
+% issue: #363
+\documentclass{article}
+\usepackage[spanish]{babel}
+\begin{document}
+q'' "<niño"> y f"<o"> y Te"<V">.
+\end{document}

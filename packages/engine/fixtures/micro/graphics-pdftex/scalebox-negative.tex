@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/scalebox-negative
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \scalebox with negative factors under pdfTeX: a negative x puts the kern before the box (\hb@xt@-x\wd0{\kern-x\wd0\box2\hss}), a negative y swaps height and depth (\ht2 -y\dp0, \dp2 -y\ht0)
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Mirror \scalebox{-1}[1]{Mirror gyp} flip \scalebox{1}[-1]{Flip gyp} both \scalebox{-2}[-.5]{Both gyp} end.
+\end{document}

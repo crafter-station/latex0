@@ -4,7 +4,8 @@
 
 import type { CaptionKeys } from "./captionsetup"
 import type { ClassOptionData } from "../layout/classdata"
-import type { Node } from "../layout/nodes"
+import type { BoxNode, Node } from "../layout/nodes"
+import type { DeclState } from "./vmode"
 
 export interface RunState {
   k: ClassOptionData
@@ -73,8 +74,16 @@ export interface RunState {
   oddPages: { n: number; node: Node }[]
   /** the \baselineskip the output routine sees where the main vertical list is now (OutputHook), when not \normalsize's */
   outputBaselineskip?: number
+  /** the declarations in force at the body's level (\small, \bfseries, \centering between its paragraphs or in one), when
+   *  not the ones it starts with */
+  body?: DeclState
+  /** amsart: \abstractbox (the abstract read before \maketitle), and \maketitle done */
+  amsAbstract: BoxNode | null
+  amsTitled: boolean
+  /** amsart's \@secnumfont is \bfseries (an empty \subsection title set it) */
+  amsSecnumBold?: boolean
 }
 
 export function runState(k: ClassOptionData): RunState {
-  return { k, mainmatter: true, linkcounter: 0, targets: 0, multicols: null, rownum: { n: 0, k: -1 }, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [], captions: 0, captionLabel: false, oddPages: [] }
+  return { k, mainmatter: true, linkcounter: 0, targets: 0, multicols: null, rownum: { n: 0, k: -1 }, items: 0, enums: [0, 0, 0, 0], hyperItem: false, tagFlag: false, floats: 0, listingCount: 0, negListing: 0, lstLineno: 0, algAnchors: 0, minipageWidth: null, captype: null, captionXref: false, floatCaption: { number: null, pending: false, sub: 0, top: null, subAbove: false }, runIn: null, noskipsec: false, lstCarry: { gobbledws: false, breakcurrindent: 0, breakshape: null }, lstCaptions: [], bibSafe: [], captions: 0, captionLabel: false, oddPages: [], amsAbstract: null, amsTitled: false }
 }

@@ -1,0 +1,18 @@
+% fixture: cite/citen
+% tier: T3
+% engine: document
+% covers: cite.sty's \citen, \citenum and \citeonline: \@cite@n alone, the sorted and compressed numbers with no brackets and no \cite@adjust
+\documentclass{article}
+\usepackage{cite}
+\begin{document}
+See references \citen{c,a,b} and \citenum{e} or Refs.~\citeonline{f,a,d} in the text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

@@ -165,9 +165,9 @@ export const babelFrenchspacing = (lang: string): boolean => !!LANGUAGES[lang].f
 /** the main language's .ldf is spanish.ldf (whose layout and shorthands spanish.ts models) */
 export const isSpanish = (b: Babel | null | undefined): boolean => b?.main === "spanish"
 
-/** \today in the language selected (LaTeX's without babel) */
-export function babelToday(b: Babel | null, d: Date): string {
-  const lang = b ? babelState.b ? babelState.lang : b.main : "english"
+/** \today in the language selected (LaTeX's without babel), or in `date`'s (\date<lang>) */
+export function babelToday(b: Babel | null, d: Date, date?: string): string {
+  const lang = b ? date ?? (babelState.b ? babelState.lang : b.main) : "english"
   return lang === "english" && b?.englishDate ? (b.englishDate === "UK" ? ukDate : auDate)(d) : LANGUAGES[lang].today(d)
 }
 
@@ -195,6 +195,10 @@ export function babelLanguage(b: Babel | undefined | null, lang: string): string
  */
 export const babelState: { b: Babel | null; lang: string; stack: string[]; written: string; onSwitch: ((lang: string) => void) | null; /** the body has language commands that outlast a paragraph */ switches: boolean; /** what the vertical list had in force where each otherlanguage group still open at the top level began (its end restores it) */ groups: { club: number; afterheading: boolean }[] } = { b: null, lang: "", stack: [], written: "", onSwitch: null, switches: false, groups: [] }
 
+/** text the preamble read (\title, \author, \date): babel activates the shorthand characters at \begin{document}, so
+ *  in it they are characters of the text (`on` while it is typeset) */
+export const preambleText = { on: false }
+
 /** \begin{document}: the main language selected (none: babel not loaded); `body`: the document's body, whose
  *  \selectlanguage and otherlanguage outlast a paragraph (\foreignlanguage's group ends in it) */
 export function babelBegin(b: Babel | null, onSwitch: ((lang: string) => void) | null = null, body = ""): void {
@@ -213,6 +217,20 @@ export function selectInGroups(src: string, grouped = false): void {
     else if (m[1] === "end" || m[0] === "}") depth--
     else if (m[0] === "\\selectlanguage" && depth > 0) throw new Unsupported("\\selectlanguage in a group or an environment")
   }
+}
+
+/** the body's \today, each in the date of the language selected where it is: \selectlanguage and otherlanguage switch
+ *  the date (\date<lang>), \foreignlanguage and otherlanguage* only the extras */
+export function datedBody(body: string, b: Babel, today: (lang: string) => string): string {
+  let lang = b.main
+  const stack: string[] = []
+  return body.replace(/\\selectlanguage\s*\{([A-Za-z]+)\}|\\begin\s*\{otherlanguage\}\s*\{([A-Za-z]+)\}|\\end\s*\{otherlanguage\}|\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, (m, sel?: string, other?: string) => {
+    if (sel) lang = babelLanguage(b, sel)
+    else if (other) { stack.push(lang); lang = babelLanguage(b, other) }
+    else if (m.startsWith("\\end")) lang = stack.pop() ?? lang
+    else return today(lang)
+    return m
+  })
 }
 
 /** a paragraph's text and babel's groups: how many otherlanguage or otherlanguage* begun before it end in it

@@ -1,0 +1,12 @@
+% fixture: graphics-pdftex/resizebox-height
+% oracle: pdflatex
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \resizebox{!}{height}{text} and \resizebox*{!}{height}{text} under pdfTeX: the factor from the text's height, and with the star from its height plus depth (\totalheight)
+\documentclass{article}
+\usepackage{graphicx}
+\pagestyle{empty}
+\begin{document}
+Text \resizebox{!}{1cm}{Height gyp} and \resizebox*{!}{1cm}{Total gyp} and \resizebox{!}{.5\height}{half} in a line.
+\end{document}

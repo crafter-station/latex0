@@ -127,7 +127,7 @@ const balanced = (s: string) => { let d = 0; for (const c of s) { if (c === "{")
 
 /** An option's token list in a formula */
 function mathOf(src: string, data: MathData): MItem[] {
-  try { return parseMath(src, data) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported(`siunitx: ${(e as Error).message}`) }
+  try { return parseMath(src, data) } catch (e) { throw e instanceof Error && e.constructor === Error ? new Unsupported(`siunitx: ${e.message}`) : e }
 }
 /** A token list siunitx puts in text, which the paragraph reads: characters and \, */
 function textOf(src: string): SiPart[] {

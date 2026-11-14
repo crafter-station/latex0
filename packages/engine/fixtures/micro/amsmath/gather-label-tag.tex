@@ -1,0 +1,22 @@
+% fixture: amsmath/gather-label-tag
+% tier: T3
+% engine: document
+% covers: \label, \tag and \tag* in gather and gather* (\math@cr@@@gather runs \make@display@tag in every row), with \notag rows and \eqref to the rows
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Gathered rows are centred one by one; \eqref{g:one}, \eqref{g:two} and \eqref{g:three} are below.
+\begin{gather}
+a = b + c \label{g:one} \\
+x^2 + y^2 = z^2 \tag{P} \label{g:two} \\
+d = e \notag \\
+\sum_{i=1}^n i = \frac{n(n+1)}{2} \label{g:three} \\
+u + v = w \tag*{(sic)}
+\end{gather}
+and without numbers
+\begin{gather*}
+f(x) = x^2 \tag{$\dagger$} \\
+g(x) = x^3
+\end{gather*}
+which ends the example with \eqref{g:two}.
+\end{document}

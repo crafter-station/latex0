@@ -1,0 +1,15 @@
+% fixture: fonts/centering-body-level
+% tier: T3
+% engine: document
+% covers: \centering at the body's level (not in a group): the paragraphs after it centered with no indent, \\ in them \@centercr, with \large declared after it
+\documentclass{article}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+\centering
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+\large A line\\ and another
+
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\end{document}

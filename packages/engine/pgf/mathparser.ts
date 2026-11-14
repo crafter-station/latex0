@@ -15,7 +15,16 @@ import { TRIGONOMETRIC } from "./mathtrig"
 const FUNCTIONS: Record<string, PgfFunction> = { ...BASIC, ...TRIGONOMETRIC }
 
 /** the font's em and ex (\pgfmath@selectfont: the current font) */
-export interface PgfUnits { em: number; ex: number }
+export interface PgfUnits {
+  em: number; ex: number
+  /**
+   * functions of no argument a package declares (\pgfmathdeclarefunction{name}{0}), each its \pgfmathresult in the
+   * current font: tikz-cd's axis_height and rule_thickness (\the\fontdimen22\textfont2, \the\fontdimen8\textfont3)
+   */
+  constants?: Readonly<Record<string, string>>
+  /** what evaluating one of them typesets where it is used (tikz-cd's: `$\relax$`, a math-on and a math-off node) */
+  onConstant?: () => void
+}
 
 export interface PgfMathResult {
   /** \pgfmathresult */
@@ -87,7 +96,7 @@ class Parser implements PgfMathCtx {
   result = ""
   unitsDeclared = false
 
-  constructor(private readonly expression: string, toks: string[], units: PgfUnits) {
+  constructor(private readonly expression: string, toks: string[], private readonly units: PgfUnits) {
     this.a = new TexArith(units)
     this.toks = [...toks, AT, AT, AT, AT, STOP]
   }
@@ -207,7 +216,9 @@ class Parser implements PgfMathCtx {
 
   /** \pgfmath@parse@@@@function: a constant is evaluated now, any other function pushed */
   private functionEnd(): State {
-    const f = FUNCTIONS[this.func]
+    const constant = this.units.constants?.[this.func]
+    if (constant !== undefined) this.units.onConstant?.()
+    const f: PgfFunction | undefined = constant !== undefined ? { arity: 0, fn: () => constant } : FUNCTIONS[this.func]
     if (!f || this.func.startsWith("@")) throw new Unsupported(`pgfmath: function ${this.func}`)
     if (this.token !== "") this.unread(this.token)
     if (f.arity === 0) {

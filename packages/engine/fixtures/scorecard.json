@@ -1,12 +1,12 @@
 {
  "format": 1,
  "summary": {
-  "fixtures": 1108,
-  "exact": 1096,
+  "fixtures": 1388,
+  "exact": 1376,
   "expectedFailures": 0,
   "failing": 0,
   "pending": 12,
-  "glyphs": 712252
+  "glyphs": 839064
  },
  "areas": [
   {
@@ -15,9 +15,14 @@
    "exact": 15
   },
   {
+   "area": "amsart",
+   "fixtures": 12,
+   "exact": 12
+  },
+  {
    "area": "amsmath",
-   "fixtures": 19,
-   "exact": 19
+   "fixtures": 31,
+   "exact": 31
   },
   {
    "area": "amsthm",
@@ -31,18 +36,18 @@
   },
   {
    "area": "babel",
-   "fixtures": 57,
-   "exact": 57
+   "fixtures": 73,
+   "exact": 73
   },
   {
    "area": "beamer",
-   "fixtures": 319,
-   "exact": 318
+   "fixtures": 380,
+   "exact": 379
   },
   {
    "area": "bibliography",
-   "fixtures": 3,
-   "exact": 3
+   "fixtures": 4,
+   "exact": 4
   },
   {
    "area": "booktabs",
@@ -51,13 +56,18 @@
   },
   {
    "area": "caption",
-   "fixtures": 30,
-   "exact": 30
+   "fixtures": 33,
+   "exact": 33
+  },
+  {
+   "area": "cite",
+   "fixtures": 19,
+   "exact": 19
   },
   {
    "area": "classes",
-   "fixtures": 16,
-   "exact": 16
+   "fixtures": 17,
+   "exact": 17
   },
   {
    "area": "cleveref",
@@ -70,9 +80,14 @@
    "exact": 3
   },
   {
+   "area": "dcolumn",
+   "fixtures": 6,
+   "exact": 6
+  },
+  {
    "area": "display",
-   "fixtures": 8,
-   "exact": 8
+   "fixtures": 9,
+   "exact": 9
   },
   {
    "area": "fancyhdr",
@@ -81,13 +96,13 @@
   },
   {
    "area": "floats",
-   "fixtures": 15,
-   "exact": 15
+   "fixtures": 17,
+   "exact": 17
   },
   {
    "area": "fonts",
-   "fixtures": 14,
-   "exact": 14
+   "fixtures": 26,
+   "exact": 26
   },
   {
    "area": "footnotes",
@@ -96,23 +111,28 @@
   },
   {
    "area": "graphics",
-   "fixtures": 2,
-   "exact": 2
-  },
-  {
-   "area": "graphics-pdftex",
    "fixtures": 4,
    "exact": 4
   },
   {
+   "area": "graphics-pdftex",
+   "fixtures": 13,
+   "exact": 13
+  },
+  {
    "area": "hyperref",
-   "fixtures": 31,
-   "exact": 31
+   "fixtures": 34,
+   "exact": 34
   },
   {
    "area": "hyphenation",
    "fixtures": 5,
    "exact": 5
+  },
+  {
+   "area": "koma",
+   "fixtures": 18,
+   "exact": 18
   },
   {
    "area": "linebreak",
@@ -150,14 +170,19 @@
    "exact": 23
   },
   {
+   "area": "memoir",
+   "fixtures": 28,
+   "exact": 28
+  },
+  {
    "area": "minipage",
-   "fixtures": 5,
-   "exact": 5
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "multicol",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 7,
+   "exact": 7
   },
   {
    "area": "multirow",
@@ -166,8 +191,8 @@
   },
   {
    "area": "natbib",
-   "fixtures": 16,
-   "exact": 16
+   "fixtures": 22,
+   "exact": 22
   },
   {
    "area": "pages",
@@ -176,8 +201,8 @@
   },
   {
    "area": "parskip",
-   "fixtures": 4,
-   "exact": 4
+   "fixtures": 8,
+   "exact": 8
   },
   {
    "area": "pdflatex",
@@ -211,18 +236,23 @@
   },
   {
    "area": "templates",
-   "fixtures": 37,
-   "exact": 37
+   "fixtures": 38,
+   "exact": 38
   },
   {
    "area": "text",
-   "fixtures": 45,
-   "exact": 45
+   "fixtures": 49,
+   "exact": 49
   },
   {
    "area": "tikz",
-   "fixtures": 36,
-   "exact": 36
+   "fixtures": 48,
+   "exact": 48
+  },
+  {
+   "area": "tikz-cd",
+   "fixtures": 28,
+   "exact": 28
   },
   {
    "area": "title",
@@ -231,8 +261,8 @@
   },
   {
    "area": "titlesec",
-   "fixtures": 6,
-   "exact": 6
+   "fixtures": 12,
+   "exact": 12
   },
   {
    "area": "twocolumn",
@@ -246,8 +276,8 @@
   },
   {
    "area": "xcolor",
-   "fixtures": 19,
-   "exact": 19
+   "fixtures": 24,
+   "exact": 24
   }
  ],
  "fixtures": [
@@ -327,6 +357,17 @@
    "glyphs": 54,
    "covers": "snippet in a minimal article: Code block with syntax highlighting",
    "issue": "#30"
+  },
+  {
+   "id": "templates/corpus-amsart-paper",
+   "file": "macro/templates/corpus-amsart-paper.tex",
+   "area": "templates",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1471,
+   "covers": "the starter-corpus amsart paper (corpus/amsart-paper.tex): amsart \\maketitle with two authors, \\address, \\email, \\subjclass, \\keywords and \\today, the abstract, sections, theorem styles, proof with \\qedhere, enumitem labels, thebibliography with amsplain, the addresses at the end",
+   "issue": "#360"
   },
   {
    "id": "templates/corpus-carta-presentacion-es",
@@ -824,6 +865,138 @@
    "issue": "#258"
   },
   {
+   "id": "amsart/amsart-equation-numbers",
+   "file": "micro/amsart/amsart-equation-numbers.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 458,
+   "covers": "amsart's equation numbers on the left (amsmath with leqno: \\veqno is \\leqno, § 1203–1205): a number beside a centred formula, a formula pushed right of a number less than twice its width away, a number too wide for the line set above the formula at the left with no \\abovedisplayskip, always the long display skips (after a short line too), \\label and \\ref of an equation",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-fonts",
+   "file": "micro/amsart/amsart-fonts.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 361,
+   "covers": "amsart [12pt] with T1 and Latin Modern: \\leftmargini … iv from (13) (m) (xiii) (M) and \\footnotesep from \\footnotesize M$^1$ in the document's fonts, \\smallskip and \\bigskip by the class's amounts, run-in \\paragraph (\\fontdimen2 after it), the hyphenation exceptions amsart sets (Rie-mann-ian, in-fin-ite-ly)",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-footnote",
+   "file": "micro/amsart/amsart-footnote.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 590,
+   "covers": "amsart: its page and font sizes, \\clubpenalty\\@M, no \\onecolumn \\clearpage at the start, \\thispagestyle{plain} as it loads, \\@makefnmark (\\raise.9ex at the \\sf@size of the last math: amsart's \\AtBeginDocument's \\footnotesize, \\LaTeXe's, a formula's, one in a footnote), \\@makefntext and \\footnoterule",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-lists",
+   "file": "micro/amsart/amsart-lists.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 654,
+   "covers": "amsart's lists: \\@listI (\\listparindent\\normalparindent), \\leftmargini from the widest label, enumerate's (1) (a) (i) labels with \\llap{\\upshape …}, itemize's math \\bullet, bold --, \\ast and \\cdot (math: a footnote mark after them at \\normalsize's script size), description's colon and \\leftmargini+6pt, quote, quotation",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-maketitle-doendpe",
+   "file": "micro/amsart/amsart-maketitle-doendpe.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 260,
+   "covers": "text right after amsart's \\maketitle is not indented: the \\@endpetrue of \\@settitle's center and \\@setauthors's \\endtrivlist comes out of \\maketitle's \\begingroup groups (\\aftergroup\\propagate@doendpe), so \\@doendpe's \\everypar takes the indent box; the paragraph after it is indented again",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-maketitle",
+   "file": "micro/amsart/amsart-maketitle.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 852,
+   "covers": "amsart's \\maketitle: the title in capitals with \\@upprep's spaces, two authors \\MakeUppercase'd, the abstract (\\abstractbox, \\@setabstract), \\date, \\subjclass and \\keywords as footnotes without marks, \\topskip 42pt on the first page, \\ps@firstpage; the addresses (\\interlinepenalty\\@M) and emails at the end of the document",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-pagestyle",
+   "file": "micro/amsart/amsart-pagestyle.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4616,
+   "covers": "amsart with \\pagestyle{plain}: \\maketitle's \\topskip 42pt on the first page, which \\thispagestyle{empty} after it takes (\\ps@empty sets \\topskip\\normaltopskip again as the page is output); no \\@mkboth mark under plain",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-proofs",
+   "file": "micro/amsart/amsart-proofs.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 584,
+   "covers": "amsart: \\qedhere in the display that ends a proof (\\eqno\\hbox{\\qedsymbol}, no symbol at the end), gather* and align* (amsmath's, tags on the left: \\eqnshift@ and \\kern-\\gdisplaywidth@\\rlap{\\boxz@}), \\cite in amsart's \\@citestyle (upright medium inside a theorem), thebibliography with [n] labels (no amsplain), \\listparindent zero in \\footnotesize's \\@listi, \\sloppy's \\emergencystretch in the bibliography's font",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-running-heads",
+   "file": "micro/amsart/amsart-running-heads.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 6628,
+   "covers": "amsart's \\ps@headings over three pages: the short authors (\\MakeUppercase) on even pages and the short title (\\@upprep) on odd ones in \\scriptsize with the page number at the edge; \\ps@firstpage's foot on the first (\\maketitle's \\thispagestyle, after the document's); \\topskip back to \\normaltopskip after it",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-sections",
+   "file": "micro/amsart/amsart-sections.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 831,
+   "covers": "amsart's \\section (centered small capitals, the number in \\mdseries with a period and \\enspace), run-in \\subsection (bold) and \\subsubsection (italic) with \\@addpunct (after an uppercase letter's period too), an empty \\subsection title (a bold number, then \\@secnumfont \\bfseries for the later numbers too; \\textup's \\/), a heading right after a heading, starred forms; amsart's ~ (\\unskip\\nobreak\\ \\ignorespaces)",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-thanks",
+   "file": "micro/amsart/amsart-thanks.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 451,
+   "covers": "amsart's \\thanks (\\@adminfootnotes' last \\@footnotetext, \\@setthanks): every \\thanks in one unmarked footnote after the date's and the keywords', each a paragraph of its own (the first \\par only arms the later ones) indented by \\normalparindent, \\@addpunct. after a text with no final period and none after one with it, the \\strut after the last only",
+   "issue": "#360"
+  },
+  {
+   "id": "amsart/amsart-theorems",
+   "file": "micro/amsart/amsart-theorems.tex",
+   "area": "amsart",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 463,
+   "covers": "\\vspace* at the start (\\prevdepth is -1000pt there in amsart: no \\onecolumn), amsart's built-in amsthm: plain, definition and remark styles, numbering within the section, a note, the proof with amsart's \\qedsymbol (\\textsquare from msam)",
+   "issue": "#360"
+  },
+  {
    "id": "amsmath/accents",
    "file": "micro/amsmath/accents.tex",
    "area": "amsmath",
@@ -833,6 +1006,66 @@
    "glyphs": 182,
    "covers": "math accents (make_math_accent: skew from the \\skewchar kern of cmmi, cmsy and rsfs, the charlist's wider accents, scripts on a character inside the accent) with amsmath's \\mathaccentV (class 7: the alphabet's family; none in \\mathcal, \\mathbb, \\mathfrak: \\noaccents@), \\Hat and kin, amsfonts' \\widehat and \\widetilde (AMSb's past 2em), a lone accent in a group taking its ord's place",
    "issue": "#330"
+  },
+  {
+   "id": "amsmath/align-label-cleveref",
+   "file": "micro/amsmath/align-label-cleveref.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "\\label in align and gather with cleveref (\\ltx@label is \\cref@label: the second \\newlabel with \\cref@currentlabel), a \\tag row's (cleveref's \\make@df@tag@@@: [equation][2147483647][]), and \\cref to one row, to several and to a tagged one"
+  },
+  {
+   "id": "amsmath/align-label",
+   "file": "micro/amsmath/align-label.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 130,
+   "covers": "\\label in align (\\label@in@display, written by \\make@display@tag in the tag's box after the number), in a first, a middle and a last row, beside \\notag rows, with \\ref and \\eqref to them before and after"
+  },
+  {
+   "id": "amsmath/align-tag-hyperref-pdftex",
+   "file": "micro/amsmath/align-tag-hyperref-pdftex.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "\\label and \\tag in align and gather with hyperref: a numbered row's anchor before its number, a \\tag's \\Hy@make@anchor (an anchor AMS.n inside the tag, \\Hy@linkcounter stepped by the measuring pass too), \\tag*, and \\ref and \\eqref links to both kinds"
+  },
+  {
+   "id": "amsmath/align-tag-hyperref",
+   "file": "micro/amsmath/align-tag-hyperref.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 98,
+   "covers": "\\label and \\tag in align and gather with hyperref: a numbered row's anchor before its number, a \\tag's \\Hy@make@anchor (an anchor AMS.n inside the tag, \\Hy@linkcounter stepped by the measuring pass too), \\tag*, and \\ref and \\eqref links to both kinds"
+  },
+  {
+   "id": "amsmath/align-tag",
+   "file": "micro/amsmath/align-tag.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 190,
+   "covers": "\\tag and \\tag* in align and align* (\\tag@in@align: \\df@tag is \\tagform@{…} or \\maketag@@@{…} in \\normalfont, no counter stepped), a tag with a formula and one ending in an italic letter (\\@@italiccorr), a \\label on a \\tag row reading the tag's text, \\notag beside them, and the numbering going on after"
+  },
+  {
+   "id": "amsmath/alignat",
+   "file": "micro/amsmath/alignat.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 352,
+   "covers": "amsmath's alignat and alignat* (\\start@align\\z@: \\xatlevel@ 0 in \\measure@, no space between the column pairs and no \\minalignsep, the rest halved into \\eqnshift@; \\maxfields@ twice the argument), with fewer columns in a row than declared, a \\tag, a \\label, \\notag and \\intertext, and a row whose number has to move the block (\\x@calc@shift@rc)"
   },
   {
    "id": "amsmath/arrows-braces",
@@ -943,6 +1176,26 @@
    "covers": "amsmath's \\eqref: \\textup{\\tagform@{\\ref{key}}}, the reference in parentheses in an \\hbox in \\normalfont (with \\@@italiccorr), before and after its equation, an undefined key, in italic and bold text, followed by punctuation"
   },
   {
+   "id": "amsmath/gather-label-tag",
+   "file": "micro/amsmath/gather-label-tag.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 164,
+   "covers": "\\label, \\tag and \\tag* in gather and gather* (\\math@cr@@@gather runs \\make@display@tag in every row), with \\notag rows and \\eqref to the rows"
+  },
+  {
+   "id": "amsmath/gather-tag-label-href",
+   "file": "micro/amsmath/gather-tag-label-href.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 131,
+   "covers": "the \\label of a \\tag row of a gather that comes before its numbered rows: \\gmeasure@ has run \\make@display@tag's \\refstepcounter for the later rows already, so the \\@currentHref it writes (set globally by the kernel) is the last numbered row's; in an align (\\stepcounter in the measuring pass) it is still the one from before the display"
+  },
+  {
    "id": "amsmath/gather",
    "file": "micro/amsmath/gather.tex",
    "area": "amsmath",
@@ -965,6 +1218,36 @@
    "issue": "#330"
   },
   {
+   "id": "amsmath/intertext-mathtools",
+   "file": "micro/amsmath/intertext-mathtools.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 355,
+   "covers": "mathtools' \\intertext (\\MT_intertext:: after each skip \\vskip-\\lineskiplimit \\vskip\\normallineskiplimit and its above- or below-intertext-sep) and \\shortintertext (\\abovedisplayshortskip twice, 3pt seps) in align, align* and gather"
+  },
+  {
+   "id": "amsmath/intertext-proof",
+   "file": "micro/amsmath/intertext-proof.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 150,
+   "covers": "\\intertext in an align inside an amsthm proof (a trivlist: \\linewidth is \\columnwidth, its \\parshape the whole width), with a \\label and \\eqref in the text, the proof's \\qed after the display"
+  },
+  {
+   "id": "amsmath/intertext",
+   "file": "micro/amsmath/intertext.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 355,
+   "covers": "amsmath's \\intertext in align, align* and gather: the row ended, then \\noalign with \\postdisplaypenalty, \\belowdisplayskip, the text in a \\vbox (one line and several, broken once by \\measure@ and once in the alignment), \\predisplaypenalty and \\abovedisplayskip; after a \\\\ and without one; the alignment's columns kept across it"
+  },
+  {
    "id": "amsmath/mathtools-basics",
    "file": "micro/amsmath/mathtools-basics.tex",
    "area": "amsmath",
@@ -974,6 +1257,16 @@
    "glyphs": 183,
    "covers": "mathtools: \\DeclarePairedDelimiter (\\abs{x}: \\mathopen…\\mathclose, \\abs*{x}: \\left…\\right, \\abs[\\big]{x}: \\bigl…\\bigr), \\coloneqq and the other colon relations (\\vcentcolon: \\mathrel{\\mathop:}, a \\dotsb before it), \\mathclap, \\mathllap and \\mathrlap in limits; with \\DeclareMathOperator, in text, displays and align",
    "issue": "#330"
+  },
+  {
+   "id": "amsmath/multline-label-tag",
+   "file": "micro/amsmath/multline-label-tag.tex",
+   "area": "amsmath",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 441,
+   "covers": "\\label and \\tag in multline and multline* (read in \\mmeasure@: \\label@in@display, \\tag@in@align; \\make@display@tag in the last row puts the tag and then the \\label), a \\tag* that fits beside the last row and a \\tag that does not (\\shifttag@: below it), with \\eqref and \\ref to them"
   },
   {
    "id": "amsmath/multline",
@@ -1330,6 +1623,28 @@
    "issue": "#338"
   },
   {
+   "id": "babel/french-dots-t1",
+   "file": "micro/babel/french-dots-t1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "french's \\FBtextellipsis in T1 and its first use there (\\@changed@cmd's \\global\\let ends the run before the first period, so y. has no kern, as English's later ones join the run), after English's first \\textellipsis, in a narrow minipage where the missing last kern decides the breaks",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/french-dots",
+   "file": "micro/babel/french-dots.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 297,
+   "covers": "french's extras \\let \\textellipsis to \\FBtextellipsis (.\\kern\\fontdimen3\\font.\\kern\\fontdimen3\\font.\\xspace, no kern after the last period, \\xspace \\relax), through \\ldots, \\dots and \\textellipsis{}, its first use ending the run before (\\@changed@cmd); English's three kerns in \\foreignlanguage and otherlanguage*, and French's in English text's \\foreignlanguage",
+   "issue": "#363"
+  },
+  {
    "id": "babel/french-lists",
    "file": "micro/babel/french-lists.tex",
    "area": "babel",
@@ -1374,6 +1689,72 @@
    "issue": "#338"
   },
   {
+   "id": "babel/french-title-preamble",
+   "file": "micro/babel/french-title-preamble.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 126,
+   "covers": "babel activates french's ; : ! ? at \\begin{document}: in \\title, \\author, \\date and \\thanks read in the preamble they are characters of the text (no thin space or \\unskip before them), while the same punctuation in the body gets french's spacing",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/french-up-ot1-11pt",
+   "file": "micro/babel/french-up-ot1-11pt.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 31,
+   "covers": "french's \\up at 11pt in OT1's shapes: .65 of 10.95pt is 7pt (cmsl8, cmti7, cmbx7, cmcsc10), and at \\large (cmsl8 at 8pt, cmti8)",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/french-up-ot1-shapes",
+   "file": "micro/babel/french-up-ot1-shapes.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "french's \\up (\\fup, \\FB@up@fake: \\scalefont{.65} to the nearest size ot1cmr.fd declares) in OT1's other shapes: italic (cmti7, cmti8, cmti9, cmti10, cmti12), slanted (cmsl8 …), small caps (cmcsc10), bold (cmbx5 … cmbx12), bold slanted and bold italic, at several sizes, through \\up, \\ier, \\ieme and \\no",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/german-caption-package",
+   "file": "micro/babel/german-caption-package.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 169,
+   "covers": "babel-german's letter shorthands in caption.sty's captions (one line, and a paragraph), OT1 (\\\"o's accent)",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/german-captions",
+   "file": "micro/babel/german-captions.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 347,
+   "covers": "babel-german's letter shorthands (\"o \"U \"s \"S) in a caption \\sbox'ed as characters and in one too wide for a line (a paragraph), and the list of tables reading them back",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/german-enumitem",
+   "file": "micro/babel/german-enumitem.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "babel-german's letter shorthands in a description label that enumitem's format= key typesets in a group (read as a paragraph's text, \\\"o's accent in OT1)",
+   "issue": "#363"
+  },
+  {
    "id": "babel/german-t1",
    "file": "micro/babel/german-t1.tex",
    "area": "babel",
@@ -1383,6 +1764,28 @@
    "glyphs": 396,
    "covers": "babel's german (1901 spelling: the de-1901 patterns of dehypht.tex) in T1 at 11pt, with ngerman and english selected: the T1 umlauts and \\ss as characters, \\glqq and \\grqq (\\quotedblbase, \\textquotedblleft), the guillemets, \"- \"= \"\" in report's chapters, \\chaptername (Kapitel), the language nodes between german and ngerman (languages 6 and 7), english's \" a character",
    "issue": "#338"
+  },
+  {
+   "id": "babel/german-texts",
+   "file": "micro/babel/german-texts.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 300,
+   "covers": "babel-german's letter shorthands in text typeset as characters: a description label, an amsthm theorem's note, and running heads (\\MakeUppercase after the shorthand: \"s is \"S, SS); \"- in \\texttt (LaTeX's \\- with \\defaulthyphenchar where \\hyphenchar is -1); a paragraph ending in \"> and a space (OT1's \\bbl@allowhyphens glue stays, the space goes)",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/german-title-preamble",
+   "file": "micro/babel/german-title-preamble.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "babel activates babel-german's \" at \\begin{document}: in \\title and \\author read in the preamble \"o is the character \" and o (T1's straight quote), while \"o in the body is ö",
+   "issue": "#363"
   },
   {
    "id": "babel/ngerman-basic",
@@ -1449,6 +1852,17 @@
    "glyphs": 33,
    "covers": "portuges.ldf's \"< and \"> in T1: \\guillemetleft and \\guillemetright as characters of the run (their kerns with the letters and punctuation next to them)",
    "issue": "#338"
+  },
+  {
+   "id": "babel/portuguese-title-preamble",
+   "file": "micro/babel/portuguese-title-preamble.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 25,
+   "covers": "babel activates portuges.ldf's \" at \\begin{document}: in \\title read in the preamble \"< and \"> are the characters \" and < or >, while in the body they are guillemets",
+   "issue": "#363"
   },
   {
    "id": "babel/spanish-active",
@@ -1548,6 +1962,28 @@
    "glyphs": 13,
    "covers": "spanish with enumitem: leftmargin=* measures spanish.ldf's labels (the square, \\textbullet, $\\circ$)",
    "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-guillemets-ot1",
+   "file": "micro/babel/spanish-guillemets-ot1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "spanish.ldf's \"< and \"> in OT1: \\es@guillemot's \\penalty\\@M and its box of lasy's \\ll and \\gg, after a letter and ''",
+   "issue": "#363"
+  },
+  {
+   "id": "babel/spanish-guillemets-t1",
+   "file": "micro/babel/spanish-guillemets-t1.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "spanish.ldf's \"< and \"> in T1: \\guillemotleft{} and \\guillemotright{}, a \\chardef that joins the run before (no right boundary kern after ” or a letter before it), which the {} ends; and << >> (the quoting environment) after the same characters",
+   "issue": "#363"
   },
   {
    "id": "babel/spanish-hyperref-accents",
@@ -1726,6 +2162,17 @@
    "issue": "#63"
   },
   {
+   "id": "babel/spanish-tilde-commands",
+   "file": "micro/babel/spanish-tilde-commands.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 79,
+   "covers": "spanish.ldf's \\~{} (\\textasciitilde) as \\es@accent: \\futurelet sees what follows it, \\bbl@allowhyphens (\\nobreak\\hskip\\z@skip) unless a space token: before a command (the space after \\textasciitilde gone), a group's end, a footnote, \\textsc, and at a paragraph's end",
+   "issue": "#363"
+  },
+  {
    "id": "babel/spanish-title-breaks",
    "file": "micro/babel/spanish-title-breaks.tex",
    "area": "babel",
@@ -1735,6 +2182,17 @@
    "glyphs": 174,
    "covers": "spanish.ldf's accents in a \\title with \\\\ and \\thanks, its \\@fnsymbol (*, **, ***) for the \\thanks marks, a UTF-8 \\author, spanish \\today as the date",
    "issue": "#63"
+  },
+  {
+   "id": "babel/spanish-title-preamble",
+   "file": "micro/babel/spanish-title-preamble.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 27,
+   "covers": "babel activates spanish.ldf's shorthands at \\begin{document}: in \\title read in the preamble << and >> are T1's ligatures, \"u is \" and u, while in the body they are the shorthands",
+   "issue": "#363"
   },
   {
    "id": "babel/spanish-titlepage",
@@ -1823,6 +2281,17 @@
    "glyphs": 308,
    "covers": "babel's languages selected before \\maketitle (its \\today in that language), otherlanguage around a list and a proof (amsthm's \\proofname), \\foreignlanguage in \\textbf, in \\underline (restricted horizontal mode: no language node) and in a footnote",
    "issue": "#338"
+  },
+  {
+   "id": "babel/today-switch",
+   "file": "micro/babel/today-switch.tex",
+   "area": "babel",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 202,
+   "covers": "\\today in the date of the language selected where it is: \\selectlanguage and otherlanguage switch the date (\\date<lang>), and the end of otherlanguage restores it; otherlanguage* and \\foreignlanguage switch only the extras, so \\today in them keeps the date around them",
+   "issue": "#363"
   },
   {
    "id": "beamer/aspectratio-141-pdf",
@@ -1999,6 +2468,266 @@
    "glyphs": 142,
    "covers": "beamer: the aspectratio=54 class option with Berlin (miniframes in the headline)",
    "issue": "#361"
+  },
+  {
+   "id": "beamer/babel-spanish-accents-pdf",
+   "file": "micro/beamer/babel-spanish-accents-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "beamer under pdflatex: \\usepackage[spanish]{babel}: spanish.ldf's OT1 \\' and \\~ (\\es@accent) add \\bbl@allowhyphens after an accented letter unless a space follows, in a frame's title and text"
+  },
+  {
+   "id": "beamer/babel-spanish-accents",
+   "file": "micro/beamer/babel-spanish-accents.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 101,
+   "covers": "beamer: \\usepackage[spanish]{babel}: spanish.ldf's OT1 \\' and \\~ (\\es@accent) add \\bbl@allowhyphens after an accented letter unless a space follows, in a frame's title and text"
+  },
+  {
+   "id": "beamer/babel-spanish-caption-pdf",
+   "file": "micro/beamer/babel-spanish-caption-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 50,
+   "covers": "beamer under pdflatex: babel's spanish: a figure's and a table's caption names are \\captionsspanish's \\figurename and \\tablename (Figura, Cuadro), not translator's"
+  },
+  {
+   "id": "beamer/babel-spanish-caption",
+   "file": "micro/beamer/babel-spanish-caption.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 50,
+   "covers": "beamer: babel's spanish: a figure's and a table's caption names are \\captionsspanish's \\figurename and \\tablename (Figura, Cuadro), not translator's"
+  },
+  {
+   "id": "beamer/babel-spanish-date-pdf",
+   "file": "micro/beamer/babel-spanish-date-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 56,
+   "covers": "beamer under pdflatex: babel's spanish: \\today on the title page is spanish.ldf's \\spanishdate (day~de month\\ de~year, ~ babel's shorthand), and an institute that ends with an accent (\\bbl@allowhyphens before the box's \\par)"
+  },
+  {
+   "id": "beamer/babel-spanish-date",
+   "file": "micro/beamer/babel-spanish-date.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 56,
+   "covers": "beamer: babel's spanish: \\today on the title page is spanish.ldf's \\spanishdate (day~de month\\ de~year, ~ babel's shorthand), and an institute that ends with an accent (\\bbl@allowhyphens before the box's \\par)"
+  },
+  {
+   "id": "beamer/babel-spanish-footline-pdf",
+   "file": "micro/beamer/babel-spanish-footline-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "beamer under pdflatex: babel's spanish with the Boadilla theme: the infolines footline's \\insertshortdate is spanish.ldf's \\today (its ~ in the footline's box), the short institute's accent"
+  },
+  {
+   "id": "beamer/babel-spanish-footline",
+   "file": "micro/beamer/babel-spanish-footline.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "beamer: babel's spanish with the Boadilla theme: the infolines footline's \\insertshortdate is spanish.ldf's \\today (its ~ in the footline's box), the short institute's accent"
+  },
+  {
+   "id": "beamer/babel-spanish-frenchspacing-pdf",
+   "file": "micro/beamer/babel-spanish-frenchspacing-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 129,
+   "covers": "beamer under pdflatex: babel's spanish: \\extrasspanish's \\frenchspacing (\\bbl@frenchspacing) in a frame's paragraph, the space after a period, a question mark and a colon the interword one"
+  },
+  {
+   "id": "beamer/babel-spanish-frenchspacing",
+   "file": "micro/beamer/babel-spanish-frenchspacing.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 129,
+   "covers": "beamer: babel's spanish: \\extrasspanish's \\frenchspacing (\\bbl@frenchspacing) in a frame's paragraph, the space after a period, a question mark and a colon the interword one"
+  },
+  {
+   "id": "beamer/babel-spanish-guillemets-pdf",
+   "file": "micro/beamer/babel-spanish-guillemets-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 27,
+   "covers": "beamer under pdflatex: babel's spanish: the shorthands \"< and \"> are \\layoutspanish's OT1 guillemets (\\es@guillemot: lasy's characters in a box after \\penalty10000)"
+  },
+  {
+   "id": "beamer/babel-spanish-guillemets",
+   "file": "micro/beamer/babel-spanish-guillemets.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 27,
+   "covers": "beamer: babel's spanish: the shorthands \"< and \"> are \\layoutspanish's OT1 guillemets (\\es@guillemot: lasy's characters in a box after \\penalty10000)"
+  },
+  {
+   "id": "beamer/babel-spanish-hyphenation-pdf",
+   "file": "micro/beamer/babel-spanish-hyphenation-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 163,
+   "covers": "beamer under pdflatex: babel's spanish: the Spanish patterns and \\spanishhyphenmins (2, 2) where a narrow minipage's justified lines hyphenate"
+  },
+  {
+   "id": "beamer/babel-spanish-hyphenation",
+   "file": "micro/beamer/babel-spanish-hyphenation.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 163,
+   "covers": "beamer: babel's spanish: the Spanish patterns and \\spanishhyphenmins (2, 2) where a narrow minipage's justified lines hyphenate"
+  },
+  {
+   "id": "beamer/babel-spanish-lists-pdf",
+   "file": "micro/beamer/babel-spanish-lists-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "beamer under pdflatex: babel's spanish: beamer keeps its own list labels (beamerbasecompatibility.sty: \\es@itemize emptied, \\theenumi … iii set back to \\@arabic): itemize and enumerate at three levels"
+  },
+  {
+   "id": "beamer/babel-spanish-lists",
+   "file": "micro/beamer/babel-spanish-lists.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "beamer: babel's spanish: beamer keeps its own list labels (beamerbasecompatibility.sty: \\es@itemize emptied, \\theenumi … iii set back to \\@arabic): itemize and enumerate at three levels"
+  },
+  {
+   "id": "beamer/babel-spanish-math-pdf",
+   "file": "micro/beamer/babel-spanish-math-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 69,
+   "covers": "beamer under pdflatex: babel's spanish: \\mathspanish in a frame's formulas (the decimal comma of the active period, \\sen, the accented \\lim and \\max) and spanish.ldf's \\% (\\es@sppercent's thin space)"
+  },
+  {
+   "id": "beamer/babel-spanish-math",
+   "file": "micro/beamer/babel-spanish-math.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 69,
+   "covers": "beamer: babel's spanish: \\mathspanish in a frame's formulas (the decimal comma of the active period, \\sen, the accented \\lim and \\max) and spanish.ldf's \\% (\\es@sppercent's thin space)"
+  },
+  {
+   "id": "beamer/babel-spanish-proof-pdf",
+   "file": "micro/beamer/babel-spanish-proof-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "beamer under pdflatex: babel's spanish: a proof's name is \\captionsspanish's \\proofname (Demostraci\\'on, its accent with \\bbl@allowhyphens), the theorems' names translator's English ones (no dictionary loaded but English)"
+  },
+  {
+   "id": "beamer/babel-spanish-proof",
+   "file": "micro/beamer/babel-spanish-proof.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "beamer: babel's spanish: a proof's name is \\captionsspanish's \\proofname (Demostraci\\'on, its accent with \\bbl@allowhyphens), the theorems' names translator's English ones (no dictionary loaded but English)"
+  },
+  {
+   "id": "beamer/babel-spanish-quoting-pdf",
+   "file": "micro/beamer/babel-spanish-quoting-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 34,
+   "covers": "beamer under pdflatex: babel's spanish: beamer's \\deactivatequoting (beamerbasecompatibility.sty's begindocument/end hook): << and >> are the characters, not spanish.ldf's quoting shorthands, and < in math is the relation"
+  },
+  {
+   "id": "beamer/babel-spanish-quoting",
+   "file": "micro/beamer/babel-spanish-quoting.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 34,
+   "covers": "beamer: babel's spanish: beamer's \\deactivatequoting (beamerbasecompatibility.sty's begindocument/end hook): << and >> are the characters, not spanish.ldf's quoting shorthands, and < in math is the relation"
+  },
+  {
+   "id": "beamer/babel-spanish-sections-pdf",
+   "file": "micro/beamer/babel-spanish-sections-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 109,
+   "covers": "beamer under pdflatex: babel's spanish: sections with accents in the table of contents, the .toc and the bookmarks, a footnote, inverted punctuation"
+  },
+  {
+   "id": "beamer/babel-spanish-sections",
+   "file": "micro/beamer/babel-spanish-sections.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 109,
+   "covers": "beamer: babel's spanish: sections with accents in the table of contents, the .toc and the bookmarks, a footnote, inverted punctuation"
+  },
+  {
+   "id": "beamer/babel-spanish-umlauts-pdf",
+   "file": "micro/beamer/babel-spanish-umlauts-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "beamer under pdflatex: babel's spanish: the shorthand \"u and a typed dieresis are babel's OT1 umlauts (\\bbl@umlauta, spanish.ldf's \\umlautlow on a o u)"
+  },
+  {
+   "id": "beamer/babel-spanish-umlauts",
+   "file": "micro/beamer/babel-spanish-umlauts.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "beamer: babel's spanish: the shorthand \"u and a typed dieresis are babel's OT1 umlauts (\\bbl@umlauta, spanish.ldf's \\umlautlow on a o u)"
   },
   {
    "id": "beamer/block-default-pdf",
@@ -2595,6 +3324,26 @@
    "issue": "#307"
   },
   {
+   "id": "beamer/columns-top-pdf",
+   "file": "micro/beamer/columns-top-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 71,
+   "covers": "beamer under pdflatex: columns[T] (\\beamer@colheadskip: \\vskip-1ex\\nointerlineskip after the column's \\leavevmode, the \\vtop aligned at that empty line): text, a list, and a column [t] among them"
+  },
+  {
+   "id": "beamer/columns-top",
+   "file": "micro/beamer/columns-top.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 71,
+   "covers": "beamer: columns[T] (\\beamer@colheadskip: \\vskip-1ex\\nointerlineskip after the column's \\leavevmode, the \\vtop aligned at that empty line): text, a list, and a column [t] among them"
+  },
+  {
    "id": "beamer/enumerate-pdf",
    "file": "micro/beamer/enumerate-pdf.tex",
    "area": "beamer",
@@ -2681,6 +3430,26 @@
    "glyphs": 145,
    "covers": "beamer: beamer's table environment (not a float: \\par\\nobreak\\begin{center}\\nobreak … \\par\\nobreak\\end{center}\\nobreak) with booktabs and \\caption below (the caption template in \\small: Table:\\ and the text, centered in \\hsize), text after it",
    "issue": "#361"
+  },
+  {
+   "id": "beamer/footnote-boadilla-pdf",
+   "file": "micro/beamer/footnote-boadilla-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 38,
+   "covers": "beamer under pdflatex: \\footnoterule's .4\\columnwidth with a theme that sets the text margins (Boadilla: \\columnwidth is the \\textwidth \\begin{document} finds)"
+  },
+  {
+   "id": "beamer/footnote-boadilla",
+   "file": "micro/beamer/footnote-boadilla.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 38,
+   "covers": "beamer: \\footnoterule's .4\\columnwidth with a theme that sets the text margins (Boadilla: \\columnwidth is the \\textwidth \\begin{document} finds)"
   },
   {
    "id": "beamer/footnote-frame-pdf",
@@ -3330,6 +4099,86 @@
    "glyphs": 98,
    "covers": "beamer: itemize with the default templates: a \\blacktriangleright (msam) raised 1.25pt in the structure color, beamer's list parameters, ragged right",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/language-british-pdf",
+   "file": "micro/beamer/language-british-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 268,
+   "covers": "beamer under pdflatex: \\usepackage[british]{babel} with the Boadilla theme: english.ldf's UK \\today, the British patterns, on the title page, in the footline, in narrow columns, a proof and a caption"
+  },
+  {
+   "id": "beamer/language-british",
+   "file": "micro/beamer/language-british.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 268,
+   "covers": "beamer: \\usepackage[british]{babel} with the Boadilla theme: english.ldf's UK \\today, the British patterns, on the title page, in the footline, in narrow columns, a proof and a caption"
+  },
+  {
+   "id": "beamer/language-french-pdf",
+   "file": "micro/beamer/language-french-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 158,
+   "covers": "beamer under pdflatex: \\usepackage[french]{babel}: french.ldf's active punctuation, \\frenchspacing, patterns and \\proofname in a frame (beamer: no list customisation), a date without \\today"
+  },
+  {
+   "id": "beamer/language-french",
+   "file": "micro/beamer/language-french.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 158,
+   "covers": "beamer: \\usepackage[french]{babel}: french.ldf's active punctuation, \\frenchspacing, patterns and \\proofname in a frame (beamer: no list customisation), a date without \\today"
+  },
+  {
+   "id": "beamer/language-ngerman-pdf",
+   "file": "micro/beamer/language-ngerman-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 264,
+   "covers": "beamer under pdflatex: \\usepackage[ngerman]{babel} with the Boadilla theme: babel-german's \\today, captions (Abbildung, Beweis), patterns and \\frenchspacing, on the title page, in the footline, in narrow columns, a proof and a caption"
+  },
+  {
+   "id": "beamer/language-ngerman",
+   "file": "micro/beamer/language-ngerman.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 264,
+   "covers": "beamer: \\usepackage[ngerman]{babel} with the Boadilla theme: babel-german's \\today, captions (Abbildung, Beweis), patterns and \\frenchspacing, on the title page, in the footline, in narrow columns, a proof and a caption"
+  },
+  {
+   "id": "beamer/language-portuguese-pdf",
+   "file": "micro/beamer/language-portuguese-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 285,
+   "covers": "beamer under pdflatex: \\usepackage[portuguese]{babel} with the Boadilla theme: portuges.ldf's \\today, captions (Figura, Demonstra\\c{c}\\~ao) and patterns, on the title page, in the footline, in narrow columns, a proof and a caption"
+  },
+  {
+   "id": "beamer/language-portuguese",
+   "file": "micro/beamer/language-portuguese.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 285,
+   "covers": "beamer: \\usepackage[portuguese]{babel} with the Boadilla theme: portuges.ldf's \\today, captions (Figura, Demonstra\\c{c}\\~ao) and patterns, on the title page, in the footline, in narrow columns, a proof and a caption"
   },
   {
    "id": "beamer/list-20pt-pdf",
@@ -4146,6 +4995,26 @@
    "issue": "#315"
   },
   {
+   "id": "beamer/rounded-toc-current-pdf",
+   "file": "micro/beamer/rounded-toc-current-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 37,
+   "covers": "beamer under pdflatex: the rounded inner theme's \\tableofcontents[currentsection]: the other sections' balls in the shaded templates' colormixin (20!parent.bg): the text, the picture's color and the number's \\color mixed, pgf's shadings made of mixed colors (\\applycolormixins on each stop)"
+  },
+  {
+   "id": "beamer/rounded-toc-current",
+   "file": "micro/beamer/rounded-toc-current.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 37,
+   "covers": "beamer: the rounded inner theme's \\tableofcontents[currentsection]: the other sections' balls in the shaded templates' colormixin (20!parent.bg): the text, the picture's color and the number's \\color mixed, pgf's shadings made of mixed colors (\\applycolormixins on each stop)"
+  },
+  {
    "id": "beamer/rounded-toc-pdf",
    "file": "micro/beamer/rounded-toc-pdf.tex",
    "area": "beamer",
@@ -4606,6 +5475,26 @@
    "glyphs": 478,
    "covers": "beamer's Berlin theme (miniframes with the author, institute and title footline, whale, orchid, rectangles), navigation symbols on: the sections and their frames' mini frames in the headline (from the last run's .nav), the subsection, the title page, a table of contents, items, blocks",
    "issue": "#322"
+  },
+  {
+   "id": "beamer/theme-boadilla-beaver-pdf",
+   "file": "micro/beamer/theme-boadilla-beaver-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 153,
+   "covers": "beamer under pdflatex: the Boadilla theme followed by \\usecolortheme{beaver} (a color theme after a presentation theme: beaver's colors over rose's and dolphin's), its shadows on: the title page, the footline, a block, items"
+  },
+  {
+   "id": "beamer/theme-boadilla-beaver",
+   "file": "micro/beamer/theme-boadilla-beaver.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 153,
+   "covers": "beamer: the Boadilla theme followed by \\usecolortheme{beaver} (a color theme after a presentation theme: beaver's colors over rose's and dolphin's), its shadows on: the title page, the footline, a block, items"
   },
   {
    "id": "beamer/theme-boadilla-pdf",
@@ -5136,6 +6025,176 @@
    "issue": "#322"
   },
   {
+   "id": "beamer/theme-warsaw-atbegin-pdf",
+   "file": "micro/beamer/theme-warsaw-atbegin-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 107,
+   "covers": "beamer under pdflatex: Warsaw with \\AtBeginSection's outline frames (\\tableofcontents[currentsection] in rounded boxes' colors: whale's and orchid's balls shaded), the headline's navigation on each"
+  },
+  {
+   "id": "beamer/theme-warsaw-atbegin",
+   "file": "micro/beamer/theme-warsaw-atbegin.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 107,
+   "covers": "beamer: Warsaw with \\AtBeginSection's outline frames (\\tableofcontents[currentsection] in rounded boxes' colors: whale's and orchid's balls shaded), the headline's navigation on each"
+  },
+  {
+   "id": "beamer/theme-warsaw-blocks-pdf",
+   "file": "micro/beamer/theme-warsaw-blocks-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer under pdflatex: Warsaw's blocks (rounded with shadows, block title's font without the size: \\setbeamerfont{block title}{size={}}), items and an enumeration"
+  },
+  {
+   "id": "beamer/theme-warsaw-blocks",
+   "file": "micro/beamer/theme-warsaw-blocks.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "beamer: Warsaw's blocks (rounded with shadows, block title's font without the size: \\setbeamerfont{block title}{size={}}), items and an enumeration"
+  },
+  {
+   "id": "beamer/theme-warsaw-noshadow-pdf",
+   "file": "micro/beamer/theme-warsaw-noshadow-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 20,
+   "covers": "beamer under pdflatex: \\usetheme[shadow=false]{Warsaw}: the rounded boxes without shadows, the shadow outer theme's headline and frame title as with them"
+  },
+  {
+   "id": "beamer/theme-warsaw-noshadow",
+   "file": "micro/beamer/theme-warsaw-noshadow.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 20,
+   "covers": "beamer: \\usetheme[shadow=false]{Warsaw}: the rounded boxes without shadows, the shadow outer theme's headline and frame title as with them"
+  },
+  {
+   "id": "beamer/theme-warsaw-pdf",
+   "file": "micro/beamer/theme-warsaw-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "beamer under pdflatex: the Warsaw theme (\\usetheme{Warsaw}: the rounded inner theme with shadows, the shadow outer theme, orchid and whale): the fading declared in the preamble (at the top of the first page under dvips, a form under pdfTeX), the headline's shadow picture, the shadow theme's frame title (its shading from frametitle's bg to frametitle right's, the shadow below), the split footline, navigation symbols"
+  },
+  {
+   "id": "beamer/theme-warsaw-seahorse-pdf",
+   "file": "micro/beamer/theme-warsaw-seahorse-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 36,
+   "covers": "beamer under pdflatex: Warsaw followed by \\usecolortheme{seahorse} (the frame title's shading between seahorse's colors), at aspectratio=169 (the shadings and the fading as wide as that paper)"
+  },
+  {
+   "id": "beamer/theme-warsaw-seahorse",
+   "file": "micro/beamer/theme-warsaw-seahorse.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 36,
+   "covers": "beamer: Warsaw followed by \\usecolortheme{seahorse} (the frame title's shading between seahorse's colors), at aspectratio=169 (the shadings and the fading as wide as that paper)"
+  },
+  {
+   "id": "beamer/theme-warsaw-sections-pdf",
+   "file": "micro/beamer/theme-warsaw-sections-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 218,
+   "covers": "beamer under pdflatex: Warsaw's headline with sections and subsections (the split theme's navigation boxes, then \\vskip0pt, the shadow's picture and \\vskip-2pt), the title page and the table of contents in rounded boxes"
+  },
+  {
+   "id": "beamer/theme-warsaw-sections",
+   "file": "micro/beamer/theme-warsaw-sections.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 218,
+   "covers": "beamer: Warsaw's headline with sections and subsections (the split theme's navigation boxes, then \\vskip0pt, the shadow's picture and \\vskip-2pt), the title page and the table of contents in rounded boxes"
+  },
+  {
+   "id": "beamer/theme-warsaw-sizes-pdf",
+   "file": "micro/beamer/theme-warsaw-sizes-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "beamer under pdflatex: Warsaw at 8pt and with a long frame title that takes two lines (the picture as high as the title's minipage and 2pt)"
+  },
+  {
+   "id": "beamer/theme-warsaw-sizes",
+   "file": "micro/beamer/theme-warsaw-sizes.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 105,
+   "covers": "beamer: Warsaw at 8pt and with a long frame title that takes two lines (the picture as high as the title's minipage and 2pt)"
+  },
+  {
+   "id": "beamer/theme-warsaw-subtitle-pdf",
+   "file": "micro/beamer/theme-warsaw-subtitle-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "beamer under pdflatex: Warsaw's frame title with a subtitle (framesubtitle's font and color, the color set in vertical mode before its paragraph), and a frame without a title"
+  },
+  {
+   "id": "beamer/theme-warsaw-subtitle",
+   "file": "micro/beamer/theme-warsaw-subtitle.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 35,
+   "covers": "beamer: Warsaw's frame title with a subtitle (framesubtitle's font and color, the color set in vertical mode before its paragraph), and a frame without a title"
+  },
+  {
+   "id": "beamer/theme-warsaw",
+   "file": "micro/beamer/theme-warsaw.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "beamer: the Warsaw theme (\\usetheme{Warsaw}: the rounded inner theme with shadows, the shadow outer theme, orchid and whale): the fading declared in the preamble (at the top of the first page under dvips, a form under pdfTeX), the headline's shadow picture, the shadow theme's frame title (its shading from frametitle's bg to frametitle right's, the shadow below), the split footline, navigation symbols"
+  },
+  {
+   "id": "beamer/title-pdfinfo-dash",
+   "file": "micro/beamer/title-pdfinfo-dash.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 40,
+   "covers": "beamer: the document information's title (pdftitle={\\inserttitle\\ - \\insertsubtitle}) with --- in the subtitle: \\pdfstringdef's \\textemdash"
+  },
+  {
    "id": "beamer/titlepage-17pt-pdf",
    "file": "micro/beamer/titlepage-17pt-pdf.tex",
    "area": "beamer",
@@ -5156,6 +6215,26 @@
    "glyphs": 14,
    "covers": "beamer: a title page at 17pt (\\Large and \\scriptsize of size17.clo) with an empty date and a subtitle",
    "issue": "#290"
+  },
+  {
+   "id": "beamer/titlepage-lines-pdf",
+   "file": "micro/beamer/titlepage-lines-pdf.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "beamer under pdflatex: the title page's \\centering: \\\\ in the institute is \\@centercr (\\unskip\\par, \\addvspace{-\\parskip}), each line a paragraph of its box"
+  },
+  {
+   "id": "beamer/titlepage-lines",
+   "file": "micro/beamer/titlepage-lines.tex",
+   "area": "beamer",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 59,
+   "covers": "beamer: the title page's \\centering: \\\\ in the institute is \\@centercr (\\unskip\\par, \\addvspace{-\\parskip}), each line a paragraph of its box"
   },
   {
    "id": "beamer/titlepage-minimal-pdf",
@@ -5342,6 +6421,16 @@
    "status": "pass",
    "glyphs": 193,
    "covers": "thebibliography's \\sfcode`\\.=\\@m kept inside \\underline's \\hbox and tabular entries"
+  },
+  {
+   "id": "bibliography/cite-in-tabular",
+   "file": "micro/bibliography/cite-in-tabular.tex",
+   "area": "bibliography",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "LaTeX's own \\cite only inside a tabular: the citations read from the .aux of the run before there too"
   },
   {
    "id": "bibliography/thebibliography-article",
@@ -5706,6 +6795,226 @@
    "issue": "#269"
   },
   {
+   "id": "caption/text-commands-hyperref",
+   "file": "micro/caption/text-commands-hyperref.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 109,
+   "covers": "a caption with \\, and a formula with hyperref (dvips): the list of tables' line is a link, an \\hbox, where the formula has no \\relpenalty (restricted horizontal mode); the anchor before the caption's text"
+  },
+  {
+   "id": "caption/text-commands-kernel",
+   "file": "micro/caption/text-commands-kernel.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 381,
+   "covers": "LaTeX's own \\caption with \\, (robust: \\protect\\, in the lot line's \\write), \\% \\& \\# and a formula in its text: on one line (\\@makecaption's \\sbox) and as a paragraph, and their lines in the list of tables"
+  },
+  {
+   "id": "caption/text-commands",
+   "file": "micro/caption/text-commands.tex",
+   "area": "caption",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 487,
+   "covers": "caption.sty's \\caption with \\, \\% \\& \\# and a formula in its text: the single-line check (\\caption@slc's \\sbox) with them, a caption of several lines, one in a minipage, with amsmath's \\, (.1667em)"
+  },
+  {
+   "id": "cite/adjust",
+   "file": "micro/cite/adjust.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 326,
+   "covers": "cite.sty's \\cite@adjust: \\unskip and \\penalty\\@highpenalty before the citation unless a penalty is last (after ~), then the glue taken off again, or \\  (the font's interword glue) where no glue came before or the space factor is above 1000 (after a period, a comma); after a capital letter (999) the glue again; at a paragraph's start a space after the indentation"
+  },
+  {
+   "id": "cite/babel",
+   "file": "micro/cite/babel.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "cite.sty with babel (spanish): its \\@citex kept (\\org@@citex), the list as without babel"
+  },
+  {
+   "id": "cite/citen",
+   "file": "micro/cite/citen.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 99,
+   "covers": "cite.sty's \\citen, \\citenum and \\citeonline: \\@cite@n alone, the sorted and compressed numbers with no brackets and no \\cite@adjust"
+  },
+  {
+   "id": "cite/fonts",
+   "file": "micro/cite/fonts.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 125,
+   "covers": "cite.sty in Times (T1) and at \\small: \\citepunct's glue .13em plus.1em minus.1em in the em of the font in force, \\cite@adjust's \\  that font's interword glue"
+  },
+  {
+   "id": "cite/hyperref-pdftex",
+   "file": "micro/cite/hyperref-pdftex.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 134,
+   "covers": "cite.sty with hyperref (pdfTeX): each number between \\pdfstartlink and \\pdfendlink in the paragraph, colored with colorlinks"
+  },
+  {
+   "id": "cite/hyperref",
+   "file": "micro/cite/hyperref.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 134,
+   "covers": "cite.sty with hyperref (dvips): each number a link to its item (\\hyper@@link[cite] from \\bibcite), an \\hbox, with no box around the list; a range's ends linked"
+  },
+  {
+   "id": "cite/note",
+   "file": "micro/cite/note.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 309,
+   "covers": "cite.sty's \\cite[note]{keys}: \\citemid (,\\penalty\\@medpenalty\\ ) and the note in a group, \\spacefactor\\@m before \\citeright; an empty note"
+  },
+  {
+   "id": "cite/option-noadjust",
+   "file": "micro/cite/option-noadjust.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 119,
+   "covers": "cite.sty's noadjust option: no \\cite@adjust, the space before the citation as typed"
+  },
+  {
+   "id": "cite/option-nobreak",
+   "file": "micro/cite/option-nobreak.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 307,
+   "covers": "cite.sty's nobreak option: \\citeprepenalty, \\citemidpenalty and \\citepunctpenalty are \\@M, so no line breaks before or in a citation"
+  },
+  {
+   "id": "cite/option-nocompress",
+   "file": "micro/cite/option-nocompress.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 112,
+   "covers": "cite.sty's nocompress option: the numbers sorted, each one set"
+  },
+  {
+   "id": "cite/option-nosort-nocompress",
+   "file": "micro/cite/option-nosort-nocompress.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 97,
+   "covers": "cite.sty's nosort and nocompress options together: \\@addto@cite@list sets each number where it stands, among undefined keys too"
+  },
+  {
+   "id": "cite/option-nosort",
+   "file": "micro/cite/option-nosort.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 117,
+   "covers": "cite.sty's nosort option: the numbers in the order given, runs of consecutive ones still compressed"
+  },
+  {
+   "id": "cite/option-nospace",
+   "file": "micro/cite/option-nospace.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 115,
+   "covers": "cite.sty's nospace option: \\citepunct is ,\\penalty\\citepunctpenalty with no glue"
+  },
+  {
+   "id": "cite/option-ref",
+   "file": "micro/cite/option-ref.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 120,
+   "covers": "cite.sty's ref option: \\citeleft is [Ref.\\penalty\\@M\\"
+  },
+  {
+   "id": "cite/option-space",
+   "file": "micro/cite/option-space.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 118,
+   "covers": "cite.sty's space option: \\citepunct is ,\\penalty\\citepunctpenalty\\ , a full interword space"
+  },
+  {
+   "id": "cite/sort-compress",
+   "file": "micro/cite/sort-compress.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 317,
+   "covers": "cite.sty's \\cite{keys}: the numbers sorted (\\@make@cite@list), two consecutive ones with \\citepunct (,\\penalty\\@m\\hskip.13em plus.1em minus.1em), three or more as first, \\citedash (\\hbox{--}\\penalty\\@m) and last, runs and single numbers mixed, a key given twice, each number a group of its own"
+  },
+  {
+   "id": "cite/tabular-array",
+   "file": "micro/cite/tabular-array.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 87,
+   "covers": "cite.sty's \\cite at the start of an entry with array.sty: its template's \\hskip1sp taken off and put back, after a >{decl} too"
+  },
+  {
+   "id": "cite/tabular",
+   "file": "micro/cite/tabular.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 87,
+   "covers": "cite.sty's \\cite at the start of a tabular entry: \\cite@adjust takes off the template's \\hskip1sp and puts it back after its penalty; after text in an entry as in a paragraph"
+  },
+  {
+   "id": "cite/undefined",
+   "file": "micro/cite/undefined.tex",
+   "area": "cite",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 139,
+   "covers": "cite.sty's undefined keys: {\\bfseries ?} set at once, before the sorted numbers, with \\citepunct between; in an italic font the bold one of that shape"
+  },
+  {
    "id": "classes/article-11pt",
    "file": "micro/classes/article-11pt.tex",
    "area": "classes",
@@ -5811,6 +7120,17 @@
    "status": "pass",
    "glyphs": 454,
    "covers": "letter: geometry after the class (\\longindentation), letter.cls nested lists"
+  },
+  {
+   "id": "classes/letter-medskip",
+   "file": "micro/classes/letter-medskip.tex",
+   "area": "classes",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 270,
+   "covers": "letter.cls's \\medskipamount (\\parskip as the class loads, 0.7em in 11pt): \\medskip in a paragraph's text and between paragraphs",
+   "issue": "#363"
   },
   {
    "id": "classes/letter-multipage",
@@ -6339,6 +7659,66 @@
    "issue": "#342"
   },
   {
+   "id": "dcolumn/centre",
+   "file": "micro/dcolumn/centre.tex",
+   "area": "dcolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "dcolumn's D{sep}{out}{-1} (\\DC@centre): the boxes before and from the separator, the narrower widened to the other with \\hfill, so the separator is in the column's middle; an entry with no separator (\\phantom's box), a second separator an ordinary character, the output \\cdot for a comma"
+  },
+  {
+   "id": "dcolumn/longtable",
+   "file": "micro/dcolumn/longtable.tex",
+   "area": "dcolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "a D column in a longtable"
+  },
+  {
+   "id": "dcolumn/newcolumntype",
+   "file": "micro/dcolumn/newcolumntype.tex",
+   "area": "dcolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 86,
+   "covers": "\\newcolumntype{d}[1]{D{.}{.}{#1}} and d{3.3} columns in a booktabs table: \\multicolumn{1}{c}{…} headings over them, a \\multicolumn with a D column of its own, a text entry in an \\mbox"
+  },
+  {
+   "id": "dcolumn/right-both",
+   "file": "micro/dcolumn/right-both.tex",
+   "area": "dcolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 50,
+   "covers": "dcolumn's D{.}{.}{m.n}: the first box an \\hbox to m digits{\\hss\\hfill$…$} too, so the column has a fixed width; entries wider than the places, with no point (\\DC@end's \\hfil in the first box) and empty; rules beside the column"
+  },
+  {
+   "id": "dcolumn/right",
+   "file": "micro/dcolumn/right.tex",
+   "area": "dcolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 52,
+   "covers": "dcolumn's D{.}{.}{n} (\\DC@right): \\hfill, the entry before the point in an \\hbox{$…$}, the point and what follows in an \\hbox to n digits and the point's width, the entry a formula (a minus, a superscript); an entry with no point (the second box empty), an empty one, and \\\\[skip]'s strut after the boxes"
+  },
+  {
+   "id": "dcolumn/sizes",
+   "file": "micro/dcolumn/sizes.tex",
+   "area": "dcolumn",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 18,
+   "covers": "D columns at \\small in a 12pt document with amsmath: the digit's width (\\hbox{$1$}) and the point's in the size in force"
+  },
+  {
    "id": "display/align-amsmath",
    "file": "micro/display/align-amsmath.tex",
    "area": "display",
@@ -6348,6 +7728,16 @@
    "glyphs": 534,
    "covers": "amsmath align and align*: \\measure@ (column widths, \\totwidth@), \\eqnshift@ and \\alignsep@ for one and two column pairs, \\minalignsep, tags placed by \\place@tag, \\nonumber, empty fields, \\openup\\jot and \\interdisplaylinepenalty, inside a paragraph and opening one",
    "issue": "#30"
+  },
+  {
+   "id": "display/align-short-rows",
+   "file": "micro/display/align-short-rows.tex",
+   "area": "display",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 82,
+   "covers": "align rows with fewer fields than the widest row (\\add@amps\\maxfields@ in \\math@cr@@@align: the fields left out are set too, each an empty formula's box in its column), ending after an odd and after an even field, numbered and with \\notag"
   },
   {
    "id": "display/align-tag-below",
@@ -6521,6 +7911,26 @@
    "covers": "fancyhdr at 11pt: head fields taller than \\headheight (13.6pt struts, a field wrapping to two lines in its \\raggedleft parbox), the \\vbox cut to \\headheight (\\f@nch@vbox); a \\setlength{\\headheight} in the preamble"
   },
   {
+   "id": "floats/caption-symbols-hyperref",
+   "file": "micro/floats/caption-symbols-hyperref.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 400,
+   "covers": "\\%, \\& and \\# in a float's caption: \\chardef characters in the caption's box (centered, one line) and in a caption wider than the line (a paragraph), written as they are to the .lof file and read back in \\listoffigures, with hyperref (its anchor after the number, the .lof lines' links)"
+  },
+  {
+   "id": "floats/caption-symbols",
+   "file": "micro/floats/caption-symbols.tex",
+   "area": "floats",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 420,
+   "covers": "\\%, \\& and \\# in a float's caption: \\chardef characters in the caption's box (centered, one line) and in a caption wider than the line (a paragraph), written as they are to the .lof file and read back in \\listoffigures"
+  },
+  {
    "id": "floats/float-here-H",
    "file": "micro/floats/float-here-H.tex",
    "area": "floats",
@@ -6685,6 +8095,96 @@
    "issue": "#30"
   },
   {
+   "id": "fonts/centering-body-level",
+   "file": "micro/fonts/centering-body-level.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 370,
+   "covers": "\\centering at the body's level (not in a group): the paragraphs after it centered with no indent, \\\\ in them \\@centercr, with \\large declared after it"
+  },
+  {
+   "id": "fonts/declaration-body-level",
+   "file": "micro/fonts/declaration-body-level.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 494,
+   "covers": "font declarations at the body's level (\\bfseries between paragraphs, \\itshape in one, not in a group): in force for the paragraphs after them, until \\normalfont"
+  },
+  {
+   "id": "fonts/familydefault-after-fontenc",
+   "file": "micro/fonts/familydefault-after-fontenc.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 237,
+   "covers": "\\familydefault as \\sfdefault after fontenc: the font selected in the preamble is still the roman (no \\selectfont after it), so lengths in em and ex read there are the roman's, and the body is sans"
+  },
+  {
+   "id": "fonts/familydefault-before-fontenc",
+   "file": "micro/fonts/familydefault-before-fontenc.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 237,
+   "covers": "\\familydefault as \\sfdefault before fontenc: fontenc selects the default family (\\usefont\\encodingdefault\\familydefault…), so lengths in em and ex read after it in the preamble are the sans font's"
+  },
+  {
+   "id": "fonts/familydefault-helvet-scaled",
+   "file": "micro/fonts/familydefault-helvet-scaled.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 163,
+   "covers": "\\familydefault as \\sfdefault with helvet scaled: the body and a footnote mark (\\normalfont at \\sf@size) in Helvetica at .95 of each size"
+  },
+  {
+   "id": "fonts/familydefault-helvet-t1",
+   "file": "micro/fonts/familydefault-helvet-t1.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 338,
+   "covers": "\\familydefault as \\sfdefault with helvet in T1: the body, a heading, list labels, a footnote and its mark and the page number in Helvetica (phvr8t and its shapes), set before the package that names the family"
+  },
+  {
+   "id": "fonts/familydefault-lmodern",
+   "file": "micro/fonts/familydefault-lmodern.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 171,
+   "covers": "\\familydefault as \\sfdefault with lmodern: the body, a heading and a footnote in Latin Modern Sans"
+  },
+  {
+   "id": "fonts/familydefault-sf",
+   "file": "micro/fonts/familydefault-sf.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 338,
+   "covers": "\\renewcommand{\\familydefault}{\\sfdefault} in the preamble: \\normalfont selects Computer Modern sans, so the body, a heading, list labels, a footnote and its mark, \\textnormal and the page number are in it (its shapes: cmssi for italic, cmssbx; small caps substituted), while \\texttt and math keep their fonts"
+  },
+  {
+   "id": "fonts/familydefault-tt",
+   "file": "micro/fonts/familydefault-tt.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "\\def\\familydefault{\\ttdefault}: the body, a heading, a footnote and the page number in Computer Modern typewriter (no hyphenation, \\hyphenchar -1; no bold: cmtt substituted)"
+  },
+  {
    "id": "fonts/helvet-courier",
    "file": "micro/fonts/helvet-courier.tex",
    "area": "fonts",
@@ -6817,6 +8317,36 @@
    "issue": "#340"
   },
   {
+   "id": "fonts/size-body-level-in-paragraph",
+   "file": "micro/fonts/size-body-level-in-paragraph.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 355,
+   "covers": "a size command in a paragraph at the body's level (\\footnotesize mid-text, not in a group): the text after it in its font, the paragraph's lines with its \\baselineskip (the one in force at the \\par), and the next paragraph all in it"
+  },
+  {
+   "id": "fonts/size-body-level-pages",
+   "file": "micro/fonts/size-body-level-pages.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 8899,
+   "covers": "\\small at the body's level over a page break: the output routine fires with its \\baselineskip in force, the page's foot at \\normalsize (\\@outputpage), and \\vfill, \\bigskip and \\newpage between its paragraphs"
+  },
+  {
+   "id": "fonts/size-body-level",
+   "file": "micro/fonts/size-body-level.tex",
+   "area": "fonts",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 527,
+   "covers": "a size command at the body's level (\\small between paragraphs, not in a group): the paragraphs after it in its font with its \\baselineskip, a \\vspace in its em after it, a footnote mark at its script size, and \\normalsize back for the last"
+  },
+  {
    "id": "fonts/times-ot1",
    "file": "micro/fonts/times-ot1.tex",
    "area": "fonts",
@@ -6882,6 +8412,26 @@
    "covers": "\\includegraphics where it stands: side by side in a figure (\\hfill), a bounding box with an offset and decimals, a file named without .eps, \\linewidth in a list, \\textwidth in a minipage, a height in em, keepaspectratio limited by the height, scale= in an \\mbox with xcolor loaded; em and ex of the current font (italic, bold)"
   },
   {
+   "id": "graphics/resizebox",
+   "file": "micro/graphics/resizebox.tex",
+   "area": "graphics",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 66,
+   "covers": "graphics' \\resizebox and \\resizebox* with dvips: the factors \\Gscale@div gives, printed in the ps: specials; a width, a height, both, and \\mbox for two !"
+  },
+  {
+   "id": "graphics/scalebox",
+   "file": "micro/graphics/scalebox.tex",
+   "area": "graphics",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 116,
+   "covers": "graphics' \\scalebox{x}[y]{text} and \\reflectbox{text} with dvips (dvips.def's \\Gscale@start and \\Gscale@end: two ps: specials with the factors as given, around the text in an \\rlap), positive, identity and negative factors"
+  },
+  {
    "id": "graphics/sizes",
    "file": "micro/graphics/sizes.tex",
    "area": "graphics",
@@ -6932,6 +8482,96 @@
    "glyphs": 70,
    "covers": "PDF graphics under pdflatex: pdfTeX's image box for a page of a PDF file (read_pdf_info through xpdf): the crop box by default, pagebox= mediabox, bleedbox, trimbox and artbox (an unknown name, media: the crop box), page=; MediaBox, CropBox and Rotate inherited through the page tree, the other boxes defaulting to the crop box, every box clipped to the media box, corners put in order; /Rotate 90 and 270 (also -90, 450, an inherited one) swapping width and height, 45, 180 and an indirect -540 not, a real 180.0 ignored (the inherited 270 holds); 8.5 by 11 in with no MediaBox; pages found by the kids' /Count, a /Count 0 counted; each side a float (epdf_width) made sp by bp2int; reals read as xpdf reads them (488.4388885498047, --3.5, 7.)",
    "issue": "#274"
+  },
+  {
+   "id": "graphics-pdftex/reflectbox",
+   "file": "micro/graphics-pdftex/reflectbox.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 32,
+   "covers": "\\reflectbox{text} under pdfTeX: \\Gscale@box-1[1]"
+  },
+  {
+   "id": "graphics-pdftex/resizebox-both",
+   "file": "micro/graphics-pdftex/resizebox-both.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "\\resizebox{width}{height}{text} under pdfTeX (\\Gscale@box@dddd: a factor for each direction, no keepaspectratio), \\resizebox*{2\\width}{\\totalheight}{text} (lengths of the text's own box) and \\resizebox{!}{!}{text} (\\mbox)"
+  },
+  {
+   "id": "graphics-pdftex/resizebox-height",
+   "file": "micro/graphics-pdftex/resizebox-height.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 39,
+   "covers": "\\resizebox{!}{height}{text} and \\resizebox*{!}{height}{text} under pdfTeX: the factor from the text's height, and with the star from its height plus depth (\\totalheight)"
+  },
+  {
+   "id": "graphics-pdftex/resizebox-math",
+   "file": "micro/graphics-pdftex/resizebox-math.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 20,
+   "covers": "\\resizebox{\\linewidth}{!}{$formula$} under pdfTeX: the formula (its math nodes in the box, spaces around it in the argument) scaled to the line's width, in a paragraph of its own"
+  },
+  {
+   "id": "graphics-pdftex/resizebox-tabular",
+   "file": "micro/graphics-pdftex/resizebox-tabular.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 19,
+   "covers": "\\resizebox{.5\\linewidth}{!}{a tabular} in a center environment under pdfTeX: the tabular's \\hbox scaled to half the line"
+  },
+  {
+   "id": "graphics-pdftex/resizebox-width",
+   "file": "micro/graphics-pdftex/resizebox-width.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "\\resizebox{width}{!}{text} under pdfTeX: the factor \\Gscale@div of the width by the text's (\\@begin@tempboxa's box in \\hbox{{\\box\\@tempboxa}}), for both directions; a length, a factor of \\linewidth, of \\width, and em in the current font"
+  },
+  {
+   "id": "graphics-pdftex/scalebox-identity",
+   "file": "micro/graphics-pdftex/scalebox-identity.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 41,
+   "covers": "\\scalebox with the identity under pdfTeX (pdftex.def's \\Gscale@start: no \\pdfsave, matrix or \\pdfrestore when the normalized factors are 1 0 0 1): 1, 1.0 by 01, and +1.00 by 1; a factor normalized in the matrix (02.50 is 2.5, .0 is 0)"
+  },
+  {
+   "id": "graphics-pdftex/scalebox-negative",
+   "file": "micro/graphics-pdftex/scalebox-negative.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 40,
+   "covers": "\\scalebox with negative factors under pdfTeX: a negative x puts the kern before the box (\\hb@xt@-x\\wd0{\\kern-x\\wd0\\box2\\hss}), a negative y swaps height and depth (\\ht2 -y\\dp0, \\dp2 -y\\ht0)"
+  },
+  {
+   "id": "graphics-pdftex/scalebox",
+   "file": "micro/graphics-pdftex/scalebox.tex",
+   "area": "graphics-pdftex",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 146,
+   "covers": "graphics' \\scalebox{x}{text} and \\scalebox{x}[y]{text} under pdfTeX (\\Gscale@box: \\pdfsave, \\pdfsetmatrix{x 0 0 y}, the text in an \\rlap, \\pdfrestore; the box x times as wide, y times as high and deep), in a paragraph that breaks around them"
   },
   {
    "id": "hyperref/addcontentsline-parent-anchor-pdftex",
@@ -7143,6 +8783,26 @@
    "issue": "#30"
   },
   {
+   "id": "hyperref/maketitle-thanks-pdftex",
+   "file": "micro/hyperref/maketitle-thanks-pdftex.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 343,
+   "covers": "\\thanks and \\footnote in \\maketitle with hyperref: \\maketitle restores the kernel's \\@footnotemark and \\@footnotetext (\\H@@footnotemark, \\H@@footnotetext), so the marks are no links and the texts have no anchors; the footnotes after it are links to Hfootnote.1 and on, under pdfTeX with colorlinks"
+  },
+  {
+   "id": "hyperref/maketitle-thanks",
+   "file": "micro/hyperref/maketitle-thanks.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 343,
+   "covers": "\\thanks and \\footnote in \\maketitle with hyperref: \\maketitle restores the kernel's \\@footnotemark and \\@footnotetext (\\H@@footnotemark, \\H@@footnotetext), so the marks are no links and the texts have no anchors; the footnotes after it are links to Hfootnote.1 and on"
+  },
+  {
    "id": "hyperref/multline",
    "file": "micro/hyperref/multline.tex",
    "area": "hyperref",
@@ -7253,6 +8913,16 @@
    "issue": "#332"
   },
   {
+   "id": "hyperref/pdfstring-ligatures",
+   "file": "micro/hyperref/pdfstring-ligatures.tex",
+   "area": "hyperref",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 45,
+   "covers": "hyperref's \\pdfstringdef ligatures in a bookmark (\\HyPsd@Subst): --- and -- are PU's \\textemdash and \\textendash (U+2014, U+2013), !` and ?` the inverted marks"
+  },
+  {
    "id": "hyperref/report-toc",
    "file": "micro/hyperref/report-toc.tex",
    "area": "hyperref",
@@ -7328,6 +8998,193 @@
    "glyphs": 138,
    "covers": "capitalized words hyphenate because \\uchyph=1; exceptions list (ta-ble, present, project)",
    "issue": "#113"
+  },
+  {
+   "id": "koma/koma-caption-lines",
+   "file": "micro/koma/koma-caption-lines.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 264,
+   "covers": "KOMA-Script's \\@makecaption, a caption wider than \\hsize (\\scr@makemultilinecaption): a \\vbox between \\hfill in \\hb@xt@\\hsize, its paragraph \\@hangfrom{\\strut\\scr@smashdp{Table~1:\\ }} (the label's box of no depth), the lines hanging by its width, \\scr@endstrut (\\unskip\\nobreak\\strut) at the end"
+  },
+  {
+   "id": "koma/koma-caption",
+   "file": "micro/koma/koma-caption.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 135,
+   "covers": "KOMA-Script's \\@makecaption in a float, a caption of one line: \\vskip\\abovecaptionskip, \\hb@xt@\\hsize{\\hfill\\strut Table~1:\\ text\\hfill} on the vertical list, \\kern\\dp\\strutbox, \\kern-\\dp\\strutbox, \\nopagebreak\\vskip\\belowcaptionskip\\nopagebreak"
+  },
+  {
+   "id": "koma/koma-fonts",
+   "file": "micro/koma/koma-fonts.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 356,
+   "covers": "scrartcl with fontsize=12pt, paper=letter, parskip=full, T1 and Latin Modern: \\parindent and \\parfillskip (1em) of the document's font (\\par@updaterelative), \\scr@parindent 0pt for \\subparagraph, amsthm's theorem head with no \\addvspace{-\\parskip} (KOMA-Script's patch)",
+   "issue": "#360"
+  },
+  {
+   "id": "koma/koma-footnotes",
+   "file": "micro/koma/koma-footnotes.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 446,
+   "covers": "scrartcl's defaults (fontsize=11pt, paper=a4, typearea), KOMA-Script's footnotes (\\deffootnote[1em]{1.5em}{1em}: \\leftskip 1.5em, the mark in \\hbox to\\z@ after \\hskip-.5em; \\textsuperscript in the font around it, italic in \\emph), \\footnoterule (\\kern-3pt, \\vskip\\z@\\@plus.05fil under \\raggedbottom, \\kern2.6pt)",
+   "issue": "#360"
+  },
+  {
+   "id": "koma/koma-lists",
+   "file": "micro/koma/koma-lists.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 571,
+   "covers": "KOMA-Script's lists: \\labelenumii a), quotation's \\listparindent 1em, the description label in \\sffamily\\bfseries, \\@list@extra (a nested list in an item: \\topsep\\z@, \\parsep the item's \\parskip, \\itemsep\\z@)",
+   "issue": "#360"
+  },
+  {
+   "id": "koma/koma-maketitle",
+   "file": "micro/koma/koma-maketitle.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 537,
+   "covers": "KOMA-Script's \\maketitle (titlepage=false): \\next@tdpage's \\clearpage after text, \\setparsizes{\\z@}{\\z@}{\\z@\\@plus1fil}, \\null\\vskip2em, a center with \\subject (\\bfseries\\Large), the title in \\sectfont\\huge, \\subtitle (\\sectfont\\large), the authors' tabulars with \\and in \\Large (\\lineskip .5em), the date, \\publishers; \\thispagestyle{plain}; the abstract as a quotation (abstract=false)",
+   "issue": "#360"
+  },
+  {
+   "id": "koma/koma-parskip-minus",
+   "file": "micro/koma/koma-parskip-minus.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 391,
+   "covers": "KOMA-Script parskip=full-: \\parskip \\baselineskip plus .1\\baselineskip, \\parindent 0pt, \\parfillskip 0pt plus 1fil (a last line may be full)"
+  },
+  {
+   "id": "koma/koma-parskip-plus",
+   "file": "micro/koma/koma-parskip-plus.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 391,
+   "covers": "KOMA-Script parskip=half+: \\parskip .5\\baselineskip plus .5\\baselineskip, \\parindent 0pt, \\parfillskip .3333\\linewidth plus 1fil set by \\par@update at \\begin{document} (\\linewidth the \\textwidth of paper=letter there), so a last line ends at least a third of the line short"
+  },
+  {
+   "id": "koma/koma-parskip-star",
+   "file": "micro/koma/koma-parskip-star.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 391,
+   "covers": "KOMA-Script parskip=full*: \\parskip \\baselineskip plus .1\\baselineskip, \\parfillskip .25\\linewidth plus 1fil of the default paper, with T1 (a part of \\linewidth, not 1em of the font)"
+  },
+  {
+   "id": "koma/koma-parskip",
+   "file": "micro/koma/koma-parskip.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 495,
+   "covers": "KOMA-Script's options paper=a4, fontsize=11pt, parskip=half: \\parskip .5\\baselineskip plus .5\\baselineskip, \\parindent 0pt, \\parfillskip 1em plus 1fil (the headings' and the lists' 0pt plus 1fil), \\@list@extra at the outer level, \\maketitle with \\subtitle",
+   "issue": "#360"
+  },
+  {
+   "id": "koma/koma-scrpage-defaults",
+   "file": "micro/koma/koma-scrpage-defaults.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 400,
+   "covers": "scrlayer-scrpage as it loads in a KOMA-Script class (pagestyleset=KOMA-Script, one-sided): \\cfoot[\\pagemark]{\\pagemark} in both styles, the head's middle \\headmark (here set empty); \\maketitle's \\thispagestyle{plain}"
+  },
+  {
+   "id": "koma/koma-scrpage-empty",
+   "file": "micro/koma/koma-scrpage-empty.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 353,
+   "covers": "scrlayer-scrpage: scrlayer's own empty page style (\\RedeclarePageStyleByLayers{empty}{}): the head's and foot's \\parbox with no layers, their two paragraphs still traced; \\pagestyle{empty} in the preamble and \\thispagestyle{plain} on the second page"
+  },
+  {
+   "id": "koma/koma-scrpage-foot",
+   "file": "micro/koma/koma-scrpage-foot.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 223,
+   "covers": "scrlayer-scrpage: \\ifoot, \\cfoot and \\ofoot at fontsize=12pt: \\@oddfoot a \\parbox[t] of \\headheight with the foreground layers (foot.oneside \\footheight high and aligned at its top, foot.above.line, foot.below.line) after a \\vskip up to the page corner; \\lohead and \\rofoot set the odd page's fields themselves, \\lehead those of even pages (none here)"
+  },
+  {
+   "id": "koma/koma-scrpage-head",
+   "file": "micro/koma/koma-scrpage-head.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 211,
+   "covers": "scrlayer-scrpage in scrartcl, one-sided: \\pagestyle{scrheadings} as it loads, \\clearpairofpagestyles, \\ihead, \\chead and \\ohead{\\pagemark}: \\@oddhead a \\parbox of \\headheight with the background layers (head.oneside, head.above.line, head.below.line) placed from the page corner, the head a \\vbox of three \\parbox fields in \\slshape (the page number \\normalfont), the foot's layers with empty fields; every layer's paragraphs traced as the page is shipped"
+  },
+  {
+   "id": "koma/koma-scrpage-pages",
+   "file": "micro/koma/koma-scrpage-pages.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 9976,
+   "covers": "scrlayer-scrpage over four pages with parskip=half, headings and a footnote: the layers' paragraphs of each page traced where TeX ships it, between the paragraphs of the text"
+  },
+  {
+   "id": "koma/koma-scrpage-plain",
+   "file": "micro/koma/koma-scrpage-plain.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 379,
+   "covers": "scrlayer-scrpage: \\thispagestyle{plain} is plain.scrheadings (the optional arguments' fields, \\cfoot* both styles'), its lines 0pt long (the oninit hook: no feasible break after the rule); the next page scrheadings again"
+  },
+  {
+   "id": "koma/koma-sections",
+   "file": "micro/koma/koma-sections.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 452,
+   "covers": "KOMA-Script's sectioning: \\section … \\subsubsection in \\sffamily\\bfseries \\Large, \\large, \\normalsize, ragged right, the number followed by \\enskip, two \\nobreak before the heading; run-in \\paragraph and \\subparagraph (indent 1em of the heading's font) after two \\nobreak, toc lines with \\nonumberline; starred headings reset the counters within them (a theorem's number); \\label's name is the title",
+   "issue": "#360"
+  },
+  {
+   "id": "koma/koma-t1",
+   "file": "micro/koma/koma-t1.tex",
+   "area": "koma",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 271,
+   "covers": "scrartcl with T1: \\parindent 1em of the EC font (\\par@updaterelative at \\begin{document}), not of Computer Modern's",
+   "issue": "#360"
   },
   {
    "id": "linebreak/badness-100",
@@ -9179,6 +11036,286 @@
    "issue": "#330"
   },
   {
+   "id": "memoir/chapter-bianchi-lmodern",
+   "file": "micro/memoir/chapter-bianchi-lmodern.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 405,
+   "covers": "memoir's \\chapterstyle{bianchi} with T1 Latin Modern: the name's sans italic is NFSS's slanted substitute"
+  },
+  {
+   "id": "memoir/chapter-bianchi-star",
+   "file": "micro/memoir/chapter-bianchi-star.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 383,
+   "covers": "memoir's \\chapterstyle{bianchi} with \\chapter*: \\printchapternonum's \\vphantom of the number, a paragraph of its own, before \\midchapskip"
+  },
+  {
+   "id": "memoir/chapter-bianchi",
+   "file": "micro/memoir/chapter-bianchi.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 405,
+   "covers": "memoir's \\chapterstyle{bianchi}: the name in \\Large sans italic and the number in \\huge italic on a centred line, the title in \\Huge sans bold between two rules a line apart"
+  },
+  {
+   "id": "memoir/chapter-openany",
+   "file": "micro/memoir/chapter-openany.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1164,
+   "covers": "memoir's openany option two-sided: \\clearforchapter is \\clearpage, a chapter may start on an even page"
+  },
+  {
+   "id": "memoir/chapter-star",
+   "file": "micro/memoir/chapter-star.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 433,
+   "covers": "memoir's \\chapter* in the default chapter style (\\@makeschapterhead: no name or number, no mark), and a long title on two lines"
+  },
+  {
+   "id": "memoir/chapter",
+   "file": "micro/memoir/chapter.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 403,
+   "covers": "memoir's \\chapter in the default chapter style, one-sided: \\thispagestyle{chapter}, \\vspace*{\\beforechapskip}, name and number, \\midchapskip, the title, \\afterchapskip, with \\parskip zero in the head; the toc line after the head; no indentation after"
+  },
+  {
+   "id": "memoir/epigraph-chapter",
+   "file": "micro/memoir/epigraph-chapter.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 478,
+   "covers": "memoir's \\epigraph right after a chapter head (\\if@nobreak: no skip or penalty from the flushright, \\clubpenalty\\@M in its minipage's paragraph), and the paragraph after it: indented, \\@afterheading's \\everypar spent"
+  },
+  {
+   "id": "memoir/epigraph-clubpenalty",
+   "file": "micro/memoir/epigraph-clubpenalty.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 461,
+   "covers": "memoir's \\epigraph after the first paragraph under a heading (its \\clubpenalty\\@M still in force): \\end{flushright}'s \\@doendpe makes the blank line's \\par set \\@clubpenalty again for the paragraph after"
+  },
+  {
+   "id": "memoir/epigraph-noblank",
+   "file": "micro/memoir/epigraph-noblank.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 393,
+   "covers": "memoir's \\epigraph with text right after it (no blank line): a new paragraph, not indented (\\end{flushright}'s \\@doendpe outlasts the group), with T1 Latin Modern (the rule's .5ex and the axis in \\small's fonts)"
+  },
+  {
+   "id": "memoir/epigraph-sloppy",
+   "file": "micro/memoir/epigraph-sloppy.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 446,
+   "covers": "memoir's \\epigraph with a text that cannot be broken to its width: the minipage's \\sloppy (\\@parboxrestore) gives the paragraph an emergency pass"
+  },
+  {
+   "id": "memoir/epigraph",
+   "file": "micro/memoir/epigraph.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 450,
+   "covers": "memoir's \\epigraph between paragraphs: the skips before and after, a flushright in \\small with a minipage of \\epigraphwidth holding the text's minipage (ragged right, then the rule), \\\\, and the source's (ragged left), each centred on the axis; the paragraph after it indented"
+  },
+  {
+   "id": "memoir/inline-math",
+   "file": "micro/memoir/inline-math.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 140,
+   "covers": "inline math in memoir at its 11pt sizes (\\normalsize 10.95pt with 8pt and 6pt scripts), in a paragraph and in a section title's \\Large"
+  },
+  {
+   "id": "memoir/layout",
+   "file": "micro/memoir/layout.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 376,
+   "covers": "the memoir class's default layout (10pt, letter stock, two-sided): its type block, margins, \\parindent and \\parskip, the first paragraphs of a page, \\pagestyle{empty}"
+  },
+  {
+   "id": "memoir/margins-block",
+   "file": "micro/memoir/margins-block.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3737,
+   "covers": "memoir's \\setlrmarginsandblock and \\setulmarginsandblock with both margins given (\\setfillsize: the block is what is left) and \\checkandfixthelayout (classic: a whole number of lines; \\fixthelayout's \\topmargin and side margins, in whole points)"
+  },
+  {
+   "id": "memoir/margins-fixed",
+   "file": "micro/memoir/margins-fixed.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 3002,
+   "covers": "memoir's \\checkandfixthelayout[fixed]: the \\textheight as \\setulmarginsandblock left it, not a whole number of lines"
+  },
+  {
+   "id": "memoir/margins-lines",
+   "file": "micro/memoir/margins-lines.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2620,
+   "covers": "memoir's \\setulmarginsandblock with one margin and no ratio (both margins the same) and \\checkandfixthelayout[lines]"
+  },
+  {
+   "id": "memoir/margins-ratio",
+   "file": "micro/memoir/margins-ratio.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5612,
+   "covers": "memoir's \\setlrmarginsandblock and \\setulmarginsandblock with one margin and a ratio (the other margin: the ratio times it), two-sided, and \\checkandfixthelayout[nearest]"
+  },
+  {
+   "id": "memoir/margins-unfixed",
+   "file": "micro/memoir/margins-unfixed.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2997,
+   "covers": "memoir's \\setlrmarginsandblock and \\setulmarginsandblock without \\checkandfixthelayout: the type block changes, \\topmargin and the side margins stay the class's"
+  },
+  {
+   "id": "memoir/pagestyle-headings",
+   "file": "micro/memoir/pagestyle-headings.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 4867,
+   "covers": "memoir's headings page style, its default (two-sided, flush bottom), with no marks yet: \\thepage right on odd pages and left on even ones, in the head's \\parbox fields"
+  },
+  {
+   "id": "memoir/pagestyle-plain",
+   "file": "micro/memoir/pagestyle-plain.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2626,
+   "covers": "memoir's plain page style ([12pt,oneside,a4paper]: ragged bottom): the page number in the centre \\parbox of the foot, the fields' struts, a page break in a paragraph"
+  },
+  {
+   "id": "memoir/papersize",
+   "file": "micro/memoir/papersize.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 23,
+   "covers": "memoir's \\special{papersize=…} of the stock on the first page under dvips (\\mem@fixpagelayout's \\AtBeginDvi), for the a4paper option"
+  },
+  {
+   "id": "memoir/quote",
+   "file": "micro/memoir/quote.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 739,
+   "covers": "memoir's quote (\\list{}{\\rightmargin\\leftmargin}\\item[]) with the class's list lengths, and the text after it"
+  },
+  {
+   "id": "memoir/running-heads-twoside",
+   "file": "micro/memoir/running-heads-twoside.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 8745,
+   "covers": "memoir's headings page style two-sided, openright: \\chaptermark's \\markboth{…}{} and \\sectionmark's \\markright (\\MakeUppercase{\\thesection. \\ title}); \\cleartorecto's blank page in the cleared (empty) style before a chapter"
+  },
+  {
+   "id": "memoir/running-heads",
+   "file": "micro/memoir/running-heads.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 5707,
+   "covers": "memoir's headings page style one-sided: \\chaptermark's \\markright (\\MakeUppercase{\\@chapapp\\ \\thechapter. \\ title}) slanted in the head's left field, \\thepage right; the chapter's own page plain; sections leave no mark"
+  },
+  {
+   "id": "memoir/sections-lmodern",
+   "file": "micro/memoir/sections-lmodern.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 581,
+   "covers": "memoir's section skips with T1 Latin Modern: still in the ex of the class's own Computer Modern, read as the class loaded"
+  },
+  {
+   "id": "memoir/sections",
+   "file": "micro/memoir/sections.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1261,
+   "covers": "memoir's \\section, \\subsection and \\subsubsection (\\M@sect): ragged right, numbered to the section by default, the skips in the class's own ex, \\vskip-\\parskip after the skip after; a heading right after a heading"
+  },
+  {
+   "id": "memoir/t1",
+   "file": "micro/memoir/t1.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2877,
+   "covers": "memoir with \\usepackage[T1]{fontenc} alone: the EC fonts at its sizes, in the chapter head, a section and the running head"
+  },
+  {
+   "id": "memoir/thispagestyle",
+   "file": "micro/memoir/thispagestyle.tex",
+   "area": "memoir",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 1130,
+   "covers": "\\thispagestyle{empty} and \\thispagestyle{plain} in memoir: its own empty and plain styles for that page, headings on the others; \\newpage and \\clearpage"
+  },
+  {
    "id": "minipage/aligned",
    "file": "micro/minipage/aligned.tex",
    "area": "minipage",
@@ -9220,6 +11357,36 @@
    "covers": "minipages in floats: side by side with \\hfill and \\quad in a centered figure (a paragraph of their own, \\parindent zero), tabulars inside them, widths in \\linewidth, stacked ones after a blank line, and a caption after"
   },
   {
+   "id": "minipage/parbox-groups",
+   "file": "micro/minipage/parbox-groups.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 78,
+   "covers": "groups with size commands and font declarations in a \\parbox's paragraphs under \\centering: {\\Huge\\bfseries …}\\\\[2pt] ends the line outside the group (the box's \\baselineskip), then a {\\small …} line"
+  },
+  {
+   "id": "minipage/parbox-vspace-paragraph",
+   "file": "micro/minipage/parbox-vspace-paragraph.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 69,
+   "covers": "\\vspace at the end of a \\parbox's paragraph: \\@vspace's \\vadjust (after a space: \\nobreak\\hskip\\z@skip, which the \\par takes off), its skips after the last line in the box"
+  },
+  {
+   "id": "minipage/parbox-vspace-vertical",
+   "file": "micro/minipage/parbox-vspace-vertical.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 65,
+   "covers": "\\vspace in vertical mode at the start of a \\parbox (after \\centering): \\@vspace's \\vskip skip \\vskip\\z@skip on the box's list before its first paragraph"
+  },
+  {
    "id": "minipage/text",
    "file": "micro/minipage/text.tex",
    "area": "minipage",
@@ -9228,6 +11395,46 @@
    "status": "pass",
    "glyphs": 328,
    "covers": "minipage (\\@iiiminipage, \\endminipage, \\@iiiparbox): one and several paragraphs at its \\hsize with \\@parboxrestore (\\parindent and \\parskip zero, \\sloppy), [c] as $\\vcenter$, [t] as \\vtop, [b] as \\vbox, side by side in a paragraph, starting a paragraph, in a \\small group, an empty one, with fonts, math and \\\\"
+  },
+  {
+   "id": "minipage/vspace-last",
+   "file": "micro/minipage/vspace-last.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 41,
+   "covers": "\\vspace last in a minipage: \\endminipage's \\unskip takes \\@vspace's \\vskip\\z@skip and the skip itself stays, so a [b] minipage's text stands a centimetre above the baseline"
+  },
+  {
+   "id": "minipage/vspace-parbox",
+   "file": "micro/minipage/vspace-parbox.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 84,
+   "covers": "\\vspace first in a \\parbox[t] (vertical mode there too): \\vspace{0pt} puts the box's top at the baseline, beside a \\parbox[t] without it"
+  },
+  {
+   "id": "minipage/vspace-star",
+   "file": "micro/minipage/vspace-star.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 62,
+   "covers": "\\vspace* in a minipage's vertical mode (\\@vspacer: \\hrule\\@height\\z@ \\nobreak \\vskip skip \\vskip\\z@skip, the \\prevdepth kept): first in a [t] minipage (the rule is the \\vtop's first box) beside one without it, and between two paragraphs (the next line's \\baselineskip from the line before the rule)"
+  },
+  {
+   "id": "minipage/vspace",
+   "file": "micro/minipage/vspace.tex",
+   "area": "minipage",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 94,
+   "covers": "\\vspace in a minipage's vertical mode (\\@vspace: \\vskip skip \\vskip\\z@skip): \\vspace{0pt} first in two [t] minipages side by side (the \\vtop's height zero, so their tops line up: \\centering after it, text and a rule), one holding only the \\vspace (\\endminipage's \\unskip takes the \\z@skip), and a skip in em between two paragraphs"
   },
   {
    "id": "multicol/multicols-balance",
@@ -9296,6 +11503,16 @@
    "issue": "#342"
   },
   {
+   "id": "multicol/multicols-vfill-columnbreak",
+   "file": "micro/multicol/multicols-vfill-columnbreak.tex",
+   "area": "multicol",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 295,
+   "covers": "\\vfill\\columnbreak after a blank line: both in vertical mode (\\vfill's \\par, then \\columnbreak's \\penalty-\\@Mv on the vertical list, not a \\vadjust in a paragraph)"
+  },
+  {
    "id": "multirow/array",
    "file": "micro/multirow/array.tex",
    "area": "multirow",
@@ -9327,6 +11544,28 @@
    "glyphs": 325,
    "covers": "natbib's author-year citations with no .bbl (every key undefined): \\citep, \\citet, \\cite, \\citealt, \\citealp, \\citeauthor, \\citeyear, \\citeyearpar, \\Citet; several keys; pre- and post-notes; \\bibliography with no .bbl",
    "issue": "#251"
+  },
+  {
+   "id": "natbib/bibhang-fontenc",
+   "file": "micro/natbib/bibhang-fontenc.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 233,
+   "covers": "natbib's \\bibhang is 1em in the font selected as natbib loads: natbib before fontenc takes OT1 cmr at 11pt (10.95pt's quad), the text is T1 ecrm",
+   "issue": "#363"
+  },
+  {
+   "id": "natbib/bibhang-fonts",
+   "file": "micro/natbib/bibhang-fonts.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 233,
+   "covers": "natbib's \\bibhang is 1em in the font selected as natbib loads: cmr10 while palatino only changes \\rmdefault (palatino before natbib, no fontenc), so the items' hanging indent is 10.00002pt, not ppl's 10pt",
+   "issue": "#363"
   },
   {
    "id": "natbib/bibitems-agsm",
@@ -9417,6 +11656,28 @@
    "issue": "#352"
   },
   {
+   "id": "natbib/bibsep-before-parskip",
+   "file": "micro/natbib/bibsep-before-parskip.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 135,
+   "covers": "natbib's \\bibsep is \\@listi's \\itemsep plus \\parsep as natbib loads: before parskip.sty, the class's (8pt plus 4pt minus 2pt in 10pt), whatever parskip changes later",
+   "issue": "#363"
+  },
+  {
+   "id": "natbib/bibsep-parskip",
+   "file": "micro/natbib/bibsep-parskip.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 135,
+   "covers": "natbib's \\bibsep is \\@listi's \\itemsep plus \\parsep as natbib loads: after parskip.sty that is 0pt plus its \\parsep\\parskip (.5\\baselineskip plus 2pt), the skip between items, and not a \\parskip set after natbib",
+   "issue": "#363"
+  },
+  {
    "id": "natbib/first-run",
    "file": "micro/natbib/first-run.tex",
    "area": "natbib",
@@ -9481,6 +11742,28 @@
    "glyphs": 39,
    "covers": "natbib's [round] option (nobibstyle): \\bibliographystyle{plainnat} in the document does not change the brackets",
    "issue": "#251"
+  },
+  {
+   "id": "natbib/running-heads-report",
+   "file": "micro/natbib/running-heads-report.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2668,
+   "covers": "natbib's \\bibsection with \\pagestyle{headings}: \\chapter*{\\bibname\\@mkboth{\\MakeUppercase…}{…}}, the mark inside the heading's title (after its line, in horizontal mode: no \\nobreak), the running heads of the pages the bibliography fills",
+   "issue": "#363"
+  },
+  {
+   "id": "natbib/running-heads",
+   "file": "micro/natbib/running-heads.tex",
+   "area": "natbib",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 2673,
+   "covers": "natbib's \\bibsection with \\pagestyle{headings}: \\section*{\\refname\\@mkboth{\\MakeUppercase…}{…}}, the mark inside the heading's title (after its line, in horizontal mode: no \\nobreak), the running heads of the pages the bibliography fills",
+   "issue": "#363"
   },
   {
    "id": "natbib/second-run",
@@ -9790,6 +12073,17 @@
    "issue": "#332"
   },
   {
+   "id": "parskip/parskip-listof-headings",
+   "file": "micro/parskip/parskip-listof-headings.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 178,
+   "covers": "parskip.sty's \\@starttoc in \\listoffigures and \\listoftables with \\pagestyle{headings}: after \\@mkboth's mark and \\nobreak in vertical mode \\lastskip is zero, so \\vskip-0pt \\vskip\\parskip (article)",
+   "issue": "#363"
+  },
+  {
    "id": "parskip/parskip-listoffigures",
    "file": "micro/parskip/parskip-listoffigures.tex",
    "area": "parskip",
@@ -9810,6 +12104,36 @@
    "glyphs": 999,
    "covers": "parskip.sty with report at 11pt: its \\parskip from the class's \\baselineskip (6.8pt plus 2pt), chapters (\\@makechapterhead unpatched), sections after them, the toc after \\chapter*'s skip, a later \\setlength{\\parskip} that the lists' \\parsep follows",
    "issue": "#332"
+  },
+  {
+   "id": "parskip/setlength-baselineskip-factor",
+   "file": "micro/parskip/setlength-baselineskip-factor.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 201,
+   "covers": "\\setlength{\\parskip}{1\\baselineskip} in the preamble at 11pt: a factor times a skip register is a dimension (§ 455, the register's width: 13.6pt), so the \\parskip has no stretch; paragraphs, a section heading and a list take it"
+  },
+  {
+   "id": "parskip/setlength-baselineskip-fraction",
+   "file": "micro/parskip/setlength-baselineskip-fraction.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 119,
+   "covers": "\\setlength{\\parskip}{.37\\baselineskip plus 1pt} and \\setlength{\\parindent}{1.3\\baselineskip} in the preamble at 10pt: a decimal factor times \\baselineskip's width (§ 455: nx_plus_y with xn_over_d of the fraction), then the stretch"
+  },
+  {
+   "id": "parskip/setlength-baselineskip",
+   "file": "micro/parskip/setlength-baselineskip.tex",
+   "area": "parskip",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 119,
+   "covers": "\\setlength{\\parskip}{\\baselineskip} and \\setlength{\\parindent}{-\\baselineskip} in the preamble at 12pt: the skip register itself (§ 461) and its negated width as a dimension (§ 449)"
   },
   {
    "id": "pdflatex/algorithm-hyperref-first",
@@ -10987,6 +13311,17 @@
    "covers": "f-ligatures, quote ligatures, en and em dashes, Spanish ?` !` ligatures, uppercase kern pairs (AV AW LT Ta To Wa Yo VA)"
   },
   {
+   "id": "text/medskip-in-paragraph",
+   "file": "micro/text/medskip-in-paragraph.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 187,
+   "covers": "\\medskip in a paragraph's text (\\vspace\\medskipamount: \\vadjust{\\vskip 6pt plus 2pt minus 2pt \\vskip\\z@skip}, after a space \\nobreak\\hskip\\z@skip), and between paragraphs",
+   "issue": "#363"
+  },
+  {
    "id": "text/newlines-and-spaces",
    "file": "micro/text/newlines-and-spaces.tex",
    "area": "text",
@@ -11179,6 +13514,36 @@
    "status": "pass",
    "glyphs": 141,
    "covers": "\\textdegree (TS1, \\UseTextSymbol: the companion font's character 176 in a group), after a thin space \\, (\\kern.16667em), in bold and italic text and in \\small"
+  },
+  {
+   "id": "text/textsubscript-helvet",
+   "file": "micro/text/textsubscript-helvet.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 111,
+   "covers": "\\textsubscript with T1 and helvet as the default family at 11pt: the text in phv at \\sf@size (8pt), the formula's shifts from the math fonts"
+  },
+  {
+   "id": "text/textsubscript",
+   "file": "micro/text/textsubscript.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 202,
+   "covers": "\\textsubscript: {\\m@th$_{\\mbox{\\fontsize\\sf@size\\z@\\selectfont text}}$}, the text in the current font at \\sf@size (roman, bold, at \\large), the space factor after it"
+  },
+  {
+   "id": "text/textsuperscript",
+   "file": "micro/text/textsuperscript.tex",
+   "area": "text",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 133,
+   "covers": "\\textsuperscript: {\\m@th$^{\\mbox{\\fontsize\\sf@size\\z@\\selectfont text}}$}, the text in the current font at \\sf@size (roman, bold, at \\small)"
   },
   {
    "id": "text/today",
@@ -11521,6 +13886,36 @@
    "issue": "#352"
   },
   {
+   "id": "tikz/math",
+   "file": "micro/tikz/math.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "a tikzpicture in a display and in a formula: its box an ord noad"
+  },
+  {
+   "id": "tikz/matrix-nodes",
+   "file": "micro/tikz/matrix-nodes.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 33,
+   "covers": "the matrix library: matrix of nodes with nodes in empty cells and a cell's |options|, matrix of math nodes, the cells' names in lines between them"
+  },
+  {
+   "id": "tikz/matrix",
+   "file": "micro/tikz/matrix.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 15,
+   "covers": "\\matrix: cells of path commands split at & and \\\\, each a picture of its own in an alignment, row sep and column sep, the matrix's node drawn"
+  },
+  {
    "id": "tikz/node-borders-pdftex",
    "file": "micro/tikz/node-borders-pdftex.tex",
    "area": "tikz",
@@ -11609,6 +14004,16 @@
    "issue": "#326"
   },
   {
+   "id": "tikz/quotes",
+   "file": "micro/tikz/quotes.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 22,
+   "covers": "the quotes library on a to path: \"text\", \"text\"' and \"text\" with options as the edge's nodes"
+  },
+  {
    "id": "tikz/shapes-pdftex",
    "file": "micro/tikz/shapes-pdftex.tex",
    "area": "tikz",
@@ -11629,6 +14034,366 @@
    "glyphs": 74,
    "covers": "rounded corners; rectangles, circles and ellipses drawn, filled and both; scopes with options (shift, scale, rotate, colors), \\tikzset and every path in a picture, picture options, a centered picture",
    "issue": "#309"
+  },
+  {
+   "id": "tikz/tree-edges-pdftex",
+   "file": "micro/tikz/tree-edges-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 15,
+   "covers": "TikZ trees' edges (edge from parent with options and with labels placed on it, the edge from parent style, edge from parent path with the parent's and the child's node and anchor, parent anchor, child anchor and border, every child and every child node, what follows a child's node drawn before its edge)"
+  },
+  {
+   "id": "tikz/tree-edges",
+   "file": "micro/tikz/tree-edges.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 15,
+   "covers": "TikZ trees' edges (edge from parent with options and with labels placed on it, the edge from parent style, edge from parent path with the parent's and the child's node and anchor, parent anchor, child anchor and border, every child and every child node, what follows a child's node drawn before its edge)"
+  },
+  {
+   "id": "tikz/tree-foreach-pdftex",
+   "file": "micro/tikz/tree-foreach-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "TikZ trees' child foreach (one child a value of the list, counted among the siblings; several variables, a range, nested, with options and beside plain children)"
+  },
+  {
+   "id": "tikz/tree-foreach",
+   "file": "micro/tikz/tree-foreach.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "TikZ trees' child foreach (one child a value of the list, counted among the siblings; several variables, a range, nested, with options and beside plain children)"
+  },
+  {
+   "id": "tikz/tree-grow-pdftex",
+   "file": "micro/tikz/tree-grow-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "TikZ trees' growth (grow and grow' with a direction's name or an angle on the picture, a level and one child: the level whose children are not spread; growth parent anchor; grow siblings on line)"
+  },
+  {
+   "id": "tikz/tree-grow",
+   "file": "micro/tikz/tree-grow.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 11,
+   "covers": "TikZ trees' growth (grow and grow' with a direction's name or an angle on the picture, a level and one child: the level whose children are not spread; growth parent anchor; grow siblings on line)"
+  },
+  {
+   "id": "tikz/trees-pdftex",
+   "file": "micro/tikz/trees-pdftex.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 16,
+   "covers": "TikZ trees (the child operation after a node: children with nodes, nested to three levels, a missing child, a child without code and coordinates as children; level distance, sibling distance, level 1/.style, level 2/.style and level/.style with the level as #1; children named <parent>-<n>; the default edge from parent between the nodes' borders)"
+  },
+  {
+   "id": "tikz/trees",
+   "file": "micro/tikz/trees.tex",
+   "area": "tikz",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 16,
+   "covers": "TikZ trees (the child operation after a node: children with nodes, nested to three levels, a missing child, a child without code and coordinates as children; level distance, sibling distance, level 1/.style, level 2/.style and level/.style with the level as #1; children named <parent>-<n>; the default edge from parent between the nodes' borders)"
+  },
+  {
+   "id": "tikz-cd/arrows-double",
+   "file": "micro/tikz-cd/arrows-double.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 18,
+   "covers": "double lines with the Implies tip: Rightarrow, Leftarrow, Leftrightarrow, equal, Mapsto"
+  },
+  {
+   "id": "tikz-cd/arrows-harpoon",
+   "file": "micro/tikz-cd/arrows-harpoon.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 17,
+   "covers": "harpoons: harpoon, harpoon', leftharpoonup, rightharpoondown"
+  },
+  {
+   "id": "tikz-cd/arrows-hook",
+   "file": "micro/tikz-cd/arrows-hook.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "hook and hook' (arrows.meta's Hooks as a harpoon, swapped), hookleftarrow"
+  },
+  {
+   "id": "tikz-cd/arrows-mapsto",
+   "file": "micro/tikz-cd/arrows-mapsto.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 12,
+   "covers": "mapsto and mapsfrom (arrows.meta's Tee Barb without length as Bar, round caps)"
+  },
+  {
+   "id": "tikz-cd/arrows-pdftex",
+   "file": "micro/tikz-cd/arrows-pdftex.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 19,
+   "covers": "arrow styles under pdfTeX: hook, two heads, dashed, mapsto, Rightarrow, equal, harpoon, shift left, bend right, a label's description"
+  },
+  {
+   "id": "tikz-cd/arrows",
+   "file": "micro/tikz-cd/arrows.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 17,
+   "covers": "arrow styles on the Computer Modern tip: dashed, dotted, leftarrow, no head, leftrightarrow, two heads, tail"
+  },
+  {
+   "id": "tikz-cd/bend",
+   "file": "micro/tikz-cd/bend.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "bend left and bend right (with an angle) with labels"
+  },
+  {
+   "id": "tikz-cd/between-origins",
+   "file": "micro/tikz-cd/between-origins.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 25,
+   "covers": "row sep and column sep between origins: the cells' sizes do not count"
+  },
+  {
+   "id": "tikz-cd/center",
+   "file": "micro/tikz-cd/center.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 28,
+   "covers": "a diagram in a center environment"
+  },
+  {
+   "id": "tikz-cd/display",
+   "file": "micro/tikz-cd/display.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 60,
+   "covers": "a diagram in a display, in a numbered equation and in a formula in a line: the picture's box an ord noad"
+  },
+  {
+   "id": "tikz-cd/empty-cells",
+   "file": "micro/tikz-cd/empty-cells.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 12,
+   "covers": "empty cells (no node), a cell that holds only an arrow (an empty node), a row ended by \\\\ before the diagram's end (one more row)"
+  },
+  {
+   "id": "tikz-cd/labels",
+   "file": "micro/tikz-cd/labels.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 21,
+   "covers": "labels: description (on the arrow, filled white), near start, pos=, two labels on one arrow, options in braces after the quote"
+  },
+  {
+   "id": "tikz-cd/loop",
+   "file": "micro/tikz-cd/loop.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 13,
+   "covers": "loops: loop right, loop above, and loop with a distance and angles"
+  },
+  {
+   "id": "tikz-cd/minipage",
+   "file": "micro/tikz-cd/minipage.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 45,
+   "covers": "a diagram in a formula, centered in a minipage, at 11pt with amsmath; a cell's arrows on lines of their own"
+  },
+  {
+   "id": "tikz-cd/old-syntax",
+   "file": "micro/tikz-cd/old-syntax.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 15,
+   "covers": "the arrow commands' old syntax: \\rar{label}, \\dar[swap]{label}, \\ar{direction}[label options]{label}, \\arrow{direction}, and \\ar[options]"
+  },
+  {
+   "id": "tikz-cd/one-row",
+   "file": "micro/tikz-cd/one-row.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 20,
+   "covers": "a diagram of one row: its baseline the matrix's base (1-row diagram), in a line of text"
+  },
+  {
+   "id": "tikz-cd/options",
+   "file": "micro/tikz-cd/options.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 17,
+   "covers": "a diagram's arrows=, labels= and cells= options, a cell's own |[options]|"
+  },
+  {
+   "id": "tikz-cd/phantom",
+   "file": "micro/tikz-cd/phantom.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 17,
+   "covers": "phantom (nothing drawn, the label at its center), marking (sloped on the arrow), and TikZ's draw=, thick and >-> on an arrow"
+  },
+  {
+   "id": "tikz-cd/product-pdftex",
+   "file": "micro/tikz-cd/product-pdftex.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "the product diagram under pdfTeX"
+  },
+  {
+   "id": "tikz-cd/product",
+   "file": "micro/tikz-cd/product.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 43,
+   "covers": "a tikzcd diagram: row sep and column sep as lengths, ampersand replacement, a matrix of math nodes with empty cells, \\arrow with the directions dr, drr, ddr, r and d, quoted labels and ' for swap"
+  },
+  {
+   "id": "tikz-cd/sep-extra",
+   "file": "micro/tikz-cd/sep-extra.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 14,
+   "covers": "more sep after one row and before one column: \\\\[1em] and &[2em]"
+  },
+  {
+   "id": "tikz-cd/seps",
+   "file": "micro/tikz-cd/seps.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 19,
+   "covers": "row sep and column sep by name (large, small), sep=tiny, column sep=huge, cramped"
+  },
+  {
+   "id": "tikz-cd/shift",
+   "file": "micro/tikz-cd/shift.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 16,
+   "covers": "shift left and shift right: by the default, a factor of it and a dimension, with labels, on a diagonal and a bent arrow"
+  },
+  {
+   "id": "tikz-cd/sizes",
+   "file": "micro/tikz-cd/sizes.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 31,
+   "covers": "a diagram at 11pt with amsmath and amssymb: the seps' em, the cells' ex, the math axis and rule thickness of that size"
+  },
+  {
+   "id": "tikz-cd/square",
+   "file": "micro/tikz-cd/square.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 23,
+   "covers": "a tikzcd diagram with the initial row and column sep: cells split at & and \\\\, the cells' nodes (asymmetrical rectangle, anchored at their base), arrows r and d between their borders from the math axis, labels in script style on the arrow's left and with ' on its right"
+  },
+  {
+   "id": "tikz-cd/targets",
+   "file": "micro/tikz-cd/targets.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 16,
+   "covers": "an arrow's ends: to= and from= a cell by row and column, start anchor and end anchor, shorten, and TikZ's own arrow specifications"
+  },
+  {
+   "id": "tikz-cd/tikzcdset",
+   "file": "micro/tikz-cd/tikzcdset.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 16,
+   "covers": "\\tikzcdset in the preamble: a named sep's value and every arrow's style"
+  },
+  {
+   "id": "tikz-cd/two",
+   "file": "micro/tikz-cd/two.tex",
+   "area": "tikz-cd",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 31,
+   "covers": "two diagrams in a document: the arrow tips instantiated once, the cells' names of each its own matrix"
   },
   {
    "id": "title/abstract-report-babel",
@@ -11829,6 +14594,38 @@
    "issue": "#249"
   },
   {
+   "id": "titlesec/fancyhdr-marks",
+   "file": "micro/titlesec/fancyhdr-marks.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 227,
+   "covers": "titlesec with fancyhdr's page style: \\ttl@write's \\sectionmark and \\subsectionmark after the title (\\ttl@finmarks), the running heads they make",
+   "issue": "#249"
+  },
+  {
+   "id": "titlesec/format-color",
+   "file": "micro/titlesec/format-color.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 103,
+   "covers": "\\color in \\titleformat's format: read in vertical mode in \\ttl@select's group, its push on the vertical list before the title's paragraph, the label's \\sbox pushing that color (\\color@setgroup), its pop after the after code (\\titlerule) where the group ends"
+  },
+  {
+   "id": "titlesec/headings-marks",
+   "file": "micro/titlesec/headings-marks.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 184,
+   "covers": "titlesec with \\pagestyle{headings}, two-sided: article's \\sectionmark and \\subsectionmark from \\ttl@write",
+   "issue": "#249"
+  },
+  {
    "id": "titlesec/hyperref-after-titlesec",
    "file": "micro/titlesec/hyperref-after-titlesec.tex",
    "area": "titlesec",
@@ -11838,6 +14635,17 @@
    "glyphs": 424,
    "covers": "hyperref loaded after titlesec: its titlesec patches (\\ttl@Hy@refstepcounter saves the anchor, which \\ttl@select puts after the space above the title, none for starred titles), with \\label, \\ref, nameref and a table of contents",
    "issue": "#352"
+  },
+  {
+   "id": "titlesec/label-text",
+   "file": "micro/titlesec/label-text.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 193,
+   "covers": "a \\titleformat label with text around the counter: a period after \\thesection (kerned to the number), a word before \\thesubsection, \\quad and a final space in the label's box",
+   "issue": "#249"
   },
   {
    "id": "titlesec/labels",
@@ -11859,6 +14667,27 @@
    "status": "pass",
    "glyphs": 299,
    "covers": "\\titleformat in the hang shape (format, empty and \\the labels, sep) and \\titlerule after the title",
+   "issue": "#249"
+  },
+  {
+   "id": "titlesec/titlespacing",
+   "file": "micro/titlesec/titlespacing.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 107,
+   "covers": "\\titlespacing*{\\cmd}{0pt}{before}{after}: the skips before and after the title as written, set at each title (\\ttl@assign's \\setlength, ex in the font there), in place of the ones \\ttl@extract takes from the class"
+  },
+  {
+   "id": "titlesec/toc-marks",
+   "file": "micro/titlesec/toc-marks.tex",
+   "area": "titlesec",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 150,
+   "covers": "\\tableofcontents with titlesec and running heads: the title's \\@mkboth saved by \\ttl@select (\\ttl@gmk) and run after the title (\\ttl@mk in \\ttl@finmarks)",
    "issue": "#249"
   },
   {
@@ -12132,6 +14961,27 @@
    "covers": "\\url (url.sty): the address in math mode in \\ttfamily, \\fam0 the typewriter font, its characters ordinary, binary (\\UrlBreaks: a break after them at \\binoppenalty), relations (:, at \\relpenalty) or openings, no math spacing; long addresses broken across lines"
   },
   {
+   "id": "xcolor/centercr-color",
+   "file": "micro/xcolor/centercr-color.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 208,
+   "covers": "\\\\ (\\@centercr after \\centering or \\raggedright) in a \\color group and in \\textcolor's text: the paragraph ends in the group with the color pushed and not popped; the next one starts in it again with no push, and the pop comes where the group ends (in the paragraph, or in vertical mode after the \\\\ when the group ends right after it); a \\color group starting the paragraph pushes on the vertical list; \\\\* and \\\\[skip]; in a size group",
+   "issue": "#363"
+  },
+  {
+   "id": "xcolor/color-after-declarations",
+   "file": "micro/xcolor/color-after-declarations.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "\\color after declarations in a group that starts a paragraph ({\\large\\bfseries\\color{teal}…}\\par): read in vertical mode, its push goes on the vertical list before \\parskip, its pop (\\aftergroup) in the paragraph where the group ends"
+  },
+  {
    "id": "xcolor/color-in-declared-paragraph",
    "file": "micro/xcolor/color-in-declared-paragraph.tex",
    "area": "xcolor",
@@ -12141,6 +14991,36 @@
    "glyphs": 117,
    "covers": "a {\\color …} group that starts a paragraph read in vertical mode (in a size group that ends it, after \\medskip): the push on the vertical list before \\parskip",
    "issue": "#329"
+  },
+  {
+   "id": "xcolor/color-in-group",
+   "file": "micro/xcolor/color-in-group.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 63,
+   "covers": "\\color after text in a group: \\set@color's push where it is read (its \\ignorespaces takes the space after it), \\reset@color's pop where the group ends (\\aftergroup)"
+  },
+  {
+   "id": "xcolor/color-parbox",
+   "file": "micro/xcolor/color-parbox.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 55,
+   "covers": "\\color in vertical mode at the start of a \\parbox: its push on the box's vertical list, its pop after the last paragraph (\\color@endgroup's \\endgraf\\endgroup, then \\aftergroup's \\reset@color)"
+  },
+  {
+   "id": "xcolor/colorbox-parbox-color",
+   "file": "micro/xcolor/colorbox-parbox-color.tex",
+   "area": "xcolor",
+   "tier": "T3",
+   "reached": "T3",
+   "status": "pass",
+   "glyphs": 49,
+   "covers": "a masthead: \\colorbox around a \\parbox that starts \\centering\\color{white}\\vspace{6pt} (the push, then the skips, on the box's list), its lines in groups, a \\colorbox in it pushing the white for its text (\\color@setgroup), \\vspace ending the last paragraph, the pop last in the box"
   },
   {
    "id": "xcolor/colorbox",

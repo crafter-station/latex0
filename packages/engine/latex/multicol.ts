@@ -16,7 +16,7 @@ import { emptyBox, filGlue, glue, kern, paramGlue, penalty, ssGlue, type BoxNode
 import { hpack, vpack } from "../layout/pack"
 import { prunePageTop, vertBreak, type Page, type PageState } from "../layout/pagebuilder"
 import type { Block } from "./blocks"
-import { processBlock } from "./body"
+import { groupBlocks, processBlock } from "./body"
 import type { Ctx } from "./context"
 import { OutputUnsupported, type LatexOutput, type OutputHook } from "./output"
 import { Unsupported } from "./unsupported"
@@ -232,7 +232,7 @@ export function multicols(cx: Ctx, b: Extract<Block, { kind: "multicols" }>) {
   const outer = run.k
   run.k = { ...k, dimens: { ...k.dimens, textwidth: hsize, columnwidth: hsize, emergencystretch: 4 * PT * n }, ints: { ...k.ints, tolerance: 9999, pretolerance: -1 } }
   run.multicols = n; cx.doc.columns = true
-  try { b.blocks.forEach((x, i, all) => processBlock(cx, x, i, all)) } finally { run.k = outer; run.multicols = null; cx.doc.columns = false }
+  try { groupBlocks(cx, "multicols", () => b.blocks.forEach((x, i, all) => processBlock(cx, x, i, all))) } finally { run.k = outer; run.multicols = null; cx.doc.columns = false }
 
   // \end{multicols}: \par; on an empty page the \columnbreak's material back; \penalty\z@\penalty-\@Mvi; then (the page
   // started again) \enough@room\postmulticols, or \vsize\@colroom; \addvspace\multicolsep\prevdepth\z@

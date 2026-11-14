@@ -1,0 +1,21 @@
+% fixture: babel/french-up-ot1-shapes
+% tier: T3
+% engine: document
+% covers: french's \up (\fup, \FB@up@fake: \scalefont{.65} to the nearest size ot1cmr.fd declares) in OT1's other shapes: italic (cmti7, cmti8, cmti9, cmti10, cmti12), slanted (cmsl8 …), small caps (cmcsc10), bold (cmbx5 … cmbx12), bold slanted and bold italic, at several sizes, through \up, \ier, \ieme and \no
+% issue: #363
+\documentclass{article}
+\usepackage[french]{babel}
+\begin{document}
+\textit{le 1\ier{} et 2\up{e}} \textsl{le 1\ier{} et 2\ieme} \textsc{le 1\ier} \textbf{le 1\ier{} et \no 5}
+\textbf{\textit{le 2\up{e}}} \textbf{\textsl{le 3\up{e}}}
+
+{\tiny \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\scriptsize \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\footnotesize \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\small \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\large \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\Large \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\LARGE \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\huge \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+{\Huge \textit{1\ier} \textbf{2\ieme} \textsl{3\up{e}}}
+\end{document}

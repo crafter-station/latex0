@@ -1,0 +1,15 @@
+% fixture: tikz-cd/arrows-double
+% tier: T3
+% engine: document
+% specials: compare
+% covers: double lines with the Implies tip: Rightarrow, Leftarrow, Leftrightarrow, equal, Mapsto
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Double
+\begin{tikzcd}
+A \arrow[r, Rightarrow] \arrow[d, equal] & B \arrow[d, Leftarrow] \arrow[r, Leftrightarrow] & C \arrow[d, Mapsto] \\
+D \arrow[r, Rightarrow, "\eta"] & E & F
+\end{tikzcd}
+end.
+\end{document}

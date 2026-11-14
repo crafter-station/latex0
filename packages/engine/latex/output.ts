@@ -19,6 +19,7 @@ import { documentPages } from "../trace/decisions"
 import { dataFont } from "./data"
 import { distillerDestFix, hyperDriver, pageAnchor } from "./hyperref"
 import { setgroup, xcolor } from "./xcolor"
+import { isKoma } from "./classes"
 import { Unsupported } from "./unsupported"
 
 const MAX_DIMEN = 0o7777777777
@@ -50,13 +51,13 @@ export const outputOptions = { xcolor: false }
 const colorSpecial = (what: string): Node => ({ kind: "whatsit", text: `\\special{color ${what}}` })
 
 export type Shipped = ShippedContent & {
-  /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty"; /** \c@page when it was shipped out, and \thepage */ count: number; thepage: string
+  /** \thispagestyle in force (\if@specialpage) */ special?: "plain" | "empty" | "firstpage"; /** \c@page when it was shipped out, and \thepage */ count: number; thepage: string
   /** how far into the main vertical list the page builder had read when the output routine shipped it */
   reached: number
 }
 
 /** Assignments the document makes to the output routine's state. */
-export type OutputHook = "notop" | "plain" | "empty" | `page=${number}` | "roman" | "arabic" | "onecolumn" | "twocolumn"
+export type OutputHook = "notop" | "plain" | "empty" | "firstpage" | `topskip=${number}` | `page=${number}` | "roman" | "arabic" | "onecolumn" | "twocolumn"
   | "raggedbottom" | "flushbottom" | "suppress" | "suppress-t" | "suppress-b"
   /** \cleardoublepage's \ifodd\c@page\else\hbox{}\newpage: the material, put in only when the next page is even */
   | { cleardouble: Node[] }
@@ -121,6 +122,7 @@ export class LatexOutput {
     this.vsizeNow = k.dimens.textheight
     this.twocolumn = twocolumn
     this.raggedbottom = !!k.ints.raggedbottom
+    this.topskip = k.glue.topskip
     this.floatplacement() // (\begin{document}'s; its \@dblfloatplacement is redone before any two-column float is placed)
   }
 
@@ -478,8 +480,9 @@ export class LatexOutput {
       this.twocolumn = h === "twocolumn"
       this.floatplacement()
     }
-    else if (h === "plain" || h === "empty") this.special = h
+    else if (h === "plain" || h === "empty" || h === "firstpage") this.special = h
     else if (h === "roman" || h === "arabic") { this.page = 1; this.numbering = h } // \pagenumbering
+    else if (h.startsWith("topskip=")) this.topskip = { ...this.topskip, width: Number(h.slice(8)) } // (amsart's \maketitle: \global\topskip42\p@)
     else this.page = Number(h.slice(5))
   }
   /**
@@ -501,7 +504,9 @@ export class LatexOutput {
   private raggedbottom: boolean
   private numbering: "roman" | "arabic" = "arabic"
   private baselineskip: number | null = null
-  private special: "plain" | "empty" | null = null
+  private special: "plain" | "empty" | "firstpage" | null = null
+  /** \topskip: the class's, or amsart's \maketitle's until \ps@firstpage's foot sets \normaltopskip again */
+  topskip: GlueSpec
   private page = 1
   /** the page builder's PageParams.reached */
   reached = -1
@@ -509,6 +514,8 @@ export class LatexOutput {
   private ship(s: ShippedContent) {
     const shipped = { ...s, count: this.page, thepage: this.numbering === "roman" ? roman(this.page) : String(this.page), reached: this.reached } as Shipped
     this.page++
+    // (amsart's \ps@empty, which every page style runs, and \ps@firstpage's foot: \global\topskip\normaltopskip)
+    if (this.special) this.topskip = this.k.glue.topskip
     if (this.special) { shipped.special = this.special; this.special = null }
     this.shipped.push(shipped)
   }
@@ -606,7 +613,7 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
   const out = new LatexOutput(k, parskip, twocolumn)
   const fs = k.glue.footinsskip
   const built = buildPages(contrib, {
-    vsize: () => out.vsize(), maxDepth: () => out.maxDepth(), topSkip: () => out.topSkipNow ?? paramGlue("topskip", plain(k.glue.topskip)),
+    vsize: () => out.vsize(), maxDepth: () => out.maxDepth(), topSkip: () => out.topSkipNow ?? paramGlue("topskip", plain(out.topskip)),
     inserts: { [k.ints.footins]: { skip: glue(fs.width, fs.stretch, fs.stretchOrder, fs.shrink, fs.shrinkOrder), count: k.ints.footinscount, dimen: k.dimens.footinsdimen }, [KLUDGEINS]: { skip: glue(0), count: 1000, dimen: MAX_DIMEN } },
     float: (held, marker, boxes) => out.float(held, marker, boxes),
     hook: (h, page) => out.hook(h as OutputHook, page),
@@ -631,7 +638,8 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
  * (\@combinedblfloats: each followed by \dblfloatsep, then \vskip-\dblfloatsep \vskip\dbltextfloatsep, in \vbox
  * to\textheight); `column` is then the first column that has text.
  */
-export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false): { outputbox: BoxNode; column: Node[] | null }[] {
+/** `memoir`: its \@makecol (\mem@makecol) takes \box\@cclv as it is: the kernel's \vskip-<depth> before a fill glue that ends it is not there */
+export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false, memoir = false): { outputbox: BoxNode; column: Node[] | null }[] {
   const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth, { floatsep, textfloatsep, dblfloatsep, dbltextfloatsep } = k.glue
   const makecol = (sh: Column, count: number): { outputbox: BoxNode; column: Node[] | null } => {
     if (sh.kind === "floats") {
@@ -649,15 +657,19 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     const foot = pg.inserts[k.ints.footins]
     let list = box255.list.slice()
     const last = list[list.length - 1]
-    if (last?.kind === "glue" && last.stretchOrder !== NORMAL) {
+    if (!memoir && last?.kind === "glue" && last.stretchOrder !== NORMAL) {
       list.pop()
       const d = vpack(list.slice(), { additional: 0 }, maxDepth).depth
       if (!foot && !sh.bot.length && d > 0) list.push(glue(-Math.min(d, sh.maxDepth ?? maxDepth)))
       list.push(plain(last))
     }
     // \color@begingroup\normalcolor\footnoterule\unvbox\footins\color@endgroup
-    const rule: Node = { kind: "rule", width: xnOverD(sh.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 }
-    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial(`push ${xcolor.normal}`)] : []), kern(-196608, true), rule, kern(170394, true), ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
+    // (KOMA-Script's: \kern-\dimexpr 2.6\p@+.4\p@, \vskip\z@\@plus.05fil unless \flushbottom, \hrule .4pt by .4\columnwidth, \kern 2.6\p@)
+    const komaFil = isKoma(k.cls ?? "") && sh.raggedbottom ? [glue(0, 3277, FIL)] : []
+    // (amsart's: \kern-.4\p@ \hrule\@width 5pc\kern11\p@\kern-\footnotesep)
+    const footnoterule = k.cls === "amsart" ? [kern(-26214, true), { kind: "rule", width: 3932160, height: 26214, depth: 0 } as Node, kern(720896, true), kern(-k.dimens.footnotesep, true)]
+      : [kern(-196608, true), ...komaFil, { kind: "rule", width: xnOverD(sh.columnwidth, roundDecimals([4]), 65536), height: 26214, depth: 0 } as Node, kern(170394, true)]
+    if (foot) list.push(plain(fs), ...(outputOptions.xcolor ? [colorSpecial(`push ${xcolor.normal}`)] : []), ...footnoterule, ...vpack(foot).list, ...(outputOptions.xcolor ? [colorSpecial("pop")] : []))
     if (sh.top.length) list = [...sh.top.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep)), plain(textfloatsep), ...list]
     if (sh.bot.length) list = [...list, plain(textfloatsep), ...sh.bot.flatMap((b) => [b, plain(floatsep)]), plain(negate(floatsep))]
     const out = vpack(list.slice(), { additional: 0 }, sh.bot.length ? MAX_DIMEN : maxDepth)

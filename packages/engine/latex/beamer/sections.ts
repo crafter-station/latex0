@@ -115,9 +115,11 @@ export function sectionNodes(st: Sections, s: SectionSource, page: number, k: Cl
  * \pgftext{\beamer@usesphere{section number projected}{tocsphere}} \pgftext{\usebeamerfont*{section number projected}
  * \usebeamercolor{section number projected}\color{fg!90!bg}\inserttocsectionnumber} \end{pgfpicture}\kern1.25ex}, a
  * subsection's \llap{\raise0.1ex\beamer@usesphere{subsection number projected}{bigsphere}\kern1ex}; `at` the toc
- * template's colors. (\pgftext skips the spaces after it, and its shifts take off the one before it.)
+ * template's colors. (\pgftext skips the spaces after it, and its shifts take off the one before it.) `color`: the
+ * color in force; `shaded`: in the shaded template's colormixin (!20!parent.bg), which the number's \color and pgf's
+ * shadings apply (their parent.bg the bg where \usebeamercolor{… number projected} is).
  */
-function tocBall(cx: FrameCtx, e: TocEntry, at: ColorState): BoxNode {
+function tocBall(cx: FrameCtx, e: TocEntry, at: ColorState, color: string, shaded: boolean): BoxNode {
   const { k, theme, pgf } = cx
   const normal = selectFont(k, "normalsize", SANS)
   const ex = (x: string) => parseDimen(x, { em: normal.params[QUAD], ex: normal.params[X_HEIGHT] })
@@ -127,14 +129,14 @@ function tocBall(cx: FrameCtx, e: TocEntry, at: ColorState): BoxNode {
   }
   const projected = useColor(theme, "section number projected", at)
   const mix = new Colors()
-  for (const [n, c] of [["fg", projected.fg], ["bg", projected.bg]]) { const [model, ...x] = c.split(" "); mix.define(n, model, x.join(",")) }
+  for (const [n, c] of [["fg", projected.fg], ["bg", projected.bg], ["parentbg", at.bg]]) { const [model, ...x] = c.split(" "); mix.define(n, model, x.join(",")) }
   const numberFont = selectFont(k, fontSize(theme, k, "section number projected", "normalsize"), SANS)
   const number: Node[] = []
   appendText(number, String(e.section), numberFont, { spaceFactor: 1000 }, false)
-  const picture = pgf.picture(normal, at.fg, ["-1ex", "-0.7ex", "1ex", "1ex"], () => {
+  const picture = pgf.picture(normal, color, ["-1ex", "-0.7ex", "1ex", "1ex"], () => {
     pgf.s.space()
     pgfText(pgf.s, pgf.d, { hlist: () => [pgf.usesphere(theme, "section number projected", "tocsphere", normal, at)] }, [], "")
-    pgfText(pgf.s, pgf.d, { hlist: () => [colorPush(mix.spec("fg!90!bg")), ...number, colorPop()] }, [], "")
+    pgfText(pgf.s, pgf.d, { hlist: () => [colorPush(mix.spec(shaded ? "fg!90!bg!20!parentbg" : "fg!90!bg")), ...number, colorPop()] }, [], "")
     return 0
   })
   return hpack([ssGlue(), ...picture, kern(ex("1.25ex"), true)], { exactly: 0 })
@@ -218,7 +220,7 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) 
     const at = useColor(theme, name, outer)
     let color = at.fg
     const pushes = [colorPush(outer.fg), colorPush(color)]
-    if (shaded && theme.inner !== "default") throw new Unsupported(`beamer: the ${theme.inner} inner theme's shaded table of contents`)
+    if (shaded && theme.inner !== "default" && theme.inner !== "rounded") throw new Unsupported(`beamer: the ${theme.inner} inner theme's shaded table of contents`)
     if (shaded) {
       const mix = new Colors(), def = (n: string, c: string) => { const [model, ...x] = c.split(" "); mix.define(n, model, x.join(",")) }
       def("current", color); def("parentbg", outer.bg)
@@ -230,7 +232,11 @@ export function tableOfContents(cx: FrameCtx, v: VerticalList, current = false) 
     const env = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
     const sub = e.kind === "subsection"
     const leftskip = parseDimen(TOC_LEFTSKIP[theme.inner][sub ? 1 : 0], env)
-    const llap = theme.inner === "rounded" ? [tocBall(cx, e, at)] : theme.inner === "circles" && !sub ? [tocCircle(cx, e, at)]
+    // (the colormixin, for pgf's shadings in the ball)
+    cx.pgf.colors.mixins = shaded ? "!20!parent.bg" : ""
+    let ball: BoxNode[]
+    try { ball = theme.inner === "rounded" ? [tocBall(cx, e, at, color, shaded)] : [] } finally { cx.pgf.colors.mixins = "" }
+    const llap = theme.inner === "rounded" ? ball : theme.inner === "circles" && !sub ? [tocCircle(cx, e, at)]
       : theme.inner === "rectangles" ? tocSquare(cx, e, at, font) : []
     const { vlist, trace } = lineBreak([emptyBox("hlist", k.dimens.parindent), ...llap, ...navigationLink(text, color, e.page)], { ...classParams(k), leftSkip: spec("leftskip", dimen(leftskip)) })
     cx.decisions.push(trace)

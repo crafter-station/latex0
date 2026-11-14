@@ -19,6 +19,10 @@ import { clearpageHook, type OutputHook } from "./output"
 import { anchor, labelName, sectionAnchorBox } from "./hyperref"
 import { appendToVlist, paragraphInput } from "./paragraph"
 import { titlesecHeading } from "./titlesec"
+import { memoirChapter, memoirHeading } from "./memoir"
+import { komaHeading } from "./koma"
+import { isKoma } from "./classes"
+import { amsHeading } from "./amsart"
 import { isSpanish } from "./babel"
 
 /**
@@ -122,6 +126,7 @@ export function appendix(cx: Ctx) {
 export function chapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
   const { cls, hyper, nameref } = cx.pre
   const { contentsWrites, counters, doc, headings, lastNode, marks, refs, run, typeset, v } = cx
+  if (cx.pre.memoir) return memoirChapter(cx, b)
   if (cls !== "report" && cls !== "book") throw new Unsupported(`\\chapter in ${cls}`)
   v.par()
   if (cls === "book") cleardoublepage(cx) // openright
@@ -231,6 +236,9 @@ export function heading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
   const { cls, hyper } = cx.pre
   const { bodyUnits, contentsWrites, counted, counters, headings, lastNode, marks, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
   if (cx.pre.titlesec) return titlesecHeading(cx, heading)
+  if (cx.pre.memoir) return memoirHeading(cx, heading)
+  if (isKoma(cls)) return komaHeading(cx, heading)
+  if (cls === "amsart") return amsHeading(cx, heading)
   if (heading.level >= 4) return runInHeading(cx, heading)
   const b = { ...heading, title: counted(heading.title) } // as \protected@edef and the typesetting see it
   const size = (["normalsize", "Large", "large", "normalsize"] as const)[b.level as 0 | 1 | 2 | 3]

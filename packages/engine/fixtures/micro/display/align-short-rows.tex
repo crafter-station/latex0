@@ -1,0 +1,16 @@
+% fixture: display/align-short-rows
+% tier: T3
+% engine: document
+% covers: align rows with fewer fields than the widest row (\add@amps\maxfields@ in \math@cr@@@align: the fields left out are set too, each an empty formula's box in its column), ending after an odd and after an even field, numbered and with \notag
+\documentclass{article}
+\usepackage{amsmath}
+\begin{document}
+Rows need not fill every column:
+\begin{align}
+x &= 1 & y &= 2 & u &= v \\
+a &= b \\
+c &= d & e \notag \\
+f
+\end{align}
+The text goes on after the display.
+\end{document}

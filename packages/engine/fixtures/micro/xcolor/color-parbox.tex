@@ -1,0 +1,11 @@
+% fixture: xcolor/color-parbox
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \color in vertical mode at the start of a \parbox: its push on the box's vertical list, its pop after the last paragraph (\color@endgroup's \endgraf\endgroup, then \aftergroup's \reset@color)
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+\noindent\parbox{5cm}{\color{blue}Blue words in a box that go on for two lines of it.}
+and text after it.
+\end{document}

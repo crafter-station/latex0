@@ -5,6 +5,7 @@
 
 import type { CrefLabel } from "./cleveref"
 import { Unsupported } from "./unsupported"
+import { hasChapters } from "./classes"
 import { spanishAlph, spanishLayout } from "./spanish"
 
 /** The sectioning counters, outermost first: \c@chapter … \c@subparagraph. */
@@ -69,20 +70,20 @@ export class Counters {
   href(counter: string, n: number): string {
     const w = this.within.get(counter)
     if (w !== undefined) return `${counter}.${this.theH(w)}.${n}`
-    return this.cls === "article" || this.cls === "letter" ? `${counter}.${n}` : `${counter}.${this.sectionalString(0, true)}.${n}`
+    return !hasChapters(this.cls) ? `${counter}.${n}` : `${counter}.${this.sectionalString(0, true)}.${n}`
   }
 
   /** \theequation, \thefigure, \thetable (of the value n): in report and book, prefixed by the chapter once there is one */
   the(counter: "equation" | "figure" | "table", n: number): string {
     const f = this.format(counter)
     if (f !== null) return f
-    return this.cls !== "article" && this.sectional[0] > 0 ? `${this.theSectional(0)}.${n}` : String(n)
+    return hasChapters(this.cls) && this.sectional[0] > 0 ? `${this.theSectional(0)}.${n}` : String(n)
   }
 
   /** \thechapter … : article's sections are not within a chapter; \appendix redefines the outermost (\gdef), over the
    *  preamble's definition; a deeper one is the one outside it, a period, its value */
   theSectional(level: number): string {
-    const outer = this.cls === "article" ? 1 : 0
+    const outer = !hasChapters(this.cls) ? 1 : 0
     if (!(this.appendix && level === outer)) { const f = this.format(SECTIONAL[level]); if (f !== null) return f }
     if (level <= outer) return this.sectionalString(level, false)
     return `${this.theSectional(level - 1)}.${this.sectional[level]}`
@@ -130,12 +131,12 @@ export class Counters {
   private sectionalString(level: number, h: boolean): string {
     const alph = this.appendix && (!h || this.appendix.hyper)
     const outer = (n: number) => (h && spanishLayout.on ? `Alph${n}` : representation("Alph", n))
-    return (this.cls === "article" ? this.sectional.slice(1, level + 1) : this.sectional.slice(0, level + 1)).map((n, i) => (i === 0 && alph ? outer(n) : String(n))).join(".")
+    return (!hasChapters(this.cls) ? this.sectional.slice(1, level + 1) : this.sectional.slice(0, level + 1)).map((n, i) => (i === 0 && alph ? outer(n) : String(n))).join(".")
   }
 
   /** the type of a heading's anchor: hyperref's \Hy@chapapp after \appendix for the outermost level */
   anchorType(level: number): string {
-    return this.appendix?.hyper && level === (this.cls === "article" ? 1 : 0) ? "appendix" : SECTIONAL[level]
+    return this.appendix?.hyper && level === (!hasChapters(this.cls) ? 1 : 0) ? "appendix" : SECTIONAL[level]
   }
 
   /** \stepcounter of a sectioning counter: the deeper ones reset, and the document's counters within it or a
@@ -147,6 +148,15 @@ export class Counters {
     for (const u of this.user.values()) if (u.within !== null && (level === 0 || levels.includes(u.within))) u.value = 0
     // (report and book number these within the chapter; \counterwithin within a level)
     for (const c of ["equation", "figure", "table"] as const) if (level === 0 || levels.includes(this.within.get(c) ?? "")) this[c] = 0
+  }
+
+  /** the counters within a sectional level reset, the level itself not stepped (KOMA-Script's starred headings:
+   *  \let\@elt\@stpelt \csname cl@name\endcsname) */
+  resetWithin(level: number): void {
+    if (level === 0) throw new Unsupported("the counters within a chapter reset by a starred heading")
+    for (let l = level + 1; l < this.sectional.length; l++) this.sectional[l] = 0
+    const levels: readonly string[] = SECTIONAL.slice(level)
+    for (const u of this.user.values()) if (u.within !== null && levels.includes(u.within)) u.value = 0
   }
 
   /** \refstepcounter of a document's counter: \the<counter>, after \the<within> when it has one */
@@ -168,7 +178,7 @@ export class Counters {
     const u = this.user.get(name)
     if (!u) {
       const l = SECTIONAL.slice(0, 4).indexOf(name as typeof SECTIONAL[number])
-      if (l < 0 || (l === 0 && this.cls === "article")) throw new Unsupported(`\theH${name}`)
+      if (l < 0 || (l === 0 && !hasChapters(this.cls))) throw new Unsupported(`\theH${name}`)
       return this.theHSectional(l)
     }
     return u.within === null ? String(u.value) : `${this.theH(u.within)}.${u.value}`
@@ -182,7 +192,7 @@ export class Counters {
   }
 
   private resetBy(name: string): string | null {
-    const chapters = this.cls === "report" || this.cls === "book"
+    const chapters = hasChapters(this.cls)
     const l = SECTIONAL.indexOf(name as typeof SECTIONAL[number])
     if (l > 1 || (l === 1 && chapters)) return SECTIONAL[l - 1]
     if (l >= 0) return null

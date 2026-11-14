@@ -1,0 +1,16 @@
+% fixture: hyperref/maketitle-thanks
+% tier: T3
+% engine: document
+% covers: \thanks and \footnote in \maketitle with hyperref: \maketitle restores the kernel's \@footnotemark and \@footnotetext (\H@@footnotemark, \H@@footnotetext), so the marks are no links and the texts have no anchors; the footnotes after it are links to Hfootnote.1 and on
+% specials: compare
+\documentclass{article}
+\usepackage{hyperref}
+\title{Sparse Attention for Long-Document Classification\thanks{Supported by a grant that is described here at enough length to run onto a second line of the footnote area.}}
+\author{Daniel Reyes\thanks{Department of Economics, University of Arizona. Email:
+\texttt{dreyes@example.edu}.} \and Grace Liu\footnote{Second author.}}
+\date{October 2026}
+\begin{document}
+\maketitle
+\section{Introduction}
+Some text with a note\footnote{An ordinary note, numbered from one again.} and another\footnote{The second one.}.
+\end{document}

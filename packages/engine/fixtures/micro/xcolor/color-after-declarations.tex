@@ -1,0 +1,13 @@
+% fixture: xcolor/color-after-declarations
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \color after declarations in a group that starts a paragraph ({\large\bfseries\color{teal}…}\par): read in vertical mode, its push goes on the vertical list before \parskip, its pop (\aftergroup) in the paragraph where the group ends
+\documentclass{article}
+\usepackage{xcolor}
+\begin{document}
+Some text first.
+
+{\large\bfseries\color{teal}Perfil}\par
+Then the text of the next paragraph.
+\end{document}

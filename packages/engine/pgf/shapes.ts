@@ -291,7 +291,38 @@ const ellipse: Shape = {
   parts: ["text"],
 }
 
-const SHAPES: Record<string, Shape> = { coordinate, rectangle, circle, ellipse }
+/** `\pgfmathsetlength{…}{\pgfkeysvalueof{/tikz/commutative diagrams/center yshift}}`: the math axis (pgfmath's axis_height) */
+const centerYShift = (s: PgfState) => setLength("axis_height", s)
+
+/**
+ * tikz-cd's shape for a diagram's cells (tikzlibrarycd.code.tex 229–283): a rectangle whose center, west and
+ * east anchors lie on the math axis, the border found from that center (the height above or below it)
+ */
+const asymmetricalRectangle: Shape = {
+  save: rectangle.save,
+  anchors: {
+    ...Object.fromEntries(["base", "north", "south", "base west", "north west", "south west", "base east", "north east", "south east", "mid", "mid west", "mid east"].map((a) => [a, rectangle.anchors[a]])),
+    center: (s, v) => ({ x: rcenter(s, v).x, y: centerYShift(s) }),
+    west: (s, v) => ({ x: rectangle.anchors.west(s, v).x, y: centerYShift(s) }),
+    east: (s, v) => ({ x: rectangle.anchors.east(s, v).x, y: centerYShift(s) }),
+    "real center": rcenter,
+    "real west": rectangle.anchors.west,
+    "real east": rectangle.anchors.east,
+  },
+  border: (s, v, dir) => {
+    const shift = centerYShift(s)
+    const sw = pt(v, "southwest"), ne = pt(v, "northeast")
+    const xc = half(ne.x - sw.x)
+    const xa = sw.x + xc
+    const yc = dir.y > 0 ? ne.y - shift : -sw.y + shift
+    const p = pgfPointBorderRectangle(dir, { x: xc, y: yc })
+    return { x: p.x + xa, y: p.y + shift }
+  },
+  background: rectangle.background,
+  parts: ["text"],
+}
+
+const SHAPES: Record<string, Shape> = { coordinate, rectangle, circle, ellipse, "asymmetrical rectangle": asymmetricalRectangle }
 
 /** what pgf keeps of a named node (\pgf@sh@ns@, \pgf@sh@np@, \pgf@sh@nt@): its shape, saved anchors and transformation */
 export interface PgfNodeRecord { shape: string; saved: Saved; transform: PgfTransform }
@@ -339,6 +370,7 @@ export function pgfMultipartNode(s: PgfState, d: PgfDriver, shapeName: string, a
   })
   reanchor(s, shape, v, anchor) // \pgfsavepgf@process\pgf@sh@sa@#3: evaluated again
   if (name !== "") pgfNodes(s).set(name, { shape: shapeName, saved: v, transform: s.local.transform })
+  s.nodeCallback?.(name) // \pgf@nodecallback{#3}
   if (shape.background) {
     shape.background(s, v, keys)
     use()
@@ -369,6 +401,15 @@ export function pgfCoordinate(s: PgfState, name: string, p: PgfPointMacro) {
   const q = transformPoint(s, p())
   pgfNodes(s).set(name, { shape: "coordinate", saved: { centerpoint: q }, transform: { aa: "1", ab: "0", ba: "0", bb: "1", x: 0, y: 0, identity: false } })
   s.space() // (the end of line after the \xdef's braces)
+}
+
+/**
+ * \pgf@shift@node{#1}{#2} (151–164): the node's recorded transformation moved by the vector (a node made in a
+ * matrix cell, once the cell's place is known)
+ */
+export function pgfShiftNode(s: PgfState, name: string, by: PgfPoint) {
+  const n = lookup(name, s)
+  pgfNodes(s).set(name, { ...n, transform: { ...n.transform, x: n.transform.x + by.x, y: n.transform.y + by.y } })
 }
 
 function lookup(name: string, s: PgfState): PgfNodeRecord {

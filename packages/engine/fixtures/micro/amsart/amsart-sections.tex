@@ -1,0 +1,34 @@
+% fixture: amsart/amsart-sections
+% tier: T3
+% engine: document
+% covers: amsart's \section (centered small capitals, the number in \mdseries with a period and \enspace), run-in \subsection (bold) and \subsubsection (italic) with \@addpunct (after an uppercase letter's period too), an empty \subsection title (a bold number, then \@secnumfont \bfseries for the later numbers too; \textup's \/), a heading right after a heading, starred forms; amsart's ~ (\unskip\nobreak\ \ignorespaces)
+% issue: #360
+\documentclass{amsart}
+\begin{document}
+\section{Introduction}
+Typesetting is the composition of text by means of arranging physical type or its digital equivalents. Stored letters and other symbols are retrieved and ordered according to the orthography of a language.
+
+\subsection{Background}
+The breaking of paragraphs into lines is a small part of this craft, but it decides how evenly the words are spread.
+
+\subsection{Why it matters?}
+And how easily the eye moves from one line to the next.
+
+\subsubsection{A detail}
+More text follows here in the subsubsection to fill a line or two of the page with words.
+
+\subsection{Results in the U.S.}
+An uppercase letter before the period: one more is added.
+
+\section{Next}
+\subsection{Right after}
+A subsection right after a section, no penalty or skip between them.
+
+\subsection{}
+An empty subsection title: the number in bold and a period.
+
+\section*{Unnumbered}
+Text after an unnumbered section, as in Section ~2 and in Lemma~ 3: amsart's ties take the spaces around them.
+\section{A much longer section title that will need to break over two lines in the centered heading}
+Final words.
+\end{document}

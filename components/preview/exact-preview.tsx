@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useFileStore } from "@/lib/file-store"
 import { bundleLatexFiles } from "@/lib/latex-bundler"
 import { findMainFile } from "@/lib/file-utils"
@@ -17,13 +17,39 @@ const fontFaces = (fonts: string[]) =>
 
 // The exact page view: the document laid out as TeX lays it out (the zero-dependency engine, in a
 // worker) and drawn as SVG pages, glyph for glyph where pdfTeX puts them. A document the engine
-// cannot lay out exactly yet falls back to the HTML preview, saying why.
+// cannot lay out exactly yet falls back to the HTML preview, saying why. While typing, a document is
+// often broken for a moment (an open brace, half a command): the last pages stay up, and the fallback
+// only takes over when the document still cannot be laid out after STALE_MS.
+const STALE_MS = 1500
+
 export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   const files = useFileStore((s) => s.files)
   const worker = useRef<Worker | null>(null)
   const nextId = useRef(0)
   const [result, setResult] = useState<ExactResponse | null>(null)
+  // the last document laid out; what the download prints and what stays up while the source is broken
+  const [drawn, setDrawn] = useState<{ pages: string[]; fonts: string[]; warnings: string[]; ms: number } | null>(null)
   const pagesRef = useRef<{ pages: string[]; fonts: string[] } | null>(null)
+  const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [fallback, setFallback] = useState(false)
+  const settle = useCallback((r: ExactResponse) => {
+    setResult(r)
+    if (staleTimer.current) clearTimeout(staleTimer.current)
+    staleTimer.current = null
+    if (r.ok) {
+      const pages = { pages: r.pages, fonts: r.fonts, warnings: r.warnings, ms: r.ms }
+      pagesRef.current = pages
+      setDrawn(pages)
+      setFallback(false)
+    } else if (pagesRef.current) {
+      staleTimer.current = setTimeout(() => {
+        pagesRef.current = null
+        setFallback(true)
+      }, STALE_MS)
+    } else {
+      setFallback(true)
+    }
+  }, [])
   // 100% fits the page to the panel's width
   const [panelWidth, setPanelWidth] = useState(0)
   const observer = useRef<ResizeObserver | null>(null)
@@ -38,15 +64,15 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
     const w = new Worker(new URL("../../lib/exact/engine.worker.ts", import.meta.url), { type: "module" })
     w.onmessage = (e: MessageEvent<ExactResponse>) => {
       if (e.data.id !== nextId.current) return // a newer edit is on its way
-      setResult(e.data)
-      pagesRef.current = e.data.ok ? { pages: e.data.pages, fonts: e.data.fonts } : null
+      settle(e.data)
     }
     worker.current = w
     return () => {
       w.terminate()
       worker.current = null
+      if (staleTimer.current) clearTimeout(staleTimer.current)
     }
-  }, [])
+  }, [settle])
 
   useEffect(() => {
     if (!files.length) return
@@ -62,24 +88,24 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
       })
       .catch((e) => {
         if (id !== nextId.current) return
-        setResult({ id, ok: false, reason: e instanceof Error ? e.message : "bundling failed" })
+        settle({ id, ok: false, reason: e instanceof Error ? e.message : "bundling failed" })
       })
-  }, [files])
+  }, [files, settle])
 
   // Download: the browser prints the SVG pages, one per sheet at the document's paper size.
   useEffect(() => {
     const onDownload = (e: Event) => {
-      const drawn = pagesRef.current
-      if (!drawn) return
+      const last = pagesRef.current
+      if (!last) return
       e.stopImmediatePropagation()
       const main = findMainFile(useFileStore.getState().files)
-      printPages(drawn.pages, drawn.fonts, (main?.name ?? "document").replace(/\.tex$/i, ""))
+      printPages(last.pages, last.fonts, (main?.name ?? "document").replace(/\.tex$/i, ""))
     }
     window.addEventListener("latex0:download-pdf", onDownload)
     return () => window.removeEventListener("latex0:download-pdf", onDownload)
   }, [])
 
-  if (result && !result.ok) {
+  if (result && !result.ok && fallback) {
     return (
       <div className="relative flex h-full flex-col">
         <div className="mx-3 mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
@@ -94,16 +120,20 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
 
   return (
     <ScrollArea className="relative h-full flex-1">
-      {result?.ok && <style>{fontFaces(result.fonts)}</style>}
+      {drawn && <style>{fontFaces(drawn.fonts)}</style>}
       <div className="pointer-events-none sticky top-2 z-10 -mb-7 ml-auto mr-3 w-fit select-none rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
-        Exact view · beta{result?.ok ? ` · ${result.pages.length} page${result.pages.length === 1 ? "" : "s"} · ${Math.round(result.ms)} ms` : ""}
+        Exact view · beta{drawn ? ` · ${drawn.pages.length} page${drawn.pages.length === 1 ? "" : "s"} · ${result?.ok ? `${Math.round(drawn.ms)} ms` : "editing…"}` : ""}
       </div>
+      {drawn && drawn.warnings.length > 0 && (
+        <div className="mx-3 mt-9 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+          The layout is exact, but the preview does not draw: {drawn.warnings.join("; ")}.
+        </div>
+      )}
       <div ref={measure} className="flex flex-col items-center gap-4 p-4">
-        {!result ? (
+        {!drawn ? (
           <div className="p-8 text-sm text-muted-foreground">Laying out…</div>
         ) : (
-          result.ok &&
-          result.pages.map((svg, i) => (
+          drawn.pages.map((svg, i) => (
             <div
               key={i}
               className="shrink-0 shadow-lg [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"

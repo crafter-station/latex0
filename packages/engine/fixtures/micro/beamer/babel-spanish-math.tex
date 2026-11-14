@@ -1,0 +1,14 @@
+% fixture: beamer/babel-spanish-math
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: babel's spanish: \mathspanish in a frame's formulas (the decimal comma of the active period, \sen, the accented \lim and \max) and spanish.ldf's \% (\es@sppercent's thin space)
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Cifras}
+Cerca del 65\,\% y el 30 \% restante. Valor $3.14$ y $1.5x$; seno $\sen x$, $\lim_{x} f$ y $\max a$.
+\end{frame}
+\end{document}
