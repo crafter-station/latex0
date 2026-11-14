@@ -1,0 +1,13 @@
+% fixture: koma/koma-scrpage-head
+% tier: T3
+% engine: document
+% covers: scrlayer-scrpage in scrartcl, one-sided: \pagestyle{scrheadings} as it loads, \clearpairofpagestyles, \ihead, \chead and \ohead{\pagemark}: \@oddhead a \parbox of \headheight with the background layers (head.oneside, head.above.line, head.below.line) placed from the page corner, the head a \vbox of three \parbox fields in \slshape (the page number \normalfont), the foot's layers with empty fields; every layer's paragraphs traced as the page is shipped
+\documentclass{scrartcl}
+\usepackage{scrlayer-scrpage}
+\clearpairofpagestyles
+\ihead{Project Proposal}
+\chead{Draft}
+\ohead{\pagemark}
+\begin{document}
+Typesetting is the composition of text by means of arranging physical type or its digital equivalents. Stored letters and other symbols are retrieved and ordered according to the orthography of a language for visual display.
+\end{document}

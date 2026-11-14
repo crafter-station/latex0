@@ -25,6 +25,9 @@ const CLASSES: Record<string, string[]> = {
  *  and footline) */
 const BEAMER_DIMENS = ["Gm@lmargin", "Gm@rmargin", "beamer@leftmargin", "beamer@rightmargin", "beamer@leftsidebar", "beamer@rightsidebar", "headdp", "footheight", "sidebarheight"]
 
+/** KOMA-Script's own lengths: typearea's \footheight (scrlayer's foot layers) */
+const KOMA_DIMENS = ["footheight"]
+
 const DIMENS = [
   "paperwidth", "paperheight", "textwidth", "textheight", "oddsidemargin", "evensidemargin", "topmargin", "headheight", "headsep",
   "footskip", "maxdepth", "marginparwidth", "marginparsep", "columnsep", "columnseprule", "parindent", "lineskiplimit",
@@ -77,7 +80,7 @@ function probe(cls: string, option: string, packages = ""): string {
     ...(packages.includes("fontenc") ? [...new Set(FONT_SHAPES.map((f) => f.split("/").slice(0, 2).join("/")))].map((ef) => `{\\fontencoding{${ef.split("/")[0]}}\\fontfamily{${ef.split("/")[1]}}\\fontseries{m}\\fontshape{n}\\selectfont}`) : []),
     ...(packages.includes("fontenc") ? FONT_SHAPES.map((f) => `\\immediate\\write16{D:${f}:\\ifcsname ${f}\\endcsname 1\\else 0\\fi}`) : []),
     ...(packages.includes("fontenc") ? SIZE_COMMANDS.map((sz) => `{\\${sz}${FONT_SHAPES.map((f) => { const [e, fam, ser, sh] = f.split("/"); return `{\\fontencoding{${e}}\\fontfamily{${fam}}\\fontseries{${ser}}\\fontshape{${sh}}\\selectfont\\immediate\\write16{N:${sz}:${f}:\\fontname\\font:\\the\\hyphenchar\\font}}` }).join("")}}`) : []),
-    ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
+    ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : cls.startsWith("scr") ? KOMA_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...GLUE.map((g) => `\\P G\\${g}`), ...INTS.map((i) => `\\P I\\${i}`),
     ...SIZE_COMMANDS.map((s) => `\\S\\${s}`),
     // \raggedbottom defines \@textbottom as \vskip\z@\@plus.0001fil; \flushbottom lets it be \relax
     "\\immediate\\write16{I:raggedbottom=\\ifx\\@textbottom\\relax 0\\else 1\\fi}",
@@ -220,7 +223,7 @@ function variants(cls: string, option: string, base: ClassOptionData): ClassOpti
     const dir = join(".cache/classes", `${cls}-${option}-${v.replace(/[,=]/g, "-")}`)
     mkdirSync(dir, { recursive: true })
     const src = [`\\documentclass[${option},${v}]{${cls}}`, "\\makeatletter", "\\def\\P#1#2{\\ifdefined#2\\immediate\\write16{#1:\\expandafter\\@gobble\\string#2=\\the#2}\\fi}", "\\begin{document}", "\\makeatletter", // (beamer's \\begin{document} ends with \\makeatother)
-      ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...INTS.map((i) => `\\P I\\${i}`),
+      ...DIMENS.map((d) => `\\P D\\${d}`), ...(cls === "beamer" ? BEAMER_DIMENS : cls.startsWith("scr") ? KOMA_DIMENS : []).map((d) => `{\\dimen@\\${d}\\relax\\immediate\\write16{D:${d}=\\the\\dimen@}}`), ...INTS.map((i) => `\\P I\\${i}`),
       // the list margins (two columns change \\leftmargini … \\leftmarginvi and \\labelwidth)
       ...SIZE_COMMANDS.map((sz) => `{\\${sz}\\@listi${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list1${p}@${sz}=\\the\\${p}}`).join("")}}`),
       `{${["i", "ii", "iii", "iv", "v", "vi"].map((r, n) => `\\@list${r}${LIST.filter(([t]) => t === "D").map(([, p]) => `\\immediate\\write16{D:list${n + 1}${p}=\\the\\${p}}`).join("")}`).join("")}}`,
