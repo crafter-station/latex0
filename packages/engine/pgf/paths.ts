@@ -227,7 +227,7 @@ export function pgfUsePath(s: PgfState, d: PgfDriver, keys: string[]) {
     action?.()
     const inner = s.local.inner
     if (inner) { // \pgf@stroke@inner@line: in a scope and a group, the path again in the inner width and color
-      if (open && resolveTips(s, [...s.local.startTips, ...s.local.endTips]).some((t) => /harpoon|Implies/.test(t))) throw new Unsupported("pgf: a double line with harpoon or Implies tips")
+      if (open && resolveTips(s, [...s.local.startTips, ...s.local.endTips]).some((t) => t !== null && /harpoon|Implies/.test(t.name))) throw new Unsupported("pgf: a double line with harpoon or Implies tips")
       const saved = s.strokeColor // (\pgf@strokecolor@global)
       d.beginscope()
       d.setlinewidth(inner.width)

@@ -44,7 +44,7 @@ export interface PgfLocal {
   /** \ifpgf@relevantforpicturesize: path points enlarge the picture */
   relevant: boolean
   /** \pgf@baseline, \pgf@trimleft, \pgf@trimright: the coordinate given (\pgfsetbaseline …), or the default */
-  baseline: string | null
+  baseline: string | (() => number) | null
   trimLeft: string | null
   trimRight: string | null
   /** \pgf@start@tip@sequence, \pgf@end@tip@sequence (pgfcorearrows.code.tex): the arrow tips at the path's ends */
@@ -61,8 +61,10 @@ export interface PgfLocal {
   vectors: PgfVectors
   /** \pgfinnerlinewidth (sp) when above 0pt, with \pgfinnerstrokecolor as the driver's color text (null: 0pt) */
   inner: { width: number; spec: string; named: boolean } | null
-  /** \pgf@ar@means@<name> that \pgfdeclarearrow{name=…,means=…} set here (TikZ's >=…): the specification */
-  means: Readonly<Record<string, string>>
+  /** \pgf@ar@means@<name> that \pgfdeclarearrow{name=…,means=…} set here (TikZ's >=…, a .tip key): the sequence */
+  means: Readonly<Record<string, PgfTipSequence>>
+  /** \pgf@ar@start@<name> of the tips declared here */
+  tipStarts: Readonly<Record<string, string>>
 }
 
 /** the unit vectors, in sp */
@@ -70,7 +72,7 @@ export interface PgfVectors { xx: number; xy: number; yx: number; yy: number }
 /** pgfcorepoints.code.tex 500–501: \pgfsetxvec{\pgfpoint{1cm}{0cm}}, \pgfsetyvec{\pgfpoint{0cm}{1cm}} */
 export const DEFAULT_VECTORS: PgfVectors = { xx: 1864679, xy: 0, yx: 0, yy: 1864679 }
 
-const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null, shadings: {}, vectors: DEFAULT_VECTORS, inner: null, means: {} }
+const LOCAL: PgfLocal = { transform: IDENTITY, relevant: false, baseline: null, trimLeft: null, trimRight: null, startTips: [], endTips: [], shortenStart: 0, shortenEnd: 0, cornerArc: null, shadings: {}, vectors: DEFAULT_VECTORS, inner: null, means: {}, tipStarts: {} }
 
 /** a box's extent, as pgf's four registers (\pgf@picminx …, \pgf@pathminx …) */
 export interface PgfExtent { minX: number; maxX: number; minY: number; maxY: number }
@@ -122,6 +124,8 @@ export class PgfState {
   pdfObjectStream = 0
   /** \ifpgfpicture: inside a pgfpicture */
   inPicture = false
+  /** \pgf@nodecallback: what a matrix does with the name of each node made in its cells (pgfmodulematrix.code.tex) */
+  nodeCallback: ((name: string) => void) | null = null
   /** \pgfscope@linewidth of each open pgfscope */
   readonly scopes: number[] = []
   /** the document font's quad and x-height: pgfmath's em and ex (\pgfmath@selectfont, LaTeX's \selectfont, restores the font);

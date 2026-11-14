@@ -13,8 +13,8 @@
 // (TikzText). Every other construct throws Unsupported.
 
 import { printScaled } from "../layout/arith"
-import type { BoxNode, Node } from "../layout/nodes"
-import { hpack } from "../layout/pack"
+import { filGlue, glue, paramGlue, type BoxNode, type Node } from "../layout/nodes"
+import { hpack, vpack } from "../layout/pack"
 import { Unsupported } from "../latex/unsupported"
 import type { Colors } from "../latex/xcolor"
 import type { PgfDriver } from "../pgf/drivers"
@@ -25,18 +25,19 @@ import { pgfmathParse, pgfmathSetLength, type PgfUnits } from "../pgf/mathparser
 import { pgfPathClose, pgfPathCurveTo, pgfPathEllipse, pgfPathLineTo, pgfPathMoveTo, pgfUsePath, resetPathSizes } from "../pgf/paths"
 import { pgfPoint, pgfPointAdd, pgfPointDiff, pgfPointNormalised, pgfPointOrigin, pgfPointScale, pgfPointPolar, pgfPointXY, parse, qpoint, setLength, trig, type PgfPoint, type PgfPointMacro } from "../pgf/points"
 import { beginPgfPicture, endPgfPicture, pgfSetBaseline } from "../pgf/scopes"
-import { pgfMultipartNode, pgfPointAnchor, pgfPointShapeBorder, usePgfNodes, type PgfNodeRecord, type PgfShapeKeys } from "../pgf/shapes"
-import type { PgfState } from "../pgf/state"
+import { pgfMultipartNode, pgfPointAnchor, pgfPointShapeBorder, pgfShiftNode, usePgfNodes, type PgfNodeRecord, type PgfShapeKeys } from "../pgf/shapes"
+import { EMPTY_EXTENT, emptyExtent, type PgfState } from "../pgf/state"
 import { applyTransform, mul, pgfTransformArcAxesAtTime, pgfTransformCm, pgfTransformCurveAtTime, pgfTransformInvert, pgfTransformReset, transformPoint, pgfTransformLineAtTime, pgfTransformResetNonTranslations, pgfTransformRotate, pgfTransformScale, pgfTransformShift, pgfTransformXScale, pgfTransformXShift, pgfTransformXSlant, pgfTransformYScale, pgfTransformYShift, pgfTransformYSlant, type AtTime } from "../pgf/transformations"
 import { chars } from "./keys"
 import { alignLines, type AlignLine, type Baselines } from "./text"
 import { readForeach, sampleValues, substitute } from "./foreach"
 import { LABEL_RESTORE, LABEL_SAVE, PIN_SAVE, Tikz, type OptionCall, type TextAction, type TikzSetup, type TikzState, type TransformCall } from "./options"
-import { pgfArrowsMeta, pgfDeclareMeansGreater, pgfSetArrows, pgfSetShortenEnd, pgfSetShortenStart, shareArrows } from "../pgf/arrows"
+import { pgfArrowsMeta, pgfDeclareArrowMeans, pgfDeclareMeansGreater, pgfSetArrows, pgfSetArrowsEnd, pgfSetArrowsStart, pgfSetShortenEnd, pgfSetShortenStart, shareArrows } from "../pgf/arrows"
+import { CD, CD_START, CD_TARGET, CD_TIPS, cdEdgeQuotes, cellArrows, FORWARD_QUOTES, SCRIPT_FONT, type CdArrow, type CdHooks } from "./cd"
 import { pgfPathArc, pgfPathArcAxes } from "../pgf/arcs"
 import { pgfPathGrid } from "../pgf/grid"
 import { pgfUsePathQFillStroke, pgfUsePathQStroke } from "../pgf/quick"
-import { arg, contains, find, groupEnd, isCs, plain, spdef, str, tokenize, type Tok, type Toks } from "./tokens"
+import { arg, contains, find, groupEnd, isCs, plain, spdef, splitAll, str, tokenize, type Tok, type Toks } from "./tokens"
 
 /**
  * What a node's text needs of the engine: the list of \hbox{<font><text>} (the font option's commands, then the
@@ -104,6 +105,12 @@ const LABEL = "\\pgfextra@tikz@label"
 const TO_PATH = "\\tikz@to@path", TO_COMPUTE = "\\pgfextra@tikz@to@compute"
 /** \pgf@stop, which ends the labels \tikz@invoke@collected@onpath scans (2777–2783) */
 const STOP = "\\pgf@stop"
+/** \pgfextra{\tikz@enable@edge@quotes} as a to path begins (3093) */
+const QUOTES = "\\pgfextra@tikz@quotes"
+/** tikz-cd's \pgfextra{\global\let\tikzcdmatrixname\tikzlastnode} after a diagram's matrix */
+const CD_NAME = "\\pgfextra@tikzcd@name"
+/** the key of a first character's handler: \meaning of `"` */
+const QUOTE_KEY = "/handlers/first char syntax/the character \""
 
 /** \tikz@polar@dir@<name> (5320–5333) */
 const POLAR_DIRS: Record<string, string> = {
@@ -221,6 +228,8 @@ export class TikzPicture {
   private lastFigName = ""
   /** \tikz@fig@count (global): the nodes named tikz@f@<n> */
   private readonly counts: { fig: number }
+  /** tikz-cd: \tikzcd@savedpaths while a diagram's matrix is read (null outside a diagram) */
+  private cdArrows: CdArrow[] | null = null
   /** \pgfscope@stroke@color and \pgfscope@fill@color of each open \pgfscope (and of \tikz@finish's options) */
   private readonly colorScopes: [string, string][] = []
 
@@ -285,6 +294,10 @@ export class TikzPicture {
     const first = inp.next()
     if (first === "\\begin") {
       const env = inp.undelimited()
+      if (str(env) === "tikzcd") {
+        this.tikzcd(inp)
+        return inp.i
+      }
       if (str(env) !== "tikzpicture") throw new Unsupported(`tikz: \\begin{${str(env)}}`)
       this.begin() // \begin
       this.picture(inp)
@@ -319,6 +332,71 @@ export class TikzPicture {
     this.begin()
     this.L.doAtEnd = () => { this.end(); this.endPicture(); this.end() }
     this.command(inp)
+  }
+
+  /**
+   * tikz-cd's tikzcd environment (tikzlibrarycd.code.tex 96–147): a tikzpicture under `every diagram` and the
+   * options, a matrix of math nodes of the body (its last row ended for it), then, in a group where a quote
+   * goes to the to path and labels are math, each arrow the cells saved: `\path[every arrow, options] (cell) to
+   * (target);`
+   */
+  private tikzcd(inp: Input) {
+    if (!this.tz.cd) throw new Unsupported("tikz: \\begin{tikzcd} without tikz-cd")
+    this.begin() // \begin
+    const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
+    const END = ["\\end", "{", ...chars("tikzcd"), "}"]
+    const e = find(inp.t, END, inp.i)
+    if (e < 0) throw new Unsupported("tikz-cd: \\begin{tikzcd} without its end")
+    const body = inp.t.slice(inp.i, e)
+    inp.i = e + END.length
+    if (contains(body, ["\\begin", "{", ...chars("tikzcd"), "}"])) throw new Unsupported("tikz-cd: a diagram in a diagram")
+    this.picture(new Input(["[", ...chars(`${CD}/.cd,every diagram,`), ...options, "]"]))
+    if (!this.tz.st.cdMathMode) throw new Unsupported("tikz-cd: math mode=false")
+    const arrows: CdArrow[] = []
+    this.cdArrows = arrows
+    this.cdRows = 0
+    this.command(new Input(["\\matrix", "[", ...tokenize(`/tikz/matrix of math nodes,/tikz/every cell/.append code={\\tikzcdset{every cell}},${CD}/.cd,every matrix`, true), "]", "{", ...body, "}", CD_NAME, ";"]))
+    this.cdArrows = null
+    // \endtikzcd
+    this.tz.keys.pgfqkeys(CD, `${this.cdRows}-row diagram/.try`)
+    this.begin()
+    this.tz.keys.setValue(QUOTE_KEY, [FORWARD_QUOTES])
+    const quotes = this.tz.edgeQuotes
+    this.tz.edgeQuotes = cdEdgeQuotes(this.tz.st.cdMathMode)
+    for (const a of arrows) {
+      this.tz.cdCell = { row: a.row, column: a.column }
+      this.command(new Input(["\\path", "[", ...chars(`${CD}/.cd,every arrow,`), ...a.options, "]", "(", CD_START, ")", "t", "o", " ", "(", CD_TARGET, ")", ";", " "]))
+    }
+    this.tz.cdCell = null
+    this.tz.edgeQuotes = quotes
+    this.end()
+    this.endPicture()
+    this.end() // \end
+  }
+  /** \pgfmatrixcurrentrow (global) after a diagram's matrix */
+  private cdRows = 0
+
+  /** tikz-cd's keys in this picture */
+  cdHooks(): CdHooks {
+    return {
+      tips: (start, end) => {
+        if (start !== null) pgfSetArrowsStart(this.s, start)
+        if (end !== null) pgfSetArrowsEnd(this.s, end)
+      },
+      hasNode: (name) => this.nodes.has(name),
+    }
+  }
+
+  /** edge node=… (tikz.code.tex 1340–1342): the node after the to path's \tikz@tonodes */
+  edgeNode(v: Toks) {
+    const to = this.L.to
+    if (!to) throw new Unsupported("tikz: edge node outside a to path")
+    this.L.to = { ...to, nodes: [...to.nodes, " ", ...v] }
+  }
+
+  /** baseline=(coordinate) (88–93): \pgfsetbaselinepointlater, the point scanned when the picture ends */
+  baselinePoint(v: Toks) {
+    this.s.setLocal({ baseline: () => this.scanPoint(new Input([...v]))().y })
   }
 
   /** \tikzpicture (1719–1737) after its \begingroup: [options], \pgfpicture, the picture's scope */
@@ -456,6 +534,7 @@ export class TikzPicture {
       if (options !== null) inp.insert(["[", ...chars(options), "]"])
     } else if (t === "\\coordinate") inp.insert(chars(" coordinate"))
     else if (t === "\\node") inp.insert(chars(" node"))
+    else if (t === "\\matrix") inp.insert(chars(" node[matrix]"))
     else throw new Unsupported(`tikz: ${t} in a picture`)
     // \tikz@command@path (2071–2078): [options] go back, <…> (beamer's overlays) are not modeled
     if (inp.ifNext("[")) {
@@ -482,7 +561,15 @@ export class TikzPicture {
         return
       case "dash": {
         // \pgfsetdash{pattern}{phase}: \pgflinewidth read when it runs
-        const lw = (t: Toks) => str(t.map((x) => (x === "\\pgflinewidth" ? pt(st.lineWidth) : x)))
+        // (pgfmath reads a number before a register as their product, pgfmathparser.code.tex 440–445)
+        const lw = (t: Toks) => {
+          const i = t.indexOf("\\pgflinewidth")
+          if (i < 0) return str(t)
+          const factor = str(t.slice(0, i)).trim()
+          if (factor === "") return str(t.map((x) => (x === "\\pgflinewidth" ? pt(st.lineWidth) : x)))
+          if (!/^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(factor) || t.slice(i + 1).some((x) => x !== " ")) throw new Unsupported("tikz: dash pattern")
+          return pt(mul(factor, st.lineWidth))
+        }
         const items = o.pattern.map((p) => { if (p.some((x) => isCs(x) && x !== "\\pgflinewidth")) throw new Unsupported("tikz: dash pattern"); return lw(p) })
         pgfSetDash(this.s, this.d, items, text(o.phase ?? st.dashPhase, "dash phase"))
         return
@@ -657,6 +744,8 @@ export class TikzPicture {
         case UPDATE: this.L.updatenext = true; this.L.updatecurrent = true; continue
         case TO_PATH: this.toPath(inp); continue
         case TO_COMPUTE: this.toCompute(inp); continue
+        case QUOTES: if (this.tz.quotes) this.tz.keys.setValue(QUOTE_KEY, ["\\tikz@quote@parser"]); continue
+        case CD_NAME: this.tz.cdMatrix = this.L.lastNode; continue
         case LABEL: this.L.isLabel = true; continue
         case STOP: this.L.isLabel = false; continue
         case LABEL_SAVE: this.L.savedLastFig = this.lastFigName; this.L.isLabel = false; continue
@@ -1273,7 +1362,7 @@ export class TikzPicture {
     const { local, target, nodes } = this.toOrEdge(inp)
     // \tikz@do@to: the to path scanned in a group of its own, then the current point updated again
     this.L.to = { start, target, nodes }
-    inp.insert(["{", "[", ...chars("style=every to"), "]", "[", ...local, "]", TO_PATH, "}", UPDATE])
+    inp.insert(["{", QUOTES, "[", ...chars("style=every to"), "]", "[", ...local, "]", TO_PATH, "}", UPDATE])
   }
 
   /** \tikz@to@use@last@coordinate (3103–3108): the node the last point was on, or the point */
@@ -1334,6 +1423,7 @@ export class TikzPicture {
     this.tz.st.transform = null
     this.tz.st.afterPath = []
     this.L.to = { start, target, nodes }
+    if (this.tz.quotes) this.tz.keys.setValue(QUOTE_KEY, ["\\tikz@quote@parser"])
     this.command(new Input(["\\path", "[", ...chars("style=every edge"), "]", "[", ...local, "]", "(", ...start, ")", TO_PATH, ";"]))
     // (the path's \tikz@finish, scanning \pgflinewidth's optional blank, takes the one \endpgfidscope begins with)
     this.endIdScope(false)
@@ -1550,6 +1640,7 @@ export class TikzPicture {
     this.tz.st.figName = ""
     this.begin()
     let st = this.tz.st
+    st.isMatrix = false
     st.options = []
     st.transform = []
     st.mode = []
@@ -1593,8 +1684,9 @@ export class TikzPicture {
     const units = this.s.units
     if (st.nodeFont.length) {
       if (!this.text) throw new Unsupported("tikz: node font outside a document")
-      this.s.units = this.text.units(source(st.nodeFont))
+      this.s.units = { ...this.text.units(source(st.nodeFont)), onConstant: units.onConstant }
     }
+    if (st.isMatrix) return this.matrix(inp, content, lineWidth, units)
     const textBox = this.textBox(content)
     st = this.tz.st
     // \tikz@fig@mustbenamed (4144–4151): a node with something after it, or followed by c, [, t or e, gets a name
@@ -1643,6 +1735,256 @@ export class TikzPicture {
     this.L.lastNode = this.lastFigName
     this.L.toUseWhom = "node"
     if (after.length) inp.insert(["{", ...after, "}"])
+  }
+
+  /**
+   * \tikz@do@matrix, \tikz@do@matrix@cont (3977–4062) on \pgfmatrix (pgfmodulematrix.code.tex): the node's cells
+   * typeset in an alignment, each cell a picture of its own whose bounding box gives the cell's size; the
+   * alignment's box is the node's text, and the nodes named in the cells are moved to where their cells stand
+   */
+  private matrix(inp: Input, content: Toks, lineWidth: number, units: PgfUnits) {
+    const s = this.s
+    this.tz.set("every matrix/.try")
+    this.nodeTransformations()
+    let st = this.tz.st
+    if (st.figName === "") st.figName = `tikz@f@${++this.counts.fig}` // \tikz@fig@mustbenamed
+    const figbox = this.L.figbox ?? []
+    const outer = s.out
+    s.out = []
+    this.begin() // \hbox\bgroup\bgroup
+    this.begin()
+    const saved = this.interruptPath()
+    this.pgfscope()
+    this.runOptions()
+    this.begin() // \pgfidscope
+    this.begin()
+    this.begin() // \begingroup
+    this.L.figbox = null
+    const name = st.figName
+    const anchor = text(st.matrixAnchor.length ? st.matrixAnchor : st.anchor, "anchor")
+    // (an anchor `node.anchor` of a cell's node: \tikz@matrix@split, not modeled)
+    if (anchor.includes(".")) throw new Unsupported("tikz: a matrix anchored at a cell's node")
+    this.tz.st.transform = null
+    // \pgfmatrix (66–95): a group, the cells in \halign
+    this.begin()
+    const cells = this.matrixCells(content, name)
+    // \pgf@end@matrix (117–139)
+    this.tz.set("every outer matrix/.try")
+    const move = (by: (row: number, column: number) => PgfPoint) => {
+      const visited = new Set<string>()
+      for (const n of cells.nodes) {
+        if (visited.has(n.name)) continue
+        visited.add(n.name)
+        pgfShiftNode(s, n.name, by(n.row, n.column))
+      }
+    }
+    if (cells.nodes.length) move((row, column) => ({ x: cells.x[column], y: cells.y[row] }))
+    pgfTransformResetNonTranslations(s)
+    pgfTransformShift(s, pgfPointOrigin) // (the shift of an anchor without a cell's node: the origin)
+    st = this.tz.st
+    const value = (k: string) => str(this.tz.keys.valueOf(`/pgf/${k}`) ?? [])
+    const keys: PgfShapeKeys = {
+      innerXSep: value("inner xsep"), innerYSep: value("inner ysep"), outerXSep: value("outer xsep"), outerYSep: value("outer ysep"),
+      minimumWidth: value("minimum width"), minimumHeight: value("minimum height"),
+    }
+    this.syncLineWidth()
+    pgfMultipartNode(s, this.d, st.shape, anchor, name, () => this.nodePath(), keys, cells.box)
+    if (cells.nodes.length) {
+      s.begingroup()
+      pgfTransformReset(s)
+      const offset = pgfPointAnchor(s, name, "text")
+      move(() => offset)
+      s.endgroup()
+    }
+    this.end()
+    // \tikz@do@matrix@cont
+    this.end()
+    this.endIdScope()
+    this.endpgfscope()
+    this.endInterruptPath(saved)
+    this.end()
+    this.end()
+    figbox.push(hpack(s.out))
+    s.out = outer
+    // \tikz@node@finish
+    this.lastFigName = st.figName
+    const after = st.afterPath
+    this.end()
+    this.end()
+    s.units = units
+    this.L.figbox = figbox
+    s.lineWidth = lineWidth
+    this.globalLineWidth()
+    this.L.lastNode = this.lastFigName
+    this.L.toUseWhom = "node"
+    if (after.length) inp.insert(["{", ...after, "}"])
+  }
+
+  /**
+   * The cells of a matrix (pgfmodulematrix.code.tex 97–116, 186–318, 437–487): \halign of the rows, each cell
+   * `\hfil\hskip-<its left>\box<cell>` and a padding entry `\hskip<its right>\hfil`, the rows \offinterlineskip
+   * apart by the row sep. Returns the box of the alignment (\hbox{\vbox{…}}), the nodes named in the cells, and
+   * each column's and row's origin in the box (\pgf@matrix@compute@origin).
+   */
+  private matrixCells(content: Toks, name: string): { box: BoxNode; nodes: { name: string; row: number; column: number }[]; x: number[]; y: number[] } {
+    const s = this.s, d = this.d
+    const cd = this.cdArrows
+    const rows = matrixRows(content, this.tz.st.ampersand ?? "&", cd !== null)
+    const nodes: { name: string; row: number; column: number }[] = []
+    const maxy: number[] = [], miny: number[] = [], maxx: number[] = [], minx: number[] = [], columnSep: number[] = [], rowSep: number[] = []
+    let columns = 0
+    /** \pgf@matrix@addtolength (153–176): the lengths of a comma list, summed */
+    const lengths = (list: Toks): number => {
+      let total = 0
+      for (const part of splitAll(list, [","])) {
+        const v = str(spdef(part))
+        if (v === "") continue
+        if (v === "between origins") throw new Unsupported("tikz: a matrix's sep between origins")
+        if (v === "between borders") continue
+        if (part.some((x) => isCs(x))) throw new Unsupported(`tikz: a matrix's sep "${source(part)}"`)
+        const r = pgfmathSetLength(v, s.units)
+        if (r.errors.length) throw new Unsupported(`tikz: ${r.errors[0]}`)
+        total += r.value
+      }
+      return total
+    }
+    const laid: { box: BoxNode; lead: number; pad: number }[][] = []
+    rows.forEach((row, ri) => {
+      const r = ri + 1
+      maxy[r] = 0
+      miny[r] = 0
+      const line: { box: BoxNode; lead: number; pad: number }[] = []
+      let rowSepText: Toks = []
+      row.cells.forEach((cell, ci) => {
+        const c = ci + 1
+        const last = ci === row.cells.length - 1
+        // \pgf@matrix@startcell: the bounding box interrupted, the transformation reset, the cell's box a picture
+        const callback = s.nodeCallback
+        const picture = s.picture
+        this.begin()
+        s.picture = emptyExtent()
+        s.nodeCallback = (n) => { if (n !== "") nodes.push({ name: n, row: r, column: c }) }
+        pgfTransformReset(s)
+        const list = s.out
+        s.out = []
+        this.begin()
+        this.begin()
+        s.setLocal({ relevant: true })
+        d.beginPicture()
+        let toks = cell.toks
+        if (toks.includes("\\par")) throw new Unsupported("tikz: a blank line in a matrix")
+        const empty = toks.every((t) => t === " ")
+        if (cd && !empty) {
+          const a = cellArrows(toks)
+          toks = a.text
+          for (const options of a.arrows) cd.push({ row: r, column: c, options })
+        }
+        // \pgfmatrixbegincode, \pgfmatrixemptycode (tikz.code.tex 4020–4047)
+        d.beginscope()
+        const st = this.tz.st
+        st.options = []
+        st.mode = []
+        for (const style of [`every cell/.try={${r}}{${c}}`, `column ${c}/.try`, c % 2 ? "every odd column/.try" : "every even column/.try",
+          `row ${r}/.try`, r % 2 ? "every odd row/.try" : "every even row/.try", `row ${r} column ${c}/.try`]) this.tz.set(style)
+        this.runOptions()
+        const cellName = `${name}-${r}-${c}`
+        if (empty) {
+          // \tikz@lib@matrix@empty@cell (tikzlibrarymatrix.code.tex 23)
+          if (this.tz.st.matrixOfNodes && this.tz.st.nodesInEmptyCells) this.command(new Input(["\\node", "[", ...chars(`name=${cellName}`), "]", "{", "}", ";"]))
+        } else if (this.tz.st.matrixOfNodes) this.nodeCell(toks, cellName)
+        else this.body(new Input([...toks]), null)
+        d.endscope()
+        d.endPicture()
+        // \pgf@matrix@endcell (213–283): the sep before a column the rows above did not reach
+        if (c >= columns && !last) columnSep[c + 1] = lengths(this.tz.st.columnSep) + lengths(cell.extra ?? chars("0pt"))
+        if (last) rowSepText = this.tz.st.rowSep
+        let p = s.picture
+        if (p.maxX === -EMPTY_EXTENT) p = { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+        this.end()
+        this.end()
+        const box = hpack(s.out)
+        s.out = list
+        const left = c > 1 ? p.minX - columnSep[c] : p.minX
+        if (p.maxY > maxy[r]) maxy[r] = p.maxY
+        if (p.minY < miny[r]) miny[r] = p.minY
+        box.height = p.maxY
+        box.depth = -p.minY
+        box.width = 0
+        if (c > columns) {
+          maxx[c] = p.maxX
+          minx[c] = left
+          columns = c
+        } else {
+          if (p.maxX > maxx[c]) maxx[c] = p.maxX
+          if (left < minx[c]) minx[c] = left
+        }
+        line.push({ box, lead: -left, pad: p.maxX })
+        // \endpgfinterruptboundingbox
+        s.picture = picture
+        s.nodeCallback = callback
+        this.end()
+      })
+      // \pgfmatrixendrow, \pgf@matrix@finish@line (447–470), in the last cell's padding entry
+      rowSep[r] = lengths(rowSepText) + (row.extra ? lengths(row.extra) : 0)
+      miny[r] -= rowSep[r]
+      laid.push(line)
+    })
+    if (cd) this.cdRows = rows.length
+    // the alignment: each column as wide as its widest entry, each row as high and deep as its entries
+    const lead: number[] = [], pad: number[] = []
+    for (const line of laid) line.forEach((e, ci) => {
+      if (lead[ci] === undefined || e.lead > lead[ci]) lead[ci] = e.lead
+      if (pad[ci] === undefined || e.pad > pad[ci]) pad[ci] = e.pad
+    })
+    const width = lead.reduce((a, b) => a + b, 0) + pad.reduce((a, b) => a + b, 0)
+    const vlist: Node[] = []
+    laid.forEach((line, ri) => {
+      let h = 0, dp = 0
+      for (const e of line) {
+        if (e.box.height > h) h = e.box.height
+        if (e.box.depth > dp) dp = e.box.depth
+      }
+      const tabskip = () => paramGlue("tabskip", glue(0))
+      const entries: Node[] = [tabskip()]
+      line.forEach((e, ci) => {
+        const cell = hpack([filGlue(), glue(e.lead), e.box], { exactly: lead[ci] })
+        const padding = hpack([glue(e.pad), filGlue()], { exactly: pad[ci] })
+        cell.height = padding.height = h
+        cell.depth = padding.depth = dp
+        entries.push(cell, tabskip(), padding, tabskip())
+      })
+      const rowBox = hpack(entries)
+      rowBox.width = width
+      rowBox.height = h
+      rowBox.depth = dp
+      if (ri > 0) vlist.push(glue(rowSep[ri]), paramGlue("lineskip", glue(0)))
+      vlist.push(rowBox)
+    })
+    const box = hpack([vpack(vlist)])
+    // \pgf@matrix@compute@origin (354–386)
+    const n = rows.length
+    if (n > 0) miny[n] = 0
+    for (let a = n; a > 1; a--) miny[a - 1] = miny[a] + maxy[a] - miny[a - 1]
+    if (columns > 0) minx[1] = -minx[1]
+    for (let a = 1; a < columns; a++) minx[a + 1] = minx[a] + maxx[a] - minx[a + 1]
+    return { box, nodes, x: minx, y: miny }
+  }
+
+  /**
+   * a cell of a matrix of nodes (tikzlibrarymatrix.code.tex 27–50): `|options| text` or text is the text of a node
+   * named after the matrix, the row and the column; a cell that begins with a path command is run as it is
+   */
+  private nodeCell(toks: Toks, name: string) {
+    let i = 0
+    while (toks[i] === " ") i++
+    let options: Toks = []
+    if (toks[i] === "|") {
+      const e = toks.indexOf("|", i + 1)
+      if (e < 0) throw new Unsupported("tikz: | expected in a matrix cell")
+      options = toks.slice(i + 1, e)
+      i = e + 1
+    } else if (toks[i] in PATH_COMMANDS || PROTECTED.has(toks[i])) return this.body(new Input(toks.slice(i)), null)
+    this.command(new Input(["\\node", "[", ...chars(`name=${name}`), "]", ...options, "{", ...toks.slice(i), "}", ";"]))
   }
 
   /**
@@ -1718,8 +2060,22 @@ export class TikzPicture {
       before = [...this.s.out, { kind: "whatsit", text: `\\special{color push ${spec}}` }]
       after = [{ kind: "whatsit", text: "\\special{color pop}" }]
     }
+    // \tikz@atbegin@node and \tikz@atend@node around the text's group (3891–3920): a math shift each (matrix of math
+    // nodes, tikz-cd's labels) makes the text a formula's one group; other code is not modeled
+    const atBegin = str(st.atBeginNode), atEnd = str(st.atEndNode)
+    const math = atBegin === "$" && atEnd === "$"
+    if (!math && (atBegin !== "" || atEnd !== "")) throw new Unsupported(`tikz: execute at begin node=${atBegin}, execute at end node=${atEnd}`)
+    if (body.includes("$") || /\\[(\[]/.test(body)) {
+      if (math) throw new Unsupported("tikz: a math shift in a math node")
+      if (this.scriptMath()) throw new Unsupported("tikz: \\everymath in a node's font")
+    }
     let list: Node[] = []
-    if (st.textWidth.length) {
+    if (math) {
+      if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
+      if (st.textWidth.length || header.length) throw new Unsupported("tikz: a math node with a text width or align")
+      if (content.includes("\\\\")) throw new Unsupported("tikz: \\\\ in a node's text without align or a text width")
+      list = this.text.hlist(`$${this.scriptMath() ? "\\scriptstyle" : ""}{${body}}$`, this.font())
+    } else if (st.textWidth.length) {
       // the text in a minipage, the color's specials in its paragraph
       if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
       const w = pgfmathSetLength(text(st.textWidth, "text width"), this.s.units)
@@ -1759,7 +2115,10 @@ export class TikzPicture {
   }
 
   /** the node's font commands, then the text's: \tikz@node@textfont, \tikz@textfont */
-  private font(): string { return `${source(this.tz.st.nodeFont)} ${source(this.tz.st.textFont)}`.trim() }
+  private font(): string { return `${source(this.tz.st.nodeFont)} ${this.scriptMath() ? "" : source(this.tz.st.textFont)}`.trim() }
+
+  /** whether the text's font is tikz-cd's every label one, \everymath with \scriptstyle added: no font change, math in script style */
+  private scriptMath(): boolean { return str(this.tz.st.textFont) === SCRIPT_FONT }
 
   /**
    * \tikz@halign@check (4222–4229): the text's lines, each ended by `\\` or `\\[skip]` (\tikz@align@newline@:
@@ -2031,6 +2390,13 @@ export class TikzPicture {
   /** the macros a pin's edge names its nodes by, expanded */
   private nodeNames(t: Toks): Tok[] {
     const names: Record<string, string> = { "\\tikz@save@last@node": this.L.savedPinNode, "\\tikzlastnode": this.L.lastNode }
+    if (t.includes(CD_START) || t.includes(CD_TARGET)) {
+      // tikz-cd's arrow: \tikzcd@ar@start\tikzcd@startanchor, \tikzcd@ar@target\tikzcd@endanchor
+      const st = this.tz.st, c = this.tz.cdCell
+      const own = c ? `${this.tz.cdMatrix}-${c.row}-${c.column}` : ""
+      names[CD_START] = (st.cdStart ?? own) + st.cdStartAnchor
+      names[CD_TARGET] = (st.cdTarget ?? own) + st.cdEndAnchor
+    }
     return t.flatMap((x) => (x in names ? chars(names[x]) : [x]))
   }
 
@@ -2132,6 +2498,48 @@ export class TikzPicture {
   }
 }
 
+/** a matrix's cell: its text, and the `[…]` after the & that ends it (more column sep) */
+interface MatrixCell { toks: Tok[]; extra: Tok[] | null }
+/** a matrix's row: its cells, and the `[…]` after its \\ (more row sep) */
+interface MatrixRow { cells: MatrixCell[]; extra: Tok[] | null }
+
+/**
+ * A matrix's text as rows of cells: \pgfmatrixnextcell (the ampersand or its replacement) ends a cell and
+ * \pgfmatrixendrow (\\) a row, each followed past blanks by an optional `[sep]` (pgfmodulematrix.code.tex
+ * 141–147, 447–463). The last row must end with \\ too, but in a tikzcd, whose end ends it (`endsRow`).
+ */
+function matrixRows(content: Toks, ampersand: Tok, endsRow: boolean): MatrixRow[] {
+  const rows: MatrixRow[] = []
+  let cells: MatrixCell[] = [], from = 0, depth = 0
+  for (let i = 0; i < content.length; i++) {
+    const t = content[i]
+    if (t === "{") depth++
+    else if (t === "}") depth--
+    if (depth !== 0 || (t !== ampersand && t !== "\\\\")) continue
+    const toks = content.slice(from, i)
+    let j = i + 1
+    while (content[j] === " ") j++
+    let extra: Tok[] | null = null
+    if (content[j] === "[") {
+      const e = content.indexOf("]", j)
+      if (e < 0) throw new Unsupported("tikz: ] expected in a matrix")
+      extra = content.slice(j + 1, e)
+      i = e
+    }
+    from = i + 1
+    if (t === ampersand) cells.push({ toks, extra })
+    else {
+      cells.push({ toks, extra: null })
+      rows.push({ cells, extra })
+      cells = []
+    }
+  }
+  const rest = content.slice(from)
+  if (endsRow) rows.push({ cells: [...cells, { toks: rest, extra: null }], extra: null })
+  else if (cells.length || rest.some((t) => t !== " ")) throw new Unsupported("tikz: a matrix whose last row does not end with \\\\")
+  return rows
+}
+
 /** \tikz@label@angle@is@<position> (907–914) */
 const LABEL_ANGLES: Record<string, string> = {
   right: "0", "above right": "45", above: "90", "above left": "135", left: "180", "below left": "225", below: "270", "below right": "315",
@@ -2156,6 +2564,8 @@ function autoAnchorOf(n: PgfPoint, left: boolean): string {
 export interface TikzDocumentSetup extends Omit<TikzSetup, "transform" | "baseline" | "scanOf" | "at"> {
   text?: TikzText
   nodes?: Map<string, PgfNodeRecord>
+  /** \tikz@fig@count (global: a document's) */
+  counts?: { fig: number }
 }
 
 /** TikZ in a document: the keys and styles (\tikzset in the preamble too), and its pictures, one at a time */
@@ -2183,6 +2593,9 @@ export class TikzDocument {
       vector: (axis, v) => this.at("a vector").vector(axis, v),
       vectors: () => this.at("vectors").s.local.vectors,
       space: () => this.at("a blank").s.space(),
+      edgeNode: (v) => this.at("edge node").edgeNode(v),
+      cdHooks: () => this.at("tikz-cd's keys").cdHooks(),
+      baselinePoint: (v) => this.at("baseline").baselinePoint(v),
     })
   }
 
@@ -2196,12 +2609,14 @@ export class TikzDocument {
    * the picture's) with the driver; `color` is xcolor's current color there. Returns how many tokens it took.
    */
   picture(src: Toks | string, s: PgfState, d: PgfDriver, color: string): number {
-    const p = new TikzPicture({ s, d, tz: this.tz, colors: this.setup.colors, color, text: this.setup.text, nodes: this.nodes })
+    const p = new TikzPicture({ s, d, tz: this.tz, colors: this.setup.colors, color, text: this.setup.text, nodes: this.nodes, counts: this.setup.counts })
     // the arrow tips declared and instantiated so far (global in TeX)
     if (this.arrows) shareArrows(this.arrows, s)
     else {
       this.arrows = s
-      if (this.setup.arrowsMeta) pgfArrowsMeta(s)
+      if (this.setup.arrowsMeta || this.setup.cd) pgfArrowsMeta(s)
+      // tikz-cd's tips (tikzlibrarycd.code.tex 285–298, 331–342), declared as the library loads
+      if (this.setup.cd) for (const [name, means] of CD_TIPS) pgfDeclareArrowMeans(s, name, means, true)
     }
     this.current = p
     const depth = this.tz.depth

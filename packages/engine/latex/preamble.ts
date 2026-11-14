@@ -198,7 +198,7 @@ export function readPreamble(src: string): Preamble {
   const thmDefs = new Map<string, TheoremDef>()
   const colorDefs: [string, string, string][] = [] // \definecolor
   // \tikzset{…} and \tikzstyle…, which may run over lines: on one
-  pre = pre.replace(/\\tikzset\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
+  pre = pre.replace(/\\tikz(?:cd)?set\s*\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}/g, (m) => m.replace(/\s*\n\s*/g, " "))
   // and \lstdefinestyle{name}{…}, in order
   for (let m = pre.match(/\\lst(set|definestyle)\s*\{/); m; m = pre.match(/\\lst(set|definestyle)\s*\{/)) {
     const i = m.index!
@@ -515,13 +515,20 @@ export function readPreamble(src: string): Preamble {
     }
     // TikZ's libraries whose loading changes nothing on the page but what the engine models (tikz/options.ts),
     // and style definitions
+    // tikz-cd.sty: tikz and its cd library, which loads matrix, quotes and arrows.meta (tikz/cd.ts)
+    if (/^\\usepackage\{tikz-cd\}$/.test(line)) {
+      tikz ??= { libraries: [], sets: [] }
+      usesXcolor = usesGraphicx = true
+      tikz.libraries.push("cd", "matrix", "quotes", "arrows.meta"); continue
+    }
     const tl = line.match(/^\\usetikzlibrary\s*\{([^{}]*)\}$/)
     if (tl && tikz) {
       const libs = tl[1].split(",").map((x) => x.trim()).filter(Boolean)
-      if (libs.some((x) => !["positioning", "arrows.meta", "calc", "plotmarks", "shapes.geometric"].includes(x))) throw new Unsupported(`preamble: ${line}`)
+      if (libs.some((x) => !["positioning", "arrows.meta", "calc", "plotmarks", "shapes.geometric", "matrix", "quotes", "cd"].includes(x))) throw new Unsupported(`preamble: ${line}`)
+      if (libs.includes("cd")) libs.push("matrix", "quotes", "arrows.meta")
       tikz.libraries.push(...libs); continue
     }
-    if (tikz && /^\\tikz(?:set\s*\{.*\}|style\b.*)$/.test(line)) { tikz.sets.push(line); continue }
+    if (tikz && /^\\tikz(?:(?:cd)?set\s*\{.*\}|style\b.*)$/.test(line)) { tikz.sets.push(line); continue }
     const dc = line.match(/^\\definecolor\{([^{}]*)\}\{([^{}]*)\}\{([^{}]*)\}$/)
     if (dc) { colorDefs.push([dc[1], dc[2], dc[3]]); continue }
     const lt = cls === "letter" ? line.match(/^\\(signature|address|name)\{(.*)\}$/) : null
