@@ -52,7 +52,7 @@ import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
 import { declareShadowTheme } from "./shadow"
 import { babelBegin, babelFrenchspacing, isSpanish } from "../babel"
 import { accentHyphens, babelUmlauts } from "../encodings"
-import { isGerman } from "../german"
+import { germanT1, isGerman } from "../german"
 import { spacing } from "../../layout/hmode"
 import { markAccentHyphens, spanishLayout, spanishQuoting, spanishText } from "../spanish"
 
@@ -243,6 +243,7 @@ function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | 
   // spanish.ldf's \layoutspanish (its guillemets, \@alph, \@roman and \@fnsymbol; beamer takes its lists' labels back:
   // beamerbasecompatibility.sty's \es@itemize and \theenumi … iii), and beamer's \deactivatequoting
   spanishLayout.on = spanishQuoting.off = isSpanish(pre.babel)
+  germanT1.on = false // (the shorthands' guillemets and quotes in OT1: fontenc is not laid out in beamer)
   babelUmlauts.mode = lang === null ? null : lang === "spanish" ? "spanish" : isGerman(lang) ? "german" : "high"
   spacing.french = lang !== null && babelFrenchspacing(lang) ? "ams" : false
   babelBegin(pre.babel, () => { throw new Unsupported("beamer: babel's language commands") }, pre.body)
