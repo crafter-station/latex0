@@ -74,7 +74,7 @@ export function maketitle(cx: Ctx) {
     const centering = centeringShape()
     // (in center, \\ is \@centercr: the title may be paragraphs, each with \LARGE's \baselineskip or the size declared)
     if (!titleText.trim()) throw new Unsupported("an empty \\title")
-    verticalMaterial(cx, titleText, { size: "LARGE", attrs: cx.normalAttrs, align: "centering" }, false, { first: [labels, penalty(0)], club: run.k.ints.clubpenalty })
+    verticalMaterial(cx, titleText, { size: "LARGE", attrs: cx.normalAttrs, align: "centering" }, { first: [labels, penalty(0)], club: run.k.ints.clubpenalty })
     v.vskip(dimen(em(titlepage ? "3em" : "1.5em", romanFont)))
     // {\large \lineskip .5em (report: .75em) \begin{tabular}[t]{c}\@author\end{tabular}\par}, \and between tabulars
     const large = loadFont(dataFont(run.k.sizes.large.font.name), run.k.sizes.large.font.at)
@@ -96,7 +96,7 @@ export function maketitle(cx: Ctx) {
     // (article: its \par is \endtrivlist's, after the group, with the normal size's \baselineskip)
     const date = squeeze((title.date ?? "\\today").replace(/\\today(?![A-Za-z])\s*/g, today(epoch, cx.pre.babel)))
     // (report: a group in vertical mode that ends its paragraphs, \\ as \@centercr)
-    if (date && titlepage) verticalMaterial(cx, date, { size: "large", attrs: cx.normalAttrs, align: "centering" }, false, { club: run.k.ints.clubpenalty })
+    if (date && titlepage) verticalMaterial(cx, date, { size: "large", attrs: cx.normalAttrs, align: "centering" }, { club: run.k.ints.clubpenalty })
     else if (date) {
       const dp = paragraphInput(cx.counted(date, true), run.k, "large", doc, { ...centering, start: [hpack([])], clubPenalty: run.k.ints.clubpenalty, amsmath, groups: true, topDecls: true, centercr: true })
       const db = lineBreak(dp.list, dp.params)

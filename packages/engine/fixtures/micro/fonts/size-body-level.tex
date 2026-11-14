@@ -1,0 +1,17 @@
+% fixture: fonts/size-body-level
+% tier: T3
+% engine: document
+% covers: a size command at the body's level (\small between paragraphs, not in a group): the paragraphs after it in its font with its \baselineskip, a \vspace in its em after it, a footnote mark at its script size, and \normalsize back for the last
+\documentclass{article}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+\small
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+Small text with a note\footnote{The note's own size.} and math $a^2+b_i$ in it; The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\vspace{2em}
+
+\normalsize
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\end{document}

@@ -1,0 +1,15 @@
+% fixture: fonts/declaration-body-level
+% tier: T3
+% engine: document
+% covers: font declarations at the body's level (\bfseries between paragraphs, \itshape in one, not in a group): in force for the paragraphs after them, until \normalfont
+\documentclass{article}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+\bfseries
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+Bold and \itshape then italic too; The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+\normalfont The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\end{document}
