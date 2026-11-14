@@ -74,7 +74,9 @@ const THEMES = ["default", "whale", "orchid", "seahorse", "beaver", "dolphin", "
   "seahorse-infolines", "beaver-infolines", "dolphin-infolines", "whale-orchid-infolines",
   "rounded", "whale-rounded", "orchid-rounded", "whale-orchid-rounded", "whale-orchid-rounded-infolines", "circles",
   "infolines-headline", "CambridgeUS", "AnnArbor", "Boadilla", "Pittsburgh", "rectangles", "whale-orchid-circles", "whale-orchid-rectangles", "split", "whale-orchid-split", "Malmoe", "Copenhagen", "Luebeck", "miniframes", "Berlin", "Dresden", "Ilmenau", "Szeged", "tree", "Montpellier", "Hannover", "sidebar", "Berkeley", "PaloAlto", "Rochester", "Goettingen", "Marburg",
-  "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine"]
+  "albatross", "beetle", "crane", "dove", "fly", "lily", "monarca", "rose", "seagull", "spruce", "wolverine",
+  // (a presentation theme, then a color theme)
+  "Boadilla-beaver"]
 /** the presentation themes with the rounded inner theme's shadows on by default */
 const SHADOWS = ["CambridgeUS", "AnnArbor", "Boadilla", "PaloAlto"]
 /** a presentation theme's option (\DeclareOptionBeamer{shadow}[true], the theme's \PassOptionsToPackage{shadow=true}
