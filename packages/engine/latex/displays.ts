@@ -450,7 +450,9 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
  * amsmath's align and align* (\start@align\@ne, \align@, \measure@, \calc@shift@align,
  * \math@cr@@@align, \place@tag): fields alternate right- and left-aligned, the whole is centred
  * by \eqnshift@ with \alignsep@ between column pairs, and each row's number is set off at the
- * right edge. TeX finishes it as an alignment in a display (§ 1206).
+ * right edge. TeX finishes it as an alignment in a display (§ 1206). alignat and alignat* (\start@align\z@) are the
+ * same with no space between the column pairs, as many pairs as declared. A row's \tag, \label and \notag are in its
+ * tag (`rowTag`); \intertext goes between the rows (`rowsToVlist`).
  */
 export function alignDisplay(cx: Ctx, d: Display, line: { width: number; indent: number }, font: Font, skips: Skips = {}, par: ParagraphOptions | null = null) {
   const em = font.params[QUAD]
