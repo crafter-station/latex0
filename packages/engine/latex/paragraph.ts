@@ -42,6 +42,7 @@ import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
 import { crefOutput, crefRangeOutput, crefWrite, writtenLabel, type CrefEntry, type CrefLabel, type CrefOut, type CrefSetup, type CrefWrite } from "./cleveref"
 import { singleSpaced } from "./setspace"
 import { NAT_COMMANDS, natCite, type NatEntry, type NatItem, type NatStyle } from "./natbib"
+import { citeList, type CiteOptions } from "./cite"
 import { SI_COMMANDS, siunitx, siunitxMath, type SiContext, type SiOptions } from "./siunitx"
 
 export const spec = (param: string, g: GlueSpec, width = g.width): GlueNode => paramGlue(param, glue(width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder))
@@ -189,6 +190,8 @@ export interface DocState {
   babel?: Babel & { beforeHyperref?: boolean }
   /** natbib is loaded: its citation punctuation */
   natbib?: NatStyle
+  /** cite.sty is loaded: its options */
+  cite?: CiteOptions
   /** a color expression as its \special text */
   color?: (spec: string, model?: string) => string
   /** \lstinline number n (taken out of the source before expansion) at a size in a font; \linewidth where it stands
@@ -394,11 +397,11 @@ type Piece =
   /** {…}: a group, where groups are read (`PieceOptions.groups`); \bfseries, \itshape …: a declaration for the rest of its group */
   | { kind: "group"; inner: Piece[] } | { kind: "decl"; name: string; inner: Piece[] }
   /** {\large …}: a size command in a group */
-  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[] } | { kind: "ref"; key: string; sub?: true } | { kind: "pageref"; key: string }
+  | { kind: "size"; size: SizeCommand; inner: Piece[] } | { kind: "label"; key: string } | { kind: "cite"; keys: string[]; /** cite.sty's \citen, \citenum, \citeonline: the numbers alone */ bare?: true } | { kind: "ref"; key: string; sub?: true } | { kind: "pageref"; key: string }
   /** natbib's \citep, \citet and friends (and \cite with notes): the command, its keys, notes and whether an optional argument was given */
   /** a float that starts in the paragraph (\LXfloat{n}) */
   | { kind: "float"; n: number }
-  | { kind: "natcite"; cmd: string; star: boolean; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean; preSrc: string; postSrc: string }
+  | { kind: "natcite"; cmd: string; star: boolean; keys: string[]; pre: Piece[]; post: Piece[]; optional: boolean; preSrc: string; postSrc: string; /** two optional arguments */ both?: true }
   /** amsmath's \tagform@ around \ref{key} (in \eqref) */
   | { kind: "tagref"; key: string }
   /** cleveref's \cref{keys}, \Cref, \cpageref and \Cpageref (`star`: no links), \crefrange{a}{b} and friends; what they
@@ -773,12 +776,15 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     }
     const cite = body.slice(i).match(/^\\cite\{([A-Za-z0-9:._,\s-]+)\}/)
     if (cite) { flushText(); out.push({ kind: "cite", keys: cite[1].split(",").map((x) => x.trim()) }); i += cite[0].length; continue }
+    // cite.sty's \citen, \citenum and \citeonline (\@cite@n: an undelimited argument)
+    const citen = body.slice(i).match(/^\\(?:citen|citenum|citeonline)(?![A-Za-z])\s*\{([A-Za-z0-9:._,\s-]+)\}/)
+    if (citen) { flushText(); out.push({ kind: "cite", keys: citen[1].split(",").map((x) => x.trim()), bare: true }); i += citen[0].length; continue }
     // natbib's commands: \@ifstar, then \@ifnextchar[ twice (each skips spaces), then the keys
     const nat = body.slice(i).match(/^\\([A-Za-z]+)(?![A-Za-z])(\*?)\s*(?:\[([^\]]*)\]\s*(?:\[([^\]]*)\]\s*)?)?\{([A-Za-z0-9:._,\s-]+)\}/)
     if (nat && nat[1] in NAT_COMMANDS) {
       // one optional argument is the post-note; two are the pre- and post-notes
       const [pre, post] = nat[4] !== undefined ? [nat[3], nat[4]] : ["", nat[3] ?? ""]
-      flushText(); out.push({ kind: "natcite", cmd: nat[1], star: nat[2] === "*", keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined, preSrc: pre, postSrc: post }); i += nat[0].length; continue
+      flushText(); out.push({ kind: "natcite", cmd: nat[1], star: nat[2] === "*", keys: nat[5].split(","), pre: pieces(pre, false), post: pieces(post, false), optional: nat[3] !== undefined, preSrc: pre, postSrc: post, ...(nat[4] !== undefined ? { both: true as const } : {}) }); i += nat[0].length; continue
     }
     const lst = body.slice(i).match(/^\\LXlstinline\{(\d+)\}/) // \lstinline, taken out before expansion
     if (lst) { flushText(); out.push({ kind: "lstinline", n: Number(lst[1]) }); i += lst[0].length; continue }
@@ -1096,7 +1102,7 @@ function fixLanguage(list: Node[], from: number, start: Language | null, startsH
 }
 
 /** What text, formulas and footnotes are built with; footnote paragraphs' traces go to `notes`. */
-interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** otherlanguage groups open where the paragraph started, still to end, and those opened in it; the \clubpenalty in force after the first end */ langGroups?: { outer: number; opened: number; outerClub?: number }; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
+interface PieceContext { k: ClassOptionData; params: LineBreakParams; mathSurround: number; doc: DocState; notes: ParagraphTrace[]; noteClub?: number; leadGroupNoteClub?: number; /** the paragraph's first piece */ lead?: Piece; noteWidow?: number; sfcodes?: Record<number, number>; amsmath?: boolean; base: FontAttrs; /** \ignorespaces after a \label */ ignoreSpaces?: boolean; /** the current color (xcolor), when not the document's */ color?: string; /** restricted horizontal mode (no discretionary after a hyphen) */ restricted?: boolean; /** the list `host` that `list` continues (a tabular entry after the template's \hskip1sp): \lastskip at the list's start is the host's */ before?: { host: Node[]; list: Node[] }; /** in spanish.ldf's quoting (<< … >>) */ quoting?: boolean; /** otherlanguage groups open where the paragraph started, still to end, and those opened in it; the \clubpenalty in force after the first end */ langGroups?: { outer: number; opened: number; outerClub?: number }; /** where babel selected languages in the paragraph */ languages?: LanguageMark[] }
 
 /** \linewidth where the paragraph is: its \parshape's last width (in a list), else \hsize */
 const lineWidthOf = (ctx: PieceContext) => (ctx.params.parShape.length ? ctx.params.parShape[ctx.params.parShape.length - 1][1] : ctx.params.hsize)
@@ -1354,6 +1360,59 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       list.push({ kind: "adjust", list: [doc.float(p.n, ctx.notes, ctx.noteClub ?? ctx.params.clubPenalty)] }) // (its paragraphs' traces where its footnotes' go, read with their \clubpenalty)
       if (savsk > 0) { list.push(penalty(10000), glue(0)); ctx.ignoreSpaces = true }
     }
+    else if (doc.cite && (p.kind === "cite" || p.kind === "natcite" && p.cmd === "cite")) {
+      // cite.sty's \cite (cite.ts): \leavevmode\cite@adjust\citeleft{\@cite@n{keys}\citemid{note}\spacefactor\@m}\citeright
+      if (doc.natbib) throw new Unsupported("cite.sty with natbib")
+      if (p.kind === "natcite" && (p.star || p.both)) throw new Unsupported(`\\cite${p.star ? "*" : "[…][…]"} with cite.sty`) // (\@citex[#1]#2: the keys would be * or [)
+      const o = doc.cite, bare = p.kind === "cite" && !!p.bare
+      const run = (text: string, f = font) => appendText(list, text, f, state, !ctx.restricted)
+      const pen = o.nobreak ? 10000 : 1000 // \citepunctpenalty
+      if (!bare) {
+        if (o.adjust) {
+          // \cite@adjust: \unskip, \penalty\citeprepenalty unless a penalty is last; after no glue the space factor is
+          // 1001, and above 1000 the space is \  (the font's own), else the glue taken off
+          // (at an entry's start the list before is the template's: its \hskip1sp is the glue taken off)
+          const host = !list.length && ctx.before?.list === list ? ctx.before.host : list
+          const last = host.at(-1), skip = last?.kind === "glue" ? last : null
+          if (skip) host.pop()
+          const tail = host.at(-1)
+          if (!(tail?.kind === "penalty" && tail.penalty !== 0)) list.push(penalty(o.nobreak ? 10000 : 301))
+          if (!skip || !skip.width && !skip.stretch && !skip.shrink) state.spaceFactor = 1001
+          list.push(state.spaceFactor > 1000 || !skip ? normalSpace(font, state) : glue(skip.width, skip.stretch, skip.stretchOrder, skip.shrink, skip.shrinkOrder))
+        }
+        run(o.ref ? "[Ref." : "[")
+        if (o.ref) list.push(penalty(10000), normalSpace(font, state))
+      }
+      for (const item of citeList(o, p.keys.map((x) => x.trim()), (key) => doc.refs?.cites?.get(key))) {
+        if (item.kind === "punct") {
+          run(",")
+          list.push(penalty(pen))
+          if (o.punct === "small") { const g = parseGlue(".13em plus .1em minus .1em", { em: font.params[QUAD], ex: font.params[X_HEIGHT] }); list.push(glue(g.width, g.stretch, g.stretchOrder, g.shrink, g.shrinkOrder)) }
+          else if (o.punct === "space") list.push(normalSpace(font, state))
+        } else if (item.kind === "dash") { // \hbox{--}\penalty\citepunctpenalty
+          const l: Node[] = []
+          appendText(l, "--", font, { spaceFactor: 1000 }, false)
+          list.push(hpack(l), penalty(pen))
+          state.spaceFactor = 1000
+        } else if (item.kind === "undefined") run("?", selectFont(k, size, fontDeclaration("bfseries", attrs, k, size, doc)!)) // {\bfseries ?}
+        else if (doc.refs?.hyper) { // hyperref's \bibcite: the number in \hyper@@link[cite] to the item's cite.<key> anchor
+          const t: Node[] = []
+          appendText(t, item.text, font, { spaceFactor: 1000 }, false)
+          list.push(...refLink(t, `cite.${item.key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite"))
+          state.spaceFactor = 1000
+        } else run(item.text)
+      }
+      if (!bare) {
+        if (p.kind === "natcite" && p.optional) { // \citemid{note}: ,\penalty\citemidpenalty\  and the note in a group
+          run(",")
+          list.push(penalty(o.nobreak ? 10000 : 151), normalSpace(font, state))
+          appendPieces(list, pieces(`{${p.postSrc}}`, false, { groups: true }), font, size, state, ctx, attrs)
+        }
+        state.spaceFactor = 1000
+        run("]")
+      }
+    }
+    else if (p.kind === "cite" && p.bare) throw new Unsupported("\\citen without cite.sty")
     else if (p.kind === "natcite" || p.kind === "cite" && doc.natbib) {
       if (!doc.natbib) throw new Unsupported(`\\${p.kind === "natcite" ? p.cmd : "cite"} without natbib`)
       const n = p.kind === "natcite" ? p : { cmd: "cite", star: false, keys: p.keys, pre: [], post: [], optional: false, preSrc: "", postSrc: "" }
@@ -1713,10 +1772,10 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
  * Material in restricted horizontal mode (a tabular cell): text, formulas, font, size and color
  * commands, in the font `attrs` at `size`; no footnotes or labels.
  */
-export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
+export function hlistInput(body: string, k: ClassOptionData, size: SizeCommand, doc: DocState, attrs: FontAttrs, state: { spaceFactor: number; before?: Node[] } = { spaceFactor: 1000 }, amsmath = false, color?: string, groups = false): Node[] {
   const list: Node[] = []
   const base: FontAttrs = { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" }
-  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups, grouped: groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}) }, attrs)
+  appendPieces(list, pieces(body.replace(/\s+/g, " "), false, { groups, grouped: groups }), selectFont(k, size, attrs), size, state, { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], amsmath, base, restricted: true, ...(color ? { color } : {}), ...(state.before ? { before: { host: state.before, list } } : {}) }, attrs)
   return list
 }
 

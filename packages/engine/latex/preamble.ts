@@ -26,6 +26,7 @@ import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Bab
 import { markAccentHyphens } from "./spanish"
 import { enumitemOptions, setlist, type Enumitem } from "./enumitem"
 import { DCOLUMN_TYPE } from "./dcolumn"
+import { citeOptions, type CiteOptions } from "./cite"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -126,6 +127,8 @@ export interface Preamble {
   captionAdds: CaptionAdds
   /** natbib: its citation punctuation on the first run (no .aux yet) and on later ones (the .aux's \bibstyle) */
   natbib: { first: NatStyle; later: NatStyle } | null
+  /** cite.sty: its options */
+  cite: CiteOptions | null
   /** algorithm.sty, algpseudocode (and its noend option) */
   algorithm: AlgorithmPackages
   /** babel: its languages, the main one, and whether it was loaded before hyperref (its \AtBeginDocument first) */
@@ -236,6 +239,7 @@ export function readPreamble(src: string): Preamble {
   const crefNames: CrefNameDef[] = []
   let titlesec: TitleFormats | null = null
   let natbib: ReturnType<typeof natbibOptions> | null = null
+  let cite: CiteOptions | null = null
   let setspace: SetSpace | null = null
   const algorithm: AlgorithmPackages = { algorithm: false, algpseudocode: false, noend: false }
   const bibstyles: string[] = [] // the .aux's \bibstyle lines, in order
@@ -362,6 +366,8 @@ export function readPreamble(src: string): Preamble {
     }
     const nb = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{natbib\}$/)
     if (nb) { natbib = natbibOptions(nb[1] ?? ""); continue }
+    const ct = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{cite\}$/)
+    if (ct) { if (cite && ct[1] !== undefined) throw new Unsupported("cite loaded twice with options"); cite ??= citeOptions(ct[1] ?? ""); continue } // (LaTeX: Option clash)
     const ss = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{setspace\}$/)
     if (ss) { setspace = setspaceOptions(ss[1] ?? "", option); if (hyper) hyperNotes = false; if (algorithm.algorithm || usesFloat) algorithm.singleHere = true; continue }
     if (setspace && setspaceCommand(setspace, line, option)) continue
@@ -427,7 +433,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics; xspace's \xspace the expander reads)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", "dcolumn", ...FONT_PACKAGES].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", "dcolumn", "cite", ...FONT_PACKAGES].includes(n))
       for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
         if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
         fonts = fontPackage(n, fonts)
@@ -460,6 +466,7 @@ export function readPreamble(src: string): Preamble {
         if ("X" in columnTypes) throw new Unsupported(`${line} after \\newcolumntype{X}`)
         tabularx ??= { column: "p{#1}" }; usesArray = true
       }
+      if (names.includes("cite")) cite ??= citeOptions("")
       if (names.includes("dcolumn")) { // (dcolumn loads array; array.sty keeps a column type's first definition)
         if ("D" in columnTypes && columnTypes.D !== DCOLUMN_TYPE) throw new Unsupported(`${line} after \\newcolumntype{D}`)
         columnTypes.D = DCOLUMN_TYPE; usesArray = true
@@ -646,8 +653,9 @@ export function readPreamble(src: string): Preamble {
   // (titlesec's and cleveref's own \@currentlabelname and \label with nameref's patches, untried without hyperref)
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
+  if (cite && natbib) throw new Unsupported("cite.sty with natbib") // (each defines \cite and \@citex: the last one loaded has them)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

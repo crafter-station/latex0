@@ -1,0 +1,22 @@
+% fixture: cite/tabular-array
+% tier: T3
+% engine: document
+% covers: cite.sty's \cite at the start of an entry with array.sty: its template's \hskip1sp taken off and put back, after a >{decl} too
+\documentclass{article}
+\usepackage{array}
+\usepackage{cite}
+\begin{document}
+\begin{tabular}{l>{\itshape}cr}
+\cite{b,a} & \cite{c} & \cite{d,e,f} \\
+Method \cite{a} & x\cite{b} & 95.1
+\end{tabular}
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}

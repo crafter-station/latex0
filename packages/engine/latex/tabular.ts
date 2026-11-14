@@ -380,7 +380,7 @@ export interface TabularEnv {
   /** the math axis of the text size (\vcenter) */
   axis: number
   /** an entry or @-text in restricted horizontal mode, with the cell's space factor */
-  cell(text: string, state: { spaceFactor: number }): Node[]
+  cell(text: string, state: { spaceFactor: number; before?: Node[] }): Node[]
   /** a p{width} column's \vtop (\@startpbox … \@endpbox) around an entry; `cr` is what \\[skip] puts at its end.
    *  With array.sty, `array`: the box (a \vtop for p, a \vbox for m and b) and the paragraph shape >{decl} gave */
   pbox(text: string, width: string, cr: Node[], array?: { kind: "p" | "m" | "b"; shape: "centering" | "raggedright" | "raggedleft" | null; size?: SizeCommand }, everypar?: boolean): BoxNode
@@ -448,8 +448,14 @@ export function tabularList(lines: TabLine[], cols: TabCol[], env: TabularEnv, t
     return [glue(x.skip === "tabcolsep" ? env.tabcolsep : x.skip === "doublerulesep" ? env.doublerulesep : half)]
   })
   /** an entry's list: its text, or a \multirow and what follows it */
-  const content = (text: string, st: { spaceFactor: number }): Node[] => {
+  const content = (text: string, st: { spaceFactor: number }, before?: Node[]): Node[] => {
     const m = multirow(text)
+    // (`before`: the cell's list so far, which the entry continues: what reads \lastskip first, cite.sty's \cite, sees it)
+    if (!m && before) {
+      const s: { spaceFactor: number; before?: Node[] } = st
+      s.before = before
+      try { return env.cell(text, s) } finally { delete s.before }
+    }
     if (!m) return env.cell(text, st)
     if (!env.multirow) throw new TabularUnsupported("\\multirow without multirow")
     st.spaceFactor = 1000 // (a box: an @{text} before may have left another)
@@ -474,7 +480,8 @@ export function tabularList(lines: TabLine[], cols: TabCol[], env: TabularEnv, t
     const align = col.align
     if (align === "p") { st.spaceFactor = 1000; return [env.pbox(text.replace(/^\s+/, ""), col.width!, cr, undefined, env.everyparStrut), filGlue()] } // (a box: the space factor is 1000)
     const l: Node[] = align === "l" ? [] : [filGlue()]
-    l.push(glue(1), ...content(text.replace(/^\s+/, ""), st))
+    l.push(glue(1))
+    l.push(...content(text.replace(/^\s+/, ""), st, l))
     if (cr.length) { unskip(l); l.push(...cr) }
     unskip(l)
     if (align !== "r") l.push(filGlue())
@@ -593,7 +600,7 @@ export function tabularList(lines: TabLine[], cols: TabCol[], env: TabularEnv, t
     if (ct) { /* (nothing before the entry for \unskip to take) */ }
     else if (!empty) l.push(glue(1))
     else if (cr.length) unskip(l)
-    l.push(...content(body, st))
+    l.push(...content(body, st, !ct && !empty ? l : undefined))
     if (!post) { unskipUnder(l, pops); if (cr.length) unskipUnder(l, pops) } // (in the declarations' group)
     l.push(...cr)
     if (ct) { if (col.align !== "r") l.push(col.align === "c" ? glue(0, 32768, FILL) : fillGlue()) }

@@ -1,0 +1,18 @@
+% fixture: cite/option-nosort-nocompress
+% tier: T3
+% engine: document
+% covers: cite.sty's nosort and nocompress options together: \@addto@cite@list sets each number where it stands, among undefined keys too
+\documentclass{article}
+\usepackage[nosort,nocompress]{cite}
+\begin{document}
+As given \cite{c,a,b} and \cite{f,nokey,d,e} in a line of text.
+
+\begin{thebibliography}{9}
+\bibitem{a} One.
+\bibitem{b} Two.
+\bibitem{c} Three.
+\bibitem{d} Four.
+\bibitem{e} Five.
+\bibitem{f} Six.
+\end{thebibliography}
+\end{document}
