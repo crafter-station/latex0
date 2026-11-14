@@ -20,6 +20,8 @@ export type Block =
   | { kind: "heading"; level: 0 | 1 | 2 | 3 | 4 | 5; star: boolean; title: string; /** the title's source, when it differs (\tableofcontents) */ source?: string; /** nodes after the title text (its \@mkboth marks) */ end?: Node[]
       /** a blank line (\par) right before it */ blank?: boolean }
   | { kind: "maketitle" }
+  /** memoir's \epigraph{text}{source} in vertical mode (memoir.ts); `blank`: a blank line (\par) before it */
+  | { kind: "epigraph"; text: string; source: string; blank: boolean }
   /** \onecolumn, \twocolumn and its optional argument (the material for the top of the page) */
   | { kind: "columns"; two: boolean; top?: string }
   /** \begin{titlepage}: its body, read in vertical mode (vmode.ts) */
@@ -232,8 +234,9 @@ function braceDepth(t: string): number {
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
 /** `headingRefs`: headings may hold ~ and \ref{key} (amsart's, which it lays out); `titleEndpe`: \maketitle leaves
- *  \@doendpe in force (amsart's: text right after it is not indented) */
-export function blocksOf(body: string, { headingRefs = false, titleEndpe = false } = {}): Block[] {
+ *  \@doendpe in force (amsart's: text right after it is not indented); `afterList`: the body starts right after a
+ *  list's end (\@doendpe: text with no blank line before it is not indented; memoir's \epigraph) */
+export function blocksOf(body: string, { headingRefs = false, titleEndpe = false, afterList = false } = {}): Block[] {
   // babel's otherlanguage and otherlanguage* (the end goes back to the language before: the paragraph knows it)
   body = body.replace(/\\begin\{otherlanguage(\*?)\}\s*\{([A-Za-z]+)\}/g, (_, star: string, lang: string) => `\\LXotherlanguage${star ? "star" : ""}{${lang}}`)
     .replace(/\\end\{otherlanguage(\*?)\}/g, (_, star: string) => `\\LXendotherlanguage${star ? "star" : ""}{}`)
@@ -243,7 +246,7 @@ export function blocksOf(body: string, { headingRefs = false, titleEndpe = false
   const out: Block[] = []
   const inline: Extract<Block, { kind: "float" }>[] = [] // the floats in paragraphs
   const re = /\\(chapter|section|subsection|subsubsection|paragraph|subparagraph)\b(\*?)\s*|\\begin\{(itemize|enumerate|description|quote|quotation|verse|center|flushleft|flushright|abstract|LXtheorem|proof)\}()|\\(maketitle)\b\s*|\\begin\{(figure\*?|table\*?|algorithm)\}\s*(?:\[([^\]]*)\])?([^]*?)\\end\{\6\}|\\(tableofcontents)\b\s*|\\(front|main|back)matter\b\s*|\\begin\{thebibliography\}\s*\{([^{}]*)\}|\\begin\{letter\}\s*\{((?:[^{}]|\{[^{}]*\})*)\}|\\lstplaceholder\{(\d+)\}|\\begin\{titlepage\}([^]*?)\\end\{titlepage\}|\\(newpage|clearpage|cleardoublepage)(?![A-Za-z])\s*|\\(no)?pagebreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*|\\(thispagestyle|pagenumbering)\s*\{([^{}]*)\}\s*|\\listof(figures|tables)(?![A-Za-z])\s*|\\(appendix)(?![A-Za-z])\s*|\\markboth\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\markright\s*\{([^{}]*)\}\s*|\\addcontentsline\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*\{([^{}]*)\}\s*|\\(onecolumn|twocolumn)(?![A-Za-z])\s*|\\LXlongtable\{(\d+)\}\s*|\\begin\{multicols(\*?)\}\s*\{\s*(\d+)\s*\}|\\columnbreak(?![A-Za-z])\s*(?:\[([^\]]*)\])?\s*/g
-  let at = 0, endpe = false, thmEnd = false
+  let at = 0, endpe = afterList, thmEnd = false
   const text = (s: string) => {
     // blank lines separate paragraphs; text right after a list (no blank line) is not indented (\@doendpe)
     const parts = s.split(/\n[ \t]*\n/)
@@ -412,7 +415,7 @@ export function blocksOf(body: string, { headingRefs = false, titleEndpe = false
       }))
       walk(b)
     }
-    else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "longtable" || b.kind === "multicols" || b.kind === "columnbreak" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
+    else if (b.kind === "epigraph" || b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "longtable" || b.kind === "multicols" || b.kind === "columnbreak" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
     else if (/[\\{}%&#^_~]/.test(withoutTextCommands(headingRefs ? b.title.replace(/~|\\ref\{[A-Za-z0-9:._-]+\}/g, " ") : b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out

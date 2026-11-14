@@ -1,0 +1,10 @@
+% fixture: memoir/papersize
+% tier: T3
+% engine: document
+% specials: compare
+% covers: memoir's \special{papersize=…} of the stock on the first page under dvips (\mem@fixpagelayout's \AtBeginDvi), for the a4paper option
+\documentclass[a4paper,oneside]{memoir}
+\pagestyle{empty}
+\begin{document}
+Lorem ipsum dolor sit amet.
+\end{document}

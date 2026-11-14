@@ -30,6 +30,7 @@ import { listing } from "./lstlisting"
 import { letter } from "./letter"
 import { needsVerticalMode, titlepage, topDeclarations, verticalMaterial, type DeclState } from "./vmode"
 import { selectFont } from "./paragraph"
+import { epigraph, memoirBlock } from "./memoir"
 import { QUAD, X_HEIGHT } from "../layout/font"
 import { babelAux, babelState, babelSwitch, languageGroups } from "./babel"
 import { komaMaketitle } from "./koma"
@@ -60,6 +61,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter
   if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter" && b.kind !== "listing") throw new Unsupported(`a ${b.kind} in a letter`)
   if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
+  // memoir: what it leaves the kernel's or is laid out its way (memoir.ts); its floats, contents, title, lists … are its own
+  if (cx.pre.memoir) memoirBlock(b)
   // KOMA-Script: its contents, bibliography heading, appendix, \twocolumn, titlepage and marks are its own
   if (isKoma(cls) && (["toc", "lof", "appendix", "contentsline", "mark", "columns", "titlepage", "letter", "listing", "matter", "bib"].includes(b.kind) || (b.kind === "newpage" && b.cmd === "cleardoublepage"))) throw new Unsupported(`a ${b.kind === "newpage" ? "\\cleardoublepage" : b.kind} in KOMA-Script`)
   // amsart: its floats and captions, contents, appendix, \twocolumn, titlepage, \cleardoublepage (\pagestyle{empty} for
@@ -71,6 +74,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+  if (b.kind === "epigraph") { epigraph(cx, b); return }
   if (b.kind === "maketitle") { if (cls === "amsart") amsMaketitle(cx); else if (isKoma(cls)) komaMaketitle(cx); else maketitle(cx); return }
   if (b.kind === "columns") { if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.two ? "two" : "one"}column right after a run-in heading`); columns(cx, b); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }

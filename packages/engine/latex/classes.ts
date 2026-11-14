@@ -19,7 +19,7 @@ export function classData(cls: string, option = "10pt", extras: string[] = []): 
   const o = { ...o0, cls, ...(d.hyphenation ? { exceptions: d.hyphenation } : {}) }
   // the paper, side and column options: the last of each kind wins, as in the class's option processing
   const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? (isKoma(cls) ? "a4paper" : "letterpaper")
-  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" || cls === "amsart" ? "twoside" : "oneside")
+  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" || cls === "amsart" || cls === "memoir" ? "twoside" : "oneside")
   const twocolumn = [...extras].reverse().find((x) => x === "onecolumn" || x === "twocolumn") === "twocolumn"
   const v = o.variants?.[`${paper},${side}${twocolumn ? ",twocolumn" : ""}`]
   if (twocolumn && !v) throw new Unsupported(`class option twocolumn for ${cls}`)
@@ -46,7 +46,7 @@ export function withTextHeight(k: ClassOptionData): ClassOptionData {
 }
 
 /** the classes with chapters (the counters within \c@chapter) */
-export const hasChapters = (cls: string) => cls === "report" || cls === "book"
+export const hasChapters = (cls: string) => cls === "report" || cls === "book" || cls === "memoir"
 
 /** KOMA-Script's classes laid out: scrartcl (fontsize=11pt and paper=a4 by default) */
 export const isKoma = (cls: string) => cls === "scrartcl"
@@ -73,7 +73,8 @@ export function documentClass(src: string): { cls: string; option: string; extra
   const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean).map((o) => (isKoma(m[2]) ? komaOption(o) : o))
   const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? (isKoma(m[2]) ? "11pt" : "10pt")
   const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter") || (isKoma(m[2]) && /^parskip=/.test(o)))
-  const unknown = opts.filter((o) => !extras.includes(o) && !NEUTRAL.includes(o) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter"))
+  // (memoir: openright, its default, and openany are \chapter's, memoir.ts; notitlepage is not an option of its)
+  const unknown = opts.filter((o) => !extras.includes(o) && !(NEUTRAL.includes(o) && !(m[2] === "memoir" && o === "notitlepage")) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter") && !(m[2] === "memoir" && (o === "openright" || o === "portrait")))
   return { cls: m[2], option, extras, unknown }
 }
 

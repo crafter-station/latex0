@@ -1,0 +1,14 @@
+% fixture: memoir/epigraph-chapter
+% tier: T3
+% engine: document
+% covers: memoir's \epigraph right after a chapter head (\if@nobreak: no skip or penalty from the flushright, \clubpenalty\@M in its minipage's paragraph), and the paragraph after it: indented, \@afterheading's \everypar spent
+\documentclass[oneside]{memoir}
+\begin{document}
+\chapter{The Lighthouse Keeper}
+
+\epigraph{The sea, once it casts its spell, holds one in its net of wonder forever.}{Jacques Cousteau}
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{document}

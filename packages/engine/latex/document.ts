@@ -9,6 +9,7 @@
 
 import type { LtEntry } from "./longtable"
 import { dataFont } from "./data"
+import { memoirBlocks, memoirPage } from "./memoir"
 import { fancyPage } from "./fancyhdr"
 import { scrlayerPage } from "./scrlayer"
 import { pdftexColors } from "./pdftex"
@@ -121,7 +122,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   // (with babel, in the date of the language selected there)
   const dated = pre.babel ? datedBody(body, pre.babel, (lang) => babelToday(pre.babel, new Date(epoch * 1000), lang)) : body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, null))
   if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart", titleEndpe: cls === "amsart" })
+  const blocks = pre.memoir ? memoirBlocks(dated, (text, afterList) => blocksOf(text, { afterList })) : blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart", titleEndpe: cls === "amsart" })
   spanishLayout.on = isSpanish(pre.babel)
   germanT1.on = !!run.k.ints.T1
 
@@ -324,7 +325,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   // (the glue after a listing caption's paragraph is a breakpoint: a page fired there is output inside its group)
   if (pages.some((p) => run.lstCaptions.some(([a, b]) => p.reached >= a && p.reached < b))) throw new Unsupported("a page output inside a listing's caption")
   if (refs.cleveref) fillCrefWrites(refs.cleveref.writes, pages, (at) => (v.nodes[at] as { param?: string } | undefined)?.param === "parskip", (from, to) => v.nodes.slice(from + 1, to).flatMap((n) => (n.kind === "whatsit" && n.hook ? [n.hook] : [])))
-  const columns = makeColumns(pages, run.k, cls === "letter")
+  const columns = makeColumns(pages, run.k, cls === "letter", !!pre.memoir)
   const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
   const heads = pageMarks(pages)
   // fancyhdr's fields are paragraphs TeX breaks as it ships each page: their traces go where the page builder had
@@ -338,7 +339,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     // (an output routine run at a \bibitem sees babel's \@safe@activestrue: null where hyperref or natbib replaced \@bibitem)
     const at = run.bibSafe.find((w) => pages[i].reached >= w.from && pages[i].reached < w.to)
     const safe = at ? (at.exact && !hyper && !pre.natbib ? true : null) : false
-    const fancy = pre.scrlayer ? scrlayerPage(cx, pre.scrlayer, style, pages[i].thepage) : style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : cls === "amsart" ? { ...amsHeadFoot(run.k, style, even, pages[i].thepage, heads[i]), traces: [] } : undefined
+    const fancy = pre.scrlayer ? scrlayerPage(cx, pre.scrlayer, style, pages[i].thepage) : style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : pre.memoir ? memoirPage(cx, style, even, pages[i].thepage, heads[i]) : cls === "amsart" ? { ...amsHeadFoot(run.k, style, even, pages[i].thepage, heads[i]), traces: [] } : undefined
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
@@ -353,6 +354,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     shipped[0] = firstPage(shipped[0], [
       ...(hyper ? hyperFirstPage(pw, ph, pre.hyperOpts.info) : []),
       L3BACKEND_HEADER,
+      // (memoir's \mem@fixpagelayout at \begin{document}: \AtBeginDvi{\special{papersize=\the\stockwidth,\the\stockheight}})
+      ...(pre.memoir ? [papersize(run.k.dimens.stockwidth, run.k.dimens.stockheight)] : []),
       ...(pre.geometry ? [papersize(pw, ph), ...(pre.geometry.landscape ? ["\\special{! /landplus90 true store}"] : [])] : []),
       ...(pre.graphicsDriver || colorlinks ? [papersize(pw, ph)] : []), // (colorlinks loads color)
     ])
