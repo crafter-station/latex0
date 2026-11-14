@@ -169,6 +169,9 @@ interface PreambleFont { t1: boolean; fonts: FontSetup }
  *  PSNFSS's times.sty (all three), helvet.sty (\sfdefault, its scaled= option read by ot1phv.fd and the others as they load),
  *  courier.sty (\ttdefault) and palatino.sty (Palatino, with times.sty's sans and typewriter) */
 const FONT_PACKAGES = ["lmodern", "times", "helvet", "courier", "palatino"]
+/** packages that change nothing here (#71): loaded silently, with any options ignored. microtype is not one of them: its
+ *  protrusion and expansion change the output, so it stays Unsupported. inputenc only with utf8 (the pipeline reads UTF-8) */
+const NOOP_PACKAGES = ["inputenc", "latexsym", "fixltx2e", "etex", "textcomp"]
 function fontPackage(name: string, f: FontSetup, options: string | null = null): FontSetup {
   if (options !== null && name !== "helvet") throw new Unsupported(`preamble: \\usepackage[${options}]{${name}}`)
   switch (name) {
@@ -340,7 +343,11 @@ export function readPreamble(src: string): Preamble {
   const paired: [string, string, string][] = [] // \DeclarePairedDelimiter{\cmd}{left}{right}
   for (const line of pre.split("\n").map((l) => l.trim()).filter(Boolean)) {
     if (/^\\documentclass\b/.test(line)) continue
-    if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
+    // packages whose effect the pipeline already has (inputenc: UTF-8 is LaTeX's default input encoding): loaded
+    // silently, their options accepted and ignored (#71). Other inputenc encodings would be misdecoded: Unsupported
+    const noop = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{([a-z0-9]+)\}$/)
+    if (noop && NOOP_PACKAGES.includes(noop[2]) && (noop[2] !== "inputenc" || noop[1] === undefined || noop[1] === "utf8")) continue
+    if (line === "\\usepackage{fontenc}") continue
     if (line === "{}") continue // a definition the expander took out
     if (memoir) {
       // (memoir with the font packages alone: what it loads itself, array, booktabs, nameref …, and its own versions of
