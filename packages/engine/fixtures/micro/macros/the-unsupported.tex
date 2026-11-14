@@ -3,6 +3,7 @@
 % engine: document
 % covers: a \the<counter> whose body leaves more than characters (~, a penalty and a space in the heading, written as \nobreakspace to the .toc): not laid out yet (it is not set as text)
 % issue: #365
+% unsupported: \thesubsection defined as
 \documentclass{article}
 \renewcommand{\thesubsection}{\arabic{section}~\arabic{subsection}}
 \begin{document}

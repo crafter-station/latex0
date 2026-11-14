@@ -3,6 +3,7 @@
 % engine: document
 % covers: a command with an optional argument (robust: \@protected@testopt) in a caption, a moving argument: LaTeX writes \protect\opt to the .lof, which the engine does not keep yet, so not laid out
 % issue: #344
+% unsupported: the robust command \opt in a moving argument
 \documentclass{article}
 \newcommand{\opt}[1][x]{(#1)}
 \begin{document}
