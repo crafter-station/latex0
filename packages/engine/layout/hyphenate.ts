@@ -41,7 +41,8 @@ export function buildHyphenator(data: HyphenationData): Hyphenator {
     const positions: number[] = []
     let word = ""
     for (const ch of raw) { if (ch === "-") positions.push(word.length); else word += ch }
-    exceptions.set(word, positions)
+    // (TeX keeps the word's \lccode letters, § 937: amsart's Rie-mann-ian)
+    exceptions.set(String.fromCharCode(...[...word].map((c) => lcCode(c.charCodeAt(0)))), positions)
   }
 
   return {

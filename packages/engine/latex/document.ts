@@ -36,7 +36,7 @@ import { readPreamble } from "./preamble"
 import { runState } from "./run"
 import type { Ctx } from "./context"
 import { Unsupported } from "./unsupported"
-import { VerticalList } from "./vlist"
+import { IGNORE_DEPTH, VerticalList } from "./vlist"
 import { endDocument, firstPage, L3BACKEND_HEADER, outputOptions, makeColumns, outputPage, NobreakFloat } from "./output"
 import { anchor, Bookmarks, documentStart, hyperDriver, hyperFirstPage, pageLabels, papersize, putPageLabels, type Bookmark } from "./hyperref"
 import { COLOR_STY, Colors, colorPush, xcolor } from "./xcolor"
@@ -54,6 +54,7 @@ import { beamerDocument } from "./beamer"
 import { unbraced } from "./enumitem"
 import { today } from "./frontmatter"
 import { natBibitem, type NatEntry } from "./natbib"
+import { amsAddresses, amsHeadFoot } from "./amsart"
 
 export interface DocumentOptions {
   /** the date \today prints, in seconds since 1970 (SOURCE_DATE_EPOCH); now by default */
@@ -120,11 +121,14 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   if (pre.babel && /\\today(?![A-Za-z])/.test(body) && /\\(?:selectlanguage|foreignlanguage)(?![A-Za-z])|\\begin\s*\{otherlanguage/.test(body)) throw new Unsupported("\\today with babel's language commands")
   const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
   if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart", titleEndpe: cls === "amsart" })
   spanishLayout.on = isSpanish(pre.babel)
   germanT1.on = !!run.k.ints.T1
 
   const v = new VerticalList(run.k)
+  // (the \write and \prevdepth 0pt are the standard classes' \onecolumn's \clearpage, which amsart does not run)
+  // (and its \thispagestyle{plain} as it loads)
+  if (cls === "amsart") { v.nodes = [{ kind: "whatsit", text: "", hook: "plain" }]; v.prevDepth = IGNORE_DEPTH }
   // (spanish.ldf's layout, french.ldf's \bbl@frenchindent: \@afterindentfalse is \@afterindenttrue)
   v.alwaysIndent = isSpanish(pre.babel) || pre.babel?.main === "french"
   // a color package: xcolor, or the color package siunitx or hyperref's colorlinks loads at \begin{document} (its
@@ -310,6 +314,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
 
   if (run.runIn) runInAlone(cx) // \end{document}'s \clearpage: \newpage's \if@noskipsec\leavevmode
   if (run.noskipsec) { v.par(); noskipsecPar("the end of the document") } // \@kernel@before@enddocument's \par, then \clearpage
+  if (cls === "amsart") amsAddresses(cx) // (its \AtEndDocument)
   let built: ReturnType<typeof endDocument>
   try { built = endDocument(v.nodes, run.k, outerParskip, v.prevDepth, !!pre.k.ints.twocolumn) } catch (e) {
     if ((e as Error).message.startsWith("page builder: a float")) throw new Unsupported((e as Error).message.slice(14))
@@ -333,7 +338,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     // (an output routine run at a \bibitem sees babel's \@safe@activestrue: null where hyperref or natbib replaced \@bibitem)
     const at = run.bibSafe.find((w) => pages[i].reached >= w.from && pages[i].reached < w.to)
     const safe = at ? (at.exact && !hyper && !pre.natbib ? true : null) : false
-    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : undefined
+    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : cls === "amsart" ? { ...amsHeadFoot(run.k, style, even, pages[i].thepage, heads[i]), traces: [] } : undefined
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })

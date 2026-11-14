@@ -284,6 +284,8 @@ export function tocLine(cx: Ctx, e: TocEntry, parskip: GlueSpec) {
 export function bibliography(cx: Ctx) {
   const { cls, hyper } = cx.pre
   const { marks, mkboth, v } = cx
+  // (amsart's \@bibtitlestyle: \section*{\refname}, no \@mkboth)
+  if (cls === "amsart") { heading(cx, { kind: "heading", level: 1, star: true, title: cx.pre.names.refname, source: "\\refname" }); return }
   const [name, macro] = cls === "article" ? [cx.pre.names.refname, "refname"] : [cx.pre.names.bibname, "bibname"]
   // (natbib's \bibsection: the \@mkboth inside the heading's title)
   if (cx.pre.natbib && mkboth) throw new Unsupported("natbib's thebibliography with running heads")

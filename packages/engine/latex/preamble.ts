@@ -6,7 +6,7 @@
 import type { ClassOptionData, FontRef } from "../layout/classdata"
 import { parseDimen, parseGlue, type GlueSpec, type Internal } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
-import { classData, CM_FONTS, documentClass, familyDefault, withFonts, withT1, type FontSetup } from "./classes"
+import { classData, CM_FONTS, documentClass, familyDefault, withAmsMargins, withFonts, withT1, type FontSetup } from "./classes"
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
@@ -27,6 +27,7 @@ import { markAccentHyphens } from "./spanish"
 import { enumitemOptions, setlist, type Enumitem } from "./enumitem"
 import { DCOLUMN_TYPE } from "./dcolumn"
 import { citeOptions, type CiteOptions } from "./cite"
+import { amsTopMatter, withAmsFootnotesep, type AmsTop } from "./amsart"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -119,6 +120,10 @@ export interface Preamble {
   /** fancyhdr's fields and rules, when it is loaded */
   fancy: FancyHdr | null
   title: { title?: string; author?: string; date?: string }
+  /** amsart's top matter (\title, \author, \address …), in the preamble or in the body before \maketitle */
+  amsTop: AmsTop | null
+  /** amsart: the \bibliographystyle before thebibliography is amsplain (\@biblabel{n}: n.) */
+  amsplain: boolean
   /** letter's \signature, \address and \name */
   letterInfo: { signature?: string; address?: string; name?: string }
   /** \newcounter{name}[within], and the theorems' counters */
@@ -186,7 +191,7 @@ export function readPreamble(src: string): Preamble {
     if (babel) throw new Unsupported("babel loaded twice") // (LaTeX: Option clash, or nothing)
     babel = { ...babelOptions(own, classUnknown.filter(isBabelLanguage)), beforeHyperref }
   }
-  if (!["article", "report", "book", "letter"].includes(cls)) throw new Unsupported(`class ${cls}`)
+  if (!["article", "report", "book", "letter", "amsart"].includes(cls)) throw new Unsupported(`class ${cls}`)
   let k = classData(cls, option, extras)
   // letter.cls sets \longindentation to .5\textwidth and \medskipamount to \parskip when it loads
   const classTextwidth = k.dimens.textwidth, medskipamount = k.glue.parskip.width
@@ -194,13 +199,16 @@ export function readPreamble(src: string): Preamble {
   const at = (re: RegExp) => { for (const m of src.matchAll(re)) if (!/(^|[^\\])%/.test(src.slice(src.lastIndexOf("\n", m.index!) + 1, m.index))) return m.index!; return -1 }
   const begin = at(/\\begin\{document\}/g), end = at(/\\end\{document\}/g)
   let pre = src.slice(0, begin).replace(/(^|[^\\])%.*$/gm, "$1")
+  const amsTop: AmsTop | null = cls === "amsart" ? { title: null, authors: [], addresses: [], date: null, subjclass: null, keywords: null, thanks: [] } : null
+  if (amsTop) pre = amsTopMatter(pre, amsTop, false)
   // \lstset{…}, which may run over lines
   let lstBase: LstOptions = LST_DEFAULTS
   let tabularx: Preamble["tabularx"] = null
   let longtable: Preamble["longtable"] = null
   let multicol = false
   let colortbl = false
-  let usesListings = false, usesUrl = false, usesMultirow = false, usesXcolor = false, usesAmsthm = false
+  // (amsart loads amsmath and amsfonts and has amsthm's code: \usepackage{amsthm} does nothing)
+  let usesListings = false, usesUrl = false, usesMultirow = false, usesXcolor = false, usesAmsthm = cls === "amsart"
   let booktabsFont: PreambleFont | null = null // booktabs loaded: its em and ex are the font's then
   let thmStyle: ThmStyle = "plain"
   const thmDefs = new Map<string, TheoremDef>()
@@ -224,9 +232,9 @@ export function readPreamble(src: string): Preamble {
     lstBase = lstDefineStyle(a, keys, lstBase)
     pre = pre.slice(0, i) + pre.slice(e)
   }
-  let pagestyle = cls === "book" ? "headings" : "plain"
-  let amsmath = false
-  const mathPackages: MathPackages = {}
+  let pagestyle = cls === "book" || cls === "amsart" ? "headings" : "plain"
+  let amsmath = cls === "amsart"
+  const mathPackages: MathPackages = cls === "amsart" ? { amsfonts: true } : {}
   let enumitem: Enumitem | null = null
   // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
   // keeps them, and only \@mkboth goes back to \@gobbletwo
@@ -352,6 +360,7 @@ export function readPreamble(src: string): Preamble {
     }
     // the kernel's \baselinestretch (source.ts): every size's \baselineskip and strut from \begin{document}'s \selectfont
     const lxs = line.match(/^\\LXstretch\{(.*)\}$/)
+    if (lxs && cls === "amsart") throw new Unsupported("\\linespread or \\baselinestretch with amsart") // (its \linespacing is the \baselineskip as it loads)
     if (lxs) { stretch = lxs[1]; continue }
     const lxthe = line.match(/^\\LXthe\{([A-Za-z]+)\}\{(.*)\}$/) // (source.ts: \renewcommand{\the<counter>}{body})
     if (lxthe) { counterFormats.set(lxthe[1], lxthe[2]); continue }
@@ -388,6 +397,7 @@ export function readPreamble(src: string): Preamble {
       algorithm.algpseudocode = true; algorithm.noend = ap[1] === "noend"; continue
     }
     const bab = line.match(/^\\usepackage\[([^\]]*)\]\{babel\}$/)
+    if (bab && cls === "amsart") throw new Unsupported("babel with amsart") // (its \hyphenation exceptions are \language 0's)
     if (bab) { loadBabel(bab[1].split(",").map((o) => o.trim()).filter(Boolean), !hyper); continue }
     const cpo = line.match(/^\\usepackage\[([^\]]*)\]\{(caption|subcaption)\}$/)
     if (cpo) { if (cpo[2] === "caption") loadCaption(cpo[1]); else loadSubcaption(cpo[1]); continue }
@@ -566,6 +576,7 @@ export function readPreamble(src: string): Preamble {
   if (familydefault !== "rm" && (usesSiunitx || ((babel as Babel | null)?.languages.some((l) => l === "spanish" || l === "french") ?? false))) throw new Unsupported(`\\familydefault as \\${familydefault}default with ${usesSiunitx ? "siunitx" : "babel's spanish or french"}`)
   k = withFonts(k, familyDefault(fonts, familydefault))
   if (t1) k = withT1(k, cls)
+  if (cls === "amsart") k = withAmsFootnotesep(withAmsMargins(k, kClass), kClass)
   const geo = { landscape: false }
   if (geometryOptions.length) {
     const f = selectedFont(geometryFont)
@@ -651,6 +662,18 @@ export function readPreamble(src: string): Preamble {
   // (parskip.sty's patches of titlesec's \ttl@straight@ii and of amsthm's \deferred@thm@head)
   if (parskip && (titlesec || thmDefs.size)) throw new Unsupported(`parskip with ${titlesec ? "titlesec" : "amsthm's theorems"}`)
   let body = src.slice(begin + 16, end)
+  if (amsTop) {
+    const mk = body.search(/\\maketitle(?![A-Za-z])/); body = mk < 0 ? amsTopMatter(body, amsTop, true) : amsTopMatter(body.slice(0, mk), amsTop, true) + body.slice(mk)
+    // amsart's ~ is \protect\nonbreakingspace: \unskip\nobreak\ \ignorespaces (the spaces on either side go)
+    body = body.replace(/([^\s])[ \t]*(?:\n(?![ \t]*\n))?[ \t]*~[ \t]*(?:\n(?![ \t]*\n)[ \t]*)?/g, "$1~")
+    if (k.ints.twocolumn) throw new Unsupported("amsart in two columns")
+    // (what amsart sets its own way, not modeled with it)
+    const pkgs = ["hyperref", "fancyhdr", "natbib", "cleveref", "setspace", "parskip", "listings", "caption", "subcaption", "algorithm", "titlesec", "babel", "multicol", "siunitx", "longtable"]
+    for (const p of pkgs) if (new RegExp(`\\\\usepackage\\s*(?:\\[[^\\]]*\\])?\\s*\\{[^}]*\\b${p}\\b`).test(src.slice(0, begin))) throw new Unsupported(`${p} with amsart`)
+  }
+  // (amsart's \bibliographystyle sets \@biblabel: n. for amsplain, else [n])
+  const bibAt = src.search(/\\begin\{thebibliography\}/)
+  const amsplain = cls === "amsart" && [...src.slice(0, bibAt < 0 ? src.length : bibAt).matchAll(/^[^%\n]*\\bibliographystyle\{([^{}]*)\}/gm)].at(-1)?.[1].trim() === "amsplain"
   // \bibliographystyle and \bibliography between paragraphs: an \immediate\write to the .aux, and with no .bbl
   // nothing to \input; the .aux's \bibstyle lines are read back at \begin{document}
   body = body.replace(/(^|\n[ \t]*\n)((?:[ \t]*\\bibliography(?:style)?\{[^{}]*\}[ \t]*(?:\n|$))+)/g, (_, before: string, cmds: string) => {
@@ -672,7 +695,7 @@ export function readPreamble(src: string): Preamble {
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
   if (cite && natbib) throw new Unsupported("cite.sty with natbib") // (each defines \cite and \@citex: the last one loaded has them)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, amsTop, amsplain, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

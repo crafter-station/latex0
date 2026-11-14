@@ -106,7 +106,9 @@ export function verticalMaterial(cx: Ctx, src: string, st: DeclState, mo: Materi
     const sk = rest.match(/^\\(bigskip|medskip|smallskip)(?![A-Za-z])/)
     if (sk) {
       if (cx.pre.cls === "letter" && sk[1] === "medskip") throw new Unsupported("\\medskip in a letter")
-      v.vskip(SKIP_AMOUNTS[sk[1]]); v.vskip(dimen(0)); i += sk[0].length; continue
+      // (amsart's: by the size, \@adjustvertspacing)
+      if (cx.pre.cls === "amsart" && st.size !== "normalsize") throw new Unsupported(`\\${sk[1]} at \\${st.size} in amsart`)
+      v.vskip(cx.pre.cls === "amsart" ? run.k.glue[`${sk[1]}amount`] : SKIP_AMOUNTS[sk[1]]); v.vskip(dimen(0)); i += sk[0].length; continue
     }
     const vf = rest.match(/^\\vfill(?![A-Za-z])/)
     if (vf) { v.vskip({ width: 0, stretch: 65536, stretchOrder: FILL, shrink: 0, shrinkOrder: 0 }); i += vf[0].length; continue }

@@ -58,6 +58,13 @@ const DIMEN_PARAMS = { hangindent: "hangIndent", emergencystretch: "emergencyStr
 
 const hyphenators = new Map<string, ReturnType<typeof buildHyphenator>>()
 const hyphenator = (id = "en-us") => { let h = hyphenators.get(id); if (!h) hyphenators.set(id, (h = buildHyphenator(hyphenationData(id)))); return h }
+/** the patterns with a class's \hyphenation exceptions after the pattern file's (amsart's) */
+const classHyphenator = (k: ClassOptionData) => {
+  const id = `${k.patterns ?? "en-us"}+${k.cls}`
+  let h = hyphenators.get(id)
+  if (!h) { const d = hyphenationData(k.patterns ?? "en-us"); hyphenators.set(id, (h = buildHyphenator({ ...d, exceptions: [...d.exceptions, ...k.exceptions!] }))) }
+  return h
+}
 export { mathData }
 
 /** The math fonts and parameters of a size command (\DeclareMathSizes), with LaTeX's math setup. */
@@ -170,6 +177,9 @@ export interface DocState {
   /** in multicols (\columnbreak) */
   columns?: boolean
   footnote: number; substituted?: Set<string>; refs?: Refs
+  /** the size of the last \check@mathfonts (\everymath's): \sf@size is its script size, which amsart's \@makefnmark
+   *  takes (amsart's \AtBeginDocument sets \footnotesep from \footnotesize M$^1$) */
+  mathSize?: SizeCommand
   /** in \maketitle: \thanks (and \footnote, which is \thanks there) put the mark here and keep the text for \@thanks */
   thanks?: { n: number; src: string }[]
   /** \clubpenalty in vertical mode where the paragraph being read starts, when it is not the paragraph's own (a box
@@ -383,7 +393,7 @@ type Piece =
   /** \pagebreak[n] and \nopagebreak[n] in a paragraph */
   | { kind: "pagebreak"; no: boolean; n: number; /** multicol's \columnbreak */ column?: boolean }
   /** \vspace{skip} and \vspace*{skip} in a paragraph */
-  | { kind: "vspace"; star: boolean; skip: string | GlueSpec }
+  | { kind: "vspace"; star: boolean; skip: string | GlueSpec; /** \bigskip, \smallskip: the class's amount */ amount?: string }
   /** \enlargethispage{len} and \enlargethispage*{len} in a paragraph */
   | { kind: "enlarge"; star: boolean; skip: string }
   /** \hfill, \hfil, \quad, \qquad, \enspace, \hrulefill, \dotfill */
@@ -673,7 +683,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
     const colb = body.slice(i).match(/^\\columnbreak(?![A-Za-z])\s*(?:\[\s*([0-4])\s*\])?/)
     if (colb) { flushText(); out.push({ kind: "pagebreak", no: false, n: colb[1] === undefined ? 4 : Number(colb[1]), column: true }); i += colb[0].length; continue }
     const bs = body.slice(i).match(/^\\(bigskip|smallskip)(?![A-Za-z])/) // \vspace\bigskipamount … (letter.cls has its own \medskipamount)
-    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]] }); i += bs[0].length; continue }
+    if (bs) { flushText(); out.push({ kind: "vspace", star: false, skip: SKIP_AMOUNTS[bs[1]], amount: bs[1] }); i += bs[0].length; continue }
     const sp = body.slice(i).match(/^\\(hfill|hfil|quad|qquad|enspace|hrulefill|dotfill)(?![A-Za-z])\s*/)
     if (sp) { flushText(); out.push({ kind: "space", cmd: sp[1] as "hfill" }); i += sp[0].length; continue }
     // \textsubscript and \textsuperscript (a macro skips the spaces before its argument)
@@ -1047,12 +1057,27 @@ export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: Do
   return footnoteInsert(src, n, ctx, 0, fnsymbolMark(n, k, "footnotesize", amsmath))
 }
 
+/** amsart's \@adminfootnotes: \@footnotetext{text} with \@makefnmark and \@thefnmark \relax, in vertical mode; `later`:
+ *  the paragraphs after the first (\@setthanks: each \thanks after a \par) */
+export function amsAdminFootnote(src: string, k: ClassOptionData, doc: DocState, club: number, later: string[] = []) {
+  const ctx: PieceContext = { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], noteClub: club, amsmath: true, base: { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" } }
+  return footnoteInsert(src, 0, ctx, 0, undefined, true, later)
+}
+
 function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
   const digits: Node[] = []
   appendText(digits, String(n), markFont(k, size), { spaceFactor: 1000 }, false)
   const mbox = hpack(digits)
   const formula = mlistToHlist([{ noad: ORD, nucleus: null, sup: { kind: "box", box: mbox }, sub: null }], mathEnv(k, size, amsmath), TEXT, false)
   return hpack([{ kind: "math", on: true, width: 0 }, ...formula, { kind: "math", on: false, width: 0 }])
+}
+
+/** amsart's \@makefnmark: \raise.9ex\hbox{\fontsize\sf@size\z@\normalfont\@thefnmark}, .9ex the font's around it, \sf@size
+ *  the script size of `size`, where math was last laid out */
+function amsFootnoteMark(n: number, k: ClassOptionData, size: SizeCommand, around: Font): BoxNode {
+  const digits: Node[] = []
+  appendText(digits, String(n), markFont(k, size), { spaceFactor: 1000 }, false)
+  return { ...hpack(digits), shift: -new Scanner(".9ex", { em: 0, ex: around.params[X_HEIGHT] }).scanDimen().value }
 }
 
 /** Interline glue (§ 679) and the box, appended to a vertical list; returns the new \prevdepth. */
@@ -1071,7 +1096,7 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[]) {
+function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[], admin = false, later: string[] = []) {
   const k = singleSpaced(outer.k) // setspace's \@footnotetext: \def\baselinestretch{\setspace@singlespace}
   const ctx = { ...outer, k }
   const fs: SizeCommand = "footnotesize"
@@ -1086,32 +1111,53 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
     tolerance: 9999, emergencyStretch: new Scanner("3em", { em, ex: 0 }).scanDimen().value, interLinePenalty: k.ints.interfootnotelinepenalty,
   })
   const lang0 = languageHyphenation(babelState.lang)
-  const markBox = hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
+  const ams = k.cls === "amsart"
+  if (ams && mark) throw new Unsupported("\\thanks in amsart")
+  const markBox = ams ? amsFootnoteMark(n, k, outer.doc.mathSize ?? "footnotesize", font) : hpack([ssGlue(), ...(mark ?? [footnoteMark(n, k, fs, ctx.amsmath)])], { exactly: new Scanner("1.8em", { em, ex: 0 }).scanDimen().value })
   const strut = hpack([{ kind: "rule", width: 0, height: k.dimens.footnotesep, depth: 0 }]) // \rule\z@\footnotesep
   // (french.ldf's footnotes, but for \maketitle's \thanks: its own \@makefntext)
   const french = !mark && babelState.b?.main === "french"
   if (french && hn) throw new Unsupported("french.ldf's footnotes with hyperref")
-  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut] : [markBox, strut]
+  // (amsart's \@makefntext: \indent\@makefnmark, \parindent\normalparindent)
+  const list: Node[] = french ? [...frenchNoteStart(n, k, k.dimens.footnotesep, font), strut] : ams ? [emptyBox("hlist", k.dimens.parindent), ...(admin ? [] : [markBox]), strut] : [markBox, strut]
   if (hn && outer.doc.refs?.hyperNotes) list.push(...spotAnchor(`Hfootnote.${hn}`, "h", strut, k.sizes[fs].baselineskip.width)) // hyperref's \hyper@@anchor after the strut
   const from = list.length, languages: LanguageMark[] = []
-  appendPieces(list, pieces(squeeze(src), false), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
+  appendPieces(list, pieces(squeeze(src), false, admin ? { groups: true } : {}), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages }) // \reset@font
   params.hyphenation = hyphenation(k, font, fixLanguage(list, from, lang0, false, languages)) // (\noindent)
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
-  list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth }) // \@finalstrut\strutbox
+  // \@finalstrut\strutbox (amsart's \strut: \unhcopy\strutbox)
+  const finalStrut = (): Node => ({ kind: "rule", width: 0, height: k.sizes[fs].strut.height, depth: k.sizes[fs].strut.depth })
+  if (ams) { if (!later.length) list.push(finalStrut()) }
+  else list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth })
   const { vlist, trace } = lineBreak(list, params)
+  const traces = [trace]
   // the insertion's vertical list starts with \prevdepth = ignore_depth (§ 1099)
   const v: Node[] = []
   let prevDepth: number | null = null
-  for (const x of vlist) {
-    if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
-    else v.push(x)
+  const put = (lines: Node[]) => {
+    for (const x of lines) {
+      if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
+      else v.push(x)
+    }
   }
+  put(vlist)
+  // the paragraphs after a \par in the text (amsart's \@setthanks): \parskip (\@parboxrestore's \z@skip) and the
+  // indentation (\parindent\normalparindent) before each, the \unskip\strut after the last
+  later.forEach((t, i) => {
+    const l: Node[] = [emptyBox("hlist", k.dimens.parindent)], langs: LanguageMark[] = []
+    appendPieces(l, pieces(squeeze(t), false, { groups: true }), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages: langs })
+    if (i === later.length - 1) { if (l.at(-1)?.kind === "glue") l.pop(); l.push(finalStrut()) }
+    const lb = lineBreak(l, { ...params, hyphenation: hyphenation(k, font, fixLanguage(l, 1, lang0, false, langs)) })
+    traces.push(lb.trace)
+    v.push(spec("parskip", ZERO), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip (its paragraph start)
+    put(lb.vlist)
+  })
   const box = vpack(v)
   const ins: InsNode = {
     kind: "ins", n: k.ints.footins, height: box.height + box.depth, depth: k.sizes[fs].strut.depth,
     splitTopSkip: glue(k.dimens.footnotesep), floatCost: 20000, list: v,
   }
-  return { ins, trace }
+  return { ins, trace, traces }
 }
 
 const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }
@@ -1120,7 +1166,7 @@ const glueOf = (g: GlueSpec): GlueNode => glue(g.width, g.stretch, g.stretchOrde
 /** The hyphenation of a paragraph that starts in babel's language `lang` (none: the class's patterns and hyphenmins) */
 function hyphenation(k: ClassOptionData, font: ReturnType<typeof loadFont>, lang = languageHyphenation(babelState.lang)): LineBreakParams["hyphenation"] {
   return {
-    hyphenator: hyphenator(lang?.patterns ?? k.patterns),
+    hyphenator: !lang && k.exceptions ? classHyphenator(k) : hyphenator(lang?.patterns ?? k.patterns),
     fontOf: (name, size) => (name === font.name && size === font.size ? font : fontAt(name, size)),
     lHyf: lang?.lhm ?? k.ints.lefthyphenmin, rHyf: lang?.rhm ?? k.ints.righthyphenmin, ucHyph: k.ints.uchyph, patterns: hyphenator,
     ...(languageLc(babelState.lang) ? { lc: languageLc(babelState.lang) } : {}), // (the extras in force at the paragraph's end)
@@ -1321,7 +1367,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     if (p.kind === "text") { appendSymbols(list, ctx.ignoreSpaces ? p.src.replace(/^ +/, "") : p.src, font, { enc: attrs.enc, select: (enc) => symbolFont(k, size, attrs, enc), used: doc.textDefaults ??= new Set() }, state, !ctx.restricted); ctx.ignoreSpaces = false; continue }
     if (p.kind === "logo") {
       // (\LaTeXe: \boldmath in a series b…)
-      const epsilon = (): Node[] => [{ kind: "math", on: true, width: 0 }, ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), ((env) => (attrs.ser.startsWith("b") ? env.bold!() : env))(mathEnv(k, size, ctx.amsmath)), TEXT, false), { kind: "math", on: false, width: 0 }]
+      const epsilon = (): Node[] => [(doc.mathSize = size, { kind: "math", on: true, width: 0 }), ...mlistToHlist(parseFormula("_{\\textstyle\\varepsilon}", !!ctx.amsmath, font.params[QUAD]), ((env) => (attrs.ser.startsWith("b") ? env.bold!() : env))(mathEnv(k, size, ctx.amsmath)), TEXT, false), { kind: "math", on: false, width: 0 }]
       list.push(...logoNodes(p.name, font, () => sfFont(k, size, attrs), state, (l) => hpack(l), epsilon)); ctx.ignoreSpaces = false; continue
     }
     if (p.kind === "currentlabel") {
@@ -1424,7 +1470,9 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       // \vskip\z@skip}, \@esphack: after a space, \nobreak\hskip\z@skip, and the spaces after it go
       if (ctx.restricted) throw new Unsupported("\\vspace in restricted horizontal mode")
       let g: GlueSpec
-      if (typeof p.skip !== "string") g = p.skip
+      // (amsart's amounts are .7\baselineskip plus .7\baselineskip and its halves, by the size: \@adjustvertspacing)
+      if (p.amount && k.cls === "amsart") { if (size !== "normalsize") throw new Unsupported(`\\${p.amount} at \\${size} in amsart`); g = k.glue[`${p.amount}amount`] }
+      else if (typeof p.skip !== "string") g = p.skip
       else try { g = parseGlue(p.skip, { em: font.params[QUAD], ex: font.params[X_HEIGHT] }) } catch { throw new Unsupported(`\\vspace{${p.skip}}`) }
       const last = list[list.length - 1]
       const savsk = last?.kind === "glue" ? last.width : 0
@@ -1555,22 +1603,23 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "cite") {
       // \@citex: \@cite{numbers}: [, each \hbox{number} (undefined: \hbox{\reset@font\bfseries ?}) after
-      // ,\penalty\@m\  , then ]
-      appendText(list, "[", font, state, !ctx.restricted)
+      // ,\penalty\@m\  , then ] (amsart's \@cite: in a group with \@citestyle, \upshape\mdseries)
+      const cf = k.cls === "amsart" ? selectFont(k, size, applyFontCommand("textmd", applyFontCommand("textup", attrs, font, ctx.base, k, size, doc), font, ctx.base, k, size, doc)) : font
+      appendText(list, "[", cf, state, !ctx.restricted)
       p.keys.forEach((key, i) => {
         if (i) {
-          appendText(list, ",", font, state, !ctx.restricted)
-          list.push(penalty(1000), glue(font.params[SPACE], font.params[SPACE_STRETCH], NORMAL, font.params[SPACE_SHRINK], NORMAL))
+          appendText(list, ",", cf, state, !ctx.restricted)
+          list.push(penalty(1000), glue(cf.params[SPACE], cf.params[SPACE_STRETCH], NORMAL, cf.params[SPACE_SHRINK], NORMAL))
         }
         const n = doc.refs?.cites?.get(key), l: Node[] = []
         // hyperref's \bibcite: the number in \hyper@@link[cite] to the item's cite.<key> anchor
-        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, font, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite")) }
-        else if (n) appendText(l, n, font, { spaceFactor: 1000 }, false)
+        if (n && doc.refs?.hyper) { const t: Node[] = []; appendText(t, n, cf, { spaceFactor: 1000 }, false); l.push(...refLink(t, `cite.${key}`, doc.xcolor ? ctx.color ?? xcolor.normal : undefined, "cite")) }
+        else if (n) appendText(l, n, cf, { spaceFactor: 1000 }, false)
         else appendText(l, "?", selectFont(k, size, { ...attrs, fam: "cmr", ser: "bx", shape: "n" }), { spaceFactor: 1000 }, false)
         list.push(hpack(l))
         state.spaceFactor = 1000
       })
-      appendText(list, "]", font, state, !ctx.restricted)
+      appendText(list, "]", cf, state, !ctx.restricted)
     }
     else if (p.kind === "tie") { // \nobreakspace: \leavevmode\nobreak\ (a control space: the font's interword glue)
       list.push(penalty(10000), normalSpace(font, state))
@@ -1845,6 +1894,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "math") {
       // after_math (§ 1196): \mathon, the formula in text style with penalties, \mathoff
+      doc.mathSize = size
       list.push({ kind: "math", on: true, width: mathSurround }, ...mlistToHlist(parseFormula(p.src, !!ctx.amsmath, font.params[QUAD], doc.siunitx ? siContext(k, size, font, doc.siunitx) : undefined, { dollarNext: true, font, text: mathText(k, size, doc, attrs, !!ctx.amsmath), frame: (b) => framed(b, [], doc.xcolorFbox), env: mathEnv(k, size, ctx.amsmath) }), mathEnv(k, size, ctx.amsmath), TEXT, !ctx.restricted), { kind: "math", on: false, width: mathSurround })
       state.spaceFactor = 1000
     } else if (p.kind === "thanks") {
@@ -1860,7 +1910,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
       const n = ++doc.footnote
       // hyperref: the mark in a link to the note's anchor (\hyper@linkstart{link}{Hfootnote.n} … \hyper@linkend)
       const hn = doc.refs?.hyper ? (doc.refs.hfootnotes = (doc.refs.hfootnotes ?? 0) + 1) : 0
-      const mark = footnoteMark(n, k, size, ctx.amsmath)
+      const mark = k.cls === "amsart" ? amsFootnoteMark(n, k, doc.mathSize ?? "footnotesize", font) : footnoteMark(n, k, size, ctx.amsmath)
       if (babelState.b?.main === "french") frenchMarkSpace(list, font)
       list.push(penalty(10000), ...(hn ? tocLink([mark], `Hfootnote.${hn}`, k.sizes[size].baselineskip.width) : [mark]))
       const { ins, trace } = footnoteInsert(p.src, n, ctx, hn)

@@ -50,6 +50,14 @@ export class TocWriter {
     return node
   }
 
+  /** amsart's \@tocwrite: \addcontentsline{toc}{name}{\protect\tocname{\namename}{\@secnumber}{title}} (\sectionname … empty) */
+  writeAms(level: TocEntry["level"], number: string, source: string): Node {
+    const title = printTokens(source.replace(/~/g, "\\protect \\nonbreakingspace ")) // (amsart's ~)
+    const node: Node = { kind: "whatsit", text: `\\write1{\\@writefile{toc}{\\protect \\contentsline {${NAMES[level]}}{\\protect \\toc${NAMES[level]} {}{${number}}{${title}}}{\\thepage }{}\\protected@file@percent }}` }
+    this.writes.push({ node, entry: { level, number, title, anchor: "" } })
+    return node
+  }
+
   /** The .toc file: the lines in the order they were shipped out, each with its page. */
   written(order: (n: Node) => number, page: (n: Node) => string): TocEntry[] {
     return this.writes.slice().sort((x, y) => order(x.node) - order(y.node)).map(({ node, entry }) => ({ ...entry, page: page(node) }))
