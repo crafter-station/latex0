@@ -452,6 +452,13 @@ export function readPreamble(src: string): Preamble {
     if (hs) { if (!hyper) throw new Unsupported(`preamble: ${line}`); hyperOptions(hyperOpts, hs[1]); continue }
     const hv = line.match(/^\\usepackage\[([^\]]*)\]\{helvet\}$/)
     if (hv) { if (cls === "letter") throw new Unsupported("helvet with letter"); fonts = fontPackage("helvet", fonts, hv[1]); continue }
+    // tikz-cd.sty: tikz and its cd library, which loads matrix, quotes and arrows.meta (tikz/cd.ts); before the packages
+    // read by name below, whose names may have a hyphen too
+    if (/^\\usepackage\{tikz-cd\}$/.test(line)) {
+      tikz ??= { libraries: [], sets: [] }
+      usesXcolor = usesGraphicx = true
+      tikz.libraries.push("cd", "matrix", "quotes", "arrows.meta"); continue
+    }
     const hpo = line.match(/^\\usepackage\[(.*)\]\{hyperref\}$/)
     if (hpo) {
       if (hyper) throw new Unsupported("hyperref loaded twice with options") // (LaTeX: Option clash)
@@ -561,12 +568,6 @@ export function readPreamble(src: string): Preamble {
     }
     // TikZ's libraries whose loading changes nothing on the page but what the engine models (tikz/options.ts),
     // and style definitions
-    // tikz-cd.sty: tikz and its cd library, which loads matrix, quotes and arrows.meta (tikz/cd.ts)
-    if (/^\\usepackage\{tikz-cd\}$/.test(line)) {
-      tikz ??= { libraries: [], sets: [] }
-      usesXcolor = usesGraphicx = true
-      tikz.libraries.push("cd", "matrix", "quotes", "arrows.meta"); continue
-    }
     const tl = line.match(/^\\usetikzlibrary\s*\{([^{}]*)\}$/)
     if (tl && tikz) {
       const libs = tl[1].split(",").map((x) => x.trim()).filter(Boolean)
