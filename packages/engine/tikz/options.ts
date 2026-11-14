@@ -397,8 +397,6 @@ export class Tikz {
   /** \usetikzlibrary{quotes}, \usetikzlibrary{cd} */
   get quotes(): boolean { return !!this.setup.quotes || !!this.setup.cd }
   get cd(): boolean { return !!this.setup.cd }
-  /** the units pgfmath reads (em, ex and the declared constants) where the keys are set */
-  get units(): PgfUnits { return this.setup.units }
 
   constructor(setup: TikzSetup) {
     this.setup = setup

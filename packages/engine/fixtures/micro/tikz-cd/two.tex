@@ -1,0 +1,13 @@
+% fixture: tikz-cd/two
+% tier: T3
+% engine: document
+% specials: compare
+% covers: two diagrams in a document: the arrow tips instantiated once, the cells' names of each its own matrix
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+First \begin{tikzcd}
+A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+C \arrow[r, "k"'] & D
+\end{tikzcd} and second \begin{tikzcd} X \arrow[r, "u"] \arrow[d] & Y \\ Z \end{tikzcd} end.
+\end{document}

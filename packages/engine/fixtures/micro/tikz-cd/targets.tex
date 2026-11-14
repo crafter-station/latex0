@@ -1,0 +1,13 @@
+% fixture: tikz-cd/targets
+% tier: T3
+% engine: document
+% specials: compare
+% covers: an arrow's ends: to= and from= a cell by row and column, start anchor and end anchor, shorten, and TikZ's own arrow specifications
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Targets \begin{tikzcd}
+A \arrow[dr, to=2-2, start anchor=south east, end anchor=north west] & B \arrow[d, from=1-1, to=2-1] \\
+C \arrow[r, ->] & D \arrow[u, shorten=2pt]
+\end{tikzcd} end.
+\end{document}

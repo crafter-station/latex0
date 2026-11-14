@@ -1,0 +1,15 @@
+% fixture: tikz-cd/sep-extra
+% tier: T3
+% engine: document
+% specials: compare
+% covers: more sep after one row and before one column: \\[1em] and &[2em]
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Extra
+\begin{tikzcd}
+A \arrow[r] \arrow[d] & B \\[1em]
+C \arrow[r] &[2em] D
+\end{tikzcd}
+end.
+\end{document}

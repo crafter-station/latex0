@@ -1,0 +1,14 @@
+% fixture: tikz/math
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a tikzpicture in a display and in a formula: its box an ord noad
+\documentclass{article}
+\usepackage{tikz}
+\begin{document}
+Before
+\[
+x = \begin{tikzpicture}[baseline=-0.5ex]\draw (0,0) circle (3mm); \node {a};\end{tikzpicture} + y
+\]
+and $\tikz \draw (0,0) rectangle (2mm,2mm);^2$ after.
+\end{document}

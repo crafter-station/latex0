@@ -1,0 +1,15 @@
+% fixture: tikz-cd/old-syntax
+% tier: T3
+% engine: document
+% specials: compare
+% covers: the arrow commands' old syntax: \rar{label}, \dar[swap]{label}, \ar{direction}[label options]{label}, \arrow{direction}, and \ar[options]
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Old
+\begin{tikzcd}
+A \rar{f} \dar[swap]{g} \ar{dr}[description]{d} & B \arrow[d] \\
+C \rar & D \ar[u, bend right] \arrow{l}
+\end{tikzcd}
+end.
+\end{document}

@@ -6,7 +6,7 @@
 // them is not modeled here.
 
 import { Unsupported } from "../latex/unsupported"
-import { addArrow, prepareEndOfPath, prepareStartOfPath, resolveTips } from "./arrows"
+import { addArrow, prepareEndOfPath, prepareStartOfPath } from "./arrows"
 import type { PgfDriver } from "./drivers"
 import { toNumber } from "./fixed"
 import { pgfProcessRound, roundCornerIfNeeded } from "./round"

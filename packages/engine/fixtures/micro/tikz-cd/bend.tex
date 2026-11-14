@@ -1,0 +1,10 @@
+% fixture: tikz-cd/bend
+% tier: T3
+% engine: document
+% specials: compare
+% covers: bend left and bend right (with an angle) with labels
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Bend \begin{tikzcd} A \arrow[r, bend left, "f"] \arrow[r, bend right=50, "g"'] & B \end{tikzcd} end.
+\end{document}

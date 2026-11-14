@@ -238,7 +238,7 @@ export function tikzAt(cx: Ctx, colors: Colors, n: number, color: string, units:
   if (!nodes) nodeRegistries.set(cx.doc, (nodes = new Map()))
   const cd = tikz.libraries.includes("cd")
   // (tikz-cd's quotes with babel's shorthands: \tikzcd@handle@shortcuts@next and the babel library, not modeled)
-  if (cd && cx.pre.babel) throw new Unsupported("tikz-cd with babel")
+  if (cd && cx.pre.babel?.languages.some((l) => !/^(?:english|american|british|usenglish|ukenglish|USenglish|UKenglish|canadian|australian|newzealand)$/.test(l))) throw new Unsupported("tikz-cd with babel's shorthands")
   let counts = figCounts.get(cx.doc)
   if (!counts) figCounts.set(cx.doc, (counts = { fig: 0 }))
   if (cd) units = { ...units, constants: mathConstants(cx.run.k, size, cx.pre.amsmath) } as PgfUnits
