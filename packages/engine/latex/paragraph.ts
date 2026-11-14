@@ -1038,10 +1038,11 @@ export function thanksInsert(src: string, n: number, k: ClassOptionData, doc: Do
   return footnoteInsert(src, n, ctx, 0, fnsymbolMark(n, k, "footnotesize", amsmath))
 }
 
-/** amsart's \@adminfootnotes: \@footnotetext{text} with \@makefnmark and \@thefnmark \relax, in vertical mode */
-export function amsAdminFootnote(src: string, k: ClassOptionData, doc: DocState, club: number) {
+/** amsart's \@adminfootnotes: \@footnotetext{text} with \@makefnmark and \@thefnmark \relax, in vertical mode; `later`:
+ *  the paragraphs after the first (\@setthanks: each \thanks after a \par) */
+export function amsAdminFootnote(src: string, k: ClassOptionData, doc: DocState, club: number, later: string[] = []) {
   const ctx: PieceContext = { k, params: classParams(k), mathSurround: mathData().dimens.mathsurround, doc, notes: [], noteClub: club, amsmath: true, base: { enc: k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "n" } }
-  return footnoteInsert(src, 0, ctx, 0, undefined, true)
+  return footnoteInsert(src, 0, ctx, 0, undefined, true, later)
 }
 
 function footnoteMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath = false): BoxNode {
@@ -1076,7 +1077,7 @@ export function appendToVlist(out: Node[], box: BoxNode, prevDepth: number | nul
  * \noindent\hb@xt@1.8em{\hss\@makefnmark}. Returns the insertion and the
  * footnote paragraph's line-breaking trace.
  */
-function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[], admin = false) {
+function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mark?: Node[], admin = false, later: string[] = []) {
   const k = singleSpaced(outer.k) // setspace's \@footnotetext: \def\baselinestretch{\setspace@singlespace}
   const ctx = { ...outer, k }
   const fs: SizeCommand = "footnotesize"
@@ -1106,22 +1107,38 @@ function footnoteInsert(src: string, n: number, outer: PieceContext, hn = 0, mar
   params.hyphenation = hyphenation(k, font, fixLanguage(list, from, lang0, false, languages)) // (\noindent)
   if (list.at(-1)?.kind === "glue") list.pop() // \unskip
   // \@finalstrut\strutbox (amsart's \strut: \unhcopy\strutbox)
-  if (ams) list.push({ kind: "rule", width: 0, height: k.sizes[fs].strut.height, depth: k.sizes[fs].strut.depth })
+  const finalStrut = (): Node => ({ kind: "rule", width: 0, height: k.sizes[fs].strut.height, depth: k.sizes[fs].strut.depth })
+  if (ams) { if (!later.length) list.push(finalStrut()) }
   else list.push(penalty(10000), { kind: "rule", width: 0, height: 0, depth: k.sizes[fs].strut.depth })
   const { vlist, trace } = lineBreak(list, params)
+  const traces = [trace]
   // the insertion's vertical list starts with \prevdepth = ignore_depth (§ 1099)
   const v: Node[] = []
   let prevDepth: number | null = null
-  for (const x of vlist) {
-    if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
-    else v.push(x)
+  const put = (lines: Node[]) => {
+    for (const x of lines) {
+      if (x.kind === "hlist") prevDepth = appendToVlist(v, x, prevDepth, k.sizes[fs].baselineskip, k.glue.normallineskip, k.dimens.normallineskiplimit)
+      else v.push(x)
+    }
   }
+  put(vlist)
+  // the paragraphs after a \par in the text (amsart's \@setthanks): \parskip (\@parboxrestore's \z@skip) and the
+  // indentation (\parindent\normalparindent) before each, the \unskip\strut after the last
+  later.forEach((t, i) => {
+    const l: Node[] = [emptyBox("hlist", k.dimens.parindent)], langs: LanguageMark[] = []
+    appendPieces(l, pieces(squeeze(t), false, { groups: true }), font, fs, { spaceFactor: 1000, ...(ctx.sfcodes ? { sfcodes: ctx.sfcodes } : {}) }, { ...ctx, base: { ...ctx.base, fam: "cmr", ser: "m", shape: "n" }, languages: langs })
+    if (i === later.length - 1) { if (l.at(-1)?.kind === "glue") l.pop(); l.push(finalStrut()) }
+    const lb = lineBreak(l, { ...params, hyphenation: hyphenation(k, font, fixLanguage(l, 1, lang0, false, langs)) })
+    traces.push(lb.trace)
+    v.push(spec("parskip", ZERO), paramGlue("parskip", glue(0))) // new_graf, then LaTeX's zero \parskip (its paragraph start)
+    put(lb.vlist)
+  })
   const box = vpack(v)
   const ins: InsNode = {
     kind: "ins", n: k.ints.footins, height: box.height + box.depth, depth: k.sizes[fs].strut.depth,
     splitTopSkip: glue(k.dimens.footnotesep), floatCost: 20000, list: v,
   }
-  return { ins, trace }
+  return { ins, trace, traces }
 }
 
 const ZERO: GlueSpec = { width: 0, stretch: 0, stretchOrder: 0, shrink: 0, shrinkOrder: 0 }

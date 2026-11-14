@@ -261,14 +261,13 @@ export function amsAbstract(cx: Ctx, b: ListBlock) {
  * capitals with \@upprep's spaces), \@setauthors (a trivlist with \@topsep30\p@ less \footnotesize's \baselineskip, the
  * authors \MakeUppercase'd), \@setabstract (\vskip 20pt less \lastskip and \baselineskip, \box\abstractbox,
  * \prevdepth\z@), \vskip(34pt less \baselineskip); then \markboth{\MakeUppercase{\shortauthors}}{\shorttitle} (the
- * kernel's marks)
+ * kernel's marks); \@doendpe is in force after it
  */
 export function amsMaketitle(cx: Ctx) {
   const { decisions, doc, epoch, marks, outerParskip, run, v } = cx
   const top = cx.pre.amsTop!
   if (run.amsTitled) throw new Unsupported("\\maketitle twice in amsart")
   if (!top.title) throw new Unsupported("amsart's \\maketitle without \\title")
-  if (top.thanks.length) throw new Unsupported("\\thanks in amsart")
   if (run.k.ints.twocolumn) throw new Unsupported("amsart's \\maketitle in two columns")
   if (run.runIn || run.noskipsec) throw new Unsupported("\\maketitle right after a run-in heading")
   v.par()
@@ -289,6 +288,14 @@ export function amsMaketitle(cx: Ctx) {
     const { ins, trace } = amsAdminFootnote(src, k, doc, v.club)
     v.nodes.push(ins)
     decisions.push(trace)
+  }
+  // \@footnotetext{\def\par{\let\par\@par}\@setthanks}: one footnote, each \thanks{text} as \par text\@addpunct. (the
+  // first \par only makes the later ones \@par)
+  if (top.thanks.length) {
+    const [first, ...later] = top.thanks.map((t) => punct(plainTop("\\thanks", t)))
+    const { ins, traces } = amsAdminFootnote(first, k, doc, v.club, later)
+    v.nodes.push(ins)
+    decisions.push(...traces)
   }
   // \@mkboth: amsart's \markboth under \ps@headings (as the class or the preamble set it), else \@gobbletwo
   if (cx.pre.pagestyle === "headings") v.nodes.push({ kind: "whatsit", text: "\\mark{{\\@nx \\shortauthors }{\\@nx \\shorttitle }}" })
@@ -331,6 +338,9 @@ export function amsMaketitle(cx: Ctx) {
   const left: MarkValue = { print: `\\def \\\\{ \\ignorespaces }\\MakeUppercase    []{${(shortAuthors || shortTitle).replace(/ and~/, "\\unskip {} and\\protect \\nonbreakingspace ")}}`, parts: [], upper: false, ams: { text: (shortAuthors || shortTitle).toUpperCase(), upprep: false } }
   const right: MarkValue = { print: `{\\protect \\@upprep ${shortTitle}}`, parts: [], upper: false, ams: { text: shortTitle, upprep: true } }
   v.nodes.push(...marks.insert(markboth(left, right), v.nobreak))
+  // \@doendpe after it: the \@endpetrue of \@settitle's center and of \@setauthors's \endtrivlist, inside \begingroup
+  // groups, comes out of each with \aftergroup\propagate@doendpe (latex.ltx): text right after \maketitle is not indented
+  v.endpePar = v.doendpe = v.endpeEverypar = true
   // (\c@footnote\z@: no footnote comes before it here)
 }
 

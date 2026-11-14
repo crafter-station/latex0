@@ -1,6 +1,6 @@
 // Class documents for the document fuzzer (#360): amsart (its top matter, abstract and \maketitle, sections down to
 // \subparagraph, theorem styles and proofs with \qedhere, lists, quote, quotation, verse, center, footnotes, displays,
-// \cite and \ref, thebibliography with amsplain or not, running heads over several pages), each class with the
+// numbered equations (on the left), \thanks, \cite and \ref, thebibliography with amsplain or not, running heads over several pages), each class with the
 // constructs it lays out. fuzzDocuments draws them from a stream of their own.
 
 const WORDS = `the of and a to in is was that for it as with on by be at from this which are or an have but not they
@@ -56,13 +56,14 @@ export function makeClassDocument(r: () => number): string {
       out.push(`\\author{${pick(["Helena Costa", "Pieter de Vries", "Ann Author", "Bob Writer"])}}`)
       if (r() < 0.7) out.push(`\\address{${plain(4, "Somewhere")}${r() < 0.4 ? ` \\\\ ${plain(2, "Else")}` : ""}}`)
       if (r() < 0.6) out.push(`\\email{${pick(["hcosta@example.br", "p.devries@example.nl", "ann@example.org"])}}`)
+      if (r() < 0.3) out.push(`\\thanks{${plain(3 + Math.floor(r() * 25), "Thanks")}${r() < 0.5 ? "." : ""}}`)
     }
     if (r() < 0.5) out.push(`\\date{${pick(["\\today", "May 2026", "January 1, 2025"])}}`)
     if (r() < 0.4) out.push(`\\subjclass${r() < 0.5 ? "[2020]" : ""}{Primary 11E25; Secondary 11N13}`)
     if (r() < 0.4) out.push(`\\keywords{${plain(4, "words")}}`)
     out.push("")
     if (r() < 0.6) out.push("\\begin{abstract}", text(20 + Math.floor(r() * 50), false), ...(r() < 0.2 ? ["", text(10, false)] : []), "\\end{abstract}", "")
-    out.push("\\maketitle", "")
+    out.push("\\maketitle", ...(r() < 0.7 ? [""] : [])) // (text right after it: \@doendpe)
   }
   const nbib = r() < 0.4 ? 1 + Math.floor(r() * 4) : 0
   for (let i = 0; i < nbib; i++) bib.push(`k${i}`)
@@ -99,7 +100,7 @@ export function makeClassDocument(r: () => number): string {
         }
         out.push(r() < 0.5 ? "" : text(4))
       } else if (x < 0.85) {
-        const env = pick(["\\[ ~ \\]", "\\begin{align*} ~ \\end{align*}", "\\begin{gather*} ~ \\end{gather*}", "$$ ~ $$"])
+        const env = pick(["\\[ ~ \\]", "\\begin{equation} ~ \\end{equation}", "\\begin{align*} ~ \\end{align*}", "\\begin{gather*} ~ \\end{gather*}", "$$ ~ $$"])
         out.push(`${text(5 + Math.floor(r() * 20))}\n${env.replace("~", env.includes("align") ? `a &= ${display()} \\\\ &= b` : display())}\n${text(3 + Math.floor(r() * 15))}`, "")
       } else if (x < 0.93) { const env = pick(["quote", "quotation", "verse", "center", "flushleft"]); out.push(`\\begin{${env}}`, text(10 + Math.floor(r() * 40), false), ...(r() < 0.4 ? ["", text(5, false)] : []), `\\end{${env}}`, "") }
       else out.push(pick(["\\smallskip", "\\bigskip", "\\newpage", "\\noindent", "\\pagebreak", "\\thispagestyle{empty}"]), text(6 + Math.floor(r() * 30)), "")

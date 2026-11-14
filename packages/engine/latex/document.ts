@@ -121,7 +121,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   if (pre.babel && /\\today(?![A-Za-z])/.test(body) && /\\(?:selectlanguage|foreignlanguage)(?![A-Za-z])|\\begin\s*\{otherlanguage/.test(body)) throw new Unsupported("\\today with babel's language commands")
   const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
   if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart" })
+  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated, { headingRefs: cls === "amsart", titleEndpe: cls === "amsart" })
   spanishLayout.on = isSpanish(pre.babel)
   germanT1.on = !!run.k.ints.T1
 
