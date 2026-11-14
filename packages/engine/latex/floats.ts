@@ -37,6 +37,9 @@ export interface CaptionOut {
   vskip?(g: Node): Node[]
 }
 
+/** \%, \& and \# (\chardef) */
+const CHARDEFS = /\\[%&#]/
+
 /** what a caption leaves for a \label after it: the float's number, \@currentlabel, nameref's name, and a subcaption's
  *  \thesub<type> (subcaption's \label writes sub@key with it too) */
 export interface Captioned { number: number; label: string; name: string; sub?: string }
@@ -52,8 +55,14 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   const { counters, refs, romanFont, run } = cx
   const clean = (t: string) => {
     const c = t.replace(/\s+/g, " ").trim()
-    if (/[\\{}$%&#^_~]/.test(withoutTextCommands(c))) throw new Unsupported(`caption "${c}"`) // (accents: \'o)
+    // (accents: \'o; without caption.sty also \%, \& and \#, \chardef characters: as they are in the .lof line)
+    if (/[\\{}$%&#^_~]/.test(withoutTextCommands(cx.pre.usesCaption ? c : c.replace(new RegExp(CHARDEFS, "g"), "")))) throw new Unsupported(`caption "${c}"`)
     return c
+  }
+  // the caption's text in \sbox\@tempboxa (with a \chardef character: read as text is, in restricted horizontal mode)
+  const boxText = (l: Node[], t: string, state: { spaceFactor: number }) => {
+    if (CHARDEFS.test(t)) l.push(...hlistInput(t, run.k, "normalsize", cx.doc, cx.normalAttrs, state))
+    else appendText(l, sourceText(t), romanFont, state, false)
   }
   const text = clean(source.text), short = source.short === null ? null : clean(source.short)
   if (cx.pre.babel?.main !== "french") frenchTextGuard(text) // (french's own \FB@makecaption reads the text as a paragraph does)
@@ -84,8 +93,8 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   appendText(l, name, romanFont, state, false)
   l.push(penalty(10000), glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)) // \nobreak\ 
   // hyperref: \hyper@@anchor (H.S H.R) before the text, after "n: "
-  if (hyper) { appendText(l, `${counters.the(env, number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); appendText(l, sourceText(text), romanFont, state, false) }
-  else appendText(l, `${counters.the(env, number)}: ${sourceText(text)}`, romanFont, state, false)
+  if (hyper) { appendText(l, `${counters.the(env, number)}: `, romanFont, state, false); l.push(...spotAnchor(refs.href, "h", l.at(-1), run.k.sizes.normalsize.baselineskip.width)); boxText(l, text, state) }
+  else { appendText(l, `${counters.the(env, number)}: `, romanFont, state, false); boxText(l, text, state) }
   const cap = hpack(setgroup(l)) // \sbox
   if (cap.width > hsize) { // too wide for a line: #1: #2\par, a paragraph
     const start: Node[] = [hpack([])]

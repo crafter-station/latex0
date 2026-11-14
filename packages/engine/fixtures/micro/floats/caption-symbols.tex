@@ -1,0 +1,18 @@
+% fixture: floats/caption-symbols
+% tier: T3
+% engine: document
+% covers: \%, \& and \# in a float's caption: \chardef characters in the caption's box (centered, one line) and in a caption wider than the line (a paragraph), written as they are to the .lof file and read back in \listoffigures
+\documentclass{article}
+\begin{document}
+\listoffigures
+\section{Figures}
+\begin{figure}[h]
+\centering
+\caption{Estimates with 95\% intervals \& more, \#1.}
+\end{figure}
+\begin{figure}[h]
+\centering
+\caption{Event-study estimates with 95\% confidence intervals for the first group \& the second one, which runs on for long enough to take two lines of the caption (\#2).}
+\end{figure}
+Text after the figures.
+\end{document}
