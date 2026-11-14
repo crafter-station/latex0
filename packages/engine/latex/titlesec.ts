@@ -22,10 +22,9 @@ import { COLOR_CMD, colorPop, colorPush, setgroup } from "./xcolor"
 export interface TitleFormat {
   /** the format's font: its size command and \bfseries (from the font the heading starts in) */
   size: SizeCommand; bold: boolean
-  /** "default": \@seccntformat (\the<name>\quad), or \the<name>\quad typed (`typed`); "number": \the<name> alone; "none": empty */
-  label: "default" | "number" | "none"
-  /** the label typed as \the<name>\quad, not \@seccntformat (which spanish.ldf's layout redefines: a period after it) */
-  typed?: boolean
+  /** "default": \@seccntformat (\the<name>\quad; spanish.ldf's layout redefines it: a period after the number);
+   *  or the label as typed: text (where `\ue000` stands for \the<name>) and \quad or \qquad (its ems) */
+  label: "default" | LabelPart[]
   /** the space after the label, read in the format's font */
   sep: string
   /** \titlerule as the after code */
@@ -34,6 +33,27 @@ export interface TitleFormat {
   color?: { spec: string; model?: string }
   /** \titlespacing*{\cmd}{0pt}{before}{after}: the skips as written (\ttl@assign's \setlength at each title) */
   spacing?: { before: string; after: string }
+}
+
+export type LabelPart = { text: string } | { quad: number }
+
+/** \the<name> in a label's text */
+const NUMBER = "\ue000"
+
+/**
+ * A \titleformat label as typed (\ttlh@hang's #2, set in an \sbox in the format's font): \the<name>, the
+ * characters around it (a period after it, a word before it) and \quad or \qquad; null for anything else.
+ */
+function labelParts(label: string, name: string): LabelPart[] | null {
+  const parts: LabelPart[] = []
+  const text = (t: string) => { const last = parts[parts.length - 1]; if (last && "text" in last) last.text += t; else parts.push({ text: t }) }
+  for (const m of label.matchAll(/\\([a-zA-Z]+) *|([A-Za-z0-9.,:;!?()' -]+)|([^])/g)) {
+    if (m[2]) text(m[2].replace(/ +/g, " "))
+    else if (m[1] === `the${name}`) text(NUMBER)
+    else if (m[1] === "quad" || m[1] === "qquad") parts.push({ quad: m[1] === "quad" ? 1 : 2 })
+    else return null
+  }
+  return parts
 }
 
 export type TitleFormats = Record<1 | 2 | 3, TitleFormat>
@@ -91,10 +111,10 @@ export function titleformat(formats: TitleFormats, line: string): boolean {
     else if (["\\normalsize", "\\large", "\\Large", "\\LARGE", "\\huge", "\\Huge", "\\small", "\\footnotesize"].includes(t)) size = t.slice(1) as SizeCommand
     else throw new Unsupported(`titlesec format ${format.trim()}`)
   }
-  const lb = label.trim()
-  const kind = lb === "" ? "none" : lb === `\\the${m[1]}` ? "number" : lb === `\\the${m[1]}\\quad` || lb === `\\@seccntformat{${m[1]}}` ? "default" : null
-  if (!kind) throw new Unsupported(`titlesec label ${lb}`)
-  formats[level] = { size, bold, label: kind, sep: sep.trim() || "0pt", rule: code[1]?.trim() === "\\titlerule", ...(lb === `\\the${m[1]}\\quad` ? { typed: true } : {}), ...(color ? { color } : {}), ...(formats[level].spacing ? { spacing: formats[level].spacing } : {}) }
+  // (a space in the label is one in its box, unless it follows a control word)
+  const kind = label.trim() === `\\@seccntformat{${m[1]}}` ? "default" : labelParts(label, m[1])
+  if (!kind) throw new Unsupported(`titlesec label ${label.trim()}`)
+  formats[level] = { size, bold, label: kind, sep: sep.trim() || "0pt", rule: code[1]?.trim() === "\\titlerule", ...(color ? { color } : {}), ...(formats[level].spacing ? { spacing: formats[level].spacing } : {}) }
   return true
 }
 
@@ -183,8 +203,11 @@ export function titlesecHeading(cx: Ctx, heading: Extract<Block, { kind: "headin
   let hang = 0
   if (numbered) {
     const label: Node[] = []
-    if (f.label !== "none") appendText(label, number + (f.label === "default" && !f.typed && isSpanish(cx.pre.babel) ? "." : ""), tf, { spaceFactor: 1000 }, false) // (spanish.ldf's \@seccntformat)
-    if (f.label === "default") label.push(glue(tf.params[QUAD]))
+    const state = { spaceFactor: 1000 }
+    for (const p of f.label === "default" ? [{ text: NUMBER + (isSpanish(cx.pre.babel) ? "." : "") }, { quad: 1 }] : f.label) { // (spanish.ldf's \@seccntformat)
+      if ("text" in p) appendText(label, p.text.replace(NUMBER, number), tf, state, false)
+      else label.push(glue(p.quad * tf.params[QUAD]))
+    }
     label.push(strut(), glue(parseDimen(f.sep, { em: tf.params[QUAD], ex: tf.params[X_HEIGHT] })))
     const box = hpack(color ? [colorPush(color), ...label, colorPop()] : setgroup(label)) // \sbox: \color@setgroup (the color in force)
     hang = box.width
