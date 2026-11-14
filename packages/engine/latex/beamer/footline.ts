@@ -24,6 +24,7 @@ import { emptyBox, filGlue, fillGlue, glue, kern, paramGlue, penalty, ssGlue, ty
 import { hpack, vpack } from "../../layout/pack"
 import type { ParagraphTrace } from "../../trace/decisions"
 import { today } from "../frontmatter"
+import { babelState } from "../babel"
 import { sloppy } from "../kernel"
 import { appendToVlist, classParams, selectFont, spec } from "../paragraph"
 import { Unsupported } from "../unsupported"
@@ -129,7 +130,7 @@ const hspaceStar = (f: Font): Node[] => [{ kind: "rule", width: 0, height: null,
 export function headLink(head: Head | null, f: Font, color: string): Node[] {
   if (!head) return []
   const text: Node[] = []
-  appendText(text, plain(head.short), f, { spaceFactor: 1000 }, false)
+  plainText(text, plain(head.short), f)
   return navigationLink(text, color, head.page)
 }
 
@@ -149,14 +150,22 @@ function infolinesHeadBoxes(k: ClassOptionData, t: Theme, at: FootlineAt, colors
 
 /** Text the head and foot lines print as it is: no commands, braces or special characters */
 export function plain(text: string): string {
-  if (/[\\{}$&#^_~%]/.test(text)) throw new Unsupported(`beamer: commands in the footline's text: ${text}`)
+  if (/[\\{}$&#^_%]/.test(text)) throw new Unsupported(`beamer: commands in the footline's text: ${text}`)
   return text.trim().replace(/\s+/g, " ")
+}
+
+/** plain's text in the font `f`, after `list`: ~ is \nobreakspace (\leavevmode\nobreak\ , babel's shorthand too) */
+export function plainText(list: Node[], text: string, f: Font) {
+  text.split("~").forEach((part, i) => {
+    if (i) list.push(penalty(10000), spaceGlue(f, 1000))
+    appendText(list, part, f, { spaceFactor: 1000 }, false)
+  })
 }
 
 /** \beamer@insertshort: the text in an \hbox */
 export function shortBox(text: string, font: Font) {
   const list: Node[] = []
-  appendText(list, text, font, { spaceFactor: 1000 }, false)
+  plainText(list, text, font)
   return hpack(list)
 }
 
@@ -195,7 +204,7 @@ function infolinesBoxes(k: ClassOptionData, t: Theme, info: TitleInfo, at: Footl
     // \hfill\insertshortdate{}\hfill, then in page number in head/foot's color the totalframenumber template:
     // \makebox[the width of "total\,/\,total"][r]{\insertframenumber\,/\,\inserttotalframenumber}
     box(`${third},leftskip=2ex,rightskip=2ex,sep=0pt`, "date in head/foot", (b, f, inner) => {
-      const date = shortBox(plain(info.short.date.replace(/\\today(?![A-Za-z])\s*/g, today(at.epoch))), f)
+      const date = shortBox(plain(info.short.date.replace(/\\today(?![A-Za-z])\s*/g, today(at.epoch, babelState.b))), f)
       const pageColor = useColor(t, "page number in head/foot", inner)
       const pf = selectFont(k, fontSize(t, k, "page number in head/foot", size), SANS)
       // \, (amsmath's, which beamer loads: \tmspace+\thinmuskip{.1667em})
@@ -226,7 +235,7 @@ export function mixer(c: ColorState): Colors {
 /** the text of a section's or subsection's short title in the font `f` */
 export function titleText(text: string, f: Font): Node[] {
   const list: Node[] = []
-  appendText(list, plain(text), f, { spaceFactor: 1000 }, false)
+  plainText(list, plain(text), f)
   return list
 }
 

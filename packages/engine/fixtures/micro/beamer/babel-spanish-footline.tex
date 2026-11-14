@@ -1,0 +1,18 @@
+% fixture: beamer/babel-spanish-footline
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: babel's spanish with the Boadilla theme: the infolines footline's \insertshortdate is spanish.ldf's \today (its ~ in the footline's box), the short institute's accent
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usetheme{Boadilla}
+\title{Proyecto}
+\author{Valentina}
+\institute{San Bartolomé}
+\date{\today}
+\begin{document}
+\begin{frame}{Marco}
+Texto.
+\end{frame}
+\end{document}

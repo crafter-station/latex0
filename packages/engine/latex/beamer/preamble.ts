@@ -1,7 +1,9 @@
 // A beamer document's class options and preamble (beamer.cls 3.77). The class
 // loads geometry (paper 128mm × 96mm, or its aspectratio option's, 1cm side margins), xcolor, hyperref,
 // amsmath, amssymb, amsthm, graphicx, url and enumerate itself, so a \usepackage
-// of one of them changes nothing. The themes are the default ones, color themes,
+// of one of them changes nothing. babel (babel.ts) selects its main language at \begin{document}: its date, captions
+// (\figurename, \tablename, \proofname; the other names are translator's, English), patterns and extras; beamer takes
+// back spanish.ldf's lists and quoting shorthands (beamerbasecompatibility.sty). The themes are the default ones, color themes,
 // the rounded, circles and rectangles inner themes, the infolines, split,
 // miniframes, tree and sidebar outer themes, the presentation themes Pittsburgh,
 // Malmoe, Copenhagen, Luebeck, Berlin, Dresden, Ilmenau, Szeged, Montpellier,
@@ -12,6 +14,8 @@
 
 import type { ClassOptionData } from "../../layout/classdata"
 import { classFile } from "../data"
+import { babelOptions, isBabelLanguage, isSpanish, withBabel, type Babel } from "../babel"
+import { markAccentHyphens } from "../spanish"
 import { pdfString } from "../hyperref"
 import { Unsupported } from "../unsupported"
 import { bracedArg } from "./frame"
@@ -52,6 +56,8 @@ export interface BeamerPreamble {
   hooks: Hooks
   /** the table packages the preamble loads (their tabular bindings: booktabs's rules, multirow, array.sty's columns) */
   tables: { booktabs: boolean; multirow: boolean; array: boolean }
+  /** babel (\usepackage[languages]{babel}, after the class's hyperref): its languages and the main one */
+  babel: Babel | null
 }
 
 export interface Hooks { section: string; sectionStar: string; subsection: string; subsectionStar: string }
@@ -92,6 +98,8 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     else if (o === "t" || o === "c") centered = o === "c"
     // (aspectratio's own papers; another value is pgfmath's ratio of \beamer@paperheight)
     else if (/^aspectratio\s*=\s*(?:2013|1610|169|149|141|54|43|32)$/.test(o)) aspect = o.replace(/^.*=\s*/, "")
+    // (a language is a global option, which babel reads, and translator too: its dictionaries for \translate)
+    else if (isBabelLanguage(o)) throw new Unsupported(`beamer: the class option ${o} (translator's dictionaries)`)
     else throw new Unsupported(`beamer option ${o}`)
   }
   // \begin{document} and \end{document} outside comments
@@ -115,6 +123,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     pre = pre.slice(0, at) + pre.slice(a.end)
   }
   let navigationSymbols = true
+  let babel: Babel | null = null
   const tables = { booktabs: false, multirow: false, array: false }
   /** \beamer@themerounded@shadow */
   let shadow = false
@@ -163,6 +172,12 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     }
     // (inputenc's \inputencoding{utf8}: UTF-8 is the kernel's input encoding already, \inputencodingname utf8)
     if (line === "\\usepackage[utf8]{inputenc}") continue
+    const bab = line.match(/^\\usepackage(?:\[([^\]]*)\])?\{babel\}$/)
+    if (bab) {
+      if (babel) throw new Unsupported("babel loaded twice")
+      babel = babelOptions((bab[1] ?? "").split(",").map((o) => o.trim()).filter(Boolean), [])
+      continue
+    }
     // \title, \subtitle, \author, \institute and \date keep their text (\@dblarg: an optional short form);
     // only the title page and the head and foot lines print them
     const t = line.match(/^\\(title|subtitle|author|institute|date)(?:\[([^\]]*)\])?\{(.*)\}$/)
@@ -175,7 +190,7 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
   // (the data is for these lines in this order: infolines with its own headline, or another order, has none)
   if (theme.data.preamble.join("\n") !== themeLines.join("\n")) throw new Unsupported(`beamer theme ${themeLines.join(" ")}`)
   const cls = classFile("beamer").options[option]
-  const k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens }, ...(tables.array ? { array: { extrarowheight: 0 } } : {}) }
+  let k: ClassOptionData = { ...cls, dimens: { ...cls.dimens, ...theme.data.options[option].dimens }, ...(tables.array ? { array: { extrarowheight: 0 } } : {}) }
   // the aspect ratio's paper (the class data's variant, with the default theme), and what geometry and
   // \beamer@calculateheadfoot make of it with the theme's margins and head and foot lines
   if (aspect !== "43") {
@@ -184,12 +199,22 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     d.textheight = d.paperheight - d.footheight - d.headheight
     d.sidebarheight = d.paperheight - d.headheight + d.headdp - d.footheight + 4 * 65536
   }
+  if (babel) k = withBabel(k, babel)
   // beamerbasetitle.sty's \beamer@firstminutepatches: pdftitle={\inserttitle\ - \insertsubtitle}; \beamer@author:
   // pdfauthor={\beamer@andstripped}
   const title = pdfInfo(info.title + (info.subtitle ? ` - ${info.subtitle}` : ""))
   // (\beamer@stripands, then \and as ", ")
   const author = pdfInfo(info.author.replace(/\s*\\and(?![A-Za-z])\s*/g, ", "))
-  return { option, centered, k, theme, navigationSymbols, info, pdfTitle: title, pdfAuthor: author, body: src.slice(begin + 16, end), hooks, tables }
+  let body = src.slice(begin + 16, end)
+  // spanish.ldf's accents (\es@accent: \bbl@allowhyphens after one unless a space follows) in the texts the document typesets
+  if (isSpanish(babel)) {
+    body = markAccentHyphens(body)
+    // (an accent that ends one too: what follows \inserttitle … in a template is never a space)
+    const mark = (text: string) => markAccentHyphens(`${text}\\relax`).slice(0, -6)
+    for (const key of ["title", "subtitle", "author", "institute", "date"] as const) { info[key] = mark(info[key]); info.short[key] = mark(info.short[key]) }
+    for (const key of ["section", "sectionStar", "subsection", "subsectionStar"] as const) hooks[key] = markAccentHyphens(hooks[key])
+  }
+  return { option, centered, k, theme, navigationSymbols, info, pdfTitle: title, pdfAuthor: author, body, hooks, tables, babel }
 }
 
 /** a document information string as hyperref's \pdfstringdef makes it ("" for none) */

@@ -1,0 +1,17 @@
+% fixture: beamer/babel-spanish-hyphenation-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: babel's spanish: the Spanish patterns and \spanishhyphenmins (2, 2) where a narrow minipage's justified lines hyphenate
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Columnas}
+\begin{minipage}{3.2cm}
+La dependencia hidroelectrica genera vulnerabilidad extraordinariamente considerable en temporadas de sequedad prolongada; diversificar la matriz reduce la vulnerabilidad.
+\end{minipage}
+\end{frame}
+\end{document}

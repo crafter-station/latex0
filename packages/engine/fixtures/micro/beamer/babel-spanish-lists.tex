@@ -1,0 +1,31 @@
+% fixture: beamer/babel-spanish-lists
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: babel's spanish: beamer keeps its own list labels (beamerbasecompatibility.sty: \es@itemize emptied, \theenumi … iii set back to \@arabic): itemize and enumerate at three levels
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Listas}
+\begin{itemize}
+\item Uno
+\begin{itemize}
+\item Dos
+\begin{itemize}
+\item Tres
+\end{itemize}
+\end{itemize}
+\end{itemize}
+\begin{enumerate}
+\item Uno
+\begin{enumerate}
+\item Dos
+\begin{enumerate}
+\item Tres
+\end{enumerate}
+\end{enumerate}
+\end{enumerate}
+\end{frame}
+\end{document}

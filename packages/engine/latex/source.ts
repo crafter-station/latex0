@@ -10,7 +10,7 @@ import { isKnownCommand } from "../parser"
 import { Unsupported } from "./unsupported"
 import { SECTIONAL } from "./counters"
 import { LATEX_CAPTIONS } from "./babel"
-import { spanishText } from "./spanish"
+import { spanishQuoting, spanishText } from "./spanish"
 
 /** an lstlisting environment's [options] and lines */
 export interface Listing { options: string; lines: string[]; inline?: true }
@@ -394,6 +394,6 @@ export const depthOf = (src: string) => { let d = 0; for (const m of src.matchAl
 
 /** a paragraph that a tabular (or a minipage, or spanish.ldf's quoting, <<) starts: it starts in \begin{tabular}'s group
  *  (\leavevmode), where \everypar's assignments stay */
-export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text) || spanishText.on && /^\s*<\s*</.test(text)
+export const tabularStart = (text: string) => /^\s*\\LX(?:tabular|minipage)\{/.test(text) || spanishText.on && !spanishQuoting.off && /^\s*<\s*</.test(text)
 /** a paragraph that starts in a group ({…}, not an empty one): its \everypar runs there */
 export const groupStart = (text: string) => /^\s*\{(?!\})/.test(text)

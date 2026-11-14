@@ -9,6 +9,7 @@ import { parseDimen } from "../../layout/dimen"
 import { QUAD, X_HEIGHT } from "../../layout/font"
 import { emptyBox, fillGlue } from "../../layout/nodes"
 import { today } from "../frontmatter"
+import { babelState } from "../babel"
 import { selectFont } from "../paragraph"
 import { Unsupported } from "../unsupported"
 import { dimen, type VerticalList } from "../vlist"
@@ -55,7 +56,7 @@ export function titlePage(cx: FrameCtx, v: VerticalList) {
   // \insertauthor: \and is \quad there
   box("author", (b, s) => text(cx, b, s, info.author.replace(/\\and(?![A-Za-z])/g, "\\quad")))
   box("institute", (b, s) => text(cx, b, s, info.institute))
-  box("date", (b, s) => text(cx, b, s, info.date.replace(/\\today(?![A-Za-z])\s*/g, today(cx.epoch))))
+  box("date", (b, s) => text(cx, b, s, info.date.replace(/\\today(?![A-Za-z])\s*/g, today(cx.epoch, babelState.b))))
   v.vskip(dimen(parseDimen("0.5em", env)))
   // {\usebeamercolor[fg]{titlegraphic}\inserttitlegraphic\par} (no \titlegraphic: nothing between)
   v.nodes.push(colorPush(useColor(theme, "titlegraphic", at).fg))
