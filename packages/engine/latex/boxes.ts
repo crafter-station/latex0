@@ -124,7 +124,7 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
   // (\@parboxrestore's \leftskip and \rightskip zero, whatever the class has: beamer's \raggedright)
   const shape = () => (align === "centering" ? centeringShape() : align === "raggedright" ? raggedright() : align === "raggedleft" ? raggedleft() : { finalHyphenDemerits: outer.finalHyph, leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip") })
   const what = parbox ? "a \\parbox" : "a minipage"
-  const odd = body.match(/\\(?:footnote|begin|item|vspace|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
+  const odd = body.match(/\\(?:footnote|begin|item|noindent|LXlstinline|pagebreak|nopagebreak)(?![A-Za-z])|(?<!\\)\\\[|\$\$/)
   if (odd) throw new Unsupported(`${odd[0]} in ${what}`)
   const list: Node[] = []
   let pd: number | null = IGNORE_DEPTH
@@ -225,8 +225,17 @@ function parboxed(cx: Ctx, m: MinipageSource, parbox: boolean, size: SizeCommand
     if (/^\\label/.test(part)) throw new Unsupported(`${part} in a minipage`)
     if (part.trim()) cap = null // (a \label after text is in a paragraph)
   for (let text of part.split(/\n[ \t]*\n|\\par(?![A-Za-z])/)) {
-    for (let d; (d = text.match(/^\s*\\(centering|raggedright|raggedleft)(?![A-Za-z])\s*/)); text = text.slice(d[0].length)) align = d[1] as "centering"
+    // in vertical mode: \centering and friends, and \vspace (\@vspace: \vskip skip \vskip\z@skip; \@vspacer for \vspace*:
+    // \hrule\@height\z@ \nobreak before them, and the \prevdepth kept), its skip in the current font
+    for (let d; (d = text.match(/^\s*\\(?:(centering|raggedright|raggedleft)(?![A-Za-z])|vspace(?![A-Za-z])\s*(\*?)\s*\{([^{}]*)\})\s*/)); text = text.slice(d[0].length)) {
+      if (d[1]) { align = d[1] as "centering"; continue }
+      let skip: Node
+      try { skip = plain(parseGlue(d[3], { em: font.params[QUAD], ex: font.params[X_HEIGHT], internal: widthRegisters(cx, hsize) })) } catch { throw new Unsupported(`\\vspace{${d[3]}} in ${what}`) }
+      if (d[2]) list.push({ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000))
+      list.push(skip, glue(0))
+    }
     if (/\\(?:centering|raggedright|raggedleft)(?![A-Za-z])/.test(text)) throw new Unsupported(`\\centering or friends in ${what}'s paragraph`)
+    if (/\\vspace(?![A-Za-z])/.test(text)) throw new Unsupported(`\\vspace in ${what}'s paragraph`)
     // under \centering and friends \\ is \@centercr: \unskip\par, \nobreak for \\*, \addvspace{-\parskip} (\parskip is
     // zero here: a zero skip after the lines), \vskip for \\[skip]
     const crs = align ? centercrLines(text) : [{ text, star: false, skip: undefined as string | undefined, cr: false }]
