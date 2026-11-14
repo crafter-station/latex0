@@ -3,6 +3,7 @@
 % engine: document
 % covers: \addto\captions<lang> holding more than names (a \the<counter> too, which babel's captions define at \begin{document}): not laid out yet (none of it is dropped)
 % issue: #365
+% unsupported: \addto\captionsenglish
 \documentclass{article}
 \usepackage[english]{babel}
 \addto\captionsenglish{\renewcommand{\figurename}{Fig.}\renewcommand{\thefigure}{\Roman{figure}}}

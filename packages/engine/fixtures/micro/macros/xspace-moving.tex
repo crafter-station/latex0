@@ -3,6 +3,7 @@
 % engine: document
 % covers: \xspace (robust) from the document's macro in a section title, a moving argument: LaTeX writes \xspace to the .toc, which the engine does not keep yet, so not laid out
 % issue: #344
+% unsupported: the robust command \xspace in a moving argument
 \documentclass{article}
 \usepackage{xspace}
 \newcommand{\lx}{LX\xspace}

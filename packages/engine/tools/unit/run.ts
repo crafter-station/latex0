@@ -51,7 +51,12 @@ function contextOf(t: Trace, d: Divergence): string | undefined {
   return line.map(({ x, i }) => (i === d.index ? `[${show(x.char)}]` : show(x.char))).join("")
 }
 
-export function runFixture(path: string): UnitResult {
+/** A committed fixture: one the engine does not lay out must say so in its header (`unsupported`) */
+export const runFixture = (path: string): UnitResult => run(path, true)
+/** A generated document (the fuzzers'): not laid out yet is an outcome, not an error */
+export const runGenerated = (path: string): UnitResult => run(path, false)
+
+function run(path: string, declared: boolean): UnitResult {
   const t0 = performance.now()
   const src = readFileSync(path, "utf8")
   const fixture = relative(process.cwd(), path)
@@ -64,6 +69,7 @@ export function runFixture(path: string): UnitResult {
     const out: UnitResult = { ...base, ...r, ms: Math.round(performance.now() - t0) }
     if (header.xfail && out.status === "fail") { out.status = "xfail"; out.message = `expected: ${header.xfail}` }
     else if (header.xfail && out.status === "pass") { out.status = "xpass"; out.message = `now passes: remove "xfail" from the header (${header.xfail})` }
+    else if (header.unsupported !== undefined && out.status === "pass") { out.status = "xpass"; out.message = `now laid out and identical: remove "unsupported" from the header (${header.unsupported})` }
     return out
   }
 
@@ -112,7 +118,11 @@ export function runFixture(path: string): UnitResult {
     if (divergence) return done({ status: "fail", divergence, context: contextOf(expected, divergence), notes })
     return done({ status: "pass", notes })
   } catch (e) {
-    if (e instanceof Unsupported) return done({ status: "skip", message: `not laid out yet: ${e.message}` })
+    if (e instanceof Unsupported) {
+      if (!declared || (header.unsupported !== undefined && e.message.includes(header.unsupported))) return done({ status: "skip", message: `not laid out yet: ${e.message}` })
+      if (header.unsupported !== undefined) return done({ status: "error", message: `not laid out, but for another reason than its header's "unsupported: ${header.unsupported}": ${e.message}` })
+      return done({ status: "error", message: `not laid out: ${e.message} (if that is meant, the fixture says so in its header: % unsupported: <part of this reason>)` })
+    }
     return done({ status: "error", message: (e as Error).message.split("\n")[0] })
   }
 }

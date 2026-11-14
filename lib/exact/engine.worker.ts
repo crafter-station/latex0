@@ -4,7 +4,7 @@
 // (from /engine-data) and lays the document out again. After the first documents, everything is cached.
 
 import { document, imageInfo, installData, svgPages, Unsupported, type DataSource, type Image } from "@latex0/engine"
-import type { ExactRequest, ExactResponse } from "./protocol"
+import { PDF_REGION, type ExactRequest, type ExactResponse, type PdfRegion } from "./protocol"
 
 class Missing extends Error {
   constructor(readonly path: string) { super(`missing ${path}`) }
@@ -68,8 +68,25 @@ async function typeset({ id, source: text, images }: ExactRequest): Promise<Exac
     try {
       const t = performance.now()
       const result = document(text, { images: info })
-      const { pages, fonts, warnings } = svgPages(result.trace, result.view!, { image: (name) => images[name] })
-      return { id, ok: true, pages, fonts, warnings, ms: performance.now() - t }
+      // a PDF file's page is not something an <image> shows: the preview draws the regions the pages name
+      const pdfRegions: PdfRegion[] = [], known = new Map<string, number>()
+      const { pages, fonts, warnings } = svgPages(result.trace, result.view!, {
+        image: (name, pdf) => {
+          const url = images[name]
+          if (!url || !pdf) return url
+          const key = `${url}|${pdf.page}|${pdf.box.join(",")}|${pdf.rotate}`
+          let n = known.get(key)
+          if (n === undefined) {
+            known.set(key, n = pdfRegions.length)
+            pdfRegions.push({ url, name, page: pdf.page, box: pdf.box, rotate: pdf.rotate, width: pdf.width, height: pdf.height })
+          } else {
+            pdfRegions[n].width = Math.max(pdfRegions[n].width, pdf.width)
+            pdfRegions[n].height = Math.max(pdfRegions[n].height, pdf.height)
+          }
+          return `${PDF_REGION}${n}`
+        },
+      })
+      return { id, ok: true, pages, fonts, warnings, pdfRegions, ms: performance.now() - t }
     } catch (e) {
       if (e instanceof Missing) { await fetchData(e.path); continue }
       const reason = e instanceof Unsupported ? e.message : `engine error: ${e instanceof Error ? e.message : String(e)}`

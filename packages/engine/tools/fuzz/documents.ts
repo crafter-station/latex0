@@ -15,7 +15,7 @@
 
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { runFixture } from "../unit/run"
+import { runGenerated } from "../unit/run"
 import { makeClassDocument } from "./classes"
 
 const WORDS = `the of and a to in is was that for it as with on by be at from this which are or an have but not they
@@ -893,7 +893,7 @@ export function fuzzDocuments(n: number, seed: number): number {
     const classDoc = cr() < 0.15
     const doc = classDoc ? makeClassDocument(cr) : doc0
     writeFileSync(file, `% engine: document\n${(classDoc ? cr() < 0.3 : pdf0) ? "% oracle: pdflatex\n" : ""}` + doc)
-    const res = runFixture(file)
+    const res = runGenerated(file)
     // TeX's work files (a log with \tracingassigns runs to tens of megabytes) and its saved reference are
     // kept only for differences
     if (res.status === "pass" || res.status === "skip") {
