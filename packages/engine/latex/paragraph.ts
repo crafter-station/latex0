@@ -100,7 +100,7 @@ export function parseFormula(src: string, amsmath: boolean, em: number, si?: SiC
   const operators = spanishText.on ? SPANISH_OPERATORS : undefined
   const p = mathFonts.packages
   const packages = [...(amsmath ? ["amsmath"] : []), ...(p.mathtools ? ["mathtools"] : []), ...(p.amsfonts ? ["amsfonts"] : []), ...(p.amssymb ? ["amssymb"] : [])]
-  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...where, ...(p.array ? { arrayPackage: true } : {}), ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Unsupported ? e : new Unsupported((e as Error).message) } // (what the parser does not read)
+  try { return parseMath(spanishText.on ? spanishMath(src) : src, mathData(), { amsmath, alphabets: { ...MATH_ALPHABETS, ...packageAlphabets(p) }, packages, em, commands, operators, ...where, ...(p.array ? { arrayPackage: true } : {}), ...(mathcodes ? { mathcodes } : {}) }) } catch (e) { throw e instanceof Error && e.constructor === Error ? new Unsupported(e.message) : e } // (what the parser does not read: its plain Errors; anything else, such as the host's signal for data not loaded yet under a picture in a formula, passes through)
 }
 
 /**
