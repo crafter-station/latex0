@@ -1,0 +1,14 @@
+% fixture: memoir/epigraph-noblank
+% tier: T3
+% engine: document
+% covers: memoir's \epigraph with text right after it (no blank line): a new paragraph, not indented (\end{flushright}'s \@doendpe outlasts the group), with T1 Latin Modern (the rule's .5ex and the axis in \small's fonts)
+\documentclass[12pt,oneside]{memoir}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\pagestyle{empty}
+\begin{document}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\epigraph{Short one.}{A.\ \textit{Nobody}}
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{document}

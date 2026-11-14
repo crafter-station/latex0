@@ -9,7 +9,7 @@
 
 import type { LtEntry } from "./longtable"
 import { dataFont } from "./data"
-import { memoirPage } from "./memoir"
+import { memoirBlocks, memoirPage } from "./memoir"
 import { fancyPage } from "./fancyhdr"
 import { pdftexColors } from "./pdftex"
 import { emitBoxes } from "../emit/boxes"
@@ -121,7 +121,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   if (pre.babel && /\\today(?![A-Za-z])/.test(body) && /\\(?:selectlanguage|foreignlanguage)(?![A-Za-z])|\\begin\s*\{otherlanguage/.test(body)) throw new Unsupported("\\today with babel's language commands")
   const dated = body.replace(/\\today(?![A-Za-z])[ \t]*(?:\n[ \t]*(?=[^\s]))?/g, () => today(epoch, pre.babel))
   if (pre.babel) { selectInGroups(dated); for (const x of [...tabulars0, ...minipages0]) selectInGroups(x.body, true) }
-  const blocks = blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
+  const blocks = pre.memoir ? memoirBlocks(dated, blocksOf) : blocksOf(isSpanish(pre.babel) ? markAccentHyphens(dated) : dated)
   spanishLayout.on = isSpanish(pre.babel)
   germanT1.on = !!run.k.ints.T1
 
@@ -349,6 +349,8 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     shipped[0] = firstPage(shipped[0], [
       ...(hyper ? hyperFirstPage(pw, ph, pre.hyperOpts.info) : []),
       L3BACKEND_HEADER,
+      // (memoir's \mem@fixpagelayout at \begin{document}: \AtBeginDvi{\special{papersize=\the\stockwidth,\the\stockheight}})
+      ...(pre.memoir ? [papersize(run.k.dimens.stockwidth, run.k.dimens.stockheight)] : []),
       ...(pre.geometry ? [papersize(pw, ph), ...(pre.geometry.landscape ? ["\\special{! /landplus90 true store}"] : [])] : []),
       ...(pre.graphicsDriver || colorlinks ? [papersize(pw, ph)] : []), // (colorlinks loads color)
     ])

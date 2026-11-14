@@ -6,24 +6,26 @@
 import type { ClassOptionData } from "../layout/classdata"
 import { parseDimen, Scanner, times, type GlueSpec } from "../layout/dimen"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, filGlue, fillGlue, glue, penalty, ssGlue, type BoxNode, type Node } from "../layout/nodes"
+import { emptyBox, filGlue, fillGlue, glue, paramGlue, penalty, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { withTextHeight } from "./classes"
-import type { Block } from "./blocks"
+import { inParagraph, type Block, type ListBlock } from "./blocks"
 import type { Ctx } from "./context"
 import { appendText, TEXT_LETTERS } from "./encodings"
-import { centering, raggedleft, raggedright, sloppy } from "./kernel"
+import { centering, raggedleft, raggedright, sloppy, zeroskip } from "./kernel"
+import { list, topCtx } from "./lists"
 import { EMPTY_MARK, markboth, markright, markValue, type MarkValue } from "./marks"
 import type { OutputHook } from "./output"
-import { appendToVlist, paragraphInput, selectFont, TEXT_SYMBOLS, type FontAttrs } from "./paragraph"
+import { appendToVlist, closingBrace, mathEnv, paragraphInput, selectFont, TEXT_SYMBOLS, type FontAttrs } from "./paragraph"
 import { clearpage } from "./sectioning"
 import { dataFont } from "./data"
 import { singleSpaced } from "./setspace"
 import { SYMBOL_COMMANDS } from "./textsymbols"
 import { Unsupported } from "./unsupported"
-import { dimen, IGNORE_DEPTH, negate, plain } from "./vlist"
-import { loadFont, QUAD } from "../layout/font"
+import { dimen, IGNORE_DEPTH, LOW_PENALTY, negate, plain } from "./vlist"
+import { setgroup } from "./xcolor"
+import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 
 export const isMemoir = (cls: string) => cls === "memoir"
 
@@ -197,7 +199,7 @@ export function memoirBlock(b: Block): void {
     for (const it of b.items) for (const p of it.parts) { if (p.kind === "list") throw new Unsupported("a list in a quote in memoir"); memoirText(p.text) }
     return
   }
-  if (b.kind === "newpage" || b.kind === "pagebreak") return
+  if (b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "epigraph") return
   if (b.kind === "pagestyle" && b.cmd === "thispagestyle" && (b.style === "plain" || b.style === "empty")) return
   throw new Unsupported(b.kind === "pagestyle" ? `\\${b.cmd}{${b.style}} in memoir` : `a ${b.kind} in memoir`)
 }
@@ -353,4 +355,106 @@ export function memoirHeading(cx: Ctx, heading: Extract<Block, { kind: "heading"
   v.vskip(negate(outerParskip))
   v.nobreak = true
   v.afterheadingEverypar = true
+}
+
+/**
+ * The body as blocks, with memoir's \epigraph{text}{source} in vertical mode (after a blank line or a heading) a block
+ * of its own: it ends no paragraph and starts none, so the text before it and after it is read apart.
+ */
+export function memoirBlocks(body: string, blocksOf: (body: string, afterList?: boolean) => Block[]): Block[] {
+  const out: Block[] = []
+  let rest = body, after = false
+  for (let m = rest.match(/\\epigraph(?![A-Za-z])\s*/); m; m = rest.match(/\\epigraph(?![A-Za-z])\s*/)) {
+    const before = rest.slice(0, m.index!)
+    if (/(^|[^\\])%[^\n]*$/.test(before)) throw new Unsupported("\\epigraph in a comment's line")
+    let at = m.index! + m[0].length
+    const args: string[] = []
+    for (let n = 0; n < 2; n++) {
+      if (rest[at] !== "{") throw new Unsupported("\\epigraph without its {text}{source}")
+      const close = closingBrace(rest, at)
+      args.push(rest.slice(at + 1, close))
+      at = close + 1
+      if (n === 0) while (/\s/.test(rest[at] ?? "")) { if (/^\n[ \t]*\n/.test(rest.slice(at))) throw new Unsupported("\\epigraph without its {text}{source}"); at++ }
+    }
+    if (inParagraph(before)) throw new Unsupported("\\epigraph in a paragraph")
+    out.push(...blocksOf(before, after), { kind: "epigraph", text: args[0], source: args[1], blank: /\n[ \t]*\n\s*$/.test(before) })
+    rest = rest.slice(at)
+    after = true // (\end{flushright}'s \@doendpe)
+  }
+  out.push(...blocksOf(rest, after))
+  return out
+}
+
+/**
+ * memoir's \epigraph{text}{source} in vertical mode: \vspace{\beforeepigraphskip}, then in a group \epigraphsize
+ * (\small), \begin{flushright} with a minipage of \epigraphwidth (.4\textwidth as the class loaded) holding
+ * \@epitext{text}\\ \@episource{source}, \end{flushright}, \vspace{\afterepigraphskip} (both .5\baselineskip as the
+ * class loaded). \@epitext: a minipage of \epigraphwidth with \begin{flushleft} text\par \rule[.5ex]{\epigraphwidth}
+ * {\epigraphrule} \end{flushleft}; \@episource: one with \begin{flushright} source\par \end{flushright}. Each minipage
+ * is centred on the axis ($\vcenter$), its paragraphs \sloppy; the inner ones' \clubpenalty is \@clubpenalty
+ * (\if@nobreak is false in a minipage), the outer one's what the flushright's \everypar set. \end{flushright}'s
+ * \@doendpe holds after the group: text right after the epigraph, with no blank line, is not indented.
+ */
+export function epigraph(cx: Ctx, b: Extract<Block, { kind: "epigraph" }>) {
+  const { decisions, doc, run, v } = cx
+  const k = run.k
+  if (run.runIn || run.noskipsec) throw new Unsupported("\\epigraph right after a run-in heading")
+  for (const t of [b.text, b.source]) {
+    if (/\n[ \t]*\n|\\par(?![A-Za-z])|\\\\/.test(t)) throw new Unsupported("an \\epigraph of more than one paragraph or line")
+    memoirText(t)
+  }
+  if (k.dimens.epigraphrule <= 0) throw new Unsupported("an \\epigraph with no rule")
+  if (b.blank) v.par()
+  const vspace = (g: GlueSpec) => { v.vskip(g); v.vskip(dimen(0)) } // \vspace in vertical mode: \vskip, \vskip\z@skip
+  vspace(k.glue.beforeepigraphskip)
+  const size = "small" as const, sz = k.sizes[size]
+  const font = selectFont(k, size, cx.normalAttrs)
+  const units = { em: font.params[QUAD], ex: font.params[X_HEIGHT] }
+  const w = k.dimens.epigraphwidth, labelsep = k.dimens.labelsep
+  const squeezed = (t: string) => t.replace(/\s+/g, " ").trim()
+  /** \box\@labels of a trivlist's \item: \hskip\itemindent \hskip-\labelwidth \hskip-\labelsep, the empty label in \labelwidth, \hskip\labelsep; \penalty\z@ */
+  const label = (): Node[] => [hpack([glue(0), glue(0), glue(-labelsep), hpack(setgroup([]), { exactly: 0 }), glue(labelsep)]), penalty(0)]
+  /** a minipage's \vbox, centred on the axis: make_vcenter (§ 736) in \small's math fonts, between math nodes */
+  const vcenter = (list: Node[]): Node[] => {
+    const box = vpack(list)
+    const delta = box.height + box.depth
+    box.height = mathEnv(k, size, cx.pre.amsmath).fonts[0][2]!.params[22] + (delta % 2 ? Math.trunc((delta + 1) / 2) : delta / 2)
+    box.depth = delta - box.height
+    return [{ kind: "math", on: true, width: 0 }, box, { kind: "math", on: false, width: 0 }]
+  }
+  /** a paragraph of a minipage: \@parboxrestore's \sloppy, \parindent and \parskip zero */
+  const inner = (list: Node[], pd: number | null, text: string, start: Node[], shape: object, club: number): number | null => {
+    // new_graf in internal vertical mode adds \parskip only to a list that is not empty, and so does LaTeX's restart
+    if (list.length) list.push(paramGlue("parskip", glue(0)), paramGlue("parskip", glue(0)))
+    const p = paragraphInput(text, k, size, doc, { attrs: cx.normalAttrs, hsize: w, start, amsmath: cx.pre.amsmath, groups: true, ...sloppy(units.em), clubPenalty: club, ...shape })
+    const lb = lineBreak(p.list, p.params)
+    decisions.push(...p.notes, lb.trace)
+    for (const x of lb.vlist) { if (x.kind === "hlist") pd = appendToVlist(list, x, pd, sz.baselineskip, k.glue.lineskip, k.dimens.lineskiplimit); else list.push(x) }
+    return pd
+  }
+  const justified = { leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip") }
+  // \@epitext: the text ragged right, then the rule in a paragraph of its own; \end{flushleft}'s \@endparpenalty (the
+  // skip after it is \end{minipage}'s \unskip's)
+  const textList: Node[] = []
+  let pd = inner(textList, IGNORE_DEPTH, squeezed(b.text), label(), raggedright(), k.ints.clubpenalty)
+  const lift = parseDimen(".5ex", units)
+  inner(textList, pd, "", [hpack([]), hpack([{ kind: "rule", width: w, height: k.dimens.epigraphrule + lift, depth: -lift }])], raggedright(), k.ints.clubpenalty)
+  textList.push(penalty(-LOW_PENALTY))
+  // \@episource: the source ragged left
+  const sourceList: Node[] = []
+  inner(sourceList, IGNORE_DEPTH, squeezed(b.source), label(), raggedleft(), k.ints.clubpenalty)
+  sourceList.push(penalty(-LOW_PENALTY))
+  // the minipage around them: one paragraph, the text's box, \\ (\nobreak\hfil\break), the source's box
+  const outerClub = v.nobreak ? 10000 : k.ints.clubpenalty
+  const outerList: Node[] = []
+  const textBox = vcenter(textList)
+  // (the source's paragraph is broken before the one it stands in ends)
+  const sourceBox = vcenter(sourceList)
+  inner(outerList, IGNORE_DEPTH, "", [hpack([]), ...textBox, penalty(10000), filGlue(), penalty(-10000), ...sourceBox], justified, outerClub)
+  const flushright: ListBlock = { kind: "list", env: "flushright", items: [{ label: null, parts: [{ kind: "text", text: "", start: "label", nodes: vcenter(outerList) }] }], inPar: false, blank: false }
+  list(cx, flushright, { ...topCtx(cx), size })
+  // \end{flushright}'s \@doendpe: its \par and \everypar outlast the group (text right after is not indented)
+  v.afterheadingEverypar = false
+  v.endpePar = v.doendpe = v.endpeEverypar = true
+  vspace(k.glue.afterepigraphskip)
 }

@@ -30,7 +30,7 @@ import { listing } from "./lstlisting"
 import { letter } from "./letter"
 import { needsVerticalMode, titlepage, topDeclarations, verticalMaterial, type DeclState } from "./vmode"
 import { selectFont } from "./paragraph"
-import { memoirBlock } from "./memoir"
+import { epigraph, memoirBlock } from "./memoir"
 import { QUAD, X_HEIGHT } from "../layout/font"
 import { babelAux, babelState, babelSwitch, languageGroups } from "./babel"
 
@@ -66,6 +66,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
+  if (b.kind === "epigraph") { epigraph(cx, b); return }
   if (b.kind === "maketitle") { maketitle(cx); return }
   if (b.kind === "columns") { if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.two ? "two" : "one"}column right after a run-in heading`); columns(cx, b); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }

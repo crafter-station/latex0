@@ -1,0 +1,13 @@
+% fixture: memoir/epigraph
+% tier: T3
+% engine: document
+% covers: memoir's \epigraph between paragraphs: the skips before and after, a flushright in \small with a minipage of \epigraphwidth holding the text's minipage (ragged right, then the rule), \\, and the source's (ragged left), each centred on the axis; the paragraph after it indented
+\documentclass[11pt,oneside]{memoir}
+\pagestyle{empty}
+\begin{document}
+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+
+\epigraph{The sea, once it casts its spell, holds one in its net of wonder forever.}{Jacques Cousteau}
+
+Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+\end{document}
