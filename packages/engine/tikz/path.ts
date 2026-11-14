@@ -10,7 +10,8 @@
 // (pgf/arrows.ts, instantiated once a document) and rounded corners (pgf/round.ts). Nodes (\node, node and
 // coordinate on a path, labels on its last operation placed by the operation's timer) go through
 // \tikz@normal@fig … \tikz@node@finish onto pgf's shapes (pgf/shapes.ts), their text typeset by the engine
-// (TikzText). Every other construct throws Unsupported.
+// (TikzText). Trees: `child` after a node (\tikz@children … \tikz@childnode, child foreach, edge from parent), with
+// the tree options of tikz/trees.ts. Every other construct throws Unsupported.
 
 import { printScaled } from "../layout/arith"
 import type { BoxNode, Node } from "../layout/nodes"
