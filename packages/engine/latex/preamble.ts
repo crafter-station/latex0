@@ -255,6 +255,7 @@ export function readPreamble(src: string): Preamble {
   // selects again (a font package only changes what the next \selectfont takes)
   let selected: PreambleFont = { t1: false, fonts: CM_FONTS }
   const kClass = k
+  if (memoir) { const r = kClass.sizes.normalsize.font, f = loadFont(dataFont(r.name), r.at); memoir.units = { em: f.params[QUAD], ex: f.params[X_HEIGHT] } }
   const selectedFont = (p: PreambleFont) => { let x = withFonts(kClass, p.fonts); if (p.t1) x = withT1(x, cls); const r = x.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at) }
   const geometryOptions: string[] = []
   let titlesecFont: PreambleFont = selected // the font selected when titlesec loaded (its spacing, \the at load time)

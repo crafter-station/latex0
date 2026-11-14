@@ -4,23 +4,26 @@
 // \@makechapterhead), its sections (\M@sect) and \epigraph.
 
 import type { ClassOptionData } from "../layout/classdata"
-import { parseDimen, times } from "../layout/dimen"
+import { parseDimen, Scanner, times, type GlueSpec } from "../layout/dimen"
 import { lineBreak } from "../layout/linebreak"
-import { emptyBox, fillGlue, glue, ssGlue, type BoxNode, type Node } from "../layout/nodes"
+import { emptyBox, filGlue, fillGlue, glue, penalty, ssGlue, type BoxNode, type Node } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { withTextHeight } from "./classes"
 import type { Block } from "./blocks"
 import type { Ctx } from "./context"
-import { TEXT_LETTERS } from "./encodings"
+import { appendText, TEXT_LETTERS } from "./encodings"
 import { centering, raggedleft, raggedright, sloppy } from "./kernel"
-import type { MarkValue } from "./marks"
-import { appendToVlist, paragraphInput, TEXT_SYMBOLS, type FontAttrs } from "./paragraph"
+import { EMPTY_MARK, markboth, markright, markValue, type MarkValue } from "./marks"
+import type { OutputHook } from "./output"
+import { appendToVlist, paragraphInput, selectFont, TEXT_SYMBOLS, type FontAttrs } from "./paragraph"
+import { clearpage } from "./sectioning"
+import { dataFont } from "./data"
 import { singleSpaced } from "./setspace"
 import { SYMBOL_COMMANDS } from "./textsymbols"
 import { Unsupported } from "./unsupported"
-import { IGNORE_DEPTH } from "./vlist"
-import { QUAD } from "../layout/font"
+import { dimen, IGNORE_DEPTH, negate, plain } from "./vlist"
+import { loadFont, QUAD } from "../layout/font"
 
 export const isMemoir = (cls: string) => cls === "memoir"
 
@@ -33,6 +36,8 @@ export type ChapterStyle = typeof CHAPTER_STYLES[number]
 export interface Memoir {
   chapterstyle: ChapterStyle
   openany: boolean
+  /** the em and ex of the class's own \normalsize roman (before fontenc or a font package): its skips' in ex, set as it loads */
+  units?: { em: number; ex: number }
   layout: { cmd: string; args: string[]; font: unknown }[]
 }
 
@@ -195,4 +200,157 @@ export function memoirBlock(b: Block): void {
   if (b.kind === "newpage" || b.kind === "pagebreak") return
   if (b.kind === "pagestyle" && b.cmd === "thispagestyle" && (b.style === "plain" || b.style === "empty")) return
   throw new Unsupported(b.kind === "pagestyle" ? `\\${b.cmd}{${b.style}} in memoir` : `a ${b.kind} in memoir`)
+}
+
+/** \@chapapp: \chaptername (\appendix is not laid out in memoir) */
+const chapapp = (cx: Ctx) => cx.pre.names.chaptername
+
+/**
+ * memoir's \chapter: \clearforchapter (openright, the default: \cleartorecto, \clearpage and two-sided on an even page
+ * \hbox{}\thispagestyle{cleared}\newpage; openany: \clearpage), \thispagestyle{chapter} (plain's alias), \global\@topnum\z@,
+ * \@afterindentfalse. \@chapter: \refstepcounter{chapter} (\c@secnumdepth > -1 in the main matter), \chaptermark
+ * (\ps@headings's \createmark{chapter}: \markright one-sided, \markboth{…}{} two-sided, of \MakeUppercase{\@chapapp\
+ * \thechapter. \ title}), \insertchapterspace (\addvspace{10pt} in the lof and lot), \@makechapterhead, \@afterheading,
+ * then the toc line (\nobreak after its \write: \if@nobreak holds). \chapter*: \@makeschapterhead and \@afterheading.
+ *
+ * \@makechapterhead: \chapterheadstart (\vspace*{\beforechapskip}), then in a group \parskip\z@ \parindent\z@
+ * \raggedright \normalfont, \printchaptername \chapternamenum \printchapternum \afterchapternum (\par\nobreak
+ * \vskip\midchapskip), \interlinepenalty\@M, \printchaptertitle{title}, \afterchaptertitle (\par\nobreak\vskip
+ * \afterchapskip); \@makeschapterhead has \printchapternonum in place of the name and number.
+ * The default style: name and number \normalfont\huge\bfseries with \space between, the title \normalfont\Huge\bfseries.
+ * bianchi: the name \normalfont\Large\sffamily\itshape\centering, the number \normalfont\huge \textit{…}; the title
+ * \hrule \vskip\onelineskip \centering \normalfont\Huge\sffamily\textbf{title}\par, then \vskip\onelineskip \hrule
+ * \vskip\afterchapskip (no \nobreak); with no number, \vphantom{\normalfont\huge\textit{9}} (a paragraph of its own)
+ * and \afterchapternum.
+ */
+export function memoirChapter(cx: Ctx, b: Extract<Block, { kind: "heading" }>) {
+  const m = cx.pre.memoir!
+  const { contentsWrites, counters, doc, headings, marks, refs, run, typeset, v } = cx
+  if (b.end) throw new Unsupported("a \\label in a chapter title in memoir")
+  const k = run.k
+  v.par()
+  if (k.ints.twoside && !m.openany) cleartorecto(cx)
+  else clearpage(cx)
+  v.nodes.push({ kind: "whatsit", text: "", hook: "plain" satisfies OutputHook }, { kind: "whatsit", text: "", hook: "notop" satisfies OutputHook })
+  const numbered = !b.star
+  if (numbered) {
+    counters.stepSectional(0)
+    refs.label = counters.theSectional(0)
+    doc.footnote = 0
+    if (headings) {
+      const cv = markValue([{ text: chapapp(cx) }, { ctrl: true }, { text: `${counters.theSectional(0)}. ` }, { ctrl: true }, { text: b.title }], true)
+      v.nodes.push(...marks.insert(k.ints.twoside ? markboth(cv, EMPTY_MARK) : markright(cv), false))
+    }
+    // \insertchapterspace: \addtocontents{lof}{\protect\addvspace{10pt}}
+    for (const f of ["lof", "lot"] as const) { const w = cx.tocFile.listSpace(f); if (w.kind === "whatsit") w.text = w.text.replace("{10\\p@ }", "{10pt}"); v.nodes.push(w) }
+  }
+  const zero = dimen(0)
+  const sp = (n: number): GlueSpec => dimen(n)
+  // \vspace*{\beforechapskip}: \hrule height0pt \nobreak \vskip \vskip\z@skip, keeping \prevdepth
+  const pd = v.prevDepth
+  v.nodes.push({ kind: "rule", width: null, height: 0, depth: 0 }, penalty(10000), plain(k.glue.beforechapskip), glue(0))
+  v.prevDepth = pd
+  // the head's first paragraph runs an \@afterheading \everypar still pending, which sets \@clubpenalty (in the head's group)
+  const club = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
+  const hrule = () => { v.nodes.push({ kind: "rule", width: null, height: 26214, depth: 0 }); v.prevDepth = IGNORE_DEPTH } // \hrule: 0.4pt
+  const number = numbered ? counters.theSectional(0) : ""
+  if (m.chapterstyle === "default") {
+    const ragged = () => ({ start: [hpack([])], ...raggedright(), clubPenalty: club })
+    if (numbered) {
+      typeset(`${chapapp(cx)} ${number}`, { ...ragged(), font: k.sizes.huge.bold }, zero, "huge")
+      v.nodes.push(penalty(10000))
+      v.vskip(k.glue.midchapskip)
+    }
+    typeset(b.title, { ...ragged(), font: k.sizes.Huge.bold, interLinePenalty: 10000 }, zero, "Huge")
+    v.nodes.push(penalty(10000))
+    v.vskip(k.glue.afterchapskip)
+  } else {
+    const sans: FontAttrs = { ...cx.normalAttrs, fam: "cmss" }
+    const centred = () => ({ start: [hpack([])], ...centering(), clubPenalty: club })
+    if (numbered) {
+      // (\chapternamenum's \space in the name's font; the \par in \huge)
+      typeset(`${chapapp(cx)} \\normalfont\\huge \\textit{${number}}`, { ...centred(), attrs: { ...sans, shape: "it" }, groups: true, topDecls: true, parSize: "huge" }, zero, "Large")
+    } else {
+      // \vphantom{\chapnumfont \textit{9}}: an \hbox of no width, as high and deep as the digit, in a paragraph of its
+      // own (\leavevmode), ragged right, in the normal size
+      const it = selectFont(k, "huge", { ...cx.normalAttrs, shape: "it" })
+      const digit: Node[] = []
+      appendText(digit, "9", it, { spaceFactor: 1000 }, false)
+      const nine = hpack(digit)
+      const box = hpack([])
+      box.height = nine.height; box.depth = nine.depth
+      typeset("", { start: [hpack([]), box], ...raggedright(), clubPenalty: club }, zero, "normalsize")
+    }
+    v.nodes.push(penalty(10000))
+    v.vskip(k.glue.midchapskip)
+    hrule()
+    v.vskip(sp(k.dimens.onelineskip))
+    typeset(`\\textbf{${b.title}}`, { ...centred(), attrs: sans, interLinePenalty: 10000 }, zero, "Huge")
+    v.vskip(sp(k.dimens.onelineskip))
+    hrule()
+    v.vskip(k.glue.afterchapskip)
+  }
+  v.nobreak = true
+  v.afterheadingEverypar = true
+  v.afterindent = false
+  // \addcontentsline{toc}{chapter}{\protect\chapternumberline{\thechapter}title}
+  if (numbered) for (const w of contentsWrites(0, number, b.title, "", true)) { if (w.kind === "whatsit") w.text = w.text.replace("\\protect \\numberline {", "\\protect \\chapternumberline {"); v.nodes.push(w) }
+}
+
+/** \cleartorecto: \clearpage, then two-sided \ifodd\c@page\else \hbox{}\thispagestyle{cleared}\newpage\fi (cleared: empty's alias) */
+function cleartorecto(cx: Ctx) {
+  const { run, v } = cx
+  clearpage(cx)
+  const extra: Node[] = []
+  appendToVlist(extra, hpack([]), v.prevDepth, run.k.sizes.normalsize.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
+  extra.push({ kind: "whatsit", text: "", hook: "empty" satisfies OutputHook }, filGlue(), penalty(-10000))
+  v.nodes.push({ kind: "whatsit", text: "", hook: { cleardouble: extra } satisfies OutputHook })
+}
+
+/**
+ * memoir's \section, \subsection and \subsubsection: its \@startsection (the kernel's, with \addvspace{-\parskip}
+ * after the skip before, which adds nothing while \parskip has no natural width) and \M@sect, the kernel's \@sect
+ * (numbered to \c@secnumdepth, section by default: \refstepcounter only then), then \@xsect with \vskip-\parskip
+ * after the skip after. The styles: \normalfont\Large\bfseries\raggedright (\large, \normalsize), the skips
+ * -3.5ex plus -1ex minus -.2ex and 2.3ex plus .2ex (-3.25ex … and 1.5ex plus .2ex), registers set as the class
+ * loads: their ex is its own \normalsize roman's. \sectionmark: two-sided \ps@headings's \markright{\MakeUppercase{
+ * \thesection. \ title}} (\c@secnumdepth > 0); one-sided, and the others, nothing.
+ */
+export function memoirHeading(cx: Ctx, heading: Extract<Block, { kind: "heading" }>) {
+  const m = cx.pre.memoir!
+  const { contentsWrites, counted, counters, headings, marks, noskipsecPar, outerParskip, refs, run, typeset, v } = cx
+  if (heading.level >= 4) throw new Unsupported("\\paragraph or \\subparagraph in memoir")
+  if (heading.end) throw new Unsupported("a \\label in a heading in memoir")
+  if (outerParskip.width !== 0) throw new Unsupported("memoir's headings with a \\parskip of some width")
+  const k = run.k
+  const b = { ...heading, title: counted(heading.title) }
+  const size = (["normalsize", "Large", "large", "normalsize"] as const)[b.level as 0 | 1 | 2 | 3]
+  const glueOf = (x: string) => new Scanner(x, m.units!).scanGlue()
+  let before = glueOf(b.level === 1 ? "-3.5ex plus -1ex minus -.2ex" : "-3.25ex plus -1ex minus -.2ex")
+  const after = glueOf(b.level === 1 ? "2.3ex plus .2ex" : "1.5ex plus .2ex")
+  noskipsecPar("a heading")
+  v.par()
+  const afterHeading = v.nobreak
+  if (afterHeading) v.afterheadingEverypar = false // \if@nobreak \everypar{}
+  const headingClub = v.afterheadingEverypar ? k.ints.clubpenalty : v.club
+  v.afterindent = true
+  if (before.width < 0) { before = negate(before); v.afterindent = false }
+  if (!v.nobreak) { v.addpenalty(-300); v.addvspace(before) } // \@secpenalty (\addvspace{-\parskip}: nothing, the skip before is there)
+  const numbered = !b.star && b.level <= k.ints.secnumdepth
+  let number = ""
+  if (numbered) { counters.stepSectional(b.level); number = counters.theSectional(b.level); refs.label = number }
+  const bold = k.sizes[size].bold
+  const bf = loadFont(dataFont(bold.name), bold.at)
+  const label: Node[] = [glue(0)] // \hskip #3 (\secindent: \z@)
+  if (numbered) { appendText(label, number, bf, { spaceFactor: 1000 }, false); label.push(glue(bf.params[QUAD])) } // \@seccntformat: \the<name>\quad
+  const box = hpack(label)
+  typeset(b.title, { start: [box], font: bold, ...raggedright(), hangIndent: box.width, interLinePenalty: 10000, clubPenalty: headingClub }, outerParskip, size)
+  if (numbered && headings && b.level === 1 && k.ints.twoside) v.nodes.push(...marks.insert(markright(markValue([{ text: `${number}. ` }, { ctrl: true }, { text: b.title }], true)), afterHeading))
+  if (!b.star) v.nodes.push(...contentsWrites(b.level, numbered ? number : null, b.title, "", afterHeading))
+  // \@xsect: \par \nobreak \vskip afterskip \vskip-\parskip \@afterheading
+  v.nodes.push(penalty(10000))
+  v.vskip(after)
+  v.vskip(negate(outerParskip))
+  v.nobreak = true
+  v.afterheadingEverypar = true
 }
