@@ -83,6 +83,7 @@ function ci(): number {
     ["gaps"], // no engine errors on the fixtures and the starter corpus
     ["codegen", "--check"],
     ["webfonts:check"],
+    ["view:check"],
     ["oracle:check"],
     ["unit"],
     ["scorecard", "--check", "--base", base],

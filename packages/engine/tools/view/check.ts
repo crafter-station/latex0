@@ -132,13 +132,14 @@ const CASES: Case[] = [
     pages: [[
       lit(10, 50, "q 2 0 0 2 5 5 cm 0.4 w 1 J 1 j [3 2] 1 d 1 0 0 RG 0 0 m 10 0 l S"),
       lit(10, 50, "q 2 J 2 j 4 M [ ] 0 d 0 w 0.5 G 0 0 1 rg 0 0 5 5 re B Q"),
-      lit(10, 50, "0 1 0 0 k 0 0 0 1 K 0.25 g 0 0 5 5 re f 0 0 m 5 5 l S Q"),
+      // (CMYK as viewers show it, printed: magenta is not #ff00ff, black not quite #000000)
+      lit(10, 50, "0 1 0 0 k 0 0 0 1 K 0 0 5 5 re f 0.25 g 0 0 5 5 re f 0 0 m 5 5 l S Q"),
       lit(10, 50, "0 0 m 10 0 l S"),
     ]],
     svg: [`<path d="M0 0L10 0" transform="matrix(2 0 0 -2 15 45)" fill="none" stroke="#ff0000" stroke-width="0.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2" stroke-dashoffset="1"/>` +
       `<path d="M0 0L5 0L5 5L0 5Z" transform="matrix(2 0 0 -2 15 45)" fill="#0000ff" stroke="#808080" stroke-width="1" vector-effect="non-scaling-stroke" stroke-linecap="square" stroke-linejoin="bevel" stroke-miterlimit="4"/>` +
-      `<path d="M0 0L5 0L5 5L0 5Z" transform="matrix(2 0 0 -2 15 45)" fill="#404040"/>` +
-      `<path d="M0 0L5 5" transform="matrix(2 0 0 -2 15 45)" fill="none" stroke="#000" stroke-width="0.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2" stroke-dashoffset="1"/>` +
+      `<path d="M0 0L5 0L5 5L0 5Z" transform="matrix(2 0 0 -2 15 45)" fill="#fb3199"/><path d="M0 0L5 0L5 5L0 5Z" transform="matrix(2 0 0 -2 15 45)" fill="#404040"/>` +
+      `<path d="M0 0L5 5" transform="matrix(2 0 0 -2 15 45)" fill="none" stroke="#2c2e35" stroke-width="0.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="3 2" stroke-dashoffset="1"/>` +
       `<path d="M0 0L10 0" transform="matrix(1 0 0 -1 10 50)" fill="none" stroke="#000"/>`],
   },
   {
@@ -267,6 +268,7 @@ const CASES: Case[] = [
       lit(10, 50, "1 2 m 3 l Q"),
       { at: [10, 50], form: 12, size: [10, 10] },
       { at: [10, 50], image: "missing.png", size: [10, 10] },
+      { at: [10, 50], image: "plot.pdf", size: [10, 10] },
       { at: [10, 50], mark: "\\pdfcolorstack 1 push {1 0 0 rg}" },
       { at: [10, 50], mark: "\\special{ps:: 0 0 moveto}" },
       { at: [20, 50], glyph: A },
@@ -276,7 +278,7 @@ const CASES: Case[] = [
       "\\pdfliteral operator BT (text)", "\\pdfliteral operator Tf (text)", "\\pdfliteral operator Tj (text)", "\\pdfliteral operator ET (text)",
       "\\pdfliteral operator cs (a color space)", "\\pdfliteral operator scn (a pattern or a color in a color space)", "\\pdfliteral operator Do (an XObject)",
       "the graphics state /other", "the soft mask /pgfsmask99 (its form is not known): what it fades is drawn unfaded", "the shading /Sh (not among the resources)",
-      "\\pdfliteral operator l (its operands)", "\\pdfliteral operator Q (nothing saved)", "the form XObject 12 (its content is not known)", "the image missing.png (no file given)",
+      "\\pdfliteral operator l (its operands)", "\\pdfliteral operator Q (nothing saved)", "the form XObject 12 (its content is not known)", "the image missing.png (no file given)", "the image plot.pdf (a PDF's page: only bitmaps are drawn)",
       "\\pdfcolorstack 1 (a color stack other than 0)", "\\special{ps:…} (PostScript, the dvips driver's drawing)",
     ],
   },

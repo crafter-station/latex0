@@ -72,9 +72,29 @@ function inverse(m: Matrix): Matrix | null {
 }
 const svgMatrix = (m: Matrix) => `matrix(${m.map((v, i) => String(+v.toFixed(i < 4 ? 6 : 4))).join(" ")})`
 
+/**
+ * DeviceCMYK as RGB (0 to 1). What a CMYK color looks like is the viewer's choice; viewers show it as printed
+ * (Acrobat, Preview and Chrome draw xcolor's cyan as about #00aeef, not #00ffff), so this is the estimate pdf.js uses:
+ * a polynomial fitted to US Web Coated (SWOP) (pdf.js, src/core/colorspace.js, DeviceCmykCS, Apache License 2.0).
+ * No ink is white exactly.
+ */
+function cmyk([c, m, y, k]: number[]): number[] {
+  if (!c && !m && !y && !k) return [1, 1, 1]
+  const r = 255 + c * (-4.387332384609988 * c + 54.48615194189176 * m + 18.82290502165302 * y + 212.25662451639585 * k - 285.2331026137004)
+    + m * (1.7149763477362134 * m - 5.6096736904047315 * y - 17.873870861415444 * k - 5.497006427196366)
+    + y * (-2.5217340131683033 * y - 21.248923337353073 * k + 17.5119270841813) + k * (-21.86122147463605 * k - 189.48180835922747)
+  const g = 255 + c * (8.841041422036149 * c + 60.118027045597366 * m + 6.871425592049007 * y + 31.159100130055922 * k - 79.2970844816548)
+    + m * (-15.310361306967817 * m + 17.575251261109482 * y + 131.35250912493976 * k - 190.9453302588951)
+    + y * (4.444339102852739 * y + 9.8632861493405 * k - 24.86741582555878) + k * (-20.737325471181034 * k - 187.80453709719578)
+  const b = 255 + c * (0.8842522430003296 * c + 8.078677503112928 * m + 30.89978309703729 * y - 0.23883238689178934 * k - 14.183576799673286)
+    + m * (10.49593273432072 * m + 63.02378494754052 * y + 50.606957656360734 * k - 112.23884253719248)
+    + y * (0.03296041114873217 * y + 115.60384449646641 * k - 193.58209356861505) + k * (-22.33816807309886 * k - 180.12613974708367)
+  return [r / 255, g / 255, b / 255]
+}
+
 /** color components as CSS, "" for black (SVG's default fill) */
 function css(v: number[]): string {
-  const rgb = v.length === 3 ? v : v.length === 1 ? [v[0], v[0], v[0]] : v.length === 4 ? v.slice(0, 3).map((c) => (1 - c) * (1 - v[3])) : [0, 0, 0]
+  const rgb = v.length === 3 ? v : v.length === 1 ? [v[0], v[0], v[0]] : v.length === 4 ? cmyk(v) : [0, 0, 0]
   const hex = rgb.map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, "0")).join("")
   return hex === "000000" ? "" : `#${hex}`
 }
@@ -372,6 +392,8 @@ class Stream {
   private image(m: PageMark & { kind: "image" }) {
     const url = this.page.options.image?.(m.name)
     if (!url) return this.page.warn(`the image ${m.name} (no file given)`)
+    // (an <image> is a bitmap or an SVG: a PDF's page is not drawn)
+    if (/\.(pdf|eps|ps)$/i.test(m.name)) return this.page.warn(`the image ${m.name} (a PDF's page: only bitmaps are drawn)`)
     const gs = this.gs
     this.page.emit(`<image href="${escape(url)}" x="${this.x(m.h)}" y="${this.y(m.v - m.height)}" width="${pt(m.width)}" height="${pt(m.height + m.depth)}" preserveAspectRatio="none"${gs.ca !== 1 ? ` opacity="${gs.ca}"` : ""}/>`, gs, this.transform())
   }
