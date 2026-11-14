@@ -174,8 +174,15 @@ export function pdfString(title: string): string | null {
   if (/[\\{}$^_]/.test(withoutTextCommands(t))) return null
   t = sourceText(t).replace(/\ue000/g, "").replace(/ı(?=[\u0300-\u036f])/g, "i").normalize("NFC") // (\'{\i}: í)
   if (/[^\x20-\x7e\xa0-\xff]/.test(t)) return null
+  // \pdfstringdef's ligatures (hyperref.sty's \HyPsd@Subst): --- and -- are \textemdash and \textendash (PU's U+2014 and
+  // U+2013), !` and ?` \textexclamdown and \textquestiondown
+  t = t.replace(/---/g, "\u2014").replace(/--/g, "\u2013").replace(/!`/g, "\xa1").replace(/\?`/g, "\xbf")
+  const octal = (n: number) => `\\${n.toString(8).padStart(3, "0")}`
   let out = "\\376\\377"
-  for (const c of t) out += " ()\\#%&$".includes(c) || c >= "\xa0" ? `\\000\\${c.charCodeAt(0).toString(8).padStart(3, "0")}` : `\\000${c}`
+  for (const c of t) {
+    const code = c.charCodeAt(0)
+    out += code > 0xff ? octal(code >> 8) + octal(code & 0xff) : " ()\\#%&$".includes(c) || c >= "\xa0" ? `\\000${octal(code)}` : `\\000${c}`
+  }
   return out
 }
 

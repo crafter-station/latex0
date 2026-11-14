@@ -18,6 +18,7 @@ import { dimen, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, resetColor } from "./colorbox"
 import { SANS, setParagraph, type FrameCtx } from "./frame"
+import { shadowFrameTitle } from "./shadow"
 import { emptyBackground, fontSize, outerColors, useColor, type ColorState } from "./theme"
 
 /** \strut: \unhcopy\strutbox at the size, a rule of no width */
@@ -75,6 +76,13 @@ export function frameTitle(cx: FrameCtx, title: string, subtitle: string | undef
   if (theme.sidebarHead) {
     sidebarTitle(cx, v, title, subtitle, size, at)
     // (the template's pops before its last skip, beamer's \reset@color)
+    resetColor(v.nodes); resetColor(v.nodes)
+    const normal = selectFont(k, "normalsize", SANS)
+    v.vskip(dimen(parseDimen("0.25em", { em: normal.params[QUAD], ex: normal.params[X_HEIGHT] })))
+    return v.nodes
+  }
+  if (theme.outerShadow) {
+    shadowFrameTitle(cx, v, title, subtitle, size, at)
     resetColor(v.nodes); resetColor(v.nodes)
     const normal = selectFont(k, "normalsize", SANS)
     v.vskip(dimen(parseDimen("0.25em", { em: normal.params[QUAD], ex: normal.params[X_HEIGHT] })))

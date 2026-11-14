@@ -1,0 +1,15 @@
+% fixture: beamer/babel-spanish-guillemets-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: babel's spanish: the shorthands "< and "> are \layoutspanish's OT1 guillemets (\es@guillemot: lasy's characters in a box after \penalty10000)
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Comillas}
+Dijo "<hola"> y luego.
+\end{frame}
+\end{document}

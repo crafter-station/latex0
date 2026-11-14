@@ -1,0 +1,17 @@
+% fixture: beamer/titlepage-lines-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: the title page's \centering: \\ in the institute is \@centercr (\unskip\par, \addvspace{-\parskip}), each line a paragraph of its box
+\documentclass{beamer}
+\title{A title}
+\author{An author}
+\institute{Faculty of Engineering \\ University of Somewhere}
+\date{2026}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}
+\titlepage
+\end{frame}
+\end{document}

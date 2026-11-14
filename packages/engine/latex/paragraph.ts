@@ -36,7 +36,7 @@ import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, lang
 import { germanShorthand, germanShorthandNodes, germanT1, isGerman, type GermanShorthand } from "./german"
 import { frenchMarkSpace, frenchNoteStart, frenchNumero, frenchPunctuation, frenchQuote, frenchUp } from "./french"
 import { babelGuillemet, isPortuguese, portugueseHyphen, portugueseShorthand } from "./portuguese"
-import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishShorthand, spanishText } from "./spanish"
+import { markAccentHyphens, SPANISH_OPERATORS, spanishGuillemet, spanishLayout, spanishMath, spanishPercent, spanishQuoting, spanishShorthand, spanishText } from "./spanish"
 import { ACCENT_COMMAND, accentText, ALLOW_HYPHENS, appendText, sourceText, TEXT_LETTERS, utf8Text, withoutTextCommands } from "./encodings"
 import { xcolor } from "./xcolor"
 import { appendSymbols, logoNodes, textSymbolAt } from "./textsymbols"
@@ -599,7 +599,7 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       const sh = spanishShorthand(body.slice(i, i + 2))
       if (sh) { if (typeof sh === "string") text += sh; else { flushText(); out.push(sh) } i += 2; continue }
       // an active character's lookahead (an undelimited argument) skips the spaces after it: ~ x is ~x, < < is <<
-      if (body[i] === "~" || body[i] === "<" || body[i] === ">") {
+      if (body[i] === "~" || !spanishQuoting.off && (body[i] === "<" || body[i] === ">")) {
         let j = i + 1
         while (body[j] === " ") j++
         const two = spanishShorthand(body[i] + (body[j] ?? ""))

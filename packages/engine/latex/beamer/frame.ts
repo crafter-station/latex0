@@ -28,6 +28,7 @@ import type { DocumentSource } from "../source"
 import { listParagraphWithDisplays } from "../displays"
 import { classParams, hlistInput, paragraphInput, selectFont, spec, type DocState, type FontAttrs, type ParagraphOptions, type TabularOuter } from "../paragraph"
 import { Unsupported } from "../unsupported"
+import { babelState, captions } from "../babel"
 import { addGlue, dimen, LOW_PENALTY, negate, plain, VerticalList } from "../vlist"
 import { colorPop, colorPush } from "../xcolor"
 import { alerts, BLOCK_BEGIN, BLOCK_NAMES, blockInParagraph, frameBlock } from "./blocks"
@@ -284,6 +285,7 @@ function paragraphSetup(cx: FrameCtx, text: string, s: ParagraphSetting): { t: s
     minipage: (n, size, attrs, sfcodes, outer) => minipage(cx, doc, n, size, attrs, sfcodes, outer),
     verb: (n, size, _attrs, state) => {
       if (!cx.fragile) throw new Unsupported("beamer: \\verb in a frame that is not fragile")
+      if (babelState.b) throw new Unsupported("beamer: \\verb with babel") // (its active characters)
       const v = cx.media.prepared.verbatims[n]
       return verbNodes(v.lines[0], v.star, selectFont(cx.k, size, TT), state)
     },
@@ -362,7 +364,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
 }
 
 /** The text's lines as \\ (outside braces and math) ends them */
-function centercrLines(text: string): string[] {
+export function centercrLines(text: string): string[] {
   const out: string[] = []
   let at = 0
   for (let i = 0; i < text.length; ) {
@@ -444,6 +446,7 @@ const verbatim: FrameHandler = (cx, v, text) => {
   v.addvspace(addGlue(g.topsep, g.parskip))
   v.vskip(g.parskip)
   const labels = hpack([glue(0), glue(-0), glue(-d.labelsep), hpack([colorPush(outerColors(cx.theme).fg), colorPop()], { exactly: 0 }), glue(d.labelsep)])
+  if (babelState.b) throw new Unsupported("beamer: verbatim with babel") // (its active characters)
   verbatimLines(src.lines, src.star, selectFont(k, "normalsize", TT)).forEach((nodes, i) => {
     const { vlist, trace } = lineBreak([i ? emptyBox("hlist", d.parindent) : labels, ...nodes], { ...classParams(k), leftSkip: zeroskip("leftskip"), rightSkip: zeroskip("rightskip"), parFillSkip: flushglue("parfillskip") })
     cx.decisions.push(trace)
@@ -573,7 +576,12 @@ const caption: FrameHandler = (cx, v, text) => {
   const normal = outerColors(theme), at = useColor(theme, "caption", normal), nameColors = useColor(theme, "caption name", at)
   const size = fontSize(theme, k, "caption", "normalsize"), nameSize = fontSize(theme, k, "caption name", size)
   const doc: DocState = { footnote: 0 }, state = { spaceFactor: 1000 }
-  const name = cx.captype === "figure" ? "Figure" : "Table"
+  // \figurename and \tablename: \translate{Figure} and \translate{Table} (English: the class's translator has no
+  // other dictionary); with babel, the names its \captions<lang> defined at \begin{document} (LaTeX source)
+  // (french.ldf's captions: its separator and \figurename's shape)
+  if (babelState.b?.languages.includes("french")) throw new Unsupported("beamer: \\caption with french.ldf")
+  const names = captions(babelState.b, false)
+  const name = cx.captype === "figure" ? names.figurename : names.tablename
   plainText(a.arg)
   const box = hpack([colorPush(normal.fg), colorPush(normal.fg), colorPush(at.fg), colorPush(nameColors.fg), ...hlistInput(`${name}:`, k, nameSize, doc, SANS, state, true), colorPop(),
     ...hlistInput(`\\ ${a.arg.trim()}`, k, size, doc, SANS, state, true), colorPop(), colorPop(), colorPop()])

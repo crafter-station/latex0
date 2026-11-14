@@ -1,0 +1,15 @@
+% fixture: beamer/babel-spanish-umlauts-pdf
+% oracle: pdflatex
+% specials: compare
+% tier: T3
+% engine: document
+% covers: beamer under pdflatex: babel's spanish: the shorthand "u and a typed dieresis are babel's OT1 umlauts (\bbl@umlauta, spanish.ldf's \umlautlow on a o u)
+\documentclass{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\begin{frame}{Dieresis}
+Ping"uino, agüero y Müller con äöü.
+\end{frame}
+\end{document}

@@ -1,0 +1,17 @@
+% fixture: beamer/theme-warsaw-seahorse
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: Warsaw followed by \usecolortheme{seahorse} (the frame title's shading between seahorse's colors), at aspectratio=169 (the shadings and the fading as wide as that paper)
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Warsaw}
+\usecolortheme{seahorse}
+\title{A title}
+\begin{document}
+\section{First}
+\begin{frame}{A frame title}
+\begin{block}{A block}
+Its text.
+\end{block}
+\end{frame}
+\end{document}

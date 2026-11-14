@@ -1,0 +1,20 @@
+% fixture: beamer/rounded-toc-current
+% tier: T3
+% engine: document
+% specials: compare
+% covers: beamer: the rounded inner theme's \tableofcontents[currentsection]: the other sections' balls in the shaded templates' colormixin (20!parent.bg): the text, the picture's color and the number's \color mixed, pgf's shadings made of mixed colors (\applycolormixins on each stop)
+\documentclass{beamer}
+\useinnertheme{rounded}
+\setbeamertemplate{navigation symbols}{}
+\begin{document}
+\section{First}
+\subsection{One}
+\begin{frame}{Outline}
+\tableofcontents[currentsection]
+\end{frame}
+\section{Second}
+\subsection{Two}
+\begin{frame}{A frame}
+Text.
+\end{frame}
+\end{document}

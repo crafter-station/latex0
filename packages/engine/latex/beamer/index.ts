@@ -49,6 +49,12 @@ import { pgfSetPage, pgfTakePageTop } from "../../pgf/fadings"
 import { pdfObjects, pdfOpenActionPage1, pdfOutline, pdfPageObjects, pdfShipPage, pgfPdfForms, type PdfPageObjects } from "../../pgf/pdfforms"
 import { evaluate, outerColors, useColor } from "./theme"
 import { readBeamerPreamble, type BeamerPreamble } from "./preamble"
+import { declareShadowTheme } from "./shadow"
+import { babelBegin, babelFrenchspacing, isSpanish } from "../babel"
+import { accentHyphens, babelUmlauts } from "../encodings"
+import { isGerman } from "../german"
+import { spacing } from "../../layout/hmode"
+import { markAccentHyphens, spanishLayout, spanishQuoting, spanishText } from "../spanish"
 
 /** What a run writes for the next one: the frames (\inserttotalframenumber, in the .nav lines \AtEndDocument writes),
  *  the pages (\beamer@documentpages) and their labels, the frame numbers (\HyPL@Entry where one changes, in the .aux),
@@ -215,19 +221,31 @@ function frameHeadFoot(cx: BeamerCtx, frame: number, page: number) {
 /** One LaTeX run: `prev` is what the run before wrote (null: none yet); `ships`, with pdfTeX, the pages' objects (null:
  *  not known). It returns whether pgf made a mask (whose number shows) and the pages' objects. */
 function layout(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ximageObjects: boolean; ships: Ships } {
-  try { return run(media, prev, epoch, ships) } finally { hyperDriver.onLink = null }
+  try { return run(media, prev, epoch, ships) } finally { hyperDriver.onLink = null; spacing.french = false; accentHyphens.on = spanishText.on = spanishLayout.on = spanishQuoting.off = false; babelUmlauts.mode = null; babelBegin(null) }
 }
 
 function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | null): { result: LayoutResult; written: Aux; masks: boolean; ximageObjects: boolean; ships: Ships } {
   const { driver } = media
   // (pdfTeX's images: the run's own)
   const pre = readBeamerPreamble(media.prepared.src)
+  // (spanish.ldf's accents in what was taken out of the source: tabulars and minipages)
+  if (isSpanish(pre.babel)) media = { ...media, prepared: { ...media.prepared, tabulars: media.prepared.tabulars.map((t) => ({ ...t, body: markAccentHyphens(t.body) })), minipages: media.prepared.minipages.map((m) => ({ ...m, body: markAccentHyphens(m.body) })) } }
   // (booktabs's dimensions in the font current as it loads, beamer's sans serif \normalsize)
   media = { ...media, ximages: new Set(), ximageObjects: false, booktabs: pre.tables.booktabs ? booktabsDimens(selectFont(pre.k, "normalsize", SANS), pre.k.dimens.doublerulesep) : null, multirow: pre.tables.multirow }
   Object.assign(hyperDriver, { pdftex: driver === "pdftex" }, BEAMER_LINKS)
   // beamerbasefont.sty's \AtBeginDocument (sans serif math): the Latin letters from pureletters, cmss italic
   mathFonts.letters = MATH_ALPHABETS.mathit
   mathFonts.packages = { amsfonts: true, amssymb: true, ...(pre.tables.array ? { array: true } : {}) } // (beamer loads amssymb)
+  // babel's \AtBeginDocument: the main language selected, its extras (document.ts): spanish.ldf's \textspanish
+  // (\frenchspacing, its accents and umlauts), \mathspanish and shorthands; amsmath's \frenchspacing (the class loads it)
+  const lang = pre.babel?.main ?? null
+  accentHyphens.on = spanishText.on = lang === "spanish"
+  // spanish.ldf's \layoutspanish (its guillemets, \@alph, \@roman and \@fnsymbol; beamer takes its lists' labels back:
+  // beamerbasecompatibility.sty's \es@itemize and \theenumi … iii), and beamer's \deactivatequoting
+  spanishLayout.on = spanishQuoting.off = isSpanish(pre.babel)
+  babelUmlauts.mode = lang === null ? null : lang === "spanish" ? "spanish" : isGerman(lang) ? "german" : "high"
+  spacing.french = lang !== null && babelFrenchspacing(lang) ? "ams" : false
+  babelBegin(pre.babel, () => { throw new Unsupported("beamer: babel's language commands") }, pre.body)
   xcolor.on = true; xcolor.normal = outerColors(pre.theme).fg; outputOptions.xcolor = true
   const pgf = navigationPgf(driver)
   // (what fadings put at the top of a page measures against \normalsize's \strutbox, the frames' size)
@@ -245,6 +263,8 @@ function run(media: FrameMedia, prev: Aux | null, epoch: number, ships: Ships | 
   }
   const cx: BeamerCtx = { pre, media, epoch, v: new VerticalList(pre.k), decisions: [], pageEnds: [], pageFrames: [], pageHeads: [], nav: prev ? prev.heads : [], frames: 0, totalFrames: prev ? prev.frames : 1,
     lastPage: prev ? prev.pages : 1, sections: new Sections(), toc: prev ? prev.toc : [], equations: { n: 0 }, footnotes: { n: 0 }, pgf: new BeamerPgf(pgf.s, pgf.d), pageTops: [], ships, shipped: 0 }
+  // (the shadow outer theme's shadings and fading, as the theme loads)
+  if (pre.theme.outerShadow) declareShadowTheme(cx.pgf, pre.k)
   // the sidebar canvas's shading (beamerbaseauxtemplates.sty's \beamer@calcvertshading, as the theme loads): from the
   // bottom color at 0cm to the top one at \paperheight, the sidebar's width wide
   const canvas = pre.theme.sidebarCanvas
