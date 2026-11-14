@@ -3,7 +3,8 @@
 // tikz/path.ts on pgf/ for each. The box dumps must agree node by node: the picture's box and its size and
 // shift, every \special's and \pdfliteral's text, every space TikZ's macros leave. Fixed pictures cover each
 // path command, operation, coordinate kind and option, then seeded random pictures: paths of random
-// operations and coordinates under random options, transformations, scopes and groups. What TeX stops at
+// operations and coordinates under random options, transformations, scopes and groups, and random trees
+// (child, the tree options, edges from parent). What TeX stops at
 // with an error must be the engine's Unsupported.
 //   bun engine tikz:check [--n 1000] [--seed 1]
 
@@ -191,6 +192,23 @@ const FIXED = [
   pic("\\node[draw,label=north:N,label=:X] (a) {A}; \\draw (a) -- (2,0) node[label=above:e] {}; \\coordinate[label=below:c] (c) at (1,1); \\draw (c) -- (a);", "[every label/.style={draw,blue}]"),
   pic("\\draw (0,0) -- node[label=above:mid] {m} (2,0) -- (2,2) node[draw,label=right:end] {E}; \\draw (0,0) node[label=x] {} -- (1,1) node[draw,label={[anchor=west]east:w}] {} |- (3,3);"),
   pic("\\node[draw,label=above:x] {A}; \\node[draw,label=right:r,transform shape] at (2,0) {B}; \\node[draw,label={above:a:b},label position=below,label=d] at (4,0) {C};", "[rotate=30]"),
+  // trees
+  pic("\\node {r} child {node {a}} child {node {b}};"),
+  pic("\\node {8}\n    child { node {3}\n      child { node {1} }\n      child { node {6} } }\n    child { node {10}\n      child[missing]\n      child { node {14} } };", "[level distance=1.2cm,\n  level 1/.style={sibling distance=3cm},\n  level 2/.style={sibling distance=1.5cm},\n  every node/.style={circle, draw, minimum size=7mm}]"),
+  pic("\\node[draw] (r) {root} child child {} child {coordinate} child {coordinate (c)} child {node[draw] (n) [red] {n}}; \\draw (c) -- (n) (r-1) -- (r-2);"),
+  pic("\\node {r} [sibling distance=7mm,level distance=9mm] child {node {a} child {node {c}} child {node {d}} child {node {e}}} child[missing] {node {x}} child {node {b}};"),
+  pic("\\node {r} child {node {a} edge from parent[red,thick]} child {node {b} edge from parent node[left] {l} node[right] {r}} child[blue] {node {c} edge from parent[dashed] node[above,sloped] {s}};"),
+  pic("\\node {r} child[grow=right] {node {a}} child {node {b} child[grow'=up] {node {c}} child[grow=30] {node {d}}} child[grow=south west,level distance=5mm] {node {e}};", "[grow=left]"),
+  pic("\\node[draw] {r} child {node[draw] {a}} child {node[draw] {b}};", "[grow'=right,level distance=2cm,sibling distance=1cm,edge from parent/.style={draw,->}]"),
+  pic("\\node[draw] {root} child {node[draw] {a}} child {node[draw,circle] {b}};", "[parent anchor=south,child anchor=north,edge from parent path={(\\tikzparentnode\\tikzparentanchor) -- ++(0,-5mm) -| (\\tikzchildnode\\tikzchildanchor)}]"),
+  pic("\\node[draw] {root} child {node[draw] {a} edge from parent[parent anchor=east,child anchor=border]} child[child anchor=west] {node[draw,circle] {b}};", "[level/.style={sibling distance=40mm/#1},level 2/.style={red}]"),
+  pic("\\node {r} child {node at (1,1) {a}} child {coordinate (x) at (2,-1)} child {[fill] circle (2pt)} child {node {b} child {node {c}} edge from parent[dotted]};"),
+  pic("\\node {r} child {node {a}} child {node {b}};", "[every child/.style={red},every child node/.style={draw},growth parent anchor=south,level distance=1cm]"),
+  pic("\\node {r} child[xshift=3mm,rotate=20] {node {a}} child {node {b}};", "[level 1/.style={yshift=-2mm,line width=1pt},grow siblings on line]"),
+  pic("\\draw (0,0) node {r} child {node {a}} child {node {b}} -- (2,0) node {x} child {node {y}} circle (1pt);"),
+  pic("\\coordinate (r) child {node {a}} child {node {b} child child};"),
+  pic("\\node {r} child foreach \\x in {1,2,3} {node {\\x}};"),
+  pic("\\node {r} child {node {a}} child[red] foreach \\x/\\c in {b/blue,c/green} {node[draw=\\c] (n\\x) {\\x} child foreach \\y in {1,2} {node {\\x\\y}}} child foreach \\i in {1,...,3} child {node {z}};", "[level 2/.style={sibling distance=5mm}]"),
 ]
 
 /** What TeX typesets but the engine does not model yet: it must refuse each. */
@@ -201,6 +219,9 @@ const REFUSED = [
   pic("\\draw (0,0) -- (1,0);", "[baseline=(current bounding box.center)]"), pic("\\draw[red] (0,0) -- (1,0) [.] -- (0,1);"),
   pic("\\draw (0,0) -- (b);"), pic("\\draw[|->] (0,1) -- (1,1);"), pic("\\draw (0,0) parabola (1,1);"), pic("\\draw (0,0) sin (1,1);"), pic("\\draw[step=(1,1)] (0,0) grid (1,1);"),
   pic("\\node[text depth=1ex] {x};"),
+  pic("\\node {r} child[growth function=\\foo] {node {a}};"), pic("\\node {r} child[grow=1.5] {node {a}};"), pic("\\node {r} child foreach \\x in \\list {node {\\x}};"),
+  pic("\\node {r} child {\\foo};"), pic("\\node {r} child {node {a} edge from parent[edge from parent macro=\\foo]};"), pic("\\draw (0,0) edge from parent;"),
+  pic("\\node {r} child {node {a}};", "[edge from parent path={[parent anchor=east] (\\tikzparentnode\\tikzparentanchor) -- (\\tikzchildnode)}]"),
 ]
 
 function rng(seed: number) {
@@ -307,6 +328,54 @@ export function makePictures(n: number, seed: number): string[] {
   })
 }
 
+/**
+ * Random trees (a random stream of their own: the pictures above stay the ones they were): nodes with children
+ * to three levels, missing children, child foreach, coordinates and named nodes, the tree options on the picture,
+ * on levels and on children, edges from parent with options, labels and paths of their own.
+ */
+export function makeTrees(n: number, seed: number): string[] {
+  const r = rng(seed * 104729 + 7)
+  const pick = <T>(xs: T[]): T => xs[Math.floor(r() * xs.length)]
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const len = () => `${pick([String(int(0, 30)), `${int(0, 3)}.${int(0, 99)}`])}${pick(["pt", "mm", "mm", "cm", "ex"])}`.replace(/^(\d+)cm$/, (_m, d) => `${Number(d) % 4}cm`)
+  const dir = () => pick(["down", "up", "left", "right", "north east", "south west", "north", "east", String(int(-180, 360))])
+  const treeOption = () => pick([
+    () => `level distance=${len()}`, () => `sibling distance=${len()}`, () => `grow=${dir()}`, () => `grow'=${dir()}`,
+    () => `growth parent anchor=${pick(["center", "south", "north east", "west"])}`, () => `parent anchor=${pick(["south", "east", "border", "center", "30"])}`,
+    () => `child anchor=${pick(["north", "west", "border", "center"])}`, () => pick(["red", "thick", "dashed", "draw=blue", "->", "xshift=2mm", "rotate=15", "grow siblings on line"]),
+    () => `edge from parent/.style={${pick(["draw", "draw,red", "draw,<-,thick", ""])}}`, () => `every child node/.style={${pick(["draw", "circle,draw", "inner sep=1pt", "font=\\small"])}}`,
+    () => `every child/.style={${pick(["blue", "level distance=8mm", "thin"])}}`,
+    () => `edge from parent path={(\\tikzparentnode${pick(["", "\\tikzparentanchor", ".south"])}) ${pick(["--", "-|", "|-", "to", "-- ++(0,-2mm) -|", ".. controls +(0,-5mm) and +(0,5mm) .."])} (\\tikzchildnode${pick(["", "\\tikzchildanchor", ".north"])})}`,
+  ])()
+  const options = (p: number, more: string[] = []) => {
+    const o = [...more, ...Array.from({ length: r() < p ? int(1, 3) : 0 }, treeOption)]
+    return o.length ? `[${o.join(pick([",", ", "]))}]` : ""
+  }
+  const nodeOptions = () => (r() < 0.4 ? `[${pick(["draw", "circle,draw", "red", "fill=blue!20", "inner sep=2pt", "minimum size=5mm,draw", "rectangle,draw,thick"])}]` : "")
+  return Array.from({ length: n }, (_, k) => {
+    let names = 0
+    const text = () => pick(["a", "x", "Ab", "$y$", "", "10", "g"])
+    const node = () => pick([
+      () => `node${nodeOptions()} {${text()}}`, () => `node${nodeOptions()} {${text()}}`, () => `node${nodeOptions()} {${text()}}`,
+      () => `node (t${k}n${names++})${nodeOptions()} {${text()}}`, () => `node${nodeOptions()} at (${int(-2, 2)},${int(-2, 2)}) {${text()}}`,
+      () => "coordinate", () => `coordinate (t${k}n${names++})`, () => `coordinate (t${k}n${names++}) at (${int(-1, 1)},-${int(1, 2)})`, () => "",
+    ])()
+    const edge = () => (r() < 0.3 ? ` edge from parent${r() < 0.6 ? `[${pick(["red", "dashed", "->", "thick,blue", "draw=none", "parent anchor=east", "child anchor=north"])}]` : ""}${
+      Array.from({ length: pick([0, 0, 1, 2]) }, () => ` node${pick(["", "[left]", "[above,sloped]", "[right,near start]", "[pos=0.3,draw]"])} {${text()}}`).join("")}` : "")
+    const child = (depth: number): string => {
+      const o = options(0.25, r() < 0.1 ? ["missing"] : [])
+      const body = r() < 0.08 ? "" : ` {${pick(["", " "])}${node()}${depth < 3 && r() < 0.4 ? children(depth + 1) : ""}${edge()}${pick(["", " "])}}`
+      if (r() < 0.1) return ` child${o} foreach \\${"xyz"[depth - 1]} in {${pick(["1,2", "a,b,c", "1,...,3", "2"])}}${body.replace(/\{(a|x|10)\}/, `{\\${"xyz"[depth - 1]}}`)}`
+      return ` child${o}${body}`
+    }
+    const children = (depth: number): string => Array.from({ length: int(1, depth === 1 ? 4 : 3) }, () => child(depth)).join(pick(["", "\n"]))
+    const levels = Array.from({ length: r() < 0.5 ? int(1, 2) : 0 }, () => pick([
+      () => `level ${int(1, 3)}/.style={${treeOption()}}`, () => `level/.style={sibling distance=${pick(["30mm/#1", "2cm/#1", "8mm*#1"])}}`,
+    ])())
+    return pic(`${pick(["\\node", "\\node[draw]", "\\path (1,1) node", "\\node (t" + k + "r)"])} {${text()}}${options(0.2)}${children(1)};`, options(0.6, levels))
+  })
+}
+
 /** TeX's box for each picture (or its error), from one run per target, cached while the pictures stay the same */
 function texBoxes(t: Target, pictures: string[]): (BoxNode | string)[] {
   mkdirSync(DIR, { recursive: true })
@@ -362,7 +431,7 @@ export function enginePicture(src: string, t: Target, doc: TikzDocument, units: 
 export function tikzCheck(n: number, seed: number): number {
   const f = loadFont(dataFont("cmr10"), 10 * UNITY) // \pgfmath@selectfont: the document's \normalfont
   const units: PgfUnits = { em: f.params[QUAD], ex: f.params[X_HEIGHT] }
-  const pictures = [...FIXED, ...makePictures(n, seed)]
+  const pictures = [...FIXED, ...makePictures(n, seed), ...makeTrees(Math.ceil(n / 4), seed)]
   let failed = 0
   for (const src of REFUSED) {
     try {

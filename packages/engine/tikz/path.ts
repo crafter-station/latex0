@@ -10,7 +10,8 @@
 // (pgf/arrows.ts, instantiated once a document) and rounded corners (pgf/round.ts). Nodes (\node, node and
 // coordinate on a path, labels on its last operation placed by the operation's timer) go through
 // \tikz@normal@fig … \tikz@node@finish onto pgf's shapes (pgf/shapes.ts), their text typeset by the engine
-// (TikzText). Every other construct throws Unsupported.
+// (TikzText). Trees: `child` after a node (\tikz@children … \tikz@childnode, child foreach, edge from parent), with
+// the tree options of tikz/trees.ts. Every other construct throws Unsupported.
 
 import { printScaled } from "../layout/arith"
 import type { BoxNode, Node } from "../layout/nodes"
@@ -94,6 +95,10 @@ interface Locals {
   to: { start: Tok[]; target: Tok[]; nodes: Tok[] } | null
   /** \tikz@to@use@whom: what an edge starts at, the last point scanned or the last node (undefined: neither yet) */
   toUseWhom: "coordinate" | "node" | null
+  /** \tikzparentnode, \tikzchildnode (null: undefined, outside a child) and whether \tikz@edge@to@parent@needed is still `edge from parent` */
+  parentNode: string | null
+  childNode: string | null
+  edgeNeeded: boolean
 }
 
 /** the special token \pgfextra{\tikz@updatenexttrue\tikz@updatecurrenttrue} after a to path (3097) */
@@ -104,6 +109,10 @@ const LABEL = "\\pgfextra@tikz@label"
 const TO_PATH = "\\tikz@to@path", TO_COMPUTE = "\\pgfextra@tikz@to@compute"
 /** \pgf@stop, which ends the labels \tikz@invoke@collected@onpath scans (2777–2783) */
 const STOP = "\\pgf@stop"
+/** in a child: \pgfextra{\global\let\tikz@childnode@name=\tikz@last@fig@name} after its node (4663), \tikz@edge@to@parent@needed (4666–4670) */
+const CHILD_NAME = "\\pgfextra@tikz@child@name", EDGE_NEEDED = "\\tikz@edge@to@parent@needed"
+/** \tikz@edge@to@parent@path where the edge's options are read, and (the engine's) where its text ends */
+const EDGE_PATH = "\\tikz@edge@to@parent@path", EDGE_PATH_END = "\\tikz@edge@to@parent@path@end"
 
 /** \tikz@polar@dir@<name> (5320–5333) */
 const POLAR_DIRS: Record<string, string> = {
@@ -219,6 +228,8 @@ export class TikzPicture {
   private lastMoveTo = { x: 0, y: 0 }
   /** \tikz@last@fig@name (global) */
   private lastFigName = ""
+  /** \tikz@childnode@name (global): the node a child made */
+  private childNodeName = ""
   /** \tikz@fig@count (global): the nodes named tikz@f@<n> */
   private readonly counts: { fig: number }
   /** \pgfscope@stroke@color and \pgfscope@fill@color of each open \pgfscope (and of \tikz@finish's options) */
@@ -237,7 +248,7 @@ export class TikzPicture {
       lastx: 0, lasty: 0, lastxsaved: 0, lastysaved: 0,
       updatecurrent: true, updatenext: true, autoEndPath: false, doAtEnd: null, dot: setup.color, figbox: null,
       shapeborder: null, movetoWaiting: null, lastMoveTo: { x: 0, y: 0 }, timer: null, collected: [], isLabel: false, scopeLineWidth: 0,
-      lastNode: "", savedLastFig: "", savedPinNode: "", to: null, toUseWhom: null,
+      lastNode: "", savedLastFig: "", savedPinNode: "", to: null, toUseWhom: null, parentNode: null, childNode: null, edgeNeeded: false,
     }
   }
 
@@ -658,6 +669,10 @@ export class TikzPicture {
         case TO_PATH: this.toPath(inp); continue
         case TO_COMPUTE: this.toCompute(inp); continue
         case LABEL: this.L.isLabel = true; continue
+        case CHILD_NAME: this.childNodeName = this.lastFigName; continue
+        case EDGE_NEEDED: if (this.L.edgeNeeded) inp.insert(chars("edge from parent")); continue
+        case EDGE_PATH: this.edgeToParentPath(inp); continue
+        case EDGE_PATH_END: this.tz.st.edgePathOpen = false; continue
         case STOP: this.L.isLabel = false; continue
         case LABEL_SAVE: this.L.savedLastFig = this.lastFigName; this.L.isLabel = false; continue
         case LABEL_RESTORE: this.lastFigName = this.L.savedLastFig; continue
@@ -1204,7 +1219,7 @@ export class TikzPicture {
   /** \tikz@cchar (2168–2172): circle, coordinate */
   private cchar(inp: Input) {
     if (inp.ifNext("i")) { inp.literal("ircle"); this.flushMoveto(); return this.circle(inp) }
-    if (inp.ifNext("h")) throw new Unsupported("tikz: child")
+    if (inp.ifNext("h")) return this.children(inp)
     inp.literal("o")
     if (!inp.ifNext("o")) throw new Unsupported("tikz: cos")
     inp.literal("ordinate")
@@ -1312,7 +1327,7 @@ export class TikzPicture {
    */
   private edge(inp: Input) {
     inp.literal("dge")
-    if (inp.ifNext("f")) throw new Unsupported("tikz: edge from parent")
+    if (inp.ifNext("f")) return this.edgeFromParent(inp)
     this.begin()
     const whom = this.L.toUseWhom
     if (!whom) throw new Unsupported("tikz: an edge from nowhere")
@@ -1346,6 +1361,232 @@ export class TikzPicture {
     this.s.out = outer
     this.end()
     this.L.figbox = figbox
+  }
+
+  // trees
+
+  /**
+   * \tikz@children … \tikz@children@collected (4550–4604), the c of `child` taken: the children after a node
+   * collected (`child[options]{…}`, each with its options and code; `child[options] foreach <variables> in
+   * {<list>} {…}` one child a value, counted when it is collected), then made in a group one tree level deeper:
+   * the level's styles, the transformation moved to the parent's anchor, each child in turn; the box of nodes
+   * survives the group
+   */
+  private children(inp: Input) {
+    const list: { options: Tok[]; code: Tok[]; each?: Map<string, Tok[]>[] }[] = []
+    this.tz.st.numberOfChildren = 0
+    inp.insert(["c"])
+    while (inp.ifNext("c")) {
+      inp.next()
+      // \tikz@children@collected c: the c goes back to the path
+      if (!inp.ifNext("h")) { inp.insert(["c"]); break }
+      inp.literal("hild")
+      const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
+      if (inp.ifNext("f")) {
+        // \tikz@collect@children@foreach[#1]foreach#2in#3 (4568–4580): \foreach#2in{#3} counts the children
+        inp.literal("foreach")
+        const head = [...inp.delimited(["i", "n"]), "i", "n", "{", ...inp.undelimited(), "}", "{", "}"]
+        const each = readForeach({ t: head, i: 0 }, this.s.units, new Map()).iterations
+        this.tz.st.numberOfChildren += each.length
+        list.push({ options, code: inp.ifNext("{") ? inp.undelimited() : [], each })
+        continue
+      }
+      this.tz.st.numberOfChildren++
+      list.push({ options, code: inp.ifNext("{") ? inp.undelimited() : [] })
+    }
+    this.begin()
+    const st = this.tz.st
+    st.treeLevel++
+    st.options = []
+    st.transform = []
+    this.tz.set(`level/.try=${st.treeLevel},level ${st.treeLevel}/.try`)
+    for (const t of this.tz.st.transform ?? []) this.transform(t)
+    this.tz.st.transform = null
+    const parent = this.lastFigName
+    this.L.parentNode = parent
+    const anchor = text(this.tz.st.growthAnchor, "growth parent anchor")
+    pgfTransformShift(this.s, () => pgfPointAnchor(this.s, parent, anchor))
+    this.tz.st.currentChild = 0
+    for (const c of list) {
+      if (c.each) this.childrenNodes(c.options, c.code, c.each)
+      else this.childNode(c.options, c.code)
+    }
+    const figbox = this.L.figbox
+    this.end()
+    this.L.figbox = figbox
+  }
+
+  /**
+   * \tikz@childrennodes (4609–4627): a child a value of the \foreach, each in the loop's group, the child's
+   * number and the box of nodes carried from one to the next
+   */
+  private childrenNodes(options: Toks, code: Toks, each: Map<string, Tok[]>[]) {
+    let count = this.tz.st.currentChild
+    let figbox = this.L.figbox
+    this.begin()
+    for (const vars of each) {
+      this.begin()
+      this.tz.st.currentChild = count
+      this.L.figbox = figbox
+      this.childNode(substitute(options, vars), substitute(code, vars))
+      count = this.tz.st.currentChild
+      figbox = this.L.figbox
+      this.end()
+    }
+    this.end()
+    this.tz.st.currentChild = count
+    this.L.figbox = figbox
+  }
+
+  /**
+   * \tikz@childnode[options]{code} (4639–4678): unless the child is missing, in a box added to \tikz@figbox, in
+   * \pgfinterruptpath and a scope: its options, the growth function's transformation, its node (a path of its
+   * own, named <parent>-<number>), then a path of what follows the node in the code, the edge from parent added
+   * when the code has none
+   */
+  private childNode(options: Toks, code: Toks) {
+    this.tz.st.currentChild++
+    const every = [...chars("every child/.try,"), ...options]
+    // {\tikzset{every child/.try,#1}\expandafter}\iftikz@child@missing: the switch read inside the group
+    this.begin()
+    this.tz.set(every)
+    const missing = this.tz.st.childMissing
+    this.end()
+    if (missing) return
+    const figbox = this.L.figbox ?? []
+    const outer = this.s.out
+    this.s.out = []
+    this.begin() // \setbox\tikz@whichbox=\hbox\bgroup
+    this.begin() // \hbox\bgroup
+    this.begin() // \bgroup
+    const saved = this.interruptPath()
+    this.pgfscope()
+    this.tz.st.transform = []
+    this.tz.set(every)
+    this.runOptions()
+    for (const t of this.tz.st.transform ?? []) this.transform(t)
+    this.tz.st.transform = null
+    this.grow()
+    const name = `${this.L.parentNode}-${this.tz.st.currentChild}`
+    this.s.space() // (the end of the line of \def\tikz@child@node@text)
+    const { node, rest } = this.parseChildNode(code)
+    this.command(new Input(["\\node", "[", ...chars(`name=${name},style=every child node`), "]", ...node, CHILD_NAME, ";"]))
+    this.L.childNode = this.childNodeName
+    this.begin()
+    this.s.space() // (the end of the line of \def\tikz@edge@to@parent@needed)
+    this.L.edgeNeeded = true
+    this.command(new Input(["\\path", ...rest, EDGE_NEEDED, ";"]))
+    this.end()
+    this.endpgfscope()
+    this.endInterruptPath(saved)
+    this.end()
+    this.end()
+    this.end()
+    figbox.push(hpack(this.s.out))
+    this.s.out = outer
+    this.L.figbox = figbox
+  }
+
+  /**
+   * \tikz@grow@direction (1434–1445): the level distance along the growth direction; unless the level is the
+   * one `grow` was given at, half a sibling distance for each child and one more to the left, then a sibling
+   * distance to the right for each child so far (TeX's register arithmetic: `.5\tikzsiblingdistance`, a count
+   * times a dimension)
+   */
+  private grow() {
+    const st = this.tz.st, s = this.s
+    const polar = (angle: number, r: number) => {
+      if (Math.abs(r) >= 0x40000000) throw new Unsupported("tikz: a tree's distance too large")
+      pgfTransformShift(s, () => pgfPointPolar(s, String(angle), pt(r)))
+    }
+    polar(st.growAngle, st.levelDistance)
+    if (st.treeLevel === st.specialLevel) return
+    polar(st.growLeft, (st.numberOfChildren + 1) * mul(".5", st.siblingDistance))
+    polar(st.growRight, st.currentChild * st.siblingDistance)
+  }
+
+  /**
+   * \tikz@parse@child@node (4680–4747): the child's code split into its node's text (`node` with names,
+   * options, `at` and the text; `coordinate`, `coordinate (name)`, `coordinate (name) at (point)`; a
+   * coordinate when the code begins with neither) and the rest. Each part of a node read leaves the blank
+   * that ends its line.
+   */
+  private parseChildNode(code: Toks): { node: Tok[]; rest: Tok[] } {
+    const inp = new Input([...code])
+    /** \tikz@parse@child@node@rest#1\pgf@stop */
+    const rest = (before: Tok[] = []) => arg([...before, ...inp.t.slice(inp.i)])
+    const coordinate = [...chars("[shape=coordinate]"), "{", "}"]
+    /** at#1(: what lies before the ( goes; the point computed at once, handed on as text */
+    const at = (): Tok[] => {
+      inp.literal("at")
+      const j = find(inp.t, ["("], inp.i)
+      if (j < 0) throw new Unsupported("tikz: ( expected after at")
+      inp.i = j
+      const q = this.scanPoint(inp)()
+      return chars(`(${pt(q.x)},${pt(q.y)})`)
+    }
+    if (inp.ifNext("n")) {
+      inp.literal("node")
+      const node: Tok[] = []
+      // \tikz@p@c@s (4718–4747)
+      for (;;) {
+        if (inp.ifNext("a")) node.push(" ", "a", "t", ...at())
+        else if (inp.ifNext("(")) { inp.next(); node.push("(", ...inp.delimited([")"]), ")") }
+        else if (inp.ifNext("[")) { inp.next(); node.push("[", ...inp.delimited(["]"]), "]") }
+        else if (inp.ifNext("{")) {
+          node.push("{", ...inp.undelimited(), "}")
+          this.s.space()
+          return { node, rest: rest() }
+        } else throw new Unsupported("tikz: Cannot parse this node")
+        this.s.space()
+      }
+    }
+    if (inp.ifNext("c")) {
+      inp.next()
+      if (!inp.ifNext("o")) return { node: coordinate, rest: rest(["c"]) }
+      inp.next()
+      if (!inp.ifNext("o")) return { node: coordinate, rest: rest(["c", "o"]) }
+      inp.literal("ordinate")
+      if (!inp.ifNext("(")) return { node: coordinate, rest: rest() }
+      inp.next()
+      const name = [...chars("[shape=coordinate,name="), ...inp.delimited([")"]), "]"]
+      if (!inp.ifNext("a")) return { node: [...name, "{", "}"], rest: rest() }
+      return { node: [...name, "a", "t", ...at(), "{", "}"], rest: rest() }
+    }
+    // \tikz@parse@child@node@expand: a macro would be expanded (not modeled); what cannot be is the rest
+    const t = inp.peek()
+    if (t !== undefined && isCs(t) && t !== "\\par" && t !== "\\relax") throw new Unsupported(`tikz: ${t} in a child`)
+    return { node: coordinate, rest: rest() }
+  }
+
+  /**
+   * \tikz@edgetoparent … \tikz@edgetoparent@rollout (3137–3157), `edge` taken: `from parent[options]` and its
+   * labels, then \tikz@edge@from@parent@macro (1367–1368): the options after the edge from parent style, the
+   * nodes that follow labels, the edge's path, the labels
+   */
+  private edgeFromParent(inp: Input) {
+    inp.literal("from parent")
+    const options = inp.ifNext("[") ? (inp.next(), inp.delimited(["]"])) : []
+    this.L.edgeNeeded = false
+    // (in a group: the labels collected are the edge's alone)
+    const collected = this.L.collected
+    this.L.collected = []
+    while (inp.ifNext("n")) this.collectLabel(inp)
+    const nodes = this.L.collected
+    this.L.collected = collected
+    inp.insert(["[", ...chars("style=edge from parent,"), ...options, "]", LABEL, " ", EDGE_PATH, " ", ...nodes])
+  }
+
+  /** \tikz@edge@to@parent@path, expanded: the parent's and the child's node and anchor where it names them */
+  private edgeToParentPath(inp: Input) {
+    const st = this.tz.st
+    const { parentNode, childNode } = this.L
+    if (parentNode === null || childNode === null) throw new Unsupported("tikz: edge from parent outside a child")
+    const macros: Record<string, Toks> = {
+      "\\tikzparentnode": chars(parentNode), "\\tikzchildnode": chars(childNode), "\\tikzparentanchor": st.parentAnchor, "\\tikzchildanchor": st.childAnchor,
+    }
+    st.edgePathOpen = true
+    inp.insert([...st.edgeToParentPath.flatMap((t) => macros[t] ?? [t]), EDGE_PATH_END])
   }
 
   /**
