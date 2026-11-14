@@ -42,7 +42,7 @@ export function maketitle(cx: Ctx) {
   // \@maketitle's \newpage, \null, \vskip2em
   const titlepage = cls !== "article"
   // \thanks (and \footnote): marks in \@fnsymbol, texts at \@thanks (report's titlepage: \small, no \footnoterule: not here)
-  if (/\\(?:thanks|footnote)(?![A-Za-z])/.test(`${title.title}${title.author ?? ""}${title.date ?? ""}`) && (titlepage || cx.pre.hyper)) throw new Unsupported(`\\thanks in ${titlepage ? cls : "hyperref"}'s \\maketitle`)
+  if (/\\(?:thanks|footnote)(?![A-Za-z])/.test(`${title.title}${title.author ?? ""}${title.date ?? ""}`) && titlepage) throw new Unsupported(`\\thanks in ${cls}'s \\maketitle`)
   doc.thanks = []
   const main = cx.v
   main.par()
