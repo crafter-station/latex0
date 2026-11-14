@@ -631,7 +631,8 @@ export function endDocument(contrib: Node[], k: ClassOptionData, parskip: GlueSp
  * (\@combinedblfloats: each followed by \dblfloatsep, then \vskip-\dblfloatsep \vskip\dbltextfloatsep, in \vbox
  * to\textheight); `column` is then the first column that has text.
  */
-export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false): { outputbox: BoxNode; column: Node[] | null }[] {
+/** `memoir`: its \@makecol (\mem@makecol) takes \box\@cclv as it is: the kernel's \vskip-<depth> before a fill glue that ends it is not there */
+export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false, memoir = false): { outputbox: BoxNode; column: Node[] | null }[] {
   const fs = k.glue.footinsskip, maxDepth = k.dimens.maxdepth, { floatsep, textfloatsep, dblfloatsep, dbltextfloatsep } = k.glue
   const makecol = (sh: Column, count: number): { outputbox: BoxNode; column: Node[] | null } => {
     if (sh.kind === "floats") {
@@ -649,7 +650,7 @@ export function makeColumns(pages: Shipped[], k: ClassOptionData, letter = false
     const foot = pg.inserts[k.ints.footins]
     let list = box255.list.slice()
     const last = list[list.length - 1]
-    if (last?.kind === "glue" && last.stretchOrder !== NORMAL) {
+    if (!memoir && last?.kind === "glue" && last.stretchOrder !== NORMAL) {
       list.pop()
       const d = vpack(list.slice(), { additional: 0 }, maxDepth).depth
       if (!foot && !sh.bot.length && d > 0) list.push(glue(-Math.min(d, sh.maxDepth ?? maxDepth)))

@@ -9,6 +9,7 @@
 
 import type { LtEntry } from "./longtable"
 import { dataFont } from "./data"
+import { memoirPage } from "./memoir"
 import { fancyPage } from "./fancyhdr"
 import { pdftexColors } from "./pdftex"
 import { emitBoxes } from "../emit/boxes"
@@ -319,7 +320,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   // (the glue after a listing caption's paragraph is a breakpoint: a page fired there is output inside its group)
   if (pages.some((p) => run.lstCaptions.some(([a, b]) => p.reached >= a && p.reached < b))) throw new Unsupported("a page output inside a listing's caption")
   if (refs.cleveref) fillCrefWrites(refs.cleveref.writes, pages, (at) => (v.nodes[at] as { param?: string } | undefined)?.param === "parskip", (from, to) => v.nodes.slice(from + 1, to).flatMap((n) => (n.kind === "whatsit" && n.hook ? [n.hook] : [])))
-  const columns = makeColumns(pages, run.k, cls === "letter")
+  const columns = makeColumns(pages, run.k, cls === "letter", !!pre.memoir)
   const sl = selectFont(run.k, "normalsize", { enc: run.k.ints.T1 ? "T1" : "OT1", fam: "cmr", ser: "m", shape: "sl" } as FontAttrs)
   const heads = pageMarks(pages)
   // fancyhdr's fields are paragraphs TeX breaks as it ships each page: their traces go where the page builder had
@@ -333,7 +334,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     // (an output routine run at a \bibitem sees babel's \@safe@activestrue: null where hyperref or natbib replaced \@bibitem)
     const at = run.bibSafe.find((w) => pages[i].reached >= w.from && pages[i].reached < w.to)
     const safe = at ? (at.exact && !hyper && !pre.natbib ? true : null) : false
-    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : undefined
+    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : pre.memoir ? memoirPage(cx, style, even, pages[i].thepage, heads[i]) : undefined
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })

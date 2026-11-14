@@ -15,7 +15,7 @@ export function classData(cls: string, option = "10pt", extras: string[] = []): 
   if (!o) throw new Error(`no data for ${cls} [${option}]`)
   // the paper, side and column options: the last of each kind wins, as in the class's option processing
   const paper = [...extras].reverse().find((x) => PAPERS.includes(x)) ?? "letterpaper"
-  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" ? "twoside" : "oneside")
+  const side = [...extras].reverse().find((x) => x === "oneside" || x === "twoside") ?? (cls === "book" || cls === "memoir" ? "twoside" : "oneside")
   const twocolumn = [...extras].reverse().find((x) => x === "onecolumn" || x === "twocolumn") === "twocolumn"
   const v = o.variants?.[`${paper},${side}${twocolumn ? ",twocolumn" : ""}`]
   if (twocolumn && !v) throw new Unsupported(`class option twocolumn for ${cls}`)
@@ -40,7 +40,8 @@ export function documentClass(src: string): { cls: string; option: string; extra
   const opts = (m[1] ?? "").split(",").map((s) => s.trim()).filter(Boolean)
   const option = [...opts].reverse().find((o) => /^1[012]pt$/.test(o)) ?? "10pt"
   const extras = opts.filter((o) => PAPERS.includes(o) || o === "oneside" || o === "twoside" || ((o === "onecolumn" || o === "twocolumn") && m[2] !== "letter"))
-  const unknown = opts.filter((o) => !extras.includes(o) && !NEUTRAL.includes(o) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter"))
+  // (memoir: openright, its default, and openany are \chapter's, memoir.ts; notitlepage is not an option of its)
+  const unknown = opts.filter((o) => !extras.includes(o) && !(NEUTRAL.includes(o) && !(m[2] === "memoir" && o === "notitlepage")) && !(o === "openany" && m[2] !== "book") && !(o === "onecolumn" && m[2] === "letter") && !(m[2] === "memoir" && (o === "openright" || o === "portrait")))
   return { cls: m[2], option, extras, unknown }
 }
 

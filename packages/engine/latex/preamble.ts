@@ -9,6 +9,7 @@ import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
 import { classData, CM_FONTS, documentClass, familyDefault, withFonts, withT1, type FontSetup } from "./classes"
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
+import { memoirCommand, memoirLayout, type Memoir } from "./memoir"
 import { geometry } from "./geometry"
 import { lstDefineStyle, lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { times, setspaceCommand, setspaceOptions, stretchedSizes, withSetspace, type SetSpace } from "./setspace"
@@ -116,6 +117,8 @@ export interface Preamble {
   markDefs: "headings" | "fancyhdr" | null
   /** fancyhdr's fields and rules, when it is loaded */
   fancy: FancyHdr | null
+  /** the memoir class: its chapter style and layout commands */
+  memoir: Memoir | null
   title: { title?: string; author?: string; date?: string }
   /** letter's \signature, \address and \name */
   letterInfo: { signature?: string; address?: string; name?: string }
@@ -182,8 +185,10 @@ export function readPreamble(src: string): Preamble {
     if (babel) throw new Unsupported("babel loaded twice") // (LaTeX: Option clash, or nothing)
     babel = { ...babelOptions(own, classUnknown.filter(isBabelLanguage)), beforeHyperref }
   }
-  if (!["article", "report", "book", "letter"].includes(cls)) throw new Unsupported(`class ${cls}`)
+  if (!["article", "report", "book", "letter", "memoir"].includes(cls)) throw new Unsupported(`class ${cls}`)
   let k = classData(cls, option, extras)
+  // memoir: its chapter style and the layout commands, in order (memoir.ts)
+  const memoir: Memoir | null = cls === "memoir" ? { chapterstyle: "default", openany: /\\documentclass\s*\[[^\]]*\bopenany\b/.test(src), layout: [] } : null
   // letter.cls sets \longindentation to .5\textwidth and \medskipamount to \parskip when it loads
   const classTextwidth = k.dimens.textwidth, medskipamount = k.glue.parskip.width
   // \begin{document} and \end{document} outside comments
@@ -220,13 +225,13 @@ export function readPreamble(src: string): Preamble {
     lstBase = lstDefineStyle(a, keys, lstBase)
     pre = pre.slice(0, i) + pre.slice(e)
   }
-  let pagestyle = cls === "book" ? "headings" : "plain"
+  let pagestyle = cls === "book" || cls === "memoir" ? "headings" : "plain"
   let amsmath = false
   const mathPackages: MathPackages = {}
   let enumitem: Enumitem | null = null
   // \ps@headings defines \chaptermark and \sectionmark (book runs it when loaded); a later \pagestyle
   // keeps them, and only \@mkboth goes back to \@gobbletwo
-  let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
+  let markDefs: Preamble["markDefs"] = cls === "book" || cls === "memoir" ? "headings" : null
   let fancy: FancyHdr | null = null
   let fancyGeometry: number | null = null // how many geometry calls came before the first \pagestyle{fancy}
   let hyper = false // hyperref, with the dvips driver
@@ -312,6 +317,16 @@ export function readPreamble(src: string): Preamble {
     if (/^\\documentclass\b/.test(line)) continue
     if (line === "\\usepackage[utf8]{inputenc}") continue // UTF-8 is LaTeX's default input encoding
     if (line === "{}") continue // a definition the expander took out
+    if (memoir) {
+      // (memoir with the font packages alone: what it loads itself, array, booktabs, nameref …, and its own versions of
+      // what other packages patch are not modeled with them)
+      const mp = line.match(/^\\usepackage\s*(?:\[[^\]]*\])?\s*\{([^{}]*)\}$/)
+      const other = mp?.[1].split(",").map((n) => n.trim()).find((n) => !["fontenc", "inputenc", ...FONT_PACKAGES].includes(n))
+      if (other) throw new Unsupported(`${other} with memoir`)
+      if (memoirCommand(memoir, line, selected)) continue
+      if (/^\\pagestyle\{/.test(line) && !/^\\pagestyle\{(?:empty|plain|headings)\}$/.test(line)) throw new Unsupported(`memoir's ${line}`)
+      if (/^\\(?:setlength|raggedbottom|flushbottom|title|author|date|newcounter|counterwithin|LX)/.test(line)) throw new Unsupported(`preamble: ${line} with memoir`)
+    }
     const sl = line.match(/^\\setlength\{\\(parindent|parskip|headheight|extrarowheight|columnsep|columnseprule)\}\{([^{}]*)\}$/)
     if (sl) {
       if (sl[1] === "extrarowheight" && !usesArray) throw new Unsupported(`preamble: ${line}`) // (array.sty defines it)
@@ -560,6 +575,7 @@ export function readPreamble(src: string): Preamble {
     const bs = geometryStretch ? { ...k.glue, baselineskip: { ...k.glue.baselineskip, width: times(geometryStretch, k.glue.baselineskip.width) } } : k.glue
     k = { ...geometry({ ...k, glue: bs }, geometryOptions, { em: f.params[QUAD], ex: f.params[X_HEIGHT] }, geo), glue: k.glue }
   }
+  if (memoir) k = memoirLayout(k, memoir, (p) => { const f = selectedFont(p as PreambleFont); return { em: f.params[QUAD], ex: f.params[X_HEIGHT] } })
   if (lengths.length) {
     for (const [name, value, font] of lengths) {
       const f = selectedFont(font)
@@ -659,7 +675,7 @@ export function readPreamble(src: string): Preamble {
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, memoir, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */
