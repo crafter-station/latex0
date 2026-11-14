@@ -29,6 +29,7 @@ import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
 import { endDocument, enlargeInsert, firstPage, L3BACKEND_HEADER, makeColumns } from "./output"
+import { gscaleBox, gscaleDiv } from "./graphics"
 import { anchor, autorefLanguage, autorefName, hyperDriver, natLink, refLink, spotAnchor, tocLink } from "./hyperref"
 import { Unsupported } from "./unsupported"
 import { babelAux, babelState, babelSwitch, isSpanish, languageHyphenation, languageLc, type Babel, type BabelCommand } from "./babel"
@@ -183,6 +184,8 @@ export interface DocState {
   xcolor?: boolean
   /** xcolor (not color) is loaded: its \@frameb@x frames \fbox and \framebox */
   xcolorFbox?: boolean
+  /** graphicx is loaded: \scalebox, \reflectbox and \resizebox */
+  graphicx?: boolean
   /** the float number n that starts in this paragraph: the marker its \vadjust holds */
   float?: (n: number, traces: ParagraphTrace[], club: number) => Node
   /** babel is loaded: its languages, and whether before hyperref */
@@ -381,6 +384,10 @@ type Piece =
   /** \mbox, \makebox[width][pos], \fbox, \framebox[width][pos] and \raisebox{lift}[height][depth]: the command, its
    *  optional arguments as given (`lift`: \raisebox's first) and its text */
   | { kind: "box"; cmd: "mbox" | "makebox" | "fbox" | "framebox" | "raisebox"; opts: (string | undefined)[]; lift?: string; inner: Piece[] }
+  /** graphics' \scalebox{x}[y]{text} (`y` undefined: x), \reflectbox{text} and \resizebox{width}{height}{text}
+   *  (`star`: \resizebox*, the height is the height plus depth; ! for a size: the other's factor) */
+  | { kind: "scalebox"; x: string; y?: string; inner: Piece[] }
+  | { kind: "resizebox"; star: boolean; width: string; height: string; inner: Piece[] }
   /** xcolor's \colorbox[model]{bg}{text} and \fcolorbox[model]{frame}[model]{bg}{text} */
   | { kind: "colorbox"; model?: string; spec: string; frame?: { model?: string; spec: string }; inner: Piece[] }
   /** \parbox[pos][height][inner]{width}{text} */
@@ -666,6 +673,33 @@ function pieces(body: string, footnotes = true, po: PieceOptions = {}): Piece[] 
       if (cb[1] === "colorbox") out.push({ kind: "colorbox", ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3], inner })
       else out.push({ kind: "colorbox", ...(cb[4] ?? cb[2]) !== undefined ? { model: cb[4] ?? cb[2] } : {}, spec: cb[5]!, frame: { ...(cb[2] !== undefined ? { model: cb[2] } : {}), spec: cb[3] }, inner })
       i = j + 1; continue
+    }
+    // graphics' \scalebox{x}[y]{text}, \reflectbox{text} (\Gscale@box-1[1]) and \resizebox(*){width}{height}{text}
+    const gs = body.slice(i).match(/^\\(scalebox|reflectbox|resizebox)(?![A-Za-z])/)
+    if (gs) {
+      const cmd = gs[1]
+      let j = i + gs[0].length
+      const arg = (): string => {
+        const m = body.slice(j).match(/^\s*\{/)
+        if (!m) throw new Unsupported(`\\${cmd} ${body.slice(j, j + 20)}`)
+        const open = j + m[0].length - 1, close = closingBrace(body, open)
+        j = close + 1
+        return body.slice(open + 1, close)
+      }
+      const text = () => pieces(arg(), false, { groups: true, grouped: true })
+      flushText()
+      if (cmd === "resizebox") {
+        const star = body.slice(j).match(/^\s*\*/) // (\@ifstar skips the spaces before it)
+        if (star) j += star[0].length
+        const width = arg(), height = arg()
+        out.push({ kind: "resizebox", star: !!star, width, height, inner: text() })
+      } else if (cmd === "reflectbox") out.push({ kind: "scalebox", x: "-1", y: "1", inner: text() })
+      else {
+        const x = arg(), y = body.slice(j).match(/^\s*\[([^[\]{}]*)\]/)
+        if (y) j += y[0].length
+        out.push({ kind: "scalebox", x, ...(y ? { y: y[1] } : {}), inner: text() })
+      }
+      i = j; continue
     }
     // boxes: \@ifnextchar[ skips the spaces before an optional argument, and a macro those before an argument
     const bx = body.slice(i).match(/^\\(mbox|makebox|fbox|framebox|raisebox|parbox)(?![A-Za-z])/)
@@ -1149,6 +1183,29 @@ function boxPiece(list: Node[], p: Extract<Piece, { kind: "box" }>, font: Font, 
 }
 
 /**
+ * graphics' \scalebox and \reflectbox: \Gscale@box on \hbox{{text}}. \resizebox: \mbox{text} for two !; else the text
+ * in \@begin@tempboxa's \hbox, the sizes read with \width, \height, \depth and \totalheight its own (\setlength), the
+ * factors \Gscale@div of each size by the box's width and height (\resizebox*: its height plus depth), a ! taking the
+ * other's, and \Gscale@box on \hbox{{\box\@tempboxa}}
+ */
+function scaleboxPiece(list: Node[], p: Extract<Piece, { kind: "scalebox" | "resizebox" }>, font: Font, size: SizeCommand, state: { spaceFactor: number; sfcodes?: Record<number, number> }, ctx: PieceContext, attrs: FontAttrs) {
+  if (!ctx.doc.graphicx) throw new Unsupported(`\\${p.kind} without graphicx`)
+  const content: Node[] = []
+  appendPieces(content, p.inner, font, size, { spaceFactor: 1000, ...(state.sfcodes ? { sfcodes: state.sfcodes } : {}) }, { ...ctx, restricted: true }, attrs)
+  state.spaceFactor = 1000 // (after a box)
+  const natural = hpack(content)
+  if (p.kind === "scalebox") { list.push(gscaleBox(natural, p.x.trim(), (p.y ?? p.x).trim(), hyperDriver.pdftex)); return }
+  if (p.width === "!" && p.height === "!") { list.push(natural); return }
+  const base = lengthEnv(ctx, font), outer = base.internal!
+  const dims: Record<string, number> = { width: natural.width, height: natural.height, depth: natural.depth, totalheight: natural.height + natural.depth }
+  const env: ScanEnv = { ...base, internal: (name, s) => (name in dims ? { level: "dimen", value: dims[name] } : outer(name, s)) }
+  const len = (x: string) => { try { return parseDimen(x, env) } catch { throw new Unsupported(`\\resizebox length "${x}"`) } }
+  const div = (num: string, den: number) => { if (den === 0) throw new Unsupported("\\resizebox: division by 0"); return gscaleDiv(len(num), den) }
+  const x = p.width === "!" ? null : div(p.width, dims.width), y = p.height === "!" ? null : div(p.height, p.star ? dims.totalheight : dims.height)
+  list.push(gscaleBox(hpack([natural]), x ?? y!, y ?? x!, hyperDriver.pdftex))
+}
+
+/**
  * xcolor's \color@b@x: \setbox\z@\hbox{\kern\fboxsep{\set@color text}\kern\fboxsep} (the text in the current color),
  * \ht and \dp grown by \fboxsep, then {\color{bg}\color@block{\wd\z@}{\ht\z@}{\dp\z@}\box\z@}, \color@block being
  * {\set@color\rlap{\vrule…}} (no xcdraw). \fcolorbox: {\fboxsep\z@\color{frame}\fbox{that}} with \XC@frameb@x, its
@@ -1243,6 +1300,7 @@ function appendPieces(list: Node[], ps: Piece[], font: Font, size: SizeCommand, 
     }
     else if (p.kind === "box") boxPiece(list, p, font, size, state, ctx, attrs)
     else if (p.kind === "colorbox") colorboxPiece(list, p, font, size, state, ctx, attrs)
+    else if (p.kind === "scalebox" || p.kind === "resizebox") scaleboxPiece(list, p, font, size, state, ctx, attrs)
     else if (p.kind === "parbox") {
       if (!doc.parbox) throw new Unsupported("\\parbox outside a document")
       list.push(...doc.parbox(p, size, attrs, state.sfcodes, { notes: ctx.notes, club: ctx.noteClub ?? ctx.params.clubPenalty, widow: ctx.noteWidow ?? k.ints.widowpenalty, finalHyph: ctx.params.finalHyphenDemerits, lineWidth: lineWidthOf(ctx) }))

@@ -118,22 +118,48 @@ export function pdfSize(pdf: Pdf, page: string | undefined, pagebox: string | un
 
 /**
  * \Gin@setfile's box under pdfTeX: \hbox{\Ginclude@@pdftex}, its depth zero and its size the requested one; in it
- * \hbox{\Gscale@box{x}[y]{\pdfrefximage}}, which is \hb@xt@x\wd0{\box2\kern x\wd0\hss} with box 2
- * \hbox{\pdfsave\pdfsetmatrix{x 0 0 y}\rlap{\copy0}\pdfrestore} (no matrix for the identity, \Gscale@start),
- * y times box 0's height and depth (GPT@setup@scale: a ! factor is the other)
+ * \hbox{\Gscale@box{x}[y]{\pdfrefximage}} (GPT@setup@scale: a ! factor is the other)
  */
 function pdftexBox(name: string, image: { width: number; height: number }, scalex: string | null, scaley: string | null, reqW: number, reqH: number, mbox: boolean): Node[] {
   const sx = scalex ?? scaley ?? "1", sy = scaley ?? sx
   const box0 = hpack([{ kind: "hlist", width: image.width, height: image.height, depth: 0, shift: 0, list: [], glueSet: 0, glueSign: 0, glueOrder: 0, image: name }])
-  const rlap = hpack([box0, ssGlue()], { exactly: 0 })
-  const x = normalize(sx), y = normalize(sy)
-  const box2 = hpack(x === "1" && y === "1" ? [rlap] : [{ kind: "whatsit", text: "\\pdfsave" }, { kind: "whatsit", text: `\\pdfsetmatrix{${x} 0 0 ${y}}` }, rlap, { kind: "whatsit", text: "\\pdfrestore" }])
-  box2.height = times(sy, box0.height); box2.depth = times(sy, box0.depth)
-  const w = times(sx, box0.width)
-  const scaled = hpack([box2, kern(w, true), ssGlue()], { exactly: w })
-  const box = hpack([hpack([scaled])])
+  const box = hpack([hpack([gscaleBox(box0, sx, sy, true)])])
   box.depth = 0; box.height = reqH; box.width = reqW
   return mbox ? [hpack([box])] : [box]
+}
+
+/**
+ * \Gscale@box{x}[y]{text} (graphics.sty), `box0` its \setbox\z@\hbox{{text}}: box 2 is
+ * \hbox{\Gscale@start\rlap{\copy\z@}\Gscale@end}, its height and depth y times box 0's (−y times its depth and
+ * height for a negative y); the result \hb@xt@ x\wd\z@{\box\tw@\kern x\wd\z@\hss}, and for a negative x
+ * \hb@xt@ −x\wd\z@{\kern −x\wd\z@\box\tw@\hss}. \Gscale@start and \Gscale@end: pdftex.def's
+ * \pdfsave\pdfsetmatrix{x 0 0 y} and \pdfrestore, the factors normalized (\GPT@NormalizeNumber) and nothing for the
+ * identity; dvips.def's two ps: specials, the factors as given.
+ */
+export function gscaleBox(box0: BoxNode, x: string, y: string, pdftex: boolean): BoxNode {
+  let scale: (f: string, v: number) => number, negX: boolean, negY: boolean
+  try {
+    scale = (f, v) => times(f, v)
+    negX = factor(x) < 0; negY = factor(y) < 0
+    scale(x, 0); scale(y, 0)
+  } catch { throw new Unsupported(`a scale factor ${x} by ${y}`) }
+  const rlap = hpack([box0, ssGlue()], { exactly: 0 })
+  const whatsit = (text: string): Node => ({ kind: "whatsit", text })
+  let start: Node[], end: Node[]
+  if (pdftex) {
+    const nx = normalize(x), ny = normalize(y), identity = nx === "1" && ny === "1"
+    start = identity ? [] : [whatsit("\\pdfsave"), whatsit(`\\pdfsetmatrix{${nx} 0 0 ${ny}}`)]
+    end = identity ? [] : [whatsit("\\pdfrestore")]
+  } else {
+    start = [whatsit(`\\special{ps: currentpoint currentpoint translate ${x} ${y} scale neg exch neg exch translate}`)]
+    end = [whatsit(`\\special{ps: currentpoint currentpoint translate 1 ${x} div 1 ${y} div scale neg exch neg exch translate}`)]
+  }
+  const box2 = hpack([...start, rlap, ...end])
+  if (negY) { box2.height = scale(`-${y}`, box0.depth); box2.depth = scale(`-${y}`, box0.height) }
+  else { box2.height = scale(y, box0.height); box2.depth = scale(y, box0.depth) }
+  if (negX) { const w = scale(`-${x}`, box0.width); return hpack([kern(w, true), box2, ssGlue()], { exactly: w }) }
+  const w = scale(x, box0.width)
+  return hpack([box2, kern(w, true), ssGlue()], { exactly: w })
 }
 
 /** \GPT@NormalizeNumber: no spaces or +, no leading zeros in the integer part or trailing ones in the fraction */

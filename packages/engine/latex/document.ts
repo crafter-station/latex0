@@ -301,6 +301,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
   doc.widths = (lineWidth) => widthRegisters(cx, lineWidth)
   doc.getpen = (n) => getpen(cx, n)
   if (usesXcolor) doc.xcolorFbox = true
+  if (pre.usesGraphicx) doc.graphicx = true
   doc.parbox = (...a) => parboxAt(cx, ...a)
   if (pre.tikz) doc.tikz = (...a) => tikzAt(cx, colors, ...a)
   const cx: Ctx = { pre, run, v, doc, decisions, toc, lists: prev ? prev.lists : null, tocFile, marks, mkboth, romanFont, roman, bodyUnits, outerParskip, epoch, typeset, counters, refs, headings, lastNode, counted, contentsWrites, noskipsecPar, colorSpec, esphackNobreaks, listings, tabulars, longtables, ltRows: { prev: prev ? prev.longtables : null, written: new Map() }, minipages, urls, graphics, tikz, images, driver, notHere, captionPages: prev ? prev.captionPages : null, normalAttrs, booktabs }
