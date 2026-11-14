@@ -238,9 +238,10 @@ function variants(cls: string, option: string, base: ClassOptionData): ClassOpti
   return out
 }
 
-/** KOMA-Script's parskip= options (those that do not depend on the line width), against the class's defaults: what each
- *  sets (\setparsizes: \parindent, \parskip, \parfillskip) */
-const KOMA_OPTIONS = ["parskip=half", "parskip=full", "parskip=half-", "parskip=full-"]
+/** KOMA-Script's parskip= options, against the class's defaults: what each sets (\setparsizes: \parindent, \parskip,
+ *  \parfillskip; the + and * variants' \parfillskip is .3333 and .25 of the \linewidth at \begin{document}, here the
+ *  default paper's \textwidth) */
+const KOMA_OPTIONS = ["parskip=half", "parskip=full", "parskip=half-", "parskip=full-", "parskip=half+", "parskip=full+", "parskip=half*", "parskip=full*"]
 function optionVariants(cls: string, option: string, base: ClassOptionData): NonNullable<ClassOptionData["options"]> {
   const out: NonNullable<ClassOptionData["options"]> = {}
   for (const o of KOMA_OPTIONS) {

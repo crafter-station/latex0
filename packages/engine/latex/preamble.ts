@@ -254,6 +254,7 @@ export function readPreamble(src: string): Preamble {
   // selects again (a font package only changes what the next \selectfont takes)
   let selected: PreambleFont = { t1: false, fonts: CM_FONTS }
   const kClass = k
+  const komaRelative = isKoma(cls) && [...extras].reverse().find((x) => x.startsWith("parskip="))?.match(/[+*]$/) != null
   const selectedFont = (p: PreambleFont) => { let x = withFonts(kClass, p.fonts); if (p.t1) x = withT1(x, cls); const r = x.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at) }
   const geometryOptions: string[] = []
   let titlesecFont: PreambleFont = selected // the font selected when titlesec loaded (its spacing, \the at load time)
@@ -562,7 +563,7 @@ export function readPreamble(src: string): Preamble {
   if (familydefault !== "rm" && (usesSiunitx || ((babel as Babel | null)?.languages.some((l) => l === "spanish" || l === "french") ?? false))) throw new Unsupported(`\\familydefault as \\${familydefault}default with ${usesSiunitx ? "siunitx" : "babel's spanish or french"}`)
   k = withFonts(k, familyDefault(fonts, familydefault))
   if (t1) k = withT1(k, cls)
-  if (isKoma(cls)) k = withKomaParsizes(k, kClass)
+  if (isKoma(cls)) k = withKomaParsizes(k, kClass, komaRelative)
   const geo = { landscape: false }
   if (geometryOptions.length) {
     const f = selectedFont(geometryFont)
@@ -650,6 +651,8 @@ export function readPreamble(src: string): Preamble {
   let body = src.slice(begin + 16, end)
   // (what the class sets its own way, not modeled with these packages)
   if (isKoma(cls)) {
+    // (geometry's \textwidth comes after \par@update set the + and * variants' \parfillskip from \linewidth)
+    if (komaRelative && geometryOptions.length) throw new Unsupported("KOMA-Script's parskip= + or * variant with geometry")
     if (k.ints.twocolumn || k.ints.twoside) throw new Unsupported(`${cls} ${k.ints.twocolumn ? "in two columns" : "two-sided"}`)
     if (pagestyle !== "plain" && pagestyle !== "empty") throw new Unsupported(`\\pagestyle{${pagestyle}} in ${cls}`)
     for (const p of ["hyperref", "fancyhdr", "natbib", "cleveref", "setspace", "parskip", "listings", "caption", "subcaption", "algorithm", "titlesec", "babel", "multicol", "scrlayer-scrpage", "tocbasic"]) if (new RegExp(`\\\\usepackage\\s*(?:\\[[^\\]]*\\])?\\s*\\{[^}]*\\b${p}\\b`).test(src.slice(0, begin))) throw new Unsupported(`${p} with ${cls}`)

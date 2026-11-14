@@ -26,8 +26,15 @@ export function classData(cls: string, option = "10pt", extras: string[] = []): 
   if (ps && ps !== "parskip=false" && !p) throw new Unsupported(`class option ${ps}`)
   const o1 = p ? { ...o, dimens: { ...o.dimens, ...p.dimens }, glue: { ...o.glue, ...p.glue } } : o
   if (!v) return o1
-  return withTextHeight({ ...o1, dimens: { ...o1.dimens, ...v.dimens }, ints: { ...o1.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
+  const o2 = withTextHeight({ ...o1, dimens: { ...o1.dimens, ...v.dimens }, ints: { ...o1.ints, ...v.ints, ...(twocolumn ? { twocolumn: 1 } : {}) } })
+  // (parskip=half+, full+, half* and full*: \parfillskip .3333\linewidth or .25\linewidth plus 1fil, which \par@update
+  // sets at \begin{document}, \linewidth this paper's \textwidth then)
+  const f = ps && p ? komaParfill(ps) : null
+  return f ? { ...o2, glue: { ...o2.glue, parfillskip: { ...o2.glue.parfillskip, width: times(f, o2.dimens.textwidth) } } } : o2
 }
+
+/** the factor of \linewidth in the \parfillskip of KOMA-Script's parskip= option's + and * variants, else null */
+export const komaParfill = (option: string): string | null => (option.endsWith("+") ? ".3333" : option.endsWith("*") ? ".25" : null)
 
 /** The float rooms \@floatplacement and \@flsettextmin take from \textheight: <fraction>\@colht, x_n_over_d (§ 455). */
 export function withTextHeight(k: ClassOptionData): ClassOptionData {
@@ -89,15 +96,16 @@ export function withT1(k: ClassOptionData, cls: string): ClassOptionData {
 }
 
 /** KOMA-Script's \par@updaterelative at \begin{document}: \parindent (and parskip=half's or full's \parfillskip) are 1em of
- *  the document's font then, not of Computer Modern's as the data has them */
-export function withKomaParsizes(k: ClassOptionData, base: ClassOptionData): ClassOptionData {
+ *  the document's font then, not of Computer Modern's as the data has them (`relative`: the + and * variants' \parfillskip) */
+export function withKomaParsizes(k: ClassOptionData, base: ClassOptionData, relative = false): ClassOptionData {
   const em = (kk: ClassOptionData) => { const r = kk.sizes.normalsize.font; return loadFont(dataFont(r.name), r.at).params[QUAD] }
   const was = em(base), now = em(k)
   if (was === now) return k
   const dimens = { ...k.dimens }, glue = { ...k.glue }
   if (dimens.parindent === was) dimens.parindent = now
   else if (dimens.parindent !== 0) throw new Unsupported("KOMA-Script's \\parindent in another font")
-  if (glue.parfillskip.width === was) glue.parfillskip = { ...glue.parfillskip, width: now }
+  if (relative) {} // (a part of \linewidth, in no font)
+  else if (glue.parfillskip.width === was) glue.parfillskip = { ...glue.parfillskip, width: now }
   else if (glue.parfillskip.width !== 0) throw new Unsupported("KOMA-Script's \\parfillskip in another font")
   return { ...k, dimens, glue }
 }
