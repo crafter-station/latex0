@@ -199,6 +199,8 @@ export function readBeamerPreamble(src: string): BeamerPreamble {
     d.textheight = d.paperheight - d.footheight - d.headheight
     d.sidebarheight = d.paperheight - d.headheight + d.headdp - d.footheight + 4 * 65536
   }
+  // (\begin{document}'s \columnwidth\textwidth: the theme's, where it sets the text margins or a sidebar)
+  k.dimens.columnwidth = k.dimens.textwidth
   if (babel) k = withBabel(k, babel)
   // beamerbasetitle.sty's \beamer@firstminutepatches: pdftitle={\inserttitle\ - \insertsubtitle}; \beamer@author:
   // pdfauthor={\beamer@andstripped}
