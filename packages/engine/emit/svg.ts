@@ -6,9 +6,10 @@
 //
 // - pdfTeX keeps an origin, where it believes the user space's (0, 0) is (pdf_origin_h, pdf_origin_v). A
 //   \pdfliteral without `direct` or `page`, \pdfsave, \pdfsetmatrix and \pdfrestore first move it to the current
-//   position (pdf_set_origin: `1 0 0 1 dx dy cm`); glyphs, rules, images and forms are placed relative to it.
-//   The origin is pdfTeX's variable, not part of the graphics state: `Q` does not bring it back, which is why
-//   \pdfsave and \pdfrestore must be at one position.
+//   position (pdf_set_origin: `1 0 0 1 dx dy cm`); rules, images and forms are placed relative to it (in a q … Q of
+//   their own), and text first moves it back to the page's corner (pdf_begin_text). The origin is pdfTeX's
+//   variable, not part of the graphics state: `Q` does not bring it back, which is why \pdfsave and \pdfrestore
+//   must be at one position. (Checked against the content streams pdfTeX 1.40.27 writes.)
 // - The color stack 0 writes its operators as they are (`direct`), and its current color again at the start of
 //   each page. Glyphs are filled; a rule is `re f`, or a stroked line when it is at most 1bp thin (pdf_set_rule).
 // - A form (\pdfrefxform) is its box shipped on its own, clipped to the box, in the state where it is shown.
@@ -87,7 +88,7 @@ function dvipsColor(spec: string): string {
 // ---- PDF objects, as far as a form's resources need them ----
 
 type Pdf = number | string | boolean | Pdf[] | { [key: string]: Pdf }
-const PDF_TOKEN = /<<|>>|\[|\]|\/[^\s/[\]<>()]*|[^\s/[\]<>()]+|[<>()]/g
+const PDF_TOKEN = /<<|>>|\[|\]|\((?:\\[\s\S]|[^\\()])*\)|<[0-9A-Fa-f\s]*>|\/[^\s/[\]<>()]*|[^\s/[\]<>()]+|[<>()]/g
 const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)$/
 
 /** The entries of a dictionary's body (`/Key value …`; names keep their slash, `n g R` is the string "n g R");
@@ -254,6 +255,8 @@ class Stream {
   private g = 0
   private r = 0
   private resourceDict: { [key: string]: Pdf } | null = null
+  /** the stream's own origin: the paper's or the form's lower left corner */
+  private readonly corner: [number, number]
 
   /**
    * `oh`, `ov`: pdfTeX's origin, the position (in the stream's sp) of the user space's (0, 0) when `gs.ctm` was set.
@@ -263,6 +266,7 @@ class Stream {
   constructor(private readonly page: Page, gs: GState, private readonly src: { glyphs: TraceGlyph[]; rules: TraceRule[]; marks: PageMark[] },
     private oh: number, private ov: number, private readonly ph: number, private readonly pv: number, private readonly stack: string[], private readonly resources: string) {
     this.gs = gs
+    this.corner = [oh, ov]
   }
 
   private set(patch: Partial<GState>) { this.gs = { ...this.gs, ...patch } }
@@ -359,7 +363,10 @@ class Stream {
       if (prev && (prev.font !== gl.font || prev.size !== gl.size || prev.v !== gl.v)) flush()
       run.push(gl)
     }
+    if (!run.length) return
     flush()
+    // pdf_begin_text: the origin back at the corner
+    this.setOrigin(this.corner[0], this.corner[1])
   }
 
   private image(m: PageMark & { kind: "image" }) {
@@ -379,8 +386,7 @@ class Stream {
     const f = this.page.view.forms?.[number]
     if (!f) return this.page.warn(`the form XObject ${number} (its content is not known)`)
     if (this.page.nesting >= 16) return this.page.warn(`the form XObject ${number} (forms nested too deep)`)
-    const w = f.width * K, h = (f.height + f.depth) * K
-    const clip = this.page.clipPath(`M0 0H${n(w)}V${n(h)}H0Z`, gs.ctm, gs.clip, "")
+    const clip = this.page.clipPath(`M0 0H${pt(f.width)}V${pt(f.height + f.depth)}H0Z`, gs.ctm, gs.clip, "")
     this.page.nesting++
     // (a form's color stack starts from the stack's initial color; nothing is written at its start)
     new Stream(this.page, { ...gs, clip }, f, 0, f.height + f.depth, 0, 0, ["{0 g 0 G}"], f.resources).draw()
@@ -400,7 +406,7 @@ class Stream {
         for (i++; i < tokens.length && tokens[i] !== "]"; i++) a.push(Number(tokens[i]))
         operands.push(a)
       } else if (NUMBER.test(t)) operands.push(Number(t))
-      else if (t[0] === "/") operands.push(t)
+      else if (t[0] === "/" || (t.length > 1 && (t[0] === "(" || t[0] === "<"))) operands.push(t) // (a name, a string)
       else {
         this.operator(t, operands)
         operands = []

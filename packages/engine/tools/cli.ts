@@ -21,6 +21,8 @@
 //   bun engine oracle:check                            oracle self-check against pdflatex
 //   bun engine boundary                                imports stay inside the package (#38)
 //   bun engine webfonts:check                          the exact page view's web fonts cover every font
+//   bun engine view:check                             the exact page view's SVG for small inputs: transformations, literals, paint order (no browser)
+//   bun engine view:compare <file.tex…> [--scale 2]    the exact page view against pdflatex's pages, rasterized (needs PLAYWRIGHT_CORE; tools/view/compare.ts)
 //   bun engine gaps [paths…]                           constructs not laid out yet, ranked by documents stopped (engine only, no TeX)
 //   bun engine ci                                      the full conformance gate, locally (what engine.yml runs)
 import { execFileSync, spawn, spawnSync } from "node:child_process"
@@ -119,6 +121,14 @@ switch (cmd) {
     process.exit(ci())
   case "webfonts:check":
     process.exit(webfontsCheck())
+  case "view:check": {
+    const { viewCheck } = await import("./view/check")
+    process.exit(viewCheck(flags.has("--print")))
+  }
+  case "view:compare": {
+    const { viewCompare } = await import("./view/compare")
+    process.exit(await viewCompare(args.filter((a) => a.endsWith(".tex")), numOpt("--scale", 2)))
+  }
   case "boundary":
     process.exit(boundaryCheck())
   case "unit":
