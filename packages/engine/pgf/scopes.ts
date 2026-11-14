@@ -58,7 +58,7 @@ export function beginPgfPicture(s: PgfState, d: PgfDriver, color: string, bbox?:
 }
 
 /** a point's coordinate as \pgfpoint takes it: a register's value, or the expression given */
-const coordinate = (s: PgfState, expression: string | null, register: number) => (expression === null ? register : setLength(expression, s))
+const coordinate = (s: PgfState, expression: string | (() => number) | null, register: number) => (expression === null ? register : typeof expression === "function" ? expression() : setLength(expression, s))
 
 /** \end{pgfpicture} (\endpgfpicture 250–297, \pgfsys@typesetpicturebox) */
 export function endPgfPicture(s: PgfState, d: PgfDriver) {

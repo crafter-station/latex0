@@ -1,0 +1,14 @@
+% fixture: tikz-cd/sizes
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a diagram at 11pt with amsmath and amssymb: the seps' em, the cells' ex, the math axis and rule thickness of that size
+\documentclass[11pt]{article}
+\usepackage{tikz-cd}
+\usepackage{amsmath,amssymb}
+\begin{document}
+Cells \begin{tikzcd}
+A \otimes B \arrow[r, "\alpha_{A,B}"] \arrow[d, "\mathrm{id}"'] & \mathbb{Z} \arrow[d, "\frac{1}{2}"] \\
+X^2 \arrow[r, "\sim"'] & \lim_{n} Y_n
+\end{tikzcd} end.
+\end{document}

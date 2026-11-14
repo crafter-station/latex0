@@ -47,6 +47,12 @@ export class Keys {
   name = ""
   /** \ifpgfkeyssuccess */
   success = false
+  /** \ifpgfkeysaddeddefaultpath: the last key was typed without its path */
+  addedDefaultPath = false
+  /** \ifpgfkeys@syntax@handlers (/handlers/first char syntax=true: the quotes library) */
+  syntaxHandlers = false
+  /** the macros a first character's handler (/handlers/first char syntax/the character …) names, mirrored */
+  readonly charHandlers: Record<string, (k: Keys, item: Toks) => void> = {}
 
   begingroup() { this.layers.push(new Map()) }
   endgroup() {
@@ -101,7 +107,27 @@ export class Keys {
   private parse(list: Toks) {
     const items = splitAll([...list, ","], [","])
     items.pop() // what follows the last comma is \pgfkeys@mainstop
-    for (const item of items) this.unpack(arg(item))
+    for (const item of items) {
+      if (this.syntaxHandlers && this.firstChar(item)) continue
+      this.unpack(arg(item))
+    }
+  }
+
+  /**
+   * \pgfkeys@syntax@handlers (341–354): the blanks before the item gone, a handler for its first character
+   * (\pgfkeysgetvalue{/handlers/first char syntax/\meaning…}) takes the whole item
+   */
+  private firstChar(item: Toks): boolean {
+    let i = 0
+    while (item[i] === " ") i++
+    const c = item[i]
+    if (c === undefined || c.length !== 1 || c === "{" || c === "}") return false
+    const handler = this.valueOf(`/handlers/first char syntax/the character ${c}`)
+    if (!handler || handler.length !== 1) return false
+    const run = this.charHandlers[handler[0]]
+    if (!run) throw new Unsupported(`pgfkeys: first char syntax handler ${handler[0]}`)
+    run(this, arg(item.slice(i)))
+    return true
   }
 
   /** \pgfkeys@unpack#1=#2=#3\pgfkeys@stop on `item=\pgfkeysnovalue=` */
@@ -113,6 +139,7 @@ export class Keys {
     if (keyToks.length === 0) return
     const raw = keyToks.join("")
     // \pgfkeys@add@path@as@needed
+    this.addedDefaultPath = !raw.startsWith("/")
     this.key = raw.startsWith("/") ? raw : this.defaultPath + raw
     let value: Toks | undefined = spdef(arg(v))
     if (same(value, NOVALUE)) value = this.valueOf(`${this.key}/.@def`)
@@ -229,7 +256,7 @@ export function parseCode(body: Toks): Code {
   const skip = () => { while (body[i] === " ") i++ }
   for (skip(); i < body.length; skip()) {
     const cs = body[i]
-    const call = cs === "\\pgfkeysalso" ? undefined : cs === "\\tikzset" ? "/tikz" : cs === "\\pgfkeys" ? "" : null
+    const call = cs === "\\pgfkeysalso" ? undefined : cs === "\\tikzset" ? "/tikz" : cs === "\\tikzcdset" ? "/tikz/commutative diagrams" : cs === "\\pgfkeys" ? "" : null
     if (call === null || body[i + 1] !== "{") return [{ kind: "tex", body }]
     const end = groupEnd(body, i + 1)
     if (end < 0) return [{ kind: "tex", body }]
@@ -246,6 +273,8 @@ type Handler = (k: Keys, path: string, v: Toks | undefined) => void
 const HANDLERS: Record<string, Handler> = {
   ".code": (k, path, v) => k.define(path, parseCode(value(path, v, ".code"))),
   ".style": (k, path, v) => k.define(path, [{ kind: "also", body: value(path, v, ".style") }]),
+  ".append code": (k, path, v) => k.addCode(path, [], parseCode(value(path, v, ".append code"))),
+  ".prefix code": (k, path, v) => k.addCode(path, parseCode(value(path, v, ".prefix code")), []),
   ".append style": (k, path, v) => k.addCode(path, [], [{ kind: "also", body: value(path, v, ".append style") }]),
   ".prefix style": (k, path, v) => k.addCode(path, [{ kind: "also", body: value(path, v, ".prefix style") }], []),
   ".initial": (k, path, v) => k.setValue(path, value(path, v, ".initial")),
@@ -259,8 +288,8 @@ const HANDLERS: Record<string, Handler> = {
 
 /** pgfkeys' other handlers (and the ones pgf and TikZ add): TeX has them, they are not modeled */
 const TEX_HANDLERS = new Set([
-  ".code 2 args", ".ecode", ".ecode 2 args", ".code args", ".ecode args", ".code n args", ".ecode n args", ".add code", ".prefix code",
-  ".append code", ".estyle", ".style args", ".estyle args", ".style 2 args", ".style n args", ".add style", ".add", ".prefix", ".append",
+  ".code 2 args", ".ecode", ".ecode 2 args", ".code args", ".ecode args", ".code n args", ".ecode n args", ".add code",
+  ".estyle", ".style args", ".estyle args", ".style 2 args", ".style n args", ".add style", ".add", ".prefix", ".append",
   ".get", ".link", ".value forbidden", ".store in", ".estore in", ".is if", ".list", ".forward to", ".show value", ".show code",
   ".search also", ".expand once", ".expand twice", ".expanded", ".evaluated", ".retry", ".lastretry", ".tip", ".install key filter",
   ".install key filter handler", ".activate family", ".deactivate family", ".belongs to family", "first char syntax",

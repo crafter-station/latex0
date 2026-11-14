@@ -1,0 +1,24 @@
+% fixture: tikz-cd/display
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a diagram in a display, in a numbered equation and in a formula in a line: the picture's box an ord noad
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Text before
+\[
+\begin{tikzcd}
+A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+C \arrow[r, "k"'] & D
+\end{tikzcd}
+\]
+and a numbered one
+\begin{equation}
+\begin{tikzcd}
+A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+C \arrow[r, "k"'] & D
+\end{tikzcd}
+\end{equation}
+and $X = \begin{tikzcd}[column sep=small] A \arrow[r] & B \end{tikzcd}$ in a line.
+\end{document}

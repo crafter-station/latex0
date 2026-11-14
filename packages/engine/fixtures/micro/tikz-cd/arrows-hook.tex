@@ -1,0 +1,15 @@
+% fixture: tikz-cd/arrows-hook
+% tier: T3
+% engine: document
+% specials: compare
+% covers: hook and hook' (arrows.meta's Hooks as a harpoon, swapped), hookleftarrow
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Hooks
+\begin{tikzcd}
+A \arrow[r, hook] \arrow[d, hook'] & B \arrow[d, hookleftarrow] \\
+C \arrow[r, hook, two heads] & D
+\end{tikzcd}
+end.
+\end{document}

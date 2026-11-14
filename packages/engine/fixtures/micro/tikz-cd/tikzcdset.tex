@@ -1,0 +1,14 @@
+% fixture: tikz-cd/tikzcdset
+% tier: T3
+% engine: document
+% specials: compare
+% covers: \tikzcdset in the preamble: a named sep's value and every arrow's style
+\documentclass{article}
+\usepackage{tikz-cd}
+\tikzcdset{row sep/normal=1cm, arrows={thick}}
+\begin{document}
+Set \begin{tikzcd}
+A \arrow[r, "f"] \arrow[d, "g"'] & B \arrow[d, "h"] \\
+C \arrow[r, "k"'] & D
+\end{tikzcd} end.
+\end{document}

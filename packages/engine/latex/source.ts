@@ -356,7 +356,7 @@ function groupEndAt(s: string, i: number): number {
 function takeTikz(source: string, out: string[]): string {
   let result = ""
   let i = 0
-  const re = /\\begin\{tikzpicture\}|\\tikz(?![A-Za-z])|%/g
+  const re = /\\begin\{tikzpicture\}|\\begin\{tikzcd\}|\\tikz(?![A-Za-z])|%/g
   for (let m = re.exec(source); m; m = re.exec(source)) {
     if (m.index < i) continue
     if (m.index > 0 && source[m.index - 1] === "\\") continue
@@ -366,6 +366,11 @@ function takeTikz(source: string, out: string[]): string {
       const e = source.indexOf("\\end{tikzpicture}", m.index)
       if (e < 0) throw new Unsupported("a tikzpicture without its end")
       end = e + "\\end{tikzpicture}".length
+    } else if (m[0] === "\\begin{tikzcd}") {
+      // tikz-cd's diagram: a picture too
+      const e = source.indexOf("\\end{tikzcd}", m.index)
+      if (e < 0) throw new Unsupported("a tikzcd without its end")
+      end = e + "\\end{tikzcd}".length
     } else {
       let j = m.index + 5
       while (/\s/.test(source[j] ?? "")) j++
@@ -385,7 +390,7 @@ function takeTikz(source: string, out: string[]): string {
       }
     }
     const pic = source.slice(m.index, end)
-    if (/\\begin\{tikzpicture\}/.test(pic.slice(1))) throw new Unsupported("a tikzpicture in a tikzpicture")
+    if (/\\begin\{tikz(?:picture|cd)\}/.test(pic.slice(1))) throw new Unsupported("a tikzpicture in a tikzpicture")
     out.push(pic)
     result += source.slice(i, m.index) + `\\LXtikz{${out.length - 1}}`
     i = end

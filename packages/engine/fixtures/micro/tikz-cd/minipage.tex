@@ -1,0 +1,29 @@
+% fixture: tikz-cd/minipage
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a diagram in a formula, centered in a minipage, at 11pt with amsmath; a cell's arrows on lines of their own
+\documentclass[11pt]{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{tikz-cd}
+\begin{document}
+Generate this diagram:
+\par\noindent
+\begin{minipage}[t]{0.49\linewidth}
+  \centering
+  $
+    \begin{tikzcd}[row sep=2em, column sep=1.5em, ampersand replacement=\&]
+      E
+        \arrow[dr, "e"']
+        \arrow[drr, "p_2"]
+        \arrow[ddr, "p_1"']
+      \& \& \\
+      \& A \times B \arrow[r, "\pi_2"'] \arrow[d, "\pi_1"] \& B \arrow[d, "g"] \\
+      \& A \arrow[r, "f"'] \& C
+    \end{tikzcd}
+  $
+\end{minipage}
+\par
+After.
+\end{document}

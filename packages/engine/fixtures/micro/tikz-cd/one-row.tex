@@ -1,0 +1,10 @@
+% fixture: tikz-cd/one-row
+% tier: T3
+% engine: document
+% specials: compare
+% covers: a diagram of one row: its baseline the matrix's base (1-row diagram), in a line of text
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+One row \begin{tikzcd} A \arrow[r, "f"] & B \arrow[r, "g"] & C \end{tikzcd} in a line.
+\end{document}

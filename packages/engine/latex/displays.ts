@@ -384,6 +384,8 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   if (cx.pre.cls === "amsart" && (["align", "alignat", "gather", "multline"].includes(next.kind) || /\\tag\b/.test(next.src))) throw new Unsupported(`an equation number in amsart (leqno): ${next.kind}`)
   if (next.kind === "align" || next.kind === "align*" || next.kind === "alignat" || next.kind === "alignat*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
+    // (amsmath sets these twice, to measure and to typeset: what a picture does once, its arrow tips' instances, is in the first)
+    if (next.src.includes("\\LXtikz{")) throw new Unsupported(`a TikZ picture in ${next.kind}`)
     if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips, par)
     else if (next.kind.startsWith("multline")) multlineDisplay(cx, next, line, font)
     else alignDisplay(cx, next, line, font, skips, par)

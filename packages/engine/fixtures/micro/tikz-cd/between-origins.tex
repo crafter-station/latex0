@@ -1,0 +1,11 @@
+% fixture: tikz-cd/between-origins
+% tier: T3
+% engine: document
+% specials: compare
+% covers: row sep and column sep between origins: the cells' sizes do not count
+\documentclass{article}
+\usepackage{tikz-cd}
+\begin{document}
+Origins \begin{tikzcd}[row sep={3em,between origins}, column sep={4em,between origins}]
+A \arrow[r] \arrow[d] & BBB \arrow[r] & C \\ D_{g_j} \arrow[r] & E^{X^2} \arrow[u] \\ F & & G \arrow[ll] \end{tikzcd} end.
+\end{document}
