@@ -1,0 +1,33 @@
+% fixture: amsart/amsart-theorems
+% tier: T3
+% engine: document
+% covers: \vspace* at the start (\prevdepth is -1000pt there in amsart: no \onecolumn), amsart's built-in amsthm: plain, definition and remark styles, numbering within the section, a note, the proof with amsart's \qedsymbol (\textsquare from msam)
+% issue: #360
+\documentclass{amsart}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+\begin{document}
+\vspace*{1cm}
+\section{Results}
+Some words before the first theorem of the section.
+\begin{theorem}[Fermat]
+Every prime congruent to one modulo four is a sum of two squares, and the representation is unique up to order and signs.
+\end{theorem}
+\begin{proof}
+Consider the involution on the finite set of solutions and count its fixed points carefully.
+\end{proof}
+\begin{definition}
+A number is \emph{representable} if it is a sum of two squares of integers.
+\end{definition}
+\begin{lemma}
+The product of two representable numbers is representable.
+\end{lemma}
+\begin{remark}
+The identity behind the lemma is due to Brahmagupta and Fibonacci.
+\end{remark}
+Text after the remark.
+\end{document}

@@ -13,7 +13,9 @@ import { Unsupported } from "./unsupported"
 import { frenchTextGuard } from "./french"
 
 /** A mark's value: what \marks holds (`print`), and what \leftmark or \rightmark typesets (\MakeUppercase'd when `upper`) */
-export interface MarkValue { print: string; parts: ({ text: string } | { ctrl: true } | { quad: true })[]; upper: boolean }
+export interface MarkValue { print: string; parts: ({ text: string } | { ctrl: true } | { quad: true })[]; upper: boolean
+  /** amsart's \maketitle's: the text its running heads typeset (in capitals already), the title's with \@upprep */
+  ams?: { text: string; upprep: boolean } }
 export type Mark = [cls: 1 | 2 | 3, value: MarkValue]
 
 export const EMPTY_MARK: MarkValue = { print: "", parts: [], upper: false }

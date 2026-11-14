@@ -68,6 +68,8 @@ export interface ListBlock {
   thm?: { name: string; note: string | null }; proofTitle?: string
   /** abstract: its body as typed, and what follows \end{abstract}: a space, then a blank line or not, or none */
   source?: string; after?: "blank" | "space" | "none"
+  /** amsart's abstract: its \list (amsart's quotation's settings, \labelwidth\z@) and \item[\hskip\labelsep\scshape\abstractname.] */
+  amsAbstract?: boolean
 }
 /** An item's optional label and its parts: paragraphs (how each starts) and nested environments. */
 export interface Item { label: string | null; parts: Part[] }
@@ -229,7 +231,8 @@ function braceDepth(t: string): number {
 }
 
 /** The body as paragraphs, lists and headings. A paragraph that runs into a list ends there (\@trivlist's \par). */
-export function blocksOf(body: string): Block[] {
+/** `headingRefs`: headings may hold ~ and \ref{key} (amsart's, which it lays out) */
+export function blocksOf(body: string, { headingRefs = false } = {}): Block[] {
   // babel's otherlanguage and otherlanguage* (the end goes back to the language before: the paragraph knows it)
   body = body.replace(/\\begin\{otherlanguage(\*?)\}\s*\{([A-Za-z]+)\}/g, (_, star: string, lang: string) => `\\LXotherlanguage${star ? "star" : ""}{${lang}}`)
     .replace(/\\end\{otherlanguage(\*?)\}/g, (_, star: string) => `\\LXendotherlanguage${star ? "star" : ""}{}`)
@@ -409,7 +412,7 @@ export function blocksOf(body: string): Block[] {
       walk(b)
     }
     else if (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "appendix" || b.kind === "mark" || b.kind === "contentsline" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter" || b.kind === "listing" || b.kind === "longtable" || b.kind === "multicols" || b.kind === "columnbreak" || b.kind === "newpage" || b.kind === "pagebreak" || b.kind === "pagestyle" || b.kind === "columns") continue
-    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
+    else if (/[\\{}%&#^_~]/.test(withoutTextCommands(headingRefs ? b.title.replace(/~|\\ref\{[A-Za-z0-9:._-]+\}/g, " ") : b.title).replace(/\$[^$\\]*\$/g, "").replace(/\\[#%&]|\\the[a-zA-Z]+\b|\\relax\b\s*|\\(?:arabic|roman|Roman|alph|Alph)\s*\{[a-zA-Z]+\}/g, ""))) throw new Unsupported(`heading "${b.title}"`)
   }
   return out
 }

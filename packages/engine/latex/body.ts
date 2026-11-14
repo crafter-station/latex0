@@ -32,6 +32,7 @@ import { needsVerticalMode, titlepage, topDeclarations, verticalMaterial, type D
 import { selectFont } from "./paragraph"
 import { QUAD, X_HEIGHT } from "../layout/font"
 import { babelAux, babelState, babelSwitch, languageGroups } from "./babel"
+import { amsAbstract, amsMaketitle } from "./amsart"
 
 export function processBlock(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // the floats that start in a paragraph are built where they stand in it
@@ -57,13 +58,16 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter
   if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter" && b.kind !== "listing") throw new Unsupported(`a ${b.kind} in a letter`)
   if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
+  // amsart: its floats and captions, contents, appendix, \twocolumn, titlepage, \cleardoublepage (\pagestyle{empty} for
+  // the page it leaves blank) and \markboth (amsart's) are its own
+  if (cls === "amsart" && (["toc", "lof", "appendix", "contentsline", "mark", "columns", "titlepage", "letter", "float", "listing", "matter", "longtable", "multicols", "columnbreak"].includes(b.kind) || (b.kind === "newpage" && b.cmd === "cleardoublepage"))) throw new Unsupported(`a ${b.kind === "newpage" ? "\\cleardoublepage" : b.kind} in amsart`)
   // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
   // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }
   if (run.runIn && !(b.kind === "par" || b.kind === "heading" || b.kind === "float" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "listing" || b.kind === "newpage")) throw new Unsupported(`a ${b.kind} right after a run-in heading`)
   if (b.kind === "heading") { if (b.blank && !run.runIn) v.par(); if (run.runIn) runInAlone(cx); if (b.level === 0) chapter(cx, b); else heading(cx, b); return }
   if (run.noskipsec && (b.kind === "maketitle" || b.kind === "titlepage" || b.kind === "toc" || b.kind === "lof" || b.kind === "matter" || b.kind === "bib" || b.kind === "letter")) throw new Unsupported(`a ${b.kind} after a run-in heading lost to a listing`)
-  if (b.kind === "maketitle") { maketitle(cx); return }
+  if (b.kind === "maketitle") { if (cls === "amsart") amsMaketitle(cx); else maketitle(cx); return }
   if (b.kind === "columns") { if (run.runIn || run.noskipsec) throw new Unsupported(`\\${b.two ? "two" : "one"}column right after a run-in heading`); columns(cx, b); return }
   if (b.kind === "titlepage") { titlepage(cx, b.body); return }
   // (after a run-in heading, \newpage's \leavevmode starts its paragraph; its \par after a list is the next paragraph's v.par())
@@ -240,6 +244,7 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
     for (let i = 0; i < langs.opened; i++) babelState.groups.push({ club: v.club, afterheading: v.afterheadingEverypar })
     return
   }
+  if (b.env === "abstract" && cls === "amsart") { amsAbstract(cx, b); return }
   if (b.env === "abstract" && run.k.ints.twocolumn && !cx.pre.titlepage) { twocolumnAbstract(cx, b, blocks[bi + 1]); return }
   if (b.env === "abstract" && cls === "report") { reportAbstract(cx, b, blocks[bi + 1]); return }
   if (b.blank) v.par() // a blank line before the list
