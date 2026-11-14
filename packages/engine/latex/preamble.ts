@@ -10,6 +10,7 @@ import { classData, CM_FONTS, documentClass, familyDefault, isKoma, withAmsMargi
 import type { KomaTitle } from "./koma"
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
+import { scrCommand, scrDefaults, type ScrPage } from "./scrlayer"
 import { geometry } from "./geometry"
 import { lstDefineStyle, lstOptions, LST_DEFAULTS, type LstOptions } from "./listings"
 import { times, setspaceCommand, setspaceOptions, stretchedSizes, withSetspace, type SetSpace } from "./setspace"
@@ -120,6 +121,8 @@ export interface Preamble {
   markDefs: "headings" | "fancyhdr" | null
   /** fancyhdr's fields and rules, when it is loaded */
   fancy: FancyHdr | null
+  /** scrlayer-scrpage's fields, when it is loaded */
+  scrlayer: ScrPage | null
   title: { title?: string; author?: string; date?: string }
   /** KOMA-Script's \subject, \subtitle and \publishers */
   komaTitle: KomaTitle
@@ -243,6 +246,7 @@ export function readPreamble(src: string): Preamble {
   // keeps them, and only \@mkboth goes back to \@gobbletwo
   let markDefs: Preamble["markDefs"] = cls === "book" ? "headings" : null
   let fancy: FancyHdr | null = null
+  let scrlayer: ScrPage | null = null
   let fancyGeometry: number | null = null // how many geometry calls came before the first \pagestyle{fancy}
   let hyper = false // hyperref, with the dvips driver
   let titlesecHyperref = false
@@ -451,12 +455,12 @@ export function readPreamble(src: string): Preamble {
       if (hyper) throw new Unsupported("hyperref loaded twice with options") // (LaTeX: Option clash)
       hyperOptions(hyperOpts, hpo[1])
     }
-    const pk = hpo ? [line, "hyperref"] : line.match(/^\\usepackage\{([a-z,\s]+)\}$/)
+    const pk = hpo ? [line, "hyperref"] : line.match(/^\\usepackage\{([a-z,\s-]+)\}$/)
     if (pk) {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics; xspace's \xspace the expander reads)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", "dcolumn", "cite", ...FONT_PACKAGES].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "scrlayer-scrpage", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", "dcolumn", "cite", ...FONT_PACKAGES].includes(n))
       for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
         if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
         fonts = fontPackage(n, fonts)
@@ -517,6 +521,11 @@ export function readPreamble(src: string): Preamble {
         if (cls !== "article") throw new Unsupported(`titlesec with ${cls}`)
         titlesec = titlesecDefaults(); titlesecFont = selected
       }
+      if (names.includes("scrlayer-scrpage")) {
+        // (its options: the lines, the marks, the widths; with another class its fields are the standard set's)
+        if (!isKoma(cls) || /^\\usepackage\s*\[/.test(line)) throw new Unsupported(isKoma(cls) ? `preamble: ${line}` : `scrlayer-scrpage with ${cls}`)
+        scrlayer = scrDefaults(); pagestyle = "scrheadings" // (\pagestyle{scrheadings} as it loads)
+      }
       if (names.includes("fancyhdr")) {
         fancy = fancyDefaults(!!k.ints.twoside); markDefs = "fancyhdr"
       }
@@ -568,10 +577,14 @@ export function readPreamble(src: string): Preamble {
     const t = line.match(/^\\(title|author|date)\{(.*)\}$/)
     if (t) { title[t[1] as keyof typeof title] = t[2].trim(); continue }
     if (fancy && fancyCommand(fancy, line)) continue
+    if (scrlayer && scrCommand(scrlayer, line)) continue
     if (titlesec && (titleformat(titlesec, line) || titlespacing(titlesec, line))) continue
     // \raggedbottom (\@textbottom \vskip\z@\@plus.0001fil) and \flushbottom (\relax)
     if ((line === "\\raggedbottom" || line === "\\flushbottom") && cls !== "letter") { raggedbottom = line === "\\raggedbottom" ? 1 : 0; continue }
-    const m = line.match(/^\\pagestyle\{(plain|empty|headings|myheadings|fancy)\}$/)
+    const m = line.match(/^\\pagestyle\{(plain|empty|headings|myheadings|fancy|scrheadings)\}$/)
+    // (scrlayer's page styles: scrheadings and its own empty)
+    // (\pagestyle{plain}: plain.scrheadings' oninit hook sets the lines' lengths to 0pt outside any group)
+    if (m && (scrlayer ? m[1] !== "scrheadings" && m[1] !== "empty" : m[1] === "scrheadings")) throw new Unsupported(`preamble: ${line}`)
     if (m && m[1] === "myheadings" && cls === "letter") throw new Unsupported("\\pagestyle{myheadings} in a letter")
     // (\ps@myheadings: \sectionmark and friends \@gobble, the heads \ps@headings's, from \markboth and \markright alone)
     if (m && (m[1] !== "fancy" || fancy)) {
@@ -677,8 +690,9 @@ export function readPreamble(src: string): Preamble {
     // (geometry's \textwidth comes after \par@update set the + and * variants' \parfillskip from \linewidth)
     if (komaRelative && geometryOptions.length) throw new Unsupported("KOMA-Script's parskip= + or * variant with geometry")
     if (k.ints.twocolumn || k.ints.twoside) throw new Unsupported(`${cls} ${k.ints.twocolumn ? "in two columns" : "two-sided"}`)
-    if (pagestyle !== "plain" && pagestyle !== "empty") throw new Unsupported(`\\pagestyle{${pagestyle}} in ${cls}`)
-    for (const p of ["hyperref", "fancyhdr", "natbib", "cleveref", "setspace", "parskip", "listings", "caption", "subcaption", "algorithm", "titlesec", "babel", "multicol", "scrlayer-scrpage", "tocbasic"]) if (new RegExp(`\\\\usepackage\\s*(?:\\[[^\\]]*\\])?\\s*\\{[^}]*\\b${p}\\b`).test(src.slice(0, begin))) throw new Unsupported(`${p} with ${cls}`)
+    if ((scrlayer ? pagestyle !== "scrheadings" && pagestyle !== "empty" : pagestyle !== "plain" && pagestyle !== "empty")) throw new Unsupported(`\\pagestyle{${pagestyle}} in ${cls}`)
+    if (scrlayer && (usesXcolor || stretch)) throw new Unsupported(`scrlayer-scrpage with ${usesXcolor ? "a color package" : "\\baselinestretch"}`)
+    for (const p of ["hyperref", "fancyhdr", "natbib", "cleveref", "setspace", "parskip", "listings", "caption", "subcaption", "algorithm", "titlesec", "babel", "multicol", "tocbasic"]) if (new RegExp(`\\\\usepackage\\s*(?:\\[[^\\]]*\\])?\\s*\\{[^}]*\\b${p}\\b`).test(src.slice(0, begin))) throw new Unsupported(`${p} with ${cls}`)
   }
   if (amsTop) {
     const mk = body.search(/\\maketitle(?![A-Za-z])/); body = mk < 0 ? amsTopMatter(body, amsTop, true) : amsTopMatter(body.slice(0, mk), amsTop, true) + body.slice(mk)
@@ -713,7 +727,7 @@ export function readPreamble(src: string): Preamble {
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
   if (cite && natbib) throw new Unsupported("cite.sty with natbib") // (each defines \cite and \@citex: the last one loaded has them)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, komaTitle, amsTop, amsplain, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, usesGraphicx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, cite, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, scrlayer, title, komaTitle, amsTop, amsplain, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

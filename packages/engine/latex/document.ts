@@ -10,6 +10,7 @@
 import type { LtEntry } from "./longtable"
 import { dataFont } from "./data"
 import { fancyPage } from "./fancyhdr"
+import { scrlayerPage } from "./scrlayer"
 import { pdftexColors } from "./pdftex"
 import { emitBoxes } from "../emit/boxes"
 import { shipOut, type PageMark } from "../emit/trace"
@@ -338,7 +339,7 @@ function layout({ src, listings: listings0, tabulars: tabulars0, longtables, min
     // (an output routine run at a \bibitem sees babel's \@safe@activestrue: null where hyperref or natbib replaced \@bibitem)
     const at = run.bibSafe.find((w) => pages[i].reached >= w.from && pages[i].reached < w.to)
     const safe = at ? (at.exact && !hyper && !pre.natbib ? true : null) : false
-    const fancy = style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : cls === "amsart" ? { ...amsHeadFoot(run.k, style, even, pages[i].thepage, heads[i]), traces: [] } : undefined
+    const fancy = pre.scrlayer ? scrlayerPage(cx, pre.scrlayer, style, pages[i].thepage) : style === "fancy" ? fancyPage(cx, pre.fancy!, even, pages[i].thepage, heads[i], safe) : cls === "amsart" ? { ...amsHeadFoot(run.k, style, even, pages[i].thepage, heads[i]), traces: [] } : undefined
     if (fancy) pageTraces.push({ at: pages[i].reached, traces: fancy.traces })
     return outputPage(c.outputbox, pages[i].count, run.k, style, hyper, markText(even ? heads[i].left : heads[i].right, sl), pages[i].thepage, fancy)
   })
