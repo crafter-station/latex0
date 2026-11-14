@@ -24,7 +24,7 @@ import { emitBoxes } from "../emit/boxes"
 import { hpack, vpack } from "../layout/pack"
 import type { ParagraphTrace } from "../trace/decisions"
 import { shipOut } from "../emit/trace"
-import { classData, documentClass, familyFont } from "./classes"
+import { classData, documentClass, familyFont, setupFont } from "./classes"
 import { dataFont } from "./data"
 import { hyphenationData, mathData } from "./data"
 import type { LayoutResult } from "./result"
@@ -927,6 +927,7 @@ function sfFont(k: ClassOptionData, size: SizeCommand, a: FontAttrs): Font {
     const family = k.families && { cmr: k.families.rm, cmss: k.families.sf, cmtt: k.families.tt }[a.fam]
     if (!family || family === a.fam) return selectFont(other, s, a)
     if (family === "phv") throw new Unsupported(`\\LaTeX at ${size} in phv`) // (its scale)
+    if (family === "cmss" || family === "cmtt") return selectFont(other, s, { ...a, fam: family }) // (\familydefault's)
     const fonts = Object.fromEntries(["n", a.shape].map((sh) => [`${a.enc}/${a.fam}/${a.ser}/${sh}`, familyFont(family, `${a.enc}/${a.ser}/${sh}`, other.sizes[s].size)]))
     return selectFont({ ...other, sizes: { ...other.sizes, [s]: { ...other.sizes[s], fonts } } }, s, a)
   }
@@ -943,7 +944,7 @@ const sizeFont = (k: ClassOptionData, size: SizeCommand) => { const f = k.sizes[
  */
 /** \normalfont at \sf@size: math family 0's script font, or with T1 the EC font of that size */
 function markFont(k: ClassOptionData, size: SizeCommand): Font {
-  if (k.families && k.families.rm !== "cmr") { const r = familyFont(k.families.rm, `${k.ints.T1 ? "T1" : "OT1"}/m/n`, k.sizes[size].scriptSize); return loadFont(dataFont(r.name), r.at) }
+  if (k.families && k.families.rm !== "cmr") { const r = setupFont(k, k.families.rm, `${k.ints.T1 ? "T1" : "OT1"}/m/n`, k.sizes[size].scriptSize); return loadFont(dataFont(r.name), r.at) }
   const ref = k.ints.T1 ? { name: `ecrm${String(Math.round(k.sizes[size].scriptSize / 655.36)).padStart(4, "0")}`, at: k.sizes[size].scriptSize } : k.sizes[size].math.script[0]
   return loadFont(dataFont(ref.name), ref.at)
 }
@@ -965,7 +966,7 @@ function fnsymbolMark(n: number, k: ClassOptionData, size: SizeCommand, amsmath 
   const sf = k.sizes[size].scriptSize, pt = String(Math.round(sf / 655.36)).padStart(4, "0")
   const font = (name: string) => loadFont(dataFont(name), sf)
   // (\rmdefault's at \sf@size)
-  const rm = (enc: string) => { const r = familyFont(k.families!.rm, `${enc}/m/n`, sf); return loadFont(dataFont(r.name), r.at) }
+  const rm = (enc: string) => { const r = setupFont(k, k.families!.rm, `${enc}/m/n`, sf); return loadFont(dataFont(r.name), r.at) }
   const [f, code] = kind === "section" && k.ints.T1 ? [k.families && k.families.rm !== "cmr" ? rm("T1") : font(`ecrm${pt}`), 159]
     : [k.families && k.families.rm !== "cmr" ? rm("TS1") : font(`tcrm${pt}`), { "*": 42, "**": 42, dagger: 132, dagger2: 132, ddagger: 133, ddagger2: 133, section: 167, paragraph: 182, bardbl: 134 }[kind]!]
   const chars = kind.endsWith("2") || kind === "**" ? [code, code] : [code]

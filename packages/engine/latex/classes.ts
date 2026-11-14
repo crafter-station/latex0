@@ -68,6 +68,13 @@ export function withT1(k: ClassOptionData, cls: string): ClassOptionData {
 /** The fonts the preamble's font packages select (#340): the families \rmdefault, \sfdefault and \ttdefault name, and
  *  the package that set the math fonts (\SetSymbolFont, \SetMathAlphabet), null for fontmath.ltx's */
 export interface FontSetup { rm: string; sf: string; tt: string; math: string | null; /** helvet.sty's scaled=: \Hv@scale */ phvScale: string | null }
+/**
+ * The fonts with \familydefault one of \rmdefault, \sfdefault and \ttdefault: \normalfont (\usefont\encodingdefault
+ * \familydefault\seriesdefault\shapedefault) selects that family, so it stands where the roman does (the FontAttrs
+ * family cmr: the body's font, \reset@font, \textnormal, footnote marks); \rmfamily and \textrm, which would still
+ * select \rmdefault, are not laid out then (document.ts).
+ */
+export const familyDefault = (f: FontSetup, family: "rm" | "sf" | "tt"): FontSetup => (family === "rm" ? f : { ...f, rm: f[family] })
 export const CM_FONTS: FontSetup = { rm: "cmr", sf: "cmss", tt: "cmtt", math: null, phvScale: null }
 
 /** NFSS's font for "encoding/series/shape" of a family at a font size in sp (\fontsize{size}\selectfont) */
@@ -77,8 +84,30 @@ export function familyFont(family: string, key: string, size: number): FontRef &
   return r
 }
 
+/** Computer Modern's families, whose fonts the classes' data has (the FontAttrs families) */
+const CM_FAMILIES = ["cmr", "cmss", "cmtt"]
+
+/**
+ * The font of a family the document's fonts name (ClassOptionData.families) for "encoding/series/shape" at a font size
+ * in sp: a font package's (with helvet's scale, the .fd's s*[\Hv@scale]), or Computer Modern's sans or typewriter, at
+ * the size command of that size (of any size option: the .fd files' font there, which no class changes).
+ */
+export function setupFont(k: ClassOptionData, family: string, key: string, size: number): FontRef {
+  if (CM_FAMILIES.includes(family)) {
+    const [enc, ser, shape] = key.split("/")
+    for (const option of ["10pt", "11pt", "12pt"]) {
+      const s = Object.values(classData("article", option).sizes).find((x) => x.size === size)
+      if (s) { const r = s.fonts[`${enc}/${family}/${ser}/${shape}`]; return { name: r.name, at: r.at } }
+    }
+    throw new Unsupported(`${key.replace("/", `/${family}/`)} at ${size / 65536}pt`)
+  }
+  const r = familyFont(family, key, size)
+  return { name: r.name, at: family === "phv" && k.families?.phvScale ? times(k.families.phvScale, r.at) : r.at }
+}
+
 /** The class with the font packages' fonts: at every size, each family's fonts where the FontAttrs families cmr, cmss
- *  and cmtt (\rmdefault, \sfdefault, \ttdefault) select, the roman's as the size's fonts, and the package's math fonts. */
+ *  and cmtt (\rmdefault, \sfdefault, \ttdefault) select, the roman's as the size's fonts, and the package's math fonts.
+ *  With \familydefault another family's default, `rm` is that family (familyDefault): cmr is the family \normalfont selects. */
 export function withFonts(k: ClassOptionData, setup: FontSetup): ClassOptionData {
   const slots = ([["cmr", setup.rm], ["cmss", setup.sf], ["cmtt", setup.tt]] as const).filter(([slot, family]) => slot !== family)
   if (!slots.length && !setup.math) return k
@@ -88,7 +117,8 @@ export function withFonts(k: ClassOptionData, setup: FontSetup): ClassOptionData
     for (const [slot, family] of slots) {
       for (const key of Object.keys(s.fonts).filter((x) => x.split("/")[1] === slot)) {
         const [enc, , ser, shape] = key.split("/")
-        const r = familyFont(family, `${enc}/${ser}/${shape}`, s.size)
+        // (\familydefault naming Computer Modern's sans or typewriter: those of the class)
+        const r = CM_FAMILIES.includes(family) ? s.fonts[`${enc}/${family}/${ser}/${shape}`] : familyFont(family, `${enc}/${ser}/${shape}`, s.size)
         // (the .fd's s*[\Hv@scale]: \@tempdimb\f@size\p@, then \@tempdimb\Hv@scale\@tempdimb)
         fonts[key] = family === "phv" && setup.phvScale ? { ...r, at: times(setup.phvScale, r.at) } : r
       }
@@ -99,5 +129,5 @@ export function withFonts(k: ClassOptionData, setup: FontSetup): ClassOptionData
     const text = setup.rm === "cmr" ? {} : { font: ref("OT1/cmr/m/n"), bold: ref("OT1/cmr/bx/n"), companion: ref("TS1/cmr/m/n"), t1: { font: ref("T1/cmr/m/n"), bold: ref("T1/cmr/bx/n") } }
     return [n, { ...s, fonts, ...text, ...(m ? { math: m.math, mathAms: m.mathAms, alphabets: m.alphabets } : {}) }]
   })) as ClassOptionData["sizes"]
-  return { ...k, sizes, families: { rm: setup.rm, sf: setup.sf, tt: setup.tt } }
+  return { ...k, sizes, families: { rm: setup.rm, sf: setup.sf, tt: setup.tt, phvScale: setup.phvScale } }
 }

@@ -6,7 +6,7 @@
 import type { ClassOptionData, FontRef } from "../layout/classdata"
 import { parseDimen, parseGlue, type GlueSpec } from "../layout/dimen"
 import { loadFont, QUAD, X_HEIGHT } from "../layout/font"
-import { classData, CM_FONTS, documentClass, withFonts, withT1, type FontSetup } from "./classes"
+import { classData, CM_FONTS, documentClass, familyDefault, withFonts, withT1, type FontSetup } from "./classes"
 import { dataFont } from "./data"
 import { fancyCommand, fancyDefaults, type FancyHdr } from "./fancyhdr"
 import { geometry } from "./geometry"
@@ -99,6 +99,8 @@ export interface Preamble {
   titlepage: boolean
   /** \usepackage[T1]{fontenc} */
   t1: boolean
+  /** \familydefault: the family \normalfont selects (its fonts stand where the roman's do in `k`) */
+  familydefault: "rm" | "sf" | "tt"
   /** booktabs loaded (after fontenc's T1 or not): its em and ex are the font's then */
   booktabsFont: FontRef | null
   /** titlesec loaded: the em and ex of the font selected then, which its default spacing takes */
@@ -241,6 +243,7 @@ export function readPreamble(src: string): Preamble {
   const title: { title?: string; author?: string; date?: string } = {}
   let t1 = false
   let fonts: FontSetup = CM_FONTS // the font packages' families and math fonts
+  let familydefault: "rm" | "sf" | "tt" = "rm" // \familydefault: \rmdefault, \sfdefault or \ttdefault (\LXfamilydefault, source.ts)
   // the font selected in the preamble, whose em and ex lengths read there take: the class's \normalsize until fontenc
   // selects again (a font package only changes what the next \selectfont takes)
   let selected: PreambleFont = { t1: false, fonts: CM_FONTS }
@@ -345,8 +348,11 @@ export function readPreamble(src: string): Preamble {
     if (lxs) { stretch = lxs[1]; continue }
     const lxthe = line.match(/^\\LXthe\{([A-Za-z]+)\}\{(.*)\}$/) // (source.ts: \renewcommand{\the<counter>}{body})
     if (lxthe) { counterFormats.set(lxthe[1], lxthe[2]); continue }
-    // (fontenc selects the font: T1 in the family \rmdefault names then)
-    if (line === "\\usepackage[T1]{fontenc}") { t1 = true; selected = { t1, fonts }; continue }
+    // \familydefault, which \normalfont reads: the family the next one selects (fontenc's, \begin{document}'s)
+    const lxf = line.match(/^\\LXfamilydefault\{(rm|sf|tt)\}$/)
+    if (lxf) { if (cls === "letter") throw new Unsupported("\\familydefault with letter"); familydefault = lxf[1] as "rm" | "sf" | "tt"; continue }
+    // (fontenc selects the font, \usefont\encodingdefault\familydefault…: T1 in the family \familydefault names then)
+    if (line === "\\usepackage[T1]{fontenc}") { t1 = true; selected = { t1, fonts: familyDefault(fonts, familydefault) }; continue }
     // parskip.sty (its current release, no options): \parskip .5\baselineskip plus 2pt, \parindent 0pt as it loads
     if (line === "\\usepackage{parskip}") {
       if (parskip || setspace || cls === "letter") throw new Unsupported(`preamble: ${line}${cls === "letter" ? " with letter" : ""}`)
@@ -542,7 +548,9 @@ export function readPreamble(src: string): Preamble {
     }
     throw new Unsupported(`preamble: ${line}`)
   }
-  k = withFonts(k, fonts)
+  // (what uses \rmdefault's own fonts, or reads the family's name: not modeled with another default family)
+  if (familydefault !== "rm" && (usesSiunitx || ((babel as Babel | null)?.languages.some((l) => l === "spanish" || l === "french") ?? false))) throw new Unsupported(`\\familydefault as \\${familydefault}default with ${usesSiunitx ? "siunitx" : "babel's spanish or french"}`)
+  k = withFonts(k, familyDefault(fonts, familydefault))
   if (t1) k = withT1(k, cls)
   const geo = { landscape: false }
   if (geometryOptions.length) {
@@ -642,7 +650,7 @@ export function readPreamble(src: string): Preamble {
   if (nameref && !hyper && (titlesec || cleveref)) throw new Unsupported(`nameref with ${titlesec ? "titlesec" : "cleveref"}`)
   // (colortbl with color.sty alone, its \color's specials; siunitx's S columns in its templates)
   if (colortbl && (!usesXcolor || usesSiunitx)) throw new Unsupported(`colortbl ${usesXcolor ? "with siunitx" : "without xcolor"}`)
-  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
+  return { cls, option, k, titlepage: (cls === "report" || cls === "book") && !/\\documentclass\s*\[[^\]]*\bnotitlepage\b/.test(src), classTextwidth, medskipamount, lstBase, usesListings, usesUrl, usesMultirow, tabularx, longtable, multicol, colortbl, usesSiunitx, siOptions: siOpts, usesCaption, usesSubcaption, caption, columnTypes, usesXcolor, tikz, usesAmsthm, amsmath, mathPackages: { ...mathPackages, ...(usesArray ? { array: true } : {}) }, enumitem, hyper, geometry: geometryOptions.length ? geo : null, graphicsDriver: usesGraphicx || usesXcolor || usesSiunitx, hyperNotes, nameref: nameref || hyper, cleveref, crefOptions, crefNames, titlesec, titlesecHyperref, natbib: natbib && { first: natbib.style, later: natbibStyle(natbib, bibstyles) }, titlesecUnits: titlesec && ((f) => ({ em: f.params[QUAD], ex: f.params[X_HEIGHT] }))(selectedFont(titlesecFont)), t1, familydefault, booktabsFont: booktabsFont && ((r) => ({ name: r.name, at: r.size }))(selectedFont(booktabsFont)), thmDefs, colorDefs, pagestyle, markDefs, fancy, title, letterInfo, newCounters, counterFormats, counterWithin, algorithm, babel: bb, names: captions(bb, cls === "report" || cls === "book", captionAdds), captionAdds, body, hyperOpts, usesFloat, parskip }
 }
 
 /** braces balanced in s */

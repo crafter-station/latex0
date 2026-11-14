@@ -1,0 +1,14 @@
+% fixture: fonts/familydefault-after-fontenc
+% tier: T3
+% engine: document
+% covers: \familydefault as \sfdefault after fontenc: the font selected in the preamble is still the roman (no \selectfont after it), so lengths in em and ex read there are the roman's, and the body is sans
+\documentclass{article}
+\usepackage[T1]{fontenc}
+\renewcommand{\familydefault}{\sfdefault}
+\setlength{\parindent}{3em}
+\setlength{\parskip}{2ex}
+\begin{document}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here.
+\end{document}

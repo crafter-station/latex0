@@ -1,0 +1,10 @@
+% fixture: fonts/familydefault-tt
+% tier: T3
+% engine: document
+% covers: \def\familydefault{\ttdefault}: the body, a heading, a footnote and the page number in Computer Modern typewriter (no hyphenation, \hyphenchar -1; no bold: cmtt substituted)
+\documentclass[12pt]{article}
+\def\familydefault{\ttdefault}
+\begin{document}
+\section{A heading}
+The quick brown fox jumps over the lazy dog and runs on through the long grass by the river, far enough to take more than one line of the text here. A note\footnote{Its text.} here, with \textbf{bold} and \textit{italic} words and \textsf{sans}.
+\end{document}
