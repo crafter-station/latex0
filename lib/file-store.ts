@@ -91,22 +91,22 @@ export const defaultFiles: FileNode[] = [
 
 \\textbf{Latex0} is an AI-powered \\LaTeX{} editor for writing scientific documents. It supports real-time collaboration with coauthors and was created by Crafter Station; it includes intelligence developed by Crafter Station to help you draft and edit text, reason through ideas, and handle formatting.
 
-\\section*{The experimental rendering engine}
+\\section*{The rendering engine}
 
-The preview you are reading right now was \\emph{not} produced by a traditional \\TeX{} distribution or a remote PDF service. It is rendered by an \\textbf{experimental, zero-dependency \\LaTeX{} engine} written in pure TypeScript that runs entirely in your browser. There is no \\texttt{pdflatex} process, no WebAssembly toolchain, and no network round-trip: your source is converted straight to HTML and CSS as you type.
+The preview you are reading right now was \\emph{not} produced by a \\TeX{} distribution or a remote PDF service. It is laid out by a \\textbf{zero-dependency \\LaTeX{} engine} written in TypeScript that runs entirely in your browser. There is no \\texttt{pdflatex} process, no WebAssembly toolchain, and no network round-trip.
 
-The engine works in three single-pass stages:
+The engine does not approximate \\LaTeX{}: it follows the same rules \\TeX{} does, so the page you see is the page \\texttt{pdflatex} would give you.
 \\begin{enumerate}
-  \\item \\textbf{Tokenize.} The source is scanned character by character into a flat stream of tokens --- commands, braces, math shifts, comments --- with no regular-expression backtracking.
-  \\item \\textbf{Parse.} An arity- and environment-aware recursive-descent parser turns that stream into an abstract syntax tree, resolving how many arguments each command consumes and where every environment begins and ends.
-  \\item \\textbf{Render.} The tree is walked once, emitting HTML for text and a dedicated layout pass for mathematics. Every text boundary is escaped, so the generated markup is safe to inject.
+  \\item \\textbf{Expand.} Your macros and environments are expanded token by token, the way \\TeX{} expands them.
+  \\item \\textbf{Break.} Paragraphs are hyphenated and broken into lines with \\TeX{}'s own line-breaking algorithm, and formulas are built with its math layout rules and font metrics.
+  \\item \\textbf{Build pages.} Lines, floats and footnotes are placed by the same page-building rules, and each page is drawn with every glyph at the position \\TeX{} gives it.
 \\end{enumerate}
 
-Because the whole pipeline is pure and free of runtime dependencies, a typical document re-renders in well under a millisecond. That is why the preview updates on \\emph{every keystroke}, with no debounce, no compile button, and no spinner.
+A typical document is laid out again in a few milliseconds. That is why the preview updates on \\emph{every keystroke}, with no compile button and no spinner.
 
-\\textbf{What it understands.} Sectioning with automatic numbering, ordered and unordered lists, \\texttt{tabular} layout, figures and floats with cross-references, text accents, and roughly 250 symbols --- plus a full math mode covering fractions, roots, sub- and superscripts, matrices, cases, and aligned equations. Commutative diagrams written with \\texttt{tikzcd} are rendered to inline SVG, as you can see in the features below.
+\\textbf{How we know.} Every construct the engine supports is checked against real \\texttt{pdflatex} on more than a thousand test documents, and counts only when every glyph lands in the same place. The results are public on the scorecard.
 
-\\textbf{What to expect.} This is an experimental engine that implements a deliberate, growing \\emph{subset} of \\LaTeX{}, not the entire language. Commands it does not yet recognize degrade gracefully instead of breaking the page, so you can keep writing while coverage expands. And \`\`Export to PDF'' is simply your browser printing this very preview --- truly what you see is what you get.
+\\textbf{What to expect.} The engine does not cover all of \\LaTeX{} yet. When a document uses something it cannot lay out exactly, it says which construct stopped it and shows an approximate preview instead, so you can keep writing while coverage grows. \`\`Export to PDF'' is your browser printing these very pages.
 
 \\section*{Features}
 
