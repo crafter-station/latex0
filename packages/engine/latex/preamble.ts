@@ -25,6 +25,7 @@ import { SI_DEFAULTS, siOptions, type SiOptions } from "./siunitx"
 import { babelOptions, captions, isBabelLanguage, isSpanish, withBabel, type Babel, type CaptionAdds, type Captions } from "./babel"
 import { markAccentHyphens } from "./spanish"
 import { enumitemOptions, setlist, type Enumitem } from "./enumitem"
+import { DCOLUMN_TYPE } from "./dcolumn"
 
 export type ThmStyle = "plain" | "definition" | "remark"
 /** \newtheorem{name}…: its title and style, the counter it steps (null: starred) and the counter that one is within */
@@ -426,7 +427,7 @@ export function readPreamble(src: string): Preamble {
       // packages whose loading alone changes nothing on the page (amssymb and amsfonts only declare
       // fonts, amsthm only environments, graphicx only \includegraphics; xspace's \xspace the expander reads)
       const names = pk[1].split(",").map((n) => n.trim())
-      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", ...FONT_PACKAGES].includes(n))
+      const unknown = names.filter((n) => !["amsmath", "amssymb", "amsfonts", "amsthm", "graphicx", "hyperref", "enumitem", "listings", "xcolor", "booktabs", "url", "fancyhdr", "cleveref", "titlesec", "algorithm", "algpseudocode", "multirow", "array", "siunitx", "caption", "subcaption", "nameref", "tikz", "babel", "float", "xspace", "mathrsfs", "mathtools", "tabularx", "longtable", "multicol", "colortbl", "dcolumn", ...FONT_PACKAGES].includes(n))
       for (const n of names.filter((x) => FONT_PACKAGES.includes(x))) {
         if (cls === "letter") throw new Unsupported(`${n} with letter`) // (its \@listI in em of the font at the list)
         fonts = fontPackage(n, fonts)
@@ -458,6 +459,10 @@ export function readPreamble(src: string): Preamble {
       if (names.includes("tabularx")) { // (tabularx loads array)
         if ("X" in columnTypes) throw new Unsupported(`${line} after \\newcolumntype{X}`)
         tabularx ??= { column: "p{#1}" }; usesArray = true
+      }
+      if (names.includes("dcolumn")) { // (dcolumn loads array; array.sty keeps a column type's first definition)
+        if ("D" in columnTypes && columnTypes.D !== DCOLUMN_TYPE) throw new Unsupported(`${line} after \\newcolumntype{D}`)
+        columnTypes.D = DCOLUMN_TYPE; usesArray = true
       }
       if (names.includes("siunitx")) {
         if (usesSiunitx) throw new Unsupported(`preamble: ${line}`)

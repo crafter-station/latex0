@@ -1,0 +1,17 @@
+% fixture: dcolumn/right-both
+% tier: T3
+% engine: document
+% covers: dcolumn's D{.}{.}{m.n}: the first box an \hbox to m digits{\hss\hfill$…$} too, so the column has a fixed width; entries wider than the places, with no point (\DC@end's \hfil in the first box) and empty; rules beside the column
+\documentclass{article}
+\usepackage{dcolumn}
+\begin{document}
+\begin{tabular}{|l|D{.}{.}{3.2}|}
+\hline
+Intercept & 7.11 \\
+Slope & 116.5 \\
+Grade & 1873 \\
+Wide & 12345.678 \\
+None & \\
+\hline
+\end{tabular}
+\end{document}

@@ -15,6 +15,7 @@ import { Unsupported } from "./unsupported"
 import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
 import { colorPop, colorPush, xcolor } from "./xcolor"
 import { FILL } from "../layout/nodes"
+import { dcolumnEntry, dcolumnOf } from "./dcolumn"
 
 export class TabularUnsupported extends Unsupported {}
 
@@ -495,6 +496,15 @@ export function tabularList(lines: TabLine[], cols: TabCol[], env: TabularEnv, t
     }
     let pre = col.pre ?? ""
     const post = col.post ?? ""
+    // dcolumn's D: \hfil\hskip1sp, then \DC@'s boxes (the entry in formulas: \textonly@unskip and a \\[skip]'s \unskip
+    // take nothing there), \do@row@strut's \vrule, \hfil
+    const dc = dcolumnOf(pre, post)
+    if (dc) {
+      if (ct) throw new TabularUnsupported("a D column with colortbl")
+      st.spaceFactor = 1000 // (boxes)
+      l.push(filGlue(), glue(1), ...dcolumnEntry(dc, text, (src) => env.cell(src, { spaceFactor: 1000 })), ...cr, filGlue())
+      return l
+    }
     const sh = pre.match(/^\s*\\(centering|raggedright|raggedleft)(?![A-Za-z])\s*/)
     let shape: "centering" | "raggedright" | "raggedleft" | null = null
     if (sh) {
