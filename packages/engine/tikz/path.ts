@@ -1870,14 +1870,16 @@ export class TikzPicture {
     const nodes: { name: string; row: number; column: number }[] = []
     const maxy: number[] = [], miny: number[] = [], maxx: number[] = [], minx: number[] = [], columnSep: number[] = [], rowSep: number[] = []
     let columns = 0
+    /** \ifpgf@matrix@fixed (global): the sep read last is between origins */
+    let fixed = false
     /** \pgf@matrix@addtolength (153–176): the lengths of a comma list, summed */
     const lengths = (list: Toks): number => {
       let total = 0
       for (const part of splitAll(list, [","])) {
         const v = str(spdef(part))
         if (v === "") continue
-        if (v === "between origins") throw new Unsupported("tikz: a matrix's sep between origins")
-        if (v === "between borders") continue
+        if (v === "between origins") { fixed = true; continue }
+        if (v === "between borders") { fixed = false; continue }
         if (part.some((x) => isCs(x))) throw new Unsupported(`tikz: a matrix's sep "${source(part)}"`)
         const r = pgfmathSetLength(v, s.units)
         if (r.errors.length) throw new Unsupported(`tikz: ${r.errors[0]}`)
@@ -1885,6 +1887,11 @@ export class TikzPicture {
       }
       return total
     }
+    /** \pgf@matrix@column@finish@<c>: the column's cells have no width to the right, or to the left; \pgf@matrix@row@finish: no height */
+    const noRight: boolean[] = [], noLeft: boolean[] = []
+    let noHeight = false
+    /** the skips after each row: the sep, and between origins the row's depth taken back (455–470) */
+    const skips: number[][] = []
     const laid: { box: BoxNode; lead: number; pad: number }[][] = []
     rows.forEach((row, ri) => {
       const r = ri + 1
@@ -1929,14 +1936,22 @@ export class TikzPicture {
           // \tikz@lib@matrix@empty@cell (tikzlibrarymatrix.code.tex 23)
           if (this.tz.st.matrixOfNodes && this.tz.st.nodesInEmptyCells) this.command(new Input(["\\node", "[", ...chars(`name=${cellName}`), "]", "{", "}", ";"]))
         } else if (this.tz.st.matrixOfNodes) this.nodeCell(toks, cellName)
-        else this.body(new Input([...toks]), null)
+        else this.body(new Input(toks.slice(toks.findIndex((t) => t !== " "))), null) // (the blanks that begin an alignment entry go)
         d.endscope()
         d.endPicture()
         // \pgf@matrix@endcell (213–283): the sep before a column the rows above did not reach
-        if (c >= columns && !last) columnSep[c + 1] = lengths(this.tz.st.columnSep) + lengths(cell.extra ?? chars("0pt"))
+        if (c >= columns && !last) {
+          fixed = false
+          columnSep[c + 1] = lengths(this.tz.st.columnSep) + lengths(cell.extra ?? chars("0pt"))
+          if (fixed) noRight[c] = true
+          noLeft[c + 1] = fixed
+        }
         if (last) rowSepText = this.tz.st.rowSep
-        let p = s.picture
+        let p = { ...s.picture }
         if (p.maxX === -EMPTY_EXTENT) p = { minX: 0, maxX: 0, minY: 0, maxY: 0 }
+        if (noRight[c]) p.maxX = 0
+        if (noLeft[c]) p.minX = 0
+        if (noHeight) p.maxY = 0
         this.end()
         this.end()
         const box = hpack(s.out)
@@ -1962,8 +1977,17 @@ export class TikzPicture {
         this.end()
       })
       // \pgfmatrixendrow, \pgf@matrix@finish@line (447–470), in the last cell's padding entry
+      fixed = false
       rowSep[r] = lengths(rowSepText) + (row.extra ? lengths(row.extra) : 0)
       miny[r] -= rowSep[r]
+      if (ri < rows.length - 1) {
+        // \pgf@matrix@no@eom@found
+        if (fixed) {
+          skips[r] = [rowSep[r], miny[r], rowSep[r]]
+          miny[r] = -rowSep[r]
+        } else skips[r] = [rowSep[r]]
+        noHeight = fixed
+      }
       laid.push(line)
     })
     if (cd) this.cdRows = rows.length
@@ -1994,7 +2018,7 @@ export class TikzPicture {
       rowBox.width = width
       rowBox.height = h
       rowBox.depth = dp
-      if (ri > 0) vlist.push(glue(rowSep[ri]), paramGlue("lineskip", glue(0)))
+      if (ri > 0) vlist.push(...skips[ri].map((x) => glue(x)), paramGlue("lineskip", glue(0)))
       vlist.push(rowBox)
     })
     const box = hpack([vpack(vlist)])
@@ -2110,6 +2134,8 @@ export class TikzPicture {
     if (math) {
       if (!this.text) throw new Unsupported("tikz: a node's text outside a document")
       if (st.textWidth.length || header.length) throw new Unsupported("tikz: a math node with a text width or align")
+      // (the color's specials inside the formula's group, not modeled)
+      if (st.textColor.length) throw new Unsupported("tikz: a text color in a math node")
       if (content.includes("\\\\")) throw new Unsupported("tikz: \\\\ in a node's text without align or a text width")
       list = this.text.hlist(`$${this.scriptMath() ? "\\scriptstyle" : ""}{${body}}$`, this.font())
     } else if (st.textWidth.length) {
