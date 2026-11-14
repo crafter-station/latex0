@@ -381,7 +381,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   if (amsmath && next.kind !== "dollars") cx.run.tagFlag = next.kind === "multline" && !/\\(nonumber|notag)\b/.test(next.src) || next.kind.startsWith("multline") && /\\tag(?![A-Za-z@])/.test(next.src)
   const { counters, refs, romanFont, run, v } = cx
   // (amsart's tags are on the left: leqno)
-  if (cx.pre.cls === "amsart" && (["equation", "align", "alignat", "gather", "multline"].includes(next.kind) || /\\tag\b/.test(next.src))) throw new Unsupported(`an equation number in amsart (leqno): ${next.kind}`)
+  if (cx.pre.cls === "amsart" && (["align", "alignat", "gather", "multline"].includes(next.kind) || /\\tag\b/.test(next.src))) throw new Unsupported(`an equation number in amsart (leqno): ${next.kind}`)
   if (next.kind === "align" || next.kind === "align*" || next.kind === "alignat" || next.kind === "alignat*" || next.kind === "gather" || next.kind === "gather*" || next.kind === "multline" || next.kind === "multline*") {
     if (!amsmath) throw new Unsupported(`${next.kind} without amsmath`)
     if (next.kind.startsWith("gather")) gatherDisplay(cx, next, line, font, skips, par)
@@ -414,8 +414,8 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
   }
   const env = mathEnv(run.k, "normalsize", amsmath); cx.doc.mathSize = "normalsize"
   if (next.kind === "equation*" && !amsmath) throw new Unsupported("equation* without amsmath")
-  // (amsart's equation numbers are on the left: leqno)
-  if (next.kind === "equation" && cx.pre.cls === "amsart") throw new Unsupported("an equation number in amsart (leqno)")
+  // (amsart passes leqno to amsmath: \veqno is \leqno; \displaymath@qed's is \eqno still)
+  const left = next.kind === "equation" && cx.pre.cls === "amsart"
   let eqno: BoxNode | null = null
   // amsthm's \qedhere in amsmath's equation* (\[ \]): \displaymath@qed's \eqno\hbox{\qedsymbol}
   if (qedhere) {
@@ -456,7 +456,7 @@ function displayMath(cx: Ctx, next: Display, line: { width: number; indent: numb
     width: line.width, indent: line.indent, preSize: preDisplaySize(justBox, quad), mathQuad: env.fonts[0][2]!.params[QUAD],
     preDisplayPenalty: run.k.ints.predisplaypenalty, postDisplayPenalty: run.k.ints.postdisplaypenalty,
     aboveDisplaySkip: sz.abovedisplayskip, belowDisplaySkip: sz.belowdisplayskip, aboveDisplayShortSkip: sz.abovedisplayshortskip, belowDisplayShortSkip: sz.belowdisplayshortskip,
-  })
+  }, left)
   for (const it of items) { if ("box" in it) v.box(it.box, sz.baselineskip); else v.nodes.push(it.node) }
 }
 
