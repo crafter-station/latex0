@@ -8,6 +8,7 @@ export interface ExactRequest {
 }
 
 export type ExactResponse =
-  | { id: number; ok: true; pages: string[]; fonts: string[]; ms: number }
+  /** `warnings`: what is on the pages that the view does not draw (a PDF image, say) */
+  | { id: number; ok: true; pages: string[]; fonts: string[]; warnings: string[]; ms: number }
   /** the document has something the exact engine cannot lay out yet */
   | { id: number; ok: false; reason: string }

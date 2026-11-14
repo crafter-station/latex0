@@ -28,7 +28,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
   const nextId = useRef(0)
   const [result, setResult] = useState<ExactResponse | null>(null)
   // the last document laid out; what the download prints and what stays up while the source is broken
-  const [drawn, setDrawn] = useState<{ pages: string[]; fonts: string[]; ms: number } | null>(null)
+  const [drawn, setDrawn] = useState<{ pages: string[]; fonts: string[]; warnings: string[]; ms: number } | null>(null)
   const pagesRef = useRef<{ pages: string[]; fonts: string[] } | null>(null)
   const staleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [fallback, setFallback] = useState(false)
@@ -37,7 +37,7 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
     if (staleTimer.current) clearTimeout(staleTimer.current)
     staleTimer.current = null
     if (r.ok) {
-      const pages = { pages: r.pages, fonts: r.fonts, ms: r.ms }
+      const pages = { pages: r.pages, fonts: r.fonts, warnings: r.warnings, ms: r.ms }
       pagesRef.current = pages
       setDrawn(pages)
       setFallback(false)
@@ -126,6 +126,11 @@ export function ExactPreview({ zoom = 100 }: ExactPreviewProps) {
       <div className="pointer-events-none sticky top-2 z-10 -mb-7 ml-auto mr-3 w-fit select-none rounded-full bg-muted/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
         Exact view · beta{drawn ? ` · ${drawn.pages.length} page${drawn.pages.length === 1 ? "" : "s"} · ${result?.ok ? `${Math.round(drawn.ms)} ms` : "editing…"}` : ""}
       </div>
+      {drawn && drawn.warnings.length > 0 && (
+        <div className="mx-3 mt-9 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-700 dark:text-amber-300">
+          The layout is exact, but the preview does not draw: {drawn.warnings.join("; ")}.
+        </div>
+      )}
       <div ref={measure} className="flex flex-col items-center gap-4 p-4">
         {!drawn ? (
           <div className="p-8 text-sm text-muted-foreground">Laying out…</div>
