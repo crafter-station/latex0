@@ -1,0 +1,17 @@
+% fixture: koma/koma-caption-lines
+% tier: T3
+% engine: document
+% covers: KOMA-Script's \@makecaption, a caption wider than \hsize (\scr@makemultilinecaption): a \vbox between \hfill in \hb@xt@\hsize, its paragraph \@hangfrom{\strut\scr@smashdp{Table~1:\ }} (the label's box of no depth), the lines hanging by its width, \scr@endstrut (\unskip\nobreak\strut) at the end
+\documentclass{scrartcl}
+\begin{document}
+A paragraph before the float, long enough to fill the first line of the page with some words.
+\begin{table}
+\centering
+\begin{tabular}{lr}
+Item & Cost \\
+Scanning & 6800 \\
+\end{tabular}
+\caption{The proposed budget of the project, with the costs of conservation, scanning equipment, training of the volunteers and the catalogue, in pounds (the figures are estimates).}
+\end{table}
+Text after the float.
+\end{document}

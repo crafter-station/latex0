@@ -59,8 +59,8 @@ function block(cx: Ctx, b: Block, bi: number, blocks: Block[]) {
   // letter.cls has no headings, floats, \maketitle, \tableofcontents, thebibliography or front matter
   if (cls === "letter" && b.kind !== "par" && b.kind !== "list" && b.kind !== "letter" && b.kind !== "listing") throw new Unsupported(`a ${b.kind} in a letter`)
   if (cls === "letter" && b.kind === "list" && b.env === "abstract") throw new Unsupported("abstract in a letter")
-  // KOMA-Script: its floats and captions, contents, bibliography heading, appendix, \twocolumn, titlepage and marks are its own
-  if (isKoma(cls) && (["toc", "lof", "appendix", "contentsline", "mark", "columns", "titlepage", "letter", "float", "listing", "matter", "bib"].includes(b.kind) || (b.kind === "newpage" && b.cmd === "cleardoublepage"))) throw new Unsupported(`a ${b.kind === "newpage" ? "\\cleardoublepage" : b.kind} in KOMA-Script`)
+  // KOMA-Script: its contents, bibliography heading, appendix, \twocolumn, titlepage and marks are its own
+  if (isKoma(cls) && (["toc", "lof", "appendix", "contentsline", "mark", "columns", "titlepage", "letter", "listing", "matter", "bib"].includes(b.kind) || (b.kind === "newpage" && b.cmd === "cleardoublepage"))) throw new Unsupported(`a ${b.kind === "newpage" ? "\\cleardoublepage" : b.kind} in KOMA-Script`)
   // a float leaves a run-in heading waiting; a list's \@trivlist starts its paragraph (\if@noskipsec\leavevmode)
   // (inside the list's group, so the heading's \clubpenalty\@M ends with the list)
   if (run.runIn && b.kind === "list") { const club = v.club; runInAlone(cx); list(cx, { ...b, inPar: true, blank: false }, topCtx(cx)); v.club = club; v.afterheadingEverypar = false; v.endpePar = true; return }

@@ -6,7 +6,7 @@ import { QUAD, SPACE, SPACE_SHRINK, SPACE_STRETCH, X_HEIGHT } from "../layout/fo
 import { parseDimen, parseGlue } from "../layout/dimen"
 import { appendText, printTokens, sourceText, withoutTextCommands } from "./encodings"
 import { lineBreak } from "../layout/linebreak"
-import { FIL, glue, paramGlue, penalty, type BoxNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
+import { FIL, fillGlue, glue, kern, paramGlue, penalty, type BoxNode, type Node, type WhatsitNode, filGlue } from "../layout/nodes"
 import { hpack, vpack } from "../layout/pack"
 import { type Block } from "./blocks"
 import type { Ctx } from "./context"
@@ -25,6 +25,7 @@ import { representation } from "./counters"
 import { SIZE_COMMANDS, type SizeCommand } from "../layout/classdata"
 import { algorithmBox } from "./algorithm"
 import { frenchCaptionStart, frenchTextGuard } from "./french"
+import { isKoma } from "./classes"
 
 /** where a caption goes, and what caption.sty reads there */
 export interface CaptionOut {
@@ -76,6 +77,12 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   // float.sty after hyperref: its \caption's \refstepcounter, hyperref's, anchors in vertical mode first
   if (hyper && cx.pre.algorithm.afterHyperref && !anchored) for (const n of anchor(refs.href, run.k.sizes.normalsize.baselineskip.width, "v", out.last?.())) out.push(n)
   out.push(lofLine(cx, env, number, short ?? text)) // (\@caption's lof line: the short caption)
+  if (isKoma(cx.pre.cls)) { // (KOMA-Script's \@makecaption)
+    if (cx.pre.babel || xcolor.on) throw new Unsupported(`a caption in KOMA-Script with ${cx.pre.babel ? "babel" : "a color package"}`)
+    const name = sourceText(env === "figure" ? cx.pre.names.figurename : cx.pre.names.tablename)
+    komaMakecaption(cx, name, counters.the(env, number), text, boxText, hsize, out)
+    return { number, label: counters.the(env, number), name: labelName(short ?? text) }
+  }
   out.push(glue(run.k.dimens.abovecaptionskip))
   // \sbox\@tempboxa{\fnum@figure: text}: \figurename\nobreakspace\thefigure
   const l: Node[] = [], state = { spaceFactor: 1000 }
@@ -105,6 +112,47 @@ export function caption(cx: Ctx, env: "figure" | "table", source: CaptionCall, h
   } else out.box(hpack([filGlue(), cap, filGlue()], { exactly: hsize }))
   out.push(glue(run.k.dimens.belowcaptionskip))
   return { number, label: counters.the(env, number), name: labelName(short ?? text) } // (nameref drops a final period; the short caption)
+}
+
+/**
+ * KOMA-Script's \@makecaption{\fnum@<type>}{text}: \vskip\abovecaptionskip, \@@makecaption, then \captionnopagebreak
+ * (\nopagebreak) \vskip\belowcaptionskip \captionnopagebreak. \@@makecaption (\ifonelinecaptions, \cap@width \hsize)
+ * measures \scr@@makesinglelinecaption, \strut\ignorespaces{label\captionformat}text\unskip in \capfont (\normalfont),
+ * the label \tablename~\thetable and \captionformat a colon and a control space. No wider than \hsize, it is \hb@xt@\hsize
+ * {\hfill … \hfill} (\cap@left and \cap@right) put on the vertical list, \par\kern\dp\strutbox, and \kern-\dp\strutbox
+ * after the group; wider, the box holds a \vbox of a paragraph \hsize wide between the \hfill: \@hangfrom{\strut
+ * \scr@smashdp{label\captionformat}} (the label in an \hbox of no depth), the text, \scr@endstrut (\unskip\nobreak\strut).
+ */
+function komaMakecaption(cx: Ctx, name: string, the: string, text: string, boxText: (l: Node[], t: string, state: { spaceFactor: number }) => void, hsize: number, out: CaptionOut) {
+  const { romanFont, run } = cx
+  const sz = run.k.sizes.normalsize
+  const strut = (): Node => ({ kind: "rule", width: 0, height: sz.strut.height, depth: sz.strut.depth })
+  const space = () => glue(romanFont.params[SPACE], romanFont.params[SPACE_STRETCH], 0, romanFont.params[SPACE_SHRINK], 0)
+  const label = (): Node[] => {
+    const l: Node[] = [], st = { spaceFactor: 1000 }
+    appendText(l, name, romanFont, st, false)
+    l.push(penalty(10000), space()) // ~: \nobreak\ 
+    appendText(l, `${the}:`, romanFont, st, false)
+    l.push(space()) // \captionformat's control space
+    return l
+  }
+  const words = (): Node[] => { const l: Node[] = []; boxText(l, text, { spaceFactor: 1000 }); return l }
+  out.push(glue(run.k.dimens.abovecaptionskip))
+  if (hpack([strut(), ...label(), ...words()]).width <= hsize) out.box(hpack([fillGlue(), strut(), ...label(), ...words(), fillGlue()], { exactly: hsize }))
+  else {
+    const lab = hpack(label())
+    lab.depth = 0
+    const box = hpack([strut(), lab])
+    const inner: Node[] = []
+    let pd: number | null = IGNORE_DEPTH
+    for (const n of out.lines([box], text, { hsize, hangIndent: box.width, end: [penalty(10000), strut()] })) {
+      if (n.kind === "hlist") pd = appendToVlist(inner, n, pd, sz.baselineskip, run.k.glue.lineskip, run.k.dimens.lineskiplimit)
+      else inner.push(n)
+    }
+    out.box(hpack([fillGlue(), vpack(inner), fillGlue()], { exactly: hsize }))
+  }
+  out.push(kern(sz.strut.depth, true)); out.push(kern(-sz.strut.depth, true))
+  out.push(penalty(10000)); out.push(glue(run.k.dimens.belowcaptionskip)); out.push(penalty(10000))
 }
 
 /** \caption, \caption* or \caption[short]{text} */
