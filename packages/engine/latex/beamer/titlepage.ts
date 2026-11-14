@@ -15,7 +15,7 @@ import { Unsupported } from "../unsupported"
 import { dimen, type VerticalList } from "../vlist"
 import { colorPush } from "../xcolor"
 import { beamercolorbox, boxParagraph, colorboxOptions, lengthEnv, resetColor, type ColorboxBody } from "./colorbox"
-import { SANS, setParagraph, type FrameCtx } from "./frame"
+import { centercrLines, SANS, setParagraph, type FrameCtx } from "./frame"
 import { fontSize, outerColors, useColor, type ColorState } from "./theme"
 
 /** \titlepage in the frame's vertical list `v` */
@@ -35,8 +35,15 @@ export function titlePage(cx: FrameCtx, v: VerticalList) {
   const o = colorboxOptions(`sep=8pt,center${theme.inner === "rounded" ? `,colsep=-4bp,rounded=true,shadow=${theme.shadow}` : ""}`, k, lengthEnv(k, env.em, env.ex))
   // each template: \begin{beamercolorbox}[sep=8pt,center]{name}\usebeamerfont{name}text…\end{beamercolorbox}
   // (\sloppy is in force, but with the skips' fill every line has badness 0: its tolerance decides nothing)
-  const text = (cx: FrameCtx, b: ColorboxBody, s: SizeCommand, t: string) =>
-    boxParagraph(b.v, setParagraph(cx, t, { size: s, hsize: b.hsize, leftskip: b.leftskip, rightskip: b.rightskip }), k.sizes[s].baselineskip)
+  // (the title page's \centering: \\ is \@centercr, \unskip\par\addvspace{-\parskip}, the box's \parskip zero)
+  const text = (cx: FrameCtx, b: ColorboxBody, s: SizeCommand, t: string) => {
+    const lines = centercrLines(t)
+    lines.forEach((line, i) => {
+      if (i === lines.length - 1 && i && !line.trim()) return
+      boxParagraph(b.v, setParagraph(cx, i < lines.length - 1 ? line.trimEnd() : line, { size: s, hsize: b.hsize, leftskip: b.leftskip, rightskip: b.rightskip }), k.sizes[s].baselineskip)
+      if (i < lines.length - 1) b.v.addvspace(dimen(0))
+    })
+  }
   const box = (name: string, fill: (b: ColorboxBody, s: SizeCommand, inner: ColorState) => void) => {
     const s = fontSize(theme, k, name, "normalsize")
     v.box(beamercolorbox(k, theme, name, o, at, (b) => fill(b, s, useColor(theme, name, at)), cx), bs)

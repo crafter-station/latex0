@@ -364,7 +364,7 @@ const paragraph: FrameHandler = (cx, v, text) => {
 }
 
 /** The text's lines as \\ (outside braces and math) ends them */
-function centercrLines(text: string): string[] {
+export function centercrLines(text: string): string[] {
   const out: string[] = []
   let at = 0
   for (let i = 0; i < text.length; ) {
