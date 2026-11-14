@@ -54,7 +54,8 @@ export const treeState = (): TreeState => ({
 })
 
 /** TikZ's styles for trees (1565–1566, 1625; grow siblings on line: 1380) */
-export const TREE_STYLES = `every child/.style={}, every child node/.style={}, edge from parent/.style={draw}`
+export const TREE_STYLES = `every child/.style={}, every child node/.style={}, edge from parent/.style={draw},
+  grow siblings on line/.style={growth function=\\tikz@grow@direction}`
 
 /** \tikz@set@growth (1397–1410): `\c@pgf@counta=#1\relax` for what is no direction's name */
 function setGrowth(st: TreeState, v: Toks) {
@@ -76,6 +77,15 @@ export function installTreeKeys(k: Keys, st: () => TreeState, length: (v: Toks) 
   st().levelDistance = st().siblingDistance = length(chars("15mm"))
   opt("level distance", (v) => { st().levelDistance = length(v) })
   opt("sibling distance", (v) => { st().siblingDistance = length(v) })
+  opt("growth function", (v) => { if (!same(v, ["\\tikz@grow@direction"])) throw new Unsupported("tikz: growth function") })
+  opt("growth parent anchor", (v) => { st().growthAnchor = v })
+  opt("grow", (v) => { setGrowth(st(), v); st().specialLevel = st().treeLevel })
+  opt("grow'", (v) => {
+    const s = st()
+    setGrowth(s, v)
+    ;[s.growLeft, s.growRight] = [s.growRight, s.growLeft] // \tikz@swap@growth
+    s.specialLevel = s.treeLevel
+  })
   // missing/.is if=tikz@child@missing
   opt("missing", (v) => {
     const b = plain(v, "missing")
